@@ -1,0 +1,2 @@
+ALTER TYPE "public"."module" ADD VALUE 'REPORTS_LEAVE' BEFORE 'USERS_ROLES';--> statement-breakpoint
+ALTER TYPE "public"."module" ADD VALUE 'REPORTS_LOAN' BEFORE 'USERS_ROLES';

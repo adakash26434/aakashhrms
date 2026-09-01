@@ -1,0 +1,3 @@
+ALTER TABLE "employee_leave_balances" ADD CONSTRAINT "employee_leave_balances_employee_id_leave_type_id_fiscal_year_id_unique" UNIQUE("employee_id","leave_type_id","fiscal_year_id");--> statement-breakpoint
+ALTER TABLE "leave_ot_calculations" ADD CONSTRAINT "leave_ot_calculations_employee_id_fiscal_year_id_bs_month_unique" UNIQUE("employee_id","fiscal_year_id","bs_month");--> statement-breakpoint
+ALTER TABLE "leave_salary_runs" ADD CONSTRAINT "leave_salary_runs_employee_id_leave_type_id_payment_period_unique" UNIQUE("employee_id","leave_type_id","payment_period");

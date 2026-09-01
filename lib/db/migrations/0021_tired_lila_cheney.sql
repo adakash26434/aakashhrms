@@ -1,0 +1,1 @@
+ALTER TABLE "employee_personal" ADD COLUMN "pan_number" varchar(50);

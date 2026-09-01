@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "assigned_branch_ids" text[] DEFAULT ARRAY[]::text[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "assigned_department_ids" text[] DEFAULT ARRAY[]::text[] NOT NULL;

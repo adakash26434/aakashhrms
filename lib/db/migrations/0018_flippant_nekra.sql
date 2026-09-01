@@ -1,0 +1,2 @@
+ALTER TABLE "leave_salary_runs" ADD COLUMN "tds_amount" numeric(15, 2) DEFAULT '0';--> statement-breakpoint
+ALTER TABLE "leave_salary_runs" ADD COLUMN "encashment_type" varchar(20) DEFAULT 'VOLUNTARY' NOT NULL;

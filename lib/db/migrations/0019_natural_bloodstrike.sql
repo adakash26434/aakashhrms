@@ -1,0 +1,3 @@
+ALTER TABLE "leave_salary_runs" ADD COLUMN "payment_method" varchar(50) DEFAULT 'BANK_TRANSFER' NOT NULL;--> statement-breakpoint
+ALTER TABLE "leave_salary_runs" ADD COLUMN "approved_by" uuid;--> statement-breakpoint
+ALTER TABLE "leave_salary_runs" ADD CONSTRAINT "leave_salary_runs_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
