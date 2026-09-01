@@ -37,6 +37,7 @@ export default async function LoginPage() {
               height={64}
               className="object-cover h-full w-full"
               priority
+              unoptimized
             />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-payroll-navy">

@@ -41,7 +41,7 @@ export default async function OnboardingPage() {
               <header className="bg-white border-b border-payroll-light/80 px-6 py-4 flex items-center justify-between shadow-xs">
                 <div className="flex items-center space-x-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden border border-payroll-light/60 bg-white shadow-xs">
-                    <Image src="/AakashHrmsLogo.jpeg" alt="AakashHRMS" width={36} height={36} className="object-cover h-full w-full" priority />
+                    <Image src="/AakashHrmsLogo.jpeg" alt="AakashHRMS" width={36} height={36} className="object-cover h-full w-full" priority unoptimized />
                   </div>
                   <div>
                     <h1 className="text-base font-bold text-payroll-navy">AakashHRMS</h1>
@@ -81,7 +81,7 @@ export default async function OnboardingPage() {
       <header className="bg-white border-b border-payroll-light/80 px-6 py-4 flex items-center justify-between shadow-xs">
         <div className="flex items-center space-x-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden border border-payroll-light/60 bg-white shadow-xs">
-            <Image src="/AakashHrmsLogo.jpeg" alt="AakashHRMS" width={36} height={36} className="object-cover h-full w-full" priority />
+            <Image src="/AakashHrmsLogo.jpeg" alt="AakashHRMS" width={36} height={36} className="object-cover h-full w-full" priority unoptimized />
           </div>
           <div>
             <h1 className="text-base font-bold text-payroll-navy">AakashHRMS</h1>

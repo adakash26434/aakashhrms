@@ -68,6 +68,7 @@ export function HomePageClient({
                 height={40}
                 className="object-cover h-full w-full"
                 priority
+                unoptimized
               />
             </div>
             <div className="flex flex-col">
@@ -980,6 +981,7 @@ export function HomePageClient({
                   width={32}
                   height={32}
                   className="object-cover h-full w-full"
+                  unoptimized
                 />
               </div>
               <span className="font-bold text-payroll-navy">AakashHRMS</span>

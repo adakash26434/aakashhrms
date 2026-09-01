@@ -80,6 +80,7 @@ export function TopHeader({ context }: TopHeaderProps) {
               width={28}
               height={28}
               className="object-cover h-full w-full"
+              unoptimized
             />
           </div>
           <span className="font-bold text-payroll-navy">AakashHRMS</span>

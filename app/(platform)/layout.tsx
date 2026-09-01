@@ -60,6 +60,7 @@ export default async function PlatformLayout({
               height={40}
               className="object-cover h-full w-full"
               priority
+              unoptimized
             />
           </div>
           <div>

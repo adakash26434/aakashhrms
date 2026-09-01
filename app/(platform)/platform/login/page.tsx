@@ -56,6 +56,7 @@ export default function SuperAdminLoginPage() {
               height={64}
               className="object-cover h-full w-full"
               priority
+              unoptimized
             />
           </div>
           <div>

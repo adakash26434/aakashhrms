@@ -8,14 +8,17 @@ const nextConfig: NextConfig = {
   // Explicitly enable Turbopack alongside webpack fallback for cPanel
   turbopack: {},
   output: "standalone",
+  images: {
+    unoptimized: true,
+  },
   // cPanel/CloudLinux LVE limits process memory and the single-worker build
   // (see experimental.cpus below) takes longer, so give it more headroom.
   staticPageGenerationTimeout: 300,
   experimental: {
     // Use Node's in-process worker_threads instead of spawning child Node processes.
     workerThreads: true,
-    // Hard-cap build workers to 1 for cPanel/CloudLinux LVE limits.
-    cpus: 1,
+    // Use multi-core compilation in local dev; allow CPANEL_BUILD to constrain workers if needed.
+    cpus: process.env.CPANEL_BUILD ? 1 : undefined,
     optimizePackageImports: [
       "lucide-react",
       "recharts",

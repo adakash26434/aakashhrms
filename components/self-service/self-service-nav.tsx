@@ -41,6 +41,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                   width={32}
                   height={32}
                   className="object-cover h-full w-full"
+                  unoptimized
                 />
               </div>
               <div className="flex flex-col leading-none">

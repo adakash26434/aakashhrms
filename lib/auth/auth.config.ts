@@ -56,14 +56,10 @@ export const authConfig = {
       const isPlatformRoute = nextUrl.pathname.startsWith('/platform');
       const isSelfServiceRoute = nextUrl.pathname.startsWith('/self-service');
       const isApiRoute = nextUrl.pathname.startsWith('/api');
+      const isStaticAsset = /\.(png|jpe?g|svg|gif|webp|ico|css|js|txt|xml)$/i.test(nextUrl.pathname);
 
-      // Allow platform routes to be handled independently by Super Admin control plane
-      if (isPlatformRoute) {
-        return true;
-      }
-
-      // Allow Next.js API routes (NextAuth, etc.) to process normally
-      if (isApiRoute) {
+      // Allow static assets, platform routes, and APIs unconditionally
+      if (isStaticAsset || isPlatformRoute || isApiRoute) {
         return true;
       }
 

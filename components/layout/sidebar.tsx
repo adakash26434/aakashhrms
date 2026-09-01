@@ -101,6 +101,7 @@ export function Sidebar({ collapsed, onToggle, context }: SidebarProps) {
             height={36}
             className="object-cover h-full w-full"
             priority
+            unoptimized
           />
         </div>
         <FadeContent collapsed={collapsed}>
