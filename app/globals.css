@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+:root {
+  --payroll-cream: #f6faf6;
+  --payroll-light: #d7e8d0;
+  --payroll-primary: #2e7d32;
+  --payroll-navy: #1b3a1f;
+  --payroll-primary-hover: #1b5e20;
+  --background: #f6faf6;
+  --foreground: #1b3a1f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-payroll-cream: #f6faf6;
+  --color-payroll-light: #d7e8d0;
+  --color-payroll-primary: #2e7d32;
+  --color-payroll-navy: #1b3a1f;
+  --color-payroll-primary-hover: #1b5e20;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: #f6faf6;
+  color: #1b3a1f;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2e7d32;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1b5e20;
+}
+
+/* Canonical AakashHRMS Shadow System */
+.shadow-payroll-sm {
+  box-shadow:
+    0 1px 2px -1px rgba(27, 58, 31, 0.08),
+    0 4px 6px -2px rgba(27, 58, 31, 0.04),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+.shadow-payroll-md {
+  box-shadow:
+    0 1px 2px -1px rgba(27, 58, 31, 0.1),
+    0 8px 16px -4px rgba(27, 58, 31, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* =============================================================================
+   ENTERPRISE PRINT STYLESHEET
+   ============================================================================= */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm 6mm;
+  }
+
+  html, body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 10pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide app navigation chrome and non-print actions */
+  header, nav, aside, footer,
+  .print\:hidden,
+  button:not(.print-include) {
+    display: none !important;
+  }
+
+  /* Reset all containers from scroll/flex constraints */
+  div, main, section, article {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+  }
+
+  /* Modal overlay reset for printing */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* Printable Document Table Styling */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    font-size: 8.5pt !important;
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  th, td {
+    padding: 4px 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    word-break: normal !important;
+  }
+
+  th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  /* Summary cards and signature block protection */
+  .grid, .border-t {
+    page-break-inside: avoid !important;
+  }
+
+  /* Force page breaks between individual employee slips */
+  .page-break-after-always,
+  .print-page-break,
+  .break-after-page {
+    break-after: page !important;
+    page-break-after: always !important;
+    display: block !important;
+  }
+}
