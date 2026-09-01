@@ -1,0 +1,44 @@
+name: Build Next.js
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test
+
+      - name: Build Next.js (Bypass Database check)
+        run: |
+          export DATABASE_URL="postgresql://mock:mock@localhost:5432/mock"
+          export AUTH_SECRET="mock_secret_key_for_building_only_12345"
+          npm run build
+
+      - name: Zip .next folder specifically
+        run: zip -r next-dot-folder.zip .next
+
+      - name: Upload .next Folder Only
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: next-dot-folder.zip
