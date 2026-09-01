@@ -1,0 +1,1 @@
+ALTER TYPE "public"."module" ADD VALUE IF NOT EXISTS 'SELF_SERVICE';
