@@ -1,0 +1,37 @@
+export const dynamic = "force-dynamic";
+import PayrollClient from "@/components/payroll/payroll-client";
+import { getPayrollGeneratePageData } from "@/lib/services/payroll.service";
+import { ensureTenantContext } from "@/lib/db";
+import { checkPermission } from "@/lib/auth/check-permission";
+
+export const metadata = {
+  title: "Generate Payslip | AakashHRMS",
+  description: "Initiate and calculate monthly payroll slips.",
+};
+
+export default async function GeneratePayrollPage() {
+  await ensureTenantContext();
+  await checkPermission("VIEW", "PAYROLL_GENERATE");
+
+  const {
+    runs,
+    branches,
+    departments,
+    designations,
+    employees,
+    occasionalAllowances,
+    userRole,
+  } = await getPayrollGeneratePageData();
+
+  return (
+    <PayrollClient
+      initialRuns={runs}
+      branches={branches}
+      departments={departments}
+      designations={designations}
+      employees={employees}
+      occasionalAllowances={occasionalAllowances}
+      userRole={userRole}
+    />
+  );
+}
