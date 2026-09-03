@@ -76,21 +76,7 @@ export async function ensurePlatformTablesExist(): Promise<void> {
       const dbHost = urlObj.hostname || '127.0.0.1';
       const dbPort = urlObj.port || '5432';
 
-      // 1. Ensure target DB exists
-      const adminPgUrl = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/postgres`;
-      const adminSql = postgres(adminPgUrl, { max: 1 });
-      try {
-        const existingDbs = await adminSql`
-          SELECT datname FROM pg_database WHERE datname = ${dbName}
-        `;
-        if (existingDbs.length === 0) {
-          await adminSql.unsafe(`CREATE DATABASE "${dbName}"`);
-        }
-      } catch {
-        // Ignore DB create errors if DB exists or insufficient permissions
-      } finally {
-        await adminSql.end();
-      }
+      // 1. Target platform DB is verified directly via targetUrl
 
       // 2. Ensure control plane tables exist
       const pSql = postgres(targetUrl, { max: 1 });

@@ -111,7 +111,17 @@ export default function RegisterCompanyPage() {
         }),
       });
 
-      const data = await res.json();
+      let data: any;
+      const responseText = await res.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          res.status === 401
+            ? "Your session expired. Please log in again."
+            : `Server returned HTTP ${res.status}. Please try again.`
+        );
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Failed to register company.");

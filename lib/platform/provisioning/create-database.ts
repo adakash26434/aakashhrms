@@ -25,9 +25,9 @@ export async function createTenantDatabase(slug: string): Promise<{
   const dbHost = urlObj.hostname || '127.0.0.1';
   const dbPort = urlObj.port || '5432';
 
-  // Connect to postgres default DB to issue CREATE DATABASE statement
-  const adminPgUrl = `postgresql://${dbUser}:${dbPasswordPlain}@${dbHost}:${dbPort}/postgres`;
-  const adminSql = postgres(adminPgUrl, { max: 1 });
+  // Connect to primary DB to issue CREATE DATABASE statement
+  const adminPgUrl = mainDbUrl;
+  const adminSql = postgres(adminPgUrl, { max: 1, connect_timeout: 10 });
 
   try {
     // Check if database already exists

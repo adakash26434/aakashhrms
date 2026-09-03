@@ -76,9 +76,10 @@ export async function createPlatformSessionToken(user: {
  * Returns the cookie options object for setting the platform session cookie.
  */
 export function getPlatformCookieOptions() {
+  const isPlainHttp = process.env.AUTH_URL?.startsWith('http://') || process.env.NEXTAUTH_URL?.startsWith('http://');
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isPlainHttp ? false : process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
     maxAge: TOKEN_MAX_AGE_SECONDS,
