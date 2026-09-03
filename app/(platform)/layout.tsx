@@ -1,17 +1,10 @@
 import React from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import {
-  Building2,
-  ShieldCheck,
-  FileText,
-  Activity,
-  Layers,
-  ChevronRight,
-} from "lucide-react";
+import { Shield, Sparkles } from "lucide-react";
 import { PlatformLogoutButton } from "@/components/platform/platform-logout-button";
+import { PlatformNav } from "@/components/platform/platform-nav";
 import {
   verifyPlatformSession,
   PLATFORM_COOKIE_NAME,
@@ -48,16 +41,17 @@ export default async function PlatformLayout({
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-payroll-cream text-payroll-navy font-sans">
+    <div className="h-screen flex flex-col overflow-hidden bg-payroll-cream text-payroll-navy font-sans select-none">
       {/* Platform Top Header */}
-      <header className="h-16 border-b border-white/10 bg-payroll-navy px-6 flex items-center justify-between shrink-0 z-50 shadow-md">
+      <header className="h-15 border-b border-white/10 bg-payroll-navy px-5 sm:px-6 flex items-center justify-between shrink-0 z-40 shadow-payroll-sm">
+        {/* Brand */}
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-white overflow-hidden flex items-center justify-center shadow-lg shadow-payroll-primary/30 border border-white/20">
+          <div className="w-9 h-9 rounded-xl bg-white overflow-hidden flex items-center justify-center shadow-2xs border border-white/20">
             <Image
               src="/AakashHrmsLogo.jpeg"
               alt="AakashHRMS Control Plane"
-              width={40}
-              height={40}
+              width={36}
+              height={36}
               className="object-cover h-full w-full"
               priority
               unoptimized
@@ -65,100 +59,59 @@ export default async function PlatformLayout({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-lg tracking-tight text-white">
+              <span className="font-bold text-sm sm:text-base tracking-tight text-white">
                 AakashHRMS
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-payroll-primary text-white border border-white/20 font-semibold shadow-sm">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-payroll-primary text-white border border-white/20 shadow-2xs">
                 Control Plane
               </span>
             </div>
-            <p className="text-xs text-emerald-200/80">
+            <p className="text-[11px] text-payroll-light/80 font-medium">
               Super Admin Multi-Tenant Console
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 text-xs text-emerald-100 bg-payroll-primary/40 px-3 py-1.5 rounded-md border border-white/10">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Platform Online</span>
+        {/* Status Indicators & Super Admin Profile */}
+        <div className="flex items-center space-x-3">
+          <div className="hidden sm:flex items-center space-x-2 text-xs text-emerald-100 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold text-[11px]">PostgreSQL Engine Online</span>
           </div>
 
-          <div className="h-4 w-px bg-white/10"></div>
+          <div className="h-4 w-px bg-white/15 hidden sm:block"></div>
 
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-payroll-primary text-white font-semibold text-xs flex items-center justify-center border border-white/20 shadow">
-              SA
+          <div className="flex items-center space-x-2.5 bg-white/5 border border-white/10 rounded-xl px-2.5 py-1">
+            <div className="w-7 h-7 rounded-lg bg-payroll-primary text-white font-bold text-xs flex items-center justify-center border border-white/20 shadow-2xs">
+              <Shield className="w-3.5 h-3.5" />
             </div>
-            <span className="text-sm font-medium text-white">Super Admin</span>
+            <div className="hidden md:block text-left">
+              <span className="text-xs font-bold text-white block leading-tight">
+                {platformUser.name || "Super Admin"}
+              </span>
+              <span className="text-[10px] text-payroll-light/80 block leading-tight">
+                Root Authority
+              </span>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Navigation Sidebar */}
-        <aside className="w-64 bg-payroll-navy border-r border-white/10 flex flex-col justify-between p-4 shrink-0 text-white h-full overflow-y-auto">
-          <div className="space-y-1">
-            <div className="px-3 py-2 text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider">
-              Management
-            </div>
+        <aside className="w-65 bg-payroll-navy border-r border-white/10 flex flex-col justify-between p-3.5 shrink-0 text-white h-full overflow-y-auto shadow-payroll-md">
+          <PlatformNav />
 
-            <Link
-              href="/platform"
-              className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-emerald-100 hover:text-white hover:bg-payroll-primary transition-all group shadow-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <Activity className="w-4 h-4 text-emerald-400 group-hover:text-white" />
-                <span>Overview</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-emerald-300/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
-
-            <Link
-              href="/platform/companies"
-              className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-emerald-100 hover:text-white hover:bg-payroll-primary transition-all group shadow-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <Building2 className="w-4 h-4 text-emerald-400 group-hover:text-white" />
-                <span>Tenant Companies</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-emerald-300/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
-
-            <div className="px-3 pt-4 py-2 text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider">
-              Governance
-            </div>
-
-            <Link
-              href="/platform/policies"
-              className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium text-emerald-100 hover:text-white hover:bg-payroll-primary transition-all group shadow-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <Layers className="w-4 h-4 text-emerald-400 group-hover:text-white" />
-                <span>Statutory Policy Packs</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-emerald-300/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
-
-            <Link
-              href="/platform/audit"
-              className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium text-emerald-100 hover:text-white hover:bg-payroll-primary transition-all group shadow-sm"
-            >
-              <div className="flex items-center space-x-3">
-                <FileText className="w-4 h-4 text-emerald-400 group-hover:text-white" />
-                <span>Platform Audit Logs</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-emerald-300/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
-          </div>
-
-          <div className="pt-4 border-t border-white/10 mt-auto">
+          <div className="pt-3 border-t border-white/10 mt-auto">
             <PlatformLogoutButton />
           </div>
         </aside>
 
         {/* Main Content Workspace */}
-        <main className="flex-1 min-w-0 p-8 bg-payroll-cream overflow-y-auto h-full">
+        <main className="flex-1 min-w-0 p-6 sm:p-8 bg-payroll-cream overflow-y-auto h-full">
           {children}
         </main>
       </div>

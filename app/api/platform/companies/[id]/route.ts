@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies, tenantDatabases, platformAuditLogs } from '@/lib/platform/schema';
-import { closeTenantPool } from '@/lib/db/tenant-pool-manager';
+import { closeTenantPool, getTenantDb } from '@/lib/db/tenant-pool-manager';
+import { users, systemConfig } from '@/lib/db/schema';
 import { requirePlatformAuth } from '@/lib/platform/auth';
 import { validatePhoneNumber } from '@/lib/utils/phone';
 import { eq } from 'drizzle-orm';
@@ -128,12 +129,69 @@ export async function PATCH(
       }
     }
     if (body.notes !== undefined) updates.notes = body.notes ? String(body.notes).trim() : null;
+    if (body.industryType) updates.industryType = String(body.industryType).trim();
 
     const [updatedCompany] = await platformDb
       .update(companies)
       .set(updates)
       .where(eq(companies.id, id))
       .returning();
+
+    // Synchronize contactEmail change to the tenant DB's admin user and system config
+    if (updates.contactEmail && updates.contactEmail !== existing.contactEmail) {
+      try {
+        const tenantDb = await getTenantDb(existing.slug);
+        if (tenantDb) {
+          // Update the primary admin user in the tenant's users table
+          await tenantDb
+            .update(users)
+            .set({
+              email: updates.contactEmail,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.email, existing.contactEmail.toLowerCase()));
+
+          // Update company_email in system_config table if present
+          await tenantDb
+            .insert(systemConfig)
+            .values({
+              key: 'company_email',
+              value: updates.contactEmail,
+              dataType: 'string',
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: systemConfig.key,
+              set: { value: updates.contactEmail, updatedAt: new Date() },
+            });
+        }
+      } catch (tenantSyncErr) {
+        console.warn('[PLATFORM_COMPANY_UPDATE] Failed to sync updated email to tenant database:', tenantSyncErr);
+      }
+    }
+
+    // Synchronize industryType change to the tenant DB's system_config
+    if (updates.industryType && updates.industryType !== existing.industryType) {
+      try {
+        const tenantDb = await getTenantDb(existing.slug);
+        if (tenantDb) {
+          await tenantDb
+            .insert(systemConfig)
+            .values({
+              key: 'company_industry_type',
+              value: updates.industryType,
+              dataType: 'string',
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: systemConfig.key,
+              set: { value: updates.industryType, updatedAt: new Date() },
+            });
+        }
+      } catch (tenantSyncErr) {
+        console.warn('[PLATFORM_COMPANY_UPDATE] Failed to sync updated industryType to tenant database:', tenantSyncErr);
+      }
+    }
 
     // Audit log
     await platformDb.insert(platformAuditLogs).values({

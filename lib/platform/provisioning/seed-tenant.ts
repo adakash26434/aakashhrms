@@ -10,13 +10,14 @@ export interface SeedTenantOptions {
   companyCode: string;
   adminEmail: string;
   adminPasswordPlain?: string;
+  industryType?: string;
 }
 
 export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
   adminUserId: string;
   tempPasswordPlain: string;
 }> {
-  const { connectionUrl, legalName, companyCode, adminEmail, adminPasswordPlain } = options;
+  const { connectionUrl, legalName, companyCode, adminEmail, adminPasswordPlain, industryType } = options;
   const tempPasswordPlain = adminPasswordPlain || 'Password123!';
 
   const sql = postgres(connectionUrl, { max: 1 });
@@ -225,6 +226,7 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
       { key: 'company_legal_name', value: legalName, dataType: 'string' },
       { key: 'company_code', value: companyCode, dataType: 'string' },
       { key: 'company_contact_email', value: adminEmail, dataType: 'string' },
+      { key: 'company_industry_type', value: industryType || 'General', dataType: 'string' },
     ];
 
     for (const conf of initialConfigs) {

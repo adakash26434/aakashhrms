@@ -47,6 +47,7 @@ export const companies = pgTable('companies', {
   status: companyStatusEnum('status').default('PENDING').notNull(),
   contactEmail: varchar('contact_email', { length: 255 }).notNull(),
   contactPhone: varchar('contact_phone', { length: 50 }),
+  industryType: varchar('industry_type', { length: 50 }).default('General').notNull(),
   registeredAt: date('registered_at').defaultNow().notNull(),
   notes: text('notes'),
   policyPackVersion: integer('policy_pack_version').default(1).notNull(),

@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Eye, LogIn } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, ShieldCheck, ArrowRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 interface ViewCompanyActionsProps {
   companyId: string;
@@ -10,58 +13,69 @@ interface ViewCompanyActionsProps {
 }
 
 /**
- * Client component for the "View Company Data" and "Login as Tenant" actions
- * on the company detail page. Both features are available to Super Admins
- * for ACTIVE companies only.
+ * Client component for the "View Company Data" (Impersonation) action
+ * on the company detail page. Available to Super Admins for ACTIVE companies only.
  */
 export function ViewCompanyActions({ companyId, companyName }: ViewCompanyActionsProps) {
   const [isStarting, setIsStarting] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   const handleViewCompanyData = async () => {
-    if (!confirm(`Start viewing ${companyName}'s data as Super Admin?\n\nYou will see their dashboard, employees, payroll, and other data. All actions will be logged.`)) {
+    if (
+      !confirm(
+        `Start viewing ${companyName}'s data as Super Admin?\n\nYou will access their live dashboard, employees, payroll, and settings. All operations will be logged under the Super Admin audit trail.`,
+      )
+    ) {
       return;
     }
 
     setIsStarting(true);
     try {
       const res = await fetch(`/api/platform/companies/${companyId}/impersonate`, {
-        method: 'POST',
+        method: "POST",
       });
       const data = await res.json();
 
       if (data.success) {
-        router.push(data.redirectUrl || '/dashboard');
+        toast.success(`Accessing workspace for ${companyName}...`);
+        router.push(data.redirectUrl || "/dashboard");
       } else {
-        alert(`Failed: ${data.error}`);
+        toast.error(`Impersonation failed: ${data.error}`);
       }
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast.error(`Error: ${err.message}`);
     } finally {
       setIsStarting(false);
     }
   };
 
   return (
-    <div className="bg-white border border-payroll-light rounded-2xl p-6 space-y-4 shadow-payroll-sm">
-      <h3 className="text-xs font-bold text-payroll-navy uppercase tracking-wider border-b border-payroll-light/60 pb-2">
-        Super Admin Actions
-      </h3>
+    <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-center space-x-2 border-b border-payroll-light/60 pb-2.5">
+          <ShieldCheck className="w-4 h-4 text-payroll-primary" />
+          <h3 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+            Super Admin Authority
+          </h3>
+        </div>
 
-      <div className="space-y-3">
-        <button
-          onClick={handleViewCompanyData}
-          disabled={isStarting}
-          className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-sm transition-all shadow-md shadow-payroll-primary/20 border border-payroll-primary disabled:opacity-50"
-        >
-          <Eye className="w-4 h-4" />
-          <span>{isStarting ? 'Starting...' : 'View Company Data'}</span>
-        </button>
+        <div className="space-y-3">
+          <Button
+            onClick={handleViewCompanyData}
+            isLoading={isStarting}
+            disabled={isStarting}
+            className="w-full bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs shadow-payroll-xs"
+          >
+            <Eye className="w-4 h-4 mr-1.5" />
+            <span>{isStarting ? "Initiating Session..." : "View Company Workspace"}</span>
+          </Button>
 
-        <p className="text-[11px] text-gray-400 text-center">
-          Opens this company&apos;s dashboard in Super Admin mode. All actions are logged to the impersonation audit trail.
-        </p>
-      </div>
-    </div>
+          <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+            Opens this company&apos;s workspace in Super Admin mode. All actions are logged to the forensic audit trail.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { legalName, displayName, slug, contactEmail, contactPhone, registeredAt, notes } = body || {};
+    const { legalName, displayName, slug, contactEmail, contactPhone, industryType, registeredAt, notes } = body || {};
 
     const cleanLegalName = (legalName || '').trim();
     const cleanContactEmail = (contactEmail || '').trim().toLowerCase();
@@ -152,6 +152,7 @@ export async function POST(request: Request) {
         status: 'PENDING',
         contactEmail: cleanContactEmail,
         contactPhone: validatedPhone,
+        industryType: (industryType || 'General').trim(),
         registeredAt: registeredAt ? String(registeredAt).split('T')[0] : new Date().toISOString().split('T')[0],
         notes: notes ? String(notes).trim() : null,
         policyPackVersion: 1,

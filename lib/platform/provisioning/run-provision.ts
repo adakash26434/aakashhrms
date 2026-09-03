@@ -65,6 +65,7 @@ export async function runProvisioningPipeline(companyId: string): Promise<{
       legalName: company.legalName,
       companyCode: company.companyCode,
       adminEmail: company.contactEmail,
+      industryType: company.industryType || 'General',
     });
 
     // Step 5: Save encrypted credentials into control plane

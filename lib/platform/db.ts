@@ -118,6 +118,7 @@ export async function ensurePlatformTablesExist(): Promise<void> {
             status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
             contact_email VARCHAR(255) NOT NULL,
             contact_phone VARCHAR(50),
+            industry_type VARCHAR(50) NOT NULL DEFAULT 'General',
             registered_at DATE NOT NULL DEFAULT CURRENT_DATE,
             notes TEXT,
             policy_pack_version INTEGER NOT NULL DEFAULT 1,
@@ -130,6 +131,7 @@ export async function ensurePlatformTablesExist(): Promise<void> {
         `);
 
         // Idempotent column migrations for companies table
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry_type VARCHAR(50) NOT NULL DEFAULT 'General';`);
         await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMP WITH TIME ZONE;`);
         await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;`);
 
