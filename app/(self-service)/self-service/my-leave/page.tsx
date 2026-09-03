@@ -1,11 +1,16 @@
+import React from "react";
 import { getMyLeaveBalances, getMyLeaveApplications } from "@/lib/services/self-service.service";
-import { CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle, CalendarCheck } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle, CalendarCheck, Palmtree } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ApplyLeaveModal } from "@/components/self-service/apply-leave-modal";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "My Leave | Self-Service Portal",
-  description: "View your leave balances and applications",
+  description: "View leave balances and manage leave applications",
 };
 
 export default async function MyLeavePage() {
@@ -17,11 +22,15 @@ export default async function MyLeavePage() {
     ]);
   } catch (error: any) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-gray-200 bg-white">
-        <CalendarDays className="h-16 w-16 text-gray-300 mb-4" />
-        <h2 className="text-lg font-semibold text-gray-700 mb-2">Leave Data Unavailable</h2>
-        <p className="text-sm text-gray-500">{error?.message || "Failed to load leave data."}</p>
-      </div>
+      <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
+        <CardContent className="py-16">
+          <EmptyState
+            icon={<CalendarDays className="h-10 w-10 text-payroll-primary" />}
+            title="Leave Data Unavailable"
+            description={error?.message || "Failed to load leave records. Please contact HR."}
+          />
+        </CardContent>
+      </Card>
     );
   }
 
@@ -29,15 +38,36 @@ export default async function MyLeavePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-[#1b3a1f]">My Leave</h1>
+      {/* ── Page Header & Action ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-payroll-navy tracking-tight">
+            Leave Entitlement & Applications
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
+            Statutory leave balances (Nepal Labour Act 2074) and leave request history.
+          </p>
+        </div>
 
-      {/* Leave Balance Cards */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-600 mb-3">Leave Balances</h2>
+        {balances.length > 0 && <ApplyLeaveModal balances={balances} />}
+      </div>
+
+      {/* ── Leave Balance Cards ── */}
+      <div className="space-y-3">
+        <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+          Active Fiscal Year Balances
+        </h2>
+
         {balances.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-            <p className="text-sm text-gray-500">No leave balances allotted for the current fiscal year.</p>
-          </div>
+          <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
+            <CardContent className="py-12">
+              <EmptyState
+                icon={<Palmtree className="h-8 w-8 text-payroll-primary" />}
+                title="No leave balances allotted"
+                description="Your leave balances for the current fiscal year have not been initialized yet."
+              />
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {balances.map((bal) => {
@@ -46,108 +76,148 @@ export default async function MyLeavePage() {
               const carriedForward = Number(bal.carriedForward) || 0;
               const balance = Number(bal.balance) || 0;
               const totalAvailable = allotted + carriedForward;
-              const usedPercent = totalAvailable > 0 ? Math.round((taken / totalAvailable) * 100) : 0;
+              const usedPercent =
+                totalAvailable > 0
+                  ? Math.min(100, Math.round((taken / totalAvailable) * 100))
+                  : 0;
 
               return (
-                <div
+                <Card
                   key={bal.id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 transition-all hover:shadow-sm"
+                  className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm transition-shadow"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <CalendarCheck className="h-4 w-4 text-emerald-600" />
-                      <h3 className="text-sm font-bold text-[#1b3a1f]">{bal.leaveTypeName}</h3>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-payroll-cream text-payroll-primary border border-payroll-light shadow-2xs">
+                          <CalendarCheck className="h-4 w-4" />
+                        </div>
+                        <h3 className="text-sm font-bold text-payroll-navy">
+                          {bal.leaveTypeName}
+                        </h3>
+                      </div>
+                      <Badge variant="neutral" size="sm" className="font-mono text-[10px] font-bold">
+                        {bal.leaveTypeCode}
+                      </Badge>
                     </div>
-                    <span className="text-[10px] font-medium text-gray-400 uppercase">{bal.leaveTypeCode}</span>
-                  </div>
 
-                  <div className="flex items-end justify-between mb-3">
-                    <div>
-                      <p className="text-2xl font-bold text-emerald-700">{balance}</p>
-                      <p className="text-[10px] text-gray-400">days remaining</p>
+                    <div className="flex items-baseline justify-between pt-1">
+                      <div>
+                        <span className="text-2xl sm:text-3xl font-extrabold text-payroll-navy">
+                          {balance}
+                        </span>
+                        <span className="text-[11px] text-gray-500 font-medium ml-1.5">
+                          days remaining
+                        </span>
+                      </div>
+                      <div className="text-right text-[11px] text-gray-500 font-medium space-y-0.5">
+                        <p>Allotted: <strong className="text-payroll-navy">{allotted}</strong></p>
+                        <p>Taken: <strong className="text-payroll-navy">{taken}</strong></p>
+                        {carriedForward > 0 && (
+                          <p>Carried: <strong className="text-payroll-navy">{carriedForward}</strong></p>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right text-xs text-gray-500">
-                      <p>Allotted: {allotted}</p>
-                      <p>Taken: {taken}</p>
-                      {carriedForward > 0 && <p>Carried: {carriedForward}</p>}
-                    </div>
-                  </div>
 
-                  {/* Usage Bar */}
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-emerald-400'
-                      }`}
-                      style={{ width: `${Math.min(usedPercent, 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1 text-right">{usedPercent}% used</p>
-                </div>
+                    {/* Usage Progress Meter */}
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-payroll-cream overflow-hidden border border-payroll-light/60">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            usedPercent > 85
+                              ? "bg-rose-500"
+                              : usedPercent > 60
+                              ? "bg-amber-500"
+                              : "bg-payroll-primary"
+                          }`}
+                          style={{ width: `${usedPercent}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-400 text-right font-medium">
+                        {usedPercent}% used
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Leave Applications History */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-600 mb-3">Leave Applications</h2>
-        {applications.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-            <p className="text-sm text-gray-500">No leave applications submitted yet.</p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Leave Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Period</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Days</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Reason</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {applications.map((app) => (
-                  <tr key={app.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-[#1b3a1f]">{app.leaveTypeName}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {app.effectiveFrom} → {app.effectiveTo}
-                    </td>
-                    <td className="px-4 py-3 text-center font-semibold text-gray-700">{app.noOfDays}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-[150px] truncate">{app.reason || '—'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <StatusBadge status={app.status} />
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 max-w-[150px] truncate">{app.reviewRemarks || '—'}</td>
+      {/* ── Leave Applications History Table ── */}
+      <div className="space-y-3">
+        <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+          Leave Application History ({applications.length})
+        </h2>
+
+        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white overflow-hidden">
+          {applications.length === 0 ? (
+            <CardContent className="py-12">
+              <EmptyState
+                icon={<Clock className="h-8 w-8 text-payroll-primary" />}
+                title="No leave requests submitted"
+                description="Your submitted leave applications and approval reviews will be displayed here."
+              />
+            </CardContent>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-payroll-cream/70 text-payroll-navy font-bold uppercase tracking-wider border-b border-payroll-light text-[11px]">
+                  <tr>
+                    <th className="px-5 py-3.5">Category</th>
+                    <th className="px-4 py-3.5">Effective Dates</th>
+                    <th className="px-4 py-3.5 text-center">Duration</th>
+                    <th className="px-4 py-3.5">Reason</th>
+                    <th className="px-4 py-3.5 text-center">Status</th>
+                    <th className="px-5 py-3.5">Reviewer Remarks</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-payroll-light/50 bg-white">
+                  {applications.map((app) => (
+                    <tr key={app.id} className="hover:bg-payroll-cream/40 transition-colors">
+                      <td className="px-5 py-3.5 font-bold text-payroll-navy">
+                        {app.leaveTypeName}
+                      </td>
+                      <td className="px-4 py-3.5 text-gray-600 font-mono text-[11px]">
+                        {app.effectiveFrom} → {app.effectiveTo}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-payroll-cream text-payroll-navy font-bold text-[11px] border border-payroll-light">
+                          {app.noOfDays} day(s)
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-gray-600 max-w-[200px] truncate" title={app.reason}>
+                        {app.reason || "—"}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <Badge
+                          variant={
+                            app.status === "Approved"
+                              ? "success"
+                              : app.status === "Pending"
+                              ? "warning"
+                              : app.status === "Rejected"
+                              ? "danger"
+                              : "neutral"
+                          }
+                          size="sm"
+                          className="font-bold"
+                        >
+                          {app.status}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3.5 text-gray-500 max-w-[200px] truncate text-[11px]" title={app.reviewRemarks || ""}>
+                        {app.reviewRemarks || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { icon: React.ComponentType<{ className?: string }>; bg: string; text: string }> = {
-    Pending: { icon: Clock, bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700' },
-    Approved: { icon: CheckCircle2, bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700' },
-    Rejected: { icon: XCircle, bg: 'bg-red-50 border-red-200', text: 'text-red-700' },
-    Cancelled: { icon: AlertCircle, bg: 'bg-gray-100 border-gray-200', text: 'text-gray-600' },
-  };
-  const c = config[status] || config.Pending;
-  const Icon = c.icon;
-
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${c.bg} ${c.text}`}>
-      <Icon className="h-3 w-3" />
-      {status}
-    </span>
   );
 }

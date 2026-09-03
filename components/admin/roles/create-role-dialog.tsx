@@ -12,8 +12,8 @@ import {
   User,
   Shield,
   AlertCircle,
-  Loader2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CreateRoleDialogProps {
   open: boolean;
@@ -132,7 +132,7 @@ export function CreateRoleDialog({
       open={open}
       onClose={onClose}
       title="Create Custom Role"
-      description="Define a new role for your organization and configure its access scope."
+      description="Define a new role for your organization and configure its data access scope."
       size="lg"
       footer={
         <div className="flex items-center justify-end gap-2.5 w-full">
@@ -141,39 +141,31 @@ export function CreateRoleDialog({
           </Button>
           <Button
             onClick={handleSubmit}
+            isLoading={loading}
             disabled={loading || !name.trim()}
-            className="bg-payroll-primary hover:bg-[#256629] text-white"
+            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold shadow-payroll-sm"
           >
-            {loading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Creating...</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                <span>Create Role</span>
-              </div>
-            )}
+            <Shield className="h-4 w-4 mr-1.5" />
+            <span>Create Role</span>
           </Button>
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 py-1">
         {error && (
-          <div className="flex items-center gap-2.5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Role Name Combobox (E6) */}
+        {/* Role Name Combobox */}
         <div className="space-y-1.5 relative">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-gray-700">
-              Role Name <span className="text-red-500">*</span>
+            <label className="text-xs font-bold text-payroll-navy">
+              Role Name <span className="text-rose-500">*</span>
             </label>
-            <span className="text-[10px] text-gray-400">Type or choose a recommended template</span>
+            <span className="text-[10px] text-gray-400">Type or choose a template</span>
           </div>
 
           <input
@@ -186,25 +178,25 @@ export function CreateRoleDialog({
             }}
             onFocus={() => setShowSuggestions(true)}
             placeholder="e.g. Payroll Accountant, HR Executive, Branch Supervisor"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-payroll-primary focus:border-transparent"
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-payroll-xs transition-all text-payroll-navy"
           />
 
           {/* Combobox Dropdown Suggestions */}
           {showSuggestions && filteredSuggestions.length > 0 && (
-            <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
-              <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Suggested Templates
+            <div className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-payroll-light bg-white p-1 shadow-payroll-lg animate-[dialogIn_150ms_ease-out]">
+              <div className="px-2.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Suggested Role Templates
               </div>
               {filteredSuggestions.map((s) => (
                 <button
                   key={s.name}
                   type="button"
                   onClick={() => handleSelectSuggestion(s)}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-900 transition-colors text-left"
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-payroll-navy hover:bg-payroll-cream transition-colors text-left cursor-pointer"
                 >
                   <span className="font-semibold">{s.name}</span>
-                  <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">
-                    Scope: {s.defaultScope}
+                  <span className="text-[10px] text-payroll-primary bg-payroll-light/60 px-2 py-0.5 rounded-md font-semibold">
+                    {s.defaultScope}
                   </span>
                 </button>
               ))}
@@ -214,7 +206,7 @@ export function CreateRoleDialog({
 
         {/* Access Scope Selection */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-gray-700">
+          <label className="text-xs font-bold text-payroll-navy">
             Data Access Scope
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -225,22 +217,21 @@ export function CreateRoleDialog({
                 <div
                   key={s.value}
                   onClick={() => setScopeType(s.value)}
-                  className={`
-                    p-3 rounded-xl border cursor-pointer transition-all duration-150 flex flex-col justify-between
-                    ${
-                      isSelected
-                        ? "border-payroll-primary bg-[#f4f9f4] shadow-sm ring-1 ring-payroll-primary"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    }
-                  `}
+                  className={cn(
+                    "p-3 rounded-xl border cursor-pointer transition-all duration-150 flex flex-col justify-between select-none shadow-payroll-xs",
+                    isSelected
+                      ? "border-payroll-primary bg-payroll-cream text-payroll-navy ring-1 ring-payroll-primary"
+                      : "border-payroll-light/80 hover:border-payroll-primary/40 bg-white text-gray-700",
+                  )}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <Icon
-                      className={`h-4 w-4 ${isSelected ? "text-payroll-primary" : "text-gray-500"}`}
-                    />
-                    <span
-                      className={`text-xs font-bold ${isSelected ? "text-payroll-navy" : "text-gray-800"}`}
-                    >
+                    <div className={cn(
+                      "p-1 rounded-lg",
+                      isSelected ? "bg-payroll-primary text-white" : "bg-payroll-cream text-payroll-primary",
+                    )}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-xs font-bold text-payroll-navy">
                       {s.label}
                     </span>
                   </div>
@@ -255,15 +246,15 @@ export function CreateRoleDialog({
 
         {/* Description */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-700">
+          <label className="text-xs font-bold text-payroll-navy">
             Description (Optional)
           </label>
           <textarea
-            rows={3}
+            rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe the duties, responsibilities, and access boundaries of this role..."
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-payroll-primary focus:border-transparent resize-none"
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-payroll-xs transition-all text-payroll-navy resize-none"
           />
         </div>
       </form>

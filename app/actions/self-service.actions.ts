@@ -97,6 +97,25 @@ export async function getMyLeaveApplicationsAction(): Promise<ActionResponse<Awa
   }
 }
 
+export async function applyForLeaveAction(payload: {
+  leaveTypeId: string;
+  effectiveFrom: string;
+  effectiveTo: string;
+  duration: 'Full Day' | 'Half Day';
+  noOfDays: number;
+  reason: string;
+}): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.applyForLeave>>>> {
+  try {
+    await ensureTenantContext();
+    const data = await selfService.applyForLeave(payload);
+    return { success: true, data };
+  } catch (error: unknown) {
+    console.error('[SELF_SERVICE_APPLY_LEAVE] Failed:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to submit leave application';
+    return { success: false, error: msg };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // My Attendance
 // ---------------------------------------------------------------------------

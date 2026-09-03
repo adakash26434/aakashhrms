@@ -4,50 +4,39 @@ import {
   Briefcase,
   Users,
 } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import type { DepartmentCounts } from "@/lib/engines/department.engine";
 
 interface DepartmentKpiCardsProps {
   counts: DepartmentCounts;
 }
 
-/**
- * Four KPI cards for the Department Setup page:
- *   1. Total Departments     — `counts.total`               (Building2, blue)
- *   2. Active                — `counts.active`              (CheckCircle2, emerald)
- *   3. Designations          — `counts.totalDesignations`   (Briefcase, amber)
- *   4. Employees             — `counts.totalEmployees`      (Users, violet)
- *
- * The numbers are pre-computed by the parent (via the engine's
- * `countDepartments`) — this keeps the engine as the single
- * source of truth for the rules and lets the same numbers be
- * reused elsewhere (e.g. the page header counts).
- */
 export function DepartmentKpiCards({ counts }: DepartmentKpiCardsProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard
-        icon={<Building2 className="h-5 w-5 text-[#2e7d32]" />}
+        icon={<Building2 className="h-4.5 w-4.5 text-payroll-primary" />}
         label="Total Departments"
         value={counts.total}
-        tone="blue"
+        tone="primary"
       />
       <KpiCard
-        icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+        icon={<CheckCircle2 className="h-4.5 w-4.5 text-emerald-700" />}
         label="Active"
         value={counts.active}
         tone="emerald"
       />
       <KpiCard
-        icon={<Briefcase className="h-5 w-5 text-amber-600" />}
+        icon={<Briefcase className="h-4.5 w-4.5 text-amber-700" />}
         label="Designations"
         value={counts.totalDesignations}
         tone="amber"
       />
       <KpiCard
-        icon={<Users className="h-5 w-5 text-violet-600" />}
+        icon={<Users className="h-4.5 w-4.5 text-payroll-navy" />}
         label="Employees"
         value={counts.totalEmployees}
-        tone="violet"
+        tone="navy"
       />
     </div>
   );
@@ -57,35 +46,34 @@ interface KpiCardProps {
   icon: React.ReactNode;
   label: string;
   value: number;
-  /** Tints the icon background. Purely decorative. */
-  tone: "blue" | "emerald" | "amber" | "violet";
+  tone: "primary" | "emerald" | "amber" | "navy";
 }
 
 function KpiCard({ icon, label, value, tone }: KpiCardProps) {
   const toneBg: Record<KpiCardProps["tone"], string> = {
-    blue: "bg-green-50",
-    emerald: "bg-emerald-50",
-    amber: "bg-amber-50",
-    violet: "bg-violet-50",
+    primary: "bg-payroll-cream text-payroll-primary border border-payroll-light/80",
+    emerald: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
+    amber: "bg-amber-50 text-amber-700 border border-amber-200/60",
+    navy: "bg-payroll-light/60 text-payroll-navy border border-payroll-light",
   };
 
   return (
-    <div className="rounded-xl border border-[#d7e8d0]/80 bg-white p-5">
+    <Card className="p-4 transition-all duration-200 hover:-translate-y-0.5 shadow-payroll-xs hover:shadow-payroll-sm">
       <div className="flex items-center gap-3">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${toneBg[tone]}`}
+          className={`flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-xl ${toneBg[tone]}`}
         >
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
             {label}
           </p>
-          <p className="mt-0.5 text-xl font-semibold text-[#1b3a1f] tabular-nums">
+          <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">
             {value}
           </p>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

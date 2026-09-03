@@ -23,12 +23,12 @@ export default async function SelfServiceLayout({
   const scopeType = session?.user?.scopeType || "SELF";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50/20 to-emerald-50/30">
+    <div className="min-h-screen bg-payroll-cream text-payroll-navy font-sans antialiased flex flex-col">
       {/* Self-Service Navigation Header */}
       <SelfServiceNav userEmail={userEmail} scopeType={scopeType} />
 
       {/* Page Content */}
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6">
+      <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
         {children}
       </main>
     </div>

@@ -1,11 +1,15 @@
+import React from "react";
 import { getMyAttendanceSummary } from "@/lib/services/self-service.service";
-import { Clock, CalendarDays, Timer, CheckCircle2 } from "lucide-react";
+import { Clock, CalendarDays, Timer, CheckCircle2, AlertTriangle, Building2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "My Attendance | Self-Service Portal",
-  description: "View your monthly attendance and overtime summary",
+  description: "View monthly attendance telemetry, overtime, and leave deductions",
 };
 
 const BS_MONTHS = [
@@ -19,26 +23,46 @@ export default async function MyAttendancePage() {
     summaries = await getMyAttendanceSummary();
   } catch (error: any) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-gray-200 bg-white">
-        <Clock className="h-16 w-16 text-gray-300 mb-4" />
-        <h2 className="text-lg font-semibold text-gray-700 mb-2">Attendance Unavailable</h2>
-        <p className="text-sm text-gray-500">{error?.message || "Failed to load attendance data."}</p>
-      </div>
+      <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
+        <CardContent className="py-16">
+          <EmptyState
+            icon={<Clock className="h-10 w-10 text-payroll-primary" />}
+            title="Attendance Telemetry Unavailable"
+            description={error?.message || "Failed to load attendance records. Please contact HR."}
+          />
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-[#1b3a1f]">My Attendance</h1>
-        <span className="text-xs text-gray-400">{summaries.length} month(s) recorded</span>
+      {/* ── Page Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-payroll-navy tracking-tight">
+            Attendance & Overtime Summary
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
+            Monthly working days, presence ratio, approved paid leaves, and statutory overtime calculation hours.
+          </p>
+        </div>
+
+        <span className="text-xs font-bold text-gray-500 bg-payroll-cream px-3 py-1.5 rounded-xl border border-payroll-light">
+          {summaries.length} month(s) calculated
+        </span>
       </div>
 
       {summaries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 rounded-xl border border-gray-200 bg-white text-center">
-          <CalendarDays className="h-12 w-12 text-gray-300 mb-3" />
-          <p className="text-sm text-gray-500">No attendance records found for the current fiscal year.</p>
-        </div>
+        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
+          <CardContent className="py-16">
+            <EmptyState
+              icon={<CalendarDays className="h-10 w-10 text-payroll-primary" />}
+              title="No attendance records found"
+              description="Attendance telemetry for the active fiscal year will be processed at the end of each monthly payroll cycle."
+            />
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {summaries.map((month) => {
@@ -47,90 +71,122 @@ export default async function MyAttendancePage() {
             const absentDays = Number(month.absentDays) || 0;
             const payLeave = Number(month.payLeaveDays) || 0;
             const nonPayLeave = Number(month.nonPayLeaveDays) || 0;
-            const totalLeave = payLeave + nonPayLeave;
-            const otHours = (Number(month.totalOtHoursOffice) || 0) + (Number(month.totalOtHoursOff) || 0);
-            const attendancePercent = totalDays > 0 ? Math.min(100, Math.round((presentDays / totalDays) * 100)) : 0;
+            const otHours =
+              (Number(month.totalOtHoursOffice) || 0) +
+              (Number(month.totalOtHoursOff) || 0);
+            const attendancePercent =
+              totalDays > 0
+                ? Math.min(100, Math.round((presentDays / totalDays) * 100))
+                : 0;
 
             return (
-              <div
+              <Card
                 key={month.id}
-                className="rounded-xl border border-gray-200 bg-white p-5 transition-all hover:shadow-sm"
+                className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm transition-shadow"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-emerald-600" />
-                    <h3 className="text-sm font-bold text-[#1b3a1f]">
-                      {BS_MONTHS[(Number(month.bsMonth) || 1) - 1]}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {month.isLocked && (
-                      <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
-                        LOCKED
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-payroll-cream text-payroll-primary border border-payroll-light shadow-2xs">
+                        <CalendarDays className="h-4 w-4" />
+                      </div>
+                      <h3 className="text-sm font-bold text-payroll-navy">
+                        {BS_MONTHS[(Number(month.bsMonth) || 1) - 1]}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {month.isLocked && (
+                        <Badge variant="neutral" size="sm" className="font-bold text-[10px]">
+                          LOCKED
+                        </Badge>
+                      )}
+                      <span
+                        className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md border ${
+                          attendancePercent >= 90
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : attendancePercent >= 70
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-rose-50 text-rose-800 border-rose-200"
+                        }`}
+                      >
+                        {attendancePercent}% Present
                       </span>
-                    )}
-                    <span className={`text-xs font-bold ${
-                      attendancePercent >= 90 ? 'text-emerald-600' : attendancePercent >= 70 ? 'text-amber-600' : 'text-red-600'
-                    }`}>
-                      {attendancePercent}%
-                    </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Attendance Breakdown */}
-                <div className="grid grid-cols-2 gap-3">
-                  <AttendanceStat label="Present Days" value={presentDays} color="text-emerald-600" icon={CheckCircle2} />
-                  <AttendanceStat label="Absent Days" value={absentDays} color="text-red-500" icon={Clock} />
-                  <AttendanceStat label="Paid Leave" value={payLeave} color="text-blue-500" icon={CalendarDays} />
-                  <AttendanceStat label="Working Days" value={totalDays} color="text-purple-500" icon={CalendarDays} />
-                </div>
-
-                {/* OT Hours */}
-                {otHours > 0 && (
-                  <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 p-2.5">
-                    <Timer className="h-3.5 w-3.5 text-amber-600" />
-                    <span className="text-xs text-amber-700">
-                      <strong>{otHours.toFixed(1)}</strong> overtime hours
-                    </span>
+                  {/* Telemetry Breakdown Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-payroll-cream/50 rounded-xl border border-payroll-light/70 text-xs">
+                    <div>
+                      <span className="text-[10px] text-gray-500 font-medium block">
+                        Present
+                      </span>
+                      <strong className="text-sm font-bold text-payroll-navy font-mono">
+                        {presentDays}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 font-medium block">
+                        Paid Leave
+                      </span>
+                      <strong className="text-sm font-bold text-blue-700 font-mono">
+                        {payLeave}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 font-medium block">
+                        Absent
+                      </span>
+                      <strong className="text-sm font-bold text-rose-600 font-mono">
+                        {absentDays}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 font-medium block">
+                        Working Days
+                      </span>
+                      <strong className="text-sm font-bold text-gray-700 font-mono">
+                        {totalDays}
+                      </strong>
+                    </div>
                   </div>
-                )}
 
-                {/* Progress bar */}
-                <div className="mt-3 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      attendancePercent >= 90 ? 'bg-emerald-400' : attendancePercent >= 70 ? 'bg-amber-400' : 'bg-red-400'
-                    }`}
-                    style={{ width: `${Math.min(attendancePercent, 100)}%` }}
-                  />
-                </div>
-              </div>
+                  {/* Overtime Telemetry Strip */}
+                  {otHours > 0 && (
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs">
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <Timer className="h-4 w-4 text-amber-600 shrink-0" />
+                        <span className="font-semibold">
+                          Overtime Logged: <strong>{otHours.toFixed(1)} hrs</strong>
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-200 font-bold">
+                        Office: {month.totalOtHoursOffice || 0}h / Off: {month.totalOtHoursOff || 0}h
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Progress Meter */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 rounded-full bg-payroll-cream overflow-hidden border border-payroll-light/60">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          attendancePercent >= 90
+                            ? "bg-payroll-primary"
+                            : attendancePercent >= 70
+                            ? "bg-amber-500"
+                            : "bg-rose-500"
+                        }`}
+                        style={{ width: `${Math.min(attendancePercent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function AttendanceStat({
-  label,
-  value,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  color: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className={`h-3.5 w-3.5 ${color}`} />
-      <div>
-        <p className="text-[10px] text-gray-400">{label}</p>
-        <p className={`text-sm font-bold ${color}`}>{value}</p>
-      </div>
     </div>
   );
 }

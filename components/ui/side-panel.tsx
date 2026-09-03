@@ -5,55 +5,26 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const sizeClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
-  "2xl": "max-w-2xl",
-} as const;
-
 const widthClasses = {
   sm: "w-full sm:max-w-sm",
   md: "w-full sm:max-w-md",
   lg: "w-full sm:max-w-lg",
   xl: "w-full sm:max-w-xl",
   "2xl": "w-full sm:max-w-2xl",
+  "3xl": "w-full sm:max-w-3xl",
 } as const;
 
-interface SidePanelProps {
+export interface SidePanelProps {
   open: boolean;
   onClose: () => void;
-  /** Header content (typically a title row with actions). */
   header: React.ReactNode;
-  /** Optional small subtitle shown below the header. */
   subtitle?: React.ReactNode;
   children: React.ReactNode;
-  /** Optional footer (typically a "Close" + action button row). */
   footer?: React.ReactNode;
-  /** Width preset. Defaults to "md" (max-w-md). */
-  size?: keyof typeof sizeClasses;
+  size?: keyof typeof widthClasses;
   className?: string;
 }
 
-/**
- * Reusable right-side slide-in panel primitive.
- *
- * - Renders into a React Portal on `document.body` so it escapes
- *   any `overflow: hidden` / transformed ancestor stacking
- *   contexts.
- * - Slides in from the right with a backdrop fade.
- * - Closes on backdrop click and Escape key.
- * - Locks body scroll while open.
- * - Subtle slide+fade entrance animation.
- * - Built from scratch (no shadcn dependency) to match the
- *   project's design tokens: navy text, blue primary, light
- *   blue borders.
- *
- * **Use cases so far:** the Pay Head detail panel (view a
- * single pay head's overview, applicability, and flags). The
- * shape is generic — any "view this row" panel can use it.
- */
 export function SidePanel({
   open,
   onClose,
@@ -65,8 +36,12 @@ export function SidePanel({
   className,
 }: SidePanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
 
-  // Body scroll lock + Escape handler
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -76,19 +51,17 @@ export function SidePanel({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
-
-    // Focus the panel for screen readers
     panelRef.current?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   if (typeof document === "undefined") return null;
@@ -101,7 +74,7 @@ export function SidePanel({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-[fadeIn_150ms_ease-out]"
+        className="fixed inset-0 bg-payroll-navy/40 backdrop-blur-xs animate-[fadeIn_150ms_ease-out]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -111,38 +84,38 @@ export function SidePanel({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex h-full flex-col border-l border-[#d7e8d0] bg-white shadow-xl outline-none animate-[panelIn_220ms_ease-out]",
+          "relative z-10 flex h-full flex-col border-l border-payroll-light bg-white shadow-payroll-lg outline-none animate-[panelIn_200ms_cubic-bezier(0.25,1,0.5,1)]",
           widthClasses[size],
           className,
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header — host-provided (typically a row with title + actions) */}
-        <div className="flex items-start justify-between gap-3 border-b border-[#d7e8d0]/80 px-5 py-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 border-b border-payroll-light/70 bg-white px-5 py-4">
           <div className="min-w-0 flex-1">{header}</div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-[#f6faf6] hover:text-[#1b3a1f]"
+            className="shrink-0 rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary cursor-pointer"
             aria-label="Close panel"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Optional subtitle */}
+        {/* Subtitle */}
         {subtitle && (
-          <div className="border-b border-[#d7e8d0]/60 bg-[#f6faf6]/40 px-5 py-2 text-xs text-gray-500">
+          <div className="border-b border-payroll-light/50 bg-payroll-cream/40 px-5 py-2 text-xs text-gray-500">
             {subtitle}
           </div>
         )}
 
-        {/* Body — scrollable */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#d7e8d0]/60 bg-[#f6faf6]/50 px-5 py-3">
+          <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-payroll-light/60 bg-payroll-cream/50 px-5 py-3.5">
             {footer}
           </div>
         )}

@@ -8,6 +8,9 @@
   --payroll-primary-hover: #1b5e20;
   --background: #f6faf6;
   --foreground: #1b3a1f;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -25,7 +28,10 @@
 body {
   background: #f6faf6;
   color: #1b3a1f;
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::-webkit-scrollbar {
@@ -46,7 +52,11 @@ body {
   background: #1b5e20;
 }
 
-/* Canonical AakashHRMS Shadow System */
+/* Canonical AakashHRMS Elevation System */
+.shadow-payroll-xs {
+  box-shadow: 0 1px 2px 0 rgba(27, 58, 31, 0.05);
+}
+
 .shadow-payroll-sm {
   box-shadow:
     0 1px 2px -1px rgba(27, 58, 31, 0.08),
@@ -59,6 +69,13 @@ body {
     0 1px 2px -1px rgba(27, 58, 31, 0.1),
     0 8px 16px -4px rgba(27, 58, 31, 0.08),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+}
+
+.shadow-payroll-lg {
+  box-shadow:
+    0 4px 6px -2px rgba(27, 58, 31, 0.06),
+    0 16px 24px -6px rgba(27, 58, 31, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -79,10 +96,19 @@ body {
   }
 }
 
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes dialogIn {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.97);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -93,11 +119,33 @@ body {
 @keyframes panelIn {
   from {
     opacity: 0;
-    transform: translateX(24px);
+    transform: translateX(16px);
   }
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
   }
 }
 

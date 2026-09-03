@@ -28,8 +28,8 @@ export interface ScopeFilter {
  * Resolves the full scope filter for a given user by looking up their role's scopeType
  * and their assigned branch/department IDs.
  */
-export async function resolveUserScope(userId: string): Promise<ScopeFilter> {
-  const activeDb = await getDbAsync();
+export async function resolveUserScope(userId: string, tenantSlug?: string | null): Promise<ScopeFilter> {
+  const activeDb = await getDbAsync(tenantSlug);
 
   // Get user's assigned scoping data
   const [userRow] = await activeDb

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LogOut, UserCircle, Shield, Sparkles } from "lucide-react";
+import { LogOut, UserCircle, Shield } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth.actions";
 import { cn } from "@/lib/utils";
 
@@ -26,20 +26,20 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
   const isManagerOrAdmin = scopeType !== "SELF";
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-emerald-100 bg-white/90 backdrop-blur-md shadow-xs">
+    <nav className="sticky top-0 z-40 border-b border-payroll-light/80 bg-white/95 backdrop-blur-md shadow-payroll-xs">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="flex h-14 items-center justify-between">
+        <div className="flex h-15 items-center justify-between">
           <div className="flex items-center gap-6">
             <Link
               href="/self-service"
-              className="text-base font-bold text-payroll-navy tracking-tight flex items-center gap-2.5"
+              className="text-base font-bold text-payroll-navy tracking-tight flex items-center gap-2.5 group"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden border border-emerald-200/80 bg-white shadow-2xs shrink-0">
+              <div className="flex h-8.5 w-8.5 items-center justify-center rounded-xl overflow-hidden border border-payroll-light/80 bg-white shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
                 <Image
                   src="/AakashHrmsLogo.jpeg"
                   alt="AakashHRMS"
-                  width={32}
-                  height={32}
+                  width={34}
+                  height={34}
                   className="object-cover h-full w-full"
                   unoptimized
                 />
@@ -48,8 +48,8 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                 <span className="text-xs font-bold text-payroll-navy">
                   AakashHRMS
                 </span>
-                <span className="text-[10px] text-emerald-700 font-semibold">
-                  Self-Service
+                <span className="text-[10px] text-payroll-primary font-bold mt-0.5">
+                  Self-Service Portal
                 </span>
               </div>
             </Link>
@@ -67,10 +67,10 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                      "px-3 py-1.5 text-xs font-semibold rounded-xl transition-all duration-150 select-none",
                       isActive
-                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-xs"
-                        : "text-gray-600 hover:text-payroll-navy hover:bg-gray-100/70",
+                        ? "bg-payroll-primary text-white shadow-payroll-xs"
+                        : "text-gray-600 hover:text-payroll-navy hover:bg-payroll-cream",
                     )}
                   >
                     {item.label}
@@ -81,23 +81,23 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* If Admin/Manager is in self-service mode, show button to return to Admin Dashboard */}
             {isManagerOrAdmin && (
               <Link
                 href="/dashboard"
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 rounded-lg border border-emerald-200 transition-colors"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-payroll-navy bg-payroll-cream hover:bg-payroll-light/80 rounded-xl border border-payroll-light transition-all shadow-2xs"
               >
-                <Shield className="h-3.5 w-3.5" />
-                <span>Admin Workspace</span>
+                <Shield className="h-3.5 w-3.5 text-payroll-primary" />
+                <span>Office Workspace</span>
               </Link>
             )}
 
             {/* User pill */}
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <UserCircle className="h-4 w-4 text-emerald-600" />
+            <div className="flex items-center gap-2 text-xs text-gray-500 bg-payroll-cream px-2.5 py-1.5 rounded-xl border border-payroll-light/80 shadow-2xs">
+              <UserCircle className="h-4 w-4 text-payroll-primary" />
               <span
-                className="hidden sm:inline-block font-medium truncate max-w-35"
+                className="hidden sm:inline-block font-bold text-payroll-navy truncate max-w-36 text-xs"
                 title={userEmail}
               >
                 {userEmail}
@@ -108,7 +108,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
             <button
               onClick={() => logoutAction()}
               type="button"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-200"
               title="Sign out of your account"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -118,7 +118,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
         </div>
 
         {/* Mobile Navigation bar */}
-        <div className="flex sm:hidden overflow-x-auto py-2 gap-1 border-t border-gray-100 scrollbar-none">
+        <div className="flex sm:hidden overflow-x-auto py-2 gap-1 border-t border-payroll-light/60 scrollbar-none">
           {NAV_ITEMS.map((item) => {
             const isActive = item.exact
               ? pathname === item.href
@@ -129,10 +129,10 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "whitespace-nowrap px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                  "whitespace-nowrap px-3 py-1 text-xs font-semibold rounded-lg transition-colors select-none",
                   isActive
-                    ? "bg-emerald-600 text-white"
-                    : "text-gray-600 hover:bg-gray-100",
+                    ? "bg-payroll-primary text-white shadow-payroll-xs"
+                    : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
                 )}
               >
                 {item.label}

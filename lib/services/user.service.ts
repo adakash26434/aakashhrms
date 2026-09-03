@@ -176,6 +176,18 @@ export async function updateUser(id: string, formData: UserFormData): Promise<Us
 
   const cleanEmail = formData.email.trim().toLowerCase();
 
+  // Company Admin email protection: Company Admin email cannot be changed from the tenant workspace
+  const isCompanyAdmin =
+    existingUser.roleSlug === "system_admin" ||
+    existingUser.roleSlug === "admin" ||
+    Boolean(existingUser.roleName?.toLowerCase().includes("admin"));
+
+  if (isCompanyAdmin && cleanEmail !== existingUser.email.toLowerCase()) {
+    throw new UserValidationError({
+      email: "The Company Admin email cannot be modified from the tenant workspace. It can only be changed by the Super Admin in the Platform Control Plane.",
+    });
+  }
+
   // Email conflict check if changed
   if (cleanEmail !== existingUser.email.toLowerCase()) {
     const emailConflict = await repository.findUserByEmail(cleanEmail);

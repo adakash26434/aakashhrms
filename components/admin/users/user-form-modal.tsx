@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { UserWithRole, UserFormData, UserValidationErrors } from "@/lib/types/user";
 import { RoleRow } from "@/lib/repositories/role.repository";
 import { createUserAction, updateUserAction } from "@/app/actions/user.actions";
-import { User, Mail, Shield, Link2, Building2, Users, AlertCircle } from "lucide-react";
+import { User, Mail, Shield, Link2, Building2, Users, AlertCircle, Lock } from "lucide-react";
 
 interface UserFormModalProps {
   open: boolean;
@@ -174,23 +174,42 @@ export function UserFormModal({
 
         {/* Email Address */}
         <div>
-          <label className="block text-xs font-semibold text-[#1b3a1f] uppercase tracking-wider mb-1.5">
-            Email Address <span className="text-red-500">*</span>
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold text-[#1b3a1f] uppercase tracking-wider">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            {isEditing && (userToEdit.roleSlug === "system_admin" || userToEdit.roleSlug === "admin" || userToEdit.roleName?.toLowerCase().includes("admin")) && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
+                <Lock className="w-2.5 h-2.5" /> Super Admin Managed
+              </span>
+            )}
+          </div>
           <div className="relative">
             <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="email"
               required
+              disabled={isEditing && (userToEdit.roleSlug === "system_admin" || userToEdit.roleSlug === "admin" || userToEdit.roleName?.toLowerCase().includes("admin"))}
+              readOnly={isEditing && (userToEdit.roleSlug === "system_admin" || userToEdit.roleSlug === "admin" || userToEdit.roleName?.toLowerCase().includes("admin"))}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@aakashhrms.com"
               className={`w-full rounded-lg border pl-9 pr-3 py-2 text-sm outline-none transition-all ${
-                errors.email ? "border-red-500 bg-red-50/20" : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+                isEditing && (userToEdit.roleSlug === "system_admin" || userToEdit.roleSlug === "admin" || userToEdit.roleName?.toLowerCase().includes("admin"))
+                  ? "bg-gray-100/80 border-gray-200 text-gray-600 cursor-not-allowed select-none font-medium"
+                  : errors.email
+                  ? "border-red-500 bg-red-50/20"
+                  : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
               }`}
             />
           </div>
-          {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+          {isEditing && (userToEdit.roleSlug === "system_admin" || userToEdit.roleSlug === "admin" || userToEdit.roleName?.toLowerCase().includes("admin")) ? (
+            <p className="mt-1 text-[11px] text-gray-500 font-medium">
+              Company Admin email is managed exclusively by the Super Admin in the Platform Control Plane and cannot be changed here.
+            </p>
+          ) : errors.email ? (
+            <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+          ) : null}
         </div>
 
         {/* Assigned System Role */}

@@ -2,13 +2,15 @@
 
 import React, { ReactNode } from "react";
 import { FileQuestion } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon?: ReactNode;
   title: string;
   description?: string;
   action?: ReactNode;
   className?: string;
+  compact?: boolean;
 }
 
 export function EmptyState({
@@ -17,17 +19,33 @@ export function EmptyState({
   description,
   action,
   className = "",
+  compact = false,
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-8 text-center ${className}`}
+      className={cn(
+        "flex flex-col items-center justify-center rounded-2xl border border-dashed border-payroll-light/90 bg-payroll-cream/50 text-center animate-[fadeIn_200ms_ease-out]",
+        compact ? "p-6" : "p-10",
+        className,
+      )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-payroll-light/50 text-payroll-primary mb-3">
-        {icon || <FileQuestion className="h-6 w-6" />}
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-2xl bg-white border border-payroll-light/80 text-payroll-primary shadow-payroll-xs mb-3 transition-transform hover:scale-105",
+          compact ? "h-10 w-10" : "h-13 w-13",
+        )}
+      >
+        {icon || (
+          <FileQuestion className={compact ? "h-5 w-5" : "h-6.5 w-6.5"} />
+        )}
       </div>
-      <h3 className="text-sm font-bold text-payroll-navy">{title}</h3>
+      <h3 className="text-sm font-bold text-payroll-navy tracking-tight">
+        {title}
+      </h3>
       {description && (
-        <p className="mt-1 max-w-sm text-xs text-gray-500">{description}</p>
+        <p className="mt-1.5 max-w-sm text-xs text-gray-500 leading-relaxed">
+          {description}
+        </p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

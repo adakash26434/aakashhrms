@@ -4,7 +4,16 @@ import { useState } from "react";
 import { changePasswordAction } from "@/app/actions/change-password.actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Lock, KeyRound, ShieldCheck, AlertCircle, CheckCircle2, Loader2, Eye, EyeOff } from "lucide-react";
+import {
+  Lock,
+  KeyRound,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 export function ChangePasswordForm() {
@@ -52,7 +61,8 @@ export function ChangePasswordForm() {
 
       setSuccess(true);
       toast.success("Password changed successfully! Redirecting...");
-      const targetUrl = res.data?.scopeType === "SELF" ? "/self-service" : "/dashboard";
+      const targetUrl =
+        res.data?.scopeType === "SELF" ? "/self-service" : "/dashboard";
       setTimeout(() => {
         window.location.href = targetUrl;
       }, 1200);
@@ -70,9 +80,12 @@ export function ChangePasswordForm() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mb-3 border border-emerald-200">
           <KeyRound className="h-6 w-6" />
         </div>
-        <h1 className="text-xl font-bold text-[#1b3a1f]">Change Your Password</h1>
+        <h1 className="text-xl font-bold text-[#1b3a1f]">
+          Change Your Password
+        </h1>
         <p className="text-xs text-gray-500 mt-1">
-          For security, please set a new personal password before accessing the system.
+          For security, please set a new personal password before accessing the
+          system.
         </p>
       </div>
 
@@ -81,8 +94,12 @@ export function ChangePasswordForm() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-3">
             <CheckCircle2 className="h-6 w-6" />
           </div>
-          <h3 className="text-base font-bold text-[#1b3a1f]">Password Changed Successfully!</h3>
-          <p className="text-xs text-gray-500 mt-1">Redirecting to your workspace...</p>
+          <h3 className="text-base font-bold text-[#1b3a1f]">
+            Password Changed Successfully!
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Redirecting to your workspace...
+          </p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,9 +128,15 @@ export function ChangePasswordForm() {
                 type="button"
                 onClick={() => setShowCurrentPassword((prev) => !prev)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer p-0.5 rounded"
-                aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                aria-label={
+                  showCurrentPassword ? "Hide password" : "Show password"
+                }
               >
-                {showCurrentPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-500" />
+                )}
               </button>
             </div>
           </div>
@@ -139,7 +162,11 @@ export function ChangePasswordForm() {
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer p-0.5 rounded"
                 aria-label={showNewPassword ? "Hide password" : "Show password"}
               >
-                {showNewPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-500" />
+                )}
               </button>
             </div>
           </div>
@@ -163,9 +190,15 @@ export function ChangePasswordForm() {
                 type="button"
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer p-0.5 rounded"
-                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                aria-label={
+                  showConfirmPassword ? "Hide password" : "Show password"
+                }
               >
-                {showConfirmPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-500" />
+                )}
               </button>
             </div>
           </div>

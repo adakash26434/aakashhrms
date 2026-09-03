@@ -1,17 +1,21 @@
 import { cn } from "@/lib/utils";
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
+  interactive?: boolean;
 }
 
-export function Card({ children, className }: CardProps) {
+export function Card({ children, className, interactive = false, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-payroll-light/80 bg-white shadow-sm",
+        "rounded-2xl border border-payroll-light/80 bg-white shadow-payroll-sm transition-all duration-200",
+        interactive &&
+          "hover:-translate-y-0.5 hover:shadow-payroll-md hover:border-payroll-primary/40 cursor-pointer",
         className,
       )}
+      {...props}
     >
       {children}
     </div>
@@ -25,7 +29,7 @@ export function CardHeader({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("px-5 pt-5", className)}>{children}</div>;
+  return <div className={cn("px-5 pt-5 pb-2", className)}>{children}</div>;
 }
 
 export function CardContent({
@@ -35,7 +39,7 @@ export function CardContent({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("px-5 pb-5", className)}>{children}</div>;
+  return <div className={cn("px-5 py-4", className)}>{children}</div>;
 }
 
 export function CardTitle({
@@ -48,7 +52,7 @@ export function CardTitle({
   return (
     <h3
       className={cn(
-        "text-lg font-semibold leading-none tracking-tight",
+        "text-base sm:text-lg font-bold text-payroll-navy leading-snug tracking-tight",
         className,
       )}
     >
@@ -64,7 +68,11 @@ export function CardDescription({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <p className={cn("text-sm text-gray-500", className)}>{children}</p>;
+  return (
+    <p className={cn("mt-1 text-xs text-gray-500 leading-relaxed", className)}>
+      {children}
+    </p>
+  );
 }
 
 export function CardFooter({
@@ -75,7 +83,12 @@ export function CardFooter({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center px-5 pb-5", className)}>
+    <div
+      className={cn(
+        "flex items-center px-5 py-4 border-t border-payroll-light/40 bg-payroll-cream/30 rounded-b-2xl",
+        className,
+      )}
+    >
       {children}
     </div>
   );

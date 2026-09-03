@@ -15,7 +15,7 @@ export async function getUserAllowedModules(): Promise<Set<string>> {
       return new Set();
     }
 
-    const db = await getDbAsync();
+    const db = await getDbAsync(session.user.tenantSlug);
 
     // 1. Check if user has admin role (full access bypass)
     const userRolesResult = await db

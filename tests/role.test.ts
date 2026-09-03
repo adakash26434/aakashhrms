@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { MODULE_CATEGORIES, ModuleType, ActionType } from '../lib/types/role';
 
 describe('Flexible Roles & Dynamic RBAC Module', () => {
-  it('should define all 25 system modules across 6 categorized domains', () => {
-    assert.equal(MODULE_CATEGORIES.length, 6);
+  it('should define all 27 system modules across 7 categorized domains', () => {
+    assert.equal(MODULE_CATEGORIES.length, 7);
 
     const allModuleKeys: ModuleType[] = [];
     MODULE_CATEGORIES.forEach((category) => {
@@ -13,7 +13,7 @@ describe('Flexible Roles & Dynamic RBAC Module', () => {
       });
     });
 
-    assert.equal(allModuleKeys.length, 26); // 26 modules total in schema
+    assert.equal(allModuleKeys.length, 27); // 27 modules total in schema
     assert.ok(allModuleKeys.includes('SYSTEM_CONTROL'));
     assert.ok(allModuleKeys.includes('FISCAL_YEAR'));
     assert.ok(allModuleKeys.includes('EMPLOYEES'));

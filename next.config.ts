@@ -6,7 +6,9 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   // Explicitly enable Turbopack alongside webpack fallback for cPanel
-  turbopack: {},
+  turbopack: {
+    root: projectRoot,
+  },
   output: "standalone",
   images: {
     unoptimized: true,

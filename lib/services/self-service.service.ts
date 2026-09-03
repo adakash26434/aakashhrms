@@ -11,6 +11,7 @@ import {
   fiscalYears, departments, designations, branches,
 } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { calculateProRataLeaveDays } from '@/lib/engines/leave-type.engine';
 
 // ---------------------------------------------------------------------------
 // Session-Based Employee ID Resolution
@@ -186,26 +187,45 @@ export async function getMyLeaveBalances(fiscalYearId?: string) {
   const db = await getDbAsync();
 
   // Get active fiscal year if not provided
-  let fyId = fiscalYearId;
-  if (!fyId) {
-    const [activeFy] = await db
-      .select({ id: fiscalYears.id })
+  let activeFyRecord;
+  if (fiscalYearId) {
+    const [fy] = await db
+      .select()
+      .from(fiscalYears)
+      .where(eq(fiscalYears.id, fiscalYearId))
+      .limit(1);
+    activeFyRecord = fy;
+  } else {
+    const [fy] = await db
+      .select()
       .from(fiscalYears)
       .where(eq(fiscalYears.status, 'Active'))
       .limit(1);
-    fyId = activeFy?.id;
+    activeFyRecord = fy;
   }
 
-  if (!fyId) {
-    return { balances: [], applications: [] };
+  if (!activeFyRecord) {
+    return { balances: [], fiscalYearId: undefined };
   }
 
-  const balances = await db
+  const fyId = activeFyRecord.id;
+
+  const [emp] = await db
+    .select({ joiningDate: employees.joiningDate })
+    .from(employees)
+    .where(eq(employees.id, employeeId))
+    .limit(1);
+
+  const rawBalances = await db
     .select({
       id: employeeLeaveBalances.id,
+      leaveTypeId: employeeLeaveBalances.leaveTypeId,
       leaveTypeName: leaveTypes.name,
       leaveTypeCode: leaveTypes.code,
       leavePayType: leaveTypes.leaveType,
+      statutoryCode: leaveTypes.statutoryCode,
+      noOfDays: leaveTypes.noOfDays,
+      proRataForNewJoinees: leaveTypes.proRataForNewJoinees,
       allotted: employeeLeaveBalances.allotted,
       taken: employeeLeaveBalances.taken,
       carriedForward: employeeLeaveBalances.carriedForward,
@@ -220,6 +240,55 @@ export async function getMyLeaveBalances(fiscalYearId?: string) {
       )
     );
 
+  // Self-heal any under-allotted balances caused by previous 1-month pro-rata bug
+  if (emp && rawBalances.length > 0) {
+    const fyStart = new Date(activeFyRecord.startDateAD);
+    const fyEnd = new Date(activeFyRecord.endDateAD);
+    const joinDate = emp.joiningDate ? new Date(emp.joiningDate) : fyStart;
+
+    for (const b of rawBalances) {
+      const isEventBased =
+        ['MOURNING', 'PATERNITY', 'MATERNITY'].includes(b.leaveTypeCode.toUpperCase()) ||
+        ['MOURNING', 'PATERNITY', 'MATERNITY'].includes(b.statutoryCode?.toUpperCase() || '');
+
+      let correctAllotted = Number(b.noOfDays);
+      if (!isEventBased && b.proRataForNewJoinees && joinDate > fyStart) {
+        correctAllotted = calculateProRataLeaveDays(Number(b.noOfDays), joinDate, fyStart, fyEnd);
+      }
+
+      const currentAllotted = Number(b.allotted);
+      const currentTaken = Number(b.taken);
+      const currentCarried = Number(b.carriedForward);
+
+      // If existing balance was under-allocated due to the 1-month bug, heal it to the true entitlement
+      if (currentAllotted < correctAllotted && currentTaken === 0) {
+        const newBalance = correctAllotted + currentCarried;
+        await db
+          .update(employeeLeaveBalances)
+          .set({
+            allotted: correctAllotted.toString(),
+            balance: newBalance.toString(),
+          })
+          .where(eq(employeeLeaveBalances.id, b.id));
+
+        b.allotted = correctAllotted.toString();
+        b.balance = newBalance.toString();
+      }
+    }
+  }
+
+  const balances = rawBalances.map((b) => ({
+    id: b.id,
+    leaveTypeId: b.leaveTypeId,
+    leaveTypeName: b.leaveTypeName,
+    leaveTypeCode: b.leaveTypeCode,
+    leavePayType: b.leavePayType,
+    allotted: b.allotted,
+    taken: b.taken,
+    carriedForward: b.carriedForward,
+    balance: b.balance,
+  }));
+
   return { balances, fiscalYearId: fyId };
 }
 
@@ -231,6 +300,7 @@ export async function getMyLeaveApplications() {
     .select({
       id: leaveApplications.id,
       leaveTypeName: leaveTypes.name,
+      leaveTypeCode: leaveTypes.code,
       appliedDate: leaveApplications.appliedDate,
       effectiveFrom: leaveApplications.effectiveFrom,
       effectiveTo: leaveApplications.effectiveTo,
@@ -248,6 +318,64 @@ export async function getMyLeaveApplications() {
     .orderBy(desc(leaveApplications.createdAt));
 
   return applications;
+}
+
+export async function applyForLeave(data: {
+  leaveTypeId: string;
+  effectiveFrom: string;
+  effectiveTo: string;
+  duration: "Full Day" | "Half Day";
+  noOfDays: number;
+  reason: string;
+}) {
+  const { employeeId } = await getSessionEmployeeId();
+  const db = await getDbAsync();
+
+  // Find active fiscal year
+  const [activeFy] = await db
+    .select({ id: fiscalYears.id })
+    .from(fiscalYears)
+    .where(eq(fiscalYears.status, 'Active'))
+    .limit(1);
+
+  if (!activeFy?.id) {
+    throw new Error('No active fiscal year configured. Please contact HR.');
+  }
+
+  // Validate leave balance if allotted
+  const [balanceRow] = await db
+    .select({ balance: employeeLeaveBalances.balance })
+    .from(employeeLeaveBalances)
+    .where(
+      and(
+        eq(employeeLeaveBalances.employeeId, employeeId),
+        eq(employeeLeaveBalances.leaveTypeId, data.leaveTypeId),
+        eq(employeeLeaveBalances.fiscalYearId, activeFy.id)
+      )
+    )
+    .limit(1);
+
+  if (balanceRow && Number(balanceRow.balance) < data.noOfDays) {
+    throw new Error(`Insufficient leave balance. You have ${balanceRow.balance} days remaining.`);
+  }
+
+  const [created] = await db
+    .insert(leaveApplications)
+    .values({
+      employeeId,
+      leaveTypeId: data.leaveTypeId,
+      fiscalYearId: activeFy.id,
+      appliedDate: new Date().toISOString().split('T')[0],
+      effectiveFrom: data.effectiveFrom,
+      effectiveTo: data.effectiveTo,
+      duration: data.duration,
+      noOfDays: data.noOfDays.toString(),
+      reason: data.reason.trim(),
+      status: 'Pending',
+    })
+    .returning();
+
+  return created;
 }
 
 // ---------------------------------------------------------------------------
