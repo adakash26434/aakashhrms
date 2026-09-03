@@ -17,10 +17,6 @@ const nextConfig: NextConfig = {
   // (see experimental.cpus below) takes longer, so give it more headroom.
   staticPageGenerationTimeout: 300,
   experimental: {
-    // Use Node's in-process worker_threads instead of spawning child Node processes.
-    workerThreads: true,
-    // Use multi-core compilation in local dev; allow CPANEL_BUILD to constrain workers if needed.
-    cpus: process.env.CPANEL_BUILD ? 1 : undefined,
     optimizePackageImports: [
       "lucide-react",
       "recharts",
