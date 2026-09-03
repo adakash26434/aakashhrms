@@ -47,6 +47,10 @@ export function Step6Complete({ payload }: Step6Props) {
             <p className="font-semibold text-gray-900">{step2.legalName}</p>
             <p>Email: {step2.contactEmail}</p>
             <p>
+              Industry Sector:{" "}
+              <strong className="text-gray-900">{step2.industryType || "General"}</strong>
+            </p>
+            <p>
               Fiscal Year:{" "}
               <strong className="text-gray-900">{step2.fiscalYearLabel}</strong>
             </p>

@@ -11,7 +11,6 @@ import {
   DEFAULT_PAY_HEADS,
 } from "@/lib/types/onboarding";
 import { completeFullOnboardingAction } from "@/app/actions/onboarding.actions";
-import { Step1Password } from "./steps/step1-password";
 import { Step2CompanyProfile } from "./steps/step2-company-profile";
 import { Step3OrgStructure } from "./steps/step3-org-structure";
 import { Step4LeaveOt } from "./steps/step4-leave-ot";
@@ -20,7 +19,6 @@ import { Step6Complete } from "./steps/step6-complete";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  KeyRound,
   Building,
   Users,
   Palmtree,
@@ -40,19 +38,17 @@ interface WizardProps {
 }
 
 const STEPS = [
-  { id: 1, label: "Security & Login", icon: KeyRound },
-  { id: 2, label: "Company Profile", icon: Building },
-  { id: 3, label: "Org Structure", icon: Users },
-  { id: 4, label: "Statutory Leaves", icon: Palmtree },
-  { id: 5, label: "Pay Heads & Tax", icon: Coins },
-  { id: 6, label: "Launch Workspace", icon: CheckCircle2 },
+  { id: 1, label: "Company Profile", icon: Building },
+  { id: 2, label: "Org Structure", icon: Users },
+  { id: 3, label: "Statutory Leaves", icon: Palmtree },
+  { id: 4, label: "Pay Heads & Tax", icon: Coins },
+  { id: 5, label: "Launch Workspace", icon: CheckCircle2 },
 ];
 
 export function OnboardingWizard({ initialStatus }: WizardProps) {
   const router = useRouter();
-  // For any pending onboarding, always start at Step 1 (Security & Login)
   const [currentStep, setCurrentStep] = useState(
-    initialStatus.isCompleted ? 6 : 1
+    initialStatus.isCompleted ? 5 : 1
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +61,14 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
 
     return {
       step1: {
-        keepCurrentPassword: !initialStatus.mustChangePassword,
+        keepCurrentPassword: true,
         newPassword: "",
       },
       step2: {
         legalName: compName,
         panVatNumber: "",
         registrationNumber: "",
+        industryType: initialStatus.industryType || "General",
         contactPhone: initialStatus.contactPhone || "",
         contactEmail: initialStatus.contactEmail || "",
         officeAddress: loc ? `${loc}, Nepal` : "Kathmandu, Nepal",
@@ -105,18 +102,8 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
   const handleNext = () => {
     setError(null);
 
-    // Basic Validation per step
+    // Validation per step
     if (currentStep === 1) {
-      if (
-        !payload.step1.keepCurrentPassword &&
-        (!payload.step1.newPassword || payload.step1.newPassword.length < 8)
-      ) {
-        setError(
-          "Please enter a new password of at least 8 characters, or select 'Keep Current Password'.",
-        );
-        return;
-      }
-    } else if (currentStep === 2) {
       if (!payload.step2.legalName.trim()) {
         setError("Legal company name is required.");
         return;
@@ -125,7 +112,7 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
         setError("Contact email is required.");
         return;
       }
-    } else if (currentStep === 3) {
+    } else if (currentStep === 2) {
       if (!payload.step3.branchName.trim()) {
         setError("Primary branch name is required.");
         return;
@@ -136,10 +123,9 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
       }
     }
 
-    if (currentStep < 6) {
+    if (currentStep < 5) {
       setCurrentStep((prev) => prev + 1);
     } else {
-      // Final Finish
       handleFinish();
     }
   };
@@ -184,17 +170,17 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
           </span>
         </h2>
         <p className="text-xs text-gray-500 max-w-lg mx-auto">
-          Configure your organization's essential parameters in 6 guided steps.
+          Configure your organization's essential parameters in 5 guided steps.
         </p>
       </div>
 
       {/* ── Visual Stepper Navigation ── */}
       <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           {STEPS.map((s) => {
-            const Icon = s.icon;
-            const isCompleted = currentStep > s.id;
             const isCurrent = currentStep === s.id;
+            const isCompleted = currentStep > s.id;
+            const Icon = s.icon;
 
             return (
               <div
@@ -254,35 +240,27 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
 
           {/* Render Step View */}
           {currentStep === 1 && (
-            <Step1Password
-              data={payload.step1}
-              onChange={(s1) => setPayload({ ...payload, step1: s1 })}
-              contactEmail={initialStatus.contactEmail}
-            />
-          )}
-
-          {currentStep === 2 && (
             <Step2CompanyProfile
               data={payload.step2}
               onChange={(s2) => setPayload({ ...payload, step2: s2 })}
             />
           )}
 
-          {currentStep === 3 && (
+          {currentStep === 2 && (
             <Step3OrgStructure
               data={payload.step3}
               onChange={(s3) => setPayload({ ...payload, step3: s3 })}
             />
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <Step4LeaveOt
               data={payload.step4}
               onChange={(s4) => setPayload({ ...payload, step4: s4 })}
             />
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <Step5PayHeadsTax
               data={payload.step5}
               onChange={(s5) => setPayload({ ...payload, step5: s5 })}
@@ -290,7 +268,7 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
             />
           )}
 
-          {currentStep === 6 && <Step6Complete payload={payload} />}
+          {currentStep === 5 && <Step6Complete payload={payload} />}
 
           {/* ── Step Action Controls ── */}
           <div className="flex items-center justify-between pt-6 border-t border-gray-100">
@@ -316,14 +294,14 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span>Finalizing Workspace...</span>
                 </div>
-              ) : currentStep === 6 ? (
-                <div className="flex items-center gap-2">
+              ) : currentStep === 5 ? (
+                <div className="flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5" />
-                  <span>Launch Dashboard</span>
+                  <span>Launch Workspace</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span>Continue</span>
+                <div className="flex items-center gap-1.5">
+                  <span>Continue to Next Step</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               )}

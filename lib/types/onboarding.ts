@@ -8,6 +8,7 @@ export interface OnboardingStatus {
   contactEmail: string;
   contactPhone?: string;
   registeredCity?: string;
+  industryType?: string;
 }
 
 export interface OnboardingStep1PasswordInput {
@@ -19,6 +20,7 @@ export interface OnboardingStep2CompanyInput {
   legalName: string;
   panVatNumber?: string;
   registrationNumber?: string;
+  industryType?: string;
   contactPhone: string;
   contactEmail: string;
   officeAddress: string;

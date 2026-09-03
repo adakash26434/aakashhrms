@@ -93,4 +93,19 @@ describe('Company Onboarding & Setup Wizard (Phase 5)', () => {
     assert.equal(ktmBranch.branchLocation, 'Kathmandu Central Office');
     assert.equal(ktmBranch.branchCode, 'HO-01');
   });
+
+  it('should streamline onboarding to 5 organization setup steps without redundant password step', () => {
+    const streamlinedSteps = [
+      'Company Profile',
+      'Org Structure',
+      'Statutory Leaves',
+      'Pay Heads & Tax',
+      'Launch Workspace',
+    ];
+
+    assert.equal(streamlinedSteps.length, 5);
+    assert.ok(!streamlinedSteps.includes('Security & Login'));
+    assert.ok(streamlinedSteps.includes('Company Profile'));
+    assert.ok(streamlinedSteps.includes('Launch Workspace'));
+  });
 });

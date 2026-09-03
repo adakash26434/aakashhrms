@@ -64,16 +64,19 @@ export async function getOnboardingStatus(
     }
   }
 
+  let industryType = configMap.get('company_industry_type') || 'General';
+
   return {
     isCompleted,
     completedAt,
     mustChangePassword,
-    currentStep: isCompleted ? 6 : 1,
+    currentStep: isCompleted ? 5 : 1,
     companyName: companyName || 'My Organization',
     companySlug: tenantSlug || '',
     contactEmail: contactEmail || (userRows[0]?.email || ''),
     contactPhone,
     registeredCity,
+    industryType,
   };
 }
 
@@ -107,6 +110,19 @@ export async function clearMustChangePasswordFlag(userId: string): Promise<void>
 export async function saveCompanyProfile(data: OnboardingStep2CompanyInput): Promise<void> {
   const db = getDb();
 
+  // Protect company_industry_type: Super Admin exclusively controls this.
+  // If already set in tenant system_config, preserve it strictly.
+  const existingIndustryConfig = await db
+    .select()
+    .from(systemConfig)
+    .where(eq(systemConfig.key, 'company_industry_type'))
+    .limit(1);
+
+  const lockedIndustryType =
+    existingIndustryConfig.length > 0 && existingIndustryConfig[0].value
+      ? existingIndustryConfig[0].value
+      : data.industryType || 'General';
+
   const configsToSet = [
     { key: 'company_legal_name', value: data.legalName, dataType: 'string' },
     { key: 'company_pan_vat', value: data.panVatNumber || '', dataType: 'string' },
@@ -115,6 +131,7 @@ export async function saveCompanyProfile(data: OnboardingStep2CompanyInput): Pro
     { key: 'company_email', value: data.contactEmail, dataType: 'string' },
     { key: 'company_office_address', value: data.officeAddress, dataType: 'string' },
     { key: 'company_currency', value: data.currency || 'NPR', dataType: 'string' },
+    { key: 'company_industry_type', value: lockedIndustryType, dataType: 'string' },
     { key: 'active_fiscal_year_label', value: data.fiscalYearLabel, dataType: 'string' },
   ];
 

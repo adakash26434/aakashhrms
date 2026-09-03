@@ -120,8 +120,11 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
               />
             </div>
           </div>
+        </div>
 
-          <div className="space-y-1.5 sm:col-span-1">
+        {/* Contact details in balanced 2-column grid ensuring full width for PhoneInput */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-700">
               Branch Phone
             </label>
@@ -129,10 +132,11 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
               value={data.branchPhone || ""}
               onChange={(val) => updateBranch("branchPhone", val)}
               placeholder="01-4XXXXXX / 9800000000"
+              containerClassName="w-full"
             />
           </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
+          <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-700">
               Branch Email
             </label>

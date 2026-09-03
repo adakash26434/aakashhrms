@@ -3,6 +3,11 @@
 import { useMemo } from "react";
 import { OnboardingStep2CompanyInput } from "@/lib/types/onboarding";
 import {
+  INDUSTRY_SECTORS,
+  IndustrySectorKey,
+  getRecommendedShreniPresets,
+} from "@/lib/constants/industry-types";
+import {
   Building,
   Calendar,
   Phone,
@@ -12,11 +17,34 @@ import {
   Landmark,
   CheckCircle2,
   Sparkles,
+  Lock,
+  Layers,
+  Building2,
+  Briefcase,
+  Hospital,
+  GraduationCap,
+  Factory,
+  Hotel,
+  Globe2,
+  ShieldCheck,
 } from "lucide-react";
 import {
   getAvailableFiscalYearPresets,
   FiscalYearPresetOption,
 } from "@/lib/utils/fiscal-year-presets";
+
+const SECTOR_ICONS: Record<IndustrySectorKey, any> = {
+  BFIs: Landmark,
+  Cooperatives: Building2,
+  Corporate: Briefcase,
+  Healthcare: Hospital,
+  Education: GraduationCap,
+  Manufacturing: Factory,
+  Hospitality: Hotel,
+  NGO_INGO: Globe2,
+  Government: ShieldCheck,
+  General: Layers,
+};
 
 interface Step2Props {
   data: OnboardingStep2CompanyInput;
@@ -115,20 +143,29 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-700">
-              Official Contact Email <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-gray-700">
+                Company Admin Contact Email <span className="text-red-500">*</span>
+              </label>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
+                <Lock className="w-2.5 h-2.5" /> Super Admin Managed
+              </span>
+            </div>
             <div className="relative">
               <Mail className="h-3.5 w-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="email"
                 required
+                readOnly
+                disabled
                 value={data.contactEmail}
-                onChange={(e) => update("contactEmail", e.target.value)}
                 placeholder="hr@acmenepal.com"
-                className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-payroll-primary"
+                className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-gray-200 bg-gray-100/80 text-gray-600 font-medium cursor-not-allowed select-none"
               />
             </div>
+            <p className="text-[11px] text-gray-400">
+              Provisioned by Super Admin. Editable only from the Super Admin Control Plane.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -165,7 +202,96 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
         </div>
       </div>
 
-      {/* ── Section B: Dynamic Fiscal Year Selection (Nepal Bikram Sambat) ── */}
+      {/* ── Section B: Organization Industry Type & Shreni Hierarchy (Locked by Super Admin) ── */}
+      <div className="space-y-3 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-payroll-primary" />
+            <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+              Organization Industry Classification (संस्थाको प्रकृति / क्षेत्र)
+            </h4>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold shadow-2xs">
+            <Lock className="h-3 w-3 text-amber-600 shrink-0" />
+            <span>Locked by Super Admin (सुपर एडमिनद्वारा निर्धारित)</span>
+          </span>
+        </div>
+
+        {(() => {
+          const selectedKey = (data.industryType || "General") as IndustrySectorKey;
+          const selectedSector = INDUSTRY_SECTORS[selectedKey] || INDUSTRY_SECTORS.General;
+          const Icon = SECTOR_ICONS[selectedKey] || Layers;
+          const previewPresets = getRecommendedShreniPresets(selectedKey);
+
+          return (
+            <div className="rounded-2xl border border-payroll-light bg-payroll-cream/40 p-4 text-xs space-y-3">
+              {/* Primary Sector Display */}
+              <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-payroll-light shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-payroll-primary text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-payroll-navy">
+                        {selectedSector.label}
+                      </p>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-payroll-cream border border-payroll-light text-payroll-primary font-bold">
+                        {selectedSector.shortLabel}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                      {selectedSector.labelNepali}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>Active Classification</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Sector Description & Hierarchy Rules */}
+              <div className="space-y-1.5 px-1">
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  {selectedSector.description}
+                </p>
+              </div>
+
+              {/* Live Preview of Unlocked Shreni Tiers */}
+              <div className="bg-white/80 p-3 rounded-xl border border-payroll-light/80 space-y-2">
+                <div className="flex items-center gap-1.5 text-payroll-navy font-bold text-[11px]">
+                  <Sparkles className="h-3.5 w-3.5 text-payroll-primary shrink-0" />
+                  <span>Configured Employee Shreni / Level Hierarchy Tiers:</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {previewPresets.map((p) => (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-[10px] font-semibold text-payroll-navy shadow-2xs"
+                    >
+                      {p.name.split("(")[0].trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Super Admin Notice */}
+              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                <ShieldCheck className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                <p>
+                  This organization classification was established by the platform Super Administrator during company registration. To maintain enterprise consistency and statutory compliance, it cannot be changed from the tenant console. Contact your Super Admin if an industry sector reclassification is required.
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── Section C: Dynamic Fiscal Year Selection (Nepal Bikram Sambat) ── */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between pb-2 border-b border-gray-100">
           <div className="flex items-center gap-2">
