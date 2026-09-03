@@ -223,6 +223,7 @@ export function EmployeeClient({
         branches={lookupData?.branches ?? []}
         departments={lookupData?.departments ?? []}
         designations={lookupData?.designations ?? []}
+        industryType={lookupData?.industryType}
         employees={
           employees.length > 0
             ? employees.map((e) => ({

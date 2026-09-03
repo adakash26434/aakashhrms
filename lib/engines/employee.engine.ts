@@ -80,9 +80,11 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     if (!data.departmentId?.trim()) errors.departmentId = "Department is required";
     if (!data.branchId?.trim()) errors.branchId = "Branch is required";
     if (!data.designationId?.trim()) errors.designationId = "Designation is required";
+    if (!data.shreni?.trim()) errors.shreni = "Shreni is required";
     if (!data.salaryGrade?.trim()) errors.salaryGrade = "Salary grade is required";
-    if (data.gradePercent < 0) errors.gradePercent = "Grade percent cannot be negative";
-    if (data.gradeAmount < 0) errors.gradeAmount = "Grade amount cannot be negative";
+    if (data.gradeAmount === undefined || data.gradeAmount === null || Number(data.gradeAmount) < 0 || String(data.gradeAmount).trim() === "") {
+      errors.gradeAmount = "Grade amount is required";
+    }
 
     if (!data.joiningDate || !data.joiningDate.trim()) {
       errors.joiningDate = "Joining date is required";
@@ -261,6 +263,10 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     }
   } else if (tabIndex === 4) {
     // 4: Bank & Termination
+    if (!data.bankName?.trim()) errors.bankName = "Bank name is required";
+    if (!data.bankBranch?.trim()) errors.bankBranch = "Bank branch is required";
+    if (!data.bankAccountNumber?.trim()) errors.bankAccountNumber = "Bank account number is required";
+
     const isTerminated = data.status === "Terminated";
     const hasTerminationDetails = Boolean(
       data.terminationDate?.trim() ||

@@ -145,7 +145,7 @@ export function PhoneInput({
   const currentCallingCode = getCountryCallingCode(selectedCountry, metadata);
 
   return (
-    <div className={cn("flex items-center gap-2 w-full", containerClassName)}>
+    <div className={cn("flex items-center gap-2 w-full min-w-0", containerClassName)}>
       <div className="relative shrink-0">
         <select
           suppressHydrationWarning
@@ -153,7 +153,7 @@ export function PhoneInput({
           onChange={handleCountryChange}
           disabled={disabled}
           className={cn(
-            "h-10 max-w-38.75 rounded-xl border border-payroll-light bg-payroll-cream px-2.5 text-xs font-semibold text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-2 focus:ring-payroll-primary cursor-pointer disabled:opacity-50 text-ellipsis overflow-hidden transition-all shadow-sm",
+            "h-10 max-w-[125px] sm:max-w-[140px] rounded-xl border border-payroll-light bg-payroll-cream px-2.5 text-xs font-semibold text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-2 focus:ring-payroll-primary cursor-pointer disabled:opacity-50 text-ellipsis overflow-hidden transition-all shadow-sm",
             hasError &&
               "border-rose-300 bg-rose-50/40 text-rose-800 focus:ring-rose-500",
           )}
@@ -165,7 +165,7 @@ export function PhoneInput({
           ))}
         </select>
       </div>
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-w-0">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs text-gray-400 font-mono">
           +{currentCallingCode}
         </div>

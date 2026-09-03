@@ -44,16 +44,16 @@ export function EmployeeFilters({ filters, setFilters, branches, departments }: 
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2e7d32]/50" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-payroll-navy/40" />
           <input
             type="search"
-            placeholder="Search by name, code, email, citizenship..."
+            placeholder="Search by name, employee code, email, PAN, citizenship..."
             value={filters.search}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="h-10 w-full rounded-lg border border-[#d7e8d0] bg-white py-2 pl-10 pr-4 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+            className="h-10 w-full rounded-xl border border-payroll-light bg-white py-2 pl-10 pr-4 text-xs sm:text-sm text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs transition-all"
           />
         </div>
 
@@ -82,7 +82,7 @@ export function EmployeeFilters({ filters, setFilters, branches, departments }: 
       <div
         role="tablist"
         aria-label="Filter by status"
-        className="inline-flex gap-1 rounded-lg border border-[#d7e8d0]/80 bg-white p-1"
+        className="inline-flex flex-wrap gap-1 rounded-xl border border-payroll-light/80 bg-white p-1 shadow-payroll-xs"
       >
         {STATUS_TABS.map((tab) => {
           const isActive = filters.status === tab.value;
@@ -94,10 +94,10 @@ export function EmployeeFilters({ filters, setFilters, branches, departments }: 
               aria-selected={isActive}
               onClick={() => updateFilter("status", tab.value)}
               className={cn(
-                "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+                "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none",
                 isActive
-                  ? "bg-[#f6faf6] text-[#1b3a1f] shadow-sm"
-                  : "text-gray-500 hover:bg-[#f6faf6]/60 hover:text-[#1b3a1f]",
+                  ? "bg-payroll-primary text-white shadow-payroll-xs"
+                  : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
               )}
             >
               {tab.label}
@@ -145,37 +145,39 @@ function FilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 items-center gap-2 rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] hover:bg-[#f6faf6]"
+        className="flex h-10 items-center gap-2 rounded-xl border border-payroll-light bg-white px-3 text-xs font-semibold text-payroll-navy hover:bg-payroll-cream shadow-payroll-xs transition-all cursor-pointer"
       >
         <span className="truncate max-w-36">{selected?.label ?? label}</span>
-        <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-3.5 w-3.5 text-gray-400 transition-transform duration-200", open && "rotate-180 text-payroll-primary")} />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-md border border-[#d7e8d0] bg-white shadow-lg">
-          {options.map((opt) => {
-            const isSelected = opt.value === value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
-                  isSelected
-                    ? "bg-[#d7e8d0]/40 text-[#1b3a1f] font-medium"
-                    : "text-gray-700 hover:bg-[#f6faf6]",
-                )}
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                  {isSelected && <Check className="h-3.5 w-3.5 text-[#2e7d32]" />}
-                </span>
-                {opt.label}
-              </button>
-            );
-          })}
+        <div className="absolute right-0 z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-payroll-light bg-white shadow-payroll-lg animate-[dialogIn_150ms_ease-out]">
+          <div className="max-h-60 overflow-y-auto p-1">
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer select-none",
+                    isSelected
+                      ? "bg-payroll-light/60 text-payroll-navy font-bold"
+                      : "text-gray-700 hover:bg-payroll-cream",
+                  )}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-payroll-primary" />}
+                  </span>
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

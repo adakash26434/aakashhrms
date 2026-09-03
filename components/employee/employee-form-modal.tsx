@@ -32,6 +32,7 @@ interface EmployeeFormModalProps {
   departments: { id: string; name: string }[];
   designations: { id: string; name: string; departmentId: string }[];
   employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string }[];
+  industryType?: string;
 }
 
 const EMPTY_FORM: EmployeeFormData = {
@@ -177,6 +178,7 @@ export function EmployeeFormModal({
   departments,
   designations,
   employees,
+  industryType,
 }: EmployeeFormModalProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -204,7 +206,7 @@ export function EmployeeFormModal({
       const existingEmpCodes = employees.map((e) => e.employeeCode || "").filter(Boolean);
       const existingAtdCodes = employees.map((e) => e.attendanceCode || "").filter(Boolean);
       const nextEmpCode = getNextEmployeeCode(existingEmpCodes);
-      const nextAtdCode = getNextAttendanceCode(existingAtdCodes, nextEmpCode);
+      const nextAtdCode = getNextAttendanceCode(existingAtdCodes, "ATD-");
 
       setFormData({
         ...EMPTY_FORM,
@@ -450,6 +452,7 @@ export function EmployeeFormModal({
           departments={departments}
           designations={designations}
           employees={employees}
+          industryType={industryType}
           errors={errors}
         />
       </div>

@@ -306,10 +306,14 @@ describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
     const data = createValidEmployeeData();
     data.departmentId = "";
     data.salaryGrade = "";
+    data.shreni = "";
+    data.gradeAmount = -1;
 
     const tab1Errors = validateEmployeeTab(data, 1);
     assert.equal(tab1Errors.departmentId, "Department is required");
     assert.equal(tab1Errors.salaryGrade, "Salary grade is required");
+    assert.equal(tab1Errors.shreni, "Shreni is required");
+    assert.equal(tab1Errors.gradeAmount, "Grade amount is required");
 
     const tab0Errors = validateEmployeeTab(data, 0);
     assert.equal(Object.keys(tab0Errors).length, 0);
@@ -338,10 +342,16 @@ describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
 
   it("validates Tab 4 (Bank & Termination) in isolation", () => {
     const data = createValidEmployeeData();
+    data.bankName = "";
+    data.bankBranch = "";
+    data.bankAccountNumber = "";
     data.status = "Terminated";
     data.terminationDate = "";
 
     const tab4Errors = validateEmployeeTab(data, 4);
+    assert.equal(tab4Errors.bankName, "Bank name is required");
+    assert.equal(tab4Errors.bankBranch, "Bank branch is required");
+    assert.equal(tab4Errors.bankAccountNumber, "Bank account number is required");
     assert.ok(tab4Errors.terminationDate);
   });
 });

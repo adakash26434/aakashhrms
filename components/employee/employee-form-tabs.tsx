@@ -7,6 +7,7 @@ import { RadioGroup } from "@/components/ui/radio-group";
 import { NumberInput } from "@/components/ui/number-input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { BankCombobox } from "@/components/ui/bank-combobox";
+import { ShreniCombobox } from "@/components/ui/shreni-combobox";
 import { DistrictCombobox } from "@/components/ui/district-combobox";
 import { NepalAddressPicker } from "@/components/ui/nepal-address-picker";
 import { getAllDistricts } from "@/lib/constants/nepal-locations";
@@ -33,6 +34,7 @@ interface EmployeeFormTabsProps {
   departments: { id: string; name: string }[];
   designations: { id: string; name: string; departmentId: string }[];
   employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string }[];
+  industryType?: string;
   errors?: EmployeeValidationErrors;
 }
 
@@ -44,6 +46,7 @@ export function EmployeeFormTabs({
   departments,
   designations,
   employees,
+  industryType,
   errors,
 }: EmployeeFormTabsProps) {
   const update = (field: keyof EmployeeFormData, val: string | number | boolean) => {
@@ -68,25 +71,11 @@ export function EmployeeFormTabs({
 
     const handleAutoGenerateEmp = () => {
       const nextCode = getNextEmployeeCode(existingEmpCodes);
-      setFormData((prev) => {
-        const shouldSyncAtd = !prev.attendanceCode || prev.attendanceCode === prev.employeeCode;
-        return {
-          ...prev,
-          employeeCode: nextCode,
-          attendanceCode: shouldSyncAtd ? nextCode : prev.attendanceCode,
-        };
-      });
+      update("employeeCode", nextCode);
     };
 
     const handleEmpCodeChange = (val: string) => {
-      setFormData((prev) => {
-        const shouldSyncAtd = !prev.attendanceCode || prev.attendanceCode === prev.employeeCode;
-        return {
-          ...prev,
-          employeeCode: val,
-          attendanceCode: shouldSyncAtd ? val : prev.attendanceCode,
-        };
-      });
+      update("employeeCode", val);
     };
 
     const handleMatchEmpCode = () => {
@@ -180,7 +169,7 @@ export function EmployeeFormTabs({
               value={formData.attendanceCode}
               onChange={(e) => update("attendanceCode", e.target.value)}
               className={fieldInputClass(!!errors?.attendanceCode || !!duplicateAtd)}
-              placeholder="e.g. EMP-001 or 101"
+              placeholder="e.g. ATD-001 or 101"
             />
           </div>
           <div className="flex items-center justify-between text-[11px]">
@@ -293,13 +282,17 @@ export function EmployeeFormTabs({
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-600">Shreni</label>
-          <input
+          <label className={labelClass(!!errors?.shreni)}>Shreni (श्रेणी / Class / Level) *</label>
+          <ShreniCombobox
             value={formData.shreni}
-            onChange={(e) => update("shreni", e.target.value)}
-            className={inputClass}
-            placeholder="e.g. S1"
+            onChange={(val) => update("shreni", val)}
+            industryType={industryType}
+            hasError={!!errors?.shreni}
+            placeholder="Select or type Shreni / Level (e.g. Level 6, अधिकृत, Shreni 2)..."
           />
+          {errors?.shreni && (
+            <p className="text-[11px] font-medium text-red-500">{errors.shreni}</p>
+          )}
         </div>
         <div className="space-y-1">
           <label className={labelClass(!!errors?.departmentId)}>Department *</label>
@@ -430,41 +423,38 @@ export function EmployeeFormTabs({
             className={fieldInputClass(!!errors?.salaryGrade)}
           >
             <option value="">Select grade</option>
-            <option value="G1">Grade 1</option>
-            <option value="G9">Grade 9</option>
-            <option value="G10">Grade 10</option>
+            <option value="G0">Grade 0 (Starting / Base Step)</option>
+            <option value="G1">Grade 1 (1 Year Increment)</option>
+            <option value="G2">Grade 2 (2 Years Increment)</option>
+            <option value="G3">Grade 3 (3 Years Increment)</option>
+            <option value="G4">Grade 4 (4 Years Increment)</option>
+            <option value="G5">Grade 5 (5 Years Increment)</option>
+            <option value="G6">Grade 6 (6 Years Increment)</option>
+            <option value="G7">Grade 7 (7 Years Increment)</option>
+            <option value="G8">Grade 8 (8 Years Increment)</option>
+            <option value="G9">Grade 9 (9 Years Increment)</option>
+            <option value="G10">Grade 10 (10 Years Increment)</option>
+            <option value="G11">Grade 11 (11 Years Increment)</option>
+            <option value="G12">Grade 12 (12 Years Increment)</option>
+            <option value="G13">Grade 13 (13 Years Increment)</option>
+            <option value="G14">Grade 14 (14 Years Increment)</option>
+            <option value="G15">Grade 15 (15 Years Maximum)</option>
+            {formData.salaryGrade && !Array.from({ length: 16 }, (_, i) => `G${i}`).includes(formData.salaryGrade) && (
+              <option value={formData.salaryGrade}>{formData.salaryGrade}</option>
+            )}
           </select>
           {errors?.salaryGrade && (
             <p className="text-[11px] font-medium text-red-500">{errors.salaryGrade}</p>
           )}
         </div>
         <div className="space-y-1">
-          <label className={labelClass(!!errors?.gradePercent)}>Grade %</label>
-          <div className="relative">
-            <NumberInput
-              min={0}
-              max={200}
-              value={formData.gradePercent}
-              onChange={(val) => update("gradePercent", val)}
-              className={fieldInputClass(!!errors?.gradePercent)}
-              placeholder="e.g. 100"
-            />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-500">
-              %
-            </span>
-          </div>
-          {errors?.gradePercent && (
-            <p className="text-[11px] font-medium text-red-500">{errors.gradePercent}</p>
-          )}
-        </div>
-        <div className="space-y-1 md:col-span-2">
-          <label className={labelClass(!!errors?.gradeAmount)}>Grade Amount (NPR)</label>
+          <label className={labelClass(!!errors?.gradeAmount)}>Grade Amount (NPR) *</label>
           <NumberInput
             min={0}
             value={formData.gradeAmount}
             onChange={(val) => update("gradeAmount", val)}
             className={fieldInputClass(!!errors?.gradeAmount)}
-            placeholder="e.g. 42,000"
+            placeholder="e.g. 1,500"
           />
           {errors?.gradeAmount && (
             <p className="text-[11px] font-medium text-red-500">{errors.gradeAmount}</p>
@@ -814,30 +804,40 @@ export function EmployeeFormTabs({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Bank Name (Nepal Banks)</label>
+              <label className={labelClass(!!errors?.bankName)}>Bank Name (Nepal Banks) *</label>
               <BankCombobox
                 value={formData.bankName}
                 onChange={(val) => update("bankName", val)}
+                hasError={!!errors?.bankName}
                 placeholder="Search or select bank in Nepal..."
               />
+              {errors?.bankName && (
+                <p className="text-[11px] font-medium text-red-500">{errors.bankName}</p>
+              )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Bank Branch</label>
+              <label className={labelClass(!!errors?.bankBranch)}>Bank Branch *</label>
               <input
                 value={formData.bankBranch}
                 onChange={(e) => update("bankBranch", e.target.value)}
-                className={inputClass}
+                className={fieldInputClass(!!errors?.bankBranch)}
                 placeholder="e.g. Patan Branch"
               />
+              {errors?.bankBranch && (
+                <p className="text-[11px] font-medium text-red-500">{errors.bankBranch}</p>
+              )}
             </div>
             <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-medium text-gray-600">Bank Account Number</label>
+              <label className={labelClass(!!errors?.bankAccountNumber)}>Bank Account Number *</label>
               <input
                 value={formData.bankAccountNumber}
                 onChange={(e) => update("bankAccountNumber", e.target.value)}
-                className={inputClass}
+                className={fieldInputClass(!!errors?.bankAccountNumber)}
                 placeholder="e.g. 012345678901"
               />
+              {errors?.bankAccountNumber && (
+                <p className="text-[11px] font-medium text-red-500">{errors.bankAccountNumber}</p>
+              )}
             </div>
           </div>
         </div>

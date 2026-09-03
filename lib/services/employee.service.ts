@@ -7,10 +7,11 @@ import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as engine from "@/lib/engines/employee.engine";
 import type { Employee, EmployeeFormData, EmployeeFilter, EmployeeKPIs, EmployeeValidationErrors } from "@/lib/types/employee";
 import { getDb } from "@/lib/db";
-import { employeeSalaryMap, loans, loanTypes, leaveApplications, leaveOtCalculations, payrollSlips, leaveSalaryRuns } from "@/lib/db/schema";
+import { employeeSalaryMap, loans, loanTypes, leaveApplications, leaveOtCalculations, payrollSlips, leaveSalaryRuns, systemConfig } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
+import { calculateProRataLeaveDays } from "@/lib/engines/leave-type.engine";
 import { ScopeFilter, buildEmployeeScopeCondition } from "@/lib/auth/scope-filter";
 
 export class EmployeeValidationError extends Error {
@@ -35,11 +36,18 @@ export interface EmployeeLookupData {
 
 export async function getEmployeeLookupData(scope?: ScopeFilter) {
   const scopeCondition = scope ? buildEmployeeScopeCondition(scope) : undefined;
-  const [branches, departments, designations, allEmployees] = await Promise.all([
+  const db = getDb();
+  const [branches, departments, designations, allEmployees, industryRow] = await Promise.all([
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
-    repository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "all" }, scopeCondition) 
+    repository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "all" }, scopeCondition),
+    db
+      .select({ value: systemConfig.value })
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "company_industry_type"))
+      .limit(1)
+      .catch(() => []),
   ]);
   return {
     branches: branches.map((b) => ({ id: b.id, name: b.name })),
@@ -50,7 +58,8 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
       name: `${e.firstName} ${e.lastName}`,
       employeeCode: e.employeeCode,
       attendanceCode: e.attendanceCode,
-    })) 
+    })),
+    industryType: industryRow[0]?.value || "General",
   };
 }
 
@@ -164,20 +173,26 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
       const activeFy = fiscalYears.find(fy => fy.status === 'Active');
       if (activeFy) {
         const leaveTypes = await leaveRepository.findAllLeaveTypes();
+        const fyStart = new Date(activeFy.startDateAD);
+        const fyEnd = new Date(activeFy.endDateAD);
+        const joinDate = employee.joiningDate ? new Date(employee.joiningDate) : fyStart;
+
         const creationPromises = leaveTypes.map(async (lt) => {
           // Check gender applicability
           if (lt.genderApplicable !== 'All' && lt.genderApplicable !== employee.gender) {
             return;
           }
-          // Calculate allotment — pro-rata if configured and employee joined mid-year
-          let allottedDays = lt.noOfDays;
-          if (lt.proRataForNewJoinees && employee.joiningDate) {
-            // Simple pro-rata: remaining months in FY / 12 * annual allotment
-            const joinDate = new Date(employee.joiningDate);
-            const now = new Date();
-            const monthsRemaining = Math.max(1, 12 - (now.getMonth() - joinDate.getMonth() + (now.getFullYear() - joinDate.getFullYear()) * 12));
-            allottedDays = Math.ceil((lt.noOfDays * Math.min(12, monthsRemaining)) / 12);
+
+          const isEventBased = ['MOURNING', 'PATERNITY', 'MATERNITY'].includes(lt.code.toUpperCase()) ||
+                               ['MOURNING', 'PATERNITY', 'MATERNITY'].includes(lt.statutoryCode?.toUpperCase() || '');
+
+          let allottedDays = Number(lt.noOfDays);
+
+          // Calculate allotment — pro-rata only if configured, not event-based, and employee joined midway through this FY
+          if (!isEventBased && lt.proRataForNewJoinees && joinDate > fyStart) {
+            allottedDays = calculateProRataLeaveDays(Number(lt.noOfDays), joinDate, fyStart, fyEnd);
           }
+
           return leaveRepository.createLeaveBalance({
             employeeId: employee.id,
             leaveTypeId: lt.id,

@@ -12,6 +12,7 @@ export interface RawLookupData {
   departments: { id: string; name: string }[];
   designations: { id: string; name: string; departmentId: string }[];
   employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string }[];
+  industryType?: string;
 }
 
 export function buildEmployeeLookups(

@@ -9,8 +9,10 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   resolveBranchName,
   resolveDesignationName,
@@ -182,30 +184,31 @@ export function EmployeeTable({
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center text-sm text-gray-400">
-        Loading employees...
+      <div className="flex h-72 items-center justify-center text-xs font-semibold text-gray-400 animate-pulse">
+        Loading employee directory...
       </div>
     );
   }
 
   if (employees.length === 0) {
     return (
-      <div className="px-5 py-12 text-center text-sm text-gray-500">
-        No employees match the current filters. Adjust your search or filters,
-        or click{" "}
-        <span className="font-medium text-[#1b3a1f]">Add Employee</span> to
-        create one.
+      <div className="py-8">
+        <EmptyState
+          icon={<Users className="h-6 w-6 text-payroll-primary" />}
+          title="No employees found"
+          description="No employees match the selected filters or search query. Try adjusting your filters or add a new employee profile."
+        />
       </div>
     );
   }
 
   return (
-    <div className="relative overflow-x-auto">
-      {/* Floating Bulk Action Bar (E3) */}
+    <div className="relative overflow-x-auto rounded-2xl border border-payroll-light/80 bg-white shadow-payroll-xs">
+      {/* Floating Bulk Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="sticky top-2 z-30 mb-3 flex items-center justify-between rounded-xl bg-[#1b3a1f] px-4 py-2.5 text-white shadow-xl animate-[fadeIn_150ms_ease-out]">
+        <div className="sticky top-2 z-30 m-3 flex items-center justify-between rounded-xl bg-payroll-navy px-4 py-2.5 text-white shadow-payroll-lg animate-[slideInUp_150ms_ease-out]">
           <div className="flex items-center gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-payroll-primary text-xs font-bold text-white shadow-payroll-xs">
               {selectedIds.size}
             </span>
             <span className="text-xs font-medium">
@@ -217,25 +220,25 @@ export function EmployeeTable({
             <button
               type="button"
               onClick={handleExportSelected}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover px-3 py-1.5 text-xs font-semibold text-white transition-colors cursor-pointer"
             >
-              Export Selected (CSV)
+              Export CSV
             </button>
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
               className="rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1.5 text-xs text-white transition-colors cursor-pointer"
             >
-              Clear Selection
+              Clear
             </button>
           </div>
         </div>
       )}
 
       <table className="w-full text-left text-xs text-gray-600">
-        <thead className="bg-[#f6faf6] text-xs font-semibold text-[#1b3a1f]">
-          <tr className="border-b border-[#d7e8d0]">
-            {/* Checkbox Column (E3) */}
+        <thead className="bg-payroll-cream/70 text-xs font-bold text-payroll-navy border-b border-payroll-light/80">
+          <tr>
+            {/* Checkbox Column */}
             <th scope="col" className="w-8 px-3 py-3 text-center align-middle">
               <input
                 type="checkbox"
@@ -244,7 +247,7 @@ export function EmployeeTable({
                   if (el) el.indeterminate = isSomeSelected;
                 }}
                 onChange={handleSelectAll}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                className="h-3.5 w-3.5 rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                 title="Select all"
               />
             </th>
@@ -266,17 +269,17 @@ export function EmployeeTable({
               label="Designation"
               onClick={() => toggleSort("designationId")}
             />
-            <th scope="col" className="px-4 py-3 font-semibold">
+            <th scope="col" className="px-4 py-3 font-bold text-payroll-navy">
               Contact
             </th>
             <SortHeader label="Branch" onClick={() => toggleSort("branchId")} />
             <SortHeader label="Status" onClick={() => toggleSort("status")} />
-            <th scope="col" className="px-4 py-3 text-right font-semibold">
+            <th scope="col" className="px-4 py-3 text-right font-bold text-payroll-navy">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#d7e8d0]/60 bg-white">
+        <tbody className="divide-y divide-payroll-light/50 bg-white">
           {sortedEmployees.map((emp) => {
             const isExpanded = expandedId === emp.id;
             const isRowSelected = selectedIds.has(emp.id);
@@ -298,14 +301,14 @@ export function EmployeeTable({
                 <tr
                   onClick={() => onSelect(emp.id)}
                   className={cn(
-                    "cursor-pointer transition-colors",
+                    "cursor-pointer transition-colors select-none",
                     isRowSelected
-                      ? "bg-emerald-50/50 hover:bg-emerald-50"
-                      : "hover:bg-[#f6faf6]",
-                    isExpanded && "bg-[#f6faf6]/80",
+                      ? "bg-payroll-light/40 hover:bg-payroll-light/50"
+                      : "hover:bg-payroll-cream/50",
+                    isExpanded && "bg-payroll-cream/70",
                   )}
                 >
-                  {/* Row Checkbox (E3) */}
+                  {/* Row Checkbox */}
                   <td
                     className="px-3 py-3 text-center align-middle"
                     onClick={(e) => handleToggleRow(emp.id, e)}
@@ -314,7 +317,7 @@ export function EmployeeTable({
                       type="checkbox"
                       checked={isRowSelected}
                       onChange={() => {}}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      className="h-3.5 w-3.5 rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                     />
                   </td>
 
@@ -325,7 +328,7 @@ export function EmployeeTable({
                     <button
                       type="button"
                       aria-label={isExpanded ? "Collapse row" : "Expand row"}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-[#d7e8d0]/60 hover:text-[#1b3a1f]"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-payroll-light/60 hover:text-payroll-navy transition-colors"
                     >
                       {isExpanded ? (
                         <Minus className="h-3.5 w-3.5" />
@@ -334,7 +337,7 @@ export function EmployeeTable({
                       )}
                     </button>
                   </td>
-                  <td className="px-4 py-3 font-mono font-medium text-[#1b3a1f] align-middle">
+                  <td className="px-4 py-3 font-mono font-bold text-payroll-navy align-middle">
                     {emp.attendanceCode}
                   </td>
                   <td className="px-4 py-3 font-mono text-gray-500 align-middle">
@@ -342,19 +345,19 @@ export function EmployeeTable({
                   </td>
                   <td className="px-4 py-3 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d7e8d0] text-[11px] font-bold text-[#1b3a1f]">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-payroll-light/70 text-[11px] font-bold text-payroll-navy border border-payroll-light shadow-2xs">
                         {emp.firstName[0]}
                         {emp.lastName[0]}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium text-[#1b3a1f]">
+                        <div className="font-bold text-payroll-navy truncate">
                           {emp.firstName} {emp.lastName}
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className="rounded-md bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
                             {emp.category}
                           </span>
-                          <span className="rounded-md bg-[#d7e8d0]/70 px-1.5 py-0.5 text-[10px] font-medium text-[#1b3a1f]">
+                          <span className="rounded-md bg-payroll-light/50 px-1.5 py-0.5 text-[10px] font-medium text-payroll-navy">
                             {emp.salaryGrade}
                           </span>
                         </div>
@@ -368,8 +371,8 @@ export function EmployeeTable({
                     {designationName}
                   </td>
                   <td className="px-4 py-3 align-middle">
-                    <div className="text-gray-600">{emp.email}</div>
-                    <div className="text-[11px] text-gray-400">{emp.mobileNo}</div>
+                    <div className="text-gray-700 truncate max-w-44">{emp.email}</div>
+                    <div className="text-[11px] text-gray-400 font-mono">{emp.mobileNo}</div>
                   </td>
                   <td className="px-4 py-3 align-middle text-gray-600">
                     {branchName}
@@ -378,30 +381,31 @@ export function EmployeeTable({
                     <Badge
                       variant={
                         emp.status === "Active"
-                          ? "info"
+                          ? "success"
                           : emp.status === "Terminated"
                             ? "danger"
                             : "warning"
                       }
+                      size="sm"
                     >
                       {emp.status}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right align-middle">
-                    <div className="relative inline-block">
+                    <div className="relative inline-block" ref={menuRef}>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setMenuOpenId(menuOpenId === emp.id ? null : emp.id);
                         }}
-                        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/60 hover:text-[#1b3a1f]"
+                        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-payroll-cream hover:text-payroll-navy cursor-pointer"
                         aria-label="Employee actions"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </button>
                       {menuOpenId === emp.id && (
-                        <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-[#d7e8d0] bg-white py-1 shadow-lg">
+                        <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-xl border border-payroll-light bg-white py-1 shadow-payroll-lg animate-[dialogIn_120ms_ease-out]">
                           <ActionMenuItem
                             icon={Eye}
                             label="View"
@@ -434,7 +438,7 @@ export function EmployeeTable({
                 </tr>
                 {isExpanded && (
                   <tr>
-                    <td colSpan={11} className="p-0">
+                    <td colSpan={11} className="p-0 bg-payroll-cream/30">
                       <EmployeeExpandableRow employee={emp} lookups={lookups} />
                     </td>
                   </tr>
@@ -456,11 +460,11 @@ function SortHeader({
   onClick: () => void;
 }) {
   return (
-    <th scope="col" className="px-4 py-3 font-semibold">
+    <th scope="col" className="px-4 py-3 font-bold text-payroll-navy">
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left transition-colors hover:text-[#1b3a1f] cursor-pointer"
+        className="inline-flex items-center gap-1.5 text-left transition-colors hover:text-payroll-primary cursor-pointer select-none"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -488,10 +492,10 @@ function ActionMenuItem({
         onClick(e);
       }}
       className={cn(
-        "flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors cursor-pointer",
+        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold transition-colors cursor-pointer select-none",
         tone === "danger"
-          ? "text-red-600 hover:bg-red-50"
-          : "text-gray-600 hover:bg-[#f6faf6]",
+          ? "text-rose-600 hover:bg-rose-50"
+          : "text-gray-700 hover:bg-payroll-cream",
       )}
     >
       <Icon className="h-3.5 w-3.5" />

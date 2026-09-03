@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
   PROVINCES,
   getDistrictsByProvince,
@@ -9,9 +9,189 @@ import {
   serializeStructuredAddress,
   type StructuredAddress,
 } from "@/lib/constants/nepal-locations";
-import { Check, Copy, MapPin } from "lucide-react";
+import { Check, Copy, MapPin, Search, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EmployeeValidationErrors } from "@/lib/types/employee";
+
+interface OptionItem {
+  value: string;
+  label: string;
+  labelNepali?: string;
+}
+
+interface SearchableAddressSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: OptionItem[];
+  placeholder: string;
+  disabled?: boolean;
+  hasError?: boolean;
+  emptyMessage?: string;
+}
+
+function SearchableAddressSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+  hasError = false,
+  emptyMessage = "No results found",
+}: SearchableAddressSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Close when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = useMemo(
+    () => options.find((o) => o.value.toLowerCase() === (value || "").toLowerCase()),
+    [options, value]
+  );
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase().trim();
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        (o.labelNepali && o.labelNepali.includes(q)) ||
+        o.value.toLowerCase().includes(q)
+    );
+  }, [options, search]);
+
+  const handleSelect = (val: string) => {
+    onChange(val);
+    setOpen(false);
+    setSearch("");
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange("");
+    setSearch("");
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div
+        onClick={() => {
+          if (!disabled) {
+            setOpen((prev) => !prev);
+            setTimeout(() => inputRef.current?.focus(), 50);
+          }
+        }}
+        className={cn(
+          "w-full rounded-lg border bg-white px-3 py-2 text-sm flex items-center justify-between transition-colors cursor-pointer select-none",
+          hasError
+            ? "border-red-500 ring-1 ring-red-500/20"
+            : "border-payroll-light hover:border-payroll-primary/60",
+          open && "border-payroll-primary ring-1 ring-payroll-primary/20",
+          disabled && "bg-gray-50 text-gray-400 cursor-not-allowed border-payroll-light/60"
+        )}
+      >
+        <div className="truncate flex-1 pr-2">
+          {selectedOption ? (
+            <span className="text-payroll-navy font-medium">
+              {selectedOption.label}
+              {selectedOption.labelNepali ? (
+                <span className="text-gray-400 text-xs ml-1.5 font-normal">
+                  ({selectedOption.labelNepali})
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <span className="text-gray-400 text-xs">{placeholder}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0 text-gray-400">
+          {value && !disabled && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-0.5 hover:text-gray-600 rounded"
+              title="Clear selection"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <ChevronsUpDown className="w-4 h-4" />
+        </div>
+      </div>
+
+      {open && !disabled && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-payroll-light bg-white shadow-payroll-md overflow-hidden animate-[fadeIn_100ms_ease-out]">
+          <div className="p-2 border-b border-payroll-light/80 bg-payroll-cream/50 flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Type to filter..."
+              className="w-full bg-transparent text-xs text-payroll-navy placeholder-gray-400 focus:outline-none"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-gray-400 hover:text-gray-600 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-56 overflow-y-auto p-1 divide-y divide-payroll-light/30">
+            {filteredOptions.length === 0 ? (
+              <div className="p-3 text-center text-xs text-gray-400">
+                {emptyMessage}
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = opt.value.toLowerCase() === (value || "").toLowerCase();
+                return (
+                  <div
+                    key={opt.value}
+                    onClick={() => handleSelect(opt.value)}
+                    className={cn(
+                      "px-3 py-2 text-xs rounded-lg flex items-center justify-between cursor-pointer transition-colors",
+                      isSelected
+                        ? "bg-payroll-primary/10 text-payroll-primary font-semibold"
+                        : "text-payroll-navy hover:bg-payroll-cream/80"
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{opt.label}</span>
+                      {opt.labelNepali && (
+                        <span className="text-[11px] text-gray-400">
+                          ({opt.labelNepali})
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-payroll-primary shrink-0" />}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface NepalAddressPickerProps {
   permanentAddress: string;
@@ -95,6 +275,27 @@ export function NepalAddressPicker({
   const inputClass =
     "w-full rounded-lg border border-payroll-light bg-white px-3 py-2 text-sm text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary";
 
+  // Format options for SearchableAddressSelect
+  const permDistrictOptions: OptionItem[] = useMemo(
+    () => permDistricts.map((d) => ({ value: d.name, label: d.name, labelNepali: d.nameNepali })),
+    [permDistricts]
+  );
+
+  const permPalikaOptions: OptionItem[] = useMemo(
+    () => permPalikas.map((p) => ({ value: p, label: p })),
+    [permPalikas]
+  );
+
+  const tempDistrictOptions: OptionItem[] = useMemo(
+    () => tempDistricts.map((d) => ({ value: d.name, label: d.name, labelNepali: d.nameNepali })),
+    [tempDistricts]
+  );
+
+  const tempPalikaOptions: OptionItem[] = useMemo(
+    () => tempPalikas.map((p) => ({ value: p, label: p })),
+    [tempPalikas]
+  );
+
   return (
     <div className="space-y-6">
       {/* 1. PERMANENT ADDRESS */}
@@ -137,40 +338,32 @@ export function NepalAddressPicker({
             </select>
           </div>
 
-          {/* District */}
+          {/* Searchable District */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">District (जिल्ला) *</label>
-            <select
+            <SearchableAddressSelect
               value={perm.district}
-              onChange={(e) => updatePerm("district", e.target.value)}
+              onChange={(val) => updatePerm("district", val)}
+              options={permDistrictOptions}
+              placeholder={perm.province ? "Search or select district..." : "Select province first"}
               disabled={!perm.province}
-              className={cn(inputClass, !perm.province && "bg-gray-50 text-gray-400 cursor-not-allowed")}
-            >
-              <option value="">Select District</option>
-              {permDistricts.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name} ({d.nameNepali})
-                </option>
-              ))}
-            </select>
+              emptyMessage="No district found in this province"
+            />
           </div>
 
-          {/* Local Level / Palika */}
+          {/* Searchable Local Level / Palika */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Local Level (गाउँपालिका / नगरपालिका) *</label>
-            <select
+            <label className="text-xs font-medium text-gray-600">
+              Local Level (गाउँपालिका / नगरपालिका) *
+            </label>
+            <SearchableAddressSelect
               value={perm.localLevel}
-              onChange={(e) => updatePerm("localLevel", e.target.value)}
+              onChange={(val) => updatePerm("localLevel", val)}
+              options={permPalikaOptions}
+              placeholder={perm.district ? "Search or select municipality / palika..." : "Select district first"}
               disabled={!perm.district}
-              className={cn(inputClass, !perm.district && "bg-gray-50 text-gray-400 cursor-not-allowed")}
-            >
-              <option value="">Select Municipality / Palika</option>
-              {permPalikas.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              emptyMessage="No municipality/palika found in this district"
+            />
           </div>
         </div>
 
@@ -223,16 +416,23 @@ export function NepalAddressPicker({
           <button
             type="button"
             onClick={handleCopyPermanentToTemporary}
+            disabled={!perm.province || !perm.district}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer",
-              isSameAddress
-                ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                : "border-payroll-primary bg-white text-payroll-primary hover:bg-payroll-primary hover:text-white"
+              "inline-flex items-center gap-1.5 rounded-lg border border-payroll-light bg-white px-2.5 py-1 text-xs font-medium text-payroll-navy shadow-2xs hover:bg-payroll-cream transition-colors",
+              (!perm.province || !perm.district) && "opacity-50 cursor-not-allowed"
             )}
-            title="Click to copy permanent address to temporary address"
           >
-            {isSameAddress ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            <span>{isSameAddress ? "Same as Permanent Address" : "Copy Permanent Address"}</span>
+            {isSameAddress ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="text-emerald-700 font-semibold">Same as Permanent</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5 text-payroll-primary" />
+                <span>Copy from Permanent</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -254,40 +454,32 @@ export function NepalAddressPicker({
             </select>
           </div>
 
-          {/* District */}
+          {/* Searchable District */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-600">District (जिल्ला)</label>
-            <select
+            <SearchableAddressSelect
               value={temp.district}
-              onChange={(e) => updateTemp("district", e.target.value)}
+              onChange={(val) => updateTemp("district", val)}
+              options={tempDistrictOptions}
+              placeholder={temp.province ? "Search or select district..." : "Select province first"}
               disabled={!temp.province}
-              className={cn(inputClass, !temp.province && "bg-gray-50 text-gray-400 cursor-not-allowed")}
-            >
-              <option value="">Select District</option>
-              {tempDistricts.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name} ({d.nameNepali})
-                </option>
-              ))}
-            </select>
+              emptyMessage="No district found in this province"
+            />
           </div>
 
-          {/* Local Level / Palika */}
+          {/* Searchable Local Level / Palika */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Local Level (गाउँपालिका / नगरपालिका)</label>
-            <select
+            <label className="text-xs font-medium text-gray-600">
+              Local Level (गाउँपालिका / नगरपालिका)
+            </label>
+            <SearchableAddressSelect
               value={temp.localLevel}
-              onChange={(e) => updateTemp("localLevel", e.target.value)}
+              onChange={(val) => updateTemp("localLevel", val)}
+              options={tempPalikaOptions}
+              placeholder={temp.district ? "Search or select municipality / palika..." : "Select district first"}
               disabled={!temp.district}
-              className={cn(inputClass, !temp.district && "bg-gray-50 text-gray-400 cursor-not-allowed")}
-            >
-              <option value="">Select Municipality / Palika</option>
-              {tempPalikas.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              emptyMessage="No municipality/palika found in this district"
+            />
           </div>
         </div>
 
