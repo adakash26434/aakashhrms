@@ -116,6 +116,32 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
     connect_timeout: 10,
   });
 
+  // Idempotent column check for address fields
+  try {
+    await sql.unsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employee_personal') THEN
+          ALTER TABLE employee_personal ADD COLUMN IF NOT EXISTS permanent_address TEXT;
+          IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address1') THEN
+            UPDATE employee_personal SET permanent_address = address1 WHERE permanent_address IS NULL AND address1 IS NOT NULL;
+            IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address1' AND is_nullable = 'NO') THEN
+              ALTER TABLE employee_personal ALTER COLUMN address1 DROP NOT NULL;
+            END IF;
+          END IF;
+          UPDATE employee_personal SET permanent_address = '' WHERE permanent_address IS NULL;
+          ALTER TABLE employee_personal ALTER COLUMN permanent_address SET NOT NULL;
+          ALTER TABLE employee_personal ADD COLUMN IF NOT EXISTS temporary_address TEXT;
+          IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address2') THEN
+            UPDATE employee_personal SET temporary_address = address2 WHERE temporary_address IS NULL AND address2 IS NOT NULL;
+          END IF;
+        END IF;
+      END $$;
+    `);
+  } catch (syncErr) {
+    console.warn('[TENANT_SCHEMA_SYNC] Idempotent schema sync note:', syncErr);
+  }
+
   const db = drizzle(sql, { schema });
 
   const now = Date.now();

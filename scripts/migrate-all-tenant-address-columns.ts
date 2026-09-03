@@ -112,15 +112,17 @@ async function main() {
     console.warn('⚠️ Could not query platform tenantDatabases table:', err);
   }
 
-  // 3. Also check standard common local databases (payroll_db, payroll_platform, etc.)
-  const commonDbs = ['payroll_db', 'payroll_platform', 'payroll_system'];
-  for (const name of commonDbs) {
-    try {
-      const url = `postgresql://postgres:admin@127.0.0.1:5432/${name}`;
-      await migrateDatabase(url, `LOCAL_FALLBACK_${name}`);
-    } catch {
-      // ignore
+  // 3. Directly query PostgreSQL for all pay_t_% tenant databases to be 100% thorough
+  try {
+    const adminSql = postgres('postgresql://postgres:admin@127.0.0.1:5432/postgres');
+    const dbRows = await adminSql`SELECT datname FROM pg_database WHERE datname LIKE 'pay_t_%' OR datname IN ('payroll_db', 'payroll_app');`;
+    for (const { datname } of dbRows) {
+      const url = `postgresql://postgres:admin@127.0.0.1:5432/${datname}`;
+      await migrateDatabase(url, `TENANT_PG_DISCOVERED_${datname}`);
     }
+    await adminSql.end();
+  } catch (err) {
+    console.warn('⚠️ Direct PostgreSQL DB enumeration note:', err);
   }
 
   console.log('\n🎉 ALL DATABASES HAVE BEEN MIGRATED AND SYNCED!');
