@@ -116,7 +116,7 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
     connect_timeout: 10,
   });
 
-  // Idempotent column check for address fields
+  // Idempotent column check for address fields and users authentication fields
   try {
     await sql.unsafe(`
       DO $$
@@ -135,6 +135,17 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
           IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address2') THEN
             UPDATE employee_personal SET temporary_address = address2 WHERE temporary_address IS NULL AND address2 IS NOT NULL;
           END IF;
+        END IF;
+
+        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') THEN
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0 NOT NULL;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false NOT NULL;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS delegated_to_user_id UUID;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS delegated_until TIMESTAMP;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_branch_ids TEXT[] DEFAULT ARRAY[]::text[] NOT NULL;
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_department_ids TEXT[] DEFAULT ARRAY[]::text[] NOT NULL;
         END IF;
       END $$;
     `);
