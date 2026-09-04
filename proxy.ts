@@ -23,11 +23,8 @@ export default async function middleware(request: NextRequest) {
     const isPlatformLogin = url.pathname === '/platform/login';
     const platformCookie = request.cookies.get('platform_session')?.value;
 
-    // If visiting /platform/login and already authenticated, redirect to /platform dashboard
+    // Never block or redirect on the platform login page itself
     if (isPlatformLogin) {
-      if (platformCookie) {
-        return NextResponse.redirect(new URL('/platform', request.url));
-      }
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
 

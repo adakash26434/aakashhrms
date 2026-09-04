@@ -149,10 +149,10 @@ export default function PlatformCompaniesPage() {
   // Filter by status and search
   const filtered = companies.filter((c) => {
     const matchesSearch =
-      c.legalName.toLowerCase().includes(search.toLowerCase()) ||
-      c.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      c.companyCode.toLowerCase().includes(search.toLowerCase()) ||
-      c.slug.toLowerCase().includes(search.toLowerCase());
+      (c.legalName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.displayName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.companyCode || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.slug || "").toLowerCase().includes(search.toLowerCase());
 
     const matchesStatus =
       statusFilter === "ALL" || c.status === statusFilter;
@@ -237,7 +237,7 @@ export default function PlatformCompaniesPage() {
             </div>
 
             {/* Missing in Postgres */}
-            {reconcileReport.summary
+            {(reconcileReport.summary || [])
               .filter((s) => s.status === "ORPHANED_METADATA")
               .map((orphan) => (
                 <div
@@ -282,7 +282,7 @@ export default function PlatformCompaniesPage() {
               ))}
 
             {/* Unlinked Databases in Postgres */}
-            {reconcileReport.unlinkedDatabases.map((unlinked) => (
+            {(reconcileReport.unlinkedDatabases || []).map((unlinked) => (
               <div
                 key={unlinked.dbName}
                 className="p-3.5 bg-white rounded-xl border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-payroll-xs"

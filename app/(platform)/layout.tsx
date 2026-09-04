@@ -34,9 +34,6 @@ export default async function PlatformLayout({
   const platformUser = await verifyPlatformSession();
 
   if (!platformUser) {
-    // Clear stale/invalid cookie before redirecting
-    const cookieStore = await cookies();
-    cookieStore.delete(PLATFORM_COOKIE_NAME);
     redirect("/platform/login");
   }
 

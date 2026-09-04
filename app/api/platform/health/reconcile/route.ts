@@ -19,14 +19,7 @@ export async function GET(request: Request) {
     ]);
 
     const mainDbUrl = process.env.DATABASE_URL!;
-    const urlObj = new URL(mainDbUrl.replace('postgresql://', 'http://'));
-    const dbUser = urlObj.username || 'postgres';
-    const dbPasswordPlain = urlObj.password || 'admin';
-    const dbHost = urlObj.hostname || '127.0.0.1';
-    const dbPort = urlObj.port || '5432';
-
-    const adminPgUrl = `postgresql://${dbUser}:${dbPasswordPlain}@${dbHost}:${dbPort}/postgres`;
-    const adminSql = postgres(adminPgUrl, { max: 1 });
+    const adminSql = postgres(mainDbUrl, { max: 1 });
 
     let postgresDatabases: Array<{ datname: string; size_bytes: number }> = [];
     try {

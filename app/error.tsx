@@ -21,19 +21,25 @@ export default function ErrorBoundary({
         <AlertTriangle className="h-8 w-8" />
       </div>
       <h2 className="text-2xl font-bold text-[#112D4E]">Something went wrong</h2>
-      <p className="mt-2 max-w-md text-sm text-gray-500">
-        An unexpected error occurred while processing your request. Please try reloading the page.
+      <p className="mt-2 max-w-md text-sm text-gray-600">
+        {error?.message || "An unexpected error occurred while processing your request."}
       </p>
       {error.digest && (
         <p className="mt-1 font-mono text-xs text-gray-400">Error Digest: {error.digest}</p>
       )}
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 flex flex-wrap gap-3 justify-center">
         <Button
           onClick={() => reset()}
           className="flex items-center gap-2 bg-[#19960e] hover:bg-[#157e0c] text-white"
         >
           <RefreshCw className="h-4 w-4" /> Try Again
         </Button>
+        <a
+          href="/platform/login"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all"
+        >
+          Go to Login
+        </a>
       </div>
     </div>
   );
