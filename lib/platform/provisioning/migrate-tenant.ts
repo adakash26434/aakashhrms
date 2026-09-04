@@ -4,6 +4,8 @@ import postgres from 'postgres';
 import path from 'path';
 import * as schema from '../../db/schema';
 
+import { ensureTenantSchema } from '../../db/tenant-schema-sync';
+
 /**
  * Executes all Drizzle migration SQL files against the target tenant database connection.
  */
@@ -12,25 +14,15 @@ export async function migrateTenantDatabase(connectionUrl: string): Promise<void
   const tenantDb = drizzle(sql, { schema });
 
   try {
+    // 1. Ensure enum values exist before running migration transactions
+    await ensureTenantSchema(sql);
+
+    // 2. Run Drizzle migrations
     const migrationsFolder = path.resolve(process.cwd(), 'lib/db/migrations');
     await migrate(tenantDb, { migrationsFolder });
 
-    // Idempotent column check for users authentication fields
-    await sql.unsafe(`
-      DO $$
-      BEGIN
-        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') THEN
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0 NOT NULL;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false NOT NULL;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS delegated_to_user_id UUID;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS delegated_until TIMESTAMP;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_branch_ids TEXT[] DEFAULT ARRAY[]::text[] NOT NULL;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_department_ids TEXT[] DEFAULT ARRAY[]::text[] NOT NULL;
-        END IF;
-      END $$;
-    `);
+    // 3. Ensure all columns are in place after migration
+    await ensureTenantSchema(sql);
   } finally {
     await sql.end();
   }

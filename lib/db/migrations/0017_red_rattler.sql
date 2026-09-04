@@ -1,6 +1,5 @@
 DELETE FROM "leave_rules";--> statement-breakpoint
-ALTER TYPE "public"."module" ADD VALUE IF NOT EXISTS 'LEAVE_RULES' BEFORE 'PAYROLL_GENERATE';--> statement-breakpoint
-ALTER TYPE "public"."module" ADD VALUE IF NOT EXISTS 'LEAVE_TYPES' BEFORE 'PAYROLL_GENERATE';--> statement-breakpoint
+-- Module values added in 0008 and ensured via schema sync outside transactions--> statement-breakpoint
 ALTER TABLE "leave_rules" DROP CONSTRAINT "leave_rules_rule_name_unique";--> statement-breakpoint
 ALTER TABLE "leave_rules" ADD COLUMN "leave_type_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "leave_rules" ADD COLUMN "fiscal_year_id" uuid;--> statement-breakpoint

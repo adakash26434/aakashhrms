@@ -5,6 +5,9 @@ import { tenantDatabases, companies } from '@/lib/platform/schema';
 import { decryptCredential } from '@/lib/platform/crypto';
 import { eq } from 'drizzle-orm';
 import * as schema from './schema';
+import { ensureTenantSchema } from './tenant-schema-sync';
+
+export { ensureTenantSchema };
 
 type TenantDrizzleInstance = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -14,6 +17,7 @@ interface TenantPoolEntry {
   lastUsedAt: number;
   /** Timestamp of the last status re-validation against the platform DB */
   lastStatusCheckAt: number;
+  schemaSynced?: boolean;
 }
 
 const globalForTenantPool = globalThis as unknown as {
@@ -48,6 +52,12 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
   if (cached) {
     const now = Date.now();
     cached.lastUsedAt = now;
+
+    // Self-healing: Ensure schema sync has run at least once for this pool instance
+    if (!cached.schemaSynced) {
+      await ensureTenantSchema(cached.sql);
+      cached.schemaSynced = true;
+    }
 
     // Defense-in-depth: periodically re-check that the company is still ACTIVE
     if (now - cached.lastStatusCheckAt > STATUS_RECHECK_INTERVAL_MS) {
@@ -101,10 +111,21 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
 
   // 3. Decrypt database password
   const dbPassword = decryptCredential(tenantDbRecord.dbPasswordEncrypted);
-  const dbHost = tenantDbRecord.dbHost || '127.0.0.1';
-  const dbPort = tenantDbRecord.dbPort || 5432;
+  let dbHost = tenantDbRecord.dbHost || '127.0.0.1';
+  let dbPort = tenantDbRecord.dbPort || 5432;
   const dbUser = tenantDbRecord.dbUser || 'postgres';
   const dbName = tenantDbRecord.dbName;
+
+  // Fallback: If dbHost in metadata is localhost/127.0.0.1, check if DATABASE_URL provides the actual container host
+  if ((dbHost === '127.0.0.1' || dbHost === 'localhost') && process.env.DATABASE_URL) {
+    try {
+      const parsedMain = new URL(process.env.DATABASE_URL.replace('postgresql://', 'http://'));
+      if (parsedMain.hostname && parsedMain.hostname !== '127.0.0.1' && parsedMain.hostname !== 'localhost') {
+        dbHost = parsedMain.hostname;
+        if (parsedMain.port) dbPort = Number(parsedMain.port);
+      }
+    } catch {}
+  }
 
   const tenantConnectionUrl = `postgresql://${dbUser}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbName}`;
 
@@ -117,41 +138,7 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
   });
 
   // Idempotent column check for address fields and users authentication fields
-  try {
-    await sql.unsafe(`
-      DO $$
-      BEGIN
-        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employee_personal') THEN
-          ALTER TABLE employee_personal ADD COLUMN IF NOT EXISTS permanent_address TEXT;
-          IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address1') THEN
-            UPDATE employee_personal SET permanent_address = address1 WHERE permanent_address IS NULL AND address1 IS NOT NULL;
-            IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address1' AND is_nullable = 'NO') THEN
-              ALTER TABLE employee_personal ALTER COLUMN address1 DROP NOT NULL;
-            END IF;
-          END IF;
-          UPDATE employee_personal SET permanent_address = '' WHERE permanent_address IS NULL;
-          ALTER TABLE employee_personal ALTER COLUMN permanent_address SET NOT NULL;
-          ALTER TABLE employee_personal ADD COLUMN IF NOT EXISTS temporary_address TEXT;
-          IF EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'employee_personal' AND column_name = 'address2') THEN
-            UPDATE employee_personal SET temporary_address = address2 WHERE temporary_address IS NULL AND address2 IS NOT NULL;
-          END IF;
-        END IF;
-
-        IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') THEN
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0 NOT NULL;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false NOT NULL;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS delegated_to_user_id UUID;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS delegated_until TIMESTAMP;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_branch_ids TEXT[] DEFAULT ARRAY[]::text[] NOT NULL;
-          ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_department_ids TEXT[] DEFAULT ARRAY[]::text[] NOT NULL;
-        END IF;
-      END $$;
-    `);
-  } catch (syncErr) {
-    console.warn('[TENANT_SCHEMA_SYNC] Idempotent schema sync note:', syncErr);
-  }
+  await ensureTenantSchema(sql);
 
   const db = drizzle(sql, { schema });
 
@@ -161,6 +148,7 @@ export async function getTenantDb(slug: string): Promise<TenantDrizzleInstance |
     db,
     lastUsedAt: now,
     lastStatusCheckAt: now,
+    schemaSynced: true,
   };
 
   tenantPools.set(normalizedSlug, entry);

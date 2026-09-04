@@ -76,8 +76,8 @@ export async function runProvisioningPipeline(companyId: string): Promise<{
       .values({
         companyId,
         dbName: dbConfig.dbName,
-        dbHost: '127.0.0.1',
-        dbPort: 5432,
+        dbHost: dbConfig.dbHost || '127.0.0.1',
+        dbPort: dbConfig.dbPort || 5432,
         dbUser: dbConfig.dbUser,
         dbPasswordEncrypted: encryptedPassword,
         schemaVersion: '1.0.0',

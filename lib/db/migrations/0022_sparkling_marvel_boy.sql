@@ -1,2 +1,2 @@
-ALTER TYPE "public"."module" ADD VALUE 'REPORTS_LEAVE' BEFORE 'USERS_ROLES';--> statement-breakpoint
-ALTER TYPE "public"."module" ADD VALUE 'REPORTS_LOAN' BEFORE 'USERS_ROLES';
+-- REPORTS_LEAVE and REPORTS_LOAN added in 0008 and ensured via schema sync outside transactions
+SELECT 1;

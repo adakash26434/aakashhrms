@@ -7,6 +7,8 @@ export async function createTenantDatabase(slug: string): Promise<{
   dbName: string;
   dbUser: string;
   dbPasswordPlain: string;
+  dbHost: string;
+  dbPort: number;
   connectionUrl: string;
 }> {
   // Clean slug format to prevent SQL injection
@@ -46,6 +48,8 @@ export async function createTenantDatabase(slug: string): Promise<{
       dbName,
       dbUser,
       dbPasswordPlain,
+      dbHost,
+      dbPort: Number(dbPort),
       connectionUrl,
     };
   } finally {

@@ -111,7 +111,12 @@ export default function PlatformCompaniesPage() {
       if (data.success) {
         const dbName = data.dbName || data.result?.dbName || "Provisioned";
         const code = data.companyCode || data.result?.companyCode || "";
-        toast.success(`Company provisioned successfully! DB: ${dbName}${code ? ` (${code})` : ""}`);
+        const tempPassword = data.tempPasswordPlain || data.result?.tempPasswordPlain;
+        toast.success(
+          `Company provisioned! DB: ${dbName}${code ? ` (${code})` : ""}${
+            tempPassword ? ` | Default Password: ${tempPassword}` : ""
+          }`
+        );
         fetchCompaniesAndHealth();
       } else {
         toast.error(`Provisioning error: ${data.error}`);

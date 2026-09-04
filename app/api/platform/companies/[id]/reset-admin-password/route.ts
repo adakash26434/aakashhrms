@@ -36,7 +36,8 @@ export async function POST(
     const tempPasswordPlain =
       rawPassword ||
       process.env.DEFAULT_TENANT_ADMIN_PASSWORD ||
-      `${randomBytes(8).toString('base64url')}@1A`;
+      process.env.INITIAL_ADMIN_PASSWORD ||
+      'Password123!';
 
     const tenantDb = await getTenantDb(company.slug);
     if (!tenantDb) {
@@ -111,6 +112,20 @@ export async function POST(
       }
     }
 
+    // Ensure target user has Office Admin role
+    const [officeAdminRole] = await tenantDb
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.slug, 'office_admin'))
+      .limit(1);
+
+    if (officeAdminRole) {
+      await tenantDb
+        .insert(userRoles)
+        .values({ userId: targetUserId, roleId: officeAdminRole.id })
+        .onConflictDoNothing();
+    }
+
     // If email was updated, synchronize company.contactEmail in platform DB
     const finalEmail = newEmail || targetEmail;
     if (newEmail && newEmail !== company.contactEmail) {
@@ -138,8 +153,10 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('Error resetting tenant admin password:', error);
+    const detailedMessage =
+      error?.cause?.message || error?.message || 'Failed to reset admin credentials.';
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to reset admin credentials.' },
+      { success: false, error: detailedMessage },
       { status: 500 }
     );
   }

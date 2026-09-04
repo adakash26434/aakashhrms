@@ -151,7 +151,7 @@ export function AdminPasswordResetCard({ companyId, companyName, currentEmail }:
               type="text"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Leave empty to use DEFAULT_TENANT_ADMIN_PASSWORD"
+              placeholder="Leave empty for default (Password123!)"
               className="w-full px-3 py-2 text-xs rounded-lg border border-payroll-light bg-white focus:outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary text-payroll-navy font-mono"
             />
           </div>
