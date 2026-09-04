@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 
@@ -18,7 +19,10 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
   tempPasswordPlain: string;
 }> {
   const { connectionUrl, legalName, companyCode, adminEmail, adminPasswordPlain, industryType } = options;
-  const tempPasswordPlain = adminPasswordPlain || 'Password123!';
+  const tempPasswordPlain =
+    adminPasswordPlain ||
+    process.env.DEFAULT_TENANT_ADMIN_PASSWORD ||
+    `${randomBytes(8).toString('base64url')}@1A`;
 
   const sql = postgres(connectionUrl, { max: 1 });
   const tenantDb = drizzle(sql, { schema });

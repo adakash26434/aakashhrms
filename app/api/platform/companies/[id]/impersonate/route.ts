@@ -118,10 +118,13 @@ export async function POST(
       redirectUrl: '/dashboard',
     });
 
+    const isPlainHttp = process.env.AUTH_URL?.startsWith('http://') || process.env.NEXTAUTH_URL?.startsWith('http://');
+    const isSecure = !isPlainHttp && process.env.NODE_ENV === 'production';
+
     // Set the impersonation cookie
     response.cookies.set(IMPERSONATION_COOKIE, impersonationToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       path: '/',
       maxAge: IMPERSONATION_MAX_AGE,

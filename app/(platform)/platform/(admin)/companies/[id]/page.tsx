@@ -9,6 +9,7 @@ import { ViewCompanyActions } from "@/components/platform/view-company-actions";
 import { DatabaseCredentialsCard } from "@/components/platform/database-credentials-card";
 import { CompanyLifecycleCard } from "@/components/platform/company-lifecycle-card";
 import { EditCompanyModal } from "@/components/platform/edit-company-modal";
+import { AdminPasswordResetCard } from "@/components/platform/admin-password-reset-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { INDUSTRY_SECTORS, IndustrySectorKey } from "@/lib/constants/industry-types";
@@ -252,10 +253,17 @@ export default async function CompanyDetailPage({
 
           {/* View Company Data Actions */}
           {company.status === "ACTIVE" && (
-            <ViewCompanyActions
-              companyId={company.id}
-              companyName={company.displayName}
-            />
+            <>
+              <ViewCompanyActions
+                companyId={company.id}
+                companyName={company.displayName}
+              />
+              <AdminPasswordResetCard
+                companyId={company.id}
+                companyName={company.displayName}
+                currentEmail={company.contactEmail}
+              />
+            </>
           )}
         </div>
       </div>

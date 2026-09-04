@@ -28,12 +28,24 @@ export async function loginAction(
     return undefined; 
   } catch (error: unknown) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case 'CredentialsSignin':
-          return { error: 'Invalid email or password.' };
-        default:
-          return { error: 'Something went wrong. Please try again.' };
+      const cause = (error as any).cause?.err ?? (error as any).cause;
+      const message = cause instanceof Error ? cause.message : (typeof cause === 'string' ? cause : '');
+
+      if (message.startsWith("TOO_MANY_ATTEMPTS:")) {
+        return { error: message.split(":").slice(1).join(":") };
       }
+      if (message.startsWith("INVALID_COMPANY:")) {
+        return { error: message.split(":").slice(1).join(":") };
+      }
+      if (
+        error.type === 'CredentialsSignin' ||
+        error.type === 'CallbackRouteError' ||
+        cause?.name === 'CredentialsSignin' ||
+        cause?.code === 'credentials'
+      ) {
+        return { error: 'Invalid email or password.' };
+      }
+      return { error: 'Something went wrong. Please try again.' };
     }
     // Handle rate-limit lockout thrown from authorize()
     if (error instanceof Error && error.message.startsWith("TOO_MANY_ATTEMPTS:")) {
