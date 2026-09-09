@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db';
 import { systemConfig } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import type { SystemControlData, EmployeeCategory, Meridiem } from '@/lib/types/system-control';
 
 // Default values as defined by the Excel specifications
@@ -15,7 +16,6 @@ const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
   },
   manualAttendance: {
     defaultWhenNotPosted: "Absent",
-    yearlyInsurancePremiumLimit: 0,
   },
   leavePermissions: {
     enabledCategories: {
@@ -97,7 +97,6 @@ export async function findSettings(): Promise<SystemControlData> {
     },
     manualAttendance: {
       defaultWhenNotPosted: getString('manualAttendance.defaultWhenNotPosted', DEFAULT_SYSTEM_CONTROL.manualAttendance.defaultWhenNotPosted),
-      yearlyInsurancePremiumLimit: getNumber('manualAttendance.yearlyInsurancePremiumLimit', DEFAULT_SYSTEM_CONTROL.manualAttendance.yearlyInsurancePremiumLimit),
     },
     leavePermissions: {
       enabledCategories: getJson('leavePermissions.enabledCategories', DEFAULT_SYSTEM_CONTROL.leavePermissions.enabledCategories),
@@ -130,7 +129,6 @@ export async function updateSettings(data: SystemControlData): Promise<SystemCon
     { key: 'officeTime.otMultiplierOffDay', value: String(data.officeTime.otMultiplierOffDay ?? 2.0), dataType: 'number' },
     
     { key: 'manualAttendance.defaultWhenNotPosted', value: data.manualAttendance.defaultWhenNotPosted, dataType: 'string' },
-    { key: 'manualAttendance.yearlyInsurancePremiumLimit', value: String(data.manualAttendance.yearlyInsurancePremiumLimit), dataType: 'number' },
     
     { key: 'leavePermissions.enabledCategories', value: JSON.stringify(data.leavePermissions.enabledCategories), dataType: 'json' },
     
@@ -147,8 +145,17 @@ export async function updateSettings(data: SystemControlData): Promise<SystemCon
     { key: 'insuranceDiscounts.remoteAllowanceNpr', value: String(data.insuranceDiscounts.remoteAllowanceNpr), dataType: 'number' },
   ];
 
+  const db = getDb();
+
+  // Purge removed legacy key from system_config if it exists in the database
+  try {
+    await db.delete(systemConfig).where(eq(systemConfig.key, 'manualAttendance.yearlyInsurancePremiumLimit'));
+  } catch {
+    // Ignore if not present
+  }
+
   for (const entry of entries) {
-    await getDb().insert(systemConfig)
+    await db.insert(systemConfig)
       .values(entry)
       .onConflictDoUpdate({
         target: systemConfig.key,

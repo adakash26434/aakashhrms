@@ -20,7 +20,6 @@ export const mockSettings: SystemControlData = {
   },
   manualAttendance: {
     defaultWhenNotPosted: "Absent",
-    yearlyInsurancePremiumLimit: 50000,
   },
   leavePermissions: {
     enabledCategories: {

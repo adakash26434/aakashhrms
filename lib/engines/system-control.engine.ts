@@ -25,9 +25,6 @@ export interface SystemControlValidationErrors {
   officeOutMinute?: string;
   graceWindowMinutes?: string;
 
-  // Manual Attendance
-  yearlyInsurancePremiumLimit?: string;
-
   // Statutory
   pfMaximumLimitPercent?: string;
   citLimitNpr?: string;
@@ -93,11 +90,6 @@ export function validateSystemControl(
     errors.graceWindowMinutes = "Must be a non-negative whole number.";
   } else if (data.officeTime.graceWindowMinutes > 120) {
     errors.graceWindowMinutes = "Must be 120 minutes or less.";
-  }
-
-  // Manual attendance
-  if (!isNonNegativeInt(data.manualAttendance.yearlyInsurancePremiumLimit)) {
-    errors.yearlyInsurancePremiumLimit = "Must be a non-negative whole number.";
   }
 
   // Statutory

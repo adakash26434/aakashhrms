@@ -45,7 +45,6 @@ export interface OfficeTimeSettings {
 
 export interface ManualAttendanceSettings {
   defaultWhenNotPosted: ManualAttendanceDefault;
-  yearlyInsurancePremiumLimit: number;
 }
 
 export interface LeavePermissionsSettings {
