@@ -1,38 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ShieldCheck,
   ArrowRight,
   Wallet,
   Users,
   CalendarRange,
-  Layers,
-  Building2,
   Sparkles,
   CheckCircle2,
   Calculator,
-  TrendingUp,
   FileSpreadsheet,
   Lock,
   BadgePercent,
-  Clock,
-  ArrowUpRight,
   Activity,
   ChevronRight,
   SlidersHorizontal,
-  Globe2,
-  Receipt,
   Landmark,
-  Compass,
   FileText,
   UserCheck,
-  Award,
   Check,
+  Globe,
+  Phone,
+  Mail,
+  ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { submitDemoRequestAction } from "@/app/actions/contact.actions";
+import { validatePhoneNumber } from "@/lib/utils/phone";
+import { PhoneInput } from "@/components/ui/phone-input";
+
+// Contact & Demo Form Recipient - easily updated or toggled
+const CONTACT_EMAIL = "info@aakashhrms.com";
 
 interface HomePageClientProps {
   isLoggedIn: boolean;
@@ -45,18 +46,153 @@ export function HomePageClient({
   userScope,
   userName,
 }: HomePageClientProps) {
-  const [activeTab, setActiveTab] = useState<
-    "payroll" | "attendance" | "selfService" | "governance"
-  >("payroll");
+  const [demoForm, setDemoForm] = useState({
+    fullName: "",
+    email: "",
+    companyName: "",
+    teamSize: "",
+    phone: "",
+    message: "",
+  });
+  const [demoSubmitted, setDemoSubmitted] = useState(false);
+  const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [demoResponse, setDemoResponse] = useState<{
+    emailSent: boolean;
+    message: string;
+    mailtoUrl?: string;
+  } | null>(null);
+
+  // Anti-bot & security state
+  const [honeypot, setHoneypot] = useState("");
+  const [formLoadedAt, setFormLoadedAt] = useState<number>(0);
+  const [captcha, setCaptcha] = useState<{ num1: number; num2: number }>({
+    num1: 3,
+    num2: 4,
+  });
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  const generateCaptcha = () => {
+    const n1 = Math.floor(Math.random() * 8) + 1; // 1 to 8
+    const n2 = Math.floor(Math.random() * 6) + 1; // 1 to 6
+    setCaptcha({ num1: n1, num2: n2 });
+    setCaptchaAnswer("");
+  };
+
+  useEffect(() => {
+    setFormLoadedAt(Date.now());
+    generateCaptcha();
+  }, []);
+
+  const validateForm = (): boolean => {
+    const errs: Record<string, string> = {};
+
+    if (!demoForm.fullName.trim() || demoForm.fullName.trim().length < 2) {
+      errs.fullName = "Please enter your full name (at least 2 characters).";
+    }
+
+    const trimmedEmail = demoForm.email.trim();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!trimmedEmail) {
+      errs.email = "Work email is required.";
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errs.email = "Please enter a valid work email (e.g. name@company.com).";
+    }
+
+    if (
+      !demoForm.companyName.trim() ||
+      demoForm.companyName.trim().length < 2
+    ) {
+      errs.companyName = "Please enter your company or organization name.";
+    }
+
+    const cleanPhone = demoForm.phone.trim();
+    if (!cleanPhone) {
+      errs.phone = "Phone number is required.";
+    } else {
+      const phoneCheck = validatePhoneNumber(cleanPhone, true, "NP");
+      if (!phoneCheck.isValid) {
+        errs.phone =
+          phoneCheck.error ||
+          "Please enter a valid phone number (e.g. +977 9800000000 or 01-4XXXXXX).";
+      }
+    }
+
+    // Anti-malware & script injection check
+    const maliciousPattern =
+      /<script|javascript:|data:text\/html|onclick|onload|onerror|<iframe|UNION\s+SELECT|DROP\s+TABLE/i;
+    const combinedText = `${demoForm.fullName} ${demoForm.email} ${demoForm.companyName} ${demoForm.phone} ${demoForm.message}`;
+    if (maliciousPattern.test(combinedText)) {
+      errs.fullName = "Suspicious code or HTML tags are not permitted.";
+    }
+
+    // Math human-verification check
+    const parsedAnswer = parseInt(captchaAnswer.trim(), 10);
+    if (
+      !captchaAnswer.trim() ||
+      isNaN(parsedAnswer) ||
+      parsedAnswer !== captcha.num1 + captcha.num2
+    ) {
+      errs.captchaAnswer = `Please solve the verification: ${captcha.num1} + ${captcha.num2} = ?`;
+    }
+
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
+    setIsSubmittingDemo(true);
+    setFormErrors({});
+    try {
+      const res = await submitDemoRequestAction({
+        ...demoForm,
+        botHoneypot: honeypot,
+        formLoadedAt,
+        captchaNum1: captcha.num1,
+        captchaNum2: captcha.num2,
+        captchaAnswer,
+      });
+      if (!res.success && res.errors) {
+        setFormErrors(res.errors);
+        generateCaptcha();
+        return;
+      }
+      setDemoResponse(res);
+      setDemoSubmitted(true);
+      if (res.mailtoUrl && !res.emailSent) {
+        window.location.href = res.mailtoUrl;
+      }
+    } catch (err) {
+      console.error("Failed to submit demo request:", err);
+      const fallbackMailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+        `Demo Request: ${demoForm.companyName} (${demoForm.fullName})`,
+      )}&body=${encodeURIComponent(
+        `Name: ${demoForm.fullName}\nEmail: ${demoForm.email}\nCompany: ${demoForm.companyName}\nTeam Size: ${demoForm.teamSize}\nPhone: ${demoForm.phone}\n\nNotes:\n${demoForm.message}`,
+      )}`;
+      setDemoResponse({
+        emailSent: false,
+        message: `Demo request recorded. Open email client to send directly to ${CONTACT_EMAIL}.`,
+        mailtoUrl: fallbackMailto,
+      });
+      setDemoSubmitted(true);
+      window.location.href = fallbackMailto;
+    } finally {
+      setIsSubmittingDemo(false);
+    }
+  };
 
   const dashboardTarget = userScope === "SELF" ? "/self-service" : "/dashboard";
   const dashboardLabel =
     userScope === "SELF" ? "Go to Self-Service" : "Open Workspace Dashboard";
 
   return (
-    <div className="min-h-screen bg-payroll-cream text-payroll-navy font-sans selection:bg-emerald-200 selection:text-payroll-navy">
+    <div className="min-h-screen bg-[#fcfdfc] text-payroll-navy font-sans selection:bg-emerald-200 selection:text-payroll-navy">
       {/* 1. Header Navigation */}
-      <header className="sticky top-0 z-50 border-b border-payroll-light/80 bg-white/80 backdrop-blur-md transition-all">
+      <header className="sticky top-0 z-50 border-b border-payroll-light/80 bg-white/85 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Brand Identity */}
           <Link href="/" className="flex items-center group focus:outline-none">
@@ -65,7 +201,7 @@ export function HomePageClient({
               alt="Aakash HRMS - Smart People, Strong Organization"
               width={200}
               height={64}
-              className="h-11 sm:h-20 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+              className="h-11 sm:h-22 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
               priority
             />
           </Link>
@@ -90,12 +226,6 @@ export function HomePageClient({
             >
               Operational Flow
             </a>
-            <a
-              href="#governance"
-              className="hover:text-payroll-primary transition-colors"
-            >
-              Security & RBAC
-            </a>
           </nav>
 
           {/* Action CTAs */}
@@ -119,417 +249,546 @@ export function HomePageClient({
                 </Link>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Link
                   href="/login"
+                  className="text-xs font-semibold text-gray-700 hover:text-payroll-primary transition-colors px-2 py-1"
+                >
+                  Sign In
+                </Link>
+                <a
+                  href="#demo"
                   className="flex items-center gap-2 rounded-xl bg-payroll-primary px-4.5 py-2 text-xs font-semibold text-white shadow-md shadow-payroll-primary/25 hover:bg-payroll-primary-hover hover:shadow-lg transition-all active:scale-[0.98]"
                 >
-                  <span>Sign In</span>
+                  <span>Request a demo</span>
                   <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                </a>
               </div>
             )}
           </div>
         </div>
       </header>
 
-      {/* 2. Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28">
-        {/* Subtle Background Glows */}
-        <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full bg-emerald-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute top-1/2 right-10 -z-10 h-72 w-72 rounded-full bg-payroll-light/50 blur-3xl" />
+      {/* 2. Hero Section: Light Minimal Backdrop with Soft Green Glow */}
+      <section className="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-32 bg-linear-to-b from-[#eef7f1] via-[#f7faf8] to-[#fbfdfb]">
+        {/* Soft Ambient Radial Aura */}
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(195,237,208,0.55),rgba(240,249,243,0.3)_45%,transparent_80%)]" />
+
+        {/* Soft Ambient Glows */}
+        <div className="pointer-events-none absolute -top-48 left-1/2 -z-10 h-140 w-240 -translate-x-1/2 rounded-full bg-linear-to-b from-emerald-200/50 via-teal-100/35 to-transparent blur-3xl" />
+        <div className="pointer-events-none absolute top-16 -right-10 -z-10 h-112 w-md rounded-full bg-emerald-100/40 blur-3xl" />
+        <div className="pointer-events-none absolute top-28 -left-10 -z-10 h-104 w-104 rounded-full bg-teal-100/35 blur-3xl" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm backdrop-blur-sm">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Statutory Nepal IRD & SSF Compliant Engine</span>
+          {/* Top Pill Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/90 px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs">
+            <span className="h-2 w-2 rounded-full bg-[#1e7e47]" />
+            <span>Nepal-compliant payroll & workforce management</span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="mt-6 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-payroll-navy max-w-4xl mx-auto leading-[1.15]">
-            Next-Gen Workforce &{" "}
-            <span className="bg-linear-to-r from-payroll-primary via-payroll-primary-hover to-payroll-primary bg-clip-text text-transparent">
-              Automated Payroll
-            </span>
+          <h1 className="mt-8 text-4xl sm:text-5xl md:text-[62px] font-bold tracking-[-0.035em] text-[#111827] max-w-4xl mx-auto leading-[1.12]">
+            Payroll, people & compliance —{" "}
+            <span className="text-[#1e6f42]">in</span>
+            <span className="block text-[#1e6f42]">one calm place</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-6 text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed font-normal">
-            A unified enterprise platform tailored for precision payroll
-            computation, dual Bikram Sambat (BS) & Gregorian (AD) time tracking,
-            loan amortization, and transparent employee self-service.
+          <p className="mt-6 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal tracking-[-0.01em]">
+            Aakash HRMS runs the full employee lifecycle — attendance, leave,
+            loans, PF, SSF, CIT, TDS and IRD-ready reporting — with a
+            multi-stage approval workflow built for Nepal.
           </p>
 
           {/* Hero CTAs */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-            <Link
-              href={isLoggedIn ? dashboardTarget : "/login"}
-              className="w-full sm:w-auto flex items-center justify-center gap-2.5 rounded-xl bg-payroll-primary px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-payroll-primary/25 hover:bg-payroll-primary-hover hover:shadow-xl transition-all active:scale-[0.98]"
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+            <a
+              href="#demo"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-[#1e7e47] px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#166534] transition-all active:scale-[0.98]"
             >
-              <span>
-                {isLoggedIn ? dashboardLabel : "Launch Workspace Portal"}
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-
+              Request a demo
+            </a>
             <a
               href="#capabilities"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs"
             >
-              <span>Explore Capabilities</span>
-              <ChevronRight className="h-4 w-4 text-gray-400" />
+              Explore features
             </a>
           </div>
 
-          {/* Trust Badges */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-y-2 gap-x-6 text-xs font-semibold text-gray-500">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>Progressive IRD Tax Slabs (2081/82)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>Social Security Fund (11% + 20% SSF)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>Dual BS / AD Nepali Calendars</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>Granular RBAC & Tenant Isolation</span>
-            </div>
+          {/* Feature Highlight Pills */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-xs font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3.5 py-1 backdrop-blur-xs shadow-xs">
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              Bikram Sambat aware
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3.5 py-1 backdrop-blur-xs shadow-xs">
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              PF · SSF · CIT · TDS
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3.5 py-1 backdrop-blur-xs shadow-xs">
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              IRD-ready reports
+            </span>
           </div>
         </div>
 
-        {/* 3. Interactive Interactive Live Module Preview */}
-        <div className="mx-auto mt-14 max-w-5xl px-4 sm:px-6 lg:px-8">
-          <div className="overflow-hidden rounded-2xl border border-payroll-light bg-white/90 shadow-xl shadow-gray-200/50 backdrop-blur-sm">
-            {/* Window Topbar */}
-            <div className="flex items-center justify-between border-b border-payroll-light bg-payroll-cream/70 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-rose-400" />
-                  <div className="h-3 w-3 rounded-full bg-amber-400" />
-                  <div className="h-3 w-3 rounded-full bg-emerald-400" />
-                </div>
-                <span className="ml-2 text-xs font-semibold text-gray-500">
-                  AakashHRMS Enterprise Workspace · Live Simulation
-                </span>
+        {/* 3. Live Dashboard Mockup in macOS Browser Frame */}
+        <div className="mx-auto mt-12 max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-200/80">
+            {/* Browser Window Chrome */}
+            <div className="flex items-center justify-between border-b border-slate-100 bg-[#fbfdfb] px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded-full bg-[#ec6a5e]" />
+                <div className="h-3 w-3 rounded-full bg-[#f4bf4f]" />
+                <div className="h-3 w-3 rounded-full bg-[#61c554]" />
               </div>
-              <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-gray-400">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Encrypted Tenant Context</span>
+              <div className="flex items-center gap-1.5 rounded-md bg-slate-100/90 px-6 py-1 text-xs text-slate-500 font-mono border border-slate-200/60">
+                <Lock className="h-3 w-3 text-slate-400" />
+                <span>app.aakashhrms.com/dashboard</span>
               </div>
+              <div className="w-10" />
             </div>
 
-            {/* Interactive Module Tabs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-payroll-light bg-gray-50/50 text-xs font-semibold">
-              <button
-                onClick={() => setActiveTab("payroll")}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition-all cursor-pointer",
-                  activeTab === "payroll"
-                    ? "border-payroll-primary bg-white text-payroll-navy font-bold shadow-xs"
-                    : "border-transparent text-gray-500 hover:text-gray-900",
-                )}
-              >
-                <Calculator className="h-4 w-4 text-payroll-primary" />
-                <span>Statutory Payroll</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("attendance")}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition-all cursor-pointer",
-                  activeTab === "attendance"
-                    ? "border-payroll-primary bg-white text-payroll-navy font-bold shadow-xs"
-                    : "border-transparent text-gray-500 hover:text-gray-900",
-                )}
-              >
-                <Clock className="h-4 w-4 text-blue-600" />
-                <span>Time & BS Calendar</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("selfService")}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition-all cursor-pointer",
-                  activeTab === "selfService"
-                    ? "border-payroll-primary bg-white text-payroll-navy font-bold shadow-xs"
-                    : "border-transparent text-gray-500 hover:text-gray-900",
-                )}
-              >
-                <Wallet className="h-4 w-4 text-emerald-600" />
-                <span>Employee Self-Service</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("governance")}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition-all cursor-pointer",
-                  activeTab === "governance"
-                    ? "border-payroll-primary bg-white text-payroll-navy font-bold shadow-xs"
-                    : "border-transparent text-gray-500 hover:text-gray-900",
-                )}
-              >
-                <Lock className="h-4 w-4 text-indigo-600" />
-                <span>Roles & Security</span>
-              </button>
-            </div>
-
-            {/* Tab Contents */}
-            <div className="p-6 md:p-8 bg-white">
-              {activeTab === "payroll" && (
-                <div className="space-y-5 animate-in fade-in-50 duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-payroll-navy">
-                        Automated Monthly Payroll Calculation (FY 2081/82)
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                        Automatic progressive tax brackets, SSF
-                        employer/employee portions, and loan deductions.
-                      </p>
-                    </div>
-                    <span className="self-start rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                      Status: Verified & Locked
-                    </span>
+            {/* Dashboard Workspace */}
+            <div className="flex bg-[#fcfdfc]">
+              {/* Left Slim Sidebar */}
+              <div className="w-14 shrink-0 border-r border-slate-100 bg-white p-3 flex flex-col items-center gap-5">
+                <div className="h-9 w-9 rounded-xl bg-[#1e7e47] flex items-center justify-center text-white shadow-xs">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="flex flex-col items-center gap-3 text-slate-400">
+                  <div className="p-2 rounded-lg bg-emerald-50 text-[#1e7e47]">
+                    <Activity className="h-4 w-4" />
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-                      <p className="text-xs font-medium text-emerald-800">
-                        Gross Earnings
-                      </p>
-                      <p className="mt-1 text-xl font-bold text-payroll-navy">
-                        NPR 75,000.00
-                      </p>
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        Basic (60%) + Dearness + Allowances
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4">
-                      <p className="text-xs font-medium text-rose-800">
-                        Statutory Deductions
-                      </p>
-                      <p className="mt-1 text-xl font-bold text-rose-700">
-                        - NPR 9,250.00
-                      </p>
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        11% SSF + IRD Tax Bracket + CIT
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-                      <p className="text-xs font-medium text-blue-800">
-                        Net Take-Home Pay
-                      </p>
-                      <p className="mt-1 text-xl font-bold text-blue-900">
-                        NPR 65,750.00
-                      </p>
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        1-Click Bank Transfer CSV Export
-                      </p>
-                    </div>
+                  <div className="p-2 rounded-lg hover:bg-slate-50 hover:text-slate-600">
+                    <Users className="h-4 w-4" />
                   </div>
-
-                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="h-4 w-4 text-payroll-primary" />
-                      <span>
-                        Direct payout export formatted for Standard Bank Switch
-                        & ConnectIPS.
-                      </span>
-                    </div>
-                    <span className="font-semibold text-payroll-primary">
-                      100% Tax Compliant
-                    </span>
+                  <div className="p-2 rounded-lg hover:bg-slate-50 hover:text-slate-600">
+                    <Wallet className="h-4 w-4" />
+                  </div>
+                  <div className="p-2 rounded-lg hover:bg-slate-50 hover:text-slate-600">
+                    <CalendarRange className="h-4 w-4" />
+                  </div>
+                  <div className="p-2 rounded-lg hover:bg-slate-50 hover:text-slate-600">
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </div>
+                  <div className="p-2 rounded-lg hover:bg-slate-50 hover:text-slate-600">
+                    <SlidersHorizontal className="h-4 w-4" />
                   </div>
                 </div>
-              )}
+              </div>
 
-              {activeTab === "attendance" && (
-                <div className="space-y-5 animate-in fade-in-50 duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-payroll-navy">
-                        Time, Attendance & Bikram Sambat (BS) Calendar Engine
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                        Dual calendar precision with automated overtime
-                        evaluation and statutory holiday calendars.
-                      </p>
-                    </div>
-                    <span className="self-start rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 border border-blue-200">
-                      Bhadra 2081 / August 2024
-                    </span>
+              {/* Main Content Area */}
+              <div className="flex-1 p-5 sm:p-7 space-y-6">
+                {/* Dashboard Header Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                      Dashboard
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Mangsir 2081 · Nov 16 - Dec 15
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 text-center">
-                      <p className="text-xs text-gray-500">Present Days</p>
-                      <p className="text-lg font-bold text-payroll-navy mt-1">
-                        22 Days
-                      </p>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs">
+                      <span>▾ This month</span>
                     </div>
-                    <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 text-center">
-                      <p className="text-xs text-gray-500">Paid Leaves</p>
-                      <p className="text-lg font-bold text-emerald-700 mt-1">
-                        2 Days
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 text-center">
-                      <p className="text-xs text-gray-500">Public Holidays</p>
-                      <p className="text-lg font-bold text-purple-700 mt-1">
-                        4 Days
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 text-center">
-                      <p className="text-xs text-gray-500">Overtime Hours</p>
-                      <p className="text-lg font-bold text-blue-700 mt-1">
-                        12.5 hrs
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CalendarRange className="h-4 w-4 text-blue-600" />
-                      <span>
-                        Seamless BS/AD toggle available system-wide across all
-                        views and date pickers.
-                      </span>
-                    </div>
-                    <span className="font-semibold text-blue-600">
-                      Dual-Engine Active
-                    </span>
+                    <button className="flex items-center gap-1 rounded-lg bg-[#1e7e47] hover:bg-[#166534] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors">
+                      <span>+ Generate payslip</span>
+                    </button>
                   </div>
                 </div>
-              )}
 
-              {activeTab === "selfService" && (
-                <div className="space-y-5 animate-in fade-in-50 duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-payroll-navy">
-                        Employee Self-Service (ESS) Transparent Portal
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                        Dedicated role with restricted self-scope, instant
-                        payslip downloads, and leave balance tracking.
-                      </p>
+                {/* 4 Stat Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  {/* Card 1 */}
+                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
+                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      TOTAL EMPLOYEES
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
+                      1,284
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <span>↑ +18 this month</span>
                     </div>
-                    <span className="self-start rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                      Scope: Individual Staff
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-3.5 rounded-xl border border-gray-100 bg-gray-50">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-1">
-                        <FileText className="h-4 w-4 text-emerald-600" />
-                        <span>Monthly Payslips</span>
+                  {/* Card 2 */}
+                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
+                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      PAYROLL LIABILITY
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
+                      NPR 8.42 Cr
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <span>↑ +2.1% vs Kartik</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3 */}
+                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
+                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      COMPLIANCE HEALTH
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
+                      96.4%
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <span>↑ +1.2 pts MoM</span>
+                    </div>
+                  </div>
+
+                  {/* Card 4 */}
+                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
+                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      PENDING APPROVALS
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
+                      27
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                      <span>↑ 9 high priority</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                  {/* Left Area Chart: Monthly payroll trend */}
+                  <div className="lg:col-span-7 rounded-xl border border-slate-200/80 bg-white p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                          Monthly payroll trend
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          Gross vs Net (NPR Crore)
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        Itemized PDF payslips with tax breakdowns ready to
-                        download.
-                      </p>
+                      <div className="flex items-center gap-3 text-[11px] font-medium">
+                        <span className="flex items-center gap-1 text-slate-600">
+                          <span className="h-2 w-2 rounded-full bg-payroll-primary-hover" />
+                          Gross
+                        </span>
+                        <span className="flex items-center gap-1 text-slate-600">
+                          <span className="h-2 w-2 rounded-full bg-[#66bb6a]" />
+                          Net
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="p-3.5 rounded-xl border border-gray-100 bg-gray-50">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-1">
-                        <CalendarRange className="h-4 w-4 text-blue-600" />
-                        <span>Leave Applications</span>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Apply for annual/sick leaves with real-time approval
-                        tracking.
-                      </p>
-                    </div>
+                    {/* SVG Area Chart */}
+                    <div className="mt-4 w-full h-40">
+                      <svg
+                        viewBox="0 0 420 140"
+                        className="w-full h-full overflow-visible"
+                        preserveAspectRatio="none"
+                      >
+                        <defs>
+                          <linearGradient
+                            id="grossGradient"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor="#2e7d32"
+                              stopOpacity="0.25"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#2e7d32"
+                              stopOpacity="0.01"
+                            />
+                          </linearGradient>
+                        </defs>
+                        {/* Y-axis grid lines */}
+                        <line
+                          x1="28"
+                          y1="15"
+                          x2="410"
+                          y2="15"
+                          stroke="#f1f5f9"
+                          strokeWidth="1"
+                          strokeDasharray="3 3"
+                        />
+                        <line
+                          x1="28"
+                          y1="65"
+                          x2="410"
+                          y2="65"
+                          stroke="#f1f5f9"
+                          strokeWidth="1"
+                          strokeDasharray="3 3"
+                        />
+                        <line
+                          x1="28"
+                          y1="115"
+                          x2="410"
+                          y2="115"
+                          stroke="#f1f5f9"
+                          strokeWidth="1"
+                          strokeDasharray="3 3"
+                        />
 
-                    <div className="p-3.5 rounded-xl border border-gray-100 bg-gray-50">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-1">
-                        <Landmark className="h-4 w-4 text-purple-600" />
-                        <span>Loan Amortization</span>
+                        {/* Y-axis labels */}
+                        <text
+                          x="18"
+                          y="18"
+                          fontSize="9"
+                          fill="#94a3b8"
+                          textAnchor="end"
+                        >
+                          100
+                        </text>
+                        <text
+                          x="18"
+                          y="68"
+                          fontSize="9"
+                          fill="#94a3b8"
+                          textAnchor="end"
+                        >
+                          50
+                        </text>
+                        <text
+                          x="18"
+                          y="118"
+                          fontSize="9"
+                          fill="#94a3b8"
+                          textAnchor="end"
+                        >
+                          0
+                        </text>
+
+                        {/* Shaded Area under Gross */}
+                        <path
+                          d="M 35,58 C 110,56 180,54 260,50 C 330,48 370,44 410,42 L 410,115 L 35,115 Z"
+                          fill="url(#grossGradient)"
+                        />
+                        {/* Gross Line (Dark Green) */}
+                        <path
+                          d="M 35,58 C 110,56 180,54 260,50 C 330,48 370,44 410,42"
+                          fill="none"
+                          stroke="#1b5e20"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                        {/* Net Line (Lighter Green) */}
+                        <path
+                          d="M 35,72 C 110,70 180,68 260,65 C 330,62 370,59 410,57"
+                          fill="none"
+                          stroke="#66bb6a"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      {/* X-axis labels */}
+                      <div className="flex justify-between text-[10px] font-medium text-slate-400 px-3 mt-1">
+                        <span>Shrawan</span>
+                        <span>Bhadra</span>
+                        <span>Ashoj</span>
+                        <span>Kartik</span>
+                        <span>Mangsir</span>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        View remaining loan balance and monthly salary deduction
-                        schedule.
-                      </p>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 text-emerald-600" />
-                      <span>
-                        Clean, modern mobile-friendly interface for all team
-                        members.
-                      </span>
-                    </div>
-                    <span className="font-semibold text-emerald-700">
-                      Self-Scoped Security
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "governance" && (
-                <div className="space-y-5 animate-in fade-in-50 duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
+                  {/* Right Donut Chart: Headcount by department */}
+                  <div className="lg:col-span-5 rounded-xl border border-slate-200/80 bg-white p-5 flex flex-col justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-payroll-navy">
-                        Granular RBAC Permission Matrix & Audit Log
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                        Multi-tenant company database isolation, module
-                        permission controls, and audit verification.
-                      </p>
-                    </div>
-                    <span className="self-start rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 border border-indigo-200">
-                      Enterprise Tier
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3.5 rounded-xl border border-gray-100 bg-gray-50">
-                      <p className="text-xs font-bold text-gray-800">
-                        Module Access Control Matrix
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Configure exact CREATE, VIEW, EDIT, and DELETE rights
-                        per role across 15 distinct functional modules.
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                        Headcount by department
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        1,284 active employees
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-xl border border-gray-100 bg-gray-50">
-                      <p className="text-xs font-bold text-gray-800">
-                        Immutable Audit Trail
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Every salary modification, attendance adjustment, and
-                        permission change is timestamped and recorded.
-                      </p>
-                    </div>
-                  </div>
+                    <div className="flex items-center justify-center gap-5 my-2">
+                      {/* Donut SVG */}
+                      <div className="relative w-28 h-28 shrink-0">
+                        <svg
+                          viewBox="0 0 36 36"
+                          className="w-full h-full -rotate-90"
+                        >
+                          {/* Background circle */}
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="14"
+                            fill="none"
+                            stroke="#f1f5f9"
+                            strokeWidth="4"
+                          />
+                          {/* Engineering segment: ~35% */}
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="14"
+                            fill="none"
+                            stroke="#1e7e47"
+                            strokeWidth="4"
+                            strokeDasharray="31 88"
+                            strokeDashoffset="0"
+                          />
+                          {/* Operations segment: ~28% */}
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="14"
+                            fill="none"
+                            stroke="#34a853"
+                            strokeWidth="4"
+                            strokeDasharray="25 88"
+                            strokeDashoffset="-32"
+                          />
+                          {/* Field Sales segment: ~23% */}
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="14"
+                            fill="none"
+                            stroke="#66bb6a"
+                            strokeWidth="4"
+                            strokeDasharray="20 88"
+                            strokeDashoffset="-58"
+                          />
+                          {/* Finance segment: ~14% */}
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="14"
+                            fill="none"
+                            stroke="#a5d6a7"
+                            strokeWidth="4"
+                            strokeDasharray="12 88"
+                            strokeDashoffset="-79"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                          <span className="text-xs font-bold text-slate-900">
+                            1,284
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-medium -mt-0.5">
+                            Active
+                          </span>
+                        </div>
+                      </div>
 
-                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs text-gray-600 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                      <span>
-                        Complete isolation between tenant databases and platform
-                        control plane.
-                      </span>
+                      {/* Legend */}
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                            <span className="h-2 w-2 rounded-full bg-[#1e7e47]" />
+                            Engineering
+                          </span>
+                          <span className="font-bold text-slate-800">312</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                            <span className="h-2 w-2 rounded-full bg-[#34a853]" />
+                            Operations
+                          </span>
+                          <span className="font-bold text-slate-800">268</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                            <span className="h-2 w-2 rounded-full bg-[#66bb6a]" />
+                            Field Sales
+                          </span>
+                          <span className="font-bold text-slate-800">224</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                            <span className="h-2 w-2 rounded-full bg-[#a5d6a7]" />
+                            Finance
+                          </span>
+                          <span className="font-bold text-slate-800">96</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="font-semibold text-indigo-600">
-                      Zero Leakage Guarantee
-                    </span>
                   </div>
                 </div>
-              )}
+
+                {/* Bottom Card: Payroll Approval Pipeline */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-5">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Payroll approval pipeline
+                    </h3>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Mangsir cycle · In review
+                    </span>
+                  </div>
+
+                  {/* 5-Step Stepper */}
+                  <div className="flex items-center justify-between max-w-2xl mx-auto relative px-2">
+                    {/* Step 1 */}
+                    <div className="flex flex-col items-center gap-1.5 relative z-10">
+                      <div className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-700">
+                        Draft
+                      </span>
+                    </div>
+                    {/* Connecting Line 1-2 */}
+                    <div className="flex-1 h-0.5 bg-emerald-200 -mt-5" />
+
+                    {/* Step 2 */}
+                    <div className="flex flex-col items-center gap-1.5 relative z-10">
+                      <div className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-700">
+                        Validation
+                      </span>
+                    </div>
+                    {/* Connecting Line 2-3 */}
+                    <div className="flex-1 h-0.5 bg-emerald-200 -mt-5" />
+
+                    {/* Step 3 */}
+                    <div className="flex flex-col items-center gap-1.5 relative z-10">
+                      <div className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-700">
+                        HR Review
+                      </span>
+                    </div>
+                    {/* Connecting Line 3-4 */}
+                    <div className="flex-1 h-0.5 bg-emerald-200 -mt-5" />
+
+                    {/* Step 4 (Active Stage) */}
+                    <div className="flex flex-col items-center gap-1.5 relative z-10">
+                      <div className="h-7 w-7 rounded-full bg-payroll-primary-hover text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                        4
+                      </div>
+                      <span className="text-[11px] font-bold text-payroll-primary-hover">
+                        Finance
+                      </span>
+                    </div>
+                    {/* Connecting Line 4-5 */}
+                    <div className="flex-1 h-0.5 bg-slate-200 -mt-5" />
+
+                    {/* Step 5 */}
+                    <div className="flex flex-col items-center gap-1.5 relative z-10">
+                      <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-400">
+                        5
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-400">
+                        Locked
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -538,7 +797,7 @@ export function HomePageClient({
       {/* 4. Core Capabilities Bento Grid */}
       <section
         id="capabilities"
-        className="border-t border-payroll-light bg-white py-20"
+        className="border-t border-payroll-light bg-white py-20 scroll-mt-12"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
@@ -643,7 +902,7 @@ export function HomePageClient({
             {/* Card 4 */}
             <div className="group rounded-2xl border border-payroll-light bg-payroll-cream/50 p-6 hover:bg-white hover:border-payroll-primary/30 hover:shadow-lg transition-all">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                <ShieldCheck className="h-5 w-5" />
+                <Lock className="h-5 w-5" />
               </div>
               <h3 className="mt-5 text-base font-bold text-payroll-navy">
                 Governance & Auditing
@@ -662,8 +921,8 @@ export function HomePageClient({
                   logs
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-purple-600" /> Multi-tenant
-                  architecture
+                  <Check className="h-3.5 w-3.5 text-purple-600" /> Secure
+                  database isolation
                 </li>
               </ul>
             </div>
@@ -674,7 +933,7 @@ export function HomePageClient({
       {/* 5. Statutory Compliance Engine Deep Dive */}
       <section
         id="statutory"
-        className="py-20 bg-payroll-cream/70 border-t border-payroll-light"
+        className="py-20 bg-payroll-cream/70 border-t border-payroll-light scroll-mt-12"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
@@ -688,7 +947,7 @@ export function HomePageClient({
               </h2>
               <p className="text-sm text-gray-600 leading-relaxed">
                 Forget generic spreadsheets and overseas HR software that fail
-                at local regulations. AakashHRMS calculates progressive income
+                at local regulations. Aakash HRMS calculates progressive income
                 tax, social security contributions, and statutory allowances
                 out-of-the-box.
               </p>
@@ -797,7 +1056,7 @@ export function HomePageClient({
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
                   <span>* Configurable per fiscal year in System Settings</span>
                   <span className="font-semibold text-payroll-navy">
-                    AakashHRMS v1.0
+                    Aakash HRMS v1.0
                   </span>
                 </div>
               </div>
@@ -809,7 +1068,7 @@ export function HomePageClient({
       {/* 6. Operational Flow */}
       <section
         id="workflow"
-        className="py-20 bg-white border-t border-payroll-light"
+        className="py-20 bg-white border-t border-payroll-light scroll-mt-12"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
@@ -901,84 +1160,585 @@ export function HomePageClient({
         </div>
       </section>
 
-      {/* 7. Security & Governance */}
+      {/* 7. Demo Contact Form Section (Immediately Before Footer) */}
       <section
-        id="governance"
-        className="py-16 bg-payroll-cream border-t border-payroll-light"
+        id="demo"
+        className="py-20 bg-white border-t border-slate-200/80 scroll-mt-12"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-3xl bg-payroll-navy p-8 md:p-12 text-white shadow-xl relative overflow-hidden">
-            <div className="pointer-events-none absolute -right-10 -bottom-10 h-72 w-72 rounded-full bg-payroll-primary/20 blur-2xl" />
-
-            <div className="relative z-10 max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-emerald-300 border border-white/10">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span>Enterprise Architecture & Isolation</span>
-              </div>
-              <h2 className="mt-4 text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
-                Secure Multi-Tenant Engine with Immutable Audit Records
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+            {/* Left Column: Heading & Value Props */}
+            <div className="lg:col-span-5 space-y-5">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#1e7e47]">
+                GET STARTED
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+                See Aakash HRMS in action
               </h2>
-              <p className="mt-4 text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
-                Every tenant is hosted with database isolation. Super
-                Administrators supervise system health from the Control Plane
-                without mixing tenant credentials or business data.
+              <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
+                Book a short walkthrough and we&apos;ll show you how payroll,
+                compliance and self-service fit your organization — tailored to
+                Nepal&apos;s rules.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
-                <Link
-                  href={isLoggedIn ? dashboardTarget : "/login"}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-xs font-bold text-white hover:bg-emerald-600 transition-all shadow-md active:scale-95"
-                >
-                  <span>Sign In to Your Workspace</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+              <div className="pt-3 space-y-3.5">
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-700 font-medium">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-600 text-emerald-600">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <span>A 30-minute, no-pressure product tour</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-700 font-medium">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-600 text-emerald-600">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <span>Nepal-specific statutory walkthrough</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-700 font-medium">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-600 text-emerald-600">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <span>Answers from our payroll specialists</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Contact Form Card */}
+            <div className="lg:col-span-7">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm">
+                {demoSubmitted ? (
+                  <div className="p-6 sm:p-8 text-center space-y-4">
+                    {demoResponse?.emailSent ? (
+                      <>
+                        <div className="mx-auto h-14 w-14 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-700 shadow-xs">
+                          <Check className="h-7 w-7 stroke-[2.5]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                          Walkthrough Request Received!
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                          Thank you,{" "}
+                          <span className="font-semibold text-slate-900">
+                            {demoForm.fullName || "there"}
+                          </span>
+                          ! Your demo inquiry has been dispatched to our product
+                          team. A Nepal statutory payroll specialist will reach
+                          out to you shortly.
+                        </p>
+
+                        <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-4 text-left max-w-md mx-auto space-y-2.5 text-xs">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                            <span className="font-medium text-slate-500">
+                              Delivery Status
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full text-[11px]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+                              Dispatched to Team
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2.5 pt-1 text-slate-700">
+                            <div>
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                                Organization
+                              </span>
+                              <span className="font-semibold text-slate-900 truncate block mt-0.5">
+                                {demoForm.companyName}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                                Work Email
+                              </span>
+                              <span className="font-semibold text-slate-900 truncate block mt-0.5">
+                                {demoForm.email}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                                Phone
+                              </span>
+                              <span className="font-semibold text-slate-900 truncate block mt-0.5">
+                                {demoForm.phone}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                                Team Size
+                              </span>
+                              <span className="font-semibold text-slate-900 truncate block mt-0.5">
+                                {demoForm.teamSize || "Not specified"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDemoSubmitted(false);
+                              setDemoResponse(null);
+                              setDemoForm({
+                                fullName: "",
+                                email: "",
+                                companyName: "",
+                                teamSize: "",
+                                phone: "",
+                                message: "",
+                              });
+                              setHoneypot("");
+                              setFormLoadedAt(Date.now());
+                              generateCaptcha();
+                            }}
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-5 py-2.5 text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
+                          >
+                            Submit another request
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mx-auto h-14 w-14 rounded-full bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-700 shadow-xs">
+                          <Mail className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                          Walkthrough Request Ready!
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                          Thank you,{" "}
+                          <span className="font-semibold text-slate-900">
+                            {demoForm.fullName || "there"}
+                          </span>
+                          ! Your inquiry for{" "}
+                          <span className="font-semibold text-slate-900">
+                            {demoForm.companyName || "your organization"}
+                          </span>{" "}
+                          is formatted. Click below to dispatch it via your mail
+                          client:
+                        </p>
+                        {demoResponse?.mailtoUrl && (
+                          <div className="pt-2 max-w-md mx-auto">
+                            <a
+                              href={demoResponse.mailtoUrl}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1e7e47] hover:bg-[#166534] px-5 py-3 text-xs font-semibold text-white shadow-xs transition-colors w-full"
+                            >
+                              <Mail className="h-4 w-4" />
+                              <span>
+                                Send via Email Client ({CONTACT_EMAIL})
+                              </span>
+                            </a>
+                          </div>
+                        )}
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDemoSubmitted(false);
+                              setDemoResponse(null);
+                              setDemoForm({
+                                fullName: "",
+                                email: "",
+                                companyName: "",
+                                teamSize: "",
+                                phone: "",
+                                message: "",
+                              });
+                              setHoneypot("");
+                              setFormLoadedAt(Date.now());
+                              generateCaptcha();
+                            }}
+                            className="text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline cursor-pointer"
+                          >
+                            Submit another request
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <form onSubmit={handleDemoSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Full name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Your name"
+                          value={demoForm.fullName}
+                          onChange={(e) => {
+                            setDemoForm({
+                              ...demoForm,
+                              fullName: e.target.value,
+                            });
+                            if (formErrors.fullName) {
+                              setFormErrors({ ...formErrors, fullName: "" });
+                            }
+                          }}
+                          className={cn(
+                            "w-full rounded-lg border px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
+                            formErrors.fullName
+                              ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
+                              : "border-slate-200 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                          )}
+                        />
+                        {formErrors.fullName && (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600">
+                            {formErrors.fullName}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Work email <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="you@company.com"
+                          value={demoForm.email}
+                          onChange={(e) => {
+                            setDemoForm({ ...demoForm, email: e.target.value });
+                            if (formErrors.email) {
+                              setFormErrors({ ...formErrors, email: "" });
+                            }
+                          }}
+                          className={cn(
+                            "w-full rounded-lg border px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
+                            formErrors.email
+                              ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
+                              : "border-slate-200 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                          )}
+                        />
+                        {formErrors.email && (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600">
+                            {formErrors.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Company name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Your organization"
+                        value={demoForm.companyName}
+                        onChange={(e) => {
+                          setDemoForm({
+                            ...demoForm,
+                            companyName: e.target.value,
+                          });
+                          if (formErrors.companyName) {
+                            setFormErrors({ ...formErrors, companyName: "" });
+                          }
+                        }}
+                        className={cn(
+                          "w-full rounded-lg border px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
+                          formErrors.companyName
+                            ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
+                            : "border-slate-200 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                        )}
+                      />
+                      {formErrors.companyName && (
+                        <p className="mt-1 text-[11px] font-medium text-rose-600">
+                          {formErrors.companyName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Team size
+                        </label>
+                        <select
+                          value={demoForm.teamSize}
+                          onChange={(e) =>
+                            setDemoForm({
+                              ...demoForm,
+                              teamSize: e.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47] focus:outline-none transition-all cursor-pointer"
+                        >
+                          <option value="">Select size</option>
+                          <option value="1-20">1 – 20 employees</option>
+                          <option value="21-100">21 – 100 employees</option>
+                          <option value="101-500">101 – 500 employees</option>
+                          <option value="500+">500+ employees</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Phone <span className="text-rose-500">*</span>
+                        </label>
+                        <PhoneInput
+                          value={demoForm.phone}
+                          onChange={(val) => {
+                            setDemoForm({ ...demoForm, phone: val });
+                            if (formErrors.phone) {
+                              setFormErrors({ ...formErrors, phone: "" });
+                            }
+                          }}
+                          hasError={!!formErrors.phone}
+                          placeholder="98XXXXXXXX"
+                          className="h-10 rounded-lg border-slate-200 bg-white text-xs text-slate-900 focus:ring-1 focus:ring-[#1e7e47] focus:border-[#1e7e47]"
+                          selectClassName="h-10 rounded-lg border-slate-200 bg-white text-xs font-medium text-slate-800 focus:ring-1 focus:ring-[#1e7e47] focus:border-[#1e7e47]"
+                        />
+                        {formErrors.phone && (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600">
+                            {formErrors.phone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        What would you like to explore?
+                      </label>
+                      <textarea
+                        rows={3}
+                        placeholder="Tell us a little about your current payroll setup..."
+                        value={demoForm.message}
+                        onChange={(e) =>
+                          setDemoForm({ ...demoForm, message: e.target.value })
+                        }
+                        className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47] focus:outline-none transition-all resize-none"
+                      />
+                    </div>
+
+                    {/* Security Verification (Anti-Bot & Anti-Malware Protection) */}
+                    <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                          <ShieldCheck className="h-4 w-4 text-[#1e7e47]" />
+                          <span>Security Check</span>
+                          <span className="text-[10px] font-normal text-slate-500">
+                            (Anti-bot verification)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={generateCaptcha}
+                          className="text-[11px] text-slate-500 hover:text-[#1e7e47] flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Generate new question"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          <span>New question</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-800 tracking-wider shadow-2xs select-none min-w-[90px] text-center">
+                          {captcha.num1} + {captcha.num2} = ?
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Enter answer"
+                            value={captchaAnswer}
+                            onChange={(e) => {
+                              setCaptchaAnswer(e.target.value);
+                              if (formErrors.captchaAnswer) {
+                                setFormErrors({
+                                  ...formErrors,
+                                  captchaAnswer: "",
+                                });
+                              }
+                            }}
+                            className={cn(
+                              "w-full rounded-lg border px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
+                              formErrors.captchaAnswer
+                                ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
+                                : "border-slate-200 bg-white focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                            )}
+                          />
+                        </div>
+                      </div>
+                      {formErrors.captchaAnswer && (
+                        <p className="text-[11px] font-medium text-rose-600">
+                          {formErrors.captchaAnswer}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Hidden Honeypot to trap spam bots */}
+                    <div
+                      className="hidden pointer-events-none opacity-0 h-0 w-0 overflow-hidden"
+                      aria-hidden="true"
+                    >
+                      <label htmlFor="company_fax_website">Leave empty</label>
+                      <input
+                        type="text"
+                        id="company_fax_website"
+                        name="company_fax_website"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={honeypot}
+                        onChange={(e) => setHoneypot(e.target.value)}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingDemo}
+                      className="w-full rounded-xl bg-[#1e7e47] hover:bg-[#166534] disabled:opacity-60 text-white py-3.5 text-sm font-semibold shadow-sm transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isSubmittingDemo ? (
+                        <span>Sending request to {CONTACT_EMAIL}...</span>
+                      ) : (
+                        <span>Request my demo</span>
+                      )}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 8. Footer */}
-      <footer className="border-t border-payroll-light bg-white py-12 text-xs text-gray-500">
+      {/* 8. Enterprise Forest Green Footer */}
+      <footer className="bg-[#102214] text-white pt-16 pb-12 text-xs">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/AakashHrmsLogo.png"
-                alt="Aakash HRMS"
-                width={130}
-                height={32}
-                className="h-7 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
-              />
-              <span className="text-gray-300">|</span>
-              <span>Next-Gen Workforce & Statutory Payroll Engine</span>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+            {/* Brand Column */}
+            <div className="md:col-span-5 space-y-4">
+              <div className="inline-flex items-center gap-3 rounded-xl bg-white px-4 py-2 shadow-sm">
+                <Image
+                  src="/AakashHrmsLogo.png"
+                  alt="Aakash HRMS - Smart People, Strong Organization"
+                  width={160}
+                  height={48}
+                  className="h-8 w-auto object-contain"
+                />
+              </div>
+              <p className="text-xs text-emerald-100/75 leading-relaxed max-w-sm pt-2">
+                Nepal-compliant payroll and workforce management for modern
+                organizations.
+              </p>
             </div>
 
-            <div className="flex items-center gap-6 text-xs">
-              <Link
-                href="/login"
-                className="hover:text-payroll-navy transition-colors"
-              >
-                Company Login
-              </Link>
-              <Link
-                href="/self-service"
-                className="hover:text-payroll-navy transition-colors"
-              >
-                Self-Service Portal
-              </Link>
-              <Link
-                href="/platform/login"
-                className="hover:text-payroll-navy transition-colors"
-              >
-                Control Plane
-              </Link>
+            {/* Product Column */}
+            <div className="md:col-span-2 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+                PRODUCT
+              </h4>
+              <ul className="space-y-2.5 text-emerald-100/70">
+                <li>
+                  <a
+                    href="#capabilities"
+                    className="hover:text-white transition-colors"
+                  >
+                    Features
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#workflow"
+                    className="hover:text-white transition-colors"
+                  >
+                    Payroll workflow
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#statutory"
+                    className="hover:text-white transition-colors"
+                  >
+                    Compliance
+                  </a>
+                </li>
+                <li>
+                  <Link
+                    href="/self-service"
+                    className="hover:text-white transition-colors"
+                  >
+                    Self-service
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Company Column */}
+            <div className="md:col-span-2 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+                COMPANY
+              </h4>
+              <ul className="space-y-2.5 text-emerald-100/70">
+                <li>
+                  <a
+                    href="#demo"
+                    className="hover:text-white transition-colors"
+                  >
+                    Request a demo
+                  </a>
+                </li>
+                <li>
+                  <Link
+                    href="/login"
+                    className="hover:text-white transition-colors"
+                  >
+                    Sign in
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Get In Touch Column */}
+            <div className="md:col-span-3 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+                GET IN TOUCH
+              </h4>
+              <ul className="space-y-2.5 text-emerald-100/70">
+                <li>
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}`}
+                    className="inline-flex items-center gap-2 hover:text-white transition-colors underline-offset-2 hover:underline"
+                    title={`Send email to ${CONTACT_EMAIL}`}
+                  >
+                    <Mail className="h-3.5 w-3.5 text-emerald-400/90 shrink-0" />
+                    <span>{CONTACT_EMAIL}</span>
+                  </a>
+                </li>
+                <li className="flex items-center gap-2 flex-wrap text-emerald-100/90">
+                  <Phone className="h-3.5 w-3.5 text-emerald-400/90 shrink-0" />
+                  <a
+                    href="tel:+97761590067"
+                    className="hover:text-white transition-colors underline-offset-2 hover:underline font-medium"
+                    title="Click to call 061-590067"
+                  >
+                    061-590067
+                  </a>
+                  <span className="text-emerald-400/50">/</span>
+                  <a
+                    href="tel:+97761591388"
+                    className="hover:text-white transition-colors underline-offset-2 hover:underline font-medium"
+                    title="Click to call 061-591388"
+                  >
+                    061-591388
+                  </a>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Globe className="h-3.5 w-3.5 mt-0.5 text-emerald-400/90 shrink-0" />
+                  <span className="block text-emerald-100/70">
+                    Pokhara, Kaski, Nepal
+                  </span>
+                </li>
+              </ul>
             </div>
           </div>
 
-          <div className="mt-8 border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-gray-400">
-            <p>© {new Date().getFullYear()} AakashHRMS. All rights reserved.</p>
-            <p>Engineered for Nepal Statutory Compliance & Enterprise Scale.</p>
+          {/* Bottom Divider and Copyright Bar */}
+          <div className="mt-14 border-t border-emerald-900/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-100/60">
+            <p>© 2026 Aakash HRMS. All rights reserved.</p>
+            <p className="font-medium text-emerald-100/80">Made in Nepal 🇳🇵</p>
           </div>
         </div>
       </footer>
