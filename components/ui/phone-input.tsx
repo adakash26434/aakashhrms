@@ -70,6 +70,7 @@ interface PhoneInputProps {
   disabled?: boolean;
   hasError?: boolean;
   className?: string;
+  selectClassName?: string;
   containerClassName?: string;
   id?: string;
 }
@@ -81,6 +82,7 @@ export function PhoneInput({
   disabled = false,
   hasError = false,
   className,
+  selectClassName,
   containerClassName,
   id,
 }: PhoneInputProps) {
@@ -145,7 +147,12 @@ export function PhoneInput({
   const currentCallingCode = getCountryCallingCode(selectedCountry, metadata);
 
   return (
-    <div className={cn("flex items-center gap-2 w-full min-w-0", containerClassName)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 w-full min-w-0",
+        containerClassName,
+      )}
+    >
       <div className="relative shrink-0">
         <select
           suppressHydrationWarning
@@ -153,9 +160,10 @@ export function PhoneInput({
           onChange={handleCountryChange}
           disabled={disabled}
           className={cn(
-            "h-10 max-w-[125px] sm:max-w-[140px] rounded-xl border border-payroll-light bg-payroll-cream px-2.5 text-xs font-semibold text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-2 focus:ring-payroll-primary cursor-pointer disabled:opacity-50 text-ellipsis overflow-hidden transition-all shadow-sm",
+            "h-10 max-w-31.25 sm:max-w-35 rounded-xl border border-payroll-light bg-payroll-cream px-2.5 text-xs font-semibold text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-2 focus:ring-payroll-primary cursor-pointer disabled:opacity-50 text-ellipsis overflow-hidden transition-all shadow-sm",
             hasError &&
               "border-rose-300 bg-rose-50/40 text-rose-800 focus:ring-rose-500",
+            selectClassName,
           )}
         >
           {ALL_COUNTRIES.map((c) => (

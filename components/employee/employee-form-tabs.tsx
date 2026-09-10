@@ -17,7 +17,7 @@ import {
   getNextAttendanceCode,
 } from "@/lib/engines/employee.engine";
 import { cn } from "@/lib/utils";
-import { Sparkles, Check, Info, Link as LinkIcon, RefreshCw } from "lucide-react";
+import { Sparkles, Check, Info, Link as LinkIcon, RefreshCw, Lock } from "lucide-react";
 
 const formatLocalDate = (d: Date): string => {
   const y = d.getFullYear();
@@ -282,13 +282,21 @@ export function EmployeeFormTabs({
           </select>
         </div>
         <div className="space-y-1">
-          <label className={labelClass(!!errors?.shreni)}>Shreni (श्रेणी / Class / Level) *</label>
+          <div className="flex items-center justify-between">
+            <label className={labelClass(!!errors?.shreni)}>
+              Shreni (श्रेणी / Class / Level) *
+            </label>
+            <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-medium">
+              <Lock className="h-2.5 w-2.5 text-gray-400" />
+              <span>Company Scale</span>
+            </span>
+          </div>
           <ShreniCombobox
             value={formData.shreni}
             onChange={(val) => update("shreni", val)}
             industryType={industryType}
             hasError={!!errors?.shreni}
-            placeholder="Select or type Shreni / Level (e.g. Level 6, अधिकृत, Shreni 2)..."
+            placeholder="Select Shreni / Level..."
           />
           {errors?.shreni && (
             <p className="text-[11px] font-medium text-red-500">{errors.shreni}</p>

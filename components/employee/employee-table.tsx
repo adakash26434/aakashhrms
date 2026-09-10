@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ArrowUpDown,
   Eye,
   Minus,
-  MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
@@ -50,22 +49,9 @@ export function EmployeeTable({
   onDelete,
 }: EmployeeTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("employeeCode");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  // Close the action menu when clicking outside
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpenId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   const sortedEmployees = useMemo(() => {
     const list = [...employees];
@@ -122,8 +108,10 @@ export function EmployeeTable({
     setExpandedId((prev) => (prev === id ? null : id));
   }
 
-  const isAllSelected = sortedEmployees.length > 0 && selectedIds.size === sortedEmployees.length;
-  const isSomeSelected = selectedIds.size > 0 && selectedIds.size < sortedEmployees.length;
+  const isAllSelected =
+    sortedEmployees.length > 0 && selectedIds.size === sortedEmployees.length;
+  const isSomeSelected =
+    selectedIds.size > 0 && selectedIds.size < sortedEmployees.length;
 
   const handleSelectAll = () => {
     if (isAllSelected) {
@@ -150,12 +138,29 @@ export function EmployeeTable({
     const selectedEmps = sortedEmployees.filter((e) => selectedIds.has(e.id));
     if (selectedEmps.length === 0) return;
 
-    const headers = ["Employee Code", "Attendance Code", "Name", "Department", "Designation", "Branch", "Category", "Status", "Email", "Mobile"];
+    const headers = [
+      "Employee Code",
+      "Attendance Code",
+      "Name",
+      "Department",
+      "Designation",
+      "Branch",
+      "Category",
+      "Status",
+      "Email",
+      "Mobile",
+    ];
     const csvRows = [headers.join(",")];
 
     for (const emp of selectedEmps) {
-      const dept = resolveDepartmentName(emp.departmentId, lookups.departmentNameById);
-      const desig = resolveDesignationName(emp.designationId, lookups.designationNameById);
+      const dept = resolveDepartmentName(
+        emp.departmentId,
+        lookups.departmentNameById,
+      );
+      const desig = resolveDesignationName(
+        emp.designationId,
+        lookups.designationNameById,
+      );
       const branch = resolveBranchName(emp.branchId, lookups.branchNameById);
       const name = `"${emp.firstName} ${emp.lastName}"`;
       const row = [
@@ -173,7 +178,9 @@ export function EmployeeTable({
       csvRows.push(row.join(","));
     }
 
-    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvRows.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -212,7 +219,9 @@ export function EmployeeTable({
               {selectedIds.size}
             </span>
             <span className="text-xs font-medium">
-              {selectedIds.size === 1 ? "1 employee selected" : `${selectedIds.size} employees selected`}
+              {selectedIds.size === 1
+                ? "1 employee selected"
+                : `${selectedIds.size} employees selected`}
             </span>
           </div>
 
@@ -251,7 +260,10 @@ export function EmployeeTable({
                 title="Select all"
               />
             </th>
-            <th scope="col" className="w-8 px-2 py-3 text-center align-middle" />
+            <th
+              scope="col"
+              className="w-8 px-2 py-3 text-center align-middle"
+            />
             <SortHeader
               label="Attn Code"
               onClick={() => toggleSort("attendanceCode")}
@@ -260,7 +272,10 @@ export function EmployeeTable({
               label="Emp Code"
               onClick={() => toggleSort("employeeCode")}
             />
-            <SortHeader label="Employee Name" onClick={() => toggleSort("name")} />
+            <SortHeader
+              label="Employee Name"
+              onClick={() => toggleSort("name")}
+            />
             <SortHeader
               label="Department"
               onClick={() => toggleSort("departmentId")}
@@ -274,7 +289,10 @@ export function EmployeeTable({
             </th>
             <SortHeader label="Branch" onClick={() => toggleSort("branchId")} />
             <SortHeader label="Status" onClick={() => toggleSort("status")} />
-            <th scope="col" className="px-4 py-3 text-right font-bold text-payroll-navy">
+            <th
+              scope="col"
+              className="px-4 py-3 text-right font-bold text-payroll-navy"
+            >
               Actions
             </th>
           </tr>
@@ -371,8 +389,12 @@ export function EmployeeTable({
                     {designationName}
                   </td>
                   <td className="px-4 py-3 align-middle">
-                    <div className="text-gray-700 truncate max-w-44">{emp.email}</div>
-                    <div className="text-[11px] text-gray-400 font-mono">{emp.mobileNo}</div>
+                    <div className="text-gray-700 truncate max-w-44">
+                      {emp.email}
+                    </div>
+                    <div className="text-[11px] text-gray-400 font-mono">
+                      {emp.mobileNo}
+                    </div>
                   </td>
                   <td className="px-4 py-3 align-middle text-gray-600">
                     {branchName}
@@ -391,48 +413,36 @@ export function EmployeeTable({
                       {emp.status}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-right align-middle">
-                    <div className="relative inline-block" ref={menuRef}>
-                      <button
-                        type="button"
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-center justify-end gap-1">
+                      <ActionButton
+                        label={`View ${emp.firstName} ${emp.lastName}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setMenuOpenId(menuOpenId === emp.id ? null : emp.id);
+                          onSelect(emp.id);
                         }}
-                        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-payroll-cream hover:text-payroll-navy cursor-pointer"
-                        aria-label="Employee actions"
                       >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                      {menuOpenId === emp.id && (
-                        <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-xl border border-payroll-light bg-white py-1 shadow-payroll-lg animate-[dialogIn_120ms_ease-out]">
-                          <ActionMenuItem
-                            icon={Eye}
-                            label="View"
-                            onClick={() => {
-                              onSelect(emp.id);
-                              setMenuOpenId(null);
-                            }}
-                          />
-                          <ActionMenuItem
-                            icon={Pencil}
-                            label="Edit"
-                            onClick={() => {
-                              onEdit(emp.id);
-                              setMenuOpenId(null);
-                            }}
-                          />
-                          <ActionMenuItem
-                            icon={Trash2}
-                            label="Delete"
-                            tone="danger"
-                            onClick={() => {
-                              onDelete(emp.id);
-                              setMenuOpenId(null);
-                            }}
-                          />
-                        </div>
-                      )}
+                        <Eye className="h-3.5 w-3.5" />
+                      </ActionButton>
+                      <ActionButton
+                        label={`Edit ${emp.firstName} ${emp.lastName}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(emp.id);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </ActionButton>
+                      <ActionButton
+                        label={`Delete ${emp.firstName} ${emp.lastName}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(emp.id);
+                        }}
+                        danger
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </ActionButton>
                     </div>
                   </td>
                 </tr>
@@ -473,33 +483,31 @@ function SortHeader({
   );
 }
 
-function ActionMenuItem({
-  icon: Icon,
+function ActionButton({
   label,
   onClick,
-  tone = "default",
+  children,
+  danger,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
   label: string;
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  tone?: "default" | "danger";
+  children: React.ReactNode;
+  danger?: boolean;
 }) {
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick(e);
-      }}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold transition-colors cursor-pointer select-none",
-        tone === "danger"
-          ? "text-rose-600 hover:bg-rose-50"
-          : "text-gray-700 hover:bg-payroll-cream",
+        "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer",
+        danger
+          ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
+          : "text-gray-500 hover:bg-payroll-light/60 hover:text-payroll-primary",
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
+      {children}
     </button>
   );
 }
