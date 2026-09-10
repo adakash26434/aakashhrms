@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { HomePageClient } from "@/components/home/home-page-client";
 
 export const metadata = {
-  title: "AakashHRMS — Next-Gen Workforce & Statutory Payroll System",
+  title: "Aakash HRMS — Smart People, Strong Organization",
   description:
     "Enterprise HRMS engineered for Nepalese statutory compliance, IRD progressive income tax, SSF automation, dual BS/AD calendars, and employee self-service.",
 };
