@@ -58,14 +58,28 @@ export async function runProvisioningPipeline(companyId: string): Promise<{
       .set({ step: 'seed' })
       .where(eq(provisioningJobs.id, job.id));
 
-    // Step 4: Seed RBAC Matrix, Protected Roles, Statutory Rules & Office Admin User
+    // Step 4: Seed Workspace: Roles, Head Office Branch, Depts, Fiscal Year, Tax Slabs, Leaves, Pay Heads & Admin User
     console.log(`[Provisioning] Seeding tenant data for company ${company.slug}...`);
+    const setupPayload = (company.initialSetupPayload as any) || {};
+
     const seedResult = await seedTenantDatabase({
       connectionUrl: dbConfig.connectionUrl,
       legalName: company.legalName,
+      displayName: company.displayName,
       companyCode: company.companyCode,
       adminEmail: company.contactEmail,
+      contactPhone: company.contactPhone || undefined,
       industryType: company.industryType || 'General',
+      panVatNumber: company.panVatNumber || undefined,
+      registrationNumber: company.registrationNumber || undefined,
+      headOfficeAddress: company.headOfficeAddress || undefined,
+      headOfficeBranchCode: company.headOfficeBranchCode || undefined,
+      headOfficeBranchAddress: company.headOfficeBranchAddress || undefined,
+      fiscalYear: setupPayload.fiscalYear,
+      leaveTypes: setupPayload.leaveTypes,
+      otHourlyMultiplier: setupPayload.otHourlyMultiplier,
+      payHeads: setupPayload.payHeads,
+      taxSlabs: setupPayload.taxSlabs,
     });
 
     // Step 5: Save encrypted credentials into control plane

@@ -3,7 +3,7 @@ import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { platformPolicyPacks, platformAuditLogs, companies } from '@/lib/platform/schema';
 import { requirePlatformAuth } from '@/lib/platform/auth';
 import { getTenantDb } from '@/lib/db/tenant-pool-manager';
-import { leaveTypes, otRules, auditLogs } from '@/lib/db/schema';
+import { leaveTypes, otRules, auditLogs, payHeads, taxRateSlabs, fiscalYears } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { DEFAULT_NEPAL_POLICY_PACK_V1, StatutoryPolicyPackPayload } from '@/lib/platform/policy-pack-data';
 
@@ -141,6 +141,94 @@ export async function POST(request: Request) {
                 updatedAt: new Date(),
               },
             });
+        }
+
+        // C. Upsert Statutory Deductions (SSF, EPF, CIT) into pay_heads
+        for (const ded of packPayload.statutoryDeductions || []) {
+          const isSSF = ded.code.includes('SSF');
+          const isEPF = ded.code.includes('EPF');
+          const isCIT = ded.code.includes('CIT');
+
+          await tenantDb
+            .insert(payHeads)
+            .values({
+              code: isSSF ? 'SSF' : isEPF ? 'EPF' : isCIT ? 'CIT' : ded.code,
+              name: ded.name,
+              type: 'deduction',
+              effectOnTax: !ded.isPreTax,
+              calcBasis: 'BasicSalary',
+              calcParameter: 'BasicSalary',
+              calcPercent: String(ded.employeePercent || '0'),
+              isSsfHead: isSSF,
+              isPfHead: isEPF,
+              isCitHead: isCIT,
+            })
+            .onConflictDoUpdate({
+              target: payHeads.code,
+              set: {
+                name: ded.name,
+                calcPercent: String(ded.employeePercent || '0'),
+                effectOnTax: !ded.isPreTax,
+                isSsfHead: isSSF,
+                isPfHead: isEPF,
+                isCitHead: isCIT,
+                updatedAt: new Date(),
+              },
+            });
+        }
+
+        // D. Upsert Statutory Benefits (Festival Allowance) into pay_heads
+        for (const ben of packPayload.statutoryBenefits || []) {
+          await tenantDb
+            .insert(payHeads)
+            .values({
+              code: 'FESTIVAL',
+              name: ben.name,
+              type: 'allowance',
+              effectOnTax: true,
+              calcBasis: 'BasicSalary',
+              calcParameter: 'BasicSalary',
+              calcPercent: '100',
+              isFestivalAllowance: true,
+            })
+            .onConflictDoUpdate({
+              target: payHeads.code,
+              set: {
+                name: ben.name,
+                isFestivalAllowance: true,
+                updatedAt: new Date(),
+              },
+            });
+        }
+
+        // E. Sync Baseline Tax Slabs if provided
+        if (packPayload.taxSlabsBaseline && packPayload.taxSlabsBaseline.length > 0) {
+          const [activeFY] = await tenantDb
+            .select({ id: fiscalYears.id })
+            .from(fiscalYears)
+            .where(eq(fiscalYears.status, 'Active'))
+            .limit(1);
+
+          if (activeFY) {
+            const existingSlabs = await tenantDb
+              .select({ id: taxRateSlabs.id })
+              .from(taxRateSlabs)
+              .where(eq(taxRateSlabs.fiscalYearId, activeFY.id))
+              .limit(1);
+
+            if (existingSlabs.length === 0) {
+              for (const slab of packPayload.taxSlabsBaseline) {
+                await tenantDb.insert(taxRateSlabs).values({
+                  fiscalYearId: activeFY.id,
+                  category: slab.category,
+                  amountFrom: String(slab.amountFrom),
+                  amountTo: slab.amountTo !== null ? String(slab.amountTo) : null,
+                  ratePercent: String(slab.ratePercent),
+                  fixedDeduction: String(slab.fixedDeduction || '0'),
+                });
+              }
+            }
+          }
         }
 
         // C. Log sync event in tenant audit log

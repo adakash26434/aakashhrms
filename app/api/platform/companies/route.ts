@@ -61,7 +61,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const { legalName, displayName, slug, contactEmail, contactPhone, industryType, registeredAt, notes } = body || {};
+    const {
+      legalName,
+      displayName,
+      slug,
+      contactEmail,
+      contactPhone,
+      industryType,
+      registeredAt,
+      notes,
+      panVatNumber,
+      registrationNumber,
+      headOfficeAddress,
+      headOfficeBranchCode,
+      headOfficeBranchAddress,
+      initialSetupPayload,
+    } = body || {};
 
     const cleanLegalName = (legalName || '').trim();
     const cleanContactEmail = (contactEmail || '').trim().toLowerCase();
@@ -125,22 +140,34 @@ export async function POST(request: Request) {
       validatedPhone = phoneValidation.formatted || String(contactPhone).trim();
     }
 
-    // Auto-generate public Company Code (CMP-1111AF) with collision check
-    let companyCode = generateCompanyCode();
+    // Query existing company codes to compute next sequential code (e.g. CMP-111111 -> CMP-111112)
+    const existingCompanies = await platformDb
+      .select({ companyCode: companies.companyCode })
+      .from(companies);
+    const existingCodes = existingCompanies.map((c) => c.companyCode);
+
+    let companyCode = generateCompanyCode(existingCodes);
+
+    // Collision check guard
     let collisionCheck = await platformDb
-      .select()
+      .select({ id: companies.id })
       .from(companies)
       .where(eq(companies.companyCode, companyCode))
       .limit(1);
 
     while (collisionCheck.length > 0) {
-      companyCode = generateCompanyCode();
+      existingCodes.push(companyCode);
+      companyCode = generateCompanyCode(existingCodes);
       collisionCheck = await platformDb
-        .select()
+        .select({ id: companies.id })
         .from(companies)
         .where(eq(companies.companyCode, companyCode))
         .limit(1);
     }
+
+    const cleanHeadOfficeAddress = headOfficeAddress ? String(headOfficeAddress).trim() : null;
+    const cleanBranchAddress = headOfficeBranchAddress ? String(headOfficeBranchAddress).trim() : cleanHeadOfficeAddress;
+    const cleanBranchCode = headOfficeBranchCode ? String(headOfficeBranchCode).trim().toUpperCase() : 'HO-01';
 
     const [newCompany] = await platformDb
       .insert(companies)
@@ -153,6 +180,12 @@ export async function POST(request: Request) {
         contactEmail: cleanContactEmail,
         contactPhone: validatedPhone,
         industryType: (industryType || 'General').trim(),
+        panVatNumber: panVatNumber ? String(panVatNumber).trim() : null,
+        registrationNumber: registrationNumber ? String(registrationNumber).trim() : null,
+        headOfficeAddress: cleanHeadOfficeAddress,
+        headOfficeBranchCode: cleanBranchCode,
+        headOfficeBranchAddress: cleanBranchAddress,
+        initialSetupPayload: initialSetupPayload || null,
         registeredAt: registeredAt ? String(registeredAt).split('T')[0] : new Date().toISOString().split('T')[0],
         notes: notes ? String(notes).trim() : null,
         policyPackVersion: 1,

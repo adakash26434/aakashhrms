@@ -1,27 +1,41 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateCompanyCode, slugifyCompanyName } from '../lib/platform/company-code';
+import { generateCompanyCode, getNextCompanyCode, slugifyCompanyName, INITIAL_COMPANY_CODE_NUMBER } from '../lib/platform/company-code';
 
 describe('Company Code & Slug Generation', () => {
-  it('should generate company code in the CMP-DDDDLL format (4 digits, 2 uppercase letters)', () => {
-    for (let i = 0; i < 50; i++) {
-      const code = generateCompanyCode();
-      assert.match(
-        code,
-        /^CMP-\d{4}[A-Z]{2}$/,
-        `Code ${code} did not match expected format CMP-1111AF`
-      );
-      assert.equal(code.length, 10);
-    }
+  it('should generate initial sequential code CMP-111111 when existing list is empty', () => {
+    const code = generateCompanyCode([]);
+    assert.equal(code, 'CMP-111111');
+    assert.match(code, /^CMP-\d{6}$/);
   });
 
-  it('should produce unique random company codes', () => {
-    const codes = new Set<string>();
-    for (let i = 0; i < 100; i++) {
-      codes.add(generateCompanyCode());
-    }
-    // High probability of uniqueness in 100 samples
-    assert.ok(codes.size >= 98);
+  it('should increment company code sequentially (e.g. CMP-111111 -> CMP-111112)', () => {
+    const next1 = generateCompanyCode(['CMP-111111']);
+    assert.equal(next1, 'CMP-111112');
+
+    const next2 = generateCompanyCode(['CMP-111111', 'CMP-111112']);
+    assert.equal(next2, 'CMP-111113');
+
+    const next3 = getNextCompanyCode(['CMP-111111', 'CMP-111112', 'CMP-111113']);
+    assert.equal(next3, 'CMP-111114');
+  });
+
+  it('should handle legacy alphanumeric company codes gracefully', () => {
+    const legacy = ['CMP-79F297', 'CMP-7707DT', 'CMP-ACTIVE'];
+    const code = generateCompanyCode(legacy);
+    assert.equal(code, 'CMP-111111');
+  });
+
+  it('should handle mixed legacy and sequential codes accurately', () => {
+    const mixed = ['CMP-79F297', 'CMP-111111', 'CMP-7707DT', 'CMP-111112'];
+    const code = generateCompanyCode(mixed);
+    assert.equal(code, 'CMP-111113');
+  });
+
+  it('should increment accurately for custom numeric sequences (e.g. CMP-112112)', () => {
+    const custom = ['CMP-112112'];
+    const code = generateCompanyCode(custom);
+    assert.equal(code, 'CMP-112113');
   });
 
   it('should slugify company legal names cleanly', () => {

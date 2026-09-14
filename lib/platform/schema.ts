@@ -40,7 +40,7 @@ export const platformUsers = pgTable('platform_users', {
 // -----------------------------------------------------------------------------
 export const companies = pgTable('companies', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
-  companyCode: varchar('company_code', { length: 16 }).notNull().unique(), // Public ID e.g. CMP-1111AF
+  companyCode: varchar('company_code', { length: 16 }).notNull().unique(), // Public ID e.g. CMP-111111
   legalName: varchar('legal_name', { length: 255 }).notNull(),
   displayName: varchar('display_name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 63 }).notNull().unique(), // Domain label e.g. acme
@@ -48,6 +48,12 @@ export const companies = pgTable('companies', {
   contactEmail: varchar('contact_email', { length: 255 }).notNull(),
   contactPhone: varchar('contact_phone', { length: 50 }),
   industryType: varchar('industry_type', { length: 50 }).default('General').notNull(),
+  panVatNumber: varchar('pan_vat_number', { length: 50 }),
+  registrationNumber: varchar('registration_number', { length: 100 }),
+  headOfficeAddress: text('head_office_address'),
+  headOfficeBranchCode: varchar('head_office_branch_code', { length: 50 }),
+  headOfficeBranchAddress: text('head_office_branch_address'),
+  initialSetupPayload: jsonb('initial_setup_payload'),
   registeredAt: date('registered_at').defaultNow().notNull(),
   notes: text('notes'),
   policyPackVersion: integer('policy_pack_version').default(1).notNull(),

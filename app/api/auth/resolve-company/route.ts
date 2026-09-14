@@ -26,10 +26,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Basic format validation — company codes are "CMP-" followed by 6 alphanumeric chars (e.g. CMP-1111AF)
+    // Basic format validation — company codes are "CMP-" followed by 4 to 8 alphanumeric/numeric chars (e.g. CMP-111111)
     if (!/^CMP-[A-Z0-9]{4,8}$/i.test(companyCode)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid company code format. Expected format: CMP-XXXXXX (e.g., CMP-1111AF)' },
+        { success: false, error: 'Invalid company code format. Expected format: CMP-XXXXXX (e.g., CMP-111111)' },
         { status: 400 }
       );
     }

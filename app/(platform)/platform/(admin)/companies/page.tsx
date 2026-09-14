@@ -385,7 +385,7 @@ export default function PlatformCompaniesPage() {
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="search"
-              placeholder="Search by legal name, company code (e.g. CMP-1111AF), or database slug..."
+              placeholder="Search by legal name, company code (e.g. CMP-111111), or database slug..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl border border-payroll-light bg-white text-payroll-navy text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"

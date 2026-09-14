@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,8 +17,20 @@ import {
   Sparkles,
   CheckCircle2,
   Building2,
+  MapPin,
+  FileText,
+  Hash,
+  Calendar,
+  CalendarDays,
+  Palmtree,
+  Coins,
+  Percent,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
   Shield,
-  Layers,
+  Info,
+  GitBranch,
 } from "lucide-react";
 import { validatePhoneNumber } from "@/lib/utils/phone";
 import { slugifyCompanyName } from "@/lib/platform/company-code";
@@ -26,22 +38,199 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import {
+  getAvailableFiscalYearPresets,
+  FiscalYearPresetOption,
+} from "@/lib/utils/fiscal-year-presets";
+import {
+  DEFAULT_NEPAL_LEAVE_TYPES,
+  DEFAULT_PAY_HEADS,
+  LeaveTypePreset,
+  PayHeadPreset,
+} from "@/lib/types/onboarding";
+
+const DEFAULT_TAX_SLABS = [
+  // Normal Single Individual
+  {
+    category: "Normal Single",
+    amountFrom: "0",
+    amountTo: "500000",
+    ratePercent: "1.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "500000",
+    amountTo: "700000",
+    ratePercent: "10.00",
+    fixedDeduction: "5000",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "700000",
+    amountTo: "1000000",
+    ratePercent: "20.00",
+    fixedDeduction: "25000",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "1000000",
+    amountTo: "2000000",
+    ratePercent: "30.00",
+    fixedDeduction: "85000",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "2000000",
+    amountTo: null,
+    ratePercent: "36.00",
+    fixedDeduction: "385000",
+  },
+
+  // Married Couple
+  {
+    category: "Married",
+    amountFrom: "0",
+    amountTo: "600000",
+    ratePercent: "1.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Married",
+    amountFrom: "600000",
+    amountTo: "800000",
+    ratePercent: "10.00",
+    fixedDeduction: "6000",
+  },
+  {
+    category: "Married",
+    amountFrom: "800000",
+    amountTo: "1100000",
+    ratePercent: "20.00",
+    fixedDeduction: "26000",
+  },
+  {
+    category: "Married",
+    amountFrom: "1100000",
+    amountTo: "2000000",
+    ratePercent: "30.00",
+    fixedDeduction: "86000",
+  },
+  {
+    category: "Married",
+    amountFrom: "2000000",
+    amountTo: null,
+    ratePercent: "36.00",
+    fixedDeduction: "356000",
+  },
+
+  // Widow
+  {
+    category: "Widow",
+    amountFrom: "0",
+    amountTo: "500000",
+    ratePercent: "0.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Widow",
+    amountFrom: "500000",
+    amountTo: "2000000",
+    ratePercent: "10.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Widow",
+    amountFrom: "2000000",
+    amountTo: null,
+    ratePercent: "20.00",
+    fixedDeduction: "150000",
+  },
+
+  // Handicapped
+  {
+    category: "Handicapped",
+    amountFrom: "0",
+    amountTo: "500000",
+    ratePercent: "1.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "500000",
+    amountTo: "700000",
+    ratePercent: "5.00",
+    fixedDeduction: "2500",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "700000",
+    amountTo: "2000000",
+    ratePercent: "10.00",
+    fixedDeduction: "12500",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "2000000",
+    amountTo: null,
+    ratePercent: "15.00",
+    fixedDeduction: "142500",
+  },
+];
 
 export default function RegisterCompanyPage() {
   const router = useRouter();
+  const toast = useToast();
+
+  // 1. Company Profile Fields
   const [legalName, setLegalName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [slug, setSlug] = useState("");
   const [isSlugCustomized, setIsSlugCustomized] = useState(false);
+  const [panVatNumber, setPanVatNumber] = useState("");
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [headOfficeAddress, setHeadOfficeAddress] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [industryType, setIndustryType] = useState<IndustrySectorKey>("General");
+  const [industryType, setIndustryType] =
+    useState<IndustrySectorKey>("General");
   const [notes, setNotes] = useState("");
+
+  // 2. Head Office Branch Fields (Address & Code)
+  const [headOfficeBranchCode, setHeadOfficeBranchCode] = useState("HO-01");
+  const [headOfficeBranchAddress, setHeadOfficeBranchAddress] = useState("");
+  const [isBranchAddressCustomized, setIsBranchAddressCustomized] =
+    useState(false);
+
+  // 3. Fiscal Year Setup
+  const { current: defaultFY, options: fyOptions } = useMemo(
+    () => getAvailableFiscalYearPresets(),
+    [],
+  );
+  const [selectedFYSlug, setSelectedFYSlug] = useState<string>(defaultFY.slug);
+  const selectedFY = useMemo(
+    () => fyOptions.find((f) => f.slug === selectedFYSlug) || defaultFY,
+    [fyOptions, selectedFYSlug, defaultFY],
+  );
+
+  // 4. Statutory Leaves & Overtime
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypePreset[]>(
+    DEFAULT_NEPAL_LEAVE_TYPES,
+  );
+  const [otHourlyMultiplier, setOtHourlyMultiplier] = useState<number>(1.5);
+
+  // 5. Pay Heads
+  const [payHeads, setPayHeads] = useState<PayHeadPreset[]>(DEFAULT_PAY_HEADS);
+
+  // 6. Tax Slabs
+  const [taxSlabs, setTaxSlabs] = useState(DEFAULT_TAX_SLABS);
+
+  // Form handling state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
 
+  // Auto-sync slug from names
   const handleLegalNameChange = (val: string) => {
     setLegalName(val);
     if (!isSlugCustomized && !displayName) {
@@ -67,6 +256,24 @@ export default function RegisterCompanyPage() {
     setSlug(slugifyCompanyName(displayName || legalName));
   };
 
+  // Auto-sync branch address from head office address
+  const handleHeadOfficeAddressChange = (val: string) => {
+    setHeadOfficeAddress(val);
+    if (!isBranchAddressCustomized) {
+      setHeadOfficeBranchAddress(val);
+    }
+  };
+
+  const handleBranchAddressChange = (val: string) => {
+    setHeadOfficeBranchAddress(val);
+    setIsBranchAddressCustomized(true);
+  };
+
+  const handleResetBranchAddress = () => {
+    setIsBranchAddressCustomized(false);
+    setHeadOfficeBranchAddress(headOfficeAddress);
+  };
+
   const handlePhoneChange = (val: string) => {
     setContactPhone(val);
     if (!val.trim()) {
@@ -89,7 +296,9 @@ export default function RegisterCompanyPage() {
     if (contactPhone && contactPhone.trim()) {
       const result = validatePhoneNumber(contactPhone, true);
       if (!result.isValid) {
-        setError("Please provide a valid contact phone number before proceeding.");
+        setError(
+          "Please provide a valid contact phone number before proceeding.",
+        );
         return;
       }
     }
@@ -97,18 +306,43 @@ export default function RegisterCompanyPage() {
     setLoading(true);
 
     try {
+      const payload = {
+        legalName: legalName.trim(),
+        displayName: (displayName || legalName).trim(),
+        slug,
+        contactEmail: contactEmail.trim().toLowerCase(),
+        contactPhone: contactPhone.trim() || null,
+        industryType,
+        panVatNumber: panVatNumber.trim() || null,
+        registrationNumber: registrationNumber.trim() || null,
+        headOfficeAddress: headOfficeAddress.trim() || null,
+        headOfficeBranchCode: (headOfficeBranchCode || "HO-01").trim(),
+        headOfficeBranchAddress: (
+          headOfficeBranchAddress ||
+          headOfficeAddress ||
+          "Head Office"
+        ).trim(),
+        initialSetupPayload: {
+          fiscalYear: {
+            label: selectedFY.label,
+            slug: selectedFY.slug,
+            startDateBS: selectedFY.startDateBS,
+            endDateBS: selectedFY.endDateBS,
+            startDateAD: selectedFY.startDateAD,
+            endDateAD: selectedFY.endDateAD,
+          },
+          leaveTypes,
+          otHourlyMultiplier,
+          payHeads,
+          taxSlabs,
+        },
+        notes: notes.trim() || null,
+      };
+
       const res = await fetch("/api/platform/companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          legalName,
-          displayName: displayName || legalName,
-          slug,
-          contactEmail,
-          contactPhone,
-          industryType,
-          notes,
-        }),
+        body: JSON.stringify(payload),
       });
 
       let data: any;
@@ -119,7 +353,7 @@ export default function RegisterCompanyPage() {
         throw new Error(
           res.status === 401
             ? "Your session expired. Please log in again."
-            : `Server returned HTTP ${res.status}. Please try again.`
+            : `Server returned HTTP ${res.status}. Please try again.`,
         );
       }
 
@@ -127,7 +361,9 @@ export default function RegisterCompanyPage() {
         throw new Error(data.error || "Failed to register company.");
       }
 
-      toast.success(`Company registered successfully! Code: ${data.company.companyCode}`);
+      toast.success(
+        `Company registered successfully! Code: ${data.company.companyCode}`,
+      );
       router.push("/platform/companies");
       router.refresh();
     } catch (err: any) {
@@ -138,8 +374,11 @@ export default function RegisterCompanyPage() {
     }
   };
 
+  const earnings = payHeads.filter((p) => p.type === "EARNING");
+  const deductions = payHeads.filter((p) => p.type === "DEDUCTION");
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
       {/* ── Top Header Bar ── */}
       <div className="flex items-center gap-3">
         <Link
@@ -150,24 +389,47 @@ export default function RegisterCompanyPage() {
         </Link>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-payroll-navy tracking-tight">
-            Onboard New SaaS Tenant Company
+            Register Tenant Company & Complete Setup
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-            Register organization details to generate a unique Company Code and isolated database pipeline.
+            Register organization details, head office branch, active fiscal
+            year, statutory leaves, pay heads, and progressive tax slabs for
+            direct workspace access.
           </p>
         </div>
       </div>
 
-      <Card className="border-payroll-light/80 shadow-payroll-md bg-white">
-        <CardContent className="p-6 sm:p-8 space-y-6">
-          {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 font-semibold">
-              <AlertCircle className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
+      {error && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 font-semibold">
+          <AlertCircle className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 1: COMPANY LEGAL & REGISTRATION PROFILE
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white overflow-hidden">
+          <div className="bg-linear-to-r from-payroll-cream/50 to-white px-6 py-3.5 border-b border-payroll-light/70 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-payroll-primary/10 text-payroll-primary flex items-center justify-center font-bold text-xs">
+                1
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  Company Legal & Registration Profile
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  Official identity, registration numbers, and administrative
+                  contact
+                </p>
+              </div>
+            </div>
+            <Building2 className="w-4 h-4 text-payroll-primary/60" />
+          </div>
+
+          <CardContent className="p-6 space-y-5">
             {/* Legal Entity & Display Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -198,11 +460,72 @@ export default function RegisterCompanyPage() {
               </div>
             </div>
 
+            {/* PAN/VAT Number & Registration Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider flex items-center gap-1.5">
+                  <Hash className="w-3.5 h-3.5 text-payroll-primary" />
+                  <span>PAN / VAT Number</span>
+                </label>
+                <input
+                  type="text"
+                  value={panVatNumber}
+                  onChange={(e) =>
+                    setPanVatNumber(
+                      e.target.value.replace(/\D/g, "").slice(0, 9),
+                    )
+                  }
+                  placeholder="e.g. 601234567 (9 digits)"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs font-mono"
+                />
+                <p className="text-[10px] text-gray-500">
+                  Official 9-digit Permanent Account Number (PAN) / VAT in Nepal
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-payroll-primary" />
+                  <span>Company Registration Number</span>
+                </label>
+                <input
+                  type="text"
+                  value={registrationNumber}
+                  onChange={(e) => setRegistrationNumber(e.target.value)}
+                  placeholder="e.g. 123456/080/081"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                />
+                <p className="text-[10px] text-gray-500">
+                  Office of Company Registrar (OCR) registration number
+                </p>
+              </div>
+            </div>
+
+            {/* Head Office Address */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-payroll-primary" />
+                <span>
+                  Company Head Office Address{" "}
+                  <span className="text-rose-500">*</span>
+                </span>
+              </label>
+              <input
+                type="text"
+                required
+                value={headOfficeAddress}
+                onChange={(e) => handleHeadOfficeAddressChange(e.target.value)}
+                placeholder="e.g. Putalisadak-28, Kathmandu, Bagmati Province, Nepal"
+                className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+              />
+            </div>
+
             {/* Database Slug Identifier */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                  Database Slug Identifier <span className="text-rose-500">*</span>
+                  Database Slug Identifier{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 {isSlugCustomized ? (
                   <button
@@ -234,7 +557,10 @@ export default function RegisterCompanyPage() {
                 />
               </div>
               <p className="text-[11px] text-gray-500">
-                Unique internal slug used for isolated PostgreSQL database naming: <code className="text-payroll-primary font-mono font-bold">pay_t_{slug || "slug"}</code>
+                Isolated PostgreSQL database:{" "}
+                <code className="text-payroll-primary font-mono font-bold">
+                  pay_t_{slug || "slug"}
+                </code>
               </p>
             </div>
 
@@ -242,7 +568,8 @@ export default function RegisterCompanyPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                  Contact Email (Initial Administrator) <span className="text-rose-500">*</span>
+                  Contact Email (Initial Administrator){" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
@@ -278,7 +605,9 @@ export default function RegisterCompanyPage() {
                   placeholder="9800000000 / 01-4XXXXXX"
                 />
                 {phoneError && (
-                  <p className="text-[11px] text-rose-600 font-semibold">{phoneError}</p>
+                  <p className="text-[11px] text-rose-600 font-semibold">
+                    {phoneError}
+                  </p>
                 )}
               </div>
             </div>
@@ -287,56 +616,534 @@ export default function RegisterCompanyPage() {
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                  Organization Industry Sector <span className="text-rose-500">*</span>
+                  Organization Industry Sector{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <span className="text-[11px] text-gray-500">
                   Pre-configures tenant Shreni / Hierarchy tiers
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map((key) => {
-                  const sector = INDUSTRY_SECTORS[key];
-                  const isSelected = industryType === key;
+                {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map(
+                  (key) => {
+                    const sector = INDUSTRY_SECTORS[key];
+                    const isSelected = industryType === key;
 
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => setIndustryType(key)}
-                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
-                        isSelected
-                          ? "border-payroll-primary bg-payroll-primary/5 ring-1 ring-payroll-primary/20 shadow-payroll-xs"
-                          : "border-payroll-light/80 bg-white hover:border-gray-300 hover:bg-gray-50/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-payroll-navy truncate">
-                            {sector.label}
-                          </p>
-                          <p className="text-[10px] text-gray-500 truncate mt-0.5">
-                            {sector.labelNepali}
-                          </p>
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => setIndustryType(key)}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-payroll-primary bg-payroll-primary/5 ring-1 ring-payroll-primary/20 shadow-payroll-xs"
+                            : "border-payroll-light/80 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-payroll-navy truncate">
+                              {sector.label}
+                            </p>
+                            <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                              {sector.labelNepali}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 className="w-4 h-4 text-payroll-primary shrink-0" />
+                          )}
                         </div>
-                        {isSelected && (
-                          <CheckCircle2 className="w-4 h-4 text-payroll-primary shrink-0" />
-                        )}
                       </div>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 2: FIRST HEAD OFFICE BRANCH SETUP
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white overflow-hidden">
+          <div className="bg-linear-to-r from-payroll-cream/50 to-white px-6 py-3.5 border-b border-payroll-light/70 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-payroll-primary/10 text-payroll-primary flex items-center justify-center font-bold text-xs">
+                2
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  First Head Office Branch Setup
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  Primary corporate branch code and location (distinguished by
+                  location address)
+                </p>
+              </div>
+            </div>
+            <GitBranch className="w-4 h-4 text-payroll-primary/60" />
+          </div>
+
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  Branch Code <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={headOfficeBranchCode}
+                  onChange={(e) =>
+                    setHeadOfficeBranchCode(e.target.value.toUpperCase())
+                  }
+                  placeholder="HO-01"
+                  className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                />
+                <p className="text-[10px] text-gray-500">
+                  Unique identifier for the primary corporate branch
+                </p>
+              </div>
+
+              <div className="md:col-span-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                    Branch Address / Location{" "}
+                    <span className="text-rose-500">*</span>
+                  </label>
+                  {isBranchAddressCustomized ? (
+                    <button
+                      type="button"
+                      onClick={handleResetBranchAddress}
+                      className="text-[11px] font-semibold text-payroll-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Sync with Head Office Address</span>
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Auto-synced from Head Office</span>
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                    <MapPin className="w-4 h-4 text-payroll-primary" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={headOfficeBranchAddress}
+                    onChange={(e) => handleBranchAddressChange(e.target.value)}
+                    placeholder="Putalisadak, Kathmandu"
+                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Branch is automatically named &ldquo;Head Office&rdquo; under
+                  the organization umbrella.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 3: INITIAL ACTIVE FISCAL YEAR
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white overflow-hidden">
+          <div className="bg-linear-to-r from-payroll-cream/50 to-white px-6 py-3.5 border-b border-payroll-light/70 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-payroll-primary/10 text-payroll-primary flex items-center justify-center font-bold text-xs">
+                3
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  Initial Active Fiscal Year
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  Super Admin establishes the first active cycle; subsequent
+                  years can be created by company admin
+                </p>
+              </div>
+            </div>
+            <Calendar className="w-4 h-4 text-payroll-primary/60" />
+          </div>
+
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {fyOptions.map((fy) => {
+                const isSelected = selectedFYSlug === fy.slug;
+                return (
+                  <div
+                    key={fy.slug}
+                    onClick={() => setSelectedFYSlug(fy.slug)}
+                    className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-payroll-primary bg-payroll-primary/5 ring-1 ring-payroll-primary/20 shadow-payroll-xs"
+                        : "border-payroll-light/80 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-payroll-navy">
+                            {fy.label}
+                          </span>
+                          {fy.isCurrent && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-1 font-mono">
+                          BS: {fy.startDateBS} ~ {fy.endDateBS}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          AD: {fy.formattedDateRangeAD}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle2 className="w-4 h-4 text-payroll-primary shrink-0 mt-0.5" />
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-3 bg-payroll-cream/50 rounded-xl border border-payroll-light/70 text-xs text-payroll-navy flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-payroll-primary shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-semibold text-payroll-navy">
+                  Active Cycle: <strong>{selectedFY.label}</strong> (Shrawan 1
+                  to Asar 31)
+                </p>
+                <p className="text-[11px] text-gray-600">
+                  After this initial fiscal year is created by Super Admin, the
+                  company administrator can create future fiscal years directly
+                  from <strong>Setup → Fiscal Year</strong> whenever required.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 4: STATUTORY LEAVES & OVERTIME ALLOTMENTS
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white overflow-hidden">
+          <div className="bg-linear-to-r from-payroll-cream/50 to-white px-6 py-3.5 border-b border-payroll-light/70 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-payroll-primary/10 text-payroll-primary flex items-center justify-center font-bold text-xs">
+                4
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  Statutory Leaves & Overtime Allotments
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  Mandatory Nepal Labour Act 2074 leave allotments and overtime
+                  multiplier
+                </p>
+              </div>
+            </div>
+            <Palmtree className="w-4 h-4 text-payroll-primary/60" />
+          </div>
+
+          <CardContent className="p-6 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {leaveTypes.map((lt, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 bg-payroll-cream/20 rounded-xl border border-payroll-light/80 shadow-2xs flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-payroll-navy block">
+                        {lt.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block mt-0.5">
+                        Code: <strong>{lt.code}</strong> • {lt.category}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-payroll-primary bg-payroll-cream px-2 py-0.5 rounded-lg border border-payroll-light shrink-0">
+                      {lt.daysPerYear}d / yr
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-payroll-light/60 text-[10px] text-gray-500 flex-wrap">
+                    {lt.isEncashable ? (
+                      <span className="text-emerald-700 font-medium">
+                        ✓ Encashable (cap: {lt.maxAccumulation}d)
+                      </span>
+                    ) : (
+                      <span>Non-encashable</span>
+                    )}
+                    <span>•</span>
+                    <span>{lt.isPaid ? "Fully Paid" : "Unpaid"}</span>
+                    {lt.genderSpecific && lt.genderSpecific !== "All" && (
+                      <>
+                        <span>•</span>
+                        <span className="text-purple-700 font-medium">
+                          {lt.genderSpecific} Only
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Overtime Rate */}
+            <div className="pt-2 border-t border-payroll-light/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-payroll-primary" />
+                <div>
+                  <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                    Statutory Overtime Calculation Rate
+                  </h4>
+                  <p className="text-[11px] text-gray-500">
+                    Labour Act Section 31 standard overtime rate (default 1.5x
+                    basic wage)
+                  </p>
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-payroll-cream px-3 py-1.5 rounded-xl border border-payroll-light text-xs font-bold text-payroll-navy">
+                <span>Multiplier:</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="3"
+                  value={otHourlyMultiplier}
+                  onChange={(e) =>
+                    setOtHourlyMultiplier(parseFloat(e.target.value) || 1.5)
+                  }
+                  className="w-16 px-2 py-0.5 text-xs text-center font-mono font-bold bg-white border border-payroll-light rounded-lg text-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+                />
+                <span>x</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 5: STANDARD PAY HEADS & SALARY COMPONENTS
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white overflow-hidden">
+          <div className="bg-linear-to-r from-payroll-cream/50 to-white px-6 py-3.5 border-b border-payroll-light/70 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-payroll-primary/10 text-payroll-primary flex items-center justify-center font-bold text-xs">
+                5
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  Standard Pay Heads & Salary Components
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  Pre-configured earnings and statutory deductions (SSF, EPF,
+                  CIT, TDS)
+                </p>
+              </div>
+            </div>
+            <Coins className="w-4 h-4 text-payroll-primary/60" />
+          </div>
+
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Earnings */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-payroll-light/60">
+                  <ArrowUpRight className="h-4 w-4 text-emerald-600" />
+                  <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                    Standard Earnings ({earnings.length})
+                  </h4>
+                </div>
+                <div className="space-y-2">
+                  {earnings.map((ph, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-white rounded-xl border border-payroll-light/80 shadow-2xs flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-payroll-navy block">
+                          {ph.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-mono">
+                          {ph.code} • Basic Salary Component
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+                        Taxable
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Deductions */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-payroll-light/60">
+                  <ArrowDownRight className="h-4 w-4 text-amber-600" />
+                  <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                    Statutory Deductions ({deductions.length})
+                  </h4>
+                </div>
+                <div className="space-y-2">
+                  {deductions.map((ph, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-white rounded-xl border border-payroll-light/80 shadow-2xs flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-payroll-navy block">
+                          {ph.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500">
+                          {ph.code} •{" "}
+                          {ph.isSsfHead
+                            ? "SSF Scheme (11% + 20%)"
+                            : ph.isPfHead
+                              ? "Provident Fund (10% + 10%)"
+                              : ph.isCitHead
+                                ? "Citizen Investment Trust"
+                                : ph.isTdsHead
+                                  ? "Inland Revenue TDS"
+                                  : "Deduction"}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                        Pre-Tax
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 6: NEPAL IRD PROGRESSIVE INCOME TAX SLABS
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white overflow-hidden">
+          <div className="bg-linear-to-r from-payroll-cream/50 to-white px-6 py-3.5 border-b border-payroll-light/70 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-payroll-primary/10 text-payroll-primary flex items-center justify-center font-bold text-xs">
+                6
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                  Nepal IRD Progressive Income Tax Slabs ({selectedFY.label})
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  Statutory progressive brackets under Nepal Income Tax Act 2058
+                  / Finance Act
+                </p>
+              </div>
+            </div>
+            <Percent className="w-4 h-4 text-payroll-primary/60" />
+          </div>
+
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Unmarried Slabs */}
+              <div className="p-4 bg-payroll-cream/30 rounded-2xl border border-payroll-light/80 text-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="font-bold text-payroll-navy">
+                    Normal Single Individual
+                  </h5>
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+                    Annex-10 Standard
+                  </span>
+                </div>
+                <ul className="space-y-1 text-[11px] text-gray-600">
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>First NPR 500,000</span>
+                    <strong className="text-payroll-navy">
+                      1% (Social Security Tax)
+                    </strong>
+                  </li>
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>Next NPR 200,000 (500K - 700K)</span>
+                    <strong className="text-payroll-navy">10%</strong>
+                  </li>
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>Next NPR 300,000 (700K - 1M)</span>
+                    <strong className="text-payroll-navy">20%</strong>
+                  </li>
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>Next NPR 1,000,000 (1M - 2M)</span>
+                    <strong className="text-payroll-navy">30%</strong>
+                  </li>
+                  <li className="flex justify-between py-1">
+                    <span>Above NPR 2,000,000</span>
+                    <strong className="text-payroll-navy">36%</strong>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Married Slabs */}
+              <div className="p-4 bg-payroll-cream/30 rounded-2xl border border-payroll-light/80 text-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="font-bold text-payroll-navy">
+                    Married Couple
+                  </h5>
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+                    Annex-10 Standard
+                  </span>
+                </div>
+                <ul className="space-y-1 text-[11px] text-gray-600">
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>First NPR 600,000</span>
+                    <strong className="text-payroll-navy">
+                      1% (Social Security Tax)
+                    </strong>
+                  </li>
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>Next NPR 200,000 (600K - 800K)</span>
+                    <strong className="text-payroll-navy">10%</strong>
+                  </li>
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>Next NPR 300,000 (800K - 1.1M)</span>
+                    <strong className="text-payroll-navy">20%</strong>
+                  </li>
+                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
+                    <span>Next NPR 900,000 (1.1M - 2M)</span>
+                    <strong className="text-payroll-navy">30%</strong>
+                  </li>
+                  <li className="flex justify-between py-1">
+                    <span>Above NPR 2,000,000</span>
+                    <strong className="text-payroll-navy">36%</strong>
+                  </li>
+                </ul>
               </div>
             </div>
 
-            {/* Internal Onboarding Notes */}
+            <p className="text-[11px] text-gray-500">
+              Tax slabs for <strong>Widow</strong> and{" "}
+              <strong>Handicapped</strong> categories are also automatically
+              generated with their statutory thresholds and fixed deductions for
+              this fiscal year.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 7: ADMINISTRATIVE NOTES & SUBMIT
+        ══════════════════════════════════════════════════════════════════════ */}
+        <Card className="border-payroll-light/80 shadow-payroll-sm bg-white">
+          <CardContent className="p-6 space-y-4">
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                Internal Onboarding Notes (Optional)
+                Internal Administrative Notes (Optional)
               </label>
               <textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Enterprise client plan details, custom requirements, contract SLA notes..."
+                placeholder="Enterprise client plan details, custom contract requirements, SLA notes..."
                 className="w-full p-3 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 resize-none shadow-payroll-xs"
               />
             </div>
@@ -344,7 +1151,11 @@ export default function RegisterCompanyPage() {
             {/* Action Buttons */}
             <div className="pt-4 border-t border-payroll-light/60 flex items-center justify-end gap-2.5">
               <Link href="/platform/companies">
-                <Button variant="outline" size="sm" className="text-xs font-semibold">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs font-semibold"
+                >
                   Cancel
                 </Button>
               </Link>
@@ -359,9 +1170,9 @@ export default function RegisterCompanyPage() {
                 <span>Register Tenant Company</span>
               </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </form>
     </div>
   );
 }

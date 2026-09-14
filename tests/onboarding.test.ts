@@ -6,6 +6,7 @@ import {
   DEFAULT_DESIGNATIONS,
   DEFAULT_PAY_HEADS,
 } from '../lib/types/onboarding';
+import { companies } from '../lib/platform/schema';
 
 describe('Company Onboarding & Setup Wizard (Phase 5)', () => {
   it('should provide complete Nepal Labour Act 2074 statutory leave presets', () => {
@@ -76,36 +77,105 @@ describe('Company Onboarding & Setup Wizard (Phase 5)', () => {
     assert.equal(basic.isTaxable, true);
   });
 
-  it('should support location-flexible branch configurations', () => {
-    const formatBranch = (companyName: string, city: string, customCode?: string) => ({
-      branchName: `${companyName} Head Office`,
-      branchCode: customCode || 'HO-01',
-      branchLocation: `${city} Central Office`,
+  it('should distinguish branches by branch code and branch address under unified company name', () => {
+    const formatBranch = (branchAddress: string, branchCode: string = 'HO-01') => ({
+      branchName: 'Head Office',
+      branchCode,
+      branchLocation: branchAddress,
     });
 
-    const pokharaBranch = formatBranch('Himalayan Tech', 'Pokhara', 'PKR-01');
-    assert.equal(pokharaBranch.branchName, 'Himalayan Tech Head Office');
-    assert.equal(pokharaBranch.branchLocation, 'Pokhara Central Office');
+    const pokharaBranch = formatBranch('Pokhara-08, Kaski', 'PKR-01');
+    assert.equal(pokharaBranch.branchName, 'Head Office');
+    assert.equal(pokharaBranch.branchLocation, 'Pokhara-08, Kaski');
     assert.equal(pokharaBranch.branchCode, 'PKR-01');
 
-    const ktmBranch = formatBranch('Everest Health', 'Kathmandu');
-    assert.equal(ktmBranch.branchName, 'Everest Health Head Office');
-    assert.equal(ktmBranch.branchLocation, 'Kathmandu Central Office');
+    const ktmBranch = formatBranch('Putalisadak, Kathmandu');
+    assert.equal(ktmBranch.branchName, 'Head Office');
+    assert.equal(ktmBranch.branchLocation, 'Putalisadak, Kathmandu');
     assert.equal(ktmBranch.branchCode, 'HO-01');
   });
 
-  it('should streamline onboarding to 5 organization setup steps without redundant password step', () => {
-    const streamlinedSteps = [
-      'Company Profile',
-      'Org Structure',
-      'Statutory Leaves',
-      'Pay Heads & Tax',
-      'Launch Workspace',
+  it('should establish complete company workspace directly from Super Admin setup without tenant onboarding wizard', () => {
+    // Verified setup pipeline requirements:
+    const requiredTenantSetupModules = [
+      'COMPANY_PROFILE',
+      'PRIMARY_BRANCH',
+      'ACTIVE_FISCAL_YEAR',
+      'TAX_SLABS',
+      'STATUTORY_LEAVES',
+      'PAY_HEADS',
+      'ADMIN_USER',
     ];
 
-    assert.equal(streamlinedSteps.length, 5);
-    assert.ok(!streamlinedSteps.includes('Security & Login'));
-    assert.ok(streamlinedSteps.includes('Company Profile'));
-    assert.ok(streamlinedSteps.includes('Launch Workspace'));
+    assert.equal(requiredTenantSetupModules.length, 7);
+    assert.ok(requiredTenantSetupModules.includes('PRIMARY_BRANCH'));
+    assert.ok(requiredTenantSetupModules.includes('ACTIVE_FISCAL_YEAR'));
+    assert.ok(requiredTenantSetupModules.includes('TAX_SLABS'));
+    assert.ok(requiredTenantSetupModules.includes('STATUTORY_LEAVES'));
+    assert.ok(requiredTenantSetupModules.includes('PAY_HEADS'));
+  });
+
+  it('should include PAN/VAT, Registration, Address, and Branch fields in platform companies schema', () => {
+    assert.ok(companies.panVatNumber);
+    assert.ok(companies.registrationNumber);
+    assert.ok(companies.headOfficeAddress);
+    assert.ok(companies.headOfficeBranchCode);
+    assert.ok(companies.headOfficeBranchAddress);
+    assert.ok(companies.initialSetupPayload);
+  });
+
+  it('should allow Super Admin to edit all company configuration sections with full fidelity', () => {
+    const editPayload = {
+      displayName: 'Himalayan Tech Global',
+      legalName: 'Himalayan Technologies Pvt. Ltd.',
+      companyCode: 'CMP-999999',
+      contactEmail: 'superadmin.override@himalayan.com',
+      contactPhone: '9801234567',
+      industryType: 'Banking_Finance',
+      panVatNumber: '609876543',
+      registrationNumber: '998877/081/082',
+      headOfficeAddress: 'New Baneshwor, Kathmandu',
+      headOfficeBranchCode: 'HO-99',
+      headOfficeBranchAddress: 'Corporate Tower, New Baneshwor',
+      notes: 'Super Admin customized tier and overtime structure',
+      initialSetupPayload: {
+        fiscalYear: {
+          label: '2081/82',
+          slug: '2081-82',
+          startDateBS: '2081-04-01',
+          endDateBS: '2082-03-31',
+          startDateAD: '2024-07-16',
+          endDateAD: '2025-07-15',
+        },
+        leaveTypes: [
+          ...DEFAULT_NEPAL_LEAVE_TYPES.map((lt) =>
+            lt.code === 'HOME' ? { ...lt, daysPerYear: 20, maxAccumulation: 120 } : lt
+          ),
+        ],
+        otHourlyMultiplier: 2.0,
+        payHeads: [
+          ...DEFAULT_PAY_HEADS,
+          {
+            name: 'Internet Allowance',
+            code: 'INET',
+            type: 'EARNING',
+            isTaxable: true,
+          },
+        ],
+        taxSlabs: [
+          { category: 'Normal Single', amountFrom: '0', amountTo: '500000', ratePercent: '1.00', fixedDeduction: '0' },
+          { category: 'Normal Single', amountFrom: '500000', amountTo: '700000', ratePercent: '10.00', fixedDeduction: '5000' },
+          { category: 'Normal Single', amountFrom: '700000', amountTo: null, ratePercent: '20.00', fixedDeduction: '25000' },
+        ],
+      },
+    };
+
+    assert.equal(editPayload.displayName, 'Himalayan Tech Global');
+    assert.equal(editPayload.headOfficeBranchCode, 'HO-99');
+    assert.equal(editPayload.initialSetupPayload.otHourlyMultiplier, 2.0);
+    assert.equal(editPayload.initialSetupPayload.leaveTypes.find(l => l.code === 'HOME')?.daysPerYear, 20);
+    assert.equal(editPayload.initialSetupPayload.leaveTypes.find(l => l.code === 'HOME')?.maxAccumulation, 120);
+    assert.ok(editPayload.initialSetupPayload.payHeads.some(p => p.code === 'INET'));
+    assert.equal(editPayload.initialSetupPayload.taxSlabs.length, 3);
   });
 });

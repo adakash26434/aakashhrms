@@ -105,6 +105,12 @@ export async function ensurePlatformTablesExist(): Promise<void> {
             contact_email VARCHAR(255) NOT NULL,
             contact_phone VARCHAR(50),
             industry_type VARCHAR(50) NOT NULL DEFAULT 'General',
+            pan_vat_number VARCHAR(50),
+            registration_number VARCHAR(100),
+            head_office_address TEXT,
+            head_office_branch_code VARCHAR(50),
+            head_office_branch_address TEXT,
+            initial_setup_payload JSONB,
             registered_at DATE NOT NULL DEFAULT CURRENT_DATE,
             notes TEXT,
             policy_pack_version INTEGER NOT NULL DEFAULT 1,
@@ -120,6 +126,12 @@ export async function ensurePlatformTablesExist(): Promise<void> {
         await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS industry_type VARCHAR(50) NOT NULL DEFAULT 'General';`);
         await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMP WITH TIME ZONE;`);
         await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;`);
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS pan_vat_number VARCHAR(50);`);
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS registration_number VARCHAR(100);`);
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS head_office_address TEXT;`);
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS head_office_branch_code VARCHAR(50);`);
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS head_office_branch_address TEXT;`);
+        await pSql.unsafe(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS initial_setup_payload JSONB;`);
 
         await pSql.unsafe(`
           CREATE TABLE IF NOT EXISTS tenant_databases (
