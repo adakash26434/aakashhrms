@@ -20,7 +20,7 @@ const variants = {
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variants;
-  size?: "sm" | "md" | "lg" | "icon";
+  size?: "xs" | "sm" | "md" | "lg" | "icon";
   isLoading?: boolean;
 }
 
@@ -38,6 +38,7 @@ export function Button({
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-xl font-medium cursor-pointer transition-all duration-150 select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
         variants[variant],
+        size === "xs" && "px-2.5 py-1 text-xs min-h-7 rounded-lg",
         size === "sm" && "px-3 py-1.5 text-xs min-h-8",
         size === "md" && "px-4 py-2 text-sm min-h-9.5",
         size === "lg" && "px-5 py-2.5 text-sm min-h-11",

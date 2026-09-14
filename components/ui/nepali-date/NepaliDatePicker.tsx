@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  BS_MONTHS_EN,
   adToBS,
   bsToAD,
   formatADDate,
@@ -11,356 +10,552 @@ import {
 } from "@/lib/utils/bs-calendar";
 import { useDateFormat } from "@/lib/contexts/date-format-context";
 import { cn } from "@/lib/utils";
-import { Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Eraser } from "lucide-react";
 
-interface NepaliDatePickerProps {
-  /** Current value as an AD `Date` (from your form state). */
+export interface NepaliDatePickerProps {
+  /** Current value as an AD `Date` (from form state). */
   value: Date | null;
-  /** Called with the AD `Date` when a valid date is selected. */
+  /** Called with the AD `Date` when a valid date is selected, or null when cleared. */
   onChange: (adDate: Date) => void;
+  /** Optional clear handler. */
+  onClear?: () => void;
+  /** Force calendar mode ("BS" or "AD"). If omitted, uses active DateFormatContext. */
+  mode?: "BS" | "AD";
   /** Field label shown above the picker. */
   label?: string;
   /** Shows a red asterisk on the label. */
   required?: boolean;
   /** Disables all controls. */
   disabled?: boolean;
-  /** Earliest selectable BS year. Defaults to 1976. */
+  /** Earliest selectable BS year. Defaults to 2070. */
   minBSYear?: number;
-  /** Latest selectable BS year. Defaults to 2100. */
+  /** Latest selectable BS year. Defaults to 2095. */
   maxBSYear?: number;
+  /** Earliest selectable AD year. Defaults to 1970. */
+  minADYear?: number;
+  /** Latest selectable AD year. Defaults to 2050. */
+  maxADYear?: number;
   /** Validation error shown below the picker. */
   error?: string;
   className?: string;
+  placeholder?: string;
 }
 
-interface InternalState {
-  year: number | "";
-  month: number | "";
-  day: number | "";
+const NEPALI_DIGITS = ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"];
+
+export function toNepaliNumerals(num: number | string): string {
+  return String(num).replace(/\d/g, (d) => NEPALI_DIGITS[Number(d)] ?? d);
 }
 
-function fromValue(value: Date | null): InternalState {
-  if (!value || isNaN(value.getTime())) return { year: "", month: "", day: "" };
-  const bs = adToBS(value);
-  return { year: bs.year, month: bs.month, day: bs.day };
+export function fromNepaliNumerals(val: string): string {
+  return val.replace(/[०-९]/g, (d) => String(NEPALI_DIGITS.indexOf(d)));
+}
+
+const BS_MONTHS_NAMES = [
+  "",
+  "बैशाख",
+  "जेठ",
+  "असार",
+  "श्रावण",
+  "भाद्र",
+  "असोज",
+  "कार्तिक",
+  "मंसिर",
+  "पौष",
+  "माघ",
+  "फागुन",
+  "चैत्र",
+] as const;
+
+const BS_WEEKDAYS = ["आ", "सो", "मं", "बु", "बि", "शु", "श"] as const;
+const AD_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
+
+const AD_MONTHS_NAMES = [
+  "",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 /**
- * Controlled form input that picks a date in either B.S. (Year / Month
- * / Day dropdowns) or A.D. (native date input) — whichever the user
- * has selected globally via `DateFormatContext`. The output is always
- * a standard AD `Date` object.
- *
- * BS mode: the day dropdown auto-clamps to the actual number of days
- * in the selected BS month (28–32).
- *
- * AD mode: renders a single native `<input type="date">`. Day
- * validation is handled by the browser, and the value is fed straight
- * into `onChange`.
+ * Sleek, high-precision calendar popup supporting both BS and AD calendars,
+ * styled with our canonical AakashHRMS lush green system palette:
+ * - Smart auto-slash formatting when typing YYYY/MM/DD manually
+ * - Forest-green header with circular nav buttons (< >) and Month / Year selectors
+ * - Weekday initials header (आ सो मं बु बि शु श / Su Mo Tu We Th Fr Sa)
+ * - Mint-green day cells with signature soft-yellow highlight for selected dates
+ * - Attached deep-forest green eraser button for instant clearing
  */
-export function NepaliDatePicker(props: NepaliDatePickerProps) {
-  const { isAD } = useDateFormat();
-  // Compute BS internal state always (cheap, only used in BS branch).
-  const [state, setState] = useState<InternalState>(() => fromValue(props.value));
-
-  // Sync internal state whenever props.value changes
-  useEffect(() => {
-    setState(fromValue(props.value));
-  }, [props.value]);
-
-  // Always compute the day-clamp memo so hook order is stable.
-  const daysInSelectedMonth = useMemo(() => {
-    if (state.year === "" || state.month === "") return 32;
-    return getDaysInBSMonth(state.year, state.month) || 32;
-  }, [state.year, state.month]);
-
-  if (isAD) {
-    return <ADPicker {...props} />;
-  }
-  return (
-    <BSPicker
-      {...props}
-      state={state}
-      setState={setState}
-      daysInSelectedMonth={daysInSelectedMonth}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// AD mode — native date input
-// ---------------------------------------------------------------------------
-
-function ADPicker({
+export function NepaliDatePicker({
   value,
   onChange,
+  onClear,
+  mode: forcedMode,
   label,
   required = false,
   disabled = false,
+  minBSYear = 2070,
+  maxBSYear = 2095,
+  minADYear = 1970,
+  maxADYear = 2050,
   error,
   className,
+  placeholder = "YYYY/MM/DD",
 }: NepaliDatePickerProps) {
-  const adValue = value ? toISODateInput(value) : "";
-  return (
-    <div className={className}>
-      <style>{`
-        .custom-date-input::-webkit-calendar-picker-indicator {
-          display: none;
-          -webkit-appearance: none;
+  const { isAD: globalIsAD } = useDateFormat();
+  const activeMode = forcedMode ?? (globalIsAD ? "AD" : "BS");
+  const isBS = activeMode === "BS";
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevInputRef = useRef<string>("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Fallback defaults
+  const today = useMemo(() => new Date(), []);
+  const todayBS = useMemo(() => adToBS(today), [today]);
+
+  // Selected date representations
+  const selectedBS = useMemo(() => {
+    if (!value || isNaN(value.getTime())) return null;
+    return adToBS(value);
+  }, [value]);
+
+  const selectedAD = useMemo(() => {
+    if (!value || isNaN(value.getTime())) return null;
+    return {
+      year: value.getFullYear(),
+      month: value.getMonth() + 1,
+      day: value.getDate(),
+    };
+  }, [value]);
+
+  // Current calendar view
+  const [viewYear, setViewYear] = useState<number>(() => {
+    if (isBS) {
+      return selectedBS?.year || todayBS.year || 2081;
+    }
+    return selectedAD?.year || today.getFullYear() || 2026;
+  });
+
+  const [viewMonth, setViewMonth] = useState<number>(() => {
+    if (isBS) {
+      return selectedBS?.month || todayBS.month || 1;
+    }
+    return selectedAD?.month || today.getMonth() + 1;
+  });
+
+  // Text inside the input field
+  const [inputText, setInputText] = useState<string>("");
+
+  // Synchronize input text when value or mode changes
+  useEffect(() => {
+    if (!value || isNaN(value.getTime())) {
+      setInputText("");
+      prevInputRef.current = "";
+      return;
+    }
+    if (isBS) {
+      const bs = adToBS(value);
+      const str = `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)}`;
+      setInputText(str);
+      prevInputRef.current = str;
+      setViewYear(bs.year);
+      setViewMonth(bs.month);
+    } else {
+      const y = value.getFullYear();
+      const m = value.getMonth() + 1;
+      const d = value.getDate();
+      const str = `${y}/${pad2(m)}/${pad2(d)}`;
+      setInputText(str);
+      prevInputRef.current = str;
+      setViewYear(y);
+      setViewMonth(m);
+    }
+  }, [value, isBS]);
+
+  // Dismiss popup when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Previous month handler
+  function handlePrevMonth() {
+    if (viewMonth === 1) {
+      setViewYear((y) => y - 1);
+      setViewMonth(12);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  }
+
+  // Next month handler
+  function handleNextMonth() {
+    if (viewMonth === 12) {
+      setViewYear((y) => y + 1);
+      setViewMonth(1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  }
+
+  // Count days in viewing month
+  const daysCount = useMemo(() => {
+    if (isBS) {
+      return getDaysInBSMonth(viewYear, viewMonth) || 30;
+    }
+    return new Date(viewYear, viewMonth, 0).getDate();
+  }, [isBS, viewYear, viewMonth]);
+
+  // Starting weekday of the month (0 = Sun, 1 = Mon, ... 6 = Sat)
+  const startDayOfWeek = useMemo(() => {
+    if (isBS) {
+      try {
+        const firstDayAD = bsToAD(viewYear, viewMonth, 1);
+        return firstDayAD.getDay();
+      } catch {
+        return 0;
+      }
+    }
+    return new Date(viewYear, viewMonth - 1, 1).getDay();
+  }, [isBS, viewYear, viewMonth]);
+
+  // Day selection
+  function handleSelectDay(day: number) {
+    if (isBS) {
+      const adDate = bsToAD(viewYear, viewMonth, day);
+      onChange(adDate);
+      const str = `${viewYear}/${pad2(viewMonth)}/${pad2(day)}`;
+      setInputText(str);
+      prevInputRef.current = str;
+    } else {
+      const adDate = new Date(viewYear, viewMonth - 1, day);
+      onChange(adDate);
+      const str = `${viewYear}/${pad2(viewMonth)}/${pad2(day)}`;
+      setInputText(str);
+      prevInputRef.current = str;
+    }
+    setIsOpen(false);
+  }
+
+  // Clear handler (eraser icon)
+  function handleClear(e: React.MouseEvent) {
+    e.stopPropagation();
+    setInputText("");
+    prevInputRef.current = "";
+    if (onClear) {
+      onClear();
+    } else {
+      (onChange as any)(null);
+    }
+  }
+
+  /**
+   * Smart automatic slash `/` insertion on manual keyboard typing:
+   * - Automatically inserts `/` after 4-digit Year (e.g. `2083/`)
+   * - Automatically inserts `/` after 2-digit Month (e.g. `2083/05/`)
+   * - Respects backspacing seamlessly so the user never gets stuck
+   */
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    const isDeleting = raw.length < prevInputRef.current.length;
+
+    // Normalize any Devanagari numerals to standard digits and strip non-digits
+    const normalized = fromNepaliNumerals(raw);
+    const digits = normalized.replace(/\D/g, "").slice(0, 8); // maximum 8 digits (YYYYMMDD)
+
+    let formatted = "";
+    if (digits.length > 0) {
+      formatted += digits.slice(0, 4);
+
+      if (digits.length > 4 || (digits.length === 4 && !isDeleting)) {
+        formatted += "/";
+        if (digits.length > 4) {
+          formatted += digits.slice(4, 6);
+          if (digits.length > 6 || (digits.length === 6 && !isDeleting)) {
+            formatted += "/";
+            if (digits.length > 6) {
+              formatted += digits.slice(6, 8);
+            }
+          }
         }
-      `}</style>
-      {label && (
-        <label className="mb-1.5 block text-xs font-medium text-gray-600">
-          {label}
-          {required && <span className="ml-0.5 text-red-500">*</span>}
-        </label>
-      )}
-      <div className="relative flex items-center">
-        <span className="absolute left-3 text-gray-400 pointer-events-none">
-          <Calendar className="h-4 w-4" />
-        </span>
-        <input
-          type="date"
-          value={adValue}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (!v) return;
-            const [y, m, d] = v.split("-").map(Number);
-            if (!y || !m || !d) return;
-            const d2 = new Date(y, m - 1, d);
-            if (!isNaN(d2.getTime())) onChange(d2);
-          }}
-          onClick={(e) => {
-            try {
-              e.currentTarget.showPicker();
-            } catch {}
-          }}
-          onFocus={(e) => {
-            try {
-              e.currentTarget.showPicker();
-            } catch {}
-          }}
-          disabled={disabled}
-          className={cn(
-            "custom-date-input h-9 w-full rounded-md border bg-white pl-9 pr-3 text-sm text-payroll-navy transition-all",
-            "focus:outline-none focus:ring-1 focus:border-payroll-primary focus:ring-payroll-primary",
-            "hover:border-gray-300",
-            error
-              ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-              : "border-payroll-light",
-            disabled && "cursor-not-allowed bg-payroll-cream text-gray-400",
-          )}
-        />
-      </div>
-      {value && (
-        <p className="mt-1.5 text-xs text-gray-500">
-          AD: {formatADDate(value, "long")} — BS:{" "}
-          {(() => {
-            const bs = adToBS(value);
-            return `${bs.monthName} ${bs.day}, ${bs.year}`;
-          })()}
-        </p>
-      )}
-      {error && (
-        <p className="mt-1 text-xs text-red-600" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
+      }
+    }
 
-// ---------------------------------------------------------------------------
-// BS mode — three dropdowns
-// ---------------------------------------------------------------------------
+    prevInputRef.current = formatted;
+    setInputText(formatted);
 
-interface BSPickerProps extends NepaliDatePickerProps {
-  state: InternalState;
-  setState: React.Dispatch<React.SetStateAction<InternalState>>;
-  daysInSelectedMonth: number;
-}
+    // If complete date (YYYY/MM/DD) is entered, validate and update state
+    const parts = formatted.split("/").map(Number);
+    if (parts.length === 3 && parts[0] > 0 && parts[1] > 0 && parts[2] > 0) {
+      const [y, m, d] = parts;
+      if (isBS) {
+        if (y >= minBSYear && y <= maxBSYear && m >= 1 && m <= 12) {
+          const maxD = getDaysInBSMonth(y, m);
+          if (d >= 1 && d <= maxD && isValidBSDate(y, m, d)) {
+            const ad = bsToAD(y, m, d);
+            onChange(ad);
+            setViewYear(y);
+            setViewMonth(m);
+          }
+        }
+      } else {
+        if (y >= minADYear && y <= maxADYear && m >= 1 && m <= 12) {
+          const maxD = new Date(y, m, 0).getDate();
+          if (d >= 1 && d <= maxD) {
+            const ad = new Date(y, m - 1, d);
+            if (!isNaN(ad.getTime())) {
+              onChange(ad);
+              setViewYear(y);
+              setViewMonth(m);
+            }
+          }
+        }
+      }
+    }
+  }
 
-function BSPicker({
-  value,
-  onChange,
-  label,
-  required = false,
-  disabled = false,
-  minBSYear = 1976,
-  maxBSYear = 2100,
-  error,
-  className,
-  state,
-  setState,
-  daysInSelectedMonth,
-}: BSPickerProps) {
+  // Year options list
   const yearOptions = useMemo(() => {
-    const out: number[] = [];
-    for (let y = minBSYear; y <= maxBSYear; y++) out.push(y);
-    return out;
-  }, [minBSYear, maxBSYear]);
+    const list: number[] = [];
+    const min = isBS ? minBSYear : minADYear;
+    const max = isBS ? maxBSYear : maxADYear;
+    for (let y = min; y <= max; y++) list.push(y);
+    return list;
+  }, [isBS, minBSYear, maxBSYear, minADYear, maxADYear]);
 
-  const dayOptions = useMemo(() => {
-    const out: number[] = [];
-    for (let d = 1; d <= daysInSelectedMonth; d++) out.push(d);
-    return out;
-  }, [daysInSelectedMonth]);
-
-  function emitIfComplete(next: InternalState) {
-    if (
-      typeof next.year === "number" &&
-      typeof next.month === "number" &&
-      typeof next.day === "number" &&
-      isValidBSDate(next.year, next.month, next.day)
-    ) {
-      onChange(bsToAD(next.year, next.month, next.day));
+  // Day states
+  function isSelectedDay(day: number): boolean {
+    if (isBS) {
+      return Boolean(
+        selectedBS &&
+          selectedBS.year === viewYear &&
+          selectedBS.month === viewMonth &&
+          selectedBS.day === day,
+      );
     }
-  }
-
-  function setField<K extends keyof InternalState>(key: K, raw: string) {
-    if (raw === "") {
-      const next: InternalState = { ...state, [key]: "" };
-      setState(next);
-      return;
-    }
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return;
-
-    if (key === "month" || key === "year") {
-      const newYear = key === "year" ? n : state.year;
-      const newMonth = key === "month" ? n : state.month;
-      const newMax =
-        typeof newYear === "number" && typeof newMonth === "number"
-          ? getDaysInBSMonth(newYear, newMonth)
-          : 0;
-      const clampedDay =
-        typeof state.day === "number" && newMax > 0 && state.day > newMax
-          ? ""
-          : state.day;
-      const next: InternalState = {
-        ...state,
-        year: key === "year" ? n : state.year,
-        month: key === "month" ? n : state.month,
-        day: clampedDay,
-      };
-      setState(next);
-      emitIfComplete(next);
-      return;
-    }
-
-    const next: InternalState = { ...state, day: n };
-    setState(next);
-    emitIfComplete(next);
-  }
-
-  // Confirmation hint shown when a complete date is selected.
-  const confirmation = useMemo(() => {
-    if (
-      typeof state.year === "number" &&
-      typeof state.month === "number" &&
-      typeof state.day === "number" &&
-      isValidBSDate(state.year, state.month, state.day)
-    ) {
-      const ad = bsToAD(state.year, state.month, state.day);
-      const bs = adToBS(ad);
-      return { bs, ad };
-    }
-    return null;
-    // Note: we suppress the unused warning for `value` since it would
-    // be redundant — when `value` changes we want the hint to follow it.
-    void value;
-  }, [state, value]);
-
-  const selectClass = (hasError: boolean) =>
-    cn(
-      "h-9 rounded-md border bg-white px-2 text-sm text-[#1b3a1f] transition-colors",
-      "focus:outline-none focus:ring-1",
-      hasError
-        ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-        : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-[#2e7d32]",
-      disabled && "cursor-not-allowed bg-[#f6faf6] text-gray-400",
+    return Boolean(
+      selectedAD &&
+        selectedAD.year === viewYear &&
+        selectedAD.month === viewMonth &&
+        selectedAD.day === day,
     );
+  }
+
+  function isTodayDay(day: number): boolean {
+    if (isBS) {
+      return (
+        todayBS.year === viewYear &&
+        todayBS.month === viewMonth &&
+        todayBS.day === day
+      );
+    }
+    return (
+      today.getFullYear() === viewYear &&
+      today.getMonth() + 1 === viewMonth &&
+      today.getDate() === day
+    );
+  }
 
   return (
-    <div className={className}>
+    <div ref={containerRef} className={cn("relative inline-block w-full", className)}>
       {label && (
-        <label className="mb-1.5 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-bold text-payroll-navy">
           {label}
-          {required && <span className="ml-0.5 text-red-500">*</span>}
+          {required && <span className="ml-1 text-rose-500">*</span>}
         </label>
       )}
 
-      <div className="flex items-center gap-2">
-        <select
-          aria-label="Year (B.S.)"
-          value={state.year === "" ? "" : String(state.year)}
-          onChange={(e) => setField("year", e.target.value)}
+      {/* Input Group with Attached Greenish Eraser Button */}
+      <div
+        className={cn(
+          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all",
+          isOpen
+            ? "border-payroll-primary ring-2 ring-payroll-primary/20"
+            : error
+              ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-1 focus-within:ring-rose-500"
+              : "border-payroll-light/80 hover:border-gray-300 focus-within:border-payroll-primary focus-within:ring-1 focus-within:ring-payroll-primary",
+          disabled && "cursor-not-allowed bg-gray-50 opacity-70",
+        )}
+      >
+        <input
+          type="text"
+          value={inputText}
+          onChange={handleInputChange}
+          onClick={() => !disabled && setIsOpen(true)}
+          placeholder={placeholder}
           disabled={disabled}
-          className={cn(selectClass(Boolean(error)), "w-24")}
-        >
-          <option value="">Year</option>
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium text-payroll-navy placeholder:text-gray-400 focus:outline-none"
+        />
 
-        <select
-          aria-label="Month (B.S.)"
-          value={state.month === "" ? "" : String(state.month)}
-          onChange={(e) => setField("month", e.target.value)}
-          disabled={disabled || state.year === ""}
-          className={cn(selectClass(Boolean(error)), "min-w-27.5 flex-1")}
+        {/* Attached Eraser Button (Deep System Forest Navy/Green) */}
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={disabled}
+          onClick={handleClear}
+          title="Clear date"
+          className="absolute right-0 top-0 bottom-0 px-2.5 bg-[#1b3a1f] hover:bg-[#142e18] active:bg-[#0e2111] text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
         >
-          <option value="">Month</option>
-          {BS_MONTHS_EN.slice(1).map((name, i) => {
-            const m = i + 1;
-            return (
-              <option key={m} value={m}>
-                {name}
-              </option>
-            );
-          })}
-        </select>
-
-        <select
-          aria-label="Day (B.S.)"
-          value={state.day === "" ? "" : String(state.day)}
-          onChange={(e) => setField("day", e.target.value)}
-          disabled={disabled || state.month === ""}
-          className={cn(selectClass(Boolean(error)), "w-20")}
-        >
-          <option value="">Day</option>
-          {dayOptions.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
+          <Eraser className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {confirmation && (
-        <p className="mt-1.5 text-xs text-gray-500">
-          BS: {confirmation.bs.monthName} {confirmation.bs.day},{" "}
-          {confirmation.bs.year} — AD:{" "}
-          {toISODateInput(confirmation.ad)}
-        </p>
+      {/* Opposite Calendar Context Hint */}
+      {value && !isNaN(value.getTime()) && (
+        <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500 font-mono">
+          <span>
+            {isBS
+              ? `A.D.: ${formatADDate(value, "long")}`
+              : `B.S.: ${(() => {
+                  const bs = adToBS(value);
+                  return `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)} (${bs.monthName})`;
+                })()}`}
+          </span>
+          <span className="text-[10px] uppercase font-bold text-payroll-primary tracking-wider">
+            {isBS ? "B.S. Calendar" : "A.D. Calendar"}
+          </span>
+        </div>
       )}
 
       {error && (
-        <p className="mt-1 text-xs text-red-600" role="alert">
+        <p className="mt-1 text-xs text-rose-600 font-semibold" role="alert">
           {error}
         </p>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          POPUP CALENDAR MODAL (GREENISH PALETTE MATCHING SYSTEM)
+         ══════════════════════════════════════════════════════════════════════ */}
+      {isOpen && !disabled && (
+        <div
+          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-[#b8dab2] bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          style={{ minWidth: "268px" }}
+        >
+          {/* Header Bar — System Emerald/Forest Green */}
+          <div className="rounded-t-lg bg-gradient-to-r from-[#2e7d32] to-[#388e3c] px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
+            {/* Previous Month Arrow Button */}
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              title="Previous Month"
+              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Month & Year Selectors */}
+            <div className="flex items-center gap-1.5">
+              {/* Month Dropdown */}
+              <div className="relative">
+                <select
+                  value={viewMonth}
+                  onChange={(e) => setViewMonth(Number(e.target.value))}
+                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {isBS ? BS_MONTHS_NAMES[m] : AD_MONTHS_NAMES[m]}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Year Dropdown */}
+              <div className="relative">
+                <select
+                  value={viewYear}
+                  onChange={(e) => setViewYear(Number(e.target.value))}
+                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs font-mono"
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {isBS ? toNepaliNumerals(y) : y}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Next Month Arrow Button */}
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              title="Next Month"
+              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Weekday Row Header */}
+          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-[#1b3a1f]">
+            {(isBS ? BS_WEEKDAYS : AD_WEEKDAYS).map((dayName, idx) => (
+              <div key={idx} className="py-0.5">
+                {dayName}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Day Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {/* Blank offset blocks for days prior to the 1st */}
+            {Array.from({ length: startDayOfWeek }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="h-7 w-full" />
+            ))}
+
+            {/* Month Days */}
+            {Array.from({ length: daysCount }, (_, idx) => idx + 1).map((day) => {
+              const selected = isSelectedDay(day);
+              const isToday = isTodayDay(day);
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => handleSelectDay(day)}
+                  className={cn(
+                    "h-7 w-full flex items-center justify-center rounded-xs text-xs font-bold transition-all cursor-pointer select-none",
+                    selected
+                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-[#1b3a1f] border border-[#f5d742] shadow-xs scale-105 z-10"
+                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-[#1b5e20] border border-[#d2ead5]",
+                    isToday && !selected && "ring-1.5 ring-[#2e7d32] font-black text-[#1b3a1f]",
+                  )}
+                >
+                  {isBS ? toNepaliNumerals(day) : day}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-/** Format a Date as a `YYYY-MM-DD` string in the local timezone. */
-function toISODateInput(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
 }

@@ -9,10 +9,7 @@ import { PayrollOperationsCenter } from "@/components/dashboard/payroll-operatio
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
 import { getDashboardSnapshot } from "@/lib/services/dashboard.service";
-import { OnboardingBanner } from "@/components/onboarding/onboarding-banner";
-import { getDb, ensureTenantContext } from "@/lib/db";
-import { systemConfig } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { ensureTenantContext } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Dashboard | AakashHRMS",

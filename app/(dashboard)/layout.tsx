@@ -1,7 +1,5 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { ensureTenantContext, getDb } from "@/lib/db";
-import { systemConfig } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { ensureTenantContext } from "@/lib/db";
 import { redirect } from "next/navigation";
 import {
   getCurrentTenantContext,
@@ -19,24 +17,6 @@ import { auth } from "@/lib/auth";
 // Dashboard pages depend on the database and the logged-in session, so they
 // must be rendered on every request instead of being prerendered at build time.
 export const dynamic = "force-dynamic";
-
-/**
- * Checks whether the current tenant database has completed onboarding setup.
- */
-async function checkOnboardingCompletion(): Promise<boolean> {
-  try {
-    const config = await getDb()
-      .select()
-      .from(systemConfig)
-      .where(eq(systemConfig.key, "onboarding_completed"))
-      .limit(1);
-
-    return config[0]?.value === "true";
-  } catch {
-    // If the systemConfig table doesn't exist yet or is uninitialized, treat as not completed
-    return false;
-  }
-}
 
 export default async function DashboardLayout({
   children,
@@ -69,11 +49,6 @@ export default async function DashboardLayout({
       return runWithTenantContext(
         { tenantSlug: impersonation.companySlug, db: tenantDb },
         async () => {
-          const isOnboardingCompleted = await checkOnboardingCompletion();
-          if (!isOnboardingCompleted) {
-            redirect("/onboarding");
-          }
-
           const context = await getWorkspaceContext();
           return (
             <>
@@ -103,20 +78,10 @@ export default async function DashboardLayout({
     return runWithTenantContext(
       { tenantSlug: targetSlug, db: targetDb },
       async () => {
-        const isOnboardingCompleted = await checkOnboardingCompletion();
-        if (!isOnboardingCompleted) {
-          redirect("/onboarding");
-        }
-
         const context = await getWorkspaceContext();
         return <DashboardShell context={context}>{children}</DashboardShell>;
       }
     );
-  }
-
-  const isOnboardingCompleted = await checkOnboardingCompletion();
-  if (!isOnboardingCompleted) {
-    redirect("/onboarding");
   }
 
   const context = await getWorkspaceContext();

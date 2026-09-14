@@ -1,24 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronDown, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   adToBS,
-  BS_MONTHS_EN,
-  bsStringToAD,
+  bsToAD,
   formatADDate,
   getDaysInBSMonth,
+  isValidBSDate,
 } from "@/lib/utils/bs-calendar";
-
-/**
- * Bikram Sambat date picker.
- *
- * Three cascading dropdowns (Year / Month / Day) plus a live
- * AD equivalent preview. Replaces free-text date entry with
- * a guided picker that respects the variable month lengths
- * (28..32 days) of the BS calendar.
- */
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, ChevronDown, Eraser } from "lucide-react";
 
 export interface BSDatePickerProps {
   value: string;
@@ -27,20 +18,54 @@ export interface BSDatePickerProps {
   maxYear?: number;
   disabled?: boolean;
   hasError?: boolean;
-  ariaLabel: string;
+  ariaLabel?: string;
   idPrefix?: string;
+  label?: string;
+  required?: boolean;
+  error?: string;
+  className?: string;
 }
 
-const MIN_YEAR_DEFAULT = 2070;
-const MAX_YEAR_DEFAULT = 2095;
+const NEPALI_DIGITS = ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"];
 
-function parseBSValue(s: string): {
+export function toNepaliNumerals(num: number | string): string {
+  return String(num).replace(/\d/g, (d) => NEPALI_DIGITS[Number(d)] ?? d);
+}
+
+export function fromNepaliNumerals(val: string): string {
+  return val.replace(/[०-९]/g, (d) => String(NEPALI_DIGITS.indexOf(d)));
+}
+
+const BS_MONTHS_NAMES = [
+  "",
+  "बैशाख",
+  "जेठ",
+  "असार",
+  "श्रावण",
+  "भाद्र",
+  "असोज",
+  "कार्तिक",
+  "मंसिर",
+  "पौष",
+  "माघ",
+  "फागुन",
+  "चैत्र",
+] as const;
+
+const BS_WEEKDAYS = ["आ", "सो", "मं", "बु", "बि", "शु", "श"] as const;
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function parseBSString(s: string): {
   year: number | null;
   month: number | null;
   day: number | null;
 } {
   if (!s) return { year: null, month: null, day: null };
-  const match = s.trim().match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
+  const normalized = fromNepaliNumerals(s.trim());
+  const match = normalized.match(/^(\d{4})[/-](\d{1,2})(?:[/-](\d{1,2}))?$/);
   if (!match) return { year: null, month: null, day: null };
   return {
     year: Number(match[1]),
@@ -49,364 +74,372 @@ function parseBSValue(s: string): {
   };
 }
 
-function formatBSValue(
-  year: number | null,
-  month: number | null,
-  day: number | null,
-): string {
-  if (year == null || month == null) return "";
-  const mm = String(month).padStart(2, "0");
-  if (day == null) return `${year}-${mm}`;
-  return `${year}-${mm}-${String(day).padStart(2, "0")}`;
-}
-
-interface MiniSelectProps {
-  value: string;
-  placeholder: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-  disabled?: boolean;
-  hasError?: boolean;
-  ariaLabel: string;
-  buttonId: string;
-  widthClass?: string;
-}
-
-function MiniSelect({
-  value,
-  placeholder,
-  options,
-  onChange,
-  disabled,
-  hasError,
-  ariaLabel,
-  buttonId,
-  widthClass = "flex-1",
-}: MiniSelectProps) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-
-  const selected = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    if (!open) return;
-    function measure() {
-      const el = triggerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + 6,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-    measure();
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
-    return () => {
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        panelRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        id={buttonId}
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        className={cn(
-          widthClass,
-          "h-9 rounded-lg border bg-white px-2.5 text-sm text-[#1b3a1f] focus:outline-none focus:ring-1 flex items-center justify-between gap-1 transition-colors",
-          disabled
-            ? "cursor-not-allowed border-[#d7e8d0]/60 bg-[#f6faf6] text-gray-500"
-            : hasError
-              ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-              : "border-[#d7e8d0] hover:border-[#2e7d32]/40 focus:border-[#2e7d32] focus:ring-[#2e7d32]",
-          open && "border-[#2e7d32] ring-1 ring-[#2e7d32]",
-        )}
-      >
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate text-left",
-            !selected && "text-gray-400",
-          )}
-        >
-          {selected ? selected.label : placeholder}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-
-      {open && pos && typeof document !== "undefined" && (
-        <div
-          ref={panelRef}
-          role="listbox"
-          aria-label={ariaLabel}
-          style={{
-            position: "fixed",
-            top: pos.top,
-            left: pos.left,
-            minWidth: pos.width,
-            maxHeight: 240,
-            zIndex: 9999,
-          }}
-          className="overflow-y-auto rounded-md border border-[#d7e8d0] bg-white shadow-lg animate-[dialogIn_180ms_ease-out]"
-        >
-          {options.map((opt) => {
-            const isSelected = opt.value === value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
-                  isSelected
-                    ? "bg-[#d7e8d0]/40 text-[#1b3a1f]"
-                    : "text-gray-700 hover:bg-[#f6faf6]",
-                )}
-              >
-                <span className="flex-1 truncate">{opt.label}</span>
-                {isSelected && (
-                  <span className="text-xs font-semibold text-[#2e7d32]">
-                    ✓
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
-}
-
 /**
- * Bikram Sambat date picker — 3 cascading dropdowns with live
- * AD preview and a quick "clear" / "today" action row.
+ * Greenish BS Calendar popup picker matching system theme:
+ * - Smart auto-slash formatting on keyboard input
+ * - Forest-green gradient header with < > month/year navigators
+ * - Weekday initials header (आ सो मं बु बि शु श)
+ * - Mint-green day buttons with signature soft-yellow highlight for selected dates
+ * - Attached deep forest green eraser button
  */
 export function BSDatePicker({
   value,
   onChange,
-  minYear = MIN_YEAR_DEFAULT,
-  maxYear = MAX_YEAR_DEFAULT,
-  disabled,
-  hasError,
-  ariaLabel,
-  idPrefix = "bs-date",
+  minYear = 2070,
+  maxYear = 2095,
+  disabled = false,
+  hasError = false,
+  label,
+  required = false,
+  error,
+  className,
 }: BSDatePickerProps) {
-  const parsed = useMemo(() => parseBSValue(value), [value]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevInputRef = useRef<string>("");
+  const [isOpen, setIsOpen] = useState(false);
 
-  const [year, setYear] = useState<number | null>(parsed.year);
-  const [month, setMonth] = useState<number | null>(parsed.month);
-  const [day, setDay] = useState<number | null>(parsed.day);
+  const parsed = useMemo(() => parseBSString(value), [value]);
+
+  const today = useMemo(() => new Date(), []);
+  const todayBS = useMemo(() => adToBS(today), [today]);
+
+  const [viewYear, setViewYear] = useState<number>(() => {
+    return parsed.year || todayBS.year || 2081;
+  });
+
+  const [viewMonth, setViewMonth] = useState<number>(() => {
+    return parsed.month || todayBS.month || 1;
+  });
+
+  const [inputText, setInputText] = useState<string>(() => {
+    if (parsed.year && parsed.month && parsed.day) {
+      const str = `${parsed.year}/${pad2(parsed.month)}/${pad2(parsed.day)}`;
+      prevInputRef.current = str;
+      return str;
+    }
+    prevInputRef.current = value || "";
+    return value || "";
+  });
+
+  // Sync state when value changes externally
+  useEffect(() => {
+    const p = parseBSString(value);
+    if (p.year && p.month && p.day) {
+      const str = `${p.year}/${pad2(p.month)}/${pad2(p.day)}`;
+      setInputText(str);
+      prevInputRef.current = str;
+      setViewYear(p.year);
+      setViewMonth(p.month);
+    } else {
+      setInputText(value || "");
+      prevInputRef.current = value || "";
+    }
+  }, [value]);
+
+  // Click outside to close popup
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  function handlePrevMonth() {
+    if (viewMonth === 1) {
+      setViewYear((y) => y - 1);
+      setViewMonth(12);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  }
+
+  function handleNextMonth() {
+    if (viewMonth === 12) {
+      setViewYear((y) => y + 1);
+      setViewMonth(1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  }
+
+  const daysCount = useMemo(() => {
+    return getDaysInBSMonth(viewYear, viewMonth) || 30;
+  }, [viewYear, viewMonth]);
+
+  const startDayOfWeek = useMemo(() => {
+    try {
+      const firstDayAD = bsToAD(viewYear, viewMonth, 1);
+      return firstDayAD.getDay();
+    } catch {
+      return 0;
+    }
+  }, [viewYear, viewMonth]);
+
+  function handleSelectDay(day: number) {
+    const formatted = `${viewYear}-${pad2(viewMonth)}-${pad2(day)}`;
+    const displayFormatted = `${viewYear}/${pad2(viewMonth)}/${pad2(day)}`;
+    setInputText(displayFormatted);
+    prevInputRef.current = displayFormatted;
+    onChange(formatted);
+    setIsOpen(false);
+  }
+
+  function handleClear(e: React.MouseEvent) {
+    e.stopPropagation();
+    setInputText("");
+    prevInputRef.current = "";
+    onChange("");
+  }
+
+  /**
+   * Automatic slash insertion on typing:
+   */
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    const isDeleting = raw.length < prevInputRef.current.length;
+
+    const normalized = fromNepaliNumerals(raw);
+    const digits = normalized.replace(/\D/g, "").slice(0, 8);
+
+    let formatted = "";
+    if (digits.length > 0) {
+      formatted += digits.slice(0, 4);
+
+      if (digits.length > 4 || (digits.length === 4 && !isDeleting)) {
+        formatted += "/";
+        if (digits.length > 4) {
+          formatted += digits.slice(4, 6);
+          if (digits.length > 6 || (digits.length === 6 && !isDeleting)) {
+            formatted += "/";
+            if (digits.length > 6) {
+              formatted += digits.slice(6, 8);
+            }
+          }
+        }
+      }
+    }
+
+    prevInputRef.current = formatted;
+    setInputText(formatted);
+
+    const parts = formatted.split("/").map(Number);
+    if (parts.length === 3 && parts[0] > 0 && parts[1] > 0 && parts[2] > 0) {
+      const [y, m, d] = parts;
+      if (
+        y >= minYear &&
+        y <= maxYear &&
+        m >= 1 &&
+        m <= 12
+      ) {
+        const maxD = getDaysInBSMonth(y, m);
+        if (d >= 1 && d <= maxD && isValidBSDate(y, m, d)) {
+          onChange(`${y}-${pad2(m)}-${pad2(d)}`);
+          setViewYear(y);
+          setViewMonth(m);
+        }
+      }
+    }
+  }
 
   const yearOptions = useMemo(() => {
-    const out: { value: string; label: string }[] = [];
-    for (let y = minYear; y <= maxYear; y++) {
-      out.push({ value: String(y), label: `${y} BS` });
-    }
-    return out;
+    const list: number[] = [];
+    for (let y = minYear; y <= maxYear; y++) list.push(y);
+    return list;
   }, [minYear, maxYear]);
 
-  const monthOptions = useMemo(() => {
-    const out: { value: string; label: string }[] = [];
-    for (let m = 1; m <= 12; m++) {
-      out.push({ value: String(m), label: BS_MONTHS_EN[m] });
+  const isSelectedDay = (day: number) => {
+    return (
+      parsed.year === viewYear &&
+      parsed.month === viewMonth &&
+      parsed.day === day
+    );
+  };
+
+  const isTodayDay = (day: number) => {
+    return (
+      todayBS.year === viewYear &&
+      todayBS.month === viewMonth &&
+      todayBS.day === day
+    );
+  };
+
+  const adPreview = useMemo(() => {
+    if (parsed.year && parsed.month && parsed.day) {
+      try {
+        if (isValidBSDate(parsed.year, parsed.month, parsed.day)) {
+          const ad = bsToAD(parsed.year, parsed.month, parsed.day);
+          return formatADDate(ad, "long");
+        }
+      } catch {}
     }
-    return out;
-  }, []);
-
-  const daysInSelectedMonth = useMemo(() => {
-    if (year == null || month == null) return 32;
-    const d = getDaysInBSMonth(year, month);
-    return d || 32;
-  }, [year, month]);
-
-  const displayDay =
-    day != null && day > daysInSelectedMonth ? daysInSelectedMonth : day;
-
-  const dayOptions = useMemo(() => {
-    const out: { value: string; label: string }[] = [];
-    for (let d = 1; d <= daysInSelectedMonth; d++) {
-      out.push({ value: String(d), label: String(d) });
-    }
-    return out;
-  }, [daysInSelectedMonth]);
-
-  // Track the last value we pushed up so we can avoid an
-  // infinite re-sync loop.
-  const lastPushedRef = useRef<string>(value);
-
-  // Push local edits upward.
-  useEffect(() => {
-    const safeDay =
-      day != null && day > daysInSelectedMonth ? daysInSelectedMonth : day;
-    const next = formatBSValue(year, month, safeDay);
-    if (next !== lastPushedRef.current) {
-      lastPushedRef.current = next;
-      onChange(next);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month, day, daysInSelectedMonth]);
-
-  // Re-sync from outside (parent reset, edit-mode remount, etc.).
-  useEffect(() => {
-    if (value !== lastPushedRef.current) {
-      setYear(parsed.year);
-      setMonth(parsed.month);
-      setDay(parsed.day);
-      lastPushedRef.current = value;
-    }
-  }, [value, parsed.year, parsed.month, parsed.day]);
-
-  const fullBS = formatBSValue(year, month, displayDay);
-  const adDate = fullBS ? bsStringToAD(fullBS) : null;
-  const adLabel = adDate ? formatADDate(adDate, "long") : null;
-
-  function handleClear() {
-    setYear(null);
-    setMonth(null);
-    setDay(null);
-  }
-
-  function handleSetToday() {
-    const today = adToBS(new Date());
-    setYear(today.year);
-    setMonth(today.month);
-    setDay(today.day);
-  }
+    return null;
+  }, [parsed]);
 
   return (
-    <div
-      aria-label={ariaLabel}
-      className={cn(
-        "rounded-lg border bg-white p-2 transition-colors",
-        hasError
-          ? "border-red-300"
-          : disabled
-            ? "border-[#d7e8d0]/60 bg-[#f6faf6]"
-            : "border-[#d7e8d0]",
+    <div ref={containerRef} className={cn("relative inline-block w-full", className)}>
+      {label && (
+        <label className="mb-1 block text-xs font-bold text-payroll-navy">
+          {label}
+          {required && <span className="ml-1 text-rose-500">*</span>}
+        </label>
       )}
-    >
-      <div className="flex items-center gap-1.5">
-        <MiniSelect
-          value={year != null ? String(year) : ""}
-          placeholder="Year"
-          options={yearOptions}
-          onChange={(v) => setYear(v ? Number(v) : null)}
+
+      {/* Input Group with Right Attached Eraser Button */}
+      <div
+        className={cn(
+          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all",
+          isOpen
+            ? "border-payroll-primary ring-2 ring-payroll-primary/20"
+            : hasError || error
+              ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-1 focus-within:ring-rose-500"
+              : "border-payroll-light/80 hover:border-gray-300 focus-within:border-payroll-primary focus-within:ring-1 focus-within:ring-payroll-primary",
+          disabled && "cursor-not-allowed bg-gray-50 opacity-70",
+        )}
+      >
+        <input
+          type="text"
+          value={inputText}
+          onChange={handleInputChange}
+          onClick={() => !disabled && setIsOpen(true)}
+          placeholder="YYYY/MM/DD"
           disabled={disabled}
-          hasError={hasError}
-          ariaLabel={`${ariaLabel} year`}
-          buttonId={`${idPrefix}-year`}
-          widthClass="w-[34%]"
+          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium text-payroll-navy placeholder:text-gray-400 focus:outline-none"
         />
-        <MiniSelect
-          value={month != null ? String(month) : ""}
-          placeholder="Month"
-          options={monthOptions}
-          onChange={(v) => setMonth(v ? Number(v) : null)}
+
+        {/* Attached Eraser Button (Deep Forest Green) */}
+        <button
+          type="button"
+          tabIndex={-1}
           disabled={disabled}
-          hasError={hasError}
-          ariaLabel={`${ariaLabel} month`}
-          buttonId={`${idPrefix}-month`}
-          widthClass="w-[42%]"
-        />
-        <MiniSelect
-          value={displayDay != null ? String(displayDay) : ""}
-          placeholder="Day"
-          options={dayOptions}
-          onChange={(v) => setDay(v ? Number(v) : null)}
-          disabled={disabled}
-          hasError={hasError}
-          ariaLabel={`${ariaLabel} day`}
-          buttonId={`${idPrefix}-day`}
-          widthClass="w-[24%]"
-        />
+          onClick={handleClear}
+          title="Clear date"
+          className="absolute right-0 top-0 bottom-0 px-2.5 bg-[#1b3a1f] hover:bg-[#142e18] active:bg-[#0e2111] text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
+        >
+          <Eraser className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
-        <div className="flex min-w-0 items-center gap-1.5 text-gray-500 tabular-nums">
-          {adLabel ? (
-            <>
-              <CalendarDays className="h-3 w-3 shrink-0 text-[#2e7d32]/60" />
-              <span className="rounded bg-[#f6faf6] px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
-                AD
-              </span>
-              <span className="truncate text-[#1b3a1f]">{adLabel}</span>
-            </>
-          ) : (
-            <span className="text-gray-400">Pick year, month, and day</span>
-          )}
+      {/* AD Preview Hint */}
+      {adPreview && (
+        <p className="mt-1 text-[11px] text-gray-500 font-mono">
+          AD: {adPreview}
+        </p>
+      )}
+
+      {error && (
+        <p className="mt-1 text-xs text-rose-600 font-semibold" role="alert">
+          {error}
+        </p>
+      )}
+
+      {/* Popup Calendar Dropdown */}
+      {isOpen && !disabled && (
+        <div
+          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-[#b8dab2] bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          style={{ minWidth: "268px" }}
+        >
+          {/* Header Bar — System Emerald/Forest Green */}
+          <div className="rounded-t-lg bg-gradient-to-r from-[#2e7d32] to-[#388e3c] px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              title="Previous Month"
+              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <select
+                  value={viewMonth}
+                  onChange={(e) => setViewMonth(Number(e.target.value))}
+                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {BS_MONTHS_NAMES[m]}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              <div className="relative">
+                <select
+                  value={viewYear}
+                  onChange={(e) => setViewYear(Number(e.target.value))}
+                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs font-mono"
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {toNepaliNumerals(y)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              title="Next Month"
+              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Weekday Row Header */}
+          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-[#1b3a1f]">
+            {BS_WEEKDAYS.map((dayName, idx) => (
+              <div key={idx} className="py-0.5">
+                {dayName}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Day Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {Array.from({ length: startDayOfWeek }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="h-7 w-full" />
+            ))}
+
+            {Array.from({ length: daysCount }, (_, idx) => idx + 1).map((day) => {
+              const selected = isSelectedDay(day);
+              const isToday = isTodayDay(day);
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => handleSelectDay(day)}
+                  className={cn(
+                    "h-7 w-full flex items-center justify-center rounded-xs text-xs font-bold transition-all cursor-pointer select-none",
+                    selected
+                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-[#1b3a1f] border border-[#f5d742] shadow-xs scale-105 z-10"
+                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-[#1b5e20] border border-[#d2ead5]",
+                    isToday && !selected && "ring-1.5 ring-[#2e7d32] font-black text-[#1b3a1f]",
+                  )}
+                >
+                  {toNepaliNumerals(day)}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={handleSetToday}
-            disabled={disabled}
-            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#2e7d32] transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Set to today's BS date"
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            onClick={handleClear}
-            disabled={
-              disabled || (year == null && month == null && day == null)
-            }
-            className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 transition-colors hover:bg-[#d7e8d0]/60 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Clear the date"
-          >
-            <X className="h-2.5 w-2.5" />
-            Clear
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

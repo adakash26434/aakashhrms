@@ -24,6 +24,7 @@ import {
   Globe,
   Phone,
   Mail,
+  MapPin,
   ShieldCheck,
   RefreshCw,
 } from "lucide-react";
@@ -1163,7 +1164,7 @@ export function HomePageClient({
       {/* 7. Demo Contact Form Section (Immediately Before Footer) */}
       <section
         id="demo"
-        className="py-20 bg-white border-t border-slate-200/80 scroll-mt-12"
+        className="pt-12 pb-10 sm:pt-14 sm:pb-12 bg-white border-t border-slate-200/80 scroll-mt-12"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
@@ -1605,38 +1606,41 @@ export function HomePageClient({
       </section>
 
       {/* 8. Enterprise Forest Green Footer */}
-      <footer className="bg-[#102214] text-white pt-16 pb-12 text-xs">
+      <footer className="bg-[#102214] text-white pt-9 pb-7 sm:pt-10 sm:pb-8 text-xs">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-7 lg:gap-8">
             {/* Brand Column */}
-            <div className="md:col-span-5 space-y-4">
-              <div className="inline-flex items-center gap-3 rounded-xl bg-white px-4 py-2 shadow-sm">
+            <div className="sm:col-span-2 md:col-span-4 space-y-2.5">
+              <Link
+                href="/"
+                className="inline-flex items-center group focus:outline-none"
+              >
                 <Image
                   src="/AakashHrmsLogo.png"
                   alt="Aakash HRMS - Smart People, Strong Organization"
                   width={160}
-                  height={48}
-                  className="h-8 w-auto object-contain"
+                  height={50}
+                  className="h-8.5 sm:h-9 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
                 />
-              </div>
-              <p className="text-xs text-emerald-100/75 leading-relaxed max-w-sm pt-2">
+              </Link>
+              <p className="text-[11.5px] text-emerald-100/70 leading-relaxed max-w-xs">
                 Nepal-compliant payroll and workforce management for modern
                 organizations.
               </p>
             </div>
 
             {/* Product Column */}
-            <div className="md:col-span-2 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+            <div className="md:col-span-3 space-y-2.5">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                 PRODUCT
               </h4>
-              <ul className="space-y-2.5 text-emerald-100/70">
+              <ul className="space-y-2 text-[11.5px] text-emerald-100/70">
                 <li>
                   <a
                     href="#capabilities"
                     className="hover:text-white transition-colors"
                   >
-                    Features
+                    Platform Features
                   </a>
                 </li>
                 <li>
@@ -1644,7 +1648,7 @@ export function HomePageClient({
                     href="#workflow"
                     className="hover:text-white transition-colors"
                   >
-                    Payroll workflow
+                    Payroll Workflow
                   </a>
                 </li>
                 <li>
@@ -1652,7 +1656,7 @@ export function HomePageClient({
                     href="#statutory"
                     className="hover:text-white transition-colors"
                   >
-                    Compliance
+                    Statutory Engine
                   </a>
                 </li>
                 <li>
@@ -1660,24 +1664,32 @@ export function HomePageClient({
                     href="/self-service"
                     className="hover:text-white transition-colors"
                   >
-                    Self-service
+                    Self-Service Portal
                   </Link>
                 </li>
               </ul>
             </div>
 
             {/* Company Column */}
-            <div className="md:col-span-2 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+            <div className="md:col-span-2 space-y-2.5">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                 COMPANY
               </h4>
-              <ul className="space-y-2.5 text-emerald-100/70">
+              <ul className="space-y-2 text-[11.5px] text-emerald-100/70">
+                <li>
+                  <a
+                    href="#capabilities"
+                    className="hover:text-white transition-colors"
+                  >
+                    About Platform
+                  </a>
+                </li>
                 <li>
                   <a
                     href="#demo"
                     className="hover:text-white transition-colors"
                   >
-                    Request a demo
+                    Request a Demo
                   </a>
                 </li>
                 <li>
@@ -1685,30 +1697,38 @@ export function HomePageClient({
                     href="/login"
                     className="hover:text-white transition-colors"
                   >
-                    Sign in
+                    Portal Sign In
                   </Link>
+                </li>
+                <li>
+                  <a
+                    href="#capabilities"
+                    className="hover:text-white transition-colors"
+                  >
+                    Security & Privacy
+                  </a>
                 </li>
               </ul>
             </div>
 
             {/* Get In Touch Column */}
-            <div className="md:col-span-3 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+            <div className="sm:col-span-2 md:col-span-3 space-y-2.5">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                 GET IN TOUCH
               </h4>
-              <ul className="space-y-2.5 text-emerald-100/70">
+              <ul className="space-y-2 text-[11.5px] text-emerald-100/70">
                 <li>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
                     className="inline-flex items-center gap-2 hover:text-white transition-colors underline-offset-2 hover:underline"
                     title={`Send email to ${CONTACT_EMAIL}`}
                   >
-                    <Mail className="h-3.5 w-3.5 text-emerald-400/90 shrink-0" />
+                    <Mail className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                     <span>{CONTACT_EMAIL}</span>
                   </a>
                 </li>
                 <li className="flex items-center gap-2 flex-wrap text-emerald-100/90">
-                  <Phone className="h-3.5 w-3.5 text-emerald-400/90 shrink-0" />
+                  <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                   <a
                     href="tel:+97761590067"
                     className="hover:text-white transition-colors underline-offset-2 hover:underline font-medium"
@@ -1726,7 +1746,7 @@ export function HomePageClient({
                   </a>
                 </li>
                 <li className="flex items-start gap-2">
-                  <Globe className="h-3.5 w-3.5 mt-0.5 text-emerald-400/90 shrink-0" />
+                  <MapPin className="h-3.5 w-3.5 mt-0.5 text-emerald-400 shrink-0" />
                   <span className="block text-emerald-100/70">
                     Pokhara, Kaski, Nepal
                   </span>
@@ -1736,7 +1756,7 @@ export function HomePageClient({
           </div>
 
           {/* Bottom Divider and Copyright Bar */}
-          <div className="mt-14 border-t border-emerald-900/60 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-100/60">
+          <div className="mt-8 border-t border-emerald-900/60 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-emerald-100/60 text-[11px]">
             <p>© 2026 Aakash HRMS. All rights reserved.</p>
             <p className="font-medium text-emerald-100/80">Made in Nepal 🇳🇵</p>
           </div>

@@ -99,13 +99,13 @@ export function LoginForm() {
             value={companyCode}
             onChange={(e) => handleCompanyCodeChange(e.target.value)}
             onKeyDown={handleCompanyKeyDown}
-            placeholder="e.g. CMP-1111AF"
+            placeholder="e.g. CMP-111111"
             autoFocus
             autoComplete="off"
             className="h-11 w-full rounded-lg border border-payroll-light bg-white px-4 text-sm text-payroll-navy font-mono tracking-wider uppercase focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary placeholder:text-gray-400 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans"
           />
           <p className="mt-1.5 text-xs text-gray-400">
-            Enter the company code provided by your organization (e.g., CMP-1111AF).
+            Enter the company code provided by your organization (e.g., CMP-111111).
           </p>
         </div>
 
