@@ -20,7 +20,7 @@ import type { BSMonthNumber } from "@/lib/utils/bs-calendar";
 
 export type { BSMonthNumber } from "@/lib/utils/bs-calendar";
 
-export type FiscalYearStatus = "Active" | "Locked";
+export type FiscalYearStatus = "Active" | "Inactive" | "Locked";
 
 export interface FiscalYear {
   id: string;
@@ -41,7 +41,7 @@ export interface FiscalYear {
   /** Display snapshot: BS "YYYY-MM-DD" of the last day. */
   endDateBS: string;
   status: FiscalYearStatus;
-  /** Once true, edit and delete actions are disabled. */
+  /** Once true, edit and delete actions are disabled unless unlocked. */
   payslipsGenerated: boolean;
 }
 
@@ -50,8 +50,8 @@ export interface FiscalYearData {
 }
 
 /**
- * Subset of `FiscalYear` used by the create/edit form. `id`, `status`,
- * and `payslipsGenerated` are managed by the system (not the form).
+ * Subset of `FiscalYear` used by the create/edit form. `id`
+ * and `payslipsGenerated` are managed by the system.
  */
 export interface FiscalYearFormData {
   label: string;
@@ -62,6 +62,8 @@ export interface FiscalYearFormData {
   startDateAD: Date;
   /** AD Date of the last day. */
   endDateAD: Date;
+  /** Status: Active or Inactive */
+  status?: FiscalYearStatus;
 }
 
 /**

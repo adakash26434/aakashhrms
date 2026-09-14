@@ -89,6 +89,7 @@ export async function createFiscalYear(
     toMonth: payload.toMonth,
     startDateAD: payload.startDateAD,
     endDateAD: payload.endDateAD,
+    status: payload.status,
   });
 }
 
@@ -96,10 +97,10 @@ export async function updateFiscalYear(
   id: string,
   payload: FiscalYearFormData,
 ): Promise<FiscalYear> {
-  // 1. Authorization — must not be locked.
+  // 1. Authorization — check lock status.
   const existing = await repository.findFiscalYearById(id);
   if (!existing) throw new Error(`Fiscal year ${id} not found`);
-  if (existing.payslipsGenerated) {
+  if (existing.status === "Locked" || existing.payslipsGenerated) {
     throw new FiscalYearLockedError(id);
   }
 
@@ -122,7 +123,26 @@ export async function updateFiscalYear(
     toMonth: payload.toMonth,
     startDateAD: payload.startDateAD,
     endDateAD: payload.endDateAD,
+    status: payload.status,
   });
+}
+
+export async function setFiscalYearStatus(
+  id: string,
+  status: "Active" | "Inactive",
+): Promise<FiscalYear> {
+  const existing = await repository.findFiscalYearById(id);
+  if (!existing) throw new Error(`Fiscal year ${id} not found`);
+  return repository.setFiscalYearStatus(id, status);
+}
+
+export async function unlockFiscalYear(
+  id: string,
+  newStatus: "Active" | "Inactive" = "Active",
+): Promise<FiscalYear> {
+  const existing = await repository.findFiscalYearById(id);
+  if (!existing) throw new Error(`Fiscal year ${id} not found`);
+  return repository.unlockFiscalYear(id, newStatus);
 }
 
 export async function lockFiscalYear(id: string): Promise<FiscalYear> {
@@ -137,7 +157,7 @@ export async function lockFiscalYear(id: string): Promise<FiscalYear> {
 export async function deleteFiscalYear(id: string): Promise<void> {
   const existing = await repository.findFiscalYearById(id);
   if (!existing) throw new Error(`Fiscal year ${id} not found`);
-  if (existing.payslipsGenerated) {
+  if (existing.status === "Locked" || existing.payslipsGenerated) {
     throw new FiscalYearLockedError(id);
   }
   return repository.deleteFiscalYear(id);

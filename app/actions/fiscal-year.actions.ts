@@ -57,10 +57,41 @@ export async function deleteFiscalYearAction(id: string) {
   }
 }
 
+export async function setFiscalYearStatusAction(id: string, status: "Active" | "Inactive") {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'FISCAL_YEAR');
+    const result = await fyService.setFiscalYearStatus(id, status);
+    revalidatePath('/setup/fiscal-year');
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function unlockFiscalYearAction(id: string, newStatus: "Active" | "Inactive" = "Active") {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'FISCAL_YEAR');
+    const result = await fyService.unlockFiscalYear(id, newStatus);
+    revalidatePath('/setup/fiscal-year');
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+/** @deprecated Use setFiscalYearStatusAction or unlockFiscalYearAction instead. */
 export async function lockFiscalYearAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('LOCK', 'FISCAL_YEAR');
+    await checkPermission('EDIT', 'FISCAL_YEAR');
     const result = await fyService.lockFiscalYear(id);
     revalidatePath('/setup/fiscal-year');
     return { success: true, data: result };
@@ -70,4 +101,4 @@ export async function lockFiscalYearAction(id: string) {
     }
     return { success: false, error: 'An unexpected error occurred' };
   }
-}
+}

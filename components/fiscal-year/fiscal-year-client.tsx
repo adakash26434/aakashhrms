@@ -5,7 +5,7 @@ import { FiscalYearHero } from "./fiscal-year-hero";
 import { FiscalYearTable } from "./fiscal-year-table";
 import { FiscalYearFormModal } from "./fiscal-year-form-modal";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
-import { ConfirmLockDialog } from "./confirm-lock-dialog";
+import { ConfirmUnlockDialog } from "./confirm-unlock-dialog";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import { useToast } from "@/components/ui/toast";
 import type {
@@ -17,7 +17,8 @@ import {
   createFiscalYearAction,
   updateFiscalYearAction,
   deleteFiscalYearAction,
-  lockFiscalYearAction,
+  setFiscalYearStatusAction,
+  unlockFiscalYearAction,
 } from "@/app/actions/fiscal-year.actions";
 
 interface FiscalYearClientProps {
@@ -29,7 +30,8 @@ interface FiscalYearClientProps {
  *
  * Mutations go through the service layer (via Server Actions),
  * which performs engine validation + authorization before calling
- * the repository. This component is pure orchestration + view.
+ * the repository. Allows making fiscal years Active or Inactive,
+ * and unlocking previously locked fiscal years.
  */
 export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
   const [data, setData] = useState<FiscalYearData>(initialData);
@@ -37,7 +39,7 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingFY, setEditingFY] = useState<FiscalYear | null>(null);
   const [deletingFY, setDeletingFY] = useState<FiscalYear | null>(null);
-  const [lockingFY, setLockingFY] = useState<FiscalYear | null>(null);
+  const [unlockingFY, setUnlockingFY] = useState<FiscalYear | null>(null);
 
   // Banner state
   const toast = useToast();
@@ -68,9 +70,9 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
   }
 
   function handleOpenEdit(fy: FiscalYear) {
-    if (fy.payslipsGenerated) {
+    if (fy.status === "Locked" || fy.payslipsGenerated) {
       showBanner(
-        "Edit is disabled — payslips have been generated for this fiscal year.",
+        `"${fy.label}" is currently locked. Click "Unlock" to enable edits.`,
         "info",
       );
       return;
@@ -89,23 +91,38 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
       if (editingFY) {
         const result = await updateFiscalYearAction(editingFY.id, payload);
         if (!result.success) {
-          showBanner(`Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`, "info");
+          showBanner(
+            `Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`,
+            "info",
+          );
           return;
         }
         setData((prev) => ({
           ...prev,
-          fiscalYears: prev.fiscalYears.map((fy) => (fy.id === result.data!.id ? result.data! : fy))
+          fiscalYears: prev.fiscalYears.map((fy) => {
+            if (fy.id === result.data!.id) return result.data!;
+            if (result.data!.status === "Active") return { ...fy, status: "Inactive" };
+            return fy;
+          }),
         }));
         showBanner(`Fiscal year "${result.data!.label}" updated.`);
       } else {
         const result = await createFiscalYearAction(payload);
         if (!result.success) {
-          showBanner(`Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`, "info");
+          showBanner(
+            `Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`,
+            "info",
+          );
           return;
         }
         setData((prev) => ({
           ...prev,
-          fiscalYears: [...prev.fiscalYears, result.data!]
+          fiscalYears: [
+            ...prev.fiscalYears.map((fy) =>
+              result.data!.status === "Active" ? { ...fy, status: "Inactive" as const } : fy,
+            ),
+            result.data!,
+          ],
         }));
         showBanner(`Fiscal year "${result.data!.label}" created.`);
       }
@@ -119,9 +136,9 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
   // -- Delete --------------------------------------------------------------
 
   function handleOpenDelete(fy: FiscalYear) {
-    if (fy.payslipsGenerated) {
+    if (fy.status === "Locked" || fy.payslipsGenerated) {
       showBanner(
-        "Delete is disabled — payslips have been generated for this fiscal year.",
+        `"${fy.label}" is currently locked. Click "Unlock" to enable deletion.`,
         "info",
       );
       return;
@@ -143,7 +160,7 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
       } else {
         setData((prev) => ({
           ...prev,
-          fiscalYears: prev.fiscalYears.filter((fy) => fy.id !== deletingFY.id)
+          fiscalYears: prev.fiscalYears.filter((fy) => fy.id !== deletingFY.id),
         }));
         showBanner(`Fiscal year "${label}" deleted.`);
       }
@@ -155,42 +172,81 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
     }
   }
 
-  // -- Lock -----------------------------------------------------------------
+  // -- Toggle Active / Inactive --------------------------------------------
 
-  function handleOpenLock(fy: FiscalYear) {
-    setLockingFY(fy);
-  }
-
-  function handleCloseLock() {
-    setLockingFY(null);
-  }
-
-  async function handleConfirmLock() {
-    if (!lockingFY) return;
-    const label = lockingFY.label;
+  async function handleToggleStatus(
+    fy: FiscalYear,
+    targetStatus: "Active" | "Inactive",
+  ) {
     try {
-      const result = await lockFiscalYearAction(lockingFY.id);
+      const result = await setFiscalYearStatusAction(fy.id, targetStatus);
       if (!result.success) {
-        showBanner(`Could not lock: ${result.error}`, "info");
-      } else {
-        setData((prev) => ({
-          ...prev,
-          fiscalYears: prev.fiscalYears.map((fy) => (fy.id === lockingFY.id ? result.data! : fy))
-        }));
-        showBanner(`Fiscal year "${label}" has been locked.`);
+        showBanner(`Could not change status: ${result.error}`, "info");
+        return;
       }
+      setData((prev) => ({
+        ...prev,
+        fiscalYears: prev.fiscalYears.map((item) => {
+          if (item.id === fy.id) {
+            return { ...item, status: targetStatus, payslipsGenerated: false };
+          }
+          if (targetStatus === "Active") {
+            return { ...item, status: "Inactive" };
+          }
+          return item;
+        }),
+      }));
+      showBanner(`Fiscal year "${fy.label}" is now ${targetStatus}.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown error";
-      showBanner(`Could not lock: ${msg}`, "info");
-    } finally {
-      handleCloseLock();
+      showBanner(`Could not change status: ${msg}`, "info");
     }
   }
 
-  const isLastActive = lockingFY?.status === "Active" && data.fiscalYears.filter((fy) => fy.status === "Active").length === 1;
+  // -- Unlock ---------------------------------------------------------------
+
+  function handleOpenUnlock(fy: FiscalYear) {
+    setUnlockingFY(fy);
+  }
+
+  function handleCloseUnlock() {
+    setUnlockingFY(null);
+  }
+
+  async function handleConfirmUnlock(targetStatus: "Active" | "Inactive") {
+    if (!unlockingFY) return;
+    const label = unlockingFY.label;
+    const id = unlockingFY.id;
+    try {
+      const result = await unlockFiscalYearAction(id, targetStatus);
+      if (!result.success) {
+        showBanner(`Could not unlock: ${result.error}`, "info");
+        return;
+      }
+      setData((prev) => ({
+        ...prev,
+        fiscalYears: prev.fiscalYears.map((item) => {
+          if (item.id === id) {
+            return { ...item, status: targetStatus, payslipsGenerated: false };
+          }
+          if (targetStatus === "Active") {
+            return { ...item, status: "Inactive" };
+          }
+          return item;
+        }),
+      }));
+      showBanner(
+        `Fiscal year "${label}" has been unlocked and set to ${targetStatus}.`,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "unknown error";
+      showBanner(`Could not unlock: ${msg}`, "info");
+    } finally {
+      handleCloseUnlock();
+    }
+  }
 
   // -- Render --------------------------------------------------------------
-
 
   return (
     <div className="mx-auto max-w-350 space-y-6 p-6">
@@ -207,7 +263,8 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
         fiscalYears={data.fiscalYears}
         onEdit={handleOpenEdit}
         onDelete={handleOpenDelete}
-        onLock={handleOpenLock}
+        onToggleStatus={handleToggleStatus}
+        onUnlock={handleOpenUnlock}
       />
 
       <FiscalYearFormModal
@@ -225,12 +282,11 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
         onConfirm={handleConfirmDelete}
       />
 
-      <ConfirmLockDialog
-        open={Boolean(lockingFY)}
-        fiscalYear={lockingFY}
-        isLastActive={isLastActive}
-        onClose={handleCloseLock}
-        onConfirm={handleConfirmLock}
+      <ConfirmUnlockDialog
+        open={Boolean(unlockingFY)}
+        fiscalYear={unlockingFY}
+        onClose={handleCloseUnlock}
+        onConfirm={handleConfirmUnlock}
       />
     </div>
   );

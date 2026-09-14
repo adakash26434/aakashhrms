@@ -46,6 +46,7 @@ interface FormState extends Omit<FiscalYearFormData, "fromMonth" | "toMonth"> {
   slugTouched: boolean;
   fromMonth: BSMonthNumber | "";
   toMonth: BSMonthNumber | "";
+  status: "Active" | "Inactive";
 }
 
 const EMPTY_FORM: FormState = {
@@ -56,6 +57,7 @@ const EMPTY_FORM: FormState = {
   toMonth: 3, // Asar
   startDateAD: null as unknown as Date,
   endDateAD: null as unknown as Date,
+  status: "Active",
 };
 
 function fromFiscalYear(fy: FiscalYear): FormState {
@@ -67,6 +69,7 @@ function fromFiscalYear(fy: FiscalYear): FormState {
     toMonth: fy.toMonth,
     startDateAD: fy.startDateAD,
     endDateAD: fy.endDateAD,
+    status: fy.status === "Inactive" ? "Inactive" : "Active",
   };
 }
 
@@ -106,8 +109,8 @@ export function FiscalYearFormModal({
   const { isAD } = useDateFormat();
   const title = isEdit ? "Edit Fiscal Year" : "New Fiscal Year";
   const description = isEdit
-    ? "Update the fiscal year details. Payslip status cannot be changed here."
-    : "Define a new Bikram Sambat fiscal year. The new year will start as Active.";
+    ? "Update the fiscal year details and operational status."
+    : "Define a new Bikram Sambat fiscal year. Choose whether it should be Active or Inactive.";
   const submitLabel = isEdit ? "Save Changes" : "Create Fiscal Year";
   const startDateLabel = isAD ? "Start Date" : "Start Date (B.S.)";
   const endDateLabel = isAD ? "End Date" : "End Date (B.S.)";
@@ -152,6 +155,7 @@ export function FiscalYearFormModal({
         typeof form.toMonth === "number" ? form.toMonth : (3 as BSMonthNumber),
       startDateAD: form.startDateAD,
       endDateAD: form.endDateAD,
+      status: form.status,
     };
     const nextErrors = validate(payload);
     setErrors(nextErrors);
@@ -306,6 +310,53 @@ export function FiscalYearFormModal({
               maxBSYear={2100}
             />
           </Field>
+        </div>
+
+        {/* Status Selection */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-gray-600">
+            Fiscal Year Status
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, status: "Active" }))}
+              className={`p-2.5 rounded-xl border text-left transition-all ${
+                form.status === "Active"
+                  ? "border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-600"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-[#1b3a1f]">Active</p>
+                  <p className="text-[10px] text-gray-500">Current operating cycle</p>
+                </div>
+                {form.status === "Active" && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" />
+                )}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, status: "Inactive" }))}
+              className={`p-2.5 rounded-xl border text-left transition-all ${
+                form.status === "Inactive"
+                  ? "border-[#1b3a1f] bg-gray-50 ring-1 ring-[#1b3a1f]"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-[#1b3a1f]">Inactive</p>
+                  <p className="text-[10px] text-gray-500">Archived or upcoming cycle</p>
+                </div>
+                {form.status === "Inactive" && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-gray-600 shrink-0" />
+                )}
+              </div>
+            </button>
+          </div>
         </div>
 
         <p className="text-xs text-gray-500">{calendarNote}</p>

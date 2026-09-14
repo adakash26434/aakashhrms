@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Pencil, Trash2 } from "lucide-react";
+import { Lock, LockOpen, Power, PowerOff, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -13,11 +13,12 @@ interface FiscalYearTableProps {
   fiscalYears: FiscalYear[];
   onEdit: (fy: FiscalYear) => void;
   onDelete: (fy: FiscalYear) => void;
-  onLock?: (fy: FiscalYear) => void;
+  onToggleStatus?: (fy: FiscalYear, targetStatus: "Active" | "Inactive") => void;
+  onUnlock?: (fy: FiscalYear) => void;
 }
 
 const LOCKED_TOOLTIP =
-  "Payslips have been generated for this period — edit and delete are disabled.";
+  "This fiscal year is locked. Click 'Unlock' to re-enable editing and deletion.";
 
 /** BS month name for the from/to month columns (BS mode). */
 function bsMonthName(monthNumber: number): string {
@@ -46,7 +47,8 @@ export function FiscalYearTable({
   fiscalYears,
   onEdit,
   onDelete,
-  onLock,
+  onToggleStatus,
+  onUnlock,
 }: FiscalYearTableProps) {
   const { format: activeFormat, isAD } = useDateFormat();
   // `activeFormat` is the full calendar-aware string (e.g. "bs-long" or
@@ -100,7 +102,10 @@ export function FiscalYearTable({
                 </tr>
               ) : (
                 fiscalYears.map((fy) => {
-                  const isLocked = fy.payslipsGenerated;
+                  const isLocked = fy.status === "Locked" || fy.payslipsGenerated;
+                  const isActive = fy.status === "Active" && !isLocked;
+                  const isInactive = fy.status === "Inactive" && !isLocked;
+
                   const fromName = isAD
                     ? adMonthName(fy.startDateAD)
                     : bsMonthName(fy.fromMonth);
@@ -173,26 +178,68 @@ export function FiscalYearTable({
                       {/* Status */}
                       <td className="px-5 py-4 align-middle">
                         {isLocked ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Lock className="h-3 w-3 text-gray-500" />
-                            <Badge variant="default">Locked</Badge>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                              <Lock className="h-3 w-3 text-amber-600" />
+                              Locked
+                            </span>
+                            {onUnlock && (
+                              <button
+                                type="button"
+                                onClick={() => onUnlock(fy)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
+                              >
+                                <LockOpen className="w-3 h-3" />
+                                Unlock
+                              </button>
+                            )}
+                          </div>
+                        ) : isActive ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Active
                           </span>
                         ) : (
-                          <Badge variant="info">Active</Badge>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                            Inactive
+                          </span>
                         )}
                       </td>
 
                       {/* Actions */}
                       <td className="px-5 py-4 align-middle">
-                        <div className="flex items-center justify-end gap-1">
-                          {!isLocked && onLock && (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isLocked && onUnlock && (
                             <ActionButton
-                              label={`Lock ${fy.label}`}
-                              onClick={() => onLock(fy)}
+                              label={`Unlock ${fy.label}`}
+                              tooltip="Unlock this fiscal year to enable edits"
+                              onClick={() => onUnlock(fy)}
                             >
-                              <Lock className="h-3.5 w-3.5 text-[#2e7d32] hover:text-amber-600" />
+                              <LockOpen className="h-3.5 w-3.5 text-emerald-600 hover:text-emerald-700" />
                             </ActionButton>
                           )}
+
+                          {!isLocked && onToggleStatus && (
+                            isActive ? (
+                              <ActionButton
+                                label={`Deactivate ${fy.label}`}
+                                tooltip="Set status as Inactive"
+                                onClick={() => onToggleStatus(fy, "Inactive")}
+                              >
+                                <PowerOff className="h-3.5 w-3.5 text-gray-400 hover:text-amber-600" />
+                              </ActionButton>
+                            ) : (
+                              <ActionButton
+                                label={`Activate ${fy.label}`}
+                                tooltip="Set as Active fiscal year"
+                                onClick={() => onToggleStatus(fy, "Active")}
+                              >
+                                <Power className="h-3.5 w-3.5 text-emerald-600 hover:text-emerald-700" />
+                              </ActionButton>
+                            )
+                          )}
+
                           <ActionButton
                             label={`Edit ${fy.label}`}
                             tooltip={isLocked ? LOCKED_TOOLTIP : undefined}
