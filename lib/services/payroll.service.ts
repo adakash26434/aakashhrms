@@ -255,6 +255,7 @@ export async function generatePayrollRun(
 
   // Fetch detailed pay heads configurations to evaluate isFestivalAllowance / isRemoteAllowance
   const allPayHeads = await getDb().select().from(payHeads);
+  const payHeadMap = new Map(allPayHeads.map((h) => [h.id, h]));
 
   const isFestivalChecked = occasionalAllowanceHeadIds?.some(id => {
     const h = allPayHeads.find((dbH) => dbH.id === id);
@@ -363,7 +364,7 @@ export async function generatePayrollRun(
     };
     const slipWarnings = leaveOtCalc?.otWarnings || null;
 
-    // MULTI-LOAN FIX: Sum ALL active loan installments, not just the first
+    // Loan deduction resolution: active loans from ledger first, or fallback to mapped loan deductions
     let activeLoanDeduction = "0";
     const empLoans = allActiveLoans.get(emp.id);
     if (empLoans && empLoans.length > 0) {
@@ -377,32 +378,42 @@ export async function generatePayrollRun(
         totalInstallment = totalInstallment.plus(installment);
       }
       activeLoanDeduction = totalInstallment.toDecimalPlaces(2).toString();
+    } else {
+      // Fallback to loan deductions configured in employee salary mapping
+      const mappedLoan = new Decimal(salaryMap.loan1Deduction || 0).plus(new Decimal(salaryMap.loan2Deduction || 0));
+      if (mappedLoan.gt(0)) {
+        activeLoanDeduction = mappedLoan.toDecimalPlaces(2).toString();
+      }
     }
 
-    // Load salary heads assignments
-    const assignedHeads = salaryMap.salaryHeads.map((h: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => ({
-      id: h.payHeadId,
-      payHeadId: h.payHeadId,
-      code: h.payHeadId, // Fallback
-      name: h.payHeadName,
-      type: h.payHeadType as "allowance" | "deduction",
-      effectOnTax: true, // Standard fallback
-      isFestivalAllowance: h.payHeadName.toLowerCase().includes("festival") || h.payHeadName.toLowerCase().includes("dashain"),
-      isAbsentDeduct: false,
-      isOtHead: false,
-      isLeaveHead: false,
-      isTdsHead: false,
-      isPfHead: h.payHeadName.toLowerCase().includes("provident") || h.payHeadName.toLowerCase().includes("pf"),
-      isSsfHead: h.payHeadName.toLowerCase().includes("social") || h.payHeadName.toLowerCase().includes("ssf"),
-      isRemoteAllowance: h.payHeadName.toLowerCase().includes("remote"),
-      isCitHead: h.payHeadName.toLowerCase().includes("cit") || h.payHeadName.toLowerCase().includes("citizen"),
-      calcBasis: "None",
-      calcParameter: "FixedAmount",
-      calcPercent: "0",
-      amount: h.amount.toString()
-    }));
+    // Load salary heads assignments directly from DB pay heads master lookup
+    const assignedHeads = salaryMap.salaryHeads.map((h: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => {
+      const dbHead = payHeadMap.get(h.payHeadId);
+      return {
+        id: h.payHeadId,
+        payHeadId: h.payHeadId,
+        code: dbHead?.code || h.payHeadId,
+        name: dbHead?.name || h.payHeadName,
+        type: (dbHead?.type || h.payHeadType) as "allowance" | "deduction",
+        effectOnTax: dbHead?.effectOnTax ?? true,
+        isFestivalAllowance: dbHead?.isFestivalAllowance ?? false,
+        isAbsentDeduct: dbHead?.isAbsentDeduct ?? false,
+        isOtHead: dbHead?.isOtHead ?? false,
+        isLeaveHead: dbHead?.isLeaveHead ?? false,
+        isTdsHead: dbHead?.isTdsHead ?? false,
+        isPfHead: dbHead?.isPfHead ?? false,
+        isSsfHead: dbHead?.isSsfHead ?? false,
+        isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
+        isCitHead: dbHead?.isCitHead ?? false,
+        calcBasis: dbHead?.calcBasis ?? "None",
+        calcParameter: dbHead?.calcParameter ?? "FixedAmount",
+        calcPercent: dbHead?.calcPercent?.toString() || "0",
+        amount: h.amount.toString(),
+        isManualOverride: false,
+      };
+    });
 
-    // Ensure all statutory heads are present in assignedHeads so they get real UUIDs from db
+    // Ensure all statutory heads are present in assignedHeads so they get real UUIDs from db if calculated
     const statutoryChecks: Array<{ key: 'isPfHead' | 'isSsfHead' | 'isCitHead' | 'isTdsHead' }> = [
       { key: 'isPfHead' },
       { key: 'isSsfHead' },
@@ -434,28 +445,10 @@ export async function generatePayrollRun(
             calcBasis: masterHead.calcBasis,
             calcParameter: masterHead.calcParameter,
             calcPercent: masterHead.calcPercent?.toString() || "0",
-            amount: "0"
+            amount: "0",
+            isManualOverride: false,
           });
         }
-      }
-    }
-
-    for (const head of assignedHeads) {
-      const dbHead = allPayHeads.find((h) => h.id === head.payHeadId);
-      if (dbHead) {
-        head.effectOnTax = dbHead.effectOnTax;
-        head.isFestivalAllowance = dbHead.isFestivalAllowance;
-        head.isAbsentDeduct = dbHead.isAbsentDeduct;
-        head.isOtHead = dbHead.isOtHead;
-        head.isLeaveHead = dbHead.isLeaveHead;
-        head.isTdsHead = dbHead.isTdsHead;
-        head.isPfHead = dbHead.isPfHead;
-        head.isSsfHead = dbHead.isSsfHead;
-        head.isRemoteAllowance = dbHead.isRemoteAllowance;
-        head.isCitHead = dbHead.isCitHead;
-        head.calcBasis = dbHead.calcBasis;
-        head.calcParameter = dbHead.calcParameter;
-        head.calcPercent = dbHead.calcPercent.toString();
       }
     }
 
@@ -692,9 +685,9 @@ export async function overridePayslipAllowanceDeduction(
       return {
         id: sh.payHeadId,
         payHeadId: sh.payHeadId,
-        code: sh.payHeadId,
-        name: sh.payHeadName,
-        type: sh.headType,
+        code: dbHead?.code || sh.payHeadId,
+        name: dbHead?.name || sh.payHeadName,
+        type: (dbHead?.type || sh.headType) as "allowance" | "deduction",
         effectOnTax: dbHead?.effectOnTax ?? true,
         isFestivalAllowance: dbHead?.isFestivalAllowance ?? false,
         isAbsentDeduct: dbHead?.isAbsentDeduct ?? false,
@@ -708,7 +701,8 @@ export async function overridePayslipAllowanceDeduction(
         calcBasis: dbHead?.calcBasis ?? "None",
         calcParameter: dbHead?.calcParameter ?? "FixedAmount",
         calcPercent: dbHead?.calcPercent?.toString() ?? "0",
-        amount: baseAmt
+        amount: baseAmt,
+        isManualOverride: sh.isManualOverride,
       };
     });
 

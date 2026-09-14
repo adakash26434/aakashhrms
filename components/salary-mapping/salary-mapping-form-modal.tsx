@@ -23,8 +23,19 @@ interface SalaryMappingFormModalProps {
     gradePercent: number;
     gradeAmount: number;
   }[];
-  allowanceHeads: { id: string; name: string; calcBasis: string; calcParameter: string }[];
-  deductionHeads: { id: string; name: string; calcBasis: string; calcParameter: string }[];
+  allowanceHeads: {
+    id: string;
+    name: string;
+    calcBasis: string;
+    calcParameter: string;
+  }[];
+  deductionHeads: {
+    id: string;
+    name: string;
+    calcBasis: string;
+    calcParameter: string;
+  }[];
+  fiscalYears?: { id: string; fyNumber: string }[];
   onClose: () => void;
   onSave: (data: SalaryMappingFormData) => void;
 }
@@ -54,11 +65,11 @@ interface FormState {
   loan2Deduction: string;
 }
 
-function buildInitialForm(): FormState {
+function buildInitialForm(defaultFyId?: string): FormState {
   const today = new Date().toISOString().split("T")[0];
   return {
     employeeId: "",
-    fiscalYearId: "fy-1",
+    fiscalYearId: defaultFyId || "",
     effectiveFrom: today,
     basicSalary: "",
     gradePercent: "100",
@@ -75,22 +86,29 @@ function buildInitialForm(): FormState {
 /** Build form state from an existing mapping record. */
 function buildFormFromMapping(
   mapping: SalaryMapping,
-  allowanceHeadIds: string[],
-  deductionHeadIds: string[],
+  defaultFyId?: string,
 ): FormState {
-  const allowances = mapping.salaryHeads.filter((h) => h.payHeadType === "allowance");
-  const deductions = mapping.salaryHeads.filter((h) => h.payHeadType === "deduction");
+  const allowances = mapping.salaryHeads.filter(
+    (h) => h.payHeadType === "allowance",
+  );
+  const deductions = mapping.salaryHeads.filter(
+    (h) => h.payHeadType === "deduction",
+  );
+  const fyId =
+    mapping.fiscalYearId && mapping.fiscalYearId !== "fy-1"
+      ? mapping.fiscalYearId
+      : defaultFyId || "";
 
   return {
     employeeId: mapping.employeeId,
-    fiscalYearId: mapping.fiscalYearId,
+    fiscalYearId: fyId,
     effectiveFrom: mapping.effectiveFrom,
     basicSalary: String(mapping.basicSalary),
     gradePercent: String(mapping.gradePercent),
     gradeAmount: String(mapping.gradeAmount),
-    allowanceHeadIds: allowanceHeadIds.length > 0 ? allowanceHeadIds : allowances.map((a) => a.payHeadId),
+    allowanceHeadIds: allowances.map((a) => a.payHeadId),
     allowanceAmounts: allowances.map((a) => String(a.amount)),
-    deductionHeadIds: deductionHeadIds.length > 0 ? deductionHeadIds : deductions.map((d) => d.payHeadId),
+    deductionHeadIds: deductions.map((d) => d.payHeadId),
     deductionAmounts: deductions.map((d) => String(d.amount)),
     loan1Deduction: String(mapping.loan1Deduction),
     loan2Deduction: String(mapping.loan2Deduction),
@@ -98,14 +116,18 @@ function buildFormFromMapping(
 }
 
 function toPayload(state: FormState): SalaryMappingFormData {
-  const allowanceHeads: SalaryHeadFormItem[] = state.allowanceHeadIds.map((id, i) => ({
-    payHeadId: id,
-    amount: Number(state.allowanceAmounts[i] || 0),
-  }));
-  const deductionHeads: SalaryHeadFormItem[] = state.deductionHeadIds.map((id, i) => ({
-    payHeadId: id,
-    amount: Number(state.deductionAmounts[i] || 0),
-  }));
+  const allowanceHeads: SalaryHeadFormItem[] = state.allowanceHeadIds.map(
+    (id, i) => ({
+      payHeadId: id,
+      amount: Number(state.allowanceAmounts[i] || 0),
+    }),
+  );
+  const deductionHeads: SalaryHeadFormItem[] = state.deductionHeadIds.map(
+    (id, i) => ({
+      payHeadId: id,
+      amount: Number(state.deductionAmounts[i] || 0),
+    }),
+  );
 
   return {
     employeeId: state.employeeId,
@@ -140,32 +162,26 @@ export function SalaryMappingFormModal({
   employees,
   allowanceHeads,
   deductionHeads,
+  fiscalYears,
   onClose,
   onSave,
 }: SalaryMappingFormModalProps) {
   const isEdit = Boolean(editingMapping);
-  const [form, setForm] = useState<FormState>(buildInitialForm);
+  const defaultFyId = fiscalYears?.[0]?.id;
+  const [form, setForm] = useState<FormState>(() =>
+    buildInitialForm(defaultFyId),
+  );
   const [errors, setErrors] = useState<FormErrors>({});
 
   // Pre-populate form when editing an existing mapping
   useEffect(() => {
     if (editingMapping) {
-      setForm(
-        buildFormFromMapping(
-          editingMapping,
-          editingMapping.salaryHeads
-            .filter((h) => h.payHeadType === "allowance")
-            .map((h) => h.payHeadId),
-          editingMapping.salaryHeads
-            .filter((h) => h.payHeadType === "deduction")
-            .map((h) => h.payHeadId),
-        ),
-      );
+      setForm(buildFormFromMapping(editingMapping, defaultFyId));
     } else {
-      setForm(buildInitialForm());
+      setForm(buildInitialForm(defaultFyId));
     }
     setErrors({});
-  }, [editingMapping, open]);
+  }, [editingMapping, open, defaultFyId]);
 
   const selectedEmployee = employees.find((e) => e.id === form.employeeId);
 
@@ -174,12 +190,23 @@ export function SalaryMappingFormModal({
     const basic = Number(form.basicSalary) || 0;
     const gp = Number(form.gradePercent) || 0;
     const ga = Number(form.gradeAmount) || 0;
-    const totalAllowances = form.allowanceAmounts.reduce((s, a) => s + (Number(a) || 0), 0);
-    const totalDeductions = form.deductionAmounts.reduce((s, a) => s + (Number(a) || 0), 0);
+    const totalAllowances = form.allowanceAmounts.reduce(
+      (s, a) => s + (Number(a) || 0),
+      0,
+    );
+    const totalDeductions = form.deductionAmounts.reduce(
+      (s, a) => s + (Number(a) || 0),
+      0,
+    );
     const l1 = Number(form.loan1Deduction) || 0;
     const l2 = Number(form.loan2Deduction) || 0;
     const gradeValue = basic * (gp / 100);
-    return Math.max(0, Math.round(basic + gradeValue + ga + totalAllowances - totalDeductions - l1 - l2));
+    return Math.max(
+      0,
+      Math.round(
+        basic + gradeValue + ga + totalAllowances - totalDeductions - l1 - l2,
+      ),
+    );
   }, [form]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -197,7 +224,9 @@ export function SalaryMappingFormModal({
   }
 
   function addAllowance() {
-    const available = allowanceHeads.filter((h) => !form.allowanceHeadIds.includes(h.id));
+    const available = allowanceHeads.filter(
+      (h) => !form.allowanceHeadIds.includes(h.id),
+    );
     if (available.length === 0) return;
     setForm((f) => ({
       ...f,
@@ -215,7 +244,9 @@ export function SalaryMappingFormModal({
   }
 
   function addDeduction() {
-    const available = deductionHeads.filter((h) => !form.deductionHeadIds.includes(h.id));
+    const available = deductionHeads.filter(
+      (h) => !form.deductionHeadIds.includes(h.id),
+    );
     if (available.length === 0) return;
     setForm((f) => ({
       ...f,
@@ -270,7 +301,12 @@ export function SalaryMappingFormModal({
         </>
       }
     >
-      <form id="salary-mapping-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form
+        id="salary-mapping-form"
+        onSubmit={handleSubmit}
+        className="space-y-5"
+        noValidate
+      >
         {/* Employee Selector */}
         <section>
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
@@ -278,12 +314,14 @@ export function SalaryMappingFormModal({
           </h3>
           <div className="space-y-1">
             {isEdit && selectedEmployee ? (
-              <div className="rounded-lg border border-[#d7e8d0]/80 bg-[#f6faf6] px-3 py-2.5">
-                <p className="text-sm font-medium text-[#1b3a1f]">
+              <div className="rounded-lg border border-payroll-light/80 bg-payroll-cream px-3 py-2.5">
+                <p className="text-sm font-medium text-payroll-navy">
                   {selectedEmployee.firstName} {selectedEmployee.lastName}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {selectedEmployee.employeeCode} · {selectedEmployee.departmentName} · {selectedEmployee.designationName}
+                  {selectedEmployee.employeeCode} ·{" "}
+                  {selectedEmployee.departmentName} ·{" "}
+                  {selectedEmployee.designationName}
                 </p>
               </div>
             ) : (
@@ -313,7 +351,9 @@ export function SalaryMappingFormModal({
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Basic Salary *</label>
+              <label className="text-xs font-medium text-gray-600">
+                Basic Salary *
+              </label>
               <div className="relative">
                 <input
                   type="number"
@@ -327,10 +367,14 @@ export function SalaryMappingFormModal({
                   NPR
                 </span>
               </div>
-              {errors.basicSalary && <p className="text-xs text-red-600">{errors.basicSalary}</p>}
+              {errors.basicSalary && (
+                <p className="text-xs text-red-600">{errors.basicSalary}</p>
+              )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Grade %</label>
+              <label className="text-xs font-medium text-gray-600">
+                Grade %
+              </label>
               <div className="relative">
                 <input
                   type="number"
@@ -344,10 +388,14 @@ export function SalaryMappingFormModal({
                   %
                 </span>
               </div>
-              {errors.gradePercent && <p className="text-xs text-red-600">{errors.gradePercent}</p>}
+              {errors.gradePercent && (
+                <p className="text-xs text-red-600">{errors.gradePercent}</p>
+              )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Grade Amount</label>
+              <label className="text-xs font-medium text-gray-600">
+                Grade Amount
+              </label>
               <input
                 type="number"
                 min={0}
@@ -356,7 +404,9 @@ export function SalaryMappingFormModal({
                 className={inputClass(Boolean(errors.gradeAmount))}
                 placeholder="e.g. 72000"
               />
-              {errors.gradeAmount && <p className="text-xs text-red-600">{errors.gradeAmount}</p>}
+              {errors.gradeAmount && (
+                <p className="text-xs text-red-600">{errors.gradeAmount}</p>
+              )}
             </div>
           </div>
         </section>
@@ -370,7 +420,7 @@ export function SalaryMappingFormModal({
             <button
               type="button"
               onClick={addAllowance}
-              className="text-xs font-medium text-[#2e7d32] hover:underline"
+              className="text-xs font-medium text-payroll-primary hover:underline"
             >
               + Add Allowance
             </button>
@@ -382,7 +432,10 @@ export function SalaryMappingFormModal({
               {form.allowanceHeadIds.map((headId, i) => {
                 const head = allowanceHeads.find((h) => h.id === headId);
                 return (
-                  <div key={headId} className="flex items-center gap-2 rounded-md border border-[#d7e8d0]/60 bg-[#f6faf6]/30 p-2">
+                  <div
+                    key={headId}
+                    className="flex items-center gap-2 rounded-md border border-payroll-light/60 bg-payroll-cream/30 p-2"
+                  >
                     <select
                       value={headId}
                       onChange={(e) => {
@@ -390,10 +443,17 @@ export function SalaryMappingFormModal({
                         newIds[i] = e.target.value;
                         update("allowanceHeadIds", newIds);
                       }}
-                      className="h-8 flex-1 rounded border border-[#d7e8d0] bg-white px-2 text-xs"
+                      className="h-8 flex-1 rounded border border-payroll-light bg-white px-2 text-xs"
                     >
                       {allowanceHeads.map((h) => (
-                        <option key={h.id} value={h.id} disabled={form.allowanceHeadIds.includes(h.id) && h.id !== headId}>
+                        <option
+                          key={h.id}
+                          value={h.id}
+                          disabled={
+                            form.allowanceHeadIds.includes(h.id) &&
+                            h.id !== headId
+                          }
+                        >
                           {h.name}
                         </option>
                       ))}
@@ -407,7 +467,7 @@ export function SalaryMappingFormModal({
                         newAmounts[i] = e.target.value;
                         update("allowanceAmounts", newAmounts);
                       }}
-                      className="h-8 w-28 rounded border border-[#d7e8d0] bg-white px-2 text-xs text-right"
+                      className="h-8 w-28 rounded border border-payroll-light bg-white px-2 text-xs text-right"
                       placeholder="Amount"
                     />
                     <button
@@ -433,7 +493,7 @@ export function SalaryMappingFormModal({
             <button
               type="button"
               onClick={addDeduction}
-              className="text-xs font-medium text-[#2e7d32] hover:underline"
+              className="text-xs font-medium text-payroll-primary hover:underline"
             >
               + Add Deduction
             </button>
@@ -445,7 +505,10 @@ export function SalaryMappingFormModal({
               {form.deductionHeadIds.map((headId, i) => {
                 const head = deductionHeads.find((h) => h.id === headId);
                 return (
-                  <div key={headId} className="flex items-center gap-2 rounded-md border border-[#d7e8d0]/60 bg-[#f6faf6]/30 p-2">
+                  <div
+                    key={headId}
+                    className="flex items-center gap-2 rounded-md border border-payroll-light/60 bg-payroll-cream/30 p-2"
+                  >
                     <select
                       value={headId}
                       onChange={(e) => {
@@ -453,10 +516,17 @@ export function SalaryMappingFormModal({
                         newIds[i] = e.target.value;
                         update("deductionHeadIds", newIds);
                       }}
-                      className="h-8 flex-1 rounded border border-[#d7e8d0] bg-white px-2 text-xs"
+                      className="h-8 flex-1 rounded border border-payroll-light bg-white px-2 text-xs"
                     >
                       {deductionHeads.map((h) => (
-                        <option key={h.id} value={h.id} disabled={form.deductionHeadIds.includes(h.id) && h.id !== headId}>
+                        <option
+                          key={h.id}
+                          value={h.id}
+                          disabled={
+                            form.deductionHeadIds.includes(h.id) &&
+                            h.id !== headId
+                          }
+                        >
                           {h.name}
                         </option>
                       ))}
@@ -470,7 +540,7 @@ export function SalaryMappingFormModal({
                         newAmounts[i] = e.target.value;
                         update("deductionAmounts", newAmounts);
                       }}
-                      className="h-8 w-28 rounded border border-[#d7e8d0] bg-white px-2 text-xs text-right"
+                      className="h-8 w-28 rounded border border-payroll-light bg-white px-2 text-xs text-right"
                       placeholder="Amount"
                     />
                     <button
@@ -494,7 +564,9 @@ export function SalaryMappingFormModal({
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Loan 1 Deduction</label>
+              <label className="text-xs font-medium text-gray-600">
+                Loan 1 Deduction
+              </label>
               <input
                 type="number"
                 min={0}
@@ -504,7 +576,9 @@ export function SalaryMappingFormModal({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Loan 2 Deduction</label>
+              <label className="text-xs font-medium text-gray-600">
+                Loan 2 Deduction
+              </label>
               <input
                 type="number"
                 min={0}
@@ -520,38 +594,69 @@ export function SalaryMappingFormModal({
         </section>
 
         {/* Net Summary */}
-        <section className="rounded-lg border border-[#d7e8d0]/80 bg-[#f6faf6] p-4">
+        <section className="rounded-lg border border-payroll-light/80 bg-payroll-cream p-4">
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             Net Summary
           </h3>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Basic Salary</span>
-              <span className="tabular-nums">NPR {(Number(form.basicSalary) || 0).toLocaleString("en-IN")}</span>
+              <span className="tabular-nums">
+                NPR {(Number(form.basicSalary) || 0).toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Grade ({form.gradePercent || 0}%)</span>
-              <span className="tabular-nums">NPR {Math.round((Number(form.basicSalary) || 0) * (Number(form.gradePercent) || 0) / 100).toLocaleString("en-IN")}</span>
+              <span className="text-gray-600">
+                Grade ({form.gradePercent || 0}%)
+              </span>
+              <span className="tabular-nums">
+                NPR{" "}
+                {Math.round(
+                  ((Number(form.basicSalary) || 0) *
+                    (Number(form.gradePercent) || 0)) /
+                    100,
+                ).toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Grade Amount</span>
-              <span className="tabular-nums">NPR {(Number(form.gradeAmount) || 0).toLocaleString("en-IN")}</span>
+              <span className="tabular-nums">
+                NPR {(Number(form.gradeAmount) || 0).toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Allowances</span>
-              <span className="tabular-nums text-emerald-600">+ NPR {form.allowanceAmounts.reduce((s, a) => s + (Number(a) || 0), 0).toLocaleString("en-IN")}</span>
+              <span className="tabular-nums text-emerald-600">
+                + NPR{" "}
+                {form.allowanceAmounts
+                  .reduce((s, a) => s + (Number(a) || 0), 0)
+                  .toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Deductions</span>
-              <span className="tabular-nums text-red-600">- NPR {form.deductionAmounts.reduce((s, a) => s + (Number(a) || 0), 0).toLocaleString("en-IN")}</span>
+              <span className="tabular-nums text-red-600">
+                - NPR{" "}
+                {form.deductionAmounts
+                  .reduce((s, a) => s + (Number(a) || 0), 0)
+                  .toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Loan Deductions</span>
-              <span className="tabular-nums text-amber-600">- NPR {((Number(form.loan1Deduction) || 0) + (Number(form.loan2Deduction) || 0)).toLocaleString("en-IN")}</span>
+              <span className="tabular-nums text-amber-600">
+                - NPR{" "}
+                {(
+                  (Number(form.loan1Deduction) || 0) +
+                  (Number(form.loan2Deduction) || 0)
+                ).toLocaleString("en-IN")}
+              </span>
             </div>
-            <div className="mt-2 flex justify-between border-t border-[#d7e8d0] pt-2 font-semibold">
-              <span className="text-[#1b3a1f]">Net Amount</span>
-              <span className="tabular-nums text-[#1b3a1f]">NPR {computedNet.toLocaleString("en-IN")}</span>
+            <div className="mt-2 flex justify-between border-t border-payroll-light pt-2 font-semibold">
+              <span className="text-payroll-navy">Net Amount</span>
+              <span className="tabular-nums text-payroll-navy">
+                NPR {computedNet.toLocaleString("en-IN")}
+              </span>
             </div>
           </div>
         </section>

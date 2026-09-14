@@ -14,11 +14,14 @@ import type {
 import {
   saveSalaryMappingAction,
   deleteSalaryMappingAction,
-  getSalaryMappingDataAction
+  getSalaryMappingDataAction,
 } from "@/app/actions/salary-mapping.actions";
 import { SalaryMappingKPIsGrid } from "./salary-mapping-kpi-cards";
 import { SalaryMappingFilters } from "./salary-mapping-filters";
-import { SalaryMappingTabs, type SalaryMappingTab } from "./salary-mapping-tabs";
+import {
+  SalaryMappingTabs,
+  type SalaryMappingTab,
+} from "./salary-mapping-tabs";
 import { SalaryMappingTable } from "./salary-mapping-table";
 import { SalaryMappingFormModal } from "./salary-mapping-form-modal";
 import { SalaryMappingDetailPanel } from "./salary-mapping-detail-panel";
@@ -46,7 +49,9 @@ const DEFAULT_FILTER: SalaryMappingFilter = {
 
 export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
   // -- Data ----------------------------------------------------------------
-  const [mappings, setMappings] = useState<SalaryMapping[]>(initialData.mappings);
+  const [mappings, setMappings] = useState<SalaryMapping[]>(
+    initialData.mappings,
+  );
   const [kpis, setKpis] = useState(initialData.kpis);
 
   // -- Filter state --------------------------------------------------------
@@ -56,7 +61,9 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
   const [activeTab, setActiveTab] = useState<SalaryMappingTab>("all");
 
   // -- Selected mapping (for view detail panel) ----------------------------
-  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
+  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(
+    null,
+  );
 
   // -- Modal state ---------------------------------------------------------
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -145,7 +152,10 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         if (!name.includes(q) && !code.includes(q)) return false;
       }
 
-      if (filter.departmentId !== "all" && emp.departmentId !== filter.departmentId) {
+      if (
+        filter.departmentId !== "all" &&
+        emp.departmentId !== filter.departmentId
+      ) {
         return false;
       }
 
@@ -166,7 +176,10 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         const code = emp.employeeCode.toLowerCase();
         if (!name.includes(q) && !code.includes(q)) return false;
       }
-      if (filter.departmentId !== "all" && emp.departmentId !== filter.departmentId) {
+      if (
+        filter.departmentId !== "all" &&
+        emp.departmentId !== filter.departmentId
+      ) {
         return false;
       }
       if (filter.branchId !== "all" && emp.branchId !== filter.branchId) {
@@ -236,7 +249,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
       showBanner(
         editingMappingId
           ? "Salary mapping updated successfully"
-          : "Salary mapping created successfully"
+          : "Salary mapping created successfully",
       );
       setIsFormOpen(false);
       setEditingMappingId(null);
@@ -248,11 +261,11 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         setKpis(refresh.data.kpis);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
+      const msg =
+        err instanceof Error ? err.message : "An unexpected error occurred.";
       showBanner(`Could not save: ${msg}`, "info");
     }
   }
-
 
   async function handleDeleteMapping(id: string) {
     setDeleteTargetId(id);
@@ -278,11 +291,11 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
       setSelectedMappingId(null);
       setDeleteTargetId(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
+      const msg =
+        err instanceof Error ? err.message : "An unexpected error occurred.";
       showBanner(`Could not delete: ${msg}`, "info");
     }
   }
-
 
   return (
     <div className="mx-auto max-w-350 space-y-6 p-6">
@@ -296,17 +309,16 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1b3a1f]">Salary Mapping</h1>
+          <h1 className="text-2xl font-semibold text-payroll-navy">
+            Salary Mapping
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Define employee salary structures — basic salary, grade %, allowances,
-            deductions, and loan deductions.
+            Define employee salary structures — basic salary, grade %,
+            allowances, deductions, and loan deductions.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsBulkOpen(true)}
-          >
+          <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
             <Upload className="h-4 w-4" />
             Bulk
           </Button>
@@ -337,7 +349,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
 
       {/* Filters */}
       <Card className="overflow-hidden">
-        <div className="space-y-4 border-b border-[#d7e8d0]/80 p-5">
+        <div className="space-y-4 border-b border-payroll-light/80 p-5">
           <SalaryMappingFilters
             filter={filter}
             setFilter={setFilter}
@@ -395,6 +407,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         employees={initialData.employees}
         allowanceHeads={initialData.allowanceHeads}
         deductionHeads={initialData.deductionHeads}
+        fiscalYears={initialData.fiscalYears}
       />
 
       {/* Delete Dialog */}
@@ -404,11 +417,9 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         employeeName={
           deleteTarget
             ? (() => {
-              const emp = employeeMap.get(deleteTarget.employeeId);
-              return emp
-                ? `${emp.firstName} ${emp.lastName}`
-                : "Unknown";
-            })()
+                const emp = employeeMap.get(deleteTarget.employeeId);
+                return emp ? `${emp.firstName} ${emp.lastName}` : "Unknown";
+              })()
             : ""
         }
         onClose={() => setDeleteTargetId(null)}
@@ -467,7 +478,9 @@ function UnmappedEmployeesTable({
         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
           <UserMinus className="h-6 w-6 text-emerald-500" />
         </div>
-        <p className="text-sm font-medium text-gray-600">All employees have mappings</p>
+        <p className="text-sm font-medium text-gray-600">
+          All employees have mappings
+        </p>
         <p className="mt-1 text-xs text-gray-500">
           Every employee has a salary mapping configured.
         </p>
@@ -479,7 +492,7 @@ function UnmappedEmployeesTable({
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6] text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+          <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             <th className="px-4 py-3">Employee</th>
             <th className="px-4 py-3">Department</th>
             <th className="px-4 py-3">Branch</th>
@@ -491,14 +504,16 @@ function UnmappedEmployeesTable({
           {employees.map((emp) => (
             <tr
               key={emp.id}
-              className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-amber-50/30"
+              className="border-b border-payroll-light/60 transition-colors hover:bg-amber-50/30"
             >
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-[#1b3a1f]">
+                  <span className="font-medium text-payroll-navy">
                     {emp.firstName} {emp.lastName}
                   </span>
-                  <span className="text-[11px] text-gray-400">{emp.employeeCode}</span>
+                  <span className="text-[11px] text-gray-400">
+                    {emp.employeeCode}
+                  </span>
                 </div>
               </td>
               <td className="px-4 py-3 text-gray-600">{emp.departmentName}</td>
@@ -508,7 +523,7 @@ function UnmappedEmployeesTable({
                 <button
                   type="button"
                   onClick={() => onAddMapping(emp.id)}
-                  className="inline-flex items-center gap-1 rounded-md bg-[#2e7d32] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1b3a1f]"
+                  className="inline-flex items-center gap-1 rounded-md bg-payroll-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-payroll-navy"
                 >
                   <Plus className="h-3 w-3" />
                   Add Mapping

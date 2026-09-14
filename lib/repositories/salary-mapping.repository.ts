@@ -1,11 +1,28 @@
 import { getDb } from "@/lib/db";
-import { employeeSalaryMap, employeeSalaryHeads, payHeads } from "@/lib/db/schema";
+import { employeeSalaryMap, employeeSalaryHeads, payHeads, fiscalYears } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import type { 
   SalaryMapping, 
   SalaryMappingFilter, 
   SalaryHeadAssignment 
 } from "@/lib/types/salary-mapping";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function resolveDbFiscalYearId(givenId?: string | null, fallbackExistingId?: string | null): Promise<string> {
+  if (givenId && UUID_REGEX.test(givenId)) {
+    return givenId;
+  }
+  if (fallbackExistingId && UUID_REGEX.test(fallbackExistingId)) {
+    return fallbackExistingId;
+  }
+  const db = getDb();
+  const activeFys = await db.select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
+  if (activeFys.length > 0) return activeFys[0].id;
+  const allFys = await db.select().from(fiscalYears);
+  if (allFys.length > 0) return allFys[0].id;
+  throw new Error("Cannot save salary mapping: No Fiscal Year found in database. Please create a Fiscal Year first.");
+}
 
 type SalaryMapRow = typeof employeeSalaryMap.$inferSelect;
 type SalaryHeadRowJoined = {
@@ -123,8 +140,8 @@ export async function findAllActiveSalaryMappings(): Promise<SalaryMapping[]> {
 export async function saveSalaryMapping(data: {
   id?: string;
   employeeId: string;
-  fiscalYearId: string;
-  effectiveFrom: string;
+  fiscalYearId?: string;
+  effectiveFrom?: string;
   basicSalary: number;
   gradePercent?: number;
   gradeAmount?: number;
@@ -143,10 +160,19 @@ export async function saveSalaryMapping(data: {
         .where(eq(employeeSalaryMap.employeeId, data.employeeId));
     }
 
+    let existingRecord: typeof employeeSalaryMap.$inferSelect | undefined;
+    if (mapId) {
+      const rows = await tx.select().from(employeeSalaryMap).where(eq(employeeSalaryMap.id, mapId));
+      existingRecord = rows[0];
+    }
+
+    const fiscalYearId = await resolveDbFiscalYearId(data.fiscalYearId, existingRecord?.fiscalYearId);
+    const effectiveFrom = data.effectiveFrom || existingRecord?.effectiveFrom || new Date().toISOString().split("T")[0];
+
     if (mapId) {
       await tx.update(employeeSalaryMap).set({
-        fiscalYearId: data.fiscalYearId,
-        effectiveFrom: data.effectiveFrom,
+        fiscalYearId,
+        effectiveFrom,
         basicSalary: data.basicSalary.toString(),
         gradePercent: (data.gradePercent ?? 0).toString(),
         gradeAmount: (data.gradeAmount ?? 0).toString(),
@@ -161,8 +187,8 @@ export async function saveSalaryMapping(data: {
     } else {
       const inserted = await tx.insert(employeeSalaryMap).values({
         employeeId: data.employeeId,
-        fiscalYearId: data.fiscalYearId,
-        effectiveFrom: data.effectiveFrom,
+        fiscalYearId,
+        effectiveFrom,
         basicSalary: data.basicSalary.toString(),
         gradePercent: (data.gradePercent ?? 0).toString(),
         gradeAmount: (data.gradeAmount ?? 0).toString(),
@@ -217,8 +243,8 @@ export const create = async (data: Partial<SalaryMapping>): Promise<SalaryMappin
   return await saveSalaryMapping({
     id: data.id,
     employeeId: data.employeeId!,
-    fiscalYearId: data.fiscalYearId || 'fy-1',
-    effectiveFrom: data.effectiveFrom || new Date().toISOString().split('T')[0],
+    fiscalYearId: data.fiscalYearId,
+    effectiveFrom: data.effectiveFrom,
     basicSalary: data.basicSalary ?? 0,
     gradePercent: data.gradePercent,
     gradeAmount: data.gradeAmount,

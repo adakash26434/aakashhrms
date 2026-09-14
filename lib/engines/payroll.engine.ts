@@ -47,6 +47,7 @@ export interface PayHeadInput {
   calcParameter: string;
   calcPercent: string;
   amount: string; // The base assigned amount
+  isManualOverride?: boolean;
 }
 
 export interface TaxSlabInput {
@@ -156,39 +157,58 @@ export function calculatePayslip(args: {
 
   // We loop through assigned heads
   for (const head of assignedHeads) {
-    if (head.isPfHead || head.isSsfHead || head.isCitHead || head.isTdsHead) {
+    // Skip statutory heads and attendance heads as they are computed separately
+    if (
+      head.isPfHead || 
+      head.isSsfHead || 
+      head.isCitHead || 
+      head.isTdsHead || 
+      head.isOtHead || 
+      head.isAbsentDeduct || 
+      head.isLeaveHead
+    ) {
       continue;
     }
 
-    let headAmount = new Decimal(head.amount);
+    let headAmount = new Decimal(head.amount || 0);
 
     // Apply specific logic for Festival & Remote allowances based on parameters
     if (head.isFestivalAllowance) {
       if (!isFestivalMonth) continue; // Skip in non-festival months
-      // Festival bonus is typically equal to basic or basic+grade
       if (head.calcBasis === "BasicSalary") {
         headAmount = basic;
       } else if (head.calcBasis === "BasicPlusGrade") {
         headAmount = basicPlusGrade;
+      } else if (new Decimal(head.calcPercent || 0).gt(0)) {
+        headAmount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
+      } else if (headAmount.lte(0)) {
+        headAmount = basic;
       }
-    }
-
-    if (head.isRemoteAllowance) {
+    } else if (head.isRemoteAllowance) {
       if (!isRemoteMonth) continue; // Skip if not active for remote work
-      // Check limit from system_control
+      if (head.calcBasis === "BasicSalary" && new Decimal(head.calcPercent || 0).gt(0)) {
+        headAmount = basic.times(new Decimal(head.calcPercent).dividedBy(100));
+      } else if (head.calcBasis === "BasicPlusGrade" && new Decimal(head.calcPercent || 0).gt(0)) {
+        headAmount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
+      }
       const limit = new Decimal(systemControl.insuranceDiscounts.remoteAllowanceNpr);
       if (headAmount.gt(limit)) {
         headAmount = limit;
       }
-    }
+    } else {
+      // General allowances and non-statutory deductions
+      const calcPct = new Decimal(head.calcPercent || 0);
+      const isFixed = head.calcParameter === "FixedAmount" || head.calcBasis === "None";
 
-    // Process calculations based on percentages if required
-    if (head.calcBasis === "BasicSalary" && !head.isFestivalAllowance) {
-      const pct = new Decimal(head.calcPercent).dividedBy(100);
-      headAmount = basic.times(pct);
-    } else if (head.calcBasis === "BasicPlusGrade" && !head.isFestivalAllowance) {
-      const pct = new Decimal(head.calcPercent).dividedBy(100);
-      headAmount = basicPlusGrade.times(pct);
+      // If percentage is specified (> 0) and not strictly configured as fixed amount, calculate by formula
+      if (!isFixed && calcPct.gt(0)) {
+        if (head.calcBasis === "BasicSalary") {
+          headAmount = basic.times(calcPct.dividedBy(100));
+        } else if (head.calcBasis === "BasicPlusGrade") {
+          headAmount = basicPlusGrade.times(calcPct.dividedBy(100));
+        }
+      }
+      // Otherwise, the explicit assigned head.amount from employee salary mapping is preserved
     }
 
     // Capture specific categories
@@ -198,12 +218,7 @@ export function calculatePayslip(args: {
         taxableAllowancesSum = taxableAllowancesSum.plus(headAmount);
       }
     } else if (head.type === "deduction") {
-      // We will compute CIT and PF/SSF separately as they are statutory
-      if (head.isPfHead || head.isSsfHead || head.isCitHead) {
-        // Handled below, we don't accumulate it here
-      } else {
-        totalDeductions = totalDeductions.plus(headAmount);
-      }
+      totalDeductions = totalDeductions.plus(headAmount);
     }
 
     calculatedHeads.push({
@@ -220,36 +235,53 @@ export function calculatePayslip(args: {
   // ---------------------------------------------------------------------------
   // Skip statutory benefits for Trainees, Volunteers, and Contractors
   if (!isTraineeOrVolunteer && !isContractor) {
-    if (systemControl.statutoryDeductionLimits.companyHasSsf) {
-      // SSF active: Employee 11% of gross, Employer 20% of gross
-      // gross for SSF is basic + grade
-      ssfEmployee = basicPlusGrade.times(0.11).toDecimalPlaces(2);
-      ssfEmployer = basicPlusGrade.times(0.20).toDecimalPlaces(2);
+    const hasSsfEnrolled =
+      systemControl.statutoryDeductionLimits.companyHasSsf ||
+      assignedHeads.some(
+        (h) => h.isSsfHead && (new Decimal(h.amount || 0).gt(0) || new Decimal(h.calcPercent || 0).gt(0))
+      );
+
+    if (hasSsfEnrolled) {
+      // SSF active: Employee 11% of gross (basic + grade), Employer 20% of gross
+      const ssfHead = assignedHeads.find((h) => h.isSsfHead);
+      if (ssfHead && ssfHead.calcParameter === "FixedAmount" && new Decimal(ssfHead.amount || 0).gt(0)) {
+        ssfEmployee = new Decimal(ssfHead.amount).toDecimalPlaces(2);
+        ssfEmployer = ssfEmployee.times(20 / 11).toDecimalPlaces(2);
+      } else {
+        ssfEmployee = basicPlusGrade.times(0.11).toDecimalPlaces(2);
+        ssfEmployer = basicPlusGrade.times(0.20).toDecimalPlaces(2);
+      }
     } else {
       // PF active: capped at pfMaximumLimitPercent (e.g. 30% of basic)
-      // Check if employee has a PF head assigned to get percentage
-      const pfHead = assignedHeads.find(h => h.isPfHead);
-      const pfPct = pfHead ? new Decimal(pfHead.calcPercent) : new Decimal(10);
-      
-      const rawPf = basicPlusGrade.times(pfPct.dividedBy(100));
-      const pfLimit = basicPlusGrade.times(new Decimal(systemControl.statutoryDeductionLimits.pfMaximumLimitPercent).dividedBy(100));
-      
+      const pfHead = assignedHeads.find((h) => h.isPfHead);
+      let rawPf = new Decimal(0);
+
+      if (pfHead && pfHead.calcParameter === "FixedAmount" && new Decimal(pfHead.amount || 0).gt(0)) {
+        rawPf = new Decimal(pfHead.amount);
+      } else if (pfHead && new Decimal(pfHead.calcPercent || 0).gt(0)) {
+        rawPf = basicPlusGrade.times(new Decimal(pfHead.calcPercent).dividedBy(100));
+      } else {
+        // Standard Nepal statutory PF rate is 10%
+        rawPf = basicPlusGrade.times(0.10);
+      }
+
+      const pfLimit = basicPlusGrade.times(
+        new Decimal(systemControl.statutoryDeductionLimits.pfMaximumLimitPercent).dividedBy(100)
+      );
       pfEmployee = Decimal.min(rawPf, pfLimit).toDecimalPlaces(2);
       pfEmployer = pfEmployee; // Equal contribution
     }
 
     // CIT Calculation
-    const citHead = assignedHeads.find(h => h.isCitHead);
-    if (citHead) {
-      const rawCit = new Decimal(citHead.amount);
-      // CIT annual limit check happens during TDS calculation. Monthly is just the mapped amount
-      citDeduction = rawCit.toDecimalPlaces(2);
+    const citHead = assignedHeads.find((h) => h.isCitHead);
+    if (citHead && new Decimal(citHead.amount || 0).gt(0)) {
+      citDeduction = new Decimal(citHead.amount).toDecimalPlaces(2);
     }
   }
 
   // Add the computed statutory components to our breakdown and totals
   if (pfEmployee.gt(0)) {
-    const pfHeadObj = assignedHeads.find(h => h.isPfHead);
+    const pfHeadObj = assignedHeads.find((h) => h.isPfHead);
     if (!pfHeadObj) {
       throw new MissingStatutoryHeadError('Provident Fund (PF)');
     }
@@ -262,7 +294,7 @@ export function calculatePayslip(args: {
     });
   }
   if (ssfEmployee.gt(0)) {
-    const ssfHeadObj = assignedHeads.find(h => h.isSsfHead);
+    const ssfHeadObj = assignedHeads.find((h) => h.isSsfHead);
     if (!ssfHeadObj) {
       throw new MissingStatutoryHeadError('Social Security Fund (SSF)');
     }
@@ -275,7 +307,7 @@ export function calculatePayslip(args: {
     });
   }
   if (citDeduction.gt(0)) {
-    const citHeadObj = assignedHeads.find(h => h.isCitHead);
+    const citHeadObj = assignedHeads.find((h) => h.isCitHead);
     if (!citHeadObj) {
       throw new MissingStatutoryHeadError('Citizen Investment Trust (CIT)');
     }
@@ -294,8 +326,11 @@ export function calculatePayslip(args: {
   // ---------------------------------------------------------------------------
   // 3. Gross Earnings and Loan Deductions
   // ---------------------------------------------------------------------------
-  // grossEarnings = basic + grade + allowances + OT - absentDeduction
+  // Total monthly gross = basic + grade + allowances + OT - absentDeduction
   const monthlyGross = basicPlusGrade.plus(totalAllowances).plus(otAmount).minus(absentDeduction);
+
+  // Taxable monthly gross considers only taxable allowances
+  const taxableMonthlyGross = Decimal.max(0, basicPlusGrade.plus(taxableAllowancesSum).plus(otAmount).minus(absentDeduction));
   
   // Total deductions include loan installment
   const loanVal = new Decimal(loanDeduction);
@@ -305,6 +340,52 @@ export function calculatePayslip(args: {
   // 4. TDS (Tax) Engine Calculations
   // ---------------------------------------------------------------------------
   let tdsThisMonth = new Decimal(0);
+
+  // Check if employee actually has insurance deduction heads assigned
+  const medicalHead = assignedHeads.find(
+    (h) => h.type === "deduction" && (
+      h.name.toLowerCase().includes("medical insurance") ||
+      h.name.toLowerCase().includes("health insurance") ||
+      h.name.includes("स्वास्थ्य बीमा")
+    )
+  );
+  const houseHead = assignedHeads.find(
+    (h) => h.type === "deduction" && (
+      h.name.toLowerCase().includes("house insurance") ||
+      h.name.toLowerCase().includes("home insurance") ||
+      h.name.includes("घर बीमा")
+    )
+  );
+  const lifeHead = assignedHeads.find(
+    (h) => h.type === "deduction" && (
+      h.name.toLowerCase().includes("life insurance") ||
+      h.name.includes("जीवन बीमा")
+    )
+  );
+
+  const medicalAnnual = medicalHead
+    ? Decimal.min(
+        new Decimal(medicalHead.amount || 0).times(12),
+        Decimal.min(new Decimal(systemControl.insuranceDiscounts.medicalInsuranceNpr), new Decimal(20000))
+      )
+    : new Decimal(0);
+
+  const houseAnnual = houseHead
+    ? Decimal.min(
+        new Decimal(houseHead.amount || 0).times(12),
+        Decimal.min(new Decimal(systemControl.insuranceDiscounts.houseInsuranceNpr), new Decimal(5000))
+      )
+    : new Decimal(0);
+
+  const lifeAnnual = lifeHead
+    ? Decimal.min(
+        new Decimal(lifeHead.amount || 0).times(12),
+        Decimal.min(new Decimal(systemControl.insuranceDiscounts.lifeInsuranceNpr), new Decimal(25000))
+      )
+    : new Decimal(0);
+
+  const totalInsuranceDeduction = medicalAnnual.plus(houseAnnual).plus(lifeAnnual);
+  const monthlyInsuranceDeduct = totalInsuranceDeduction.dividedBy(12);
 
   if (isContractor) {
     // Contractors are subject to flat 15% TDS on gross earnings under Section 89 of Nepal Income Tax Act
@@ -316,25 +397,18 @@ export function calculatePayslip(args: {
       const totalPastGross = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.grossEarnings)), new Decimal(0));
       const actualAnnualGross = totalPastGross.plus(monthlyGross);
 
-      const totalPastPf = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.pfEmployee)), new Decimal(0));
-      const actualPf = totalPastPf.plus(pfEmployee);
+      const totalPastPf = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.pfEmployee || 0)), new Decimal(0));
+      const actualPfSsf = totalPastPf.plus(pfEmployee).plus(ssfEmployee);
 
-      const totalPastCit = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.citDeduction)), new Decimal(0));
+      const totalPastCit = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.citDeduction || 0)), new Decimal(0));
       const actualCit = totalPastCit.plus(citDeduction);
 
-      // Extract insurance premiums if provided in history or standard settings
-      // We assume standard monthly mapping premium * 12 or sum of actuals
-      let medicalPremium = new Decimal(systemControl.insuranceDiscounts.medicalInsuranceNpr);
-      let housePremium = new Decimal(systemControl.insuranceDiscounts.houseInsuranceNpr);
-      let lifePremium = new Decimal(systemControl.insuranceDiscounts.lifeInsuranceNpr);
-
-      // Cap deductions annually
-      const capPf = actualPf; // Capped in monthly calculations already
       const capCit = Decimal.min(actualCit, new Decimal(systemControl.statutoryDeductionLimits.citLimitNpr));
-      const totalInsurance = medicalPremium.plus(housePremium).plus(lifePremium);
-      const capInsurance = Decimal.min(totalInsurance, new Decimal(25000)); // Cap total insurance at standard limits or sum of individual caps
+      const oneThirdActual = actualAnnualGross.dividedBy(3);
+      const maxRetirement = Decimal.min(oneThirdActual, new Decimal(systemControl.statutoryDeductionLimits.retirementFundLimitNpr));
+      const capRetirement = Decimal.min(actualPfSsf.plus(capCit), maxRetirement);
 
-      const actualDeductions = capPf.plus(capCit).plus(capInsurance);
+      const actualDeductions = capRetirement.plus(totalInsuranceDeduction);
       const actualTaxable = Decimal.max(0, actualAnnualGross.minus(actualDeductions));
 
       const actualAnnualTax = calculateAnnualTaxFromSlabs(actualTaxable, employee, taxSlabs, systemControl);
@@ -343,28 +417,18 @@ export function calculatePayslip(args: {
       const finalTds = actualAnnualTax.minus(tdsAlreadyDeducted);
       tdsThisMonth = Decimal.max(0, finalTds).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
     } else {
-      // Months 1-11: Projected estimate
-      const projectedAnnualGross = monthlyGross.times(12);
-      const pfAnnual = pfEmployee.times(12);
+      // Months 1-11: Projected estimate based on taxable monthly gross
+      const projectedAnnualTaxableGross = taxableMonthlyGross.times(12);
+      const retirementAnnual = pfEmployee.plus(ssfEmployee).times(12);
       const citAnnual = citDeduction.times(12);
-
-      // Read insurance limits from system controls
-      const medicalLimit = new Decimal(systemControl.insuranceDiscounts.medicalInsuranceNpr);
-      const houseLimit = new Decimal(systemControl.insuranceDiscounts.houseInsuranceNpr);
-      const lifeLimit = new Decimal(systemControl.insuranceDiscounts.lifeInsuranceNpr);
-
-      // For projections, assume max allowable deduction if insurance heads exist (or standard limits)
-      // Cap individual types
-      const medicalDeduct = Decimal.min(medicalLimit, new Decimal(20000)); // medical insurance annual cap
-      const houseDeduct = Decimal.min(houseLimit, new Decimal(5000));
-      const lifeDeduct = Decimal.min(lifeLimit, new Decimal(25000));
-      const insuranceDeduction = medicalDeduct.plus(houseDeduct).plus(lifeDeduct);
-
-      // Capped CIT
       const citCapped = Decimal.min(citAnnual, new Decimal(systemControl.statutoryDeductionLimits.citLimitNpr));
 
-      const totalDeductionsProjected = pfAnnual.plus(citCapped).plus(insuranceDeduction);
-      const projectedTaxable = Decimal.max(0, projectedAnnualGross.minus(totalDeductionsProjected));
+      const oneThirdIncome = projectedAnnualTaxableGross.dividedBy(3);
+      const retirementLimit = Decimal.min(oneThirdIncome, new Decimal(systemControl.statutoryDeductionLimits.retirementFundLimitNpr));
+      const totalRetirementDeduction = Decimal.min(retirementAnnual.plus(citCapped), retirementLimit);
+
+      const totalDeductionsProjected = totalRetirementDeduction.plus(totalInsuranceDeduction);
+      const projectedTaxable = Decimal.max(0, projectedAnnualTaxableGross.minus(totalDeductionsProjected));
 
       const estimatedAnnualTax = calculateAnnualTaxFromSlabs(projectedTaxable, employee, taxSlabs, systemControl);
       tdsThisMonth = estimatedAnnualTax.dividedBy(12).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
@@ -388,12 +452,22 @@ export function calculatePayslip(args: {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Final Net Payable
+  // 5. Final Net Payable & Taxable Income
   // ---------------------------------------------------------------------------
   const netPayable = monthlyGross.minus(totalDeductions);
   if (netPayable.lt(0)) {
     throw new NegativeNetPayableError(employee.id, netPayable.toString());
   }
+
+  // Monthly net taxable income after allowable pre-tax deductions
+  const monthlyTaxableIncome = Decimal.max(
+    0,
+    taxableMonthlyGross
+      .minus(pfEmployee)
+      .minus(ssfEmployee)
+      .minus(citDeduction)
+      .minus(monthlyInsuranceDeduct)
+  ).toDecimalPlaces(2);
 
   return {
     basicSalary: basic.toString(),
@@ -401,7 +475,7 @@ export function calculatePayslip(args: {
     grossEarnings: monthlyGross.toDecimalPlaces(2).toString(),
     totalDeductions: totalDeductions.toDecimalPlaces(2).toString(),
     netPayable: netPayable.toDecimalPlaces(2).toString(),
-    taxableIncome: isYearEnd ? monthlyGross.toString() : monthlyGross.toString(), // Used for reporting
+    taxableIncome: monthlyTaxableIncome.toString(),
     tdsThisMonth: tdsThisMonth.toString(),
     pfEmployee: pfEmployee.toString(),
     pfEmployer: pfEmployer.toString(),

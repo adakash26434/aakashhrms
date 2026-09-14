@@ -248,9 +248,15 @@ export async function findLeaveApplicationById(id: string): Promise<LeaveApplica
 
 export async function createLeaveApplication(data: any): Promise<LeaveApplication> {
   let fyId = data.fiscalYearId;
-  if (!fyId) {
+  if (!fyId || fyId === "fy-1") {
     const activeFys = await getDb().select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
-    fyId = activeFys.length ? activeFys[0].id : "fy-1";
+    if (activeFys.length) {
+      fyId = activeFys[0].id;
+    } else {
+      const allFys = await getDb().select().from(fiscalYears);
+      if (allFys.length) fyId = allFys[0].id;
+      else throw new Error("Cannot create leave application: No Fiscal Year found in database.");
+    }
   }
 
   const effectiveFromStr = data.startDate instanceof Date ? data.startDate.toISOString().split('T')[0] : String(data.startDate || data.effectiveFrom || '');

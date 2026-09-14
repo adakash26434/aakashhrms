@@ -126,10 +126,14 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
   // Calculate KPIs against Active employee count
   const kpis = calculateSalaryMappingKPIs(mappings, activeEmployees.length);
 
-  // Map real Active Fiscal Years from DB (fallback to placeholder only if DB is unseeded)
+  // Map real Active Fiscal Years from DB
   const activeFyList = fiscalYears
-    .filter((fy) => fy.status === "Active")
+    .filter((fy) => fy.status?.toLowerCase() === "active")
     .map((fy) => ({ id: fy.id, fyNumber: fy.label }));
+
+  const availableFyList = activeFyList.length > 0
+    ? activeFyList
+    : fiscalYears.map((fy) => ({ id: fy.id, fyNumber: fy.label }));
 
   return {
     mappings,
@@ -138,7 +142,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     deductionHeads,
     departments: departments.map((d) => ({ id: d.id, name: d.name })),
     branches: branches.map((b) => ({ id: b.id, name: b.name })),
-    fiscalYears: activeFyList.length > 0 ? activeFyList : [{ id: "fy-1", fyNumber: "2081/82" }],
+    fiscalYears: availableFyList,
     kpis,
   };
 }
@@ -310,6 +314,8 @@ export async function updateMapping(
 
   const updated = await repository.update(id, {
     employeeId: data.employeeId,
+    fiscalYearId: data.fiscalYearId || existing.fiscalYearId,
+    effectiveFrom: data.effectiveFrom || existing.effectiveFrom,
     basicSalary: data.basicSalary,
     gradePercent: data.gradePercent,
     gradeAmount: data.gradeAmount,
@@ -405,14 +411,16 @@ export async function bulkCreateMappings(
   return { successCount, errorCount };
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 async function resolveFiscalYearId(inputFyId?: string): Promise<string> {
-  // If it's already a valid UUID (36 chars with hyphens), use it directly
-  if (inputFyId && inputFyId !== "fy-1" && inputFyId.length === 36 && inputFyId.includes("-")) {
+  // If it's already a valid UUID, use it directly
+  if (inputFyId && UUID_REGEX.test(inputFyId)) {
     return inputFyId;
   }
   // Otherwise, fetch the active Fiscal Year UUID from PostgreSQL
   const fys = await fiscalYearRepository.findAllFiscalYears();
-  const active = fys.find((f) => f.status === "Active") || fys[0];
+  const active = fys.find((f) => f.status?.toLowerCase() === "active") || fys[0];
   if (!active) {
     throw new Error("No active Fiscal Year found in the database. Please create a Fiscal Year first.");
   }
