@@ -7,10 +7,19 @@ import {
   formatADDate,
   getDaysInBSMonth,
   isValidBSDate,
+  BS_MONTHS_EN,
 } from "@/lib/utils/bs-calendar";
+import {
+  formatDateInput,
+  toNepaliNumerals,
+  fromNepaliNumerals,
+  NEPALI_DIGITS,
+} from "@/lib/utils/date-input-formatter";
 import { useDateFormat } from "@/lib/contexts/date-format-context";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, ChevronDown, Eraser } from "lucide-react";
+
+export { toNepaliNumerals, fromNepaliNumerals };
 
 export interface NepaliDatePickerProps {
   /** Current value as an AD `Date` (from form state). */
@@ -27,11 +36,11 @@ export interface NepaliDatePickerProps {
   required?: boolean;
   /** Disables all controls. */
   disabled?: boolean;
-  /** Earliest selectable BS year. Defaults to 2070. */
+  /** Earliest selectable BS year. Defaults to 1976 (covers employee DOBs). */
   minBSYear?: number;
-  /** Latest selectable BS year. Defaults to 2095. */
+  /** Latest selectable BS year. Defaults to 2100. */
   maxBSYear?: number;
-  /** Earliest selectable AD year. Defaults to 1970. */
+  /** Earliest selectable AD year. Defaults to 1920. */
   minADYear?: number;
   /** Latest selectable AD year. Defaults to 2050. */
   maxADYear?: number;
@@ -39,16 +48,6 @@ export interface NepaliDatePickerProps {
   error?: string;
   className?: string;
   placeholder?: string;
-}
-
-const NEPALI_DIGITS = ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"];
-
-export function toNepaliNumerals(num: number | string): string {
-  return String(num).replace(/\d/g, (d) => NEPALI_DIGITS[Number(d)] ?? d);
-}
-
-export function fromNepaliNumerals(val: string): string {
-  return val.replace(/[०-९]/g, (d) => String(NEPALI_DIGITS.indexOf(d)));
 }
 
 const BS_MONTHS_NAMES = [
@@ -107,9 +106,9 @@ export function NepaliDatePicker({
   label,
   required = false,
   disabled = false,
-  minBSYear = 2070,
-  maxBSYear = 2095,
-  minADYear = 1970,
+  minBSYear = 1976,
+  maxBSYear = 2100,
+  minADYear = 1920,
   maxADYear = 2050,
   error,
   className,
@@ -160,11 +159,18 @@ export function NepaliDatePicker({
   // Text inside the input field
   const [inputText, setInputText] = useState<string>("");
 
-  // Synchronize input text when value or mode changes
+  // Synchronize input text and view position when value or mode changes
   useEffect(() => {
     if (!value || isNaN(value.getTime())) {
       setInputText("");
       prevInputRef.current = "";
+      if (isBS) {
+        setViewYear(todayBS.year);
+        setViewMonth(todayBS.month);
+      } else {
+        setViewYear(today.getFullYear());
+        setViewMonth(today.getMonth() + 1);
+      }
       return;
     }
     if (isBS) {
@@ -184,7 +190,7 @@ export function NepaliDatePicker({
       setViewYear(y);
       setViewMonth(m);
     }
-  }, [value, isBS]);
+  }, [value, isBS, todayBS, today]);
 
   // Dismiss popup when clicking outside
   useEffect(() => {
@@ -276,78 +282,98 @@ export function NepaliDatePicker({
   }
 
   /**
-   * Smart automatic slash `/` insertion on manual keyboard typing:
-   * - Automatically inserts `/` after 4-digit Year (e.g. `2083/`)
-   * - Automatically inserts `/` after 2-digit Month (e.g. `2083/05/`)
+   * Smart automatic slash `/` insertion on manual keyboard typing with strict validation:
+   * - Month strictly clamped between 01 and 12 (cannot type > 12, cannot type 00)
+   * - Day strictly clamped between 01 and maximum days for that specific year and month
+   *   (28-32 days in BS, 28-31 days in AD)
+   * - Live synchronization of calendar view month and year as the user types
    * - Respects backspacing seamlessly so the user never gets stuck
    */
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
-    const isDeleting = raw.length < prevInputRef.current.length;
+    const result = formatDateInput({
+      raw,
+      prevValue: prevInputRef.current,
+      isBS,
+      minYear: isBS ? minBSYear : minADYear,
+      maxYear: isBS ? maxBSYear : maxADYear,
+    });
 
-    // Normalize any Devanagari numerals to standard digits and strip non-digits
-    const normalized = fromNepaliNumerals(raw);
-    const digits = normalized.replace(/\D/g, "").slice(0, 8); // maximum 8 digits (YYYYMMDD)
+    prevInputRef.current = result.formatted;
+    setInputText(result.formatted);
 
-    let formatted = "";
-    if (digits.length > 0) {
-      formatted += digits.slice(0, 4);
-
-      if (digits.length > 4 || (digits.length === 4 && !isDeleting)) {
-        formatted += "/";
-        if (digits.length > 4) {
-          formatted += digits.slice(4, 6);
-          if (digits.length > 6 || (digits.length === 6 && !isDeleting)) {
-            formatted += "/";
-            if (digits.length > 6) {
-              formatted += digits.slice(6, 8);
-            }
-          }
-        }
-      }
+    // Live calendar view updates as the user types
+    const min = isBS ? minBSYear : minADYear;
+    const max = isBS ? maxBSYear : maxADYear;
+    if (result.year && result.year >= min && result.year <= max) {
+      setViewYear(result.year);
+    }
+    if (result.month && result.month >= 1 && result.month <= 12) {
+      setViewMonth(result.month);
     }
 
-    prevInputRef.current = formatted;
-    setInputText(formatted);
-
-    // If complete date (YYYY/MM/DD) is entered, validate and update state
-    const parts = formatted.split("/").map(Number);
-    if (parts.length === 3 && parts[0] > 0 && parts[1] > 0 && parts[2] > 0) {
-      const [y, m, d] = parts;
+    // When a valid complete date (YYYY/MM/DD) is reached, update state
+    if (result.isValid && result.year && result.month && result.day) {
       if (isBS) {
-        if (y >= minBSYear && y <= maxBSYear && m >= 1 && m <= 12) {
-          const maxD = getDaysInBSMonth(y, m);
-          if (d >= 1 && d <= maxD && isValidBSDate(y, m, d)) {
-            const ad = bsToAD(y, m, d);
-            onChange(ad);
-            setViewYear(y);
-            setViewMonth(m);
-          }
+        const ad = bsToAD(result.year, result.month, result.day);
+        if (!isNaN(ad.getTime())) {
+          onChange(ad);
         }
       } else {
-        if (y >= minADYear && y <= maxADYear && m >= 1 && m <= 12) {
-          const maxD = new Date(y, m, 0).getDate();
-          if (d >= 1 && d <= maxD) {
-            const ad = new Date(y, m - 1, d);
-            if (!isNaN(ad.getTime())) {
-              onChange(ad);
-              setViewYear(y);
-              setViewMonth(m);
-            }
-          }
+        const ad = new Date(result.year, result.month - 1, result.day);
+        if (!isNaN(ad.getTime())) {
+          onChange(ad);
         }
       }
     }
   }
 
-  // Year options list
+  function handleBlur() {
+    // If input was completely emptied, trigger clear
+    if (!inputText.trim()) {
+      if (value) {
+        if (onClear) {
+          onClear();
+        } else {
+          (onChange as any)(null);
+        }
+      }
+      return;
+    }
+
+    // If input has an incomplete or partial date, restore to the last valid value or clear
+    const parts = inputText.split("/").map(Number);
+    const isComplete =
+      parts.length === 3 && parts[0] > 0 && parts[1] > 0 && parts[2] > 0;
+    if (!isComplete) {
+      if (value && !isNaN(value.getTime())) {
+        if (isBS) {
+          const bs = adToBS(value);
+          const str = `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)}`;
+          setInputText(str);
+          prevInputRef.current = str;
+        } else {
+          const str = `${value.getFullYear()}/${pad2(value.getMonth() + 1)}/${pad2(value.getDate())}`;
+          setInputText(str);
+          prevInputRef.current = str;
+        }
+      } else {
+        setInputText("");
+        prevInputRef.current = "";
+      }
+    }
+  }
+
+  // Year options list - dynamically includes viewYear so navigation across decades never drops out
   const yearOptions = useMemo(() => {
-    const list: number[] = [];
     const min = isBS ? minBSYear : minADYear;
     const max = isBS ? maxBSYear : maxADYear;
-    for (let y = min; y <= max; y++) list.push(y);
+    const start = Math.min(min, viewYear);
+    const end = Math.max(max, viewYear);
+    const list: number[] = [];
+    for (let y = start; y <= end; y++) list.push(y);
     return list;
-  }, [isBS, minBSYear, maxBSYear, minADYear, maxADYear]);
+  }, [isBS, minBSYear, maxBSYear, minADYear, maxADYear, viewYear]);
 
   // Day states
   function isSelectedDay(day: number): boolean {
@@ -394,12 +420,12 @@ export function NepaliDatePicker({
       {/* Input Group with Attached Greenish Eraser Button */}
       <div
         className={cn(
-          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all",
+          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all text-payroll-navy",
           isOpen
             ? "border-payroll-primary ring-2 ring-payroll-primary/20"
             : error
-              ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-1 focus-within:ring-rose-500"
-              : "border-payroll-light/80 hover:border-gray-300 focus-within:border-payroll-primary focus-within:ring-1 focus-within:ring-payroll-primary",
+              ? "border-rose-400 focus-within:ring-1 focus-within:ring-rose-500"
+              : "border-payroll-light/80 hover:border-gray-300 focus-within:ring-1 focus-within:ring-payroll-primary",
           disabled && "cursor-not-allowed bg-gray-50 opacity-70",
         )}
       >
@@ -407,10 +433,11 @@ export function NepaliDatePicker({
           type="text"
           value={inputText}
           onChange={handleInputChange}
+          onBlur={handleBlur}
           onClick={() => !disabled && setIsOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium text-payroll-navy placeholder:text-gray-400 focus:outline-none"
+          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium placeholder-gray-400 focus:outline-none"
         />
 
         {/* Attached Eraser Button (Deep System Forest Navy/Green) */}
@@ -420,7 +447,7 @@ export function NepaliDatePicker({
           disabled={disabled}
           onClick={handleClear}
           title="Clear date"
-          className="absolute right-0 top-0 bottom-0 px-2.5 bg-[#1b3a1f] hover:bg-[#142e18] active:bg-[#0e2111] text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
+          className="absolute right-0 top-0 bottom-0 px-2.5 bg-payroll-navy hover:bg-payroll-primary-hover text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
         >
           <Eraser className="w-3.5 h-3.5" />
         </button>
@@ -454,17 +481,17 @@ export function NepaliDatePicker({
          ══════════════════════════════════════════════════════════════════════ */}
       {isOpen && !disabled && (
         <div
-          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-[#b8dab2] bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-payroll-light bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
           style={{ minWidth: "268px" }}
         >
           {/* Header Bar — System Emerald/Forest Green */}
-          <div className="rounded-t-lg bg-gradient-to-r from-[#2e7d32] to-[#388e3c] px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
+          <div className="rounded-t-lg bg-linear-to-r from-payroll-primary to-emerald-700 px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
             {/* Previous Month Arrow Button */}
             <button
               type="button"
               onClick={handlePrevMonth}
               title="Previous Month"
-              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+              className="w-6 h-6 rounded-full bg-payroll-primary-hover hover:opacity-90 text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -476,15 +503,15 @@ export function NepaliDatePicker({
                 <select
                   value={viewMonth}
                   onChange={(e) => setViewMonth(Number(e.target.value))}
-                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs"
+                  className="appearance-none bg-white text-payroll-navy text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-payroll-light focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-xs"
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
-                      {isBS ? BS_MONTHS_NAMES[m] : AD_MONTHS_NAMES[m]}
+                      {isBS ? `${BS_MONTHS_EN[m]} (${BS_MONTHS_NAMES[m]})` : AD_MONTHS_NAMES[m]}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-payroll-primary absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               {/* Year Dropdown */}
@@ -492,15 +519,15 @@ export function NepaliDatePicker({
                 <select
                   value={viewYear}
                   onChange={(e) => setViewYear(Number(e.target.value))}
-                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs font-mono"
+                  className="appearance-none bg-white text-payroll-navy text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-payroll-light focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-xs font-mono"
                 >
                   {yearOptions.map((y) => (
                     <option key={y} value={y}>
-                      {isBS ? toNepaliNumerals(y) : y}
+                      {isBS ? `${y} (${toNepaliNumerals(y)})` : y}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-payroll-primary absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
@@ -509,14 +536,14 @@ export function NepaliDatePicker({
               type="button"
               onClick={handleNextMonth}
               title="Next Month"
-              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+              className="w-6 h-6 rounded-full bg-payroll-primary-hover hover:opacity-90 text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* Weekday Row Header */}
-          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-[#1b3a1f]">
+          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-payroll-navy">
             {(isBS ? BS_WEEKDAYS : AD_WEEKDAYS).map((dayName, idx) => (
               <div key={idx} className="py-0.5">
                 {dayName}
@@ -544,9 +571,9 @@ export function NepaliDatePicker({
                   className={cn(
                     "h-7 w-full flex items-center justify-center rounded-xs text-xs font-bold transition-all cursor-pointer select-none",
                     selected
-                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-[#1b3a1f] border border-[#f5d742] shadow-xs scale-105 z-10"
-                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-[#1b5e20] border border-[#d2ead5]",
-                    isToday && !selected && "ring-1.5 ring-[#2e7d32] font-black text-[#1b3a1f]",
+                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-payroll-navy border border-[#f5d742] shadow-xs scale-105 z-10"
+                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-payroll-primary-hover border border-[#d2ead5]",
+                    isToday && !selected && "ring-1.5 ring-payroll-primary font-black text-payroll-navy",
                   )}
                 >
                   {isBS ? toNepaliNumerals(day) : day}

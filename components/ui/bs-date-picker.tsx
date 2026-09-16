@@ -7,9 +7,17 @@ import {
   formatADDate,
   getDaysInBSMonth,
   isValidBSDate,
+  BS_MONTHS_EN,
 } from "@/lib/utils/bs-calendar";
+import {
+  formatDateInput,
+  toNepaliNumerals,
+  fromNepaliNumerals,
+} from "@/lib/utils/date-input-formatter";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, ChevronDown, Eraser } from "lucide-react";
+
+export { toNepaliNumerals, fromNepaliNumerals };
 
 export interface BSDatePickerProps {
   value: string;
@@ -24,16 +32,6 @@ export interface BSDatePickerProps {
   required?: boolean;
   error?: string;
   className?: string;
-}
-
-const NEPALI_DIGITS = ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"];
-
-export function toNepaliNumerals(num: number | string): string {
-  return String(num).replace(/\d/g, (d) => NEPALI_DIGITS[Number(d)] ?? d);
-}
-
-export function fromNepaliNumerals(val: string): string {
-  return val.replace(/[०-९]/g, (d) => String(NEPALI_DIGITS.indexOf(d)));
 }
 
 const BS_MONTHS_NAMES = [
@@ -85,8 +83,8 @@ function parseBSString(s: string): {
 export function BSDatePicker({
   value,
   onChange,
-  minYear = 2070,
-  maxYear = 2095,
+  minYear = 1976,
+  maxYear = 2100,
   disabled = false,
   hasError = false,
   label,
@@ -202,60 +200,64 @@ export function BSDatePicker({
   }
 
   /**
-   * Automatic slash insertion on typing:
+   * Automatic slash insertion on typing with strict month and day clamping:
+   * - Month strictly clamped between 01 and 12
+   * - Day strictly clamped to maximum days for that specific BS month (28-32)
    */
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
-    const isDeleting = raw.length < prevInputRef.current.length;
+    const result = formatDateInput({
+      raw,
+      prevValue: prevInputRef.current,
+      isBS: true,
+      minYear,
+      maxYear,
+    });
 
-    const normalized = fromNepaliNumerals(raw);
-    const digits = normalized.replace(/\D/g, "").slice(0, 8);
+    prevInputRef.current = result.formatted;
+    setInputText(result.formatted);
 
-    let formatted = "";
-    if (digits.length > 0) {
-      formatted += digits.slice(0, 4);
-
-      if (digits.length > 4 || (digits.length === 4 && !isDeleting)) {
-        formatted += "/";
-        if (digits.length > 4) {
-          formatted += digits.slice(4, 6);
-          if (digits.length > 6 || (digits.length === 6 && !isDeleting)) {
-            formatted += "/";
-            if (digits.length > 6) {
-              formatted += digits.slice(6, 8);
-            }
-          }
-        }
-      }
+    // Live calendar navigation as user types
+    if (result.year && result.year >= minYear && result.year <= maxYear) {
+      setViewYear(result.year);
+    }
+    if (result.month && result.month >= 1 && result.month <= 12) {
+      setViewMonth(result.month);
     }
 
-    prevInputRef.current = formatted;
-    setInputText(formatted);
+    if (result.isValid && result.year && result.month && result.day) {
+      onChange(`${result.year}-${pad2(result.month)}-${pad2(result.day)}`);
+    }
+  }
 
-    const parts = formatted.split("/").map(Number);
-    if (parts.length === 3 && parts[0] > 0 && parts[1] > 0 && parts[2] > 0) {
-      const [y, m, d] = parts;
-      if (
-        y >= minYear &&
-        y <= maxYear &&
-        m >= 1 &&
-        m <= 12
-      ) {
-        const maxD = getDaysInBSMonth(y, m);
-        if (d >= 1 && d <= maxD && isValidBSDate(y, m, d)) {
-          onChange(`${y}-${pad2(m)}-${pad2(d)}`);
-          setViewYear(y);
-          setViewMonth(m);
-        }
+  function handleBlur() {
+    if (!inputText.trim()) {
+      if (value) onChange("");
+      return;
+    }
+    const parts = inputText.split("/").map(Number);
+    const isComplete =
+      parts.length === 3 && parts[0] > 0 && parts[1] > 0 && parts[2] > 0;
+    if (!isComplete) {
+      const p = parseBSString(value);
+      if (p.year && p.month && p.day) {
+        const str = `${p.year}/${pad2(p.month)}/${pad2(p.day)}`;
+        setInputText(str);
+        prevInputRef.current = str;
+      } else {
+        setInputText("");
+        prevInputRef.current = "";
       }
     }
   }
 
   const yearOptions = useMemo(() => {
+    const start = Math.min(minYear, viewYear);
+    const end = Math.max(maxYear, viewYear);
     const list: number[] = [];
-    for (let y = minYear; y <= maxYear; y++) list.push(y);
+    for (let y = start; y <= end; y++) list.push(y);
     return list;
-  }, [minYear, maxYear]);
+  }, [minYear, maxYear, viewYear]);
 
   const isSelectedDay = (day: number) => {
     return (
@@ -297,12 +299,12 @@ export function BSDatePicker({
       {/* Input Group with Right Attached Eraser Button */}
       <div
         className={cn(
-          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all",
+          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all text-payroll-navy",
           isOpen
             ? "border-payroll-primary ring-2 ring-payroll-primary/20"
             : hasError || error
-              ? "border-rose-400 focus-within:border-rose-500 focus-within:ring-1 focus-within:ring-rose-500"
-              : "border-payroll-light/80 hover:border-gray-300 focus-within:border-payroll-primary focus-within:ring-1 focus-within:ring-payroll-primary",
+              ? "border-rose-400 focus-within:ring-1 focus-within:ring-rose-500"
+              : "border-payroll-light/80 hover:border-gray-300 focus-within:ring-1 focus-within:ring-payroll-primary",
           disabled && "cursor-not-allowed bg-gray-50 opacity-70",
         )}
       >
@@ -310,10 +312,11 @@ export function BSDatePicker({
           type="text"
           value={inputText}
           onChange={handleInputChange}
+          onBlur={handleBlur}
           onClick={() => !disabled && setIsOpen(true)}
           placeholder="YYYY/MM/DD"
           disabled={disabled}
-          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium text-payroll-navy placeholder:text-gray-400 focus:outline-none"
+          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium placeholder-gray-400 focus:outline-none"
         />
 
         {/* Attached Eraser Button (Deep Forest Green) */}
@@ -323,7 +326,7 @@ export function BSDatePicker({
           disabled={disabled}
           onClick={handleClear}
           title="Clear date"
-          className="absolute right-0 top-0 bottom-0 px-2.5 bg-[#1b3a1f] hover:bg-[#142e18] active:bg-[#0e2111] text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
+          className="absolute right-0 top-0 bottom-0 px-2.5 bg-payroll-navy hover:bg-payroll-primary-hover text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
         >
           <Eraser className="w-3.5 h-3.5" />
         </button>
@@ -345,16 +348,16 @@ export function BSDatePicker({
       {/* Popup Calendar Dropdown */}
       {isOpen && !disabled && (
         <div
-          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-[#b8dab2] bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-payroll-light bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
           style={{ minWidth: "268px" }}
         >
           {/* Header Bar — System Emerald/Forest Green */}
-          <div className="rounded-t-lg bg-gradient-to-r from-[#2e7d32] to-[#388e3c] px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
+          <div className="rounded-t-lg bg-linear-to-r from-payroll-primary to-emerald-700 px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
             <button
               type="button"
               onClick={handlePrevMonth}
               title="Previous Month"
-              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+              className="w-6 h-6 rounded-full bg-payroll-primary-hover hover:opacity-90 text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -364,30 +367,30 @@ export function BSDatePicker({
                 <select
                   value={viewMonth}
                   onChange={(e) => setViewMonth(Number(e.target.value))}
-                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs"
+                  className="appearance-none bg-white text-payroll-navy text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-payroll-light focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-xs"
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
-                      {BS_MONTHS_NAMES[m]}
+                      {BS_MONTHS_EN[m]} ({BS_MONTHS_NAMES[m]})
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-payroll-primary absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               <div className="relative">
                 <select
                   value={viewYear}
                   onChange={(e) => setViewYear(Number(e.target.value))}
-                  className="appearance-none bg-white text-[#1b3a1f] text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-[#a5d6a7] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] cursor-pointer shadow-xs font-mono"
+                  className="appearance-none bg-white text-payroll-navy text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-payroll-light focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-xs font-mono"
                 >
                   {yearOptions.map((y) => (
                     <option key={y} value={y}>
-                      {toNepaliNumerals(y)}
+                      {y} ({toNepaliNumerals(y)})
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3 h-3 text-[#2e7d32] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-payroll-primary absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
@@ -395,14 +398,14 @@ export function BSDatePicker({
               type="button"
               onClick={handleNextMonth}
               title="Next Month"
-              className="w-6 h-6 rounded-full bg-[#1b5e20] hover:bg-[#144718] text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+              className="w-6 h-6 rounded-full bg-payroll-primary-hover hover:opacity-90 text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* Weekday Row Header */}
-          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-[#1b3a1f]">
+          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-payroll-navy">
             {BS_WEEKDAYS.map((dayName, idx) => (
               <div key={idx} className="py-0.5">
                 {dayName}
@@ -428,9 +431,9 @@ export function BSDatePicker({
                   className={cn(
                     "h-7 w-full flex items-center justify-center rounded-xs text-xs font-bold transition-all cursor-pointer select-none",
                     selected
-                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-[#1b3a1f] border border-[#f5d742] shadow-xs scale-105 z-10"
-                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-[#1b5e20] border border-[#d2ead5]",
-                    isToday && !selected && "ring-1.5 ring-[#2e7d32] font-black text-[#1b3a1f]",
+                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-payroll-navy border border-[#f5d742] shadow-xs scale-105 z-10"
+                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-payroll-primary-hover border border-[#d2ead5]",
+                    isToday && !selected && "ring-1.5 ring-payroll-primary font-black text-payroll-navy",
                   )}
                 >
                   {toNepaliNumerals(day)}
