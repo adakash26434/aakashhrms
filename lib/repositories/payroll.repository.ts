@@ -178,6 +178,8 @@ export async function updatePayrollRunTotals(
 // Payroll Slips & Slip Heads
 // -----------------------------------------------------------------------------
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function createPayrollSlips(slipsWithHeads: Array<{
   slip: typeof payrollSlips.$inferInsert;
   heads: Array<{
@@ -194,17 +196,21 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
       const slipId = insertedSlip[0].id;
 
       if (item.heads.length > 0) {
-        const headValues = item.heads.map(h => ({
-          payrollSlipId: slipId,
-          payHeadId: h.payHeadId,
-          payHeadName: h.payHeadName,
-          headType: h.headType,
-          amount: h.amount,
-          calculatedAmount: h.calculatedAmount,
-          isManualOverride: false,
-          overrideReason: null
-        }));
-        await client.insert(payrollSlipHeads).values(headValues);
+        const headValues = item.heads
+          .filter(h => UUID_REGEX.test(h.payHeadId))
+          .map(h => ({
+            payrollSlipId: slipId,
+            payHeadId: h.payHeadId,
+            payHeadName: h.payHeadName,
+            headType: h.headType,
+            amount: h.amount,
+            calculatedAmount: h.calculatedAmount,
+            isManualOverride: false,
+            overrideReason: null
+          }));
+        if (headValues.length > 0) {
+          await client.insert(payrollSlipHeads).values(headValues);
+        }
       }
     }
   };
@@ -313,19 +319,20 @@ export async function replaceSlipHeads(
 ): Promise<void> {
   await getDb().transaction(async (tx) => {
     await tx.delete(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
-    if (heads.length > 0) {
-      await tx.insert(payrollSlipHeads).values(
-        heads.map((h) => ({
-          payrollSlipId: slipId,
-          payHeadId: h.payHeadId,
-          payHeadName: h.payHeadName,
-          headType: h.headType,
-          amount: h.amount,
-          calculatedAmount: h.calculatedAmount,
-          isManualOverride: !!h.isManualOverride,
-          overrideReason: h.overrideReason || null,
-        }))
-      );
+    const validHeads = heads
+      .filter((h) => UUID_REGEX.test(h.payHeadId))
+      .map((h) => ({
+        payrollSlipId: slipId,
+        payHeadId: h.payHeadId,
+        payHeadName: h.payHeadName,
+        headType: h.headType,
+        amount: h.amount,
+        calculatedAmount: h.calculatedAmount,
+        isManualOverride: !!h.isManualOverride,
+        overrideReason: h.overrideReason || null,
+      }));
+    if (validHeads.length > 0) {
+      await tx.insert(payrollSlipHeads).values(validHeads);
     }
   });
 }
@@ -342,6 +349,9 @@ export async function addSlipHead(
     overrideReason?: string | null;
   }
 ): Promise<void> {
+  if (!UUID_REGEX.test(head.payHeadId)) {
+    throw new Error(`Cannot add slip head with non-UUID payHeadId: ${head.payHeadId}`);
+  }
   await getDb().insert(payrollSlipHeads).values({
     payrollSlipId: slipId,
     payHeadId: head.payHeadId,

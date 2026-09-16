@@ -35,11 +35,34 @@ import * as designationRepository from "@/lib/repositories/designation.repositor
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
-import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError } from "@/lib/engines/payroll.engine";
+import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sanitizeSlipHeads<T extends { payHeadId: string; payHeadName: string; headType: any; amount: string; calculatedAmount: string }>(
+  heads: T[],
+  allPayHeads: Array<{ id: string; name: string; type: string; code?: string | null; isSsfEmployerHead?: boolean; isSsfHead?: boolean }>
+): T[] {
+  return heads.map(h => {
+    if (UUID_REGEX.test(h.payHeadId)) {
+      return h;
+    }
+    // Attempt fallback resolution for synthetic IDs
+    if (h.payHeadId === 'head-ssf-er') {
+      const match = allPayHeads.find(dbH => isSsfEmployerHead(dbH as any));
+      if (match) return { ...h, payHeadId: match.id, payHeadName: match.name };
+    }
+    if (h.payHeadId === 'head-ssf') {
+      const match = allPayHeads.find(dbH => isSsfDeductionHead(dbH as any));
+      if (match) return { ...h, payHeadId: match.id, payHeadName: match.name };
+    }
+    return h;
+  }).filter(h => UUID_REGEX.test(h.payHeadId));
+}
 import type { 
   PayrollRun, 
   PayrollSlip, 
@@ -426,8 +449,8 @@ export async function generatePayrollRun(
         isLeaveHead: dbHead?.isLeaveHead ?? false,
         isTdsHead: dbHead?.isTdsHead ?? false,
         isPfHead: dbHead?.isPfHead ?? false,
-        isSsfHead: dbHead?.isSsfHead ?? false,
-        isSsfEmployerHead: (dbHead as any)?.isSsfEmployerHead ?? (dbHead?.type === "allowance" && (dbHead?.code === "SSF-ER" || dbHead?.name.includes("SSF"))),
+        isSsfHead: Boolean(dbHead?.isSsfHead || (dbHead && isSsfDeductionHead(dbHead as any))),
+        isSsfEmployerHead: Boolean((dbHead as any)?.isSsfEmployerHead || (dbHead && isSsfEmployerHead(dbHead as any))),
         isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
         isCitHead: dbHead?.isCitHead ?? false,
         calcBasis: dbHead?.calcBasis ?? "None",
@@ -451,8 +474,8 @@ export async function generatePayrollRun(
       isLeaveHead: masterHead.isLeaveHead,
       isTdsHead: masterHead.isTdsHead,
       isPfHead: masterHead.isPfHead,
-      isSsfHead: masterHead.isSsfHead,
-      isSsfEmployerHead: (masterHead as any).isSsfEmployerHead ?? (masterHead.type === "allowance" && (masterHead.isSsfHead || masterHead.code === "SSF-ER" || masterHead.name.includes("SSF"))),
+      isSsfHead: Boolean(masterHead.isSsfHead || isSsfDeductionHead(masterHead as any)),
+      isSsfEmployerHead: Boolean((masterHead as any).isSsfEmployerHead || isSsfEmployerHead(masterHead as any)),
       isRemoteAllowance: masterHead.isRemoteAllowance,
       isCitHead: masterHead.isCitHead,
       calcBasis: masterHead.calcBasis,
@@ -469,14 +492,14 @@ export async function generatePayrollRun(
     }
 
     // 2. SSF: Only ensure SSF master heads if this employee actually has SSF assigned in salary mapping
-    const hasSsfAssigned = assignedHeads.some((h) => h.isSsfHead || h.isSsfEmployerHead || h.name.toLowerCase().includes('ssf'));
+    const hasSsfAssigned = assignedHeads.some((h) => h.isSsfHead || h.isSsfEmployerHead || isSsfEmployerHead(h) || isSsfDeductionHead(h) || h.name.toLowerCase().includes('ssf'));
     if (hasSsfAssigned) {
-      if (!assignedHeads.some((h) => h.isSsfEmployerHead || (h.type === 'allowance' && (h.isSsfHead || h.code === 'SSF-ER' || h.name.includes('SSF'))))) {
-        const ssfErMaster = allPayHeads.find((h) => (h as any).isSsfEmployerHead || (h.type === 'allowance' && (h.isSsfHead || h.code === 'SSF-ER' || h.name.includes('SSF'))));
+      if (!assignedHeads.some((h) => isSsfEmployerHead(h))) {
+        const ssfErMaster = allPayHeads.find((h) => isSsfEmployerHead(h as any));
         if (ssfErMaster) assignedHeads.push(toPayHeadObj(ssfErMaster));
       }
-      if (!assignedHeads.some((h) => h.isSsfHead && h.type === 'deduction')) {
-        const ssfDedMaster = allPayHeads.find((h) => h.isSsfHead && h.type === 'deduction');
+      if (!assignedHeads.some((h) => isSsfDeductionHead(h))) {
+        const ssfDedMaster = allPayHeads.find((h) => isSsfDeductionHead(h as any));
         if (ssfDedMaster) assignedHeads.push(toPayHeadObj(ssfDedMaster));
       }
     }
@@ -498,7 +521,7 @@ export async function generatePayrollRun(
       salaryMap: {
         basicSalary: salaryMap.basicSalary.toString(),
         gradePercent: salaryMap.gradePercent.toString(),
-        gradeAmount: salaryMap.gradeAmount.toString()
+        gradeAmount: (salaryMap.gradeAmount || 0).toString(),
       },
       assignedHeads,
       attendanceCalc: attendCalc,
@@ -511,17 +534,20 @@ export async function generatePayrollRun(
       historicalPayslips: historicalSlips
     });
 
-    totalGrossSum = totalGrossSum.plus(new Decimal(calcResult.grossEarnings));
-    totalDeductionsSum = totalDeductionsSum.plus(new Decimal(calcResult.totalDeductions));
-    totalNetSum = totalNetSum.plus(new Decimal(calcResult.netPayable));
-    totalTdsSum = totalTdsSum.plus(new Decimal(calcResult.tdsThisMonth));
-    totalPfSum = totalPfSum.plus(new Decimal(calcResult.pfEmployee));
-    totalSsfSum = totalSsfSum.plus(new Decimal(calcResult.ssfEmployee));
+    // Accumulate batch run totals
+    totalGrossSum = totalGrossSum.plus(calcResult.grossEarnings);
+    totalDeductionsSum = totalDeductionsSum.plus(calcResult.totalDeductions);
+    totalNetSum = totalNetSum.plus(calcResult.netPayable);
+    totalTdsSum = totalTdsSum.plus(calcResult.tdsThisMonth);
+    totalPfSum = totalPfSum.plus(calcResult.pfEmployee);
+    totalSsfSum = totalSsfSum.plus(calcResult.ssfEmployee);
 
     // Use batch-loaded bank details
     const empBank = bankByEmployeeId.get(emp.id);
     const bankAccountNumber = empBank ? empBank.accountNumber : "N/A";
     const bankName = empBank ? empBank.bankName : "N/A";
+    const departmentName = deptMap.get(emp.departmentId) || "Unknown Department";
+    const designationName = desigMap.get(emp.designationId) || "Unknown Designation";
 
     slipsWithHeads.push({
       slip: {
@@ -529,10 +555,10 @@ export async function generatePayrollRun(
         employeeId: emp.id,
         employeeCode: emp.employeeCode,
         employeeName: emp.fullName,
-        departmentName: deptMap.get(emp.departmentId) || "Unknown Department",
-        designationName: desigMap.get(emp.designationId) || "Unknown Designation",
-        basicSalary: calcResult.basicSalary,
-        gradeAmount: calcResult.gradeAmount || "0",
+        departmentName,
+        designationName,
+        basicSalary: salaryMap.basicSalary.toString(),
+        gradeAmount: (salaryMap.gradeAmount || 0).toString(),
         grossEarnings: calcResult.grossEarnings,
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
@@ -554,7 +580,7 @@ export async function generatePayrollRun(
         isYearEndReconciliation: isYearEndMonth,
         warnings: slipWarnings,
       },
-      heads: calcResult.heads
+      heads: sanitizeSlipHeads(calcResult.heads, allPayHeads)
     });
   }
 
@@ -724,8 +750,8 @@ export async function overridePayslipAllowanceDeduction(
         isLeaveHead: dbHead?.isLeaveHead ?? false,
         isTdsHead: dbHead?.isTdsHead ?? false,
         isPfHead: dbHead?.isPfHead ?? false,
-        isSsfHead: dbHead?.isSsfHead ?? false,
-        isSsfEmployerHead: (dbHead as any)?.isSsfEmployerHead ?? (dbHead?.type === "allowance" && (dbHead?.code === "SSF-ER" || dbHead?.name.includes("SSF"))),
+        isSsfHead: Boolean(dbHead?.isSsfHead || (dbHead && isSsfDeductionHead(dbHead as any))),
+        isSsfEmployerHead: Boolean((dbHead as any)?.isSsfEmployerHead || (dbHead && isSsfEmployerHead(dbHead as any))),
         isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
         isCitHead: dbHead?.isCitHead ?? false,
         calcBasis: dbHead?.calcBasis ?? "None",
@@ -1044,8 +1070,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       isLeaveHead: dbHead?.isLeaveHead ?? false,
       isTdsHead: dbHead?.isTdsHead ?? false,
       isPfHead: dbHead?.isPfHead ?? false,
-      isSsfHead: dbHead?.isSsfHead ?? false,
-      isSsfEmployerHead: (dbHead as any)?.isSsfEmployerHead ?? (dbHead?.type === "allowance" && (dbHead?.code === "SSF-ER" || dbHead?.name.includes("SSF"))),
+      isSsfHead: Boolean(dbHead?.isSsfHead || (dbHead && isSsfDeductionHead(dbHead as any))),
+      isSsfEmployerHead: Boolean((dbHead as any)?.isSsfEmployerHead || (dbHead && isSsfEmployerHead(dbHead as any))),
       isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
       isCitHead: dbHead?.isCitHead ?? false,
       calcBasis: dbHead?.calcBasis ?? "None",
@@ -1055,6 +1081,48 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       isManualOverride: false,
     };
   });
+
+  const toPayHeadObj = (masterHead: typeof payHeads.$inferSelect) => ({
+    id: masterHead.id,
+    payHeadId: masterHead.id,
+    code: masterHead.code || masterHead.id,
+    name: masterHead.name,
+    type: masterHead.type as "allowance" | "deduction",
+    effectOnTax: masterHead.effectOnTax,
+    isFestivalAllowance: masterHead.isFestivalAllowance,
+    isAbsentDeduct: masterHead.isAbsentDeduct,
+    isOtHead: masterHead.isOtHead,
+    isLeaveHead: masterHead.isLeaveHead,
+    isTdsHead: masterHead.isTdsHead,
+    isPfHead: masterHead.isPfHead,
+    isSsfHead: Boolean(masterHead.isSsfHead || isSsfDeductionHead(masterHead as any)),
+    isSsfEmployerHead: Boolean((masterHead as any).isSsfEmployerHead || isSsfEmployerHead(masterHead as any)),
+    isRemoteAllowance: masterHead.isRemoteAllowance,
+    isCitHead: masterHead.isCitHead,
+    calcBasis: masterHead.calcBasis,
+    calcParameter: masterHead.calcParameter,
+    calcPercent: masterHead.calcPercent?.toString() || "0",
+    amount: "0",
+    isManualOverride: false,
+  });
+
+  // Ensure statutory master heads
+  if (!calculatorHeadsInput.some((h) => h.isTdsHead)) {
+    const tdsMaster = allPayHeads.find((h) => h.isTdsHead);
+    if (tdsMaster) calculatorHeadsInput.push(toPayHeadObj(tdsMaster));
+  }
+
+  const hasSsfAssigned = calculatorHeadsInput.some((h) => h.isSsfHead || h.isSsfEmployerHead || isSsfEmployerHead(h) || isSsfDeductionHead(h) || h.name.toLowerCase().includes('ssf'));
+  if (hasSsfAssigned) {
+    if (!calculatorHeadsInput.some((h) => isSsfEmployerHead(h))) {
+      const ssfErMaster = allPayHeads.find((h) => isSsfEmployerHead(h as any));
+      if (ssfErMaster) calculatorHeadsInput.push(toPayHeadObj(ssfErMaster));
+    }
+    if (!calculatorHeadsInput.some((h) => isSsfDeductionHead(h))) {
+      const ssfDedMaster = allPayHeads.find((h) => isSsfDeductionHead(h as any));
+      if (ssfDedMaster) calculatorHeadsInput.push(toPayHeadObj(ssfDedMaster));
+    }
+  }
 
   const isYearEnd = isAshadh(run.payPeriodMonth);
   let historicalSlips: Array<{ grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }> = [];
@@ -1129,9 +1197,10 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
 
     // Replace slip heads
     await tx.delete(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
-    if (calcResult.heads.length > 0) {
+    const sanitizedHeads = sanitizeSlipHeads(calcResult.heads, allPayHeads);
+    if (sanitizedHeads.length > 0) {
       await tx.insert(payrollSlipHeads).values(
-        calcResult.heads.map(h => ({
+        sanitizedHeads.map(h => ({
           payrollSlipId: slipId,
           payHeadId: h.payHeadId,
           payHeadName: h.payHeadName,

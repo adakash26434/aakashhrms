@@ -58,6 +58,8 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     `ALTER TABLE "employee_personal" ADD COLUMN IF NOT EXISTS "permanent_address" text`,
     `ALTER TABLE "employee_personal" ADD COLUMN IF NOT EXISTS "temporary_address" text`,
     `ALTER TABLE "pay_heads" ADD COLUMN IF NOT EXISTS "is_ssf_employer_head" boolean DEFAULT false NOT NULL`,
+    `UPDATE "pay_heads" SET "is_ssf_employer_head" = true WHERE ("code" IN ('SSF-ER', 'SSF_ER', 'SSFER') OR ("name" ILIKE '%SSF%' AND "name" ILIKE '%Employer%') OR ("name" ILIKE '%Social Security Fund%' AND "name" ILIKE '%Employer%')) AND ("is_ssf_employer_head" IS NULL OR "is_ssf_employer_head" = false)`,
+    `UPDATE "pay_heads" SET "is_ssf_head" = true WHERE ("code" IN ('SSF', 'SSF-EE', 'SSF_EE', 'SSFEE') OR ("name" ILIKE '%Social Security Fund%' AND "type" = 'deduction') OR ("name" ILIKE '%SSF%' AND "type" = 'deduction')) AND ("is_ssf_head" IS NULL OR "is_ssf_head" = false)`,
     `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "full_name" varchar(255)`,
     `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "is_supervisor" boolean DEFAULT false NOT NULL`,
     `DO $$ 

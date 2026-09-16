@@ -49,6 +49,39 @@ export interface PayHeadInput {
   calcPercent: string;
   amount: string; // The base assigned amount
   isManualOverride?: boolean;
+  overrideReason?: string | null;
+}
+
+/**
+ * Helper to identify SSF employer contribution head from various database conventions:
+ * - flag isSsfEmployerHead === true
+ * - allowance type + code SSF-ER, SSF_ER, SSFER
+ * - allowance type + name contains ("ssf" or "social security") and ("employer" or "er")
+ */
+export function isSsfEmployerHead(head: { isSsfEmployerHead?: boolean; isSsfHead?: boolean; code?: string; name?: string; type?: string }): boolean {
+  if (head.isSsfEmployerHead) return true;
+  const name = (head.name || '').toLowerCase();
+  const code = (head.code || '').toUpperCase();
+  const isAllowance = head.type === 'allowance';
+  if (isAllowance && (code === 'SSF-ER' || code === 'SSF_ER' || code === 'SSFER')) return true;
+  if (isAllowance && ((name.includes('ssf') || name.includes('social security')) && (name.includes('employer') || name.includes('er')))) return true;
+  return false;
+}
+
+/**
+ * Helper to identify SSF employee/total deduction head from various database conventions:
+ * - flag isSsfHead === true and type is deduction (or not specified)
+ * - code SSF, SSF-EE, SSF_EE, SSFEE
+ * - deduction type + name contains "ssf" or "social security"
+ */
+export function isSsfDeductionHead(head: { isSsfEmployerHead?: boolean; isSsfHead?: boolean; code?: string; name?: string; type?: string }): boolean {
+  if (head.isSsfHead && (head.type === 'deduction' || !head.type)) return true;
+  const name = (head.name || '').toLowerCase();
+  const code = (head.code || '').toUpperCase();
+  const isDeduction = head.type === 'deduction';
+  if (code === 'SSF' || code === 'SSF-EE' || code === 'SSF_EE' || code === 'SSFEE') return true;
+  if (isDeduction && (name.includes('ssf') || name.includes('social security'))) return true;
+  return false;
 }
 
 export interface TaxSlabInput {
@@ -163,6 +196,8 @@ export function calculatePayslip(args: {
       head.isPfHead || 
       head.isSsfHead || 
       head.isSsfEmployerHead ||
+      isSsfEmployerHead(head) ||
+      isSsfDeductionHead(head) ||
       head.isCitHead || 
       head.isTdsHead || 
       head.isOtHead || 
@@ -316,7 +351,7 @@ export function calculatePayslip(args: {
 
   if (ssfEmployee.gt(0)) {
     // 1. Employer SSF Addition (+20% in gross earnings / allowances)
-    const employerHeadObj = assignedHeads.find((h) => h.isSsfEmployerHead || (h.type === "allowance" && (h.isSsfHead || h.code === "SSF-ER")));
+    const employerHeadObj = assignedHeads.find((h) => isSsfEmployerHead(h));
     if (employerHeadObj) {
       totalAllowances = totalAllowances.plus(ssfEmployer);
       if (employerHeadObj.effectOnTax) {
@@ -342,7 +377,7 @@ export function calculatePayslip(args: {
     }
 
     // 2. Total SSF Deduction (-31% from gross earnings)
-    const ssfHeadObj = assignedHeads.find((h) => h.isSsfHead && h.type === "deduction") || assignedHeads.find((h) => h.isSsfHead);
+    const ssfHeadObj = assignedHeads.find((h) => isSsfDeductionHead(h)) || assignedHeads.find((h) => h.isSsfHead);
     if (ssfHeadObj) {
       totalDeductions = totalDeductions.plus(ssfTotal);
       calculatedHeads.push({

@@ -1,7 +1,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Decimal from 'decimal.js';
-import { calculatePayslip, type PayHeadInput, type TaxSlabInput, type EmployeeInput } from '../lib/engines/payroll.engine';
+import { 
+  calculatePayslip, 
+  isSsfEmployerHead, 
+  isSsfDeductionHead, 
+  type PayHeadInput, 
+  type TaxSlabInput, 
+  type EmployeeInput 
+} from '../lib/engines/payroll.engine';
 import type { SystemControlData } from '../lib/types/system-control';
 
 const MOCK_SYSTEM_CONTROL: SystemControlData = {
@@ -904,5 +911,133 @@ describe('Payroll Calculation & Syncing Engine', () => {
       '330',
       'Custom 60% override discount should leave 40% of Handicapped slab TDS (825 * 0.4 = 330)'
     );
+  });
+
+  it('should correctly detect SSF employer and deduction heads from name and code variations', () => {
+    assert.equal(isSsfEmployerHead({ name: 'Social Security Fund Employer(SSF 20%)', type: 'allowance' }), true);
+    assert.equal(isSsfEmployerHead({ name: 'SSF - Employer Contribution (20%)', type: 'allowance' }), true);
+    assert.equal(isSsfEmployerHead({ code: 'SSF-ER', type: 'allowance' }), true);
+    assert.equal(isSsfEmployerHead({ isSsfEmployerHead: true }), true);
+    assert.equal(isSsfEmployerHead({ name: 'Fuel Allowance', type: 'allowance' }), false);
+
+    assert.equal(isSsfDeductionHead({ name: 'Social Security Fund (SSF)', type: 'deduction' }), true);
+    assert.equal(isSsfDeductionHead({ name: 'SSF Deduction', type: 'deduction' }), true);
+    assert.equal(isSsfDeductionHead({ code: 'SSF', type: 'deduction' }), true);
+    assert.equal(isSsfDeductionHead({ isSsfHead: true, type: 'deduction' }), true);
+    assert.equal(isSsfDeductionHead({ name: 'Staff Welfare Fund', type: 'deduction' }), false);
+  });
+
+  it('should recognize realistic Nepali SSF Employer head, preserve its UUID, and avoid duplicate allowances', () => {
+    const ssfSystemControl: SystemControlData = {
+      ...MOCK_SYSTEM_CONTROL,
+      statutoryDeductionLimits: {
+        ...MOCK_SYSTEM_CONTROL.statutoryDeductionLimits,
+        companyHasSsf: true,
+        ssfContributionBase: 'BasicSalary',
+      },
+    };
+
+    const EMPLOYER_SSF_UUID = '52d85e22-6bed-4903-b691-c577afe85d3f';
+    const DEDUCTION_SSF_UUID = '7e1aacb6-2641-4121-8366-04612eab3650';
+
+    const assignedHeads: PayHeadInput[] = [
+      {
+        id: EMPLOYER_SSF_UUID,
+        code: 'PAY-003', // Custom user code (not SSF-ER)
+        name: 'Social Security Fund Employer(SSF 20%)',
+        type: 'allowance',
+        effectOnTax: true,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: false,
+        isPfHead: false,
+        isSsfHead: false,
+        isSsfEmployerHead: false, // In database, column was default false
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '7000',
+      },
+      {
+        id: DEDUCTION_SSF_UUID,
+        code: 'PAY-004',
+        name: 'Social Security Fund (SSF)',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: false,
+        isPfHead: false,
+        isSsfHead: true,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '0',
+      },
+      {
+        id: '11111111-1111-4111-a111-111111111111',
+        code: 'TDS',
+        name: 'TDS',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: true,
+        isPfHead: false,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '0',
+      },
+    ];
+
+    const result = calculatePayslip({
+      employee: BASE_EMPLOYEE,
+      salaryMap: {
+        basicSalary: '35000',
+        gradePercent: '0',
+        gradeAmount: '0',
+      },
+      assignedHeads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: ssfSystemControl,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+    // Basic: 35,000. SSF Employer 20% = 7,000.
+    // Gross should be exactly 35,000 + 7,000 = 42,000 (NOT duplicated to 49,000!)
+    assert.equal(result.grossEarnings, '42000');
+
+    // The calculated head for employer SSF must have the real UUID, NOT 'head-ssf-er'
+    const employerHead = result.heads.find((h) => h.payHeadId === EMPLOYER_SSF_UUID);
+    assert.ok(employerHead, 'Employer SSF head must use its real database UUID');
+    assert.equal(employerHead.calculatedAmount, '7000');
+
+    // Ensure NO dummy 'head-ssf-er' was generated
+    const dummyHead = result.heads.find((h) => h.payHeadId === 'head-ssf-er');
+    assert.equal(dummyHead, undefined, 'Must not generate dummy head-ssf-er');
+
+    // SSF deduction must use the real deduction UUID
+    const deductionHead = result.heads.find((h) => h.payHeadId === DEDUCTION_SSF_UUID);
+    assert.ok(deductionHead, 'Deduction SSF head must use its real database UUID');
+    // 31% of 35,000 = 10,850
+    assert.equal(deductionHead.calculatedAmount, '10850');
   });
 });
