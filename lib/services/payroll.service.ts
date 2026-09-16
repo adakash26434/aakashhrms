@@ -18,7 +18,9 @@ import {
   payHeads,
   fiscalYears,
   userRoles,
-  roles
+  roles,
+  employeeSalaryMap,
+  employeeSalaryHeads
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
@@ -34,6 +36,7 @@ import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
 import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError } from "@/lib/engines/payroll.engine";
+import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
@@ -43,7 +46,8 @@ import type {
   PayrollSlipHead, 
   PayrollRunStatus,
   PayrollRunSetupPayload,
-  PayrollSlipOverridePayload
+  PayrollSlipOverridePayload,
+  AddSlipHeadPayload
 } from "@/lib/types/payroll";
 
 // -----------------------------------------------------------------------------
@@ -153,7 +157,27 @@ export async function generatePayrollRun(
     branchIds
   });
   if (existingRuns.length > 0) {
-    throw new PayrollRunAlreadyExistsError(payPeriodMonth, payPeriodYear);
+    const hasLocked = existingRuns.some(r => r.status === 'LOCKED');
+    if (hasLocked) {
+      throw new PayrollLockedError();
+    }
+
+    if (payload.recreateIfExists) {
+      for (const run of existingRuns) {
+        await repository.deletePayrollRun(run.id);
+        await getDb().insert(auditLogs).values({
+          userId,
+          action: 'DELETE',
+          module: 'PAYROLL_GENERATE',
+          recordId: run.id,
+          result: 'SUCCESS',
+          oldValues: { runId: run.id, status: run.status, reason: 'Overwritten on regeneration' },
+          newValues: null
+        });
+      }
+    } else {
+      throw new PayrollRunAlreadyExistsError(payPeriodMonth, payPeriodYear);
+    }
   }
 
   // 2. Load system configurations & active FY
@@ -196,7 +220,7 @@ export async function generatePayrollRun(
 
   for (const emp of scopedEmployees) {
     if (!salaryMapByEmployeeId.has(emp.id)) {
-      missingSalaryMappings.push(`${emp.firstName} ${emp.lastName} (${emp.employeeCode})`);
+      missingSalaryMappings.push(`${emp.fullName} (${emp.employeeCode})`);
     }
   }
 
@@ -403,6 +427,7 @@ export async function generatePayrollRun(
         isTdsHead: dbHead?.isTdsHead ?? false,
         isPfHead: dbHead?.isPfHead ?? false,
         isSsfHead: dbHead?.isSsfHead ?? false,
+        isSsfEmployerHead: (dbHead as any)?.isSsfEmployerHead ?? (dbHead?.type === "allowance" && (dbHead?.code === "SSF-ER" || dbHead?.name.includes("SSF"))),
         isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
         isCitHead: dbHead?.isCitHead ?? false,
         calcBasis: dbHead?.calcBasis ?? "None",
@@ -413,42 +438,46 @@ export async function generatePayrollRun(
       };
     });
 
-    // Ensure all statutory heads are present in assignedHeads so they get real UUIDs from db if calculated
-    const statutoryChecks: Array<{ key: 'isPfHead' | 'isSsfHead' | 'isCitHead' | 'isTdsHead' }> = [
-      { key: 'isPfHead' },
-      { key: 'isSsfHead' },
-      { key: 'isCitHead' },
-      { key: 'isTdsHead' }
-    ];
+    const toPayHeadObj = (masterHead: typeof payHeads.$inferSelect) => ({
+      id: masterHead.id,
+      payHeadId: masterHead.id,
+      code: masterHead.code || masterHead.id,
+      name: masterHead.name,
+      type: masterHead.type as "allowance" | "deduction",
+      effectOnTax: masterHead.effectOnTax,
+      isFestivalAllowance: masterHead.isFestivalAllowance,
+      isAbsentDeduct: masterHead.isAbsentDeduct,
+      isOtHead: masterHead.isOtHead,
+      isLeaveHead: masterHead.isLeaveHead,
+      isTdsHead: masterHead.isTdsHead,
+      isPfHead: masterHead.isPfHead,
+      isSsfHead: masterHead.isSsfHead,
+      isSsfEmployerHead: (masterHead as any).isSsfEmployerHead ?? (masterHead.type === "allowance" && (masterHead.isSsfHead || masterHead.code === "SSF-ER" || masterHead.name.includes("SSF"))),
+      isRemoteAllowance: masterHead.isRemoteAllowance,
+      isCitHead: masterHead.isCitHead,
+      calcBasis: masterHead.calcBasis,
+      calcParameter: masterHead.calcParameter,
+      calcPercent: masterHead.calcPercent?.toString() || "0",
+      amount: "0",
+      isManualOverride: false,
+    });
 
-    for (const check of statutoryChecks) {
-      const hasHead = assignedHeads.some((h: Record<string, any>) => h[check.key]);
-      if (!hasHead) {
-        const masterHead = allPayHeads.find((h: typeof payHeads.$inferSelect) => h[check.key]);
-        if (masterHead) {
-          assignedHeads.push({
-            id: masterHead.id,
-            payHeadId: masterHead.id,
-            code: masterHead.code || masterHead.id,
-            name: masterHead.name,
-            type: masterHead.type as "allowance" | "deduction",
-            effectOnTax: masterHead.effectOnTax,
-            isFestivalAllowance: masterHead.isFestivalAllowance,
-            isAbsentDeduct: masterHead.isAbsentDeduct,
-            isOtHead: masterHead.isOtHead,
-            isLeaveHead: masterHead.isLeaveHead,
-            isTdsHead: masterHead.isTdsHead,
-            isPfHead: masterHead.isPfHead,
-            isSsfHead: masterHead.isSsfHead,
-            isRemoteAllowance: masterHead.isRemoteAllowance,
-            isCitHead: masterHead.isCitHead,
-            calcBasis: masterHead.calcBasis,
-            calcParameter: masterHead.calcParameter,
-            calcPercent: masterHead.calcPercent?.toString() || "0",
-            amount: "0",
-            isManualOverride: false,
-          });
-        }
+    // 1. TDS is required for every employee
+    if (!assignedHeads.some((h) => h.isTdsHead)) {
+      const tdsMaster = allPayHeads.find((h) => h.isTdsHead);
+      if (tdsMaster) assignedHeads.push(toPayHeadObj(tdsMaster));
+    }
+
+    // 2. SSF: Only ensure SSF master heads if this employee actually has SSF assigned in salary mapping
+    const hasSsfAssigned = assignedHeads.some((h) => h.isSsfHead || h.isSsfEmployerHead || h.name.toLowerCase().includes('ssf'));
+    if (hasSsfAssigned) {
+      if (!assignedHeads.some((h) => h.isSsfEmployerHead || (h.type === 'allowance' && (h.isSsfHead || h.code === 'SSF-ER' || h.name.includes('SSF'))))) {
+        const ssfErMaster = allPayHeads.find((h) => (h as any).isSsfEmployerHead || (h.type === 'allowance' && (h.isSsfHead || h.code === 'SSF-ER' || h.name.includes('SSF'))));
+        if (ssfErMaster) assignedHeads.push(toPayHeadObj(ssfErMaster));
+      }
+      if (!assignedHeads.some((h) => h.isSsfHead && h.type === 'deduction')) {
+        const ssfDedMaster = allPayHeads.find((h) => h.isSsfHead && h.type === 'deduction');
+        if (ssfDedMaster) assignedHeads.push(toPayHeadObj(ssfDedMaster));
       }
     }
 
@@ -499,7 +528,7 @@ export async function generatePayrollRun(
         payrollRunId: "", // Will populate inside repository transaction
         employeeId: emp.id,
         employeeCode: emp.employeeCode,
-        employeeName: `${emp.firstName} ${emp.lastName}`,
+        employeeName: emp.fullName,
         departmentName: deptMap.get(emp.departmentId) || "Unknown Department",
         designationName: desigMap.get(emp.designationId) || "Unknown Designation",
         basicSalary: calcResult.basicSalary,
@@ -696,6 +725,7 @@ export async function overridePayslipAllowanceDeduction(
         isTdsHead: dbHead?.isTdsHead ?? false,
         isPfHead: dbHead?.isPfHead ?? false,
         isSsfHead: dbHead?.isSsfHead ?? false,
+        isSsfEmployerHead: (dbHead as any)?.isSsfEmployerHead ?? (dbHead?.type === "allowance" && (dbHead?.code === "SSF-ER" || dbHead?.name.includes("SSF"))),
         isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
         isCitHead: dbHead?.isCitHead ?? false,
         calcBasis: dbHead?.calcBasis ?? "None",
@@ -844,6 +874,373 @@ export async function overridePayslipAllowanceDeduction(
 }
 
 // -----------------------------------------------------------------------------
+// Fallback, Revert & Recalculation Methods
+// -----------------------------------------------------------------------------
+
+export async function deletePayrollRun(runId: string, userId: string): Promise<void> {
+  const run = await repository.findPayrollRunById(runId);
+  if (!run) throw new Error("Payroll run not found");
+  if (run.status === 'LOCKED') {
+    throw new PayrollLockedError();
+  }
+
+  await repository.deletePayrollRun(runId);
+
+  await getDb().insert(auditLogs).values({
+    userId,
+    action: 'DELETE',
+    module: 'PAYROLL_GENERATE',
+    recordId: runId,
+    result: 'SUCCESS',
+    oldValues: run,
+    newValues: null
+  });
+}
+
+export async function deleteEmployeePayslip(slipId: string, userId: string): Promise<{ remainingCount: number }> {
+  const slip = await repository.findSlipById(slipId);
+  if (!slip) throw new Error("Payslip not found");
+
+  const run = await repository.findPayrollRunById(slip.payrollRunId);
+  if (!run) throw new Error("Parent payroll run not found");
+  if (run.status === 'LOCKED') {
+    throw new PayrollLockedError();
+  }
+
+  // Delete slip (cascades to slip heads in DB)
+  await repository.deletePayrollSlip(slipId);
+
+  // Recalculate parent run totals
+  const remainingSlips = await repository.findSlipsByRunId(run.id);
+  let newGross = new Decimal(0);
+  let newDeductions = new Decimal(0);
+  let newNet = new Decimal(0);
+  let newTds = new Decimal(0);
+  let newPf = new Decimal(0);
+  let newSsf = new Decimal(0);
+
+  for (const s of remainingSlips) {
+    newGross = newGross.plus(new Decimal(s.grossEarnings));
+    newDeductions = newDeductions.plus(new Decimal(s.totalDeductions));
+    newNet = newNet.plus(new Decimal(s.netPayable));
+    newTds = newTds.plus(new Decimal(s.tdsThisMonth));
+    newPf = newPf.plus(new Decimal(s.pfEmployee));
+    newSsf = newSsf.plus(new Decimal(s.ssfEmployee));
+  }
+
+  await repository.updatePayrollRunTotals(run.id, {
+    totalGross: newGross.toString(),
+    totalDeductions: newDeductions.toString(),
+    totalNetPayable: newNet.toString(),
+    totalTds: newTds.toString(),
+    totalPf: newPf.toString(),
+    totalSsf: newSsf.toString(),
+  });
+
+  // Update employeeCount on the run
+  await getDb().update(payrollRuns)
+    .set({
+      employeeCount: remainingSlips.length,
+      updatedAt: new Date()
+    })
+    .where(eq(payrollRuns.id, run.id));
+
+  await getDb().insert(auditLogs).values({
+    userId,
+    action: 'DELETE',
+    module: 'PAYROLL_GENERATE',
+    recordId: slipId,
+    result: 'SUCCESS',
+    oldValues: slip,
+    newValues: { remainingCount: remainingSlips.length }
+  });
+
+  return { remainingCount: remainingSlips.length };
+}
+
+export async function recalculateEmployeePayslip(slipId: string, userId: string): Promise<{
+  slip: PayrollSlip;
+  heads: PayrollSlipHead[];
+}> {
+  const currentSlip = await repository.findSlipById(slipId);
+  if (!currentSlip) throw new Error("Payslip not found");
+
+  const run = await repository.findPayrollRunById(currentSlip.payrollRunId);
+  if (!run) throw new Error("Parent payroll run not found");
+  if (run.status === 'LOCKED') {
+    throw new PayrollLockedError();
+  }
+
+  const emp = await employeeRepository.findById(currentSlip.employeeId);
+  if (!emp) throw new Error("Employee not found");
+
+  const salaryMap = await salaryMappingRepository.findSalaryMappingByEmployeeId(emp.id);
+  if (!salaryMap) {
+    throw new SalaryMappingMissingError([emp.fullName]);
+  }
+
+  // Load Leave/OT calculation for this month
+  const [leaveOtCalc] = await getDb().select().from(leaveOtCalculations).where(
+    and(
+      eq(leaveOtCalculations.employeeId, emp.id),
+      eq(leaveOtCalculations.bsMonth, run.payPeriodMonth),
+      eq(leaveOtCalculations.fiscalYearId, run.fiscalYearId)
+    )
+  );
+  const attendCalc = {
+    leaveDeductionAmount: leaveOtCalc?.leaveDeductionAmount || "0",
+    otEarnedAmount: leaveOtCalc?.otEarnedAmount || "0"
+  };
+
+  // Resolve active loans
+  const empLoans = await loanRepository.findActiveLoansByEmployee(emp.id);
+  let totalInstallment = new Decimal(0);
+  for (const loan of empLoans) {
+    const installment = Decimal.min(
+      new Decimal(loan.installmentAmount),
+      new Decimal(loan.remainingAmount)
+    );
+    totalInstallment = totalInstallment.plus(installment);
+  }
+  const activeLoanDeduction = totalInstallment.toDecimalPlaces(2).toString();
+
+  // Load tax slabs & system control
+  const slabs = await taxRateRepository.findAllSlabs();
+  const taxSlabInputs = slabs.map(s => ({
+    id: s.id,
+    category: s.category,
+    amountFrom: s.amountFrom.toString(),
+    amountTo: s.amountTo ? s.amountTo.toString() : null,
+    ratePercent: s.ratePercent.toString(),
+    fixedDeduction: s.fixedDeduction.toString()
+  }));
+  const systemControl = await systemControlRepository.findSettings();
+
+  // Load all pay heads
+  const allPayHeads = await getDb().select().from(payHeads);
+
+  const isFestivalChecked = run.occasionalAllowanceHeadIds?.some(id => {
+    const h = allPayHeads.find(dbH => dbH.id === id);
+    return h?.isFestivalAllowance;
+  }) ?? false;
+
+  const isRemoteChecked = run.occasionalAllowanceHeadIds?.some(id => {
+    const h = allPayHeads.find(dbH => dbH.id === id);
+    return h?.isRemoteAllowance;
+  }) ?? false;
+
+  const calculatorHeadsInput = salaryMap.salaryHeads.map((ah: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => {
+    const dbHead = allPayHeads.find(h => h.id === ah.payHeadId);
+    return {
+      id: ah.payHeadId,
+      payHeadId: ah.payHeadId,
+      code: dbHead?.code || ah.payHeadId,
+      name: dbHead?.name || ah.payHeadName,
+      type: (dbHead?.type || ah.payHeadType) as "allowance" | "deduction",
+      effectOnTax: dbHead?.effectOnTax ?? true,
+      isFestivalAllowance: dbHead?.isFestivalAllowance ?? false,
+      isAbsentDeduct: dbHead?.isAbsentDeduct ?? false,
+      isOtHead: dbHead?.isOtHead ?? false,
+      isLeaveHead: dbHead?.isLeaveHead ?? false,
+      isTdsHead: dbHead?.isTdsHead ?? false,
+      isPfHead: dbHead?.isPfHead ?? false,
+      isSsfHead: dbHead?.isSsfHead ?? false,
+      isSsfEmployerHead: (dbHead as any)?.isSsfEmployerHead ?? (dbHead?.type === "allowance" && (dbHead?.code === "SSF-ER" || dbHead?.name.includes("SSF"))),
+      isRemoteAllowance: dbHead?.isRemoteAllowance ?? false,
+      isCitHead: dbHead?.isCitHead ?? false,
+      calcBasis: dbHead?.calcBasis ?? "None",
+      calcParameter: dbHead?.calcParameter ?? "FixedAmount",
+      calcPercent: dbHead?.calcPercent?.toString() ?? "0",
+      amount: ah.amount.toString(),
+      isManualOverride: false,
+    };
+  });
+
+  const isYearEnd = isAshadh(run.payPeriodMonth);
+  let historicalSlips: Array<{ grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }> = [];
+  if (isYearEnd) {
+    const pastSlips = await getDb().select()
+      .from(payrollSlips)
+      .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+      .where(
+        and(
+          eq(payrollSlips.employeeId, emp.id),
+          eq(payrollRuns.fiscalYearId, run.fiscalYearId),
+          eq(payrollRuns.status, 'LOCKED'),
+          sql`payroll_slips.id != ${slipId}`
+        )
+      );
+
+    historicalSlips = pastSlips.map(s => ({
+      grossEarnings: s.payroll_slips.grossEarnings,
+      pfEmployee: s.payroll_slips.pfEmployee,
+      citDeduction: s.payroll_slips.citDeduction,
+      tdsThisMonth: s.payroll_slips.tdsThisMonth
+    }));
+  }
+
+  const calcResult = calculatePayslip({
+    employee: {
+      id: emp.id,
+      category: emp.category,
+      gender: emp.gender,
+      isDisabled: emp.isDisabled,
+      taxStatus: emp.taxStatus,
+      joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
+    },
+    salaryMap: {
+      basicSalary: salaryMap.basicSalary.toString(),
+      gradePercent: (salaryMap.gradePercent || 0).toString(),
+      gradeAmount: (salaryMap.gradeAmount || 0).toString(),
+    },
+    assignedHeads: calculatorHeadsInput,
+    attendanceCalc: attendCalc,
+    loanDeduction: activeLoanDeduction,
+    systemControl,
+    taxSlabs: taxSlabInputs,
+    isFestivalMonth: isFestivalChecked,
+    isRemoteMonth: isRemoteChecked,
+    isYearEnd,
+    historicalPayslips: historicalSlips
+  });
+
+  // Transactionally update slip and replace heads
+  await getDb().transaction(async (tx) => {
+    await tx.update(payrollSlips)
+      .set({
+        basicSalary: salaryMap.basicSalary.toString(),
+        gradeAmount: (salaryMap.gradeAmount || 0).toString(),
+        grossEarnings: calcResult.grossEarnings,
+        totalDeductions: calcResult.totalDeductions,
+        netPayable: calcResult.netPayable,
+        taxableIncome: calcResult.taxableIncome,
+        tdsThisMonth: calcResult.tdsThisMonth,
+        pfEmployee: calcResult.pfEmployee,
+        pfEmployer: calcResult.pfEmployer,
+        ssfEmployee: calcResult.ssfEmployee,
+        ssfEmployer: calcResult.ssfEmployer,
+        citDeduction: calcResult.citDeduction,
+        loanDeduction: calcResult.loanDeduction,
+        absentDeduction: calcResult.absentDeduction,
+        otAmount: calcResult.otAmount,
+        updatedAt: new Date()
+      })
+      .where(eq(payrollSlips.id, slipId));
+
+    // Replace slip heads
+    await tx.delete(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
+    if (calcResult.heads.length > 0) {
+      await tx.insert(payrollSlipHeads).values(
+        calcResult.heads.map(h => ({
+          payrollSlipId: slipId,
+          payHeadId: h.payHeadId,
+          payHeadName: h.payHeadName,
+          headType: h.headType,
+          amount: h.amount,
+          calculatedAmount: h.calculatedAmount,
+          isManualOverride: false,
+          overrideReason: null
+        }))
+      );
+    }
+
+    // Recalculate parent run totals
+    const allSlips = await repository.findSlipsByRunId(run.id);
+    let newGross = new Decimal(0);
+    let newDeductions = new Decimal(0);
+    let newNet = new Decimal(0);
+    let newTds = new Decimal(0);
+    let newPf = new Decimal(0);
+    let newSsf = new Decimal(0);
+
+    for (const s of allSlips) {
+      const isThisSlip = s.id === slipId;
+      const g = isThisSlip ? calcResult.grossEarnings : s.grossEarnings;
+      const d = isThisSlip ? calcResult.totalDeductions : s.totalDeductions;
+      const n = isThisSlip ? calcResult.netPayable : s.netPayable;
+      const t = isThisSlip ? calcResult.tdsThisMonth : s.tdsThisMonth;
+      const p = isThisSlip ? calcResult.pfEmployee : s.pfEmployee;
+      const ss = isThisSlip ? calcResult.ssfEmployee : s.ssfEmployee;
+
+      newGross = newGross.plus(new Decimal(g));
+      newDeductions = newDeductions.plus(new Decimal(d));
+      newNet = newNet.plus(new Decimal(n));
+      newTds = newTds.plus(new Decimal(t));
+      newPf = newPf.plus(new Decimal(p));
+      newSsf = newSsf.plus(new Decimal(ss));
+    }
+
+    await repository.updatePayrollRunTotals(run.id, {
+      totalGross: newGross.toString(),
+      totalDeductions: newDeductions.toString(),
+      totalNetPayable: newNet.toString(),
+      totalTds: newTds.toString(),
+      totalPf: newPf.toString(),
+      totalSsf: newSsf.toString()
+    });
+
+    await tx.insert(auditLogs).values({
+      userId,
+      action: 'EDIT',
+      module: 'PAYROLL_GENERATE',
+      recordId: slipId,
+      result: 'SUCCESS',
+      oldValues: currentSlip,
+      newValues: { action: 'Recalculated from master data' }
+    });
+  });
+
+  return getPayslipWithHeads(slipId);
+}
+
+export async function addPayHeadToPayslip(
+  payload: AddSlipHeadPayload,
+  userId: string
+): Promise<{ slip: PayrollSlip; heads: PayrollSlipHead[] }> {
+  const { slipId, payHeadId, amount, reason } = payload;
+  const currentSlip = await repository.findSlipById(slipId);
+  if (!currentSlip) throw new Error("Payslip not found");
+
+  const run = await repository.findPayrollRunById(currentSlip.payrollRunId);
+  if (!run) throw new Error("Parent payroll run not found");
+  if (run.status === 'LOCKED') {
+    throw new PayrollLockedError();
+  }
+
+  const allPayHeads = await getDb().select().from(payHeads);
+  const targetHead = allPayHeads.find(h => h.id === payHeadId);
+  if (!targetHead) throw new Error("Pay head not found");
+
+  const existingHeads = await repository.findSlipHeadsBySlipId(slipId);
+  const existingHead = existingHeads.find(h => h.payHeadId === payHeadId);
+
+  if (existingHead) {
+    throw new Error(`Pay head "${targetHead.name}" is already added to this payslip. Use the edit button to adjust existing amounts.`);
+  }
+
+  // Insert new head into slip heads
+  await repository.addSlipHead(slipId, {
+    payHeadId,
+    payHeadName: targetHead.name,
+    headType: targetHead.type as 'allowance' | 'deduction',
+    amount,
+    calculatedAmount: amount,
+    isManualOverride: true,
+    overrideReason: reason
+  });
+
+  // Re-run calculatePayslip with this new head included
+  await overridePayslipAllowanceDeduction({
+    slipId,
+    headId: payHeadId,
+    amount,
+    reason
+  }, userId);
+
+  return getPayslipWithHeads(slipId);
+}
+
+// -----------------------------------------------------------------------------
 // Approval & State Transitions
 // -----------------------------------------------------------------------------
 
@@ -950,6 +1347,189 @@ export async function transitionPayrollRun(
           }
         }
       }
+
+      // 3. Synchronize newly added or overridden pay heads into master Salary Mapping
+      const allDbPayHeads = await tx.select().from(payHeads);
+      const payHeadById = new Map(allDbPayHeads.map(p => [p.id, p]));
+
+      for (const slip of slips) {
+        const slipHeads = await tx.select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slip.id));
+
+        // Filter for syncable heads: exclude dynamic runtime attendance/statutory calculations
+        const syncableSlipHeads = slipHeads.filter(sh => {
+          const ph = payHeadById.get(sh.payHeadId);
+          if (!ph) return false;
+          if (ph.isAbsentDeduct || ph.isLeaveHead || ph.isOtHead || ph.isTdsHead) return false;
+          return true;
+        });
+
+        const activeMappingRows = await tx.select()
+          .from(employeeSalaryMap)
+          .where(and(
+            eq(employeeSalaryMap.employeeId, slip.employeeId),
+            eq(employeeSalaryMap.isActive, true)
+          ));
+
+        if (activeMappingRows.length > 0) {
+          const mapping = activeMappingRows[0];
+          const existingMappingHeads = await tx.select()
+            .from(employeeSalaryHeads)
+            .where(eq(employeeSalaryHeads.salaryMapId, mapping.id));
+
+          let mappingModified = false;
+          const updatedHeadsPayload: Array<{ payHeadId: string; amount: number; isChangeable?: boolean }> = [];
+          const existingHeadMap = new Map(existingMappingHeads.map(eh => [eh.payHeadId, eh]));
+
+          for (const sh of syncableSlipHeads) {
+            const existingEh = existingHeadMap.get(sh.payHeadId);
+            if (!existingEh) {
+              // Newly added head on payslip! Sync to salary mapping
+              mappingModified = true;
+              updatedHeadsPayload.push({
+                payHeadId: sh.payHeadId,
+                amount: Number(sh.amount) || Number(sh.calculatedAmount) || 0,
+                isChangeable: true
+              });
+            } else {
+              // Existing head in mapping. If overridden on slip, update amount
+              const slipAmount = Number(sh.amount);
+              if (sh.isManualOverride && slipAmount !== Number(existingEh.amount)) {
+                mappingModified = true;
+                updatedHeadsPayload.push({
+                  payHeadId: sh.payHeadId,
+                  amount: slipAmount,
+                  isChangeable: existingEh.isChangeable
+                });
+              } else {
+                updatedHeadsPayload.push({
+                  payHeadId: sh.payHeadId,
+                  amount: Number(existingEh.amount),
+                  isChangeable: existingEh.isChangeable
+                });
+              }
+              existingHeadMap.delete(sh.payHeadId);
+            }
+          }
+
+          // Retain any remaining mapping heads that were not on this slip
+          for (const [_, remEh] of existingHeadMap) {
+            updatedHeadsPayload.push({
+              payHeadId: remEh.payHeadId,
+              amount: Number(remEh.amount),
+              isChangeable: remEh.isChangeable
+            });
+          }
+
+          const slipBasic = Number(slip.basicSalary);
+          const slipGrade = Number(slip.gradeAmount);
+          if (slipBasic !== Number(mapping.basicSalary) || slipGrade !== Number(mapping.gradeAmount)) {
+            mappingModified = true;
+          }
+
+          if (mappingModified) {
+            const netAmount = calculateNetSalary({
+              basicSalary: slipBasic,
+              gradePercent: Number(mapping.gradePercent) || 0,
+              gradeAmount: slipGrade,
+              salaryHeads: updatedHeadsPayload.map(h => {
+                const ph = payHeadById.get(h.payHeadId);
+                return {
+                  payHeadType: (ph?.type === 'deduction' ? 'deduction' : 'allowance') as 'allowance' | 'deduction',
+                  amount: h.amount
+                };
+              }),
+              loan1Deduction: Number(mapping.loan1Deduction) || 0,
+              loan2Deduction: Number(mapping.loan2Deduction) || 0
+            });
+
+            await tx.update(employeeSalaryMap).set({
+              basicSalary: slipBasic.toString(),
+              gradeAmount: slipGrade.toString(),
+              netAmount: netAmount.toString(),
+              updatedAt: new Date()
+            }).where(eq(employeeSalaryMap.id, mapping.id));
+
+            await tx.delete(employeeSalaryHeads).where(eq(employeeSalaryHeads.salaryMapId, mapping.id));
+            if (updatedHeadsPayload.length > 0) {
+              await tx.insert(employeeSalaryHeads).values(
+                updatedHeadsPayload.map(h => ({
+                  salaryMapId: mapping.id,
+                  payHeadId: h.payHeadId,
+                  amount: h.amount.toString(),
+                  isChangeable: h.isChangeable ?? true
+                }))
+              );
+            }
+
+            await tx.insert(auditLogs).values({
+              userId: actionByUserId,
+              action: 'EDIT',
+              module: 'SALARY_MAPPING',
+              recordId: mapping.id,
+              result: 'SUCCESS',
+              newValues: {
+                syncedFromLockedPayrollRunId: runId,
+                employeeId: slip.employeeId,
+                updatedHeadsCount: updatedHeadsPayload.length
+              }
+            });
+          }
+        } else {
+          // Employee had no prior active mapping: create active mapping from this locked slip
+          const netAmount = calculateNetSalary({
+            basicSalary: Number(slip.basicSalary),
+            gradePercent: 0,
+            gradeAmount: Number(slip.gradeAmount),
+            salaryHeads: syncableSlipHeads.map(sh => {
+              const ph = payHeadById.get(sh.payHeadId);
+              return {
+                payHeadType: (ph?.type === 'deduction' ? 'deduction' : 'allowance') as 'allowance' | 'deduction',
+                amount: Number(sh.amount) || Number(sh.calculatedAmount) || 0
+              };
+            }),
+            loan1Deduction: 0,
+            loan2Deduction: 0
+          });
+
+          const [newMap] = await tx.insert(employeeSalaryMap).values({
+            employeeId: slip.employeeId,
+            fiscalYearId: run.fiscalYearId,
+            effectiveFrom: run.payPeriodStartDate,
+            basicSalary: slip.basicSalary,
+            gradePercent: '0',
+            gradeAmount: slip.gradeAmount,
+            loan1Deduction: '0',
+            loan2Deduction: '0',
+            netAmount: netAmount.toString(),
+            isActive: true,
+            createdBy: actionByUserId
+          }).returning({ id: employeeSalaryMap.id });
+
+          if (syncableSlipHeads.length > 0) {
+            await tx.insert(employeeSalaryHeads).values(
+              syncableSlipHeads.map(sh => ({
+                salaryMapId: newMap.id,
+                payHeadId: sh.payHeadId,
+                amount: (Number(sh.amount) || Number(sh.calculatedAmount) || 0).toString(),
+                isChangeable: true
+              }))
+            );
+          }
+
+          await tx.insert(auditLogs).values({
+            userId: actionByUserId,
+            action: 'ADD',
+            module: 'SALARY_MAPPING',
+            recordId: newMap.id,
+            result: 'SUCCESS',
+            newValues: {
+              syncedFromLockedPayrollRunId: runId,
+              employeeId: slip.employeeId,
+              headsCount: syncableSlipHeads.length
+            }
+          });
+        }
+      }
     });
   }
 
@@ -991,7 +1571,7 @@ export async function getPayrollGeneratePageData() {
   const mappedDesignations = designationsList.map(d => ({ id: d.id, name: d.name }));
   const mappedEmployees = employeesList.map(e => ({
     id: e.id,
-    name: `${e.firstName} ${e.lastName}`,
+    name: e.fullName,
     employeeCode: e.employeeCode,
     branchId: e.branchId,
     departmentId: e.departmentId,
@@ -1007,6 +1587,13 @@ export async function getPayrollGeneratePageData() {
       isRemoteAllowance: !!ph.flags.isRemoteAllowance
     }));
 
+  const allPayHeadsMapped = payHeadsList.map(ph => ({
+    id: ph.id,
+    name: ph.name,
+    code: ph.code,
+    type: ph.type as 'allowance' | 'deduction',
+  }));
+
   return {
     runs,
     branches: mappedBranches,
@@ -1014,6 +1601,8 @@ export async function getPayrollGeneratePageData() {
     designations: mappedDesignations,
     employees: mappedEmployees,
     occasionalAllowances,
+    allPayHeads: allPayHeadsMapped,
     userRole,
   };
 }
+

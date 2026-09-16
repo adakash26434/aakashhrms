@@ -21,33 +21,46 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
       {data.map((item, index) => {
         const { slip, heads, run } = item;
         const allowances = heads.filter((h) => h.headType === "allowance");
-        const deductions = heads.filter((h) => h.headType === "deduction");
+        const isStatutoryDed = (name: string) => {
+          const lower = (name || "").toLowerCase();
+          return (
+            lower.includes("provident fund") ||
+            lower.includes("epf") ||
+            lower.includes("ssf") ||
+            lower.includes("social security") ||
+            lower.includes("citizen investment") ||
+            lower.includes("cit")
+          );
+        };
+        const otherDeductions = heads.filter(
+          (h) => h.headType === "deduction" && !isStatutoryDed(h.payHeadName)
+        );
 
         return (
           <div
             key={slip.id || index}
-            className="relative overflow-hidden w-full max-w-3xl mx-auto rounded-xl border border-[#d7e8d0] bg-white p-6 shadow-payroll-sm print:shadow-none print:border-black print:p-4 print:page-break-after-always"
+            className="relative overflow-hidden w-full max-w-3xl mx-auto rounded-xl border border-payroll-light bg-white p-6 shadow-payroll-sm print:shadow-none print:border-black print:p-4 print:page-break-after-always"
             style={{ pageBreakAfter: "always" }}
           >
             {/* Light Watermark */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.03] select-none print:opacity-[0.04]">
-              <span className="text-7xl font-black uppercase text-[#1b3a1f] rotate-[-30deg]">
+              <span className="text-7xl font-black uppercase text-payroll-navy rotate-[-30deg]">
                 CONFIDENTIAL
               </span>
             </div>
             {/* Payslip Header */}
-            <div className="flex items-start justify-between border-b-2 border-[#1b3a1f] pb-4 mb-4">
+            <div className="flex items-start justify-between border-b-2 border-payroll-navy pb-4 mb-4">
               <div>
-                <h2 className="text-lg font-black text-[#1b3a1f] uppercase tracking-wider">
+                <h2 className="text-lg font-black text-payroll-navy uppercase tracking-wider">
                   PAYROLL SALARY SLIP
                 </h2>
                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
                   Period:{" "}
-                  <span className="text-[#1b3a1f] font-bold">{run.label}</span>
+                  <span className="text-payroll-navy font-bold">{run.label}</span>
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-bold text-[#1b3a1f] uppercase">
+                <p className="text-xs font-bold text-payroll-navy uppercase">
                   CONFIDENTIAL
                 </p>
                 <p className="text-[11px] font-mono text-gray-500 mt-0.5">
@@ -57,12 +70,12 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
             </div>
 
             {/* Employee Particulars Grid */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-[#f6faf6] border border-[#d7e8d0] p-3 text-xs mb-4 print:bg-white print:border-gray-300">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-payroll-cream border border-payroll-light p-3 text-xs mb-4 print:bg-white print:border-gray-300">
               <div>
                 <span className="text-gray-400 font-medium uppercase text-[10px] block">
                   Employee Name
                 </span>
-                <span className="font-bold text-[#1b3a1f] text-sm">
+                <span className="font-bold text-payroll-navy text-sm">
                   {slip.employeeName}
                 </span>
               </div>
@@ -70,7 +83,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                 <span className="text-gray-400 font-medium uppercase text-[10px] block">
                   Employee Code
                 </span>
-                <span className="font-bold text-[#1b3a1f] font-mono">
+                <span className="font-bold text-payroll-navy font-mono">
                   {slip.employeeCode}
                 </span>
               </div>
@@ -78,7 +91,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                 <span className="text-gray-400 font-medium uppercase text-[10px] block">
                   Department
                 </span>
-                <span className="font-semibold text-[#1b3a1f]">
+                <span className="font-semibold text-payroll-navy">
                   {slip.departmentName}
                 </span>
               </div>
@@ -86,7 +99,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                 <span className="text-gray-400 font-medium uppercase text-[10px] block">
                   Designation
                 </span>
-                <span className="font-semibold text-[#1b3a1f]">
+                <span className="font-semibold text-payroll-navy">
                   {slip.designationName}
                 </span>
               </div>
@@ -94,7 +107,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                 <span className="text-gray-400 font-medium uppercase text-[10px] block">
                   Bank Name
                 </span>
-                <span className="font-semibold text-[#1b3a1f]">
+                <span className="font-semibold text-payroll-navy">
                   {slip.bankName || "N/A"}
                 </span>
               </div>
@@ -102,17 +115,17 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                 <span className="text-gray-400 font-medium uppercase text-[10px] block">
                   Account Number
                 </span>
-                <span className="font-semibold text-[#1b3a1f] font-mono">
+                <span className="font-semibold text-payroll-navy font-mono">
                   {maskAccountNumber(slip.bankAccountNumber)}
                 </span>
               </div>
             </div>
 
             {/* Earnings vs Deductions Table Grid */}
-            <div className="grid grid-cols-2 gap-4 border border-[#d7e8d0] rounded-lg overflow-hidden text-xs mb-4">
+            <div className="grid grid-cols-2 gap-4 border border-payroll-light rounded-lg overflow-hidden text-xs mb-4">
               {/* Earnings Column */}
-              <div className="border-r border-[#d7e8d0]">
-                <div className="bg-emerald-50 px-3 py-1.5 border-b border-[#d7e8d0] font-bold text-emerald-800 uppercase tracking-wider text-[11px]">
+              <div className="border-r border-payroll-light">
+                <div className="bg-emerald-50 px-3 py-1.5 border-b border-payroll-light font-bold text-emerald-800 uppercase tracking-wider text-[11px]">
                   Earnings & Allowances
                 </div>
                 <div className="p-3 space-y-1.5 min-h-35">
@@ -120,7 +133,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                     <span className="text-gray-600 font-medium">
                       Basic Salary
                     </span>
-                    <span className="font-mono tabular-nums font-semibold text-[#1b3a1f]">
+                    <span className="font-mono tabular-nums font-semibold text-payroll-navy">
                       {Number(slip.basicSalary || 0).toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
                       })}
@@ -131,7 +144,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                       <span className="text-gray-600 font-medium">
                         Grade Amount
                       </span>
-                      <span className="font-mono tabular-nums font-semibold text-[#1b3a1f]">
+                      <span className="font-mono tabular-nums font-semibold text-payroll-navy">
                         {Number(slip.gradeAmount).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                         })}
@@ -143,7 +156,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                       <span className="text-gray-600 font-medium">
                         Overtime (OT)
                       </span>
-                      <span className="font-mono tabular-nums font-semibold text-[#1b3a1f]">
+                      <span className="font-mono tabular-nums font-semibold text-payroll-navy">
                         {Number(slip.otAmount).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                         })}
@@ -164,15 +177,15 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                           </span>
                         )}
                       </span>
-                      <span className="font-mono tabular-nums font-semibold text-[#1b3a1f]">
-                        {Number(head.amount).toLocaleString("en-IN", {
+                      <span className="font-mono tabular-nums font-semibold text-payroll-navy">
+                        {Number(head.calculatedAmount || head.amount).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                         })}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="bg-[#f6faf6] px-3 py-2 border-t border-[#d7e8d0] flex justify-between font-bold text-emerald-800 text-xs">
+                <div className="bg-payroll-cream px-3 py-2 border-t border-payroll-light flex justify-between font-bold text-emerald-800 text-xs">
                   <span>GROSS EARNINGS</span>
                   <span className="font-mono">
                     NPR{" "}
@@ -185,7 +198,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
 
               {/* Deductions Column */}
               <div>
-                <div className="bg-red-50 px-3 py-1.5 border-b border-[#d7e8d0] font-bold text-red-800 uppercase tracking-wider text-[11px]">
+                <div className="bg-red-50 px-3 py-1.5 border-b border-payroll-light font-bold text-red-800 uppercase tracking-wider text-[11px]">
                   Deductions
                 </div>
                 <div className="p-3 space-y-1.5 min-h-35">
@@ -203,11 +216,16 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                   )}
                   {Number(slip.ssfEmployee || 0) > 0 && (
                     <div className="flex justify-between py-1 border-b border-gray-100">
-                      <span className="text-gray-600 font-medium">
-                        SSF (Employee)
-                      </span>
+                      <div>
+                        <span className="text-gray-600 font-medium">
+                          Social Security Fund (SSF 31%)
+                        </span>
+                        <span className="block text-[9px] text-gray-400">
+                          EE 11% ({Number(slip.ssfEmployee).toLocaleString("en-IN", { minimumFractionDigits: 2 })}) + ER 20% ({Number(slip.ssfEmployer || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })})
+                        </span>
+                      </div>
                       <span className="font-mono tabular-nums font-semibold text-red-700">
-                        {Number(slip.ssfEmployee).toLocaleString("en-IN", {
+                        {Number(Number(slip.ssfEmployee) + Number(slip.ssfEmployer || 0)).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                         })}
                       </span>
@@ -260,7 +278,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                     </div>
                   )}
 
-                  {deductions.map((head) => (
+                  {otherDeductions.map((head) => (
                     <div
                       key={head.id}
                       className="flex justify-between py-1 border-b border-gray-100"
@@ -269,14 +287,14 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                         {head.payHeadName}
                       </span>
                       <span className="font-mono tabular-nums font-semibold text-red-700">
-                        {Number(head.amount).toLocaleString("en-IN", {
+                        {Number(head.calculatedAmount || head.amount).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
                         })}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="bg-[#f6faf6] px-3 py-2 border-t border-[#d7e8d0] flex justify-between font-bold text-red-800 text-xs">
+                <div className="bg-payroll-cream px-3 py-2 border-t border-payroll-light flex justify-between font-bold text-red-800 text-xs">
                   <span>TOTAL DEDUCTIONS</span>
                   <span className="font-mono">
                     NPR{" "}
@@ -302,7 +320,7 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
             </div>
 
             {/* Signature Blocks */}
-            <div className="grid grid-cols-2 gap-12 pt-8 border-t border-dashed border-[#d7e8d0]">
+            <div className="grid grid-cols-2 gap-12 pt-8 border-t border-dashed border-payroll-light">
               <div className="text-center">
                 <div className="border-b border-gray-400 w-3/4 mx-auto mb-1 h-6"></div>
                 <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">

@@ -8,7 +8,8 @@ import { revalidatePath } from "next/cache";
 import type { 
   PayrollRunSetupPayload, 
   PayrollSlipOverridePayload,
-  PayrollRunStatus
+  PayrollRunStatus,
+  AddSlipHeadPayload
 } from "@/lib/types/payroll";
 
 export async function getPayrollHistoryAction() {
@@ -129,3 +130,72 @@ export async function generateBankExportCSVAction(runId: string) {
     return { success: false, error: msg };
   }
 }
+
+export async function deletePayrollRunAction(runId: string) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('DELETE', 'PAYROLL_GENERATE');
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    await service.deletePayrollRun(runId, session.user.id);
+    revalidatePath('/payroll/generate');
+    revalidatePath('/payroll/review');
+    return { success: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "unknown error";
+    return { success: false, error: msg };
+  }
+}
+
+export async function deleteEmployeePayslipAction(slipId: string) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('DELETE', 'PAYROLL_GENERATE');
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    const data = await service.deleteEmployeePayslip(slipId, session.user.id);
+    revalidatePath('/payroll/generate');
+    revalidatePath('/payroll/review');
+    return { success: true, data };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "unknown error";
+    return { success: false, error: msg };
+  }
+}
+
+export async function recalculateEmployeePayslipAction(slipId: string) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'PAYROLL_GENERATE');
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    const data = await service.recalculateEmployeePayslip(slipId, session.user.id);
+    revalidatePath('/payroll/generate');
+    revalidatePath('/payroll/review');
+    return { success: true, data };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "unknown error";
+    return { success: false, error: msg };
+  }
+}
+
+export async function addPayHeadToPayslipAction(payload: AddSlipHeadPayload) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'PAYROLL_GENERATE');
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    const data = await service.addPayHeadToPayslip(payload, session.user.id);
+    revalidatePath('/payroll/generate');
+    revalidatePath('/payroll/review');
+    return { success: true, data };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "unknown error";
+    return { success: false, error: msg };
+  }
+}
+

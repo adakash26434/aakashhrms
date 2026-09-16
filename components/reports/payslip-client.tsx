@@ -112,10 +112,10 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
         meta={
           activePayslips.length > 0 ? (
             <>
-              <span className="inline-flex items-center gap-1 rounded-md border border-[#d7e8d0] bg-[#d7e8d0]/60 px-2.5 py-0.5 text-xs font-semibold text-[#1b3a1f]">
+              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
                 Period: {selectedRunLabel}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-md border border-[#d7e8d0] bg-[#d7e8d0]/60 px-2.5 py-0.5 text-xs font-semibold text-[#1b3a1f]">
+              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
                 Slips Count: {activePayslips.length}
               </span>
             </>
@@ -151,7 +151,7 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
         {activePayslips.length > 0 ? (
           <PayslipPrintable data={activePayslips} />
         ) : (
-          <div className="rounded-xl border border-dashed border-[#d7e8d0] bg-[#f6faf6] p-10 text-center text-xs text-gray-500 print:hidden">
+          <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500 print:hidden">
             Select a locked payroll run and click "Generate Report" to view payslips.
           </div>
         )}

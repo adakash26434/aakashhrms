@@ -76,10 +76,29 @@ export function PayslipDetailModal({
   const heads = data?.heads || [];
 
   const earningsHeads = heads.filter(
-    (h: any) => h.headType === "EARNING" || h.headType === "Earning",
+    (h: any) =>
+      h.headType === "EARNING" ||
+      h.headType === "Earning" ||
+      h.headType === "allowance" ||
+      h.headType?.toLowerCase() === "allowance",
   );
+  const isStatutoryDed = (name: string) => {
+    const lower = (name || "").toLowerCase();
+    return (
+      lower.includes("provident fund") ||
+      lower.includes("epf") ||
+      lower.includes("ssf") ||
+      lower.includes("social security") ||
+      lower.includes("citizen investment") ||
+      lower.includes("cit")
+    );
+  };
   const deductionHeads = heads.filter(
-    (h: any) => h.headType === "DEDUCTION" || h.headType === "Deduction",
+    (h: any) =>
+      (h.headType === "DEDUCTION" ||
+        h.headType === "Deduction" ||
+        h.headType?.toLowerCase() === "deduction") &&
+      !isStatutoryDed(h.payHeadName || h.headName || ""),
   );
 
   return (
@@ -217,9 +236,9 @@ export function PayslipDetailModal({
 
                 {earningsHeads.map((head: any) => (
                   <div key={head.id} className="flex justify-between py-1">
-                    <span className="text-gray-600">{head.headName}</span>
+                    <span className="text-gray-600">{head.headName || head.payHeadName}</span>
                     <strong className="text-payroll-navy font-mono">
-                      NPR {Number(head.calculatedAmount).toLocaleString("en-NP")}
+                      NPR {Number(head.calculatedAmount || head.amount).toLocaleString("en-NP")}
                     </strong>
                   </div>
                 ))}
@@ -237,9 +256,14 @@ export function PayslipDetailModal({
               <div className="p-3.5 space-y-2 divide-y divide-gray-100">
                 {Number(slip.ssfEmployee) > 0 && (
                   <div className="flex justify-between py-1">
-                    <span className="text-gray-600">Social Security Fund (SSF 11%)</span>
+                    <div>
+                      <span className="text-gray-600">Social Security Fund (SSF 31%)</span>
+                      <span className="block text-[10px] text-gray-400">
+                        EE 11% (NPR {Number(slip.ssfEmployee).toLocaleString("en-NP")}) + ER 20% (NPR {Number(slip.ssfEmployer || 0).toLocaleString("en-NP")})
+                      </span>
+                    </div>
                     <strong className="text-rose-600 font-mono">
-                      NPR {Number(slip.ssfEmployee).toLocaleString("en-NP")}
+                      NPR {Number(Number(slip.ssfEmployee) + Number(slip.ssfEmployer || 0)).toLocaleString("en-NP")}
                     </strong>
                   </div>
                 )}
@@ -282,9 +306,9 @@ export function PayslipDetailModal({
 
                 {deductionHeads.map((head: any) => (
                   <div key={head.id} className="flex justify-between py-1">
-                    <span className="text-gray-600">{head.headName}</span>
+                    <span className="text-gray-600">{head.headName || head.payHeadName}</span>
                     <strong className="text-rose-600 font-mono">
-                      NPR {Number(head.calculatedAmount).toLocaleString("en-NP")}
+                      NPR {Number(head.calculatedAmount || head.amount).toLocaleString("en-NP")}
                     </strong>
                   </div>
                 ))}

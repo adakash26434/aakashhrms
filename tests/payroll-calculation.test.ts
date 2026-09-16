@@ -6,8 +6,8 @@ import type { SystemControlData } from '../lib/types/system-control';
 
 const MOCK_SYSTEM_CONTROL: SystemControlData = {
   officeTime: {
-    inTime: { hour: 10, minute: 0, meridiem: "AM" },
-    outTime: { hour: 4, minute: 0, meridiem: "PM" },
+    inTime: { hour: 9, minute: 0, meridiem: "AM" },
+    outTime: { hour: 5, minute: 0, meridiem: "PM" },
     calculateOtAndAbsent: false,
     applyGraceWindow: false,
     graceWindowMinutes: 40,
@@ -32,14 +32,14 @@ const MOCK_SYSTEM_CONTROL: SystemControlData = {
     pfMaximumLimitPercent: 30,
     citLimitNpr: 300000,
     retirementFundLimitNpr: 500000,
-    handicappedDeductionPercent: 50,
     companyHasSsf: false,
   },
   insuranceDiscounts: {
     medicalInsuranceNpr: 20000,
     houseInsuranceNpr: 5000,
-    lifeInsuranceNpr: 25000,
+    lifeInsuranceNpr: 40000,
     womenDiscountPercent: 10,
+    handicappedDiscountPercent: 0,
     remoteAllowanceNpr: 50000,
   },
 };
@@ -50,6 +50,11 @@ const MOCK_TAX_SLABS: TaxSlabInput[] = [
   { id: 'slab-3', category: 'Normal Single', amountFrom: '700000', amountTo: '1000000', ratePercent: '20', fixedDeduction: '0' },
   { id: 'slab-4', category: 'Normal Single', amountFrom: '1000000', amountTo: '2000000', ratePercent: '30', fixedDeduction: '0' },
   { id: 'slab-5', category: 'Normal Single', amountFrom: '2000000', amountTo: null, ratePercent: '36', fixedDeduction: '0' },
+
+  { id: 'slab-h1', category: 'Handicapped', amountFrom: '0', amountTo: '500000', ratePercent: '1', fixedDeduction: '0' },
+  { id: 'slab-h2', category: 'Handicapped', amountFrom: '500000', amountTo: '700000', ratePercent: '5', fixedDeduction: '2500' },
+  { id: 'slab-h3', category: 'Handicapped', amountFrom: '700000', amountTo: '2000000', ratePercent: '10', fixedDeduction: '12500' },
+  { id: 'slab-h4', category: 'Handicapped', amountFrom: '2000000', amountTo: null, ratePercent: '15', fixedDeduction: '142500' },
 ];
 
 const BASE_EMPLOYEE: EmployeeInput = {
@@ -537,20 +542,42 @@ describe('Payroll Calculation & Syncing Engine', () => {
     assert.equal(result.taxableIncome, '51000');
   });
 
-  it('should compute SSF (11% employee / 20% employer) when SSF head is assigned', () => {
+  it('should compute SSF (11% employee / 20% employer addition / 31% total deduction) when SSF head is assigned', () => {
     const ssfSystemControl: SystemControlData = {
       ...MOCK_SYSTEM_CONTROL,
       statutoryDeductionLimits: {
         ...MOCK_SYSTEM_CONTROL.statutoryDeductionLimits,
         companyHasSsf: true,
+        ssfContributionBase: 'BasicSalary',
       },
     };
 
     const assignedHeads: PayHeadInput[] = [
       {
+        id: 'head-ssf-er',
+        code: 'SSF-ER',
+        name: 'SSF - Employer Contribution (20%)',
+        type: 'allowance',
+        effectOnTax: true,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: false,
+        isPfHead: false,
+        isSsfHead: false,
+        isSsfEmployerHead: true,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'BasicSalary',
+        calcParameter: 'BasicSalary',
+        calcPercent: '20',
+        amount: '0',
+      },
+      {
         id: 'head-ssf',
         code: 'SSF',
-        name: 'Social Security Fund (SSF 11%)',
+        name: 'Social Security Fund (SSF 31%)',
         type: 'deduction',
         effectOnTax: false,
         isFestivalAllowance: false,
@@ -564,7 +591,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
         isCitHead: false,
         calcBasis: 'BasicSalary',
         calcParameter: 'BasicSalary',
-        calcPercent: '11',
+        calcPercent: '31',
         amount: '0',
       },
       {
@@ -606,17 +633,276 @@ describe('Payroll Calculation & Syncing Engine', () => {
       isYearEnd: false,
     });
 
-    // Basic + Grade = 40,000 + 5,000 = 45,000
-    // SSF employee: 11% of 45,000 = 4,950
-    // SSF employer: 20% of 45,000 = 9,000
-    assert.equal(result.ssfEmployee, '4950');
-    assert.equal(result.ssfEmployer, '9000');
+    // Basic = 40,000 (when basis is BasicSalary)
+    // SSF employee: 11% of 40,000 = 4,400
+    // SSF employer: 20% of 40,000 = 8,000
+    // Total SSF deduction: 31% of 40,000 = 12,400
+    assert.equal(result.ssfEmployee, '4400');
+    assert.equal(result.ssfEmployer, '8000');
 
     // PF must be 0 when SSF is active
     assert.equal(result.pfEmployee, '0');
 
-    const ssfHead = result.heads.find((h) => h.payHeadId === 'head-ssf');
-    assert.ok(ssfHead);
-    assert.equal(ssfHead.calculatedAmount, '4950');
+    // Gross earnings includes +8,000 employer SSF addition (40,000 basic + 5,000 grade + 8,000 SSF ER = 53,000)
+    assert.equal(result.grossEarnings, '53000');
+
+    // Deduction head has full 31% = 12,400
+    const ssfDedHead = result.heads.find((h) => h.payHeadId === 'head-ssf');
+    assert.ok(ssfDedHead);
+    assert.equal(ssfDedHead.calculatedAmount, '12400');
+
+    // Employer addition head has 20% = 8,000
+    const ssfErHead = result.heads.find((h) => h.payHeadId === 'head-ssf-er');
+    assert.ok(ssfErHead);
+    assert.equal(ssfErHead.calculatedAmount, '8000');
+
+    // Net pay difference between gross additions and total SSF deduction is exactly -4,400 (-11% employee contribution)
+    const netBeforeTax = Number(result.grossEarnings) - 12400;
+    // 53,000 - 12,400 = 40,600 (which is 45,000 basic+grade - 4,400 employee contribution)
+    assert.equal(netBeforeTax, 40600);
+  });
+
+  it('should not compute SSF for non-enrolled employees even if companyHasSsf is true', () => {
+    const ssfSystemControl: SystemControlData = {
+      ...MOCK_SYSTEM_CONTROL,
+      statutoryDeductionLimits: {
+        ...MOCK_SYSTEM_CONTROL.statutoryDeductionLimits,
+        companyHasSsf: true,
+      },
+    };
+
+    // Employee with only standard allowance and TDS, no SSF heads assigned
+    const assignedHeads: PayHeadInput[] = [
+      {
+        id: 'head-ta',
+        code: 'TA',
+        name: 'Travel Allowance',
+        type: 'allowance',
+        effectOnTax: true,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: false,
+        isPfHead: false,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '2000',
+      },
+      {
+        id: 'head-tds',
+        code: 'TDS',
+        name: 'TDS',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: true,
+        isPfHead: false,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '0',
+      },
+    ];
+
+    const result = calculatePayslip({
+      employee: BASE_EMPLOYEE,
+      salaryMap: {
+        basicSalary: '40000',
+        gradePercent: '0',
+        gradeAmount: '0',
+      },
+      assignedHeads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: ssfSystemControl,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+    // Non-enrolled employee has 0 SSF
+    assert.equal(result.ssfEmployee, '0');
+    assert.equal(result.ssfEmployer, '0');
+    assert.equal(result.grossEarnings, '42000'); // 40,000 basic + 2,000 allowance
+    assert.ok(!result.heads.some((h) => h.payHeadName.includes('SSF')));
+  });
+
+  it('should calculate tax liability based on Handicapped tax slabs when employee is marked isDisabled', () => {
+    const assignedHeads: PayHeadInput[] = [
+      {
+        id: 'head-pf',
+        code: 'EPF',
+        name: 'Provident Fund',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: false,
+        isPfHead: true,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'BasicSalary',
+        calcParameter: 'BasicSalary',
+        calcPercent: '10',
+        amount: '0',
+      },
+      {
+        id: 'head-tds',
+        code: 'TDS',
+        name: 'TDS',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: true,
+        isPfHead: false,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '0',
+      },
+    ];
+
+    const resStandard = calculatePayslip({
+      employee: { ...BASE_EMPLOYEE, isDisabled: false },
+      salaryMap: { basicSalary: '60000', gradePercent: '0', gradeAmount: '0' },
+      assignedHeads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+    const resDisabled = calculatePayslip({
+      employee: { ...BASE_EMPLOYEE, isDisabled: true },
+      salaryMap: { basicSalary: '60000', gradePercent: '0', gradeAmount: '0' },
+      assignedHeads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+    const resWidow = calculatePayslip({
+      employee: { ...BASE_EMPLOYEE, isDisabled: false, taxStatus: 'Widow' },
+      salaryMap: { basicSalary: '60000', gradePercent: '0', gradeAmount: '0' },
+      assignedHeads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+    const standardTds = new Decimal(resStandard.tdsThisMonth);
+    const disabledTds = new Decimal(resDisabled.tdsThisMonth);
+    const widowTds = new Decimal(resWidow.tdsThisMonth);
+
+    assert.equal(standardTds.toString(), '1650', 'Standard TDS should be 1650');
+    assert.equal(disabledTds.toString(), '825', 'Disabled employee TDS should be 825 calculated from Handicapped slabs');
+    assert.equal(widowTds.toString(), standardTds.toString(), 'Widow tax status should calculate identically to Normal Single');
+  });
+
+  it('should support Super Admin handicapped override discount if configured in systemControl', () => {
+    const customSystemControl: SystemControlData = {
+      ...MOCK_SYSTEM_CONTROL,
+      insuranceDiscounts: {
+        ...MOCK_SYSTEM_CONTROL.insuranceDiscounts,
+        handicappedDiscountPercent: 60, // Super Admin 60% override
+      },
+    };
+
+    const assignedHeads: PayHeadInput[] = [
+      {
+        id: 'head-pf',
+        code: 'EPF',
+        name: 'Provident Fund',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: false,
+        isPfHead: true,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'BasicSalary',
+        calcParameter: 'BasicSalary',
+        calcPercent: '10',
+        amount: '0',
+      },
+      {
+        id: 'head-tds',
+        code: 'TDS',
+        name: 'TDS',
+        type: 'deduction',
+        effectOnTax: false,
+        isFestivalAllowance: false,
+        isAbsentDeduct: false,
+        isOtHead: false,
+        isLeaveHead: false,
+        isTdsHead: true,
+        isPfHead: false,
+        isSsfHead: false,
+        isRemoteAllowance: false,
+        isCitHead: false,
+        calcBasis: 'None',
+        calcParameter: 'FixedAmount',
+        calcPercent: '0',
+        amount: '0',
+      },
+    ];
+
+    const resDisabled = calculatePayslip({
+      employee: { ...BASE_EMPLOYEE, isDisabled: true },
+      salaryMap: { basicSalary: '60000', gradePercent: '0', gradeAmount: '0' },
+      assignedHeads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: customSystemControl,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+    const disabledTds = new Decimal(resDisabled.tdsThisMonth);
+
+    // Handicapped slab tax = 825/month. 60% superadmin discount leaves 40% (825 * 0.40 = 330)
+    assert.equal(
+      disabledTds.toString(),
+      '330',
+      'Custom 60% override discount should leave 40% of Handicapped slab TDS (825 * 0.4 = 330)'
+    );
   });
 });

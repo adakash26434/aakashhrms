@@ -20,6 +20,7 @@ export default async function GeneratePayrollPage() {
     designations,
     employees,
     occasionalAllowances,
+    allPayHeads,
     userRole,
   } = await getPayrollGeneratePageData();
 
@@ -31,6 +32,7 @@ export default async function GeneratePayrollPage() {
       designations={designations}
       employees={employees}
       occasionalAllowances={occasionalAllowances}
+      allPayHeads={allPayHeads}
       userRole={userRole}
     />
   );

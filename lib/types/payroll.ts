@@ -122,6 +122,14 @@ export interface PayrollRunSetupPayload {
   payslipDate: string | null;
   includeFestivalAllowance?: boolean; // Keep for fallback compatibility
   includeRemoteAllowance?: boolean;   // Keep for fallback compatibility
+  recreateIfExists?: boolean;         // Discard existing draft and regenerate if true
+}
+
+export interface AddSlipHeadPayload {
+  slipId: string;
+  payHeadId: string;
+  amount: string;
+  reason: string;
 }
 
 export interface PayrollSlipOverridePayload {

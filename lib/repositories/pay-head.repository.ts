@@ -25,6 +25,7 @@ function mapRowToPayHead(row: PayHeadRow): PayHead {
       isTdsHead: row.isTdsHead,
       isPfHead: row.isPfHead,
       isSsfHead: row.isSsfHead,
+      isSsfEmployerHead: row.isSsfEmployerHead,
       isRemoteAllowance: row.isRemoteAllowance,
       isCitHead: row.isCitHead,
     },
@@ -66,6 +67,7 @@ export async function createPayHead(data: CreatePayload): Promise<PayHead> {
     isTdsHead: data.flags.isTdsHead ?? false,
     isPfHead: data.flags.isPfHead ?? false,
     isSsfHead: data.flags.isSsfHead ?? false,
+    isSsfEmployerHead: data.flags.isSsfEmployerHead ?? false,
     isRemoteAllowance: data.flags.isRemoteAllowance ?? false,
     isCitHead: data.flags.isCitHead ?? false,
   }).returning();
@@ -90,6 +92,7 @@ export async function updatePayHead(id: string, data: CreatePayload): Promise<Pa
     isTdsHead: data.flags.isTdsHead ?? false,
     isPfHead: data.flags.isPfHead ?? false,
     isSsfHead: data.flags.isSsfHead ?? false,
+    isSsfEmployerHead: data.flags.isSsfEmployerHead ?? false,
     isRemoteAllowance: data.flags.isRemoteAllowance ?? false,
     isCitHead: data.flags.isCitHead ?? false,
     updatedAt: new Date(),

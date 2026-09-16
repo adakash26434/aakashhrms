@@ -28,6 +28,7 @@ import {
   Receipt,
   PiggyBank,
   Shield,
+  ShieldPlus,
   Wifi,
   Landmark,
 } from "lucide-react";
@@ -45,8 +46,13 @@ export type PayHeadType = "allowance" | "deduction";
 export type CalcBasis = "BasicSalary" | "BasicPlusGrade" | "None";
 
 /**
- * The numerical parameter the percentage is applied to. Usually
- * mirrors `CalcBasis` but can be different (e.g. calc on Basic,
+ * Parameter name used in formula expressions. In our system:
+ *   - "BasicSalary" corresponds to the Basic salary component
+ *   - "BasicPlusGrade" corresponds to (Basic + Grade)
+ *   - "FixedAmount" corresponds to a flat value with no percentage
+ *
+ * (Note: The Excel spec calls this "Paramiter" and had values like
+ * "Basic", "Basic+Grade", "Fixed". We use standard camelCase,
  * but parameter is "Basic Salary" — same value, just a label).
  */
 export type CalcParameter = "BasicSalary" | "BasicPlusGrade" | "FixedAmount";
@@ -59,6 +65,7 @@ export const STATUTORY_FLAGS = [
   "isTdsHead",
   "isPfHead",
   "isSsfHead",
+  "isSsfEmployerHead",
   "isRemoteAllowance",
   "isCitHead",
 ] as const;
@@ -77,11 +84,10 @@ export interface StatutoryFlagMeta {
 }
 
 /**
- * Display metadata for the 9 statutory flags. Order here is the
- * order they appear in the form (3-column grid) and in the side
- * panel list. Grouping (rough):
- *   1. Allowances row: Festival, Absent, Overtime, Leave
- *   2. Statutory row:   TDS, PF, SSF, Remote, CIT
+ * Display metadata for statutory flags.
+ * Grouping:
+ *   1. Allowances: Festival, Absent, Overtime, Leave, SSF Employer (20%), Remote
+ *   2. Deductions / Statutory: TDS, PF, SSF Total (31%), CIT
  */
 export const STATUTORY_FLAG_META: Record<StatutoryFlag, StatutoryFlagMeta> = {
   isFestivalAllowance: {
@@ -121,10 +127,16 @@ export const STATUTORY_FLAG_META: Record<StatutoryFlag, StatutoryFlagMeta> = {
     icon: PiggyBank,
   },
   isSsfHead: {
-    label: "SSF Head",
+    label: "SSF Total Deduction (31%)",
     short: "SSF",
-    description: "Social Security Fund contribution",
+    description: "Social Security Fund deduction (11% employee + 20% employer)",
     icon: Shield,
+  },
+  isSsfEmployerHead: {
+    label: "SSF Employer Addition (20%)",
+    short: "SSF-ER",
+    description: "20% Social Security Fund contribution added by company",
+    icon: ShieldPlus,
   },
   isRemoteAllowance: {
     label: "Remote Allowance",
@@ -146,15 +158,12 @@ export const STATUTORY_FLAG_META: Record<StatutoryFlag, StatutoryFlagMeta> = {
 
 /**
  * The subset of statutory flags that count toward the "Statutory"
- * KPI card. Per the architecture doc §4.2 the four "primary"
- * statutory deductions are PF, SSF, CIT, and TDS — those are the
- * heads that affect the IRD-facing reports. Other flags
- * (Festival / Absent / OT / Leave / Remote) are calculation
- * triggers, not statutory deductions.
+ * KPI card.
  */
 export const STATUTORY_KPI_FLAGS: StatutoryFlag[] = [
   "isPfHead",
   "isSsfHead",
+  "isSsfEmployerHead",
   "isCitHead",
   "isTdsHead",
 ];

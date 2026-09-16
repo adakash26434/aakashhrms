@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { PayrollRunSetupPayload } from "@/lib/types/payroll";
 import { cn } from "@/lib/utils";
+import { adToBS } from "@/lib/utils/bs-calendar";
 
 interface PayrollSetupFormProps {
   branches: Array<{ id: string; name: string }>;
@@ -48,7 +49,7 @@ export function PayrollSetupForm({
   onSubmit,
   isLoading,
 }: PayrollSetupFormProps) {
-  const currentYear = 2083; // default BS year
+  const currentYear = adToBS(new Date()).year;
 
   const [payPeriodMonth, setPayPeriodMonth] = useState<number>(4); // Default to Shrawan (Month 4)
   const [payPeriodYear, setPayPeriodYear] = useState<number>(currentYear);
@@ -268,8 +269,8 @@ export function PayrollSetupForm({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, recreateIfExists = false) => {
+    if (e) e.preventDefault();
     setError(null);
 
     if (selectedBranches.length === 0) {
@@ -308,6 +309,7 @@ export function PayrollSetupForm({
             : null,
         payslipMonth,
         payslipDate: payslipDate || null,
+        recreateIfExists,
       });
     } catch (error: unknown) {
       setError(
@@ -320,11 +322,11 @@ export function PayrollSetupForm({
 
   return (
     <form
-      onSubmit={handleSubmit}
-      className="space-y-6 rounded-xl border border-[#d7e8d0] bg-white p-6 shadow-sm"
+      onSubmit={(e) => handleSubmit(e, false)}
+      className="space-y-6 rounded-xl border border-payroll-light bg-white p-6 shadow-sm"
     >
-      <div className="border-b border-[#d7e8d0] pb-4">
-        <h2 className="text-base font-bold text-[#1b3a1f]">
+      <div className="border-b border-payroll-light pb-4">
+        <h2 className="text-base font-bold text-payroll-navy">
           Employee PaySlip Generation Setup
         </h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -333,12 +335,45 @@ export function PayrollSetupForm({
         </p>
       </div>
 
-      {error && (
+      {error && error.toLowerCase().includes("already exists") ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 shadow-sm space-y-3">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+            <div>
+              <p className="font-bold text-amber-900">A Payroll Run Already Exists for This Period</p>
+              <p className="mt-0.5 text-amber-800">
+                A draft payroll run already exists for {fiscalMonths.find(m => m.value === payPeriodMonth)?.label} {payPeriodYear}. Would you like to overwrite it and re-generate payslips with the latest allowances, deductions, and attendance?
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pl-6">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                setError(null);
+                handleSubmit(undefined, true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Re-generate & Overwrite Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100/50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : error ? (
         <div className="flex items-start gap-2.5 rounded-lg bg-red-50 p-3.5 text-xs text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
-      )}
+      ) : null}
 
       {/* Main Period Parameters */}
       <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-4">
@@ -354,7 +389,7 @@ export function PayrollSetupForm({
               setPayPeriodMonth(val);
               setPayslipMonth(val); // default same
             }}
-            className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2.5 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+            className="w-full rounded-lg border border-payroll-light bg-white px-3.5 py-2.5 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary"
           >
             {fiscalMonths.map((m) => (
               <option key={m.value} value={m.value}>
@@ -372,7 +407,7 @@ export function PayrollSetupForm({
           <select
             value={payslipMonth}
             onChange={(e) => setPayslipMonth(Number(e.target.value))}
-            className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2.5 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+            className="w-full rounded-lg border border-payroll-light bg-white px-3.5 py-2.5 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary"
           >
             {fiscalMonths.map((m) => (
               <option key={m.value} value={m.value}>
@@ -393,50 +428,55 @@ export function PayrollSetupForm({
               type="date"
               value={payslipDate}
               onChange={(e) => setPayslipDate(e.target.value)}
-              className="w-full rounded-lg border border-[#d7e8d0] bg-white pl-3.5 pr-10 py-2.5 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32] tabular-nums"
+              className="w-full rounded-lg border border-payroll-light bg-white pl-3.5 pr-10 py-2.5 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary tabular-nums"
             />
           </div>
         </div>
 
-        {/* Year Input */}
+        {/* BS Year Selector */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
             BS Year
           </label>
-          <input
-            type="number"
+          <select
             value={payPeriodYear}
             onChange={(e) => setPayPeriodYear(Number(e.target.value))}
-            className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2.5 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32] tabular-nums"
-          />
+            className="w-full rounded-lg border border-payroll-light bg-white px-3.5 py-2.5 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary font-mono"
+          >
+            {Array.from({ length: 9 }, (_, i) => currentYear - 4 + i).map((y) => (
+              <option key={y} value={y}>
+                {y} BS {y === currentYear ? "(Current)" : ""}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Scope Selectors Grid (Branches, Departments, Designations) */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Branches Selection Card */}
-        <div className="flex flex-col justify-between rounded-xl border border-[#d7e8d0] bg-white p-5 shadow-sm min-h-55">
+        <div className="flex flex-col justify-between rounded-xl border border-payroll-light bg-white p-5 shadow-sm min-h-55">
           <div>
-            <div className="flex items-center justify-between border-b border-[#d7e8d0]/60 pb-3 mb-4">
+            <div className="flex items-center justify-between border-b border-payroll-light/60 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <Building2 className="h-4.5 w-4.5 text-[#2e7d32]" />
-                <span className="font-bold text-sm text-[#1b3a1f]">
+                <Building2 className="h-4.5 w-4.5 text-payroll-primary" />
+                <span className="font-bold text-sm text-payroll-navy">
                   Branches
                 </span>
               </div>
-              <div className="flex gap-2.5 text-xs font-semibold text-[#2e7d32]">
+              <div className="flex gap-2.5 text-xs font-semibold text-payroll-primary">
                 <button
                   type="button"
                   onClick={selectAllBranches}
-                  className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                  className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
                 >
                   All
                 </button>
-                <span className="text-[#d7e8d0]">|</span>
+                <span className="text-payroll-light">|</span>
                 <button
                   type="button"
                   onClick={clearBranches}
-                  className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                  className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
                 >
                   Clear
                 </button>
@@ -453,8 +493,8 @@ export function PayrollSetupForm({
                     className={cn(
                       "px-3 py-1.5 text-xs rounded-lg transition-all border cursor-pointer select-none",
                       isSelected
-                        ? "border-[#2e7d32] bg-[#2e7d32]/5 text-[#2e7d32] font-bold shadow-xs"
-                        : "border-[#d7e8d0] bg-white text-[#1b3a1f] hover:border-[#2e7d32]/50 hover:bg-[#f6faf6]",
+                        ? "border-payroll-primary bg-payroll-primary/5 text-payroll-primary font-bold shadow-xs"
+                        : "border-payroll-light bg-white text-payroll-navy hover:border-payroll-primary/50 hover:bg-payroll-cream",
                     )}
                   >
                     {b.name}
@@ -476,28 +516,28 @@ export function PayrollSetupForm({
         </div>
 
         {/* Departments Selection Card */}
-        <div className="flex flex-col justify-between rounded-xl border border-[#d7e8d0] bg-white p-5 shadow-sm min-h-55">
+        <div className="flex flex-col justify-between rounded-xl border border-payroll-light bg-white p-5 shadow-sm min-h-55">
           <div>
-            <div className="flex items-center justify-between border-b border-[#d7e8d0]/60 pb-3 mb-4">
+            <div className="flex items-center justify-between border-b border-payroll-light/60 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <Briefcase className="h-4.5 w-4.5 text-[#2e7d32]" />
-                <span className="font-bold text-sm text-[#1b3a1f]">
+                <Briefcase className="h-4.5 w-4.5 text-payroll-primary" />
+                <span className="font-bold text-sm text-payroll-navy">
                   Departments
                 </span>
               </div>
-              <div className="flex gap-2.5 text-xs font-semibold text-[#2e7d32]">
+              <div className="flex gap-2.5 text-xs font-semibold text-payroll-primary">
                 <button
                   type="button"
                   onClick={selectAllDepartments}
-                  className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                  className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
                 >
                   All
                 </button>
-                <span className="text-[#d7e8d0]">|</span>
+                <span className="text-payroll-light">|</span>
                 <button
                   type="button"
                   onClick={clearDepartments}
-                  className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                  className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
                 >
                   Clear
                 </button>
@@ -514,8 +554,8 @@ export function PayrollSetupForm({
                     className={cn(
                       "px-3 py-1.5 text-xs rounded-lg transition-all border cursor-pointer select-none",
                       isSelected
-                        ? "border-[#2e7d32] bg-[#2e7d32]/5 text-[#2e7d32] font-bold shadow-xs"
-                        : "border-[#d7e8d0] bg-white text-[#1b3a1f] hover:border-[#2e7d32]/50 hover:bg-[#f6faf6]",
+                        ? "border-payroll-primary bg-payroll-primary/5 text-payroll-primary font-bold shadow-xs"
+                        : "border-payroll-light bg-white text-payroll-navy hover:border-payroll-primary/50 hover:bg-payroll-cream",
                     )}
                   >
                     {d.name}
@@ -537,28 +577,28 @@ export function PayrollSetupForm({
         </div>
 
         {/* Designations Selection Card */}
-        <div className="flex flex-col justify-between rounded-xl border border-[#d7e8d0] bg-white p-5 shadow-sm min-h-55">
+        <div className="flex flex-col justify-between rounded-xl border border-payroll-light bg-white p-5 shadow-sm min-h-55">
           <div>
-            <div className="flex items-center justify-between border-b border-[#d7e8d0]/60 pb-3 mb-4">
+            <div className="flex items-center justify-between border-b border-payroll-light/60 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <Award className="h-4.5 w-4.5 text-[#2e7d32]" />
-                <span className="font-bold text-sm text-[#1b3a1f]">
+                <Award className="h-4.5 w-4.5 text-payroll-primary" />
+                <span className="font-bold text-sm text-payroll-navy">
                   Designations
                 </span>
               </div>
-              <div className="flex gap-2.5 text-xs font-semibold text-[#2e7d32]">
+              <div className="flex gap-2.5 text-xs font-semibold text-payroll-primary">
                 <button
                   type="button"
                   onClick={selectAllDesignations}
-                  className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                  className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
                 >
                   All
                 </button>
-                <span className="text-[#d7e8d0]">|</span>
+                <span className="text-payroll-light">|</span>
                 <button
                   type="button"
                   onClick={clearDesignations}
-                  className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                  className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
                 >
                   Clear
                 </button>
@@ -575,8 +615,8 @@ export function PayrollSetupForm({
                     className={cn(
                       "px-3 py-1.5 text-xs rounded-lg transition-all border cursor-pointer select-none",
                       isSelected
-                        ? "border-[#2e7d32] bg-[#2e7d32]/5 text-[#2e7d32] font-bold shadow-xs"
-                        : "border-[#d7e8d0] bg-white text-[#1b3a1f] hover:border-[#2e7d32]/50 hover:bg-[#f6faf6]",
+                        ? "border-payroll-primary bg-payroll-primary/5 text-payroll-primary font-bold shadow-xs"
+                        : "border-payroll-light bg-white text-payroll-navy hover:border-payroll-primary/50 hover:bg-payroll-cream",
                     )}
                   >
                     {d.name}
@@ -599,28 +639,28 @@ export function PayrollSetupForm({
       </div>
 
       {/* Employee Categories Card (Full Width block) */}
-      <div className="rounded-xl border border-[#d7e8d0] bg-white p-5 shadow-sm flex flex-col justify-between">
+      <div className="rounded-xl border border-payroll-light bg-white p-5 shadow-sm flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between border-b border-[#d7e8d0]/60 pb-3 mb-4">
+          <div className="flex items-center justify-between border-b border-payroll-light/60 pb-3 mb-4">
             <div className="flex items-center gap-2">
-              <Users className="h-4.5 w-4.5 text-[#2e7d32]" />
-              <span className="font-bold text-sm text-[#1b3a1f]">
+              <Users className="h-4.5 w-4.5 text-payroll-primary" />
+              <span className="font-bold text-sm text-payroll-navy">
                 Employee Category
               </span>
             </div>
-            <div className="flex gap-2.5 text-xs font-semibold text-[#2e7d32]">
+            <div className="flex gap-2.5 text-xs font-semibold text-payroll-primary">
               <button
                 type="button"
                 onClick={selectAllCategories}
-                className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
               >
                 All
               </button>
-              <span className="text-[#d7e8d0]">|</span>
+              <span className="text-payroll-light">|</span>
               <button
                 type="button"
                 onClick={clearCategories}
-                className="hover:underline cursor-pointer hover:text-[#1b3a1f] transition-all"
+                className="hover:underline cursor-pointer hover:text-payroll-navy transition-all"
               >
                 Clear
               </button>
@@ -637,8 +677,8 @@ export function PayrollSetupForm({
                   className={cn(
                     "px-3 py-1.5 text-xs rounded-lg transition-all border cursor-pointer select-none",
                     isSelected
-                      ? "border-[#2e7d32] bg-[#2e7d32]/5 text-[#2e7d32] font-bold shadow-xs"
-                      : "border-[#d7e8d0] bg-white text-[#1b3a1f] hover:border-[#2e7d32]/50 hover:bg-[#f6faf6]",
+                      ? "border-payroll-primary bg-payroll-primary/5 text-payroll-primary font-bold shadow-xs"
+                      : "border-payroll-light bg-white text-payroll-navy hover:border-payroll-primary/50 hover:bg-payroll-cream",
                   )}
                 >
                   {c}
@@ -653,12 +693,12 @@ export function PayrollSetupForm({
       </div>
 
       {/* Load Employees trigger bar */}
-      <div className="flex items-center justify-between border-t border-[#d7e8d0] pt-5 mt-4">
+      <div className="flex items-center justify-between border-t border-payroll-light pt-5 mt-4">
         <div className="text-xs text-gray-500 font-medium">
           {employeesLoaded ? (
             <span>
               Active employee scope matches:{" "}
-              <strong className="text-[#2e7d32] font-bold">
+              <strong className="text-payroll-primary font-bold">
                 {matchedEmployeesCount} employees
               </strong>
             </span>
@@ -680,7 +720,7 @@ export function PayrollSetupForm({
               selectedDepartments.length === 0 ||
               selectedDesignations.length === 0
               ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-              : "bg-[#f6faf6] text-[#1b3a1f] border border-[#d7e8d0] hover:bg-[#2e7d32] hover:text-white hover:border-[#2e7d32]",
+              : "bg-payroll-cream text-payroll-navy border border-payroll-light hover:bg-payroll-primary hover:text-white hover:border-payroll-primary",
           )}
         >
           <UserCheck className="h-4 w-4" />
@@ -690,10 +730,10 @@ export function PayrollSetupForm({
 
       {/* Interactive Employee Checklist Section */}
       {employeesLoaded && (
-        <div className="space-y-4 rounded-xl border border-[#d7e8d0] bg-white p-5 shadow-sm animate-[fadeIn_200ms_ease-out]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#d7e8d0]/60 pb-3 mb-4">
+        <div className="space-y-4 rounded-xl border border-payroll-light bg-white p-5 shadow-sm animate-[fadeIn_200ms_ease-out]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-payroll-light/60 pb-3 mb-4">
             <div>
-              <h3 className="text-sm font-bold text-[#1b3a1f]">
+              <h3 className="text-sm font-bold text-payroll-navy">
                 Matched Employees Checklist
               </h3>
               <p className="text-[10px] text-gray-500 mt-0.5">
@@ -709,13 +749,13 @@ export function PayrollSetupForm({
                 placeholder="Search by name or code..."
                 value={employeeSearchQuery}
                 onChange={(e) => setEmployeeSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-[#d7e8d0] bg-white pl-9 pr-3 py-1.5 text-xs text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+                className="w-full rounded-lg border border-payroll-light bg-white pl-9 pr-3 py-1.5 text-xs text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary"
               />
             </div>
           </div>
 
           {/* Select all toggle summary */}
-          <div className="flex items-center justify-between bg-[#f6faf6] rounded-lg p-3 border border-[#d7e8d0] text-xs font-semibold text-[#1b3a1f]">
+          <div className="flex items-center justify-between bg-payroll-cream rounded-lg p-3 border border-payroll-light text-xs font-semibold text-payroll-navy">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -726,20 +766,20 @@ export function PayrollSetupForm({
                   )
                 }
                 onChange={toggleSelectAllEmployees}
-                className="rounded border-[#d7e8d0] text-[#2e7d32] focus:ring-[#2e7d32] h-4 w-4 cursor-pointer"
+                className="rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary h-4 w-4 cursor-pointer"
               />
               <span>
                 Select All Visible ({searchedEmployees.length} filtered)
               </span>
             </label>
-            <span className="text-[#2e7d32]">
+            <span className="text-payroll-primary">
               Selected {selectedEmployeeIds.length} of {matchedEmployeesCount}{" "}
               employees
             </span>
           </div>
 
           {/* Scrollable employee list */}
-          <div className="max-h-64 overflow-y-auto border border-[#d7e8d0] rounded-lg divide-y divide-[#d7e8d0] bg-white">
+          <div className="max-h-64 overflow-y-auto border border-payroll-light rounded-lg divide-y divide-payroll-light bg-white">
             {searchedEmployees.length === 0 ? (
               <div className="p-8 text-center text-xs text-gray-400 font-medium">
                 No matching employees found in scope
@@ -761,8 +801,8 @@ export function PayrollSetupForm({
                   <label
                     key={emp.id}
                     className={cn(
-                      "flex items-center justify-between p-3 transition-all hover:bg-[#f6faf6] cursor-pointer text-xs font-medium select-none",
-                      isChecked ? "bg-[#2e7d32]/2" : "",
+                      "flex items-center justify-between p-3 transition-all hover:bg-payroll-cream cursor-pointer text-xs font-medium select-none",
+                      isChecked ? "bg-payroll-primary/2" : "",
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -770,10 +810,10 @@ export function PayrollSetupForm({
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleEmployee(emp.id)}
-                        className="rounded border-[#d7e8d0] text-[#2e7d32] focus:ring-[#2e7d32] h-4 w-4 cursor-pointer"
+                        className="rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary h-4 w-4 cursor-pointer"
                       />
                       <div className="flex flex-col">
-                        <span className="font-bold text-[#1b3a1f]">
+                        <span className="font-bold text-payroll-navy">
                           {emp.name}
                         </span>
                         <span className="text-[10px] text-gray-400">
@@ -787,7 +827,7 @@ export function PayrollSetupForm({
                       <span className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
                         {branchName}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-[#2e7d32]/5 border border-[#2e7d32]/20 text-[9px] font-semibold text-[#2e7d32] uppercase tracking-wider">
+                      <span className="px-2 py-0.5 rounded bg-payroll-primary/5 border border-payroll-primary/20 text-[9px] font-semibold text-payroll-primary uppercase tracking-wider">
                         {deptName}
                       </span>
                       <span className="px-2 py-0.5 rounded bg-orange-50 border border-orange-200 text-[9px] font-semibold text-orange-600 uppercase tracking-wider">
@@ -806,8 +846,8 @@ export function PayrollSetupForm({
       )}
 
       {/* Occasional Allowances Checkbox List */}
-      <div className="flex flex-col gap-3 rounded-lg bg-[#f6faf6] border border-[#d7e8d0] p-4">
-        <span className="text-xs font-bold text-[#1b3a1f] uppercase tracking-wider mb-1">
+      <div className="flex flex-col gap-3 rounded-lg bg-payroll-cream border border-payroll-light p-4">
+        <span className="text-xs font-bold text-payroll-navy uppercase tracking-wider mb-1">
           Occasional Allowances
         </span>
         {occasionalAllowances.length === 0 ? (
@@ -819,13 +859,13 @@ export function PayrollSetupForm({
             {occasionalAllowances.map((allowance) => (
               <label
                 key={allowance.id}
-                className="flex items-center gap-2.5 text-xs text-[#1b3a1f] font-medium cursor-pointer py-1"
+                className="flex items-center gap-2.5 text-xs text-payroll-navy font-medium cursor-pointer py-1"
               >
                 <input
                   type="checkbox"
                   checked={selectedOccasionalAllowances.includes(allowance.id)}
                   onChange={() => handleOccasionalToggle(allowance.id)}
-                  className="rounded border-[#d7e8d0] text-[#2e7d32] focus:ring-[#2e7d32]"
+                  className="rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary"
                 />
                 {allowance.name}
               </label>
@@ -840,7 +880,7 @@ export function PayrollSetupForm({
           disabled={
             isLoading || (employeesLoaded && selectedEmployeeIds.length === 0)
           }
-          className="inline-flex items-center gap-2 rounded-lg bg-[#2e7d32] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-[#1b3a1f] disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-lg bg-payroll-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-payroll-navy disabled:opacity-50 cursor-pointer"
         >
           {isLoading ? (
             <>

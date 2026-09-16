@@ -85,7 +85,7 @@ export const fiscalYears = pgTable('fiscal_years', {
 export const taxRateSlabs = pgTable('tax_rate_slabs', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id).notNull(),
-  category: varchar('category', { length: 50 }).notNull(), // "Normal Single" | "Married" | "Widow" | "Handicapped"
+  category: varchar('category', { length: 50 }).notNull(), // "Normal Single" | "Married" | "Handicapped"
   
   // Monetary/Percentage fields stored as exact numeric types
   amountFrom: numeric('amount_from', { precision: 15, scale: 2 }).notNull(),
@@ -130,6 +130,7 @@ export const payHeads = pgTable('pay_heads', {
   isTdsHead: boolean('is_tds_head').default(false).notNull(),
   isPfHead: boolean('is_pf_head').default(false).notNull(),
   isSsfHead: boolean('is_ssf_head').default(false).notNull(),
+  isSsfEmployerHead: boolean('is_ssf_employer_head').default(false).notNull(),
   isRemoteAllowance: boolean('is_remote_allowance').default(false).notNull(),
   isCitHead: boolean('is_cit_head').default(false).notNull(),
 
@@ -323,8 +324,7 @@ export const employees = pgTable('employees', {
   employeeCode: varchar('employee_code', { length: 50 }).notNull().unique(),
   attendanceCode: varchar('attendance_code', { length: 50 }).notNull().unique(),
   
-  firstName: varchar('first_name', { length: 100 }).notNull(),
-  lastName: varchar('last_name', { length: 100 }).notNull(),
+  fullName: varchar('full_name', { length: 255 }).notNull(),
   gender: varchar('gender', { length: 20 }).notNull(), // "Male", "Female", "Other"
   dateOfBirth: date('date_of_birth').notNull(),
   
@@ -341,13 +341,12 @@ export const employees = pgTable('employees', {
   branchId: uuid('branch_id').references(() => branches.id).notNull(),
   employeeGroupId: uuid('employee_group_id').references(() => employeeGroups.id, { onDelete: 'set null' }),
   supervisorId: uuid('supervisor_id'), // Self-referencing FK added in logic, left as plain uuid here
+  isSupervisor: boolean('is_supervisor').default(false).notNull(),
   
   // Dates
   joiningDate: date('joining_date').notNull(),
   confirmationDate: date('confirmation_date'),
-  retirementDateProjected: date('retirement_date_projected'),
 
-  salaryGrade: varchar('salary_grade', { length: 50 }),
   gradePercent: integer('grade_percent').default(0),
   gradeAmount: numeric('grade_amount', { precision: 15, scale: 2 }).default('0'),
   

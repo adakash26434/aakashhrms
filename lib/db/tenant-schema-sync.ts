@@ -57,6 +57,44 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     `ALTER TABLE "roles" ADD COLUMN IF NOT EXISTS "is_protected" boolean DEFAULT false NOT NULL`,
     `ALTER TABLE "employee_personal" ADD COLUMN IF NOT EXISTS "permanent_address" text`,
     `ALTER TABLE "employee_personal" ADD COLUMN IF NOT EXISTS "temporary_address" text`,
+    `ALTER TABLE "pay_heads" ADD COLUMN IF NOT EXISTS "is_ssf_employer_head" boolean DEFAULT false NOT NULL`,
+    `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "full_name" varchar(255)`,
+    `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "is_supervisor" boolean DEFAULT false NOT NULL`,
+    `DO $$ 
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='first_name') THEN
+        UPDATE "employees" SET "full_name" = TRIM(CONCAT(COALESCE("first_name", ''), ' ', COALESCE("last_name", ''))) WHERE "full_name" IS NULL OR "full_name" = '';
+        ALTER TABLE "employees" ALTER COLUMN "first_name" DROP NOT NULL;
+        ALTER TABLE "employees" ALTER COLUMN "last_name" DROP NOT NULL;
+      END IF;
+    END $$;`,
+    `DO $$ 
+    DECLARE
+      fy_record RECORD;
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='tax_rate_slabs') THEN
+        DELETE FROM "tax_rate_slabs" WHERE "category" = 'Widow';
+        
+        FOR fy_record IN SELECT id FROM fiscal_years WHERE status = 'Active' LOOP
+          IF NOT EXISTS (SELECT 1 FROM tax_rate_slabs WHERE fiscal_year_id = fy_record.id AND category = 'Handicapped') THEN
+            INSERT INTO tax_rate_slabs (id, fiscal_year_id, category, amount_from, amount_to, rate_percent, fixed_deduction)
+            VALUES 
+              (gen_random_uuid(), fy_record.id, 'Handicapped', '0', '1500000', '1.00', '0'),
+              (gen_random_uuid(), fy_record.id, 'Handicapped', '1500001', '2000000', '10.00', '0'),
+              (gen_random_uuid(), fy_record.id, 'Handicapped', '2000001', '3000000', '20.00', '0'),
+              (gen_random_uuid(), fy_record.id, 'Handicapped', '3000001', '4500000', '27.00', '0'),
+              (gen_random_uuid(), fy_record.id, 'Handicapped', '4500001', NULL, '29.00', '0');
+          END IF;
+        END LOOP;
+      END IF;
+
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='system_config') THEN
+        UPDATE "system_config" 
+        SET "value" = '0' 
+        WHERE "key" IN ('insuranceDiscounts.handicappedDiscountPercent', 'statutoryDeductionLimits.handicappedDeductionPercent') 
+          AND "value" = '50';
+      END IF;
+    END $$;`,
   ];
 
   for (const q of otherColumnQueries) {

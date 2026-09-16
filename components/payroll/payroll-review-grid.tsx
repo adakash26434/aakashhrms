@@ -1,10 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Eye, ClipboardList, CheckSquare, ShieldCheck, AlertCircle } from "lucide-react";
+import { 
+  Search, 
+  Eye, 
+  ClipboardList, 
+  CheckSquare, 
+  ShieldCheck, 
+  AlertCircle, 
+  RefreshCw, 
+  Trash2, 
+  AlertTriangle 
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import type { PayrollSlip, PayrollSlipHead, PayrollRun, PayrollRunStatus } from "@/lib/types/payroll";
-import { getPayslipWithHeadsAction, updatePayrollSlipOverrideAction } from "@/app/actions/payroll.actions";
+import { 
+  getPayslipWithHeadsAction, 
+  updatePayrollSlipOverrideAction,
+  recalculateEmployeePayslipAction,
+  deleteEmployeePayslipAction,
+  addPayHeadToPayslipAction
+} from "@/app/actions/payroll.actions";
 
 const PayslipDetailModal = dynamic(
   () => import("./payslip-detail-modal").then((m) => m.PayslipDetailModal),
@@ -15,6 +31,9 @@ interface PayrollReviewGridProps {
   run: PayrollRun;
   initialSlips: PayrollSlip[];
   onStatusChange: (toStatus: PayrollRunStatus, notes?: string) => Promise<void>;
+  onDeleteRun?: () => Promise<void>;
+  onRunUpdated?: () => Promise<void>;
+  allPayHeads?: Array<{ id: string; name: string; code: string; type: 'allowance' | 'deduction' }>;
   userRole: string; // "System Administrator" | "HR Manager" | "Finance Auditor" etc.
 }
 
@@ -22,6 +41,9 @@ export function PayrollReviewGrid({
   run,
   initialSlips,
   onStatusChange,
+  onDeleteRun,
+  onRunUpdated,
+  allPayHeads,
   userRole
 }: PayrollReviewGridProps) {
   const [slips, setSlips] = useState<PayrollSlip[]>(initialSlips);
@@ -32,6 +54,13 @@ export function PayrollReviewGrid({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Recalculation & Deletion States
+  const [recalculatingSlipId, setRecalculatingSlipId] = useState<string | null>(null);
+  const [confirmDeleteSlip, setConfirmDeleteSlip] = useState<PayrollSlip | null>(null);
+  const [isDeletingSlip, setIsDeletingSlip] = useState(false);
+  const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
 
   // Extract unique departments for filtering
   const departments = Array.from(new Set(slips.map((s) => s.departmentName)));
@@ -115,6 +144,89 @@ export function PayrollReviewGrid({
     }
   };
 
+  const handleRecalculateSlip = async (slipId: string) => {
+    setError(null);
+    try {
+      setRecalculatingSlipId(slipId);
+      const res = await recalculateEmployeePayslipAction(slipId);
+      if (!res.success || !res.data) {
+        throw new Error(res.error || "Failed to recalculate payslip.");
+      }
+      // Update in slips list
+      setSlips(slips.map(s => s.id === slipId ? res.data!.slip : s));
+      // If modal is open for this slip, update modal
+      if (selectedSlip?.id === slipId) {
+        setSelectedSlip(res.data.slip);
+        setSelectedHeads(res.data.heads);
+      }
+      if (onRunUpdated) {
+        await onRunUpdated();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Calculation error.");
+    } finally {
+      setRecalculatingSlipId(null);
+    }
+  };
+
+  const handleConfirmDeleteSlip = async () => {
+    if (!confirmDeleteSlip) return;
+    setError(null);
+    try {
+      setIsDeletingSlip(true);
+      const res = await deleteEmployeePayslipAction(confirmDeleteSlip.id);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete employee payslip.");
+      }
+      setSlips(slips.filter(s => s.id !== confirmDeleteSlip.id));
+      if (selectedSlip?.id === confirmDeleteSlip.id) {
+        setSelectedSlip(null);
+      }
+      setConfirmDeleteSlip(null);
+      if (onRunUpdated) {
+        await onRunUpdated();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Deletion error.");
+    } finally {
+      setIsDeletingSlip(false);
+    }
+  };
+
+  const handleAddHead = async (payHeadId: string, amount: string, reason: string) => {
+    if (!selectedSlip) return;
+    setError(null);
+    const res = await addPayHeadToPayslipAction({
+      slipId: selectedSlip.id,
+      payHeadId,
+      amount,
+      reason
+    });
+    if (!res.success || !res.data) {
+      throw new Error(res.error || "Failed to add pay head.");
+    }
+    setSelectedSlip(res.data.slip);
+    setSelectedHeads(res.data.heads);
+    setSlips(slips.map(s => s.id === selectedSlip.id ? res.data!.slip : s));
+    if (onRunUpdated) {
+      await onRunUpdated();
+    }
+  };
+
+  const handleConfirmDeleteBatch = async () => {
+    if (!onDeleteRun) return;
+    setError(null);
+    try {
+      setIsDeletingBatch(true);
+      await onDeleteRun();
+      setConfirmDeleteBatch(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to cancel run.");
+    } finally {
+      setIsDeletingBatch(false);
+    }
+  };
+
   // Determine actions based on RBAC and status
   const isDraft = run.status === "DRAFT";
   const isUnderReview = run.status === "UNDER_REVIEW";
@@ -122,9 +234,15 @@ export function PayrollReviewGrid({
   const isLocked = run.status === "LOCKED";
 
   // Check roles (dynamic RBAC helper check on UI boundary)
-  const isHR = userRole === "HR Manager" || userRole === "System Administrator";
-  const isFinance = userRole === "Finance Auditor" || userRole === "System Administrator";
-  const isCEO = userRole === "CEO" || userRole === "System Administrator";
+  const roleLower = (userRole || "").toLowerCase();
+  const isAdmin = 
+    roleLower.includes("admin") || 
+    roleLower.includes("super") || 
+    roleLower === "company admin";
+
+  const isHR = isAdmin || roleLower.includes("hr") || userRole === "HR Manager";
+  const isFinance = isAdmin || roleLower.includes("finance") || roleLower.includes("audit") || userRole === "Finance Auditor";
+  const isCEO = isAdmin || roleLower.includes("ceo") || roleLower.includes("director") || roleLower.includes("executive") || userRole === "CEO";
 
   return (
     <div className="space-y-6">
@@ -228,13 +346,38 @@ export function PayrollReviewGrid({
                   Rs. {Number(slip.netPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => handleOpenDetail(slip)}
-                    className="inline-flex items-center gap-1 text-xs text-payroll-primary font-bold hover:underline"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    {isDraft ? "Override" : "View Breakdown"}
-                  </button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={() => handleOpenDetail(slip)}
+                      className="inline-flex items-center gap-1 text-xs text-payroll-primary font-bold hover:underline"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      {isDraft ? "Override" : "View Breakdown"}
+                    </button>
+
+                    {isDraft && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleRecalculateSlip(slip.id)}
+                          disabled={recalculatingSlipId === slip.id}
+                          title="Recalculate from master data (salary mapping, new pay heads, attendance)"
+                          className="rounded p-1 text-gray-500 hover:bg-payroll-cream hover:text-payroll-primary transition-all disabled:opacity-50"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${recalculatingSlipId === slip.id ? "animate-spin text-payroll-primary" : ""}`} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteSlip(slip)}
+                          title="Remove employee from draft batch"
+                          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -256,7 +399,7 @@ export function PayrollReviewGrid({
           />
 
           <div className="flex flex-wrap gap-3">
-            {/* HR submits draft to auditor */}
+            {/* HR / Admin submits draft to auditor */}
             {isDraft && isHR && (
               <button
                 onClick={() => handleStatusTransition("UNDER_REVIEW")}
@@ -264,7 +407,7 @@ export function PayrollReviewGrid({
                 className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-payroll-navy disabled:opacity-50"
               >
                 <ClipboardList className="h-4 w-4" />
-                Submit for Verification
+                Submit for Review
               </button>
             )}
 
@@ -309,6 +452,19 @@ export function PayrollReviewGrid({
                 </button>
               </>
             )}
+
+            {/* Discard Entire Batch Button */}
+            {(isDraft || isUnderReview) && onDeleteRun && (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBatch(true)}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-red-700 shadow-sm hover:bg-red-100 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                Discard Entire Batch (Fallback)
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -319,9 +475,99 @@ export function PayrollReviewGrid({
           heads={selectedHeads}
           onClose={() => setSelectedSlip(null)}
           onOverride={isDraft ? handleOverride : undefined}
+          onRecalculate={isDraft ? () => handleRecalculateSlip(selectedSlip.id) : undefined}
+          onAddHead={isDraft ? handleAddHead : undefined}
+          allPayHeads={allPayHeads}
           isEditable={isDraft}
         />
+      )}
+
+      {/* Remove Employee Confirmation Modal */}
+      {confirmDeleteSlip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-payroll-light bg-white p-6 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-payroll-navy">
+                  Remove Employee from Batch?
+                </h3>
+                <p className="mt-1 text-xs text-gray-600">
+                  Are you sure you want to remove <span className="font-semibold text-gray-800">{confirmDeleteSlip.employeeName}</span> ({confirmDeleteSlip.employeeCode}) from this payroll run?
+                </p>
+                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
+                  Their payslip will be deleted and the batch totals will be automatically recalculated.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteSlip(null)}
+                disabled={isDeletingSlip}
+                className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSlip}
+                disabled={isDeletingSlip}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeletingSlip ? "Removing..." : "Yes, Remove Employee"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discard Batch Confirmation Modal */}
+      {confirmDeleteBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-payroll-light bg-white p-6 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-payroll-navy">
+                  Discard Entire Payroll Batch?
+                </h3>
+                <p className="mt-1 text-xs text-gray-600">
+                  Are you sure you want to cancel and delete this entire payroll run? All generated payslips in this batch will be deleted and the period will fall back to the initial state.
+                </p>
+                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
+                  You will be able to generate the payslips again for this month from scratch.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBatch(false)}
+                disabled={isDeletingBatch}
+                className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Keep Batch
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteBatch}
+                disabled={isDeletingBatch}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeletingBatch ? "Discarding..." : "Yes, Discard Batch"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
+

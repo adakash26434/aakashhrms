@@ -293,3 +293,64 @@ export async function deletePayrollRun(id: string): Promise<void> {
   // Cascades to slips and slip heads automatically via DB foreign key onDelete: cascade
   await getDb().delete(payrollRuns).where(eq(payrollRuns.id, id));
 }
+
+export async function deletePayrollSlip(slipId: string): Promise<void> {
+  // Cascades to slip heads automatically via DB foreign key onDelete: cascade
+  await getDb().delete(payrollSlips).where(eq(payrollSlips.id, slipId));
+}
+
+export async function replaceSlipHeads(
+  slipId: string,
+  heads: Array<{
+    payHeadId: string;
+    payHeadName: string;
+    headType: 'allowance' | 'deduction';
+    amount: string;
+    calculatedAmount: string;
+    isManualOverride?: boolean;
+    overrideReason?: string | null;
+  }>
+): Promise<void> {
+  await getDb().transaction(async (tx) => {
+    await tx.delete(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
+    if (heads.length > 0) {
+      await tx.insert(payrollSlipHeads).values(
+        heads.map((h) => ({
+          payrollSlipId: slipId,
+          payHeadId: h.payHeadId,
+          payHeadName: h.payHeadName,
+          headType: h.headType,
+          amount: h.amount,
+          calculatedAmount: h.calculatedAmount,
+          isManualOverride: !!h.isManualOverride,
+          overrideReason: h.overrideReason || null,
+        }))
+      );
+    }
+  });
+}
+
+export async function addSlipHead(
+  slipId: string,
+  head: {
+    payHeadId: string;
+    payHeadName: string;
+    headType: 'allowance' | 'deduction';
+    amount: string;
+    calculatedAmount: string;
+    isManualOverride?: boolean;
+    overrideReason?: string | null;
+  }
+): Promise<void> {
+  await getDb().insert(payrollSlipHeads).values({
+    payrollSlipId: slipId,
+    payHeadId: head.payHeadId,
+    payHeadName: head.payHeadName,
+    headType: head.headType,
+    amount: head.amount,
+    calculatedAmount: head.calculatedAmount,
+    isManualOverride: head.isManualOverride ?? true,
+    overrideReason: head.overrideReason || null,
+  });
+}
+

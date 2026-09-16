@@ -20,7 +20,7 @@ export default async function LeaveSalaryPage() {
     getUserLeaveSalaryPermissionsAction(),
   ]);
 
-  const mappedEmps = lookupData.employees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName} (${e.employeeCode})` }));
+  const mappedEmps = lookupData.employees.map(e => ({ id: e.id, name: `${e.fullName} (${e.employeeCode})` }));
   const mappedTypes = lookupData.leaveTypes.map(t => ({ id: t.id, name: t.name }));
   const mappedFiscalYears = (lookupData.fiscalYears || []).map(f => ({ id: f.id, label: f.label, status: f.status }));
 

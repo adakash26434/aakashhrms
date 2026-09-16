@@ -119,13 +119,14 @@ const TA = "2024-01-15T10:10:00.000Z";
 const TB = "2024-01-15T10:11:00.000Z";
 const TC = "2024-01-15T10:12:00.000Z";
 const TD = "2024-01-15T10:13:00.000Z";
+const TE = "2024-01-15T10:14:00.000Z";
 
 // ---------------------------------------------------------------------------
-// Seed fixture (14 rows)
+// Seed fixture (15 rows)
 // ---------------------------------------------------------------------------
 
 const SEED: PayHead[] = [
-  // -- Allowances (6) ----------------------------------------------------
+  // -- Allowances (7) ----------------------------------------------------
   {
     id: "ph-001",
     code: "PH-001",
@@ -134,7 +135,7 @@ const SEED: PayHead[] = [
     effectOnTax: true,
     calcBasis: "BasicSalary",
     calcParameter: "BasicSalary",
-    calcPercent: 0,
+    calcPercent: 100,
     applicableDepartmentIds: [...ALL_DEPTS],
     applicableDesignationIds: [...ALL_DESIGS],
     flags: {},
@@ -147,8 +148,8 @@ const SEED: PayHead[] = [
     name: "Grade Allowance",
     type: "allowance",
     effectOnTax: true,
-    calcBasis: "BasicPlusGrade",
-    calcParameter: "BasicPlusGrade",
+    calcBasis: "BasicSalary",
+    calcParameter: "BasicSalary",
     calcPercent: 0,
     applicableDepartmentIds: [...ALL_DEPTS],
     applicableDesignationIds: [...ALL_DESIGS],
@@ -177,9 +178,9 @@ const SEED: PayHead[] = [
     name: "Remote Allowance",
     type: "allowance",
     effectOnTax: true,
-    calcBasis: "None",
-    calcParameter: "FixedAmount",
-    calcPercent: 0,
+    calcBasis: "BasicSalary",
+    calcParameter: "BasicSalary",
+    calcPercent: 10,
     applicableDepartmentIds: [...REMOTE_DEPTS],
     applicableDesignationIds: [...ALL_DESIGS],
     flags: { isRemoteAllowance: true },
@@ -189,11 +190,11 @@ const SEED: PayHead[] = [
   {
     id: "ph-005",
     code: "PH-005",
-    name: "Overtime Pay",
+    name: "Overtime Allowance",
     type: "allowance",
     effectOnTax: true,
-    calcBasis: "BasicPlusGrade",
-    calcParameter: "BasicPlusGrade",
+    calcBasis: "BasicSalary",
+    calcParameter: "BasicSalary",
     calcPercent: 0,
     applicableDepartmentIds: [...ALL_DEPTS],
     applicableDesignationIds: [...ALL_DESIGS],
@@ -206,7 +207,7 @@ const SEED: PayHead[] = [
     code: "PH-006",
     name: "Travel Allowance",
     type: "allowance",
-    effectOnTax: true,
+    effectOnTax: false,
     calcBasis: "None",
     calcParameter: "FixedAmount",
     calcPercent: 0,
@@ -216,7 +217,6 @@ const SEED: PayHead[] = [
     createdAt: T5,
     updatedAt: T5,
   },
-  // -- Deductions (8) ----------------------------------------------------
   {
     id: "ph-007",
     code: "PH-007",
@@ -233,14 +233,30 @@ const SEED: PayHead[] = [
     updatedAt: T6,
   },
   {
+    id: "ph-015",
+    code: "PH-015",
+    name: "SSF - Employer Contribution (20%)",
+    type: "allowance",
+    effectOnTax: true,
+    calcBasis: "BasicSalary",
+    calcParameter: "BasicSalary",
+    calcPercent: 20,
+    applicableDepartmentIds: [...ALL_DEPTS],
+    applicableDesignationIds: [...ALL_DESIGS],
+    flags: { isSsfEmployerHead: true },
+    createdAt: TE,
+    updatedAt: TE,
+  },
+  // -- Deductions (8) ----------------------------------------------------
+  {
     id: "ph-008",
     code: "PH-008",
-    name: "Social Security Fund (SSF)",
+    name: "Social Security Fund (SSF 31%)",
     type: "deduction",
     effectOnTax: false,
     calcBasis: "BasicSalary",
     calcParameter: "BasicSalary",
-    calcPercent: 11,
+    calcPercent: 31,
     applicableDepartmentIds: [...ALL_DEPTS],
     applicableDesignationIds: [...ALL_DESIGS],
     flags: { isSsfHead: true },
