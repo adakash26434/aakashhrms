@@ -25,8 +25,11 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
 
-  // 1. Forced password change redirect
-  if (session?.user?.mustChangePassword) {
+  // Check if a Super Admin is impersonating a company
+  const impersonation = await getImpersonationSession();
+
+  // 1. Forced password change redirect (applies to standard authenticated tenant users, not impersonation)
+  if (!impersonation && session?.user?.mustChangePassword) {
     redirect("/change-password");
   }
 
@@ -34,9 +37,6 @@ export default async function DashboardLayout({
   if (session?.user?.scopeType === "SELF") {
     redirect("/self-service");
   }
-
-  // Check if a Super Admin is impersonating a company
-  const impersonation = await getImpersonationSession();
 
   if (impersonation) {
     // Impersonation mode: resolve the tenant DB from the impersonation session

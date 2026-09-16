@@ -278,12 +278,12 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
   if (initialData.fiscalYears.length === 0) {
     return (
       <div className="mx-auto max-w-2xl p-6 text-center">
-        <div className="rounded-xl border border-dashed border-[#d7e8d0] bg-white p-12 shadow-sm space-y-6">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f6faf6]">
-            <Percent className="h-8 w-8 text-[#2e7d32]" />
+        <div className="rounded-xl border border-dashed border-payroll-light bg-white p-12 shadow-sm space-y-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-payroll-cream">
+            <Percent className="h-8 w-8 text-payroll-primary" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-[#1b3a1f]">
+            <h2 className="text-xl font-semibold text-payroll-navy">
               No Fiscal Years Defined
             </h2>
             <p className="text-sm text-gray-500 max-w-md mx-auto">
@@ -293,7 +293,7 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
           <div>
             <a
               href="/setup/fiscal-year"
-              className="inline-flex items-center justify-center rounded-lg bg-[#2e7d32] px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-[#1b3a1f] focus:outline-none focus:ring-2 focus:ring-[#2e7d32] focus:ring-offset-2"
+              className="inline-flex items-center justify-center rounded-lg bg-payroll-primary px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-payroll-navy focus:outline-none focus:ring-2 focus:ring-payroll-primary focus:ring-offset-2"
             >
               Set Up Fiscal Years
             </a>

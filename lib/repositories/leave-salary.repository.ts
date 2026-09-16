@@ -58,11 +58,9 @@ export async function findAllLeaveSalaryRuns(filter?: {
   const rows = await getDb().select({
     run: leaveSalaryRuns,
     approverEmail: approverUser.email,
-    approverFirstName: approverEmp.firstName,
-    approverLastName: approverEmp.lastName,
+    approverFullName: approverEmp.fullName,
     creatorEmail: creatorUser.email,
-    creatorFirstName: creatorEmp.firstName,
-    creatorLastName: creatorEmp.lastName,
+    creatorFullName: creatorEmp.fullName,
   })
   .from(leaveSalaryRuns)
   .leftJoin(approverUser, eq(leaveSalaryRuns.approvedBy, approverUser.id))
@@ -72,17 +70,17 @@ export async function findAllLeaveSalaryRuns(filter?: {
   .where(conditions.length > 0 ? and(...conditions) : undefined)
   .orderBy(desc(leaveSalaryRuns.createdAt));
 
-  return rows.map(({ run, approverEmail, approverFirstName, approverLastName, creatorEmail, creatorFirstName, creatorLastName }) => {
+  return rows.map(({ run, approverEmail, approverFullName, creatorEmail, creatorFullName }) => {
     let approvedByName: string | null = null;
-    if (approverFirstName && approverLastName) {
-      approvedByName = `${approverFirstName} ${approverLastName}`;
+    if (approverFullName) {
+      approvedByName = approverFullName;
     } else if (approverEmail) {
       approvedByName = approverEmail.split('@')[0];
     }
 
     let createdByName: string | null = null;
-    if (creatorFirstName && creatorLastName) {
-      createdByName = `${creatorFirstName} ${creatorLastName}`;
+    if (creatorFullName) {
+      createdByName = creatorFullName;
     } else if (creatorEmail) {
       createdByName = creatorEmail.split('@')[0];
     }

@@ -15,9 +15,10 @@ import { useToast } from "@/components/ui/toast";
 
 interface SystemControlClientProps {
   initialData: SystemControlData;
+  isSuperAdmin?: boolean;
 }
 
-export function SystemControlClient({ initialData }: SystemControlClientProps) {
+export function SystemControlClient({ initialData, isSuperAdmin = false }: SystemControlClientProps) {
   const [data, setData] = useState<SystemControlData>(initialData);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -114,6 +115,7 @@ export function SystemControlClient({ initialData }: SystemControlClientProps) {
         />
         <InsuranceDiscountsCard
           value={data.insuranceDiscounts}
+          isSuperAdmin={isSuperAdmin}
           onChange={(insuranceDiscounts) => {
             setData((d) => ({ ...d, insuranceDiscounts }));
             setHasChanges(true);

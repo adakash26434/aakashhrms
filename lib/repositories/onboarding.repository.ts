@@ -185,11 +185,6 @@ export async function saveCompanyProfile(data: OnboardingStep2CompanyInput): Pro
       { category: 'Married', amountFrom: '1100000', amountTo: '2000000', ratePercent: '30.00', fixedDeduction: '86000' },
       { category: 'Married', amountFrom: '2000000', amountTo: null, ratePercent: '36.00', fixedDeduction: '356000' },
 
-      // Widow
-      { category: 'Widow', amountFrom: '0', amountTo: '500000', ratePercent: '0.00', fixedDeduction: '0' },
-      { category: 'Widow', amountFrom: '500000', amountTo: '2000000', ratePercent: '10.00', fixedDeduction: '0' },
-      { category: 'Widow', amountFrom: '2000000', amountTo: null, ratePercent: '20.00', fixedDeduction: '150000' },
-
       // Handicapped
       { category: 'Handicapped', amountFrom: '0', amountTo: '500000', ratePercent: '1.00', fixedDeduction: '0' },
       { category: 'Handicapped', amountFrom: '500000', amountTo: '700000', ratePercent: '5.00', fixedDeduction: '2500' },
@@ -429,9 +424,17 @@ export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Pro
         effectOnTax: ph.isTaxable,
         calcBasis: 'BasicSalary',
         calcParameter: 'BasicSalary',
-        calcPercent: '0',
+        calcPercent:
+          ph.code === 'SSF-ER'
+            ? '20'
+            : ph.code === 'SSF'
+            ? '31'
+            : ph.code === 'EPF'
+            ? '10'
+            : '0',
         isFestivalAllowance: ph.code === 'FESTIVAL',
         isSsfHead: Boolean(ph.isSsfHead),
+        isSsfEmployerHead: Boolean(ph.isSsfEmployerHead),
         isCitHead: Boolean(ph.isCitHead),
         isPfHead: Boolean(ph.isPfHead),
         isTdsHead: Boolean(ph.isTdsHead),

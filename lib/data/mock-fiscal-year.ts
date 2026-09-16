@@ -89,9 +89,10 @@ export function buildFiscalYearFromInput(args: {
  * and the mutability goes away.
  */
 export const mockFiscalYearList: FiscalYear[] = [
-  makeFY({ openingYear: 2081, payslipsGenerated: false }), // Active
-  makeFY({ openingYear: 2080, payslipsGenerated: true }), // Locked
-  makeFY({ openingYear: 2079, payslipsGenerated: true }), // Locked
+  makeFY({ openingYear: 2083, payslipsGenerated: false }), // Active FY 2083/84
+  makeFY({ openingYear: 2082, payslipsGenerated: true }), // Locked FY 2082/83
+  makeFY({ openingYear: 2081, payslipsGenerated: true }), // Locked FY 2081/82
+  makeFY({ openingYear: 2080, payslipsGenerated: true }), // Locked FY 2080/81
 ];
 
 /**

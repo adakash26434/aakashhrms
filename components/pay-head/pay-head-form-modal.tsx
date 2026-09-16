@@ -85,7 +85,7 @@ function toPayload(state: FormState): PayHeadFormData {
 }
 
 const DEDUCTION_FLAGS: StatutoryFlag[] = ["isTdsHead", "isPfHead", "isSsfHead", "isCitHead", "isAbsentDeduct"];
-const ALLOWANCE_FLAGS: StatutoryFlag[] = ["isFestivalAllowance", "isOtHead", "isLeaveHead", "isRemoteAllowance"];
+const ALLOWANCE_FLAGS: StatutoryFlag[] = ["isFestivalAllowance", "isOtHead", "isLeaveHead", "isRemoteAllowance", "isSsfEmployerHead"];
 
 function validateLocal(state: FormState): FormErrors {
   const errors: FormErrors = {};
@@ -410,17 +410,17 @@ export function PayHeadFormModal({
                   onClick={() => toggleFlag(flag)}
                   className={cn(
                     "flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors",
-                    active ? "border-[#2e7d32]/40 bg-green-50/40" : "border-[#d7e8d0]/60 bg-white hover:bg-[#f6faf6]/60"
+                    active ? "border-payroll-primary/40 bg-green-50/40" : "border-payroll-light/60 bg-white hover:bg-payroll-cream/60"
                   )}
                 >
-                  <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md", active ? "bg-[#2e7d32] text-white" : "bg-[#d7e8d0]/60 text-[#1b3a1f]")}>
+                  <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md", active ? "bg-payroll-primary text-white" : "bg-payroll-light/60 text-payroll-navy")}>
                     <Icon className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-[#1b3a1f]">{meta.label}</p>
+                    <p className="text-xs font-semibold text-payroll-navy">{meta.label}</p>
                     <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">{meta.description}</p>
                   </div>
-                  <span className={cn("mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors", active ? "border-[#2e7d32] bg-[#2e7d32] text-white" : "border-gray-300 bg-white")} aria-hidden>
+                  <span className={cn("mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors", active ? "border-payroll-primary bg-payroll-primary text-white" : "border-gray-300 bg-white")} aria-hidden>
                     {active && <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="currentColor"><path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" /></svg>}
                   </span>
                 </button>
@@ -461,8 +461,8 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
 
 function inputClass(hasError: boolean, isDisabled: boolean) {
   return [
-    "h-9 w-full rounded-lg border bg-white px-3 text-sm text-[#1b3a1f] focus:outline-none focus:ring-1 flex items-center justify-between",
-    isDisabled ? "cursor-not-allowed border-[#d7e8d0]/60 bg-[#f6faf6] text-gray-500" : hasError ? "border-red-300 focus:border-red-500 focus:ring-red-500" : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-[#2e7d32]",
+    "h-9 w-full rounded-lg border bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1 flex items-center justify-between",
+    isDisabled ? "cursor-not-allowed border-payroll-light/60 bg-payroll-cream text-gray-500" : hasError ? "border-red-300 focus:border-red-500 focus:ring-red-500" : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
   ].join(" ");
 }
 
@@ -472,7 +472,7 @@ function YesNoPill({ label, active, onClick }: { label: string; active: boolean;
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={cn("h-9 min-w-20 rounded-lg px-4 text-sm font-medium transition-colors", active ? "bg-[#2e7d32] text-white shadow-sm" : "border border-[#d7e8d0] bg-white text-[#1b3a1f] hover:bg-[#f6faf6]")}
+      className={cn("h-9 min-w-20 rounded-lg px-4 text-sm font-medium transition-colors", active ? "bg-payroll-primary text-white shadow-sm" : "border border-payroll-light bg-white text-payroll-navy hover:bg-payroll-cream")}
     >
       {label}
     </button>
@@ -483,9 +483,9 @@ function CheckboxPill({ id, label, checked, onChange }: { id: string; label: str
   return (
     <label
       htmlFor={id}
-      className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors min-w-0", checked ? "border-[#2e7d32]/40 bg-green-50/60 text-[#1b3a1f]" : "border-[#d7e8d0] bg-white text-[#1b3a1f] hover:bg-[#f6faf6]")}
+      className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors min-w-0", checked ? "border-payroll-primary/40 bg-green-50/60 text-payroll-navy" : "border-payroll-light bg-white text-payroll-navy hover:bg-payroll-cream")}
     >
-      <span className={cn("relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border-2 transition-colors", checked ? "border-[#2e7d32] bg-[#2e7d32]" : "border-gray-300 bg-white")} aria-hidden>
+      <span className={cn("relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border-2 transition-colors", checked ? "border-payroll-primary bg-payroll-primary" : "border-gray-300 bg-white")} aria-hidden>
         {checked && <svg viewBox="0 0 16 16" className="h-2 w-2 text-white" fill="currentColor"><path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" /></svg>}
       </span>
       <input id={id} type="checkbox" checked={checked} onChange={onChange} className="sr-only" />

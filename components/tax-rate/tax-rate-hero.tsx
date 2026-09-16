@@ -42,7 +42,7 @@ export function TaxRateHero({
   onChangeFY,
 }: TaxRateHeroProps) {
   const selectedFY = fiscalYears.find((fy) => fy.id === selectedFYId);
-  const categoriesList = "Normal Single, Married, Widow, and Handicapped";
+  const categoriesList = "Normal Single, Married, and Handicapped";
 
   const options: DropdownOption<string>[] = fiscalYears.map((fy) => ({
     value: fy.id,
@@ -64,14 +64,14 @@ export function TaxRateHero({
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-[#1b3a1f]">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-payroll-navy">
           Tax Rate Setup
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-gray-500">
           {selectedFY?.isLocked ? (
             <>
               Configure slab-based TDS rates for{" "}
-              <span className="font-medium text-[#1b3a1f]">
+              <span className="font-medium text-payroll-navy">
                 {selectedFY.label}
               </span>{" "}
               (locked — payslips have been generated; read-only).
@@ -80,7 +80,7 @@ export function TaxRateHero({
           ) : (
             <>
               Configure slab-based TDS rates for{" "}
-              <span className="font-medium text-[#1b3a1f]">
+              <span className="font-medium text-payroll-navy">
                 {selectedFY?.label ?? "the selected fiscal year"}
               </span>
               . Categories: {categoriesList}.
@@ -103,11 +103,11 @@ export function TaxRateHero({
               onClick={toggle}
               aria-haspopup="listbox"
               aria-expanded={open}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm font-medium text-[#1b3a1f] shadow-sm transition-colors hover:bg-[#f6faf6] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+              className="inline-flex items-center gap-2 rounded-lg border border-payroll-light bg-white px-3 py-2 text-sm font-medium text-payroll-navy shadow-sm transition-colors hover:bg-payroll-cream focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             >
-              <Percent className="h-4 w-4 text-[#2e7d32]" />
+              <Percent className="h-4 w-4 text-payroll-primary" />
               <span className="text-gray-500">FY</span>
-              <span className="text-sm font-semibold text-[#1b3a1f]">
+              <span className="text-sm font-semibold text-payroll-navy">
                 {selected?.label ?? "Select year"}
               </span>
               {selected?.adornment}

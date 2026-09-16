@@ -122,7 +122,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
   const handleSyncToTenants = async () => {
     if (
       !confirm(
-        `Are you sure you want to broadcast and synchronize Statutory Policy Pack v${pack.version} to all ${activeTenantsCount} active tenant databases? This will update leave policies, overtime multipliers, and statutory deduction rates across all client companies.`,
+        `Are you sure you want to broadcast and synchronize Statutory Policy Pack v${pack.version} to all ${activeTenantsCount} active tenant databases? This will update leave policies, overtime multipliers, statutory deduction rates, and statutory tax slab baselines across all client companies.`,
       )
     ) {
       return;
@@ -885,7 +885,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Single Individual */}
             <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
               <CardContent className="p-5 space-y-3">
@@ -934,6 +934,40 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                 <ul className="space-y-2 text-xs text-gray-700">
                   {activeTaxSlabs
                     .filter((s) => s.category === "Married")
+                    .map((slab, i) => (
+                      <li
+                        key={i}
+                        className="flex justify-between py-1 border-b border-gray-100 last:border-0"
+                      >
+                        <span>
+                          {Number(slab.amountFrom).toLocaleString()} ~{" "}
+                          {slab.amountTo
+                            ? Number(slab.amountTo).toLocaleString()
+                            : "Above"}
+                        </span>
+                        <strong className="text-payroll-navy font-bold">
+                          {slab.ratePercent}% {i === 0 && "(SST)"}
+                        </strong>
+                      </li>
+                    ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Handicapped */}
+            <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-payroll-light/60">
+                  <h4 className="text-sm font-bold text-payroll-navy">
+                    Handicapped Individual Slabs
+                  </h4>
+                  <Badge variant="warning" size="sm" className="font-bold">
+                    Concessional Ladder
+                  </Badge>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-700">
+                  {activeTaxSlabs
+                    .filter((s) => s.category === "Handicapped")
                     .map((slab, i) => (
                       <li
                         key={i}
@@ -1424,6 +1458,24 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                           </label>
                         </div>
                       </div>
+
+                      {rule.code?.includes("SSF") && (
+                        <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200/80 text-[11px] flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                          <span className="text-emerald-900 font-medium">
+                            Pass-Through Remittance:{" "}
+                            <strong>
+                              {Number(rule.employeePercent || 0) +
+                                Number(rule.employerPercent || 0)}
+                              % Total
+                            </strong>{" "}
+                            (EE {rule.employeePercent}% + ER{" "}
+                            {rule.employerPercent}%)
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded self-start sm:self-auto">
+                            Net Take-Home: -{rule.employeePercent}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1568,7 +1620,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
 
                 {/* Category Switcher */}
                 <div className="flex items-center gap-1.5 bg-payroll-cream/50 p-1 rounded-xl border border-payroll-light">
-                  {["Normal Single", "Married", "Widow", "Handicapped"].map(
+                  {["Normal Single", "Married", "Handicapped"].map(
                     (cat) => (
                       <button
                         key={cat}
@@ -1619,7 +1671,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                           />
                         </div>
 
-                        <div className="col-span-3">
+                        <div className="col-span-3 text-payroll-navy">
                           <input
                             type="number"
                             value={slab.amountTo || ""}
@@ -1631,7 +1683,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                               )
                             }
                             placeholder="And above"
-                            className="w-full px-2 py-1 text-xs font-mono rounded border border-payroll-light bg-payroll-cream/20 text-payroll-navy placeholder:text-gray-400"
+                            className="w-full px-2 py-1 text-xs font-mono rounded border border-payroll-light bg-payroll-cream/20 placeholder-gray-400"
                           />
                         </div>
 
@@ -1689,7 +1741,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     onChange={(e) =>
                       setEditingPack({ ...editingPack, name: e.target.value })
                     }
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-payroll-xs"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs"
                   />
                 </div>
 
@@ -1707,7 +1759,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         legalFramework: e.target.value,
                       })
                     }
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-payroll-xs"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs"
                   />
                 </div>
 
@@ -1724,7 +1776,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         description: e.target.value,
                       })
                     }
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-payroll-xs resize-none"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs resize-none"
                   />
                 </div>
               </div>

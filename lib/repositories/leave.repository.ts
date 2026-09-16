@@ -216,8 +216,7 @@ export async function findAllLeaveApplications(filter?: LeaveFilter): Promise<Le
     if (filter.search && filter.search.trim() !== "") {
       const term = `%${filter.search.trim()}%`;
       const searchCond = or(
-        ilike(employees.firstName, term),
-        ilike(employees.lastName, term),
+        ilike(employees.fullName, term),
         ilike(employees.employeeCode, term),
         ilike(leaveApplications.reason, term)
       );

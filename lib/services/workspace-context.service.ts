@@ -227,14 +227,14 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 
             if (personalResult[0]?.employeeId) {
               const [emp] = await tenantDb
-                .select({ firstName: employees.firstName, lastName: employees.lastName })
+                .select({ fullName: employees.fullName })
                 .from(employees)
                 .where(eq(employees.id, personalResult[0].employeeId))
                 .limit(1)
                 .catch(() => []);
 
-              if (emp?.firstName) {
-                userName = `${emp.firstName} ${emp.lastName || ''}`.trim();
+              if (emp?.fullName) {
+                userName = emp.fullName;
               }
             }
           }

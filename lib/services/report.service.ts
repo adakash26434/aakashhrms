@@ -104,12 +104,11 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
     getDb()
       .select({
         id: employees.id,
-        firstName: employees.firstName,
-        lastName: employees.lastName,
+        fullName: employees.fullName,
         employeeCode: employees.employeeCode,
       })
       .from(employees)
-      .orderBy(employees.firstName),
+      .orderBy(employees.fullName),
   ]);
 
   const lockedPayrollRuns: ReportPayrollRunOption[] = lockedRuns.map((r) => {
@@ -127,7 +126,7 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
 
   const formattedEmployees = empList.map((e) => ({
     id: e.id,
-    name: `${e.firstName} ${e.lastName}`,
+    name: e.fullName,
     employeeCode: e.employeeCode,
   }));
 
@@ -244,12 +243,22 @@ export async function getSalarySheetData(
     const deductions: { name: string; amount: string }[] = [];
 
     slipHeads.forEach((h) => {
+      const lower = (h.payHeadName || "").toLowerCase();
+      const isStatutoryDed =
+        lower.includes("provident fund") ||
+        lower.includes("epf") ||
+        lower.includes("ssf") ||
+        lower.includes("social security") ||
+        lower.includes("citizen investment") ||
+        lower.includes("cit");
+
+      const headAmount = h.calculatedAmount || h.amount;
       if (h.headType === "allowance") {
         allowanceNamesSet.add(h.payHeadName);
-        allowances.push({ name: h.payHeadName, amount: h.amount });
-      } else if (h.headType === "deduction") {
+        allowances.push({ name: h.payHeadName, amount: headAmount });
+      } else if (h.headType === "deduction" && !isStatutoryDed) {
         deductionNamesSet.add(h.payHeadName);
-        deductions.push({ name: h.payHeadName, amount: h.amount });
+        deductions.push({ name: h.payHeadName, amount: headAmount });
       }
     });
 
@@ -416,7 +425,7 @@ export async function getPayslipHeadSummaryData(
       overrideCount: 0,
     };
 
-    existing.total += Number(h.amount) || 0;
+    existing.total += Number(h.calculatedAmount || h.amount) || 0;
     existing.employeeCount += 1;
     if (h.isManualOverride) existing.overrideCount += 1;
 
@@ -519,8 +528,7 @@ export async function getAttendanceReportData(
       calc: leaveOtCalculations,
       empId: employees.id,
       empCode: employees.employeeCode,
-      empFirst: employees.firstName,
-      empLast: employees.lastName,
+      empName: employees.fullName,
       deptName: departments.name,
       desigName: designations.name,
       branchId: employees.branchId,
@@ -649,7 +657,7 @@ export async function getAttendanceReportData(
 
       return {
         employeeCode: r.empCode,
-        employeeName: `${r.empFirst} ${r.empLast}`.trim(),
+        employeeName: r.empName,
         departmentName: r.deptName || "Unassigned",
         designationName: r.desigName || "Staff",
         totalWorkingDays: String(r.calc.totalWorkingDays ?? 30),
@@ -743,8 +751,7 @@ export async function getAttendanceReportData(
         .select({
           empId: employees.id,
           empCode: employees.employeeCode,
-          empFirst: employees.firstName,
-          empLast: employees.lastName,
+          empName: employees.fullName,
           deptName: departments.name,
           desigName: designations.name,
           branchId: employees.branchId,
@@ -783,7 +790,7 @@ export async function getAttendanceReportData(
 
         return {
           employeeCode: e.empCode,
-          employeeName: `${e.empFirst} ${e.empLast}`.trim(),
+          employeeName: e.empName,
           departmentName: e.deptName || "Unassigned",
           designationName: e.desigName || "Staff",
           totalWorkingDays: "30",
@@ -953,8 +960,7 @@ export async function getLeaveReportData(
     .select({
       bal: employeeLeaveBalances,
       empCode: employees.employeeCode,
-      empFirst: employees.firstName,
-      empLast: employees.lastName,
+      empName: employees.fullName,
       deptName: departments.name,
       branchId: employees.branchId,
       deptId: employees.departmentId,
@@ -984,13 +990,13 @@ export async function getLeaveReportData(
     filteredBalances = filteredBalances.filter(
       (b) =>
         b.empCode.toLowerCase().includes(q) ||
-        `${b.empFirst} ${b.empLast}`.toLowerCase().includes(q)
+        b.empName.toLowerCase().includes(q)
     );
   }
 
   const balanceRows: LeaveBalanceRow[] = filteredBalances.map((b) => ({
     employeeCode: b.empCode,
-    employeeName: `${b.empFirst} ${b.empLast}`.trim(),
+    employeeName: b.empName,
     departmentName: b.deptName || "Unassigned",
     leaveTypeName: b.leaveName,
     leaveTypeCode: b.leaveCode,
@@ -1007,8 +1013,7 @@ export async function getLeaveReportData(
     .select({
       app: leaveApplications,
       empCode: employees.employeeCode,
-      empFirst: employees.firstName,
-      empLast: employees.lastName,
+      empName: employees.fullName,
       deptName: departments.name,
       branchId: employees.branchId,
       deptId: employees.departmentId,
@@ -1037,14 +1042,14 @@ export async function getLeaveReportData(
     filteredApps = filteredApps.filter(
       (a) =>
         a.empCode.toLowerCase().includes(q) ||
-        `${a.empFirst} ${a.empLast}`.toLowerCase().includes(q)
+        a.empName.toLowerCase().includes(q)
     );
   }
 
   const applicationRows: LeaveApplicationReportRow[] = filteredApps.map((a) => ({
     id: a.app.id,
     employeeCode: a.empCode,
-    employeeName: `${a.empFirst} ${a.empLast}`.trim(),
+    employeeName: a.empName,
     departmentName: a.deptName || "Unassigned",
     leaveTypeName: a.leaveName,
     appliedDate: String(a.app.appliedDate),
@@ -1087,8 +1092,7 @@ export async function getLoanReportData(
     .select({
       loan: loans,
       empCode: employees.employeeCode,
-      empFirst: employees.firstName,
-      empLast: employees.lastName,
+      empName: employees.fullName,
       deptName: departments.name,
       branchId: employees.branchId,
       deptId: employees.departmentId,
@@ -1117,14 +1121,14 @@ export async function getLoanReportData(
     filteredLoans = filteredLoans.filter(
       (l) =>
         l.empCode.toLowerCase().includes(q) ||
-        `${l.empFirst} ${l.empLast}`.toLowerCase().includes(q)
+        l.empName.toLowerCase().includes(q)
     );
   }
 
   const summaryRows: LoanSummaryRow[] = filteredLoans.map((l) => ({
     loanId: l.loan.id,
     employeeCode: l.empCode,
-    employeeName: `${l.empFirst} ${l.empLast}`.trim(),
+    employeeName: l.empName,
     departmentName: l.deptName || "Unassigned",
     loanTypeName: l.loanName,
     givenDate: String(l.loan.givenDate),
@@ -1141,8 +1145,7 @@ export async function getLoanReportData(
     .select({
       rep: loanRepayments,
       empCode: employees.employeeCode,
-      empFirst: employees.firstName,
-      empLast: employees.lastName,
+      empName: employees.fullName,
       deptName: departments.name,
       branchId: employees.branchId,
       deptId: employees.departmentId,
@@ -1173,7 +1176,7 @@ export async function getLoanReportData(
     filteredRepayments = filteredRepayments.filter(
       (r) =>
         r.empCode.toLowerCase().includes(q) ||
-        `${r.empFirst} ${r.empLast}`.toLowerCase().includes(q)
+        r.empName.toLowerCase().includes(q)
     );
   }
 
@@ -1187,7 +1190,7 @@ export async function getLoanReportData(
     return {
       repaymentId: r.rep.id,
       employeeCode: r.empCode,
-      employeeName: `${r.empFirst} ${r.empLast}`.trim(),
+      employeeName: r.empName,
       departmentName: r.deptName || "Unassigned",
       loanTypeName: r.loanName,
       repaymentDate: String(r.rep.repaymentDate),

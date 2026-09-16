@@ -75,12 +75,15 @@ export function getAvailableFiscalYearPresets(
   const currentFyInfo = getFiscalYear(referenceDate);
   const currentBsYear = currentFyInfo.bsYear;
 
-  // Generate options from (currentBsYear - 1) to (currentBsYear + 2)
+  // Generate options from (currentBsYear - 3) to (currentBsYear + 3)
   const years = [
+    currentBsYear - 3,
+    currentBsYear - 2,
     currentBsYear - 1,
     currentBsYear,
     currentBsYear + 1,
     currentBsYear + 2,
+    currentBsYear + 3,
   ];
 
   const options = years.map((y) => buildFiscalYearPreset(y, currentBsYear));

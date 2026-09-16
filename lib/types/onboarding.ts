@@ -77,6 +77,7 @@ export interface PayHeadPreset {
   type: 'EARNING' | 'DEDUCTION';
   isTaxable: boolean;
   isSsfHead?: boolean;
+  isSsfEmployerHead?: boolean;
   isCitHead?: boolean;
   isPfHead?: boolean;
   isTdsHead?: boolean;
@@ -210,7 +211,8 @@ export const DEFAULT_PAY_HEADS: PayHeadPreset[] = [
   { name: 'Dearness Allowance (महङ्गी भत्ता)', code: 'DA', type: 'EARNING', isTaxable: true },
   { name: 'House Rent Allowance (घरभाडा भत्ता)', code: 'HRA', type: 'EARNING', isTaxable: true },
   { name: 'Festival Allowance / Dashain Bonus (चाडपर्व भत्ता)', code: 'FESTIVAL', type: 'EARNING', isTaxable: true },
-  { name: 'Social Security Fund (SSF 11%)', code: 'SSF', type: 'DEDUCTION', isTaxable: false, isSsfHead: true },
+  { name: 'SSF Employer Contribution (20%)', code: 'SSF-ER', type: 'EARNING', isTaxable: true, isSsfEmployerHead: true },
+  { name: 'Social Security Fund (SSF 31%)', code: 'SSF', type: 'DEDUCTION', isTaxable: false, isSsfHead: true },
   { name: 'Provident Fund (EPF 10%)', code: 'EPF', type: 'DEDUCTION', isTaxable: false, isPfHead: true },
   { name: 'Citizen Investment Trust (CIT)', code: 'CIT', type: 'DEDUCTION', isTaxable: false, isCitHead: true },
   { name: 'Tax Deducted at Source (TDS)', code: 'TDS', type: 'DEDUCTION', isTaxable: false, isTdsHead: true },

@@ -50,131 +50,115 @@ import {
 } from "@/lib/types/onboarding";
 
 const DEFAULT_TAX_SLABS = [
-  // Normal Single Individual
+  // Normal Single Individual (FY 2083/84)
   {
     category: "Normal Single",
     amountFrom: "0",
-    amountTo: "500000",
-    ratePercent: "1.00",
-    fixedDeduction: "0",
-  },
-  {
-    category: "Normal Single",
-    amountFrom: "500000",
-    amountTo: "700000",
-    ratePercent: "10.00",
-    fixedDeduction: "5000",
-  },
-  {
-    category: "Normal Single",
-    amountFrom: "700000",
     amountTo: "1000000",
+    ratePercent: "1.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "1000001",
+    amountTo: "1500000",
+    ratePercent: "10.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "1500001",
+    amountTo: "2500000",
     ratePercent: "20.00",
-    fixedDeduction: "25000",
+    fixedDeduction: "0",
   },
   {
     category: "Normal Single",
-    amountFrom: "1000000",
-    amountTo: "2000000",
-    ratePercent: "30.00",
-    fixedDeduction: "85000",
+    amountFrom: "2500001",
+    amountTo: "4000000",
+    ratePercent: "27.00",
+    fixedDeduction: "0",
   },
   {
     category: "Normal Single",
-    amountFrom: "2000000",
+    amountFrom: "4000001",
     amountTo: null,
-    ratePercent: "36.00",
-    fixedDeduction: "385000",
+    ratePercent: "29.00",
+    fixedDeduction: "0",
   },
 
-  // Married Couple
+  // Married Couple (FY 2083/84)
   {
     category: "Married",
     amountFrom: "0",
-    amountTo: "600000",
+    amountTo: "1000000",
     ratePercent: "1.00",
     fixedDeduction: "0",
   },
   {
     category: "Married",
-    amountFrom: "600000",
-    amountTo: "800000",
-    ratePercent: "10.00",
-    fixedDeduction: "6000",
-  },
-  {
-    category: "Married",
-    amountFrom: "800000",
-    amountTo: "1100000",
-    ratePercent: "20.00",
-    fixedDeduction: "26000",
-  },
-  {
-    category: "Married",
-    amountFrom: "1100000",
-    amountTo: "2000000",
-    ratePercent: "30.00",
-    fixedDeduction: "86000",
-  },
-  {
-    category: "Married",
-    amountFrom: "2000000",
-    amountTo: null,
-    ratePercent: "36.00",
-    fixedDeduction: "356000",
-  },
-
-  // Widow
-  {
-    category: "Widow",
-    amountFrom: "0",
-    amountTo: "500000",
-    ratePercent: "0.00",
-    fixedDeduction: "0",
-  },
-  {
-    category: "Widow",
-    amountFrom: "500000",
-    amountTo: "2000000",
+    amountFrom: "1000001",
+    amountTo: "1500000",
     ratePercent: "10.00",
     fixedDeduction: "0",
   },
   {
-    category: "Widow",
-    amountFrom: "2000000",
-    amountTo: null,
+    category: "Married",
+    amountFrom: "1500001",
+    amountTo: "2500000",
     ratePercent: "20.00",
-    fixedDeduction: "150000",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Married",
+    amountFrom: "2500001",
+    amountTo: "4000000",
+    ratePercent: "27.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Married",
+    amountFrom: "4000001",
+    amountTo: null,
+    ratePercent: "29.00",
+    fixedDeduction: "0",
   },
 
-  // Handicapped
+  // Handicapped (FY 2083/84)
   {
     category: "Handicapped",
     amountFrom: "0",
-    amountTo: "500000",
+    amountTo: "1500000",
     ratePercent: "1.00",
     fixedDeduction: "0",
   },
   {
     category: "Handicapped",
-    amountFrom: "500000",
-    amountTo: "700000",
-    ratePercent: "5.00",
-    fixedDeduction: "2500",
-  },
-  {
-    category: "Handicapped",
-    amountFrom: "700000",
+    amountFrom: "1500001",
     amountTo: "2000000",
     ratePercent: "10.00",
-    fixedDeduction: "12500",
+    fixedDeduction: "0",
   },
   {
     category: "Handicapped",
-    amountFrom: "2000000",
+    amountFrom: "2000001",
+    amountTo: "3000000",
+    ratePercent: "20.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "3000001",
+    amountTo: "4500000",
+    ratePercent: "27.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "4500001",
     amountTo: null,
-    ratePercent: "15.00",
-    fixedDeduction: "142500",
+    ratePercent: "29.00",
+    fixedDeduction: "0",
   },
 ];
 
@@ -442,7 +426,7 @@ export default function RegisterCompanyPage() {
                   value={legalName}
                   onChange={(e) => handleLegalNameChange(e.target.value)}
                   placeholder="e.g. Himalayan Solutions Pvt. Ltd."
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
               </div>
 
@@ -455,7 +439,7 @@ export default function RegisterCompanyPage() {
                   value={displayName}
                   onChange={(e) => handleDisplayNameChange(e.target.value)}
                   placeholder="e.g. Himalayan Tech"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
               </div>
             </div>
@@ -476,7 +460,7 @@ export default function RegisterCompanyPage() {
                     )
                   }
                   placeholder="e.g. 601234567 (9 digits)"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs font-mono"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs font-mono"
                 />
                 <p className="text-[10px] text-gray-500">
                   Official 9-digit Permanent Account Number (PAN) / VAT in Nepal
@@ -493,7 +477,7 @@ export default function RegisterCompanyPage() {
                   value={registrationNumber}
                   onChange={(e) => setRegistrationNumber(e.target.value)}
                   placeholder="e.g. 123456/080/081"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
                 <p className="text-[10px] text-gray-500">
                   Office of Company Registrar (OCR) registration number
@@ -516,7 +500,7 @@ export default function RegisterCompanyPage() {
                 value={headOfficeAddress}
                 onChange={(e) => handleHeadOfficeAddressChange(e.target.value)}
                 placeholder="e.g. Putalisadak-28, Kathmandu, Bagmati Province, Nepal"
-                className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
               />
             </div>
 
@@ -553,7 +537,7 @@ export default function RegisterCompanyPage() {
                   value={slug}
                   onChange={(e) => handleSlugChange(e.target.value)}
                   placeholder="himalayan-tech"
-                  className="w-full pl-10 pr-4 py-2 text-xs font-mono rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                  className="w-full pl-10 pr-4 py-2 text-xs font-mono rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
               </div>
               <p className="text-[11px] text-gray-500">
@@ -581,7 +565,7 @@ export default function RegisterCompanyPage() {
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     placeholder="admin@himalayan.com"
-                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                   />
                 </div>
               </div>
@@ -697,7 +681,7 @@ export default function RegisterCompanyPage() {
                     setHeadOfficeBranchCode(e.target.value.toUpperCase())
                   }
                   placeholder="HO-01"
-                  className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                  className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
                 <p className="text-[10px] text-gray-500">
                   Unique identifier for the primary corporate branch
@@ -736,7 +720,7 @@ export default function RegisterCompanyPage() {
                     value={headOfficeBranchAddress}
                     onChange={(e) => handleBranchAddressChange(e.target.value)}
                     placeholder="Putalisadak, Kathmandu"
-                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
+                    className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                   />
                 </div>
                 <p className="text-[10px] text-gray-500">
@@ -1047,40 +1031,31 @@ export default function RegisterCompanyPage() {
           </div>
 
           <CardContent className="p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Unmarried Slabs */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Normal Single Slabs */}
               <div className="p-4 bg-payroll-cream/30 rounded-2xl border border-payroll-light/80 text-xs">
                 <div className="flex items-center justify-between mb-2">
                   <h5 className="font-bold text-payroll-navy">
                     Normal Single Individual
                   </h5>
                   <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
-                    Annex-10 Standard
+                    Standard
                   </span>
                 </div>
                 <ul className="space-y-1 text-[11px] text-gray-600">
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>First NPR 500,000</span>
-                    <strong className="text-payroll-navy">
-                      1% (Social Security Tax)
-                    </strong>
-                  </li>
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>Next NPR 200,000 (500K - 700K)</span>
-                    <strong className="text-payroll-navy">10%</strong>
-                  </li>
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>Next NPR 300,000 (700K - 1M)</span>
-                    <strong className="text-payroll-navy">20%</strong>
-                  </li>
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>Next NPR 1,000,000 (1M - 2M)</span>
-                    <strong className="text-payroll-navy">30%</strong>
-                  </li>
-                  <li className="flex justify-between py-1">
-                    <span>Above NPR 2,000,000</span>
-                    <strong className="text-payroll-navy">36%</strong>
-                  </li>
+                  {taxSlabs
+                    .filter((s) => s.category === "Normal Single")
+                    .map((slab, i) => (
+                      <li key={i} className="flex justify-between py-1 border-b border-payroll-light/50 last:border-0">
+                        <span>
+                          {Number(slab.amountFrom).toLocaleString()} ~{" "}
+                          {slab.amountTo ? Number(slab.amountTo).toLocaleString() : "Above"}
+                        </span>
+                        <strong className="text-payroll-navy">
+                          {slab.ratePercent}%{i === 0 && " (SST)"}
+                        </strong>
+                      </li>
+                    ))}
                 </ul>
               </div>
 
@@ -1091,41 +1066,59 @@ export default function RegisterCompanyPage() {
                     Married Couple
                   </h5>
                   <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
-                    Annex-10 Standard
+                    Joint
                   </span>
                 </div>
                 <ul className="space-y-1 text-[11px] text-gray-600">
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>First NPR 600,000</span>
-                    <strong className="text-payroll-navy">
-                      1% (Social Security Tax)
-                    </strong>
-                  </li>
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>Next NPR 200,000 (600K - 800K)</span>
-                    <strong className="text-payroll-navy">10%</strong>
-                  </li>
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>Next NPR 300,000 (800K - 1.1M)</span>
-                    <strong className="text-payroll-navy">20%</strong>
-                  </li>
-                  <li className="flex justify-between py-1 border-b border-payroll-light/50">
-                    <span>Next NPR 900,000 (1.1M - 2M)</span>
-                    <strong className="text-payroll-navy">30%</strong>
-                  </li>
-                  <li className="flex justify-between py-1">
-                    <span>Above NPR 2,000,000</span>
-                    <strong className="text-payroll-navy">36%</strong>
-                  </li>
+                  {taxSlabs
+                    .filter((s) => s.category === "Married")
+                    .map((slab, i) => (
+                      <li key={i} className="flex justify-between py-1 border-b border-payroll-light/50 last:border-0">
+                        <span>
+                          {Number(slab.amountFrom).toLocaleString()} ~{" "}
+                          {slab.amountTo ? Number(slab.amountTo).toLocaleString() : "Above"}
+                        </span>
+                        <strong className="text-payroll-navy">
+                          {slab.ratePercent}%{i === 0 && " (SST)"}
+                        </strong>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+
+              {/* Handicapped Slabs */}
+              <div className="p-4 bg-payroll-cream/30 rounded-2xl border border-payroll-light/80 text-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="font-bold text-payroll-navy">
+                    Handicapped
+                  </h5>
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                    Concessional
+                  </span>
+                </div>
+                <ul className="space-y-1 text-[11px] text-gray-600">
+                  {taxSlabs
+                    .filter((s) => s.category === "Handicapped")
+                    .map((slab, i) => (
+                      <li key={i} className="flex justify-between py-1 border-b border-payroll-light/50 last:border-0">
+                        <span>
+                          {Number(slab.amountFrom).toLocaleString()} ~{" "}
+                          {slab.amountTo ? Number(slab.amountTo).toLocaleString() : "Above"}
+                        </span>
+                        <strong className="text-payroll-navy">
+                          {slab.ratePercent}%{i === 0 && " (SST)"}
+                        </strong>
+                      </li>
+                    ))}
                 </ul>
               </div>
             </div>
 
             <p className="text-[11px] text-gray-500">
-              Tax slabs for <strong>Widow</strong> and{" "}
-              <strong>Handicapped</strong> categories are also automatically
-              generated with their statutory thresholds and fixed deductions for
-              this fiscal year.
+              All three tax slab categories (<strong>Normal Single</strong>,{" "}
+              <strong>Married</strong>, and <strong>Handicapped</strong>) are
+              automatically seeded with their statutory thresholds for this
+              fiscal year.
             </p>
           </CardContent>
         </Card>
@@ -1144,7 +1137,7 @@ export default function RegisterCompanyPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Enterprise client plan details, custom contract requirements, SLA notes..."
-                className="w-full p-3 text-xs rounded-xl border border-payroll-light bg-white text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 resize-none shadow-payroll-xs"
+                className="w-full p-3 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all resize-none shadow-payroll-xs"
               />
             </div>
 

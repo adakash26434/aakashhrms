@@ -210,23 +210,20 @@ export async function POST(request: Request) {
             .limit(1);
 
           if (activeFY) {
-            const existingSlabs = await tenantDb
-              .select({ id: taxRateSlabs.id })
-              .from(taxRateSlabs)
-              .where(eq(taxRateSlabs.fiscalYearId, activeFY.id))
-              .limit(1);
+            // Synchronize and update tax slabs for active fiscal year to match policy pack baseline
+            await tenantDb
+              .delete(taxRateSlabs)
+              .where(eq(taxRateSlabs.fiscalYearId, activeFY.id));
 
-            if (existingSlabs.length === 0) {
-              for (const slab of packPayload.taxSlabsBaseline) {
-                await tenantDb.insert(taxRateSlabs).values({
-                  fiscalYearId: activeFY.id,
-                  category: slab.category,
-                  amountFrom: String(slab.amountFrom),
-                  amountTo: slab.amountTo !== null ? String(slab.amountTo) : null,
-                  ratePercent: String(slab.ratePercent),
-                  fixedDeduction: String(slab.fixedDeduction || '0'),
-                });
-              }
+            for (const slab of packPayload.taxSlabsBaseline) {
+              await tenantDb.insert(taxRateSlabs).values({
+                fiscalYearId: activeFY.id,
+                category: slab.category,
+                amountFrom: String(slab.amountFrom),
+                amountTo: slab.amountTo !== null && slab.amountTo !== undefined && slab.amountTo !== '' ? String(slab.amountTo) : null,
+                ratePercent: String(slab.ratePercent),
+                fixedDeduction: String(slab.fixedDeduction || '0'),
+              });
             }
           }
         }

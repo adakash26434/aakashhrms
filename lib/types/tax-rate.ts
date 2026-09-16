@@ -17,7 +17,6 @@
 export const TAX_CATEGORIES = [
   "Normal Single",
   "Married",
-  "Widow",
   "Handicapped",
 ] as const;
 

@@ -33,12 +33,12 @@ if (databaseUrl.includes('@localhost:')) {
 }
 
 const globalForDb = globalThis as unknown as {
-  conn: postgres.Sql | undefined;
+  mainDbConn: postgres.Sql | undefined;
   db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 };
 
 const conn =
-  globalForDb.conn ??
+  globalForDb.mainDbConn ??
   postgres(databaseUrl, {
     prepare: false,
     max: 10,
@@ -49,7 +49,7 @@ const conn =
 export const db = globalForDb.db ?? drizzle(conn, { schema });
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForDb.conn = conn;
+  globalForDb.mainDbConn = conn;
   globalForDb.db = db;
 }
 

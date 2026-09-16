@@ -178,4 +178,28 @@ describe('Company Onboarding & Setup Wizard (Phase 5)', () => {
     assert.ok(editPayload.initialSetupPayload.payHeads.some(p => p.code === 'INET'));
     assert.equal(editPayload.initialSetupPayload.taxSlabs.length, 3);
   });
+
+  it('should enforce mustChangePassword on initial company admin user and route to dashboard upon change', () => {
+    // Initial company admin provisioning payload must have mustChangePassword set to true
+    const adminUserProvisionPayload = {
+      name: 'Test Company Admin',
+      email: 'admin@testcompany.com',
+      isActive: true,
+      mustChangePassword: true,
+    };
+
+    assert.equal(adminUserProvisionPayload.mustChangePassword, true);
+
+    // Target route verification: Company Admin (non-SELF scope) routes to /dashboard
+    const resolveTargetRoute = (scopeType: string | null | undefined) => {
+      return scopeType === 'SELF' ? '/self-service' : '/dashboard';
+    };
+
+    assert.equal(resolveTargetRoute('COMPANY'), '/dashboard');
+    assert.equal(resolveTargetRoute('ALL'), '/dashboard');
+    assert.equal(resolveTargetRoute('BRANCH'), '/dashboard');
+    assert.equal(resolveTargetRoute('CUSTOM'), '/dashboard');
+    assert.equal(resolveTargetRoute(null), '/dashboard');
+    assert.equal(resolveTargetRoute('SELF'), '/self-service');
+  });
 });

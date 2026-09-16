@@ -95,11 +95,6 @@ const LADDERS: Record<TaxCategory, LadderSpec> = {
     { amountFrom: 2_000_001, amountTo: 3_000_000, ratePercent: 30, fixedDeduction: 86_000 },
     { amountFrom: 3_000_001, amountTo: null, ratePercent: 36, fixedDeduction: 176_000 },
   ],
-  Widow: [
-    { amountFrom: 0, amountTo: 500_000, ratePercent: 0, fixedDeduction: 0 },
-    { amountFrom: 500_001, amountTo: 2_000_000, ratePercent: 10, fixedDeduction: 0 },
-    { amountFrom: 2_000_001, amountTo: null, ratePercent: 20, fixedDeduction: 150_000 },
-  ],
   Handicapped: [
     { amountFrom: 0, amountTo: 500_000, ratePercent: 1, fixedDeduction: 0 },
     { amountFrom: 500_001, amountTo: 700_000, ratePercent: 5, fixedDeduction: 2_500 },
@@ -111,7 +106,6 @@ const LADDERS: Record<TaxCategory, LadderSpec> = {
 const CATEGORIES: TaxCategory[] = [
   "Normal Single",
   "Married",
-  "Widow",
   "Handicapped",
 ];
 

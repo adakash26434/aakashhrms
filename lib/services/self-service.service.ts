@@ -50,8 +50,7 @@ export async function getMyProfile() {
       id: employees.id,
       employeeCode: employees.employeeCode,
       attendanceCode: employees.attendanceCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       gender: employees.gender,
       dateOfBirth: employees.dateOfBirth,
       taxStatus: employees.taxStatus,
@@ -61,7 +60,8 @@ export async function getMyProfile() {
       joiningDate: employees.joiningDate,
       confirmationDate: employees.confirmationDate,
       status: employees.status,
-      salaryGrade: employees.salaryGrade,
+      gradeAmount: employees.gradeAmount,
+      isSupervisor: employees.isSupervisor,
       // Org
       departmentName: departments.name,
       designationName: designations.name,
@@ -132,7 +132,9 @@ export async function getMyPayslips(fiscalYearId?: string) {
       netPayable: payrollSlips.netPayable,
       tdsThisMonth: payrollSlips.tdsThisMonth,
       pfEmployee: payrollSlips.pfEmployee,
+      pfEmployer: payrollSlips.pfEmployer,
       ssfEmployee: payrollSlips.ssfEmployee,
+      ssfEmployer: payrollSlips.ssfEmployer,
       citDeduction: payrollSlips.citDeduction,
       loanDeduction: payrollSlips.loanDeduction,
       otAmount: payrollSlips.otAmount,
@@ -492,8 +494,7 @@ export async function getSelfServiceDashboard() {
   ] = await Promise.all([
     // Basic employee info
     db.select({
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       employeeCode: employees.employeeCode,
       departmentName: departments.name,
       designationName: designations.name,

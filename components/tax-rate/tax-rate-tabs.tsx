@@ -18,7 +18,7 @@ interface TaxRateTabsProps {
 }
 
 /**
- * 4-tab category selector: Normal Single / Married / Widow / Handicapped.
+ * 3-tab category selector: Normal Single / Married / Handicapped.
  *
  * The active tab is filled with the brand blue (`bg-[#2e7d32] text-white`)
  * to match the screenshot. Inactive tabs are text-only and gain a subtle
@@ -30,7 +30,7 @@ export function TaxRateTabs({ active, onChange, configuredMap }: TaxRateTabsProp
     <div
       role="tablist"
       aria-label="Tax category"
-      className="inline-flex w-full gap-1 rounded-lg border border-[#d7e8d0]/80 bg-white p-1 sm:w-auto"
+      className="inline-flex w-full gap-1 rounded-lg border border-payroll-light/80 bg-white p-1 sm:w-auto"
     >
       {TAX_CATEGORIES.map((category) => {
         const isActive = category === active;
@@ -45,8 +45,8 @@ export function TaxRateTabs({ active, onChange, configuredMap }: TaxRateTabsProp
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
               isActive
-                ? "bg-[#2e7d32] text-white shadow-sm"
-                : "text-[#1b3a1f] hover:bg-[#f6faf6]",
+                ? "bg-payroll-primary text-white shadow-sm"
+                : "text-payroll-navy hover:bg-payroll-cream",
             )}
           >
             <span>{category}</span>

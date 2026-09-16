@@ -76,7 +76,7 @@ export async function getLoanLookupData(): Promise<LoanLookupData> {
       .filter((emp) => emp.status === "Active")
       .map((emp) => ({
         id: emp.id,
-        name: `${emp.firstName} ${emp.lastName}`,
+        name: emp.fullName,
         code: emp.employeeCode,
       })),
   };

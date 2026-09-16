@@ -144,8 +144,7 @@ export async function findAllLoans(): Promise<Loan[]> {
     .select({
       loan: loans,
       employee: {
-        firstName: employees.firstName,
-        lastName: employees.lastName,
+        fullName: employees.fullName,
         employeeCode: employees.employeeCode,
       },
       loanType: {
@@ -160,7 +159,7 @@ export async function findAllLoans(): Promise<Loan[]> {
   return rows.map((row) =>
     mapLoan(
       row.loan,
-      `${row.employee.firstName} ${row.employee.lastName}`,
+      row.employee.fullName,
       row.employee.employeeCode,
       row.loanType.name,
     ),
@@ -172,8 +171,7 @@ export async function findLoanById(id: string): Promise<Loan | null> {
     .select({
       loan: loans,
       employee: {
-        firstName: employees.firstName,
-        lastName: employees.lastName,
+        fullName: employees.fullName,
         employeeCode: employees.employeeCode,
       },
       loanType: {
@@ -189,7 +187,7 @@ export async function findLoanById(id: string): Promise<Loan | null> {
   const row = rows[0];
   return mapLoan(
     row.loan,
-    `${row.employee.firstName} ${row.employee.lastName}`,
+    row.employee.fullName,
     row.employee.employeeCode,
     row.loanType.name,
   );
@@ -200,8 +198,7 @@ export async function findActiveLoansByEmployee(employeeId: string): Promise<Loa
     .select({
       loan: loans,
       employee: {
-        firstName: employees.firstName,
-        lastName: employees.lastName,
+        fullName: employees.fullName,
         employeeCode: employees.employeeCode,
       },
       loanType: {
@@ -219,7 +216,7 @@ export async function findActiveLoansByEmployee(employeeId: string): Promise<Loa
     .map((row) =>
       mapLoan(
         row.loan,
-        `${row.employee.firstName} ${row.employee.lastName}`,
+        row.employee.fullName,
         row.employee.employeeCode,
         row.loanType.name,
       ),

@@ -75,12 +75,12 @@ export function ChangePasswordForm() {
   };
 
   return (
-    <Card className="w-full max-w-md p-6 bg-white shadow-xl border-emerald-100 rounded-2xl">
+    <Card className="w-full max-w-md p-6 bg-white shadow-xl border-payroll-light rounded-2xl">
       <div className="text-center mb-6">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mb-3 border border-emerald-200">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-payroll-cream text-payroll-primary mb-3 border border-payroll-light">
           <KeyRound className="h-6 w-6" />
         </div>
-        <h1 className="text-xl font-bold text-[#1b3a1f]">
+        <h1 className="text-xl font-bold text-payroll-navy">
           Change Your Password
         </h1>
         <p className="text-xs text-gray-500 mt-1">
@@ -91,10 +91,10 @@ export function ChangePasswordForm() {
 
       {success ? (
         <div className="flex flex-col items-center justify-center py-6 text-center animate-[fadeIn_200ms_ease-out]">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-payroll-primary mb-3">
             <CheckCircle2 className="h-6 w-6" />
           </div>
-          <h3 className="text-base font-bold text-[#1b3a1f]">
+          <h3 className="text-base font-bold text-payroll-navy">
             Password Changed Successfully!
           </h3>
           <p className="text-xs text-gray-500 mt-1">
@@ -122,7 +122,7 @@ export function ChangePasswordForm() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current or temporary password"
-                className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-10 py-2 text-sm outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+                className="w-full rounded-lg border border-payroll-light bg-white pl-9 pr-10 py-2 text-sm text-payroll-navy outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               />
               <button
                 type="button"
@@ -154,7 +154,7 @@ export function ChangePasswordForm() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
-                className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-10 py-2 text-sm outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+                className="w-full rounded-lg border border-payroll-light bg-white pl-9 pr-10 py-2 text-sm text-payroll-navy outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               />
               <button
                 type="button"
@@ -184,7 +184,7 @@ export function ChangePasswordForm() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-type new password"
-                className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-10 py-2 text-sm outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+                className="w-full rounded-lg border border-payroll-light bg-white pl-9 pr-10 py-2 text-sm text-payroll-navy outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               />
               <button
                 type="button"
@@ -206,7 +206,7 @@ export function ChangePasswordForm() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#2e7d32] hover:bg-[#256629] text-white mt-2"
+            className="w-full bg-payroll-primary hover:bg-payroll-primary-hover text-white mt-2 cursor-pointer"
           >
             {loading ? (
               <div className="flex items-center gap-2">

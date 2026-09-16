@@ -6,8 +6,8 @@ import type { SystemControlData, EmployeeCategory, Meridiem } from '@/lib/types/
 // Default values as defined by the Excel specifications
 const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
   officeTime: {
-    inTime: { hour: 10, minute: 0, meridiem: "AM" },
-    outTime: { hour: 4, minute: 0, meridiem: "PM" },
+    inTime: { hour: 9, minute: 0, meridiem: "AM" },
+    outTime: { hour: 5, minute: 0, meridiem: "PM" },
     calculateOtAndAbsent: false,
     applyGraceWindow: false,
     graceWindowMinutes: 40,
@@ -32,14 +32,14 @@ const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
     pfMaximumLimitPercent: 30,
     citLimitNpr: 300000,
     retirementFundLimitNpr: 500000,
-    handicappedDeductionPercent: 50,
     companyHasSsf: false,
   },
   insuranceDiscounts: {
     medicalInsuranceNpr: 20000,
     houseInsuranceNpr: 5000,
-    lifeInsuranceNpr: 25000,
+    lifeInsuranceNpr: 40000,
     womenDiscountPercent: 10,
+    handicappedDiscountPercent: 0,
     remoteAllowanceNpr: 50000,
   },
 };
@@ -105,7 +105,7 @@ export async function findSettings(): Promise<SystemControlData> {
       pfMaximumLimitPercent: getNumber('statutoryDeductionLimits.pfMaximumLimitPercent', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.pfMaximumLimitPercent),
       citLimitNpr: getNumber('statutoryDeductionLimits.citLimitNpr', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.citLimitNpr),
       retirementFundLimitNpr: getNumber('statutoryDeductionLimits.retirementFundLimitNpr', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.retirementFundLimitNpr),
-      handicappedDeductionPercent: getNumber('statutoryDeductionLimits.handicappedDeductionPercent', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.handicappedDeductionPercent),
+      handicappedDeductionPercent: 0,
       companyHasSsf: getBoolean('statutoryDeductionLimits.companyHasSsf', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.companyHasSsf),
     },
     insuranceDiscounts: {
@@ -113,6 +113,7 @@ export async function findSettings(): Promise<SystemControlData> {
       houseInsuranceNpr: getNumber('insuranceDiscounts.houseInsuranceNpr', DEFAULT_SYSTEM_CONTROL.insuranceDiscounts.houseInsuranceNpr),
       lifeInsuranceNpr: getNumber('insuranceDiscounts.lifeInsuranceNpr', DEFAULT_SYSTEM_CONTROL.insuranceDiscounts.lifeInsuranceNpr),
       womenDiscountPercent: getNumber('insuranceDiscounts.womenDiscountPercent', DEFAULT_SYSTEM_CONTROL.insuranceDiscounts.womenDiscountPercent),
+      handicappedDiscountPercent: 0,
       remoteAllowanceNpr: getNumber('insuranceDiscounts.remoteAllowanceNpr', DEFAULT_SYSTEM_CONTROL.insuranceDiscounts.remoteAllowanceNpr),
     },
   };
@@ -135,13 +136,13 @@ export async function updateSettings(data: SystemControlData): Promise<SystemCon
     { key: 'statutoryDeductionLimits.pfMaximumLimitPercent', value: String(data.statutoryDeductionLimits.pfMaximumLimitPercent), dataType: 'number' },
     { key: 'statutoryDeductionLimits.citLimitNpr', value: String(data.statutoryDeductionLimits.citLimitNpr), dataType: 'number' },
     { key: 'statutoryDeductionLimits.retirementFundLimitNpr', value: String(data.statutoryDeductionLimits.retirementFundLimitNpr), dataType: 'number' },
-    { key: 'statutoryDeductionLimits.handicappedDeductionPercent', value: String(data.statutoryDeductionLimits.handicappedDeductionPercent), dataType: 'number' },
     { key: 'statutoryDeductionLimits.companyHasSsf', value: String(data.statutoryDeductionLimits.companyHasSsf), dataType: 'boolean' },
     
     { key: 'insuranceDiscounts.medicalInsuranceNpr', value: String(data.insuranceDiscounts.medicalInsuranceNpr), dataType: 'number' },
     { key: 'insuranceDiscounts.houseInsuranceNpr', value: String(data.insuranceDiscounts.houseInsuranceNpr), dataType: 'number' },
     { key: 'insuranceDiscounts.lifeInsuranceNpr', value: String(data.insuranceDiscounts.lifeInsuranceNpr), dataType: 'number' },
     { key: 'insuranceDiscounts.womenDiscountPercent', value: String(data.insuranceDiscounts.womenDiscountPercent), dataType: 'number' },
+    { key: 'insuranceDiscounts.handicappedDiscountPercent', value: '0', dataType: 'number' },
     { key: 'insuranceDiscounts.remoteAllowanceNpr', value: String(data.insuranceDiscounts.remoteAllowanceNpr), dataType: 'number' },
   ];
 

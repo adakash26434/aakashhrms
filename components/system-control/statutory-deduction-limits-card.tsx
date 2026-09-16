@@ -54,10 +54,10 @@ function NumberField({
           onChange={onChange}
           className={
             prefix
-              ? "w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 pl-12 pr-12 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+              ? "w-full rounded-lg border border-payroll-light bg-white px-3 py-2 pl-12 pr-12 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               : suffix
-                ? "w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 pr-12 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
-                : "w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+                ? "w-full rounded-lg border border-payroll-light bg-white px-3 py-2 pr-12 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+                : "w-full rounded-lg border border-payroll-light bg-white px-3 py-2 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary"
           }
         />
         {suffix && (
@@ -78,11 +78,11 @@ export function StatutoryDeductionLimitsCard({
     <Card>
       <CardHeader>
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#d7e8d0]/70">
-            <ShieldCheck className="h-5 w-5 text-[#2e7d32]" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-payroll-light/70">
+            <ShieldCheck className="h-5 w-5 text-payroll-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-[#1b3a1f]">
+            <h2 className="text-base font-semibold text-payroll-navy">
               Statutory Deduction Limits
             </h2>
             <p className="mt-0.5 text-sm text-gray-500">
@@ -119,24 +119,13 @@ export function StatutoryDeductionLimitsCard({
             prefix="NPR"
             min={0}
           />
-          <NumberField
-            id="handicapped-deduction"
-            label="Handicapped Deduction"
-            value={value.handicappedDeductionPercent}
-            onChange={(n) =>
-              onChange({ ...value, handicappedDeductionPercent: n })
-            }
-            suffix="%"
-            min={0}
-            max={100}
-          />
         </div>
 
-        <div className="h-px w-full bg-[#d7e8d0]/60" />
+        <div className="h-px w-full bg-payroll-light/60" />
 
-        <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-[#d7e8d0]/60 bg-[#f6faf6] p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-payroll-light/60 bg-payroll-cream p-3">
           <div>
-            <p className="text-sm font-medium text-[#1b3a1f]">
+            <p className="text-sm font-medium text-payroll-navy">
               Company has SSF
             </p>
             <p className="mt-0.5 text-xs text-gray-500">

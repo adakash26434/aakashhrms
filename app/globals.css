@@ -58,6 +58,19 @@ body {
   box-shadow: 0 1px 2px 0 rgba(27, 58, 31, 0.05);
 }
 
+.payroll-input {
+  border-color: var(--color-payroll-light);
+  color: var(--color-payroll-navy);
+}
+
+.payroll-input:focus {
+  border-color: var(--color-payroll-primary);
+}
+
+.payroll-input::placeholder {
+  color: #9ca3af;
+}
+
 .shadow-payroll-sm {
   box-shadow:
     0 1px 2px -1px rgba(27, 58, 31, 0.08),

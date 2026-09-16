@@ -4,6 +4,8 @@ import { SystemControlClient } from "@/components/system-control/system-control-
 import { getSystemControlData } from "@/lib/services/system-control.service";
 import { ensureTenantContext } from "@/lib/db";
 import { checkPermission } from "@/lib/auth/check-permission";
+import { getImpersonationSession } from "@/lib/platform/impersonation";
+import { verifyPlatformSession } from "@/lib/platform/auth";
 
 export const metadata: Metadata = {
   title: "System Control | AakashHRMS",
@@ -15,7 +17,13 @@ export default async function SystemControlPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "SYSTEM_CONTROL");
 
-  const data = await getSystemControlData();
+  const [data, impersonation, platformUser] = await Promise.all([
+    getSystemControlData(),
+    getImpersonationSession(),
+    verifyPlatformSession(),
+  ]);
 
-  return <SystemControlClient initialData={data} />;
+  const isSuperAdmin = Boolean(impersonation || platformUser);
+
+  return <SystemControlClient initialData={data} isSuperAdmin={isSuperAdmin} />;
 }

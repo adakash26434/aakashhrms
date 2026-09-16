@@ -36,12 +36,12 @@ if (platformDatabaseUrl.includes('@localhost:')) {
 }
 
 const globalForPlatformDb = globalThis as unknown as {
-  conn: postgres.Sql | undefined;
+  platformConn: postgres.Sql | undefined;
   platformDb: ReturnType<typeof drizzle<typeof platformSchema>> | undefined;
 };
 
 const conn =
-  globalForPlatformDb.conn ??
+  globalForPlatformDb.platformConn ??
   postgres(platformDatabaseUrl, {
     prepare: false,
     max: 5,
@@ -53,7 +53,7 @@ export const platformDb =
   globalForPlatformDb.platformDb ?? drizzle(conn, { schema: platformSchema });
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPlatformDb.conn = conn;
+  globalForPlatformDb.platformConn = conn;
   globalForPlatformDb.platformDb = platformDb;
 }
 
@@ -76,7 +76,21 @@ export async function ensurePlatformTablesExist(): Promise<void> {
       const dbHost = urlObj.hostname || '127.0.0.1';
       const dbPort = urlObj.port || '5432';
 
-      // 1. Target platform DB is verified directly via targetUrl
+      // 1. Ensure target platform DB exists
+      const adminPgUrl = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/postgres`;
+      const adminSql = postgres(adminPgUrl, { max: 1 });
+      try {
+        const existingDbs = await adminSql`
+          SELECT datname FROM pg_database WHERE datname = ${dbName}
+        `;
+        if (existingDbs.length === 0) {
+          await adminSql.unsafe(`CREATE DATABASE "${dbName}"`);
+        }
+      } catch (err: any) {
+        console.warn('Notice during platform CREATE DATABASE check:', err?.message || err);
+      } finally {
+        await adminSql.end();
+      }
 
       // 2. Ensure control plane tables exist
       const pSql = postgres(targetUrl, { max: 1 });

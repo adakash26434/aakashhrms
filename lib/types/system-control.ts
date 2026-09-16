@@ -55,8 +55,9 @@ export interface StatutoryDeductionLimitsSettings {
   pfMaximumLimitPercent: number;
   citLimitNpr: number;
   retirementFundLimitNpr: number;
-  handicappedDeductionPercent: number;
+  handicappedDeductionPercent?: number;
   companyHasSsf: boolean;
+  ssfContributionBase?: "BasicSalary" | "BasicPlusGrade";
 }
 
 export interface InsuranceDiscountsSettings {
@@ -64,6 +65,7 @@ export interface InsuranceDiscountsSettings {
   houseInsuranceNpr: number;
   lifeInsuranceNpr: number;
   womenDiscountPercent: number;
+  handicappedDiscountPercent: number;
   remoteAllowanceNpr: number;
 }
 

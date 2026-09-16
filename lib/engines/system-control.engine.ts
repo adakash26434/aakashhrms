@@ -36,6 +36,7 @@ export interface SystemControlValidationErrors {
   houseInsuranceNpr?: string;
   lifeInsuranceNpr?: string;
   womenDiscountPercent?: string;
+  handicappedDiscountPercent?: string;
   remoteAllowanceNpr?: string;
 
   // Overtime
@@ -47,11 +48,14 @@ export interface SystemControlValidationErrors {
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-function isValidHour(h: number): boolean {
+function isClockHour(h: number): boolean {
   return Number.isInteger(h) && h >= 1 && h <= 12;
 }
-function isValidMinute(m: number): boolean {
+function isMinute(m: number): boolean {
   return Number.isInteger(m) && m >= 0 && m < 60;
+}
+function isGrace(g: number): boolean {
+  return Number.isInteger(g) && g >= 0 && g <= 120;
 }
 function isNonNegativeInt(n: number): boolean {
   return Number.isInteger(n) && n >= 0;
@@ -65,8 +69,8 @@ function isPercent(n: number): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Validate the full System Control payload. Each field can
- * independently fail. Returns an empty object when valid.
+ * Validate a whole SystemControlData payload.
+ * Pure function: takes data, returns error map. An empty map means valid.
  */
 export function validateSystemControl(
   data: SystemControlData,
@@ -74,22 +78,20 @@ export function validateSystemControl(
   const errors: SystemControlValidationErrors = {};
 
   // Office time
-  if (!isValidHour(data.officeTime.inTime.hour)) {
+  if (data.officeTime?.inTime && !isClockHour(data.officeTime.inTime.hour)) {
     errors.officeInHour = "Hour must be 1–12.";
   }
-  if (!isValidMinute(data.officeTime.inTime.minute)) {
+  if (data.officeTime?.inTime && !isMinute(data.officeTime.inTime.minute)) {
     errors.officeInMinute = "Minute must be 0–59.";
   }
-  if (!isValidHour(data.officeTime.outTime.hour)) {
+  if (data.officeTime?.outTime && !isClockHour(data.officeTime.outTime.hour)) {
     errors.officeOutHour = "Hour must be 1–12.";
   }
-  if (!isValidMinute(data.officeTime.outTime.minute)) {
+  if (data.officeTime?.outTime && !isMinute(data.officeTime.outTime.minute)) {
     errors.officeOutMinute = "Minute must be 0–59.";
   }
-  if (!isNonNegativeInt(data.officeTime.graceWindowMinutes)) {
-    errors.graceWindowMinutes = "Must be a non-negative whole number.";
-  } else if (data.officeTime.graceWindowMinutes > 120) {
-    errors.graceWindowMinutes = "Must be 120 minutes or less.";
+  if (data.officeTime?.graceWindowMinutes !== undefined && !isGrace(data.officeTime.graceWindowMinutes)) {
+    errors.graceWindowMinutes = "Grace window must be 0–120 minutes.";
   }
 
   // Statutory
@@ -102,7 +104,7 @@ export function validateSystemControl(
   if (!isNonNegativeInt(data.statutoryDeductionLimits.retirementFundLimitNpr)) {
     errors.retirementFundLimitNpr = "Must be a non-negative whole number.";
   }
-  if (!isPercent(data.statutoryDeductionLimits.handicappedDeductionPercent)) {
+  if (data.statutoryDeductionLimits.handicappedDeductionPercent !== undefined && !isPercent(data.statutoryDeductionLimits.handicappedDeductionPercent)) {
     errors.handicappedDeductionPercent = "Must be 0–100.";
   }
 
@@ -118,6 +120,9 @@ export function validateSystemControl(
   }
   if (!isPercent(data.insuranceDiscounts.womenDiscountPercent)) {
     errors.womenDiscountPercent = "Must be 0–100.";
+  }
+  if (data.insuranceDiscounts.handicappedDiscountPercent !== undefined && !isPercent(data.insuranceDiscounts.handicappedDiscountPercent)) {
+    errors.handicappedDiscountPercent = "Must be 0–100.";
   }
   if (!isNonNegativeInt(data.insuranceDiscounts.remoteAllowanceNpr)) {
     errors.remoteAllowanceNpr = "Must be a non-negative whole number.";

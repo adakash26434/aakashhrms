@@ -55,7 +55,7 @@ export async function getLeaveLookupData(): Promise<LeaveLookupData> {
     })),
     employees: employees.map((emp) => ({
       id: emp.id,
-      name: `${emp.firstName} ${emp.lastName}`,
+      name: emp.fullName,
       code: emp.employeeCode,
       gender: emp.gender,
     })),
@@ -73,7 +73,7 @@ export async function getLeaveApplications(filter: LeaveFilter) {
     category: "all",
     status: "all",
   });
-  const employeeMap = new Map(employees.map((e) => [e.id, `${e.firstName} ${e.lastName}`]));
+  const employeeMap = new Map(employees.map((e) => [e.id, e.fullName]));
 
   // Fetch all users to resolve reviewer names (users.id -> users.employeeId -> employees.id)
   const userList = await getDb().select({
@@ -87,7 +87,7 @@ export async function getLeaveApplications(filter: LeaveFilter) {
     if (u.employeeId) {
       const emp = employees.find((e) => e.id === u.employeeId);
       if (emp) {
-        userMap.set(u.id, `${emp.firstName} ${emp.lastName}`);
+        userMap.set(u.id, emp.fullName);
         continue;
       }
     }
@@ -114,7 +114,7 @@ export async function getLeaveApplicationById(id: string) {
     category: "all",
     status: "all",
   });
-  const employeeMap = new Map(employees.map((e) => [e.id, `${e.firstName} ${e.lastName}`]));
+  const employeeMap = new Map(employees.map((e) => [e.id, e.fullName]));
 
   // Fetch all users to resolve reviewer names (users.id -> users.employeeId -> employees.id)
   const userList = await getDb().select({
@@ -128,7 +128,7 @@ export async function getLeaveApplicationById(id: string) {
     if (u.employeeId) {
       const emp = employees.find((e) => e.id === u.employeeId);
       if (emp) {
-        userMap.set(u.id, `${emp.firstName} ${emp.lastName}`);
+        userMap.set(u.id, emp.fullName);
         continue;
       }
     }

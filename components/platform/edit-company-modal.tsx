@@ -60,131 +60,115 @@ export interface TaxSlabItem {
 }
 
 const DEFAULT_TAX_SLABS: TaxSlabItem[] = [
-  // Normal Single Individual
+  // Normal Single Individual (FY 2083/84)
   {
     category: "Normal Single",
     amountFrom: "0",
-    amountTo: "500000",
-    ratePercent: "1.00",
-    fixedDeduction: "0",
-  },
-  {
-    category: "Normal Single",
-    amountFrom: "500000",
-    amountTo: "700000",
-    ratePercent: "10.00",
-    fixedDeduction: "5000",
-  },
-  {
-    category: "Normal Single",
-    amountFrom: "700000",
     amountTo: "1000000",
+    ratePercent: "1.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "1000001",
+    amountTo: "1500000",
+    ratePercent: "10.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Normal Single",
+    amountFrom: "1500001",
+    amountTo: "2500000",
     ratePercent: "20.00",
-    fixedDeduction: "25000",
+    fixedDeduction: "0",
   },
   {
     category: "Normal Single",
-    amountFrom: "1000000",
-    amountTo: "2000000",
-    ratePercent: "30.00",
-    fixedDeduction: "85000",
+    amountFrom: "2500001",
+    amountTo: "4000000",
+    ratePercent: "27.00",
+    fixedDeduction: "0",
   },
   {
     category: "Normal Single",
-    amountFrom: "2000000",
+    amountFrom: "4000001",
     amountTo: null,
-    ratePercent: "36.00",
-    fixedDeduction: "385000",
+    ratePercent: "29.00",
+    fixedDeduction: "0",
   },
 
-  // Married Couple
+  // Married Couple (FY 2083/84)
   {
     category: "Married",
     amountFrom: "0",
-    amountTo: "600000",
+    amountTo: "1000000",
     ratePercent: "1.00",
     fixedDeduction: "0",
   },
   {
     category: "Married",
-    amountFrom: "600000",
-    amountTo: "800000",
-    ratePercent: "10.00",
-    fixedDeduction: "6000",
-  },
-  {
-    category: "Married",
-    amountFrom: "800000",
-    amountTo: "1100000",
-    ratePercent: "20.00",
-    fixedDeduction: "26000",
-  },
-  {
-    category: "Married",
-    amountFrom: "1100000",
-    amountTo: "2000000",
-    ratePercent: "30.00",
-    fixedDeduction: "86000",
-  },
-  {
-    category: "Married",
-    amountFrom: "2000000",
-    amountTo: null,
-    ratePercent: "36.00",
-    fixedDeduction: "356000",
-  },
-
-  // Widow
-  {
-    category: "Widow",
-    amountFrom: "0",
-    amountTo: "500000",
-    ratePercent: "0.00",
-    fixedDeduction: "0",
-  },
-  {
-    category: "Widow",
-    amountFrom: "500000",
-    amountTo: "2000000",
+    amountFrom: "1000001",
+    amountTo: "1500000",
     ratePercent: "10.00",
     fixedDeduction: "0",
   },
   {
-    category: "Widow",
-    amountFrom: "2000000",
-    amountTo: null,
+    category: "Married",
+    amountFrom: "1500001",
+    amountTo: "2500000",
     ratePercent: "20.00",
-    fixedDeduction: "150000",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Married",
+    amountFrom: "2500001",
+    amountTo: "4000000",
+    ratePercent: "27.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Married",
+    amountFrom: "4000001",
+    amountTo: null,
+    ratePercent: "29.00",
+    fixedDeduction: "0",
   },
 
-  // Handicapped
+  // Handicapped (FY 2083/84)
   {
     category: "Handicapped",
     amountFrom: "0",
-    amountTo: "500000",
+    amountTo: "1500000",
     ratePercent: "1.00",
     fixedDeduction: "0",
   },
   {
     category: "Handicapped",
-    amountFrom: "500000",
-    amountTo: "700000",
-    ratePercent: "5.00",
-    fixedDeduction: "2500",
-  },
-  {
-    category: "Handicapped",
-    amountFrom: "700000",
+    amountFrom: "1500001",
     amountTo: "2000000",
     ratePercent: "10.00",
-    fixedDeduction: "12500",
+    fixedDeduction: "0",
   },
   {
     category: "Handicapped",
-    amountFrom: "2000000",
+    amountFrom: "2000001",
+    amountTo: "3000000",
+    ratePercent: "20.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "3000001",
+    amountTo: "4500000",
+    ratePercent: "27.00",
+    fixedDeduction: "0",
+  },
+  {
+    category: "Handicapped",
+    amountFrom: "4500001",
     amountTo: null,
-    ratePercent: "15.00",
-    fixedDeduction: "142500",
+    ratePercent: "29.00",
+    fixedDeduction: "0",
   },
 ];
 
@@ -761,7 +745,7 @@ export function EditCompanyModal({
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                       placeholder="admin@company.com"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy font-medium shadow-payroll-xs"
+                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy font-medium shadow-payroll-xs"
                     />
                   </div>
                   <p className="text-[11px] text-gray-500">
@@ -787,7 +771,7 @@ export function EditCompanyModal({
                           setCompanyCode(e.target.value.toUpperCase())
                         }
                         placeholder="CMP-123456"
-                        className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                        className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                       />
                     </div>
                   </div>
@@ -803,7 +787,7 @@ export function EditCompanyModal({
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Acme Corp"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                     />
                   </div>
                 </div>
@@ -819,7 +803,7 @@ export function EditCompanyModal({
                     value={legalName}
                     onChange={(e) => setLegalName(e.target.value)}
                     placeholder="Acme Corporation Pvt. Ltd."
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                   />
                 </div>
 
@@ -838,7 +822,7 @@ export function EditCompanyModal({
                         )
                       }
                       placeholder="e.g. 601234567"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs font-mono"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs font-mono"
                     />
                   </div>
 
@@ -851,7 +835,7 @@ export function EditCompanyModal({
                       value={registrationNumber}
                       onChange={(e) => setRegistrationNumber(e.target.value)}
                       placeholder="e.g. 123456/080/081"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                     />
                   </div>
                 </div>
@@ -866,7 +850,7 @@ export function EditCompanyModal({
                     value={headOfficeAddress}
                     onChange={(e) => setHeadOfficeAddress(e.target.value)}
                     placeholder="e.g. Putalisadak, Kathmandu"
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                   />
                 </div>
 
@@ -910,7 +894,7 @@ export function EditCompanyModal({
                     onChange={(e) =>
                       setIndustryType(e.target.value as IndustrySectorKey)
                     }
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                   >
                     {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map(
                       (key) => {
@@ -935,7 +919,7 @@ export function EditCompanyModal({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Optional internal notes about this company..."
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy resize-none shadow-payroll-xs"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy resize-none shadow-payroll-xs"
                   />
                 </div>
               </div>
@@ -969,7 +953,7 @@ export function EditCompanyModal({
                         setHeadOfficeBranchCode(e.target.value.toUpperCase())
                       }
                       placeholder="HO-01"
-                      className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                     />
                     <p className="text-[10px] text-gray-500">
                       Unique corporate code for this branch
@@ -1003,7 +987,7 @@ export function EditCompanyModal({
                           setHeadOfficeBranchAddress(e.target.value)
                         }
                         placeholder="Putalisadak, Kathmandu"
-                        className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary text-payroll-navy shadow-payroll-xs"
+                        className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
                       />
                     </div>
                     <p className="text-[10px] text-gray-500">
@@ -1446,6 +1430,7 @@ export function EditCompanyModal({
 
                           {/* Allow removing custom pay heads */}
                           {!ph.isSsfHead &&
+                            !ph.isSsfEmployerHead &&
                             !ph.isPfHead &&
                             !ph.isCitHead &&
                             !ph.isTdsHead &&
@@ -1496,7 +1481,7 @@ export function EditCompanyModal({
 
                 {/* Category Selector */}
                 <div className="flex items-center gap-1.5 bg-payroll-cream/50 p-1 rounded-xl border border-payroll-light">
-                  {["Normal Single", "Married", "Widow", "Handicapped"].map(
+                  {["Normal Single", "Married", "Handicapped"].map(
                     (cat) => (
                       <button
                         key={cat}
@@ -1560,7 +1545,7 @@ export function EditCompanyModal({
                               )
                             }
                             placeholder="And above"
-                            className="w-full px-2 py-1 text-xs font-mono rounded border border-payroll-light bg-payroll-cream/20 text-payroll-navy placeholder:text-gray-400"
+                            className="w-full px-2 py-1 text-xs font-mono rounded border border-payroll-light bg-payroll-cream/20 text-payroll-navy"
                           />
                         </div>
 

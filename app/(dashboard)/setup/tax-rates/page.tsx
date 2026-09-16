@@ -8,7 +8,7 @@ import { checkPermission } from "@/lib/auth/check-permission";
 export const metadata: Metadata = {
   title: "Tax Rates | AakashHRMS",
   description:
-    "Configure slab-based TDS rates per fiscal year for Normal Single, Married, Widow, and Handicapped categories.",
+    "Configure slab-based TDS rates per fiscal year for Normal Single, Married, and Handicapped categories.",
 };
 
 /**

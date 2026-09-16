@@ -5,11 +5,19 @@ import * as scService from '@/lib/services/system-control.service';
 import { revalidatePath } from 'next/cache';
 import type { SystemControlData } from '@/lib/types/system-control';
 import { checkPermission } from '@/lib/auth/check-permission';
+import { getImpersonationSession } from '@/lib/platform/impersonation';
+import { verifyPlatformSession } from '@/lib/platform/auth';
 
 export async function saveSystemControlAction(data: SystemControlData) {
   await ensureTenantContext();
   try {
     await checkPermission('EDIT', 'SYSTEM_CONTROL');
+
+    // Handicapped relief is strictly governed by Handicapped Tax Slabs in Setup → Tax Rates.
+    // Ensure secondary percentage discount is always 0% to avoid double-discounting.
+    data.insuranceDiscounts.handicappedDiscountPercent = 0;
+    data.statutoryDeductionLimits.handicappedDeductionPercent = 0;
+
     const result = await scService.saveSystemControlSettings(data);
     revalidatePath('/setup/system-control');
     return { success: true, data: result };

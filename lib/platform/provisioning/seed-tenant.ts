@@ -12,6 +12,7 @@ import {
   LeaveTypePreset,
   PayHeadPreset,
 } from '../../types/onboarding';
+import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '../policy-pack-data';
 
 export interface SeedTenantOptions {
   connectionUrl: string;
@@ -288,32 +289,9 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
     }
 
     // 6. SEED TAX RATE SLABS (Tied to the initial active fiscal year)
-    const standardTaxSlabs = taxSlabs && taxSlabs.length > 0 ? taxSlabs : [
-      // Normal Single Individual
-      { category: 'Normal Single', amountFrom: '0', amountTo: '500000', ratePercent: '1.00', fixedDeduction: '0' },
-      { category: 'Normal Single', amountFrom: '500000', amountTo: '700000', ratePercent: '10.00', fixedDeduction: '5000' },
-      { category: 'Normal Single', amountFrom: '700000', amountTo: '1000000', ratePercent: '20.00', fixedDeduction: '25000' },
-      { category: 'Normal Single', amountFrom: '1000000', amountTo: '2000000', ratePercent: '30.00', fixedDeduction: '85000' },
-      { category: 'Normal Single', amountFrom: '2000000', amountTo: null, ratePercent: '36.00', fixedDeduction: '385000' },
-
-      // Married Couple
-      { category: 'Married', amountFrom: '0', amountTo: '600000', ratePercent: '1.00', fixedDeduction: '0' },
-      { category: 'Married', amountFrom: '600000', amountTo: '800000', ratePercent: '10.00', fixedDeduction: '6000' },
-      { category: 'Married', amountFrom: '800000', amountTo: '1100000', ratePercent: '20.00', fixedDeduction: '26000' },
-      { category: 'Married', amountFrom: '1100000', amountTo: '2000000', ratePercent: '30.00', fixedDeduction: '86000' },
-      { category: 'Married', amountFrom: '2000000', amountTo: null, ratePercent: '36.00', fixedDeduction: '356000' },
-
-      // Widow
-      { category: 'Widow', amountFrom: '0', amountTo: '500000', ratePercent: '0.00', fixedDeduction: '0' },
-      { category: 'Widow', amountFrom: '500000', amountTo: '2000000', ratePercent: '10.00', fixedDeduction: '0' },
-      { category: 'Widow', amountFrom: '2000000', amountTo: null, ratePercent: '20.00', fixedDeduction: '150000' },
-
-      // Handicapped
-      { category: 'Handicapped', amountFrom: '0', amountTo: '500000', ratePercent: '1.00', fixedDeduction: '0' },
-      { category: 'Handicapped', amountFrom: '500000', amountTo: '700000', ratePercent: '5.00', fixedDeduction: '2500' },
-      { category: 'Handicapped', amountFrom: '700000', amountTo: '2000000', ratePercent: '10.00', fixedDeduction: '12500' },
-      { category: 'Handicapped', amountFrom: '2000000', amountTo: null, ratePercent: '15.00', fixedDeduction: '142500' },
-    ];
+    const standardTaxSlabs = (taxSlabs && taxSlabs.length > 0 
+      ? taxSlabs 
+      : DEFAULT_NEPAL_POLICY_PACK_V1.taxSlabsBaseline) || [];
 
     const existingSlabs = await tenantDb
       .select({ id: schema.taxRateSlabs.id })
@@ -327,7 +305,7 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
           fiscalYearId,
           category: slab.category,
           amountFrom: String(slab.amountFrom),
-          amountTo: slab.amountTo !== null ? String(slab.amountTo) : null,
+          amountTo: slab.amountTo !== null && slab.amountTo !== undefined && slab.amountTo !== '' ? String(slab.amountTo) : null,
           ratePercent: String(slab.ratePercent),
           fixedDeduction: String(slab.fixedDeduction || '0'),
         });
@@ -436,9 +414,17 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
           effectOnTax: ph.isTaxable,
           calcBasis: 'BasicSalary',
           calcParameter: 'BasicSalary',
-          calcPercent: '0',
+          calcPercent:
+            ph.code === 'SSF-ER'
+              ? '20'
+              : ph.code === 'SSF'
+              ? '31'
+              : ph.code === 'EPF'
+              ? '10'
+              : '0',
           isFestivalAllowance: ph.code === 'FESTIVAL',
           isSsfHead: Boolean(ph.isSsfHead),
+          isSsfEmployerHead: Boolean(ph.isSsfEmployerHead),
           isCitHead: Boolean(ph.isCitHead),
           isPfHead: Boolean(ph.isPfHead),
           isTdsHead: Boolean(ph.isTdsHead),
@@ -455,7 +441,7 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
         email: adminEmail,
         passwordHash,
         isActive: true,
-        mustChangePassword: false, // Onboarding removed: admin immediately enters dashboard
+        mustChangePassword: true, // First login requires forced password change
       })
       .onConflictDoNothing({ target: schema.users.email })
       .returning();
@@ -469,6 +455,18 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
           .where(eq(schema.users.email, adminEmail))
           .limit(1)
       )[0];
+
+    // If admin user already existed and was re-seeded, update password hash & require password change
+    if (!adminUser && targetUser) {
+      await tenantDb
+        .update(schema.users)
+        .set({
+          passwordHash,
+          mustChangePassword: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, targetUser.id));
+    }
 
     // Assign Office Admin role
     await tenantDb

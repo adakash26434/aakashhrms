@@ -12,8 +12,8 @@ import type { SystemControlData } from "@/lib/types/system-control";
  */
 export const mockSettings: SystemControlData = {
   officeTime: {
-    inTime: { hour: 10, minute: 0, meridiem: "AM" },
-    outTime: { hour: 4, minute: 0, meridiem: "PM" },
+    inTime: { hour: 9, minute: 0, meridiem: "AM" },
+    outTime: { hour: 5, minute: 0, meridiem: "PM" },
     calculateOtAndAbsent: true,
     applyGraceWindow: true,
     graceWindowMinutes: 40,
@@ -36,14 +36,15 @@ export const mockSettings: SystemControlData = {
     pfMaximumLimitPercent: 30,
     citLimitNpr: 300000,
     retirementFundLimitNpr: 500000,
-    handicappedDeductionPercent: 50,
+    handicappedDeductionPercent: 0,
     companyHasSsf: true,
   },
   insuranceDiscounts: {
     medicalInsuranceNpr: 20000,
     houseInsuranceNpr: 5000,
-    lifeInsuranceNpr: 25000,
+    lifeInsuranceNpr: 40000,
     womenDiscountPercent: 10,
+    handicappedDiscountPercent: 0,
     remoteAllowanceNpr: 50000,
   },
 };

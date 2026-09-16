@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Clock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
@@ -27,28 +28,53 @@ interface TimeFieldProps {
 }
 
 function TimeField({ id, label, time, onChange }: TimeFieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenPicker = () => {
+    try {
+      inputRef.current?.showPicker();
+    } catch {
+      inputRef.current?.focus();
+    }
+  };
+
   return (
     <div>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-xs font-medium text-gray-600"
+        className="mb-1.5 block text-xs font-semibold text-payroll-navy"
       >
         {label}
       </label>
-      <div className="flex overflow-hidden rounded-lg border border-[#d7e8d0] bg-white focus-within:border-[#2e7d32] focus-within:ring-1 focus-within:ring-[#2e7d32]">
+      <div
+        onClick={handleOpenPicker}
+        className="flex cursor-pointer overflow-hidden rounded-lg border border-payroll-light bg-white transition-colors hover:border-payroll-primary/60 focus-within:ring-1 focus-within:ring-payroll-primary"
+      >
         <input
+          ref={inputRef}
           id={id}
           type="time"
           value={officeTimeTo24(time)}
-          onChange={(e) => onChange(officeTimeFrom24(e.target.value))}
-          className="flex-1 cursor-pointer bg-transparent px-3 py-2 text-sm text-[#1b3a1f] focus:outline-none"
+          onChange={(e) => {
+            if (e.target.value) {
+              onChange(officeTimeFrom24(e.target.value));
+            }
+          }}
+          className="flex-1 cursor-pointer bg-transparent px-3 py-2 text-sm font-medium text-payroll-navy focus:outline-none"
         />
-        <span
-          aria-hidden
-          className="flex items-center bg-[#f6faf6] px-3 text-xs font-medium uppercase tracking-wide text-gray-500"
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenPicker();
+          }}
+          className="flex items-center gap-1.5 border-l border-payroll-light bg-payroll-cream px-3 text-xs font-semibold text-payroll-primary transition-colors hover:bg-payroll-light/50 cursor-pointer"
+          title="Click to select time"
         >
-          {formatOfficeTime(time)}
-        </span>
+          <Clock className="h-3.5 w-3.5" />
+          <span>{formatOfficeTime(time)}</span>
+        </button>
       </div>
     </div>
   );
@@ -59,11 +85,11 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
     <Card>
       <CardHeader>
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#d7e8d0]/70">
-            <Clock className="h-5 w-5 text-[#2e7d32]" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-payroll-light/70">
+            <Clock className="h-5 w-5 text-payroll-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-[#1b3a1f]">
+            <h2 className="text-base font-semibold text-payroll-navy">
               Office Time
             </h2>
             <p className="mt-0.5 text-sm text-gray-500">
@@ -89,7 +115,7 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
           />
         </div>
 
-        <div className="h-px w-full bg-[#d7e8d0]/60" />
+        <div className="h-px w-full bg-payroll-light/60" />
 
         <div className="space-y-3">
           <Toggle
@@ -115,14 +141,14 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
                     graceWindowMinutes: nextMinutes,
                   })
                 }
-                className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-1.5 pr-2 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+                className="w-full rounded-lg border border-payroll-light bg-white px-3 py-1.5 pr-2 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
             <span className="text-sm text-gray-500">minutes</span>
           </div>
         </div>
 
-        <div className="h-px w-full bg-[#d7e8d0]/60" />
+        <div className="h-px w-full bg-payroll-light/60" />
 
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
@@ -133,7 +159,7 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
               <label htmlFor="ot-mult-office" className="mb-1.5 block text-xs font-medium text-gray-600">
                 Office Day OT Multiplier (Fixed)
               </label>
-              <div className="flex overflow-hidden rounded-lg border border-[#d7e8d0] bg-gray-50">
+              <div className="flex overflow-hidden rounded-lg border border-payroll-light bg-gray-50">
                 <input
                   id="ot-mult-office"
                   type="number"
@@ -141,12 +167,12 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
                   value={1.5}
                   className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-400 cursor-not-allowed focus:outline-none font-mono"
                 />
-                <span className="flex items-center bg-[#d7e8d0]/30 px-3 text-xs font-medium text-gray-400">
+                <span className="flex items-center bg-payroll-light/30 px-3 text-xs font-medium text-gray-400">
                   x Rate
                 </span>
               </div>
               <p className="mt-1 text-[10px] text-gray-400 font-medium">
-                Fixed standard under Nepal's Labour Act.
+                Fixed standard under Nepal&apos;s Labour Act.
               </p>
             </div>
 
@@ -154,7 +180,7 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
               <label htmlFor="ot-mult-off" className="mb-1.5 block text-xs font-medium text-gray-600">
                 Off Day / Holiday OT Multiplier
               </label>
-              <div className="flex overflow-hidden rounded-lg border border-[#d7e8d0] bg-white focus-within:border-[#2e7d32] focus-within:ring-1 focus-within:ring-[#2e7d32]">
+              <div className="flex overflow-hidden rounded-lg border border-payroll-light bg-white focus-within:ring-1 focus-within:ring-payroll-primary">
                 <input
                   id="ot-mult-off"
                   type="number"
@@ -163,9 +189,9 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
                   max="5"
                   value={value.otMultiplierOffDay ?? 2.0}
                   onChange={(e) => onChange({ ...value, otMultiplierOffDay: Number(e.target.value) })}
-                  className="flex-1 bg-transparent px-3 py-2 text-sm text-[#1b3a1f] focus:outline-none font-mono"
+                  className="flex-1 bg-transparent px-3 py-2 text-sm text-payroll-navy focus:outline-none font-mono"
                 />
-                <span className="flex items-center bg-[#f6faf6] px-3 text-xs font-medium text-gray-500">
+                <span className="flex items-center bg-payroll-cream px-3 text-xs font-medium text-gray-500">
                   x Rate
                 </span>
               </div>

@@ -35,8 +35,7 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
       or(
         ilike(users.email, searchPattern),
         ilike(users.name, searchPattern),
-        ilike(employees.firstName, searchPattern),
-        ilike(employees.lastName, searchPattern),
+        ilike(employees.fullName, searchPattern),
         ilike(employees.employeeCode, searchPattern)
       )
     );
@@ -74,8 +73,7 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
       roleSlug: roles.slug,
       roleScopeType: roles.scopeType,
       employeeCode: employees.employeeCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       branchName: branches.name,
       branchCode: branches.code,
       departmentName: departments.name,
@@ -112,7 +110,7 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
     roleSlug: r.roleSlug ?? null,
     roleScopeType: (r.roleScopeType as "GLOBAL" | "BRANCH" | "DEPARTMENT" | "SELF") ?? null,
     employeeCode: r.employeeCode ?? null,
-    employeeName: r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : r.firstName || null,
+    employeeName: r.fullName || null,
     employeeBranch: r.branchName ?? null,
     employeeBranchCode: r.branchCode ?? null,
     employeeDepartment: r.departmentName ?? null,
@@ -146,8 +144,7 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
       roleSlug: roles.slug,
       roleScopeType: roles.scopeType,
       employeeCode: employees.employeeCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       branchName: branches.name,
       branchCode: branches.code,
       departmentName: departments.name,
@@ -187,7 +184,7 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
     roleSlug: r.roleSlug ?? null,
     roleScopeType: (r.roleScopeType as "GLOBAL" | "BRANCH" | "DEPARTMENT" | "SELF") ?? null,
     employeeCode: r.employeeCode ?? null,
-    employeeName: r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : r.firstName || null,
+    employeeName: r.fullName || null,
     employeeBranch: r.branchName ?? null,
     employeeBranchCode: r.branchCode ?? null,
     employeeDepartment: r.departmentName ?? null,
@@ -371,8 +368,7 @@ export async function getUnlinkedEmployees() {
     .select({
       id: employees.id,
       employeeCode: employees.employeeCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
     })
     .from(employees)
     .where(
@@ -381,11 +377,11 @@ export async function getUnlinkedEmployees() {
         sql`${employees.id} NOT IN (SELECT employee_id FROM users WHERE employee_id IS NOT NULL)`
       )
     )
-    .orderBy(employees.firstName);
+    .orderBy(employees.fullName);
 
-  return rows.map((e: { id: string; employeeCode: string; firstName: string; lastName: string }) => ({
+  return rows.map((e: { id: string; employeeCode: string; fullName: string }) => ({
     id: e.id,
     employeeCode: e.employeeCode,
-    name: `${e.firstName} ${e.lastName}`,
+    name: e.fullName,
   }));
 }
