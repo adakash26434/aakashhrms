@@ -209,8 +209,7 @@ export interface FilterSalaryMappingsArgs {
   mappings: SalaryMapping[];
   /** Employees keyed by id for lookup */
   employees: Map<string, {
-    firstName: string;
-    lastName: string;
+    fullName: string;
     employeeCode: string;
     departmentId: string;
     branchId: string;
@@ -233,7 +232,7 @@ export function filterSalaryMappings(
 
     // Search by employee name or code
     if (q) {
-      const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+      const fullName = emp.fullName.toLowerCase();
       const code = emp.employeeCode.toLowerCase();
       if (!fullName.includes(q) && !code.includes(q)) return false;
     }

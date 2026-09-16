@@ -147,7 +147,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
       if (!emp) return false;
 
       if (q) {
-        const name = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+        const name = emp.fullName.toLowerCase();
         const code = emp.employeeCode.toLowerCase();
         if (!name.includes(q) && !code.includes(q)) return false;
       }
@@ -172,7 +172,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
     const q = filter.search.trim().toLowerCase();
     return unmappedEmployees.filter((emp) => {
       if (q) {
-        const name = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+        const name = emp.fullName.toLowerCase();
         const code = emp.employeeCode.toLowerCase();
         if (!name.includes(q) && !code.includes(q)) return false;
       }
@@ -418,7 +418,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
           deleteTarget
             ? (() => {
                 const emp = employeeMap.get(deleteTarget.employeeId);
-                return emp ? `${emp.firstName} ${emp.lastName}` : "Unknown";
+                return emp ? emp.fullName : "Unknown";
               })()
             : ""
         }
@@ -462,8 +462,7 @@ function UnmappedEmployeesTable({
   employees: {
     id: string;
     employeeCode: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     departmentName: string;
     branchName: string;
     designationName: string;
@@ -509,7 +508,7 @@ function UnmappedEmployeesTable({
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-payroll-navy">
-                    {emp.firstName} {emp.lastName}
+                    {emp.fullName}
                   </span>
                   <span className="text-[11px] text-gray-400">
                     {emp.employeeCode}

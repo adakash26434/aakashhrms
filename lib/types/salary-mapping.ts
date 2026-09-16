@@ -136,8 +136,7 @@ export interface SalaryMappingData {
   employees: {
     id: string;
     employeeCode: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     departmentId: string;
     departmentName: string;
     branchId: string;

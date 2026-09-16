@@ -132,8 +132,7 @@ export interface AttendanceData {
     id: string;
     employeeCode: string;
     attendanceCode: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     departmentId: string;
     departmentName: string;
     branchId: string;

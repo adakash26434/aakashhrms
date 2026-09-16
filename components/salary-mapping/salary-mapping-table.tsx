@@ -10,8 +10,7 @@ interface SalaryMappingTableProps {
     {
       id: string;
       employeeCode: string;
-      firstName: string;
-      lastName: string;
+      fullName: string;
       departmentName: string;
       branchName: string;
       designationName: string;
@@ -51,7 +50,7 @@ export function SalaryMappingTable({
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6] text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+          <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             <th className="px-4 py-3">Employee</th>
             <th className="px-4 py-3">Department</th>
             <th className="px-4 py-3">Branch</th>
@@ -78,13 +77,13 @@ export function SalaryMappingTable({
             return (
               <tr
                 key={mapping.id}
-                className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-[#f6faf6]/50"
+                className="border-b border-payroll-light/60 transition-colors hover:bg-payroll-cream/50"
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-[#1b3a1f]">
+                    <span className="font-medium text-payroll-navy">
                       {emp
-                        ? `${emp.firstName} ${emp.lastName}`
+                        ? emp.fullName
                         : "Unknown"}
                     </span>
                     <span className="text-[11px] text-gray-400">
@@ -98,7 +97,7 @@ export function SalaryMappingTable({
                 <td className="px-4 py-3 text-gray-600">
                   {emp?.branchName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-[#1b3a1f]">
+                <td className="px-4 py-3 text-right tabular-nums text-payroll-navy">
                   {formatNPR(mapping.basicSalary)}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums text-gray-600">
@@ -113,7 +112,7 @@ export function SalaryMappingTable({
                 <td className="px-4 py-3 text-right tabular-nums text-amber-600">
                   {totalLoan > 0 ? formatNPR(totalLoan) : "—"}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums font-semibold text-[#1b3a1f]">
+                <td className="px-4 py-3 text-right tabular-nums font-semibold text-payroll-navy">
                   {formatNPR(mapping.netAmount)}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -121,7 +120,7 @@ export function SalaryMappingTable({
                     <button
                       type="button"
                       onClick={() => onSelect(mapping.id)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/40 hover:text-[#2e7d32]"
+                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-payroll-light/40 hover:text-payroll-primary"
                       title="View mapping details"
                     >
                       <Eye className="h-3.5 w-3.5" />
@@ -129,7 +128,7 @@ export function SalaryMappingTable({
                     <button
                       type="button"
                       onClick={() => onEdit(mapping.id)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/40 hover:text-[#2e7d32]"
+                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-payroll-light/40 hover:text-payroll-primary"
                       title="Edit mapping"
                     >
                       <Pencil className="h-3.5 w-3.5" />

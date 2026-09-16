@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Shield } from "lucide-react";
 import type {
   SalaryMappingFormData,
   SalaryHeadFormItem,
@@ -16,8 +17,7 @@ interface SalaryMappingFormModalProps {
   employees: {
     id: string;
     employeeCode: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     departmentName: string;
     designationName: string;
     gradePercent: number;
@@ -209,8 +209,86 @@ export function SalaryMappingFormModal({
     );
   }, [form]);
 
+  const ssfAllowanceHead = allowanceHeads.find(
+    (h) => h.name.toLowerCase().includes("ssf") || (h as any).isSsfEmployerHead || h.id === "ph-015"
+  );
+  const ssfDeductionHead = deductionHeads.find(
+    (h) => (h.name.toLowerCase().includes("ssf") && !h.name.toLowerCase().includes("employer")) || (h as any).isSsfHead || h.id === "ph-008"
+  );
+
+  const isSsfEnrolled = Boolean(
+    (ssfAllowanceHead && form.allowanceHeadIds.includes(ssfAllowanceHead.id)) ||
+    (ssfDeductionHead && form.deductionHeadIds.includes(ssfDeductionHead.id))
+  );
+
+  function handleToggleSsf(enrolled: boolean) {
+    let newAllowanceIds = [...form.allowanceHeadIds];
+    let newAllowanceAmounts = [...form.allowanceAmounts];
+    let newDeductionIds = [...form.deductionHeadIds];
+    let newDeductionAmounts = [...form.deductionAmounts];
+
+    const basicNum = Number(form.basicSalary) || 0;
+    const ssfErAmt = Math.round(basicNum * 0.20);
+    const ssfTotalAmt = Math.round(basicNum * 0.31);
+
+    if (enrolled) {
+      if (ssfAllowanceHead && !newAllowanceIds.includes(ssfAllowanceHead.id)) {
+        newAllowanceIds.push(ssfAllowanceHead.id);
+        newAllowanceAmounts.push(String(ssfErAmt));
+      }
+      if (ssfDeductionHead && !newDeductionIds.includes(ssfDeductionHead.id)) {
+        newDeductionIds.push(ssfDeductionHead.id);
+        newDeductionAmounts.push(String(ssfTotalAmt));
+      }
+    } else {
+      if (ssfAllowanceHead) {
+        const idx = newAllowanceIds.indexOf(ssfAllowanceHead.id);
+        if (idx >= 0) {
+          newAllowanceIds.splice(idx, 1);
+          newAllowanceAmounts.splice(idx, 1);
+        }
+      }
+      if (ssfDeductionHead) {
+        const idx = newDeductionIds.indexOf(ssfDeductionHead.id);
+        if (idx >= 0) {
+          newDeductionIds.splice(idx, 1);
+          newDeductionAmounts.splice(idx, 1);
+        }
+      }
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      allowanceHeadIds: newAllowanceIds,
+      allowanceAmounts: newAllowanceAmounts,
+      deductionHeadIds: newDeductionIds,
+      deductionAmounts: newDeductionAmounts,
+    }));
+  }
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (key === "basicSalary" && isSsfEnrolled) {
+        const basicNum = Number(value) || 0;
+        const ssfErAmt = Math.round(basicNum * 0.20);
+        const ssfTotalAmt = Math.round(basicNum * 0.31);
+
+        if (ssfAllowanceHead) {
+          const idx = next.allowanceHeadIds.indexOf(ssfAllowanceHead.id);
+          if (idx >= 0) {
+            next.allowanceAmounts[idx] = String(ssfErAmt);
+          }
+        }
+        if (ssfDeductionHead) {
+          const idx = next.deductionHeadIds.indexOf(ssfDeductionHead.id);
+          if (idx >= 0) {
+            next.deductionAmounts[idx] = String(ssfTotalAmt);
+          }
+        }
+      }
+      return next;
+    });
   }
 
   function handleEmployeeSelect(id: string) {
@@ -286,7 +364,7 @@ export function SalaryMappingFormModal({
       title={isEdit ? `Edit Salary Mapping` : "New Salary Mapping"}
       description={
         isEdit && selectedEmployee
-          ? `Editing ${selectedEmployee.firstName} ${selectedEmployee.lastName}`
+          ? `Editing ${selectedEmployee.fullName}`
           : "Define employee salary structure including allowances, deductions, and loan deductions."
       }
       size="2xl"
@@ -316,7 +394,7 @@ export function SalaryMappingFormModal({
             {isEdit && selectedEmployee ? (
               <div className="rounded-lg border border-payroll-light/80 bg-payroll-cream px-3 py-2.5">
                 <p className="text-sm font-medium text-payroll-navy">
-                  {selectedEmployee.firstName} {selectedEmployee.lastName}
+                  {selectedEmployee.fullName}
                 </p>
                 <p className="text-xs text-gray-500">
                   {selectedEmployee.employeeCode} ·{" "}
@@ -333,7 +411,7 @@ export function SalaryMappingFormModal({
                 <option value="">-- Select Employee --</option>
                 {employees.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName} ({e.employeeCode})
+                    {e.fullName} ({e.employeeCode})
                   </option>
                 ))}
               </select>
@@ -409,6 +487,60 @@ export function SalaryMappingFormModal({
               )}
             </div>
           </div>
+        </section>
+
+        {/* Social Security Fund (SSF) Facility */}
+        <section className="rounded-lg border border-payroll-primary/25 bg-payroll-cream/60 p-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-payroll-primary/10 text-payroll-primary">
+                <Shield className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-payroll-navy">
+                  Social Security Fund (SSF) Facility
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Adds 20% company contribution to earnings and deducts 31% total SSF (11% employee + 20% company).
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isSsfEnrolled}
+              onClick={() => handleToggleSsf(!isSsfEnrolled)}
+              className={cn(
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-payroll-primary/20",
+                isSsfEnrolled ? "bg-payroll-primary" : "bg-gray-200"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-xs ring-0 transition-transform",
+                  isSsfEnrolled ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </div>
+
+          {isSsfEnrolled && (
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-payroll-light/60 pt-2.5 text-center">
+              <div className="rounded bg-white p-2 border border-gray-100 shadow-xs">
+                <span className="block text-[10px] text-gray-400 uppercase font-medium">Company Addition</span>
+                <span className="text-xs font-semibold text-emerald-700">+20% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.20).toLocaleString("en-IN")})</span>
+              </div>
+              <div className="rounded bg-white p-2 border border-gray-100 shadow-xs">
+                <span className="block text-[10px] text-gray-400 uppercase font-medium">Total SSF Deduction</span>
+                <span className="text-xs font-semibold text-rose-700">-31% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.31).toLocaleString("en-IN")})</span>
+              </div>
+              <div className="rounded bg-white p-2 border border-gray-100 shadow-xs">
+                <span className="block text-[10px] text-gray-400 uppercase font-medium">Net Take-Home Impact</span>
+                <span className="text-xs font-semibold text-amber-700">-11% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.11).toLocaleString("en-IN")})</span>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Allowances */}

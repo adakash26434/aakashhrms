@@ -69,10 +69,11 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 50000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 72000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 10000 },
       { payHeadId: "ph-006", name: "Travel Allowance", amount: 5000 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 5500 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 15500 },
       { payHeadId: "ph-010", name: "TDS / Income Tax", amount: 3500 },
     ],
     loan1Deduction: 5000,
@@ -89,10 +90,11 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 35000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 55000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 7000 },
       { payHeadId: "ph-004", name: "Remote Allowance", amount: 50000 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 3850 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 10850 },
     ],
     loan1Deduction: 0,
     loan2Deduction: 0,
@@ -108,10 +110,11 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 65000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 95000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 13000 },
       { payHeadId: "ph-006", name: "Travel Allowance", amount: 8000 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 7150 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 20150 },
       { payHeadId: "ph-009", name: "CIT Deduction", amount: 5000 },
       { payHeadId: "ph-010", name: "TDS / Income Tax", amount: 8500 },
     ],
@@ -129,9 +132,10 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 42000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 68000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 8400 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 4620 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 13020 },
       { payHeadId: "ph-010", name: "TDS / Income Tax", amount: 2500 },
     ],
     loan1Deduction: 3000,
@@ -148,10 +152,11 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 52000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 78000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 10400 },
       { payHeadId: "ph-004", name: "Remote Allowance", amount: 50000 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 5720 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 16120 },
       { payHeadId: "ph-010", name: "TDS / Income Tax", amount: 4500 },
       { payHeadId: "ph-013", name: "Insurance Premium", amount: 2000 },
     ],
@@ -169,10 +174,11 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 38000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 62000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 7600 },
       { payHeadId: "ph-006", name: "Travel Allowance", amount: 3000 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 4180 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 11780 },
       { payHeadId: "ph-011", name: "Absent / Leave Deduction", amount: 2000 },
     ],
     loan1Deduction: 0,
@@ -180,7 +186,7 @@ const MAPPING_DEFS: MappingDef[] = [
     loan1Remaining: 0,
     loan2Remaining: 0,
   },
-  // emp-7: Maya Chaudhary — CS Officer (Contract, On Leave)
+  // emp-7: Maya Chaudhary — CS Officer (Contract, On Leave) - No SSF
   {
     employeeId: "emp-7",
     basicSalary: 25000,
@@ -207,9 +213,10 @@ const MAPPING_DEFS: MappingDef[] = [
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: 30000 },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: 48000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: 6000 },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: 3300 },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: 9300 },
     ],
     loan1Deduction: 0,
     loan2Deduction: 0,
@@ -229,9 +236,10 @@ function buildFillerMappings(): MappingDef[] {
     allowances: [
       { payHeadId: "ph-001", name: "Basic Salary", amount: base },
       { payHeadId: "ph-002", name: "Grade Allowance", amount: base + 20000 + index * 1000 },
+      { payHeadId: "ph-015", name: "SSF - Employer Contribution (20%)", amount: Math.round(base * 0.20) },
     ],
     deductions: [
-      { payHeadId: "ph-008", name: "Social Security Fund (SSF)", amount: Math.round(base * 0.11) },
+      { payHeadId: "ph-008", name: "Social Security Fund (SSF 31%)", amount: Math.round(base * 0.31) },
     ],
     loan1Deduction: 0,
     loan2Deduction: 0,

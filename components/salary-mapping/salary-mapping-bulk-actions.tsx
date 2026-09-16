@@ -13,8 +13,7 @@ interface SalaryMappingBulkActionsProps {
   employees: {
     id: string;
     employeeCode: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     departmentName: string;
     designationName: string;
     gradePercent: number;
@@ -37,7 +36,7 @@ interface BulkFormState {
 }
 
 const inputClass =
-  "h-9 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]";
+  "h-9 w-full rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary";
 
 export function SalaryMappingBulkActions({
   open,
@@ -137,7 +136,7 @@ export function SalaryMappingBulkActions({
       "Net Amount",
     ];
     const rows = filteredEmployees.map((e) => [
-      `${e.firstName} ${e.lastName}`,
+      e.fullName,
       e.employeeCode,
       e.departmentName,
       form.basicSalary || "0",
@@ -280,7 +279,7 @@ export function SalaryMappingBulkActions({
               <button
                 type="button"
                 onClick={selectAll}
-                className="text-xs font-medium text-[#2e7d32] hover:underline"
+                className="text-xs font-medium text-payroll-primary hover:underline"
               >
                 Select All
               </button>
@@ -293,36 +292,38 @@ export function SalaryMappingBulkActions({
               </button>
             </div>
           </div>
-          <div className="max-h-60 overflow-y-auto rounded-lg border border-[#d7e8d0]">
+          <div className="max-h-60 overflow-y-auto rounded-lg border border-payroll-light">
             {filteredEmployees.length === 0 ? (
               <p className="p-4 text-center text-xs text-gray-400">No employees found.</p>
             ) : (
-              filteredEmployees.map((e) => {
-                const selected = form.selectedEmployeeIds.includes(e.id);
-                return (
-                  <label
-                    key={e.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-3 border-b border-[#d7e8d0]/60 px-3 py-2 text-sm transition-colors last:border-b-0 hover:bg-[#f6faf6]/50",
-                      selected && "bg-green-50/40",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => toggleEmployee(e.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#2e7d32] focus:ring-[#2e7d32]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium text-[#1b3a1f]">
-                        {e.firstName} {e.lastName}
-                      </span>
-                      <span className="ml-2 text-xs text-gray-400">{e.employeeCode}</span>
-                    </div>
-                    <span className="text-xs text-gray-500">{e.departmentName}</span>
-                  </label>
-                );
-              })
+              <div className="divide-y divide-payroll-light/60">
+                {filteredEmployees.map((e) => {
+                  const selected = form.selectedEmployeeIds.includes(e.id);
+                  return (
+                    <label
+                      key={e.id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-payroll-cream/50",
+                        selected && "bg-green-50/40",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleEmployee(e.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-payroll-primary focus:ring-payroll-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium text-payroll-navy">
+                          {e.fullName}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-400">{e.employeeCode}</span>
+                      </div>
+                      <span className="text-xs text-gray-500">{e.departmentName}</span>
+                    </label>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>

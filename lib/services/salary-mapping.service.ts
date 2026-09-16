@@ -93,8 +93,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
   const employeeLookups = activeEmployees.map((e) => ({
     id: e.id,
     employeeCode: e.employeeCode,
-    firstName: e.firstName,
-    lastName: e.lastName,
+    fullName: e.fullName,
     departmentId: e.departmentId,
     departmentName: deptNameById.get(e.departmentId) ?? "—",
     branchId: e.branchId,
@@ -168,8 +167,7 @@ export async function getLookupData() {
       .map((e) => ({
         id: e.id,
         employeeCode: e.employeeCode,
-        firstName: e.firstName,
-        lastName: e.lastName,
+        fullName: e.fullName,
         departmentId: e.departmentId,
         gradePercent: e.gradePercent,
         gradeAmount: e.gradeAmount,

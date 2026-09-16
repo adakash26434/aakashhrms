@@ -22,8 +22,7 @@ type AttendanceRowJoined = {
   employeeId: string;
   employeeCode: string;
   attendanceCode: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   departmentId: string;
   departmentName: string | null;
   branchId: string;
@@ -62,7 +61,7 @@ function mapJoinedRowToRecord(row: AttendanceRowJoined): AttendanceRecord {
     employeeId: row.employeeId,
     employeeCode: row.employeeCode,
     attendanceCode: row.attendanceCode || row.employeeCode,
-    employeeName: `${row.firstName} ${row.lastName}`.trim(),
+    employeeName: row.fullName || "",
     departmentId: row.departmentId,
     departmentName: row.departmentName ?? "—",
     branchId: row.branchId,
@@ -95,8 +94,7 @@ export async function findAttendanceByDate(targetDate: string): Promise<Attendan
       employeeId: attendanceRecords.employeeId,
       employeeCode: employees.employeeCode,
       attendanceCode: employees.attendanceCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       departmentId: employees.departmentId,
       departmentName: departments.name,
       branchId: employees.branchId,
@@ -136,8 +134,7 @@ export async function findById(id: string): Promise<AttendanceRecord | null> {
       employeeId: attendanceRecords.employeeId,
       employeeCode: employees.employeeCode,
       attendanceCode: employees.attendanceCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       departmentId: employees.departmentId,
       departmentName: departments.name,
       branchId: employees.branchId,
@@ -179,8 +176,7 @@ export async function findByEmployeeAndMonthPrefix(
       employeeId: attendanceRecords.employeeId,
       employeeCode: employees.employeeCode,
       attendanceCode: employees.attendanceCode,
-      firstName: employees.firstName,
-      lastName: employees.lastName,
+      fullName: employees.fullName,
       departmentId: employees.departmentId,
       departmentName: departments.name,
       branchId: employees.branchId,

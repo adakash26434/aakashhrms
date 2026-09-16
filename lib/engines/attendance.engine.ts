@@ -147,25 +147,25 @@ export function filterAttendanceRecords(
   records: AttendanceRecord[],
   filter: AttendanceFilter
 ): AttendanceRecord[] {
-  const q = filter.search.trim().toLowerCase();
+  const q = (filter.search || "").trim().toLowerCase();
 
   return records.filter((r) => {
     if (q) {
-      const matchName = r.employeeName.toLowerCase().includes(q);
-      const matchCode = r.employeeCode.toLowerCase().includes(q);
-      const matchAttCode = r.attendanceCode.toLowerCase().includes(q);
+      const matchName = (r.employeeName || "").toLowerCase().includes(q);
+      const matchCode = (r.employeeCode || "").toLowerCase().includes(q);
+      const matchAttCode = (r.attendanceCode || "").toLowerCase().includes(q);
       if (!matchName && !matchCode && !matchAttCode) return false;
     }
 
-    if (filter.departmentId !== "all" && r.departmentId !== filter.departmentId) {
+    if (filter.departmentId && filter.departmentId !== "all" && r.departmentId !== filter.departmentId) {
       return false;
     }
 
-    if (filter.branchId !== "all" && r.branchId !== filter.branchId) {
+    if (filter.branchId && filter.branchId !== "all" && r.branchId !== filter.branchId) {
       return false;
     }
 
-    if (filter.status !== "all" && r.status !== filter.status) {
+    if (filter.status && filter.status !== "all" && r.status !== filter.status) {
       return false;
     }
 

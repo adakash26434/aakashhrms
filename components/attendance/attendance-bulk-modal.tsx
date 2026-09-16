@@ -9,7 +9,7 @@ interface AttendanceBulkModalProps {
   open: boolean;
   onClose: () => void;
   onSave: (date: string, items: AttendanceBulkItem[]) => void;
-  employees: { id: string; firstName: string; lastName: string; attendanceCode: string; departmentName: string }[];
+  employees: { id: string; fullName: string; attendanceCode: string; departmentName: string }[];
   selectedDate: string;
 }
 
@@ -75,21 +75,21 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
       <div className="flex flex-col h-[85vh] w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b pb-4">
           <div>
-            <h2 className="text-lg font-bold text-[#1b3a1f]">Daily Bulk Attendance Posting</h2>
+            <h2 className="text-lg font-bold text-payroll-navy">Daily Bulk Attendance Posting</h2>
             <p className="text-xs text-gray-500">Post attendance for all active employees simultaneously in one atomic batch.</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-gray-600">Target Date:</span>
             <input
               type="date"
-              className="rounded-lg border border-gray-300 p-1.5 text-xs font-semibold text-[#2e7d32]"
+              className="rounded-lg border border-gray-300 p-1.5 text-xs font-semibold text-payroll-primary"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2 py-3 bg-[#f6faf6] px-4 rounded-lg my-3 border border-[#d7e8d0]">
+        <div className="flex items-center gap-2 py-3 bg-payroll-cream px-4 rounded-lg my-3 border border-payroll-light">
           <span className="text-xs font-bold text-gray-600">Quick Mark All:</span>
           <Button size="sm" variant="outline" className="h-7 text-xs bg-emerald-50 text-emerald-700 border-emerald-300" onClick={() => setAllStatus("Present")}>
             <Check className="h-3 w-3 mr-1" /> All Present
@@ -107,7 +107,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
 
         <div className="flex-1 overflow-y-auto border rounded-xl">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-[#d7e8d0]/60 font-semibold text-gray-700 uppercase">
+            <thead className="sticky top-0 bg-payroll-light/60 font-semibold text-gray-700 uppercase">
               <tr>
                 <th className="p-3">Employee</th>
                 <th className="p-3">Department</th>
@@ -121,7 +121,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                 const item = items[e.id] || { status: "Present", workHours: 8, otHours: 0 };
                 return (
                   <tr key={e.id} className="hover:bg-gray-50">
-                    <td className="p-3 font-semibold text-[#1b3a1f]">{e.firstName} {e.lastName} <span className="font-mono text-[10px] text-gray-500">({e.attendanceCode})</span></td>
+                    <td className="p-3 font-semibold text-payroll-navy">{e.fullName} <span className="font-mono text-[10px] text-gray-500">({e.attendanceCode})</span></td>
                     <td className="p-3 text-gray-600">{e.departmentName}</td>
                     <td className="p-3">
                       <select
@@ -155,7 +155,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                     <td className="p-3">
                       <input
                         type="number"
-                        className="w-16 rounded border p-1 text-center font-mono text-[#2e7d32] font-bold"
+                        className="w-16 rounded border p-1 text-center font-mono text-payroll-primary font-bold"
                         value={item.otHours}
                         onChange={(ev) => updateEmp(e.id, { otHours: Number(ev.target.value) })}
                       />
@@ -181,7 +181,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
               }));
               onSave(date, payload);
             }}
-            className="bg-[#2e7d32] text-white hover:bg-[#1b3a1f]"
+            className="bg-payroll-primary text-white hover:bg-payroll-navy"
           >
             Post Bulk Attendance ({employees.length} Records)
           </Button>

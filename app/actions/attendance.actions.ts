@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { checkPermission } from '@/lib/auth/check-permission';
 import type { AttendanceFormData, AttendanceBulkItem, AttendanceFilter } from '@/lib/types/attendance';
 
-export async function getAttendanceDataAction(filter: AttendanceFilter) {
+export async function getAttendanceDataAction(filter?: Partial<AttendanceFilter>) {
   await ensureTenantContext();
   try {
     await checkPermission('VIEW', 'ATTENDANCE');

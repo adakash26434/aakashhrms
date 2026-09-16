@@ -10,7 +10,7 @@ interface AttendanceFormModalProps {
   onClose: () => void;
   onSave: (data: AttendanceFormData) => void;
   initialData: AttendanceRecord | null;
-  employees: { id: string; firstName: string; lastName: string; attendanceCode: string }[];
+  employees: { id: string; fullName: string; attendanceCode: string }[];
   selectedDate: string;
 }
 
@@ -93,7 +93,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
-        <h2 className="text-lg font-bold text-[#1b3a1f]">
+        <h2 className="text-lg font-bold text-payroll-navy">
           {initialData ? "Edit Daily Punch Record" : "Log Daily Attendance Punch"}
         </h2>
 
@@ -102,12 +102,12 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
             <label className="block font-medium text-gray-700">Employee *</label>
             <select
               disabled={!!initialData}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-[#2e7d32] focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
             >
               {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.attendanceCode})</option>
+                <option key={e.id} value={e.id}>{e.fullName} ({e.attendanceCode})</option>
               ))}
             </select>
           </div>
@@ -117,7 +117,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               <label className="block font-medium text-gray-700">Date *</label>
               <input
                 type="date"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
@@ -125,7 +125,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
             <div>
               <label className="block font-medium text-gray-700">Status *</label>
               <select
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={status}
                 onChange={(e) => {
                   const s = e.target.value as AttendanceStatus;
@@ -150,7 +150,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               <input
                 type="text"
                 placeholder="e.g. 09:05 AM"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={inTime}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -164,7 +164,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               <input
                 type="text"
                 placeholder="e.g. 05:15 PM"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={outTime}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -181,7 +181,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               <input
                 type="number"
                 step="0.5"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={workHours}
                 onChange={(e) => setWorkHours(Number(e.target.value))}
               />
@@ -191,7 +191,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               <input
                 type="number"
                 step="0.5"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={otOffice}
                 onChange={(e) => setOtOffice(Number(e.target.value))}
               />
@@ -201,7 +201,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               <input
                 type="number"
                 step="0.5"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:border-[#2e7d32] focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 value={otOff}
                 onChange={(e) => setOtOff(Number(e.target.value))}
               />
@@ -214,7 +214,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
               id="isLateCheck"
               checked={isLate}
               onChange={(e) => setIsLate(e.target.checked)}
-              className="rounded border-gray-300 text-[#2e7d32] focus:ring-[#2e7d32]"
+              className="rounded border-gray-300 text-payroll-primary focus:ring-payroll-primary"
             />
             <label htmlFor="isLateCheck" className="text-xs font-medium text-gray-700 cursor-pointer">
               Flag as Late Arrival (exceeded 40-min grace window)
@@ -225,7 +225,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
             <label className="block font-medium text-gray-700">Remarks</label>
             <textarea
               rows={2}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-xs focus:border-[#2e7d32] focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               placeholder="Reason for manual override..."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
@@ -250,7 +250,7 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
                 remarks,
               });
             }}
-            className="bg-[#2e7d32] text-white hover:bg-[#1b3a1f]"
+            className="bg-payroll-primary text-white hover:bg-payroll-navy"
           >
             Save Punch
           </Button>

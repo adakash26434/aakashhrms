@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import type { AttendanceData, AttendanceRecord, AttendanceFilter, AttendanceFormData, AttendanceBulkItem } from "@/lib/types/attendance";
+import { filterAttendanceRecords } from "@/lib/engines/attendance.engine";
 import dynamic from "next/dynamic";
 import { AttendanceKPIsGrid } from "./attendance-kpi-cards";
 import { AttendanceFilters } from "./attendance-filters";
@@ -57,6 +58,7 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
     isLateOnly: false,
   });
   const [activeTab, setActiveTab] = useState<AttendanceTab>("all");
+  const [isLoading, setIsLoading] = useState(false);
   
   // Modals state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -85,13 +87,67 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
     }
   }
 
-  // Reload data from server action
-  async function refreshData(newFilter?: AttendanceFilter) {
-    const res = await getAttendanceDataAction(newFilter || filter);
-    if (res.success && res.data) {
-      setData(res.data);
+  // Reload full data for a given date (defaults to current filter date)
+  async function refreshData(targetDate?: string) {
+    const dateToFetch = targetDate || filter.date;
+    setIsLoading(true);
+    try {
+      const res = await getAttendanceDataAction({ date: dateToFetch });
+      if (res.success && res.data) {
+        setData(res.data);
+      } else if (res.error) {
+        showBanner(res.error, "info");
+      }
+    } finally {
+      setIsLoading(false);
     }
   }
+
+  async function handleDateChange(newDate: string) {
+    setFilter((prev) => ({ ...prev, date: newDate }));
+    await refreshData(newDate);
+  }
+
+  function handleTabChange(nextTab: AttendanceTab) {
+    setActiveTab(nextTab);
+    if (nextTab !== "all" && filter.status !== "all") {
+      setFilter((prev) => ({ ...prev, status: "all" }));
+    }
+  }
+
+  function handleStatusChange(status: AttendanceFilter["status"]) {
+    setFilter((prev) => ({ ...prev, status }));
+    if (status !== "all" && activeTab !== "all") {
+      setActiveTab("all");
+    }
+  }
+
+  function handleLateOnlyChange(isLateOnly: boolean) {
+    setFilter((prev) => ({ ...prev, isLateOnly }));
+    if (isLateOnly && activeTab !== "all" && activeTab !== "late") {
+      setActiveTab("all");
+    }
+  }
+
+  function handleResetFilters() {
+    setFilter((prev) => ({
+      ...prev,
+      search: "",
+      departmentId: "all",
+      branchId: "all",
+      status: "all",
+      isLateOnly: false,
+    }));
+    setActiveTab("all");
+  }
+
+  const hasActiveFilters =
+    Boolean(filter.search.trim()) ||
+    filter.departmentId !== "all" ||
+    filter.branchId !== "all" ||
+    filter.status !== "all" ||
+    filter.isLateOnly ||
+    activeTab !== "all";
 
   // Filter & tab derive
   const filteredRecords = useMemo(() => {
@@ -101,15 +157,7 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
     else if (activeTab === "late") list = list.filter((r) => r.isLate);
     else if (activeTab === "ot") list = list.filter((r) => r.otHoursOfficeDay > 0 || r.otHoursOffDay > 0);
 
-    const q = filter.search.trim().toLowerCase();
-    return list.filter((r) => {
-      if (q && !r.employeeName.toLowerCase().includes(q) && !r.attendanceCode.toLowerCase().includes(q)) return false;
-      if (filter.departmentId !== "all" && r.departmentId !== filter.departmentId) return false;
-      if (filter.branchId !== "all" && r.branchId !== filter.branchId) return false;
-      if (filter.status !== "all" && r.status !== filter.status) return false;
-      if (filter.isLateOnly && !r.isLate) return false;
-      return true;
-    });
+    return filterAttendanceRecords(list, filter);
   }, [data.records, filter, activeTab]);
 
   async function handleSavePunch(formData: AttendanceFormData) {
@@ -206,33 +254,29 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
         absentCount={data.records.filter((r) => r.status === "Absent" || r.status === "LWOP").length}
         lateCount={data.records.filter((r) => r.isLate).length}
         otCount={data.records.filter((r) => r.otHoursOfficeDay > 0 || r.otHoursOffDay > 0).length}
-        onChange={(next) => setActiveTab(next)}
+        onChange={handleTabChange}
       />
 
       <Card className="overflow-hidden">
         <div className="space-y-4 border-b border-payroll-light/80 p-5">
           <AttendanceFilters
             filter={filter}
-            setFilter={(newF) => {
-              setFilter(newF);
-              // Trigger reload when date changes
-              if (typeof newF === "function") {
-                setFilter((prev) => {
-                  const updated = newF(prev);
-                  if (updated.date !== prev.date) refreshData(updated);
-                  return updated;
-                });
-              } else {
-                if (newF.date !== filter.date) refreshData(newF);
-              }
-            }}
+            setFilter={setFilter}
             departments={data.departments}
             branches={data.branches}
+            onDateChange={handleDateChange}
+            onStatusChange={handleStatusChange}
+            onLateOnlyChange={handleLateOnlyChange}
+            onResetFilters={handleResetFilters}
+            hasActiveFilters={hasActiveFilters}
+            isLoading={isLoading}
           />
         </div>
 
         <AttendanceTable
           records={filteredRecords}
+          totalCountForDate={data.records.length}
+          onResetFilters={handleResetFilters}
           onSelect={(rec) => setSelectedRecord(rec)}
           onEdit={(rec) => {
             setEditingRecord(rec);

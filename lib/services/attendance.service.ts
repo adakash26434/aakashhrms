@@ -12,7 +12,6 @@ import {
   calculateWorkHours,
   evaluateLateArrival,
   calculateAttendanceKPIs,
-  filterAttendanceRecords,
 } from "@/lib/engines/attendance.engine";
 import type {
   AttendanceData,
@@ -25,8 +24,8 @@ import type {
 /**
  * Load initial page data for the selected date.
  */
-export async function getAttendanceData(filter: AttendanceFilter): Promise<AttendanceData> {
-  const targetDate = filter.date || new Date().toISOString().split("T")[0];
+export async function getAttendanceData(filter?: Partial<AttendanceFilter>): Promise<AttendanceData> {
+  const targetDate = filter?.date || new Date().toISOString().split("T")[0];
 
   const [records, employees, departments, branches, fiscalYears] = await Promise.all([
     repository.findAttendanceByDate(targetDate),
@@ -42,18 +41,16 @@ export async function getAttendanceData(filter: AttendanceFilter): Promise<Atten
     throw new Error("Active fiscal year not found. Please activate a fiscal year in settings.");
   }
 
-  // Filter records if needed
-  const filteredRecords = filterAttendanceRecords(records, filter);
-  const kpis = calculateAttendanceKPIs(filteredRecords, activeEmployees.length);
+  // Calculate KPIs across all recorded and unrecorded active employees for this date
+  const kpis = calculateAttendanceKPIs(records, activeEmployees.length);
 
   return {
-    records: filteredRecords,
+    records,
     employees: activeEmployees.map((e) => ({
       id: e.id,
       employeeCode: e.employeeCode,
       attendanceCode: e.attendanceCode || e.employeeCode,
-      firstName: e.firstName,
-      lastName: e.lastName,
+      fullName: e.fullName,
       departmentId: e.departmentId,
       departmentName: departments.find((d) => d.id === e.departmentId)?.name ?? "—",
       branchId: e.branchId,

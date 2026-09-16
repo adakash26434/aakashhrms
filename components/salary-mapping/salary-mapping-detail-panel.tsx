@@ -12,8 +12,7 @@ interface SalaryMappingDetailPanelProps {
     {
       id: string;
       employeeCode: string;
-      firstName: string;
-      lastName: string;
+      fullName: string;
       departmentName: string;
       branchName: string;
       designationName: string;
@@ -53,15 +52,15 @@ export function SalaryMappingDetailPanel({
         className="fixed inset-0 z-40"
         onClick={onClose}
       />
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-[#d7e8d0] bg-white shadow-lg">
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-payroll-light bg-white shadow-lg">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#d7e8d0] px-5 py-4">
-          <h2 className="text-sm font-semibold text-[#1b3a1f]">Salary Mapping Details</h2>
+        <div className="flex items-center justify-between border-b border-payroll-light px-5 py-4">
+          <h2 className="text-sm font-semibold text-payroll-navy">Salary Mapping Details</h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => onEdit(mapping.id)}
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/40 hover:text-[#2e7d32]"
+              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-payroll-light/40 hover:text-payroll-primary"
               title="Edit mapping"
             >
               <Pencil className="h-4 w-4" />
@@ -69,7 +68,7 @@ export function SalaryMappingDetailPanel({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1b3a1f]"
+              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-payroll-navy"
             >
               <X className="h-4 w-4" />
             </button>
@@ -83,13 +82,13 @@ export function SalaryMappingDetailPanel({
             <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
               <Users className="h-3 w-3" /> Employee
             </h3>
-            <div className="rounded-lg border border-[#d7e8d0]/80 bg-[#f6faf6] p-3">
-              <p className="text-sm font-semibold text-[#1b3a1f]">
-                {emp ? `${emp.firstName} ${emp.lastName}` : "Unknown"}
+            <div className="rounded-lg border border-payroll-light/80 bg-payroll-cream p-3">
+              <p className="text-sm font-semibold text-payroll-navy">
+                {emp ? emp.fullName : "Unknown"}
               </p>
               <p className="mt-0.5 text-xs text-gray-500">{emp?.employeeCode ?? ""}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-md bg-green-50 px-2 py-0.5 text-[11px] text-[#2e7d32]">
+                <span className="rounded-md bg-green-50 px-2 py-0.5 text-[11px] text-payroll-primary">
                   {emp?.departmentName ?? "—"}
                 </span>
                 <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
@@ -98,6 +97,15 @@ export function SalaryMappingDetailPanel({
                 <span className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] text-violet-600">
                   {emp?.designationName ?? "—"}
                 </span>
+                {mapping.salaryHeads.some((h) => h.payHeadName.toLowerCase().includes("ssf")) ? (
+                  <span className="rounded-md bg-emerald-100/70 font-medium px-2 py-0.5 text-[11px] text-emerald-800">
+                    SSF Enrolled (11% / 20% / 31%)
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">
+                    Non-SSF
+                  </span>
+                )}
               </div>
             </div>
           </section>
@@ -107,7 +115,7 @@ export function SalaryMappingDetailPanel({
             <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
               <DollarSign className="h-3 w-3" /> Base Salary
             </h3>
-            <div className="space-y-2 rounded-lg border border-[#d7e8d0]/80 bg-white p-3">
+            <div className="space-y-2 rounded-lg border border-payroll-light/80 bg-white p-3">
               <Row label="Basic Salary" value={formatNPR(mapping.basicSalary)} />
               <Row label={`Grade (${mapping.gradePercent}%)`} value={formatNPR(Math.round(mapping.basicSalary * mapping.gradePercent / 100))} />
               <Row label="Grade Amount" value={formatNPR(mapping.gradeAmount)} />
@@ -132,7 +140,7 @@ export function SalaryMappingDetailPanel({
                     )}
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-[#1b3a1f]">{head.payHeadName}</p>
+                      <p className="text-xs font-medium text-payroll-navy">{head.payHeadName}</p>
                       <p className="text-[10px] text-gray-500 capitalize">{head.payHeadType}</p>
                     </div>
                     <span
@@ -147,11 +155,11 @@ export function SalaryMappingDetailPanel({
                   </div>
                 ))}
               </div>
-              <div className="mt-2 flex items-center justify-between border-t border-[#d7e8d0]/60 pt-2">
+              <div className="mt-2 flex items-center justify-between border-t border-payroll-light/60 pt-2">
                 <span className="text-xs text-gray-500">Total Allowances</span>
                 <span className="text-xs font-semibold text-emerald-600 tabular-nums">+{formatNPR(totalAllowances)}</span>
               </div>
-              <div className="flex items-center justify-between border-t border-[#d7e8d0]/60 pt-1">
+              <div className="flex items-center justify-between border-t border-payroll-light/60 pt-1">
                 <span className="text-xs text-gray-500">Total Deductions</span>
                 <span className="text-xs font-semibold text-red-600 tabular-nums">-{formatNPR(totalDeductions)}</span>
               </div>
@@ -164,7 +172,7 @@ export function SalaryMappingDetailPanel({
               <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                 Loan Deductions
               </h3>
-              <div className="space-y-1.5 rounded-lg border border-[#d7e8d0]/80 bg-white p-3">
+              <div className="space-y-1.5 rounded-lg border border-payroll-light/80 bg-white p-3">
                 {mapping.loan1Deduction > 0 && (
                   <Row
                     label="Loan 1 Deduction"
@@ -184,10 +192,10 @@ export function SalaryMappingDetailPanel({
           )}
 
           {/* Net Amount */}
-          <section className="rounded-lg border border-[#2e7d32]/30 bg-[#2e7d32]/5 p-4">
+          <section className="rounded-lg border border-payroll-primary/30 bg-payroll-primary/5 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#1b3a1f]">Net Amount</span>
-              <span className="text-lg font-bold text-[#1b3a1f] tabular-nums">
+              <span className="text-sm font-semibold text-payroll-navy">Net Amount</span>
+              <span className="text-lg font-bold text-payroll-navy tabular-nums">
                 {formatNPR(mapping.netAmount)}
               </span>
             </div>
@@ -213,7 +221,7 @@ function Row({
   return (
     <div className="flex items-center justify-between">
       <span className="text-xs text-gray-600">{label}</span>
-      <span className={cn("text-xs font-medium tabular-nums text-[#1b3a1f]", valueClass)}>
+      <span className={cn("text-xs font-medium tabular-nums text-payroll-navy", valueClass)}>
         {value}
       </span>
     </div>
