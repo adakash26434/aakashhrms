@@ -83,8 +83,7 @@ export function EmployeeDetailPanel({
   const statusVariant = useMemo(() => {
     if (!employee) return "default" as const;
     if (employee.status === "Active") return "info" as const;
-    if (employee.status === "Terminated") return "danger" as const;
-    return "warning" as const;
+    return "neutral" as const;
   }, [employee]);
 
   const permFormatted = employee
@@ -141,12 +140,11 @@ export function EmployeeDetailPanel({
         <div className="space-y-6">
           <div className="flex items-center gap-3 rounded-xl border border-payroll-light/80 bg-payroll-cream/50 p-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-payroll-primary text-base font-bold text-white">
-              {employee.firstName[0]}
-              {employee.lastName[0]}
+              {employee.fullName ? employee.fullName.slice(0, 2).toUpperCase() : "EM"}
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="text-lg font-semibold text-payroll-navy">
-                {employee.firstName} {employee.lastName}
+                {employee.fullName}
               </h3>
               <p className="font-mono text-xs text-gray-500">
                 {employee.employeeCode}
@@ -154,7 +152,9 @@ export function EmployeeDetailPanel({
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Badge variant={statusVariant}>{employee.status}</Badge>
                 <Badge variant="info">{employee.category}</Badge>
-                <Badge variant="default">{employee.salaryGrade}</Badge>
+                {employee.isSupervisor && (
+                  <Badge variant="success">Supervisor</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -165,7 +165,7 @@ export function EmployeeDetailPanel({
               <Field label="Employee Code" value={employee.employeeCode} />
               <Field
                 label="Full Name"
-                value={`${employee.firstName} ${employee.lastName}`}
+                value={employee.fullName}
               />
               <Field label="Gender" value={employee.gender} />
               <Field
@@ -187,6 +187,7 @@ export function EmployeeDetailPanel({
               <Field label="Designation" value={designationName} />
               <Field label="Shreni" value={employee.shreni || "—"} />
               <Field label="Branch" value={branchName} />
+              <Field label="Is Supervisor" value={employee.isSupervisor ? "Yes" : "No"} />
               <Field label="Supervisor" value={supervisorName} />
               <Field
                 label="Joining Date"
@@ -203,19 +204,8 @@ export function EmployeeDetailPanel({
                 }
               />
               <Field
-                label="Retirement Date (Projected)"
-                value={
-                  employee.retirementDateProjected ? (
-                    <BSDateDisplay date={new Date(employee.retirementDateProjected)} />
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-              <Field label="Salary Grade" value={employee.salaryGrade} />
-              <Field
                 label="Grade Amount"
-                value={`NPR ${employee.gradeAmount.toLocaleString()}`}
+                value={employee.gradeAmount ? `NPR ${Number(employee.gradeAmount).toLocaleString("en-IN")}` : "—"}
               />
             </FieldGrid>
           </DetailSection>
@@ -270,7 +260,7 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
-          {(employee.status === "Terminated" || employee.terminationDate || employee.terminationType) && (
+          {(employee.status === "Inactive" || employee.terminationDate || employee.terminationType) && (
             <DetailSection title="Termination / Retirement Information" icon={AlertTriangle}>
               <FieldGrid>
                 <Field

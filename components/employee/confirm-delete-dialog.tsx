@@ -43,12 +43,12 @@ export function ConfirmDeleteEmployeeDialog({
     >
       <div className="space-y-4">
         <div className="flex items-center gap-3 rounded-lg border border-red-100 bg-red-50/60 p-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#2e7d32]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-payroll-primary">
             <User className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-[#1b3a1f]">
-              {employee ? `${employee.firstName} ${employee.lastName}` : "—"}
+            <p className="truncate font-semibold text-payroll-navy">
+              {employee ? employee.fullName : "—"}
             </p>
             <p className="mt-0.5 font-mono text-xs text-gray-500">
               {employee?.employeeCode ?? "—"}
@@ -58,7 +58,7 @@ export function ConfirmDeleteEmployeeDialog({
 
         <p className="text-sm text-gray-600">
           {employee
-            ? `Are you sure you want to permanently delete ${employee.firstName} ${employee.lastName}? Historical payroll records may be affected.`
+            ? `Are you sure you want to permanently delete ${employee.fullName}? Historical payroll records may be affected.`
             : "This employee no longer exists."}
         </p>
 

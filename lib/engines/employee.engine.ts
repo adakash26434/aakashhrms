@@ -47,8 +47,7 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     // 0: General Information
     if (!data.attendanceCode?.trim()) errors.attendanceCode = "Attendance code is required";
     if (!data.employeeCode?.trim()) errors.employeeCode = "Employee code is required";
-    if (!data.firstName?.trim()) errors.firstName = "First name is required";
-    if (!data.lastName?.trim()) errors.lastName = "Last name is required";
+    if (!data.fullName?.trim()) errors.fullName = "Full name is required";
 
     if (!data.dateOfBirth || !data.dateOfBirth.trim()) {
       errors.dateOfBirth = "Date of birth is required";
@@ -81,7 +80,6 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     if (!data.branchId?.trim()) errors.branchId = "Branch is required";
     if (!data.designationId?.trim()) errors.designationId = "Designation is required";
     if (!data.shreni?.trim()) errors.shreni = "Shreni is required";
-    if (!data.salaryGrade?.trim()) errors.salaryGrade = "Salary grade is required";
     if (data.gradeAmount === undefined || data.gradeAmount === null || Number(data.gradeAmount) < 0 || String(data.gradeAmount).trim() === "") {
       errors.gradeAmount = "Grade amount is required";
     }
@@ -122,33 +120,6 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
           joinDate.setHours(0, 0, 0, 0);
           if (confDate < joinDate) {
             errors.confirmationDate = "Confirmation date cannot be before joining date";
-          }
-        }
-      }
-    }
-
-    if (data.retirementDateProjected && data.retirementDateProjected.trim()) {
-      const retDate = parseLocalDateParts(data.retirementDateProjected);
-      if (!retDate) {
-        errors.retirementDateProjected = "Invalid retirement date";
-      } else {
-        retDate.setHours(0, 0, 0, 0);
-        if (data.joiningDate) {
-          const joinDate = parseLocalDateParts(data.joiningDate);
-          if (joinDate) {
-            joinDate.setHours(0, 0, 0, 0);
-            if (retDate <= joinDate) {
-              errors.retirementDateProjected = "Projected retirement date must be after joining date";
-            }
-          }
-        }
-        if (data.confirmationDate && data.confirmationDate.trim()) {
-          const confDate = parseLocalDateParts(data.confirmationDate);
-          if (confDate) {
-            confDate.setHours(0, 0, 0, 0);
-            if (retDate <= confDate) {
-              errors.retirementDateProjected = "Projected retirement date must be after confirmation date";
-            }
           }
         }
       }
@@ -267,7 +238,7 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     if (!data.bankBranch?.trim()) errors.bankBranch = "Bank branch is required";
     if (!data.bankAccountNumber?.trim()) errors.bankAccountNumber = "Bank account number is required";
 
-    const isTerminated = data.status === "Terminated";
+    const isInactive = data.status === "Inactive";
     const hasTerminationDetails = Boolean(
       data.terminationDate?.trim() ||
       data.informedDate?.trim() ||
@@ -275,14 +246,14 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
       data.terminationReason?.trim()
     );
 
-    if (isTerminated || hasTerminationDetails) {
-      if (isTerminated && !data.terminationDate?.trim()) {
-        errors.terminationDate = "Termination/Retirement date is required for terminated employees";
+    if (isInactive || hasTerminationDetails) {
+      if (isInactive && !data.terminationDate?.trim()) {
+        errors.terminationDate = "Termination/Exit date is required for inactive employees";
       }
-      if (isTerminated && !data.terminationType) {
+      if (isInactive && !data.terminationType) {
         errors.terminationType = "Termination type is required";
       }
-      if (isTerminated && !data.terminationReason?.trim()) {
+      if (isInactive && !data.terminationReason?.trim()) {
         errors.terminationReason = "Termination reason is required";
       }
 
@@ -335,11 +306,14 @@ export function validateEmployee(data: EmployeeFormData): EmployeeValidationErro
 }
 
 export function calculateEmployeeKPIs(employees: Employee[], departmentsCount: number): EmployeeKPIs {
+  const active = employees.filter((e) => e.status === "Active").length;
+  const inactive = employees.filter((e) => (e.status as any) === "Inactive" || (e.status as any) === "Terminated").length;
   return {
     total: employees.length,
-    active: employees.filter((e) => e.status === "Active").length,
-    onLeave: employees.filter((e) => e.status === "On Leave").length,
-    terminated: employees.filter((e) => e.status === "Terminated").length,
+    active,
+    inactive,
+    onLeave: employees.filter((e) => (e.status as any) === "On Leave").length,
+    terminated: inactive,
     departmentsCount,
   };
 }

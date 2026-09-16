@@ -2,7 +2,7 @@ export interface NepalBank {
   id: string;
   name: string;
   shortName: string;
-  category: "Class A - Commercial Bank" | "Class B - Development Bank" | "Class C - Finance Company" | "Central / Infrastructure Bank";
+  category: "Class A - Commercial Bank" | "Class B - Development Bank" | "Central / Infrastructure Bank";
   swiftCode?: string;
   code?: string;
 }
@@ -47,21 +47,6 @@ export const NEPAL_BANKS: NepalBank[] = [
   { id: "green", name: "Green Development Bank Limited", shortName: "Green Development Bank", category: "Class B - Development Bank" },
   { id: "sindhu", name: "Sindhu Bikash Bank Limited", shortName: "Sindhu Bikash Bank", category: "Class B - Development Bank" },
   { id: "salapa", name: "Salapa Bikas Bank Limited", shortName: "Salapa Bikas Bank", category: "Class B - Development Bank" },
-
-  // ---------------------------------------------------------------------------
-  // CLASS 'C' FINANCE COMPANIES
-  // ---------------------------------------------------------------------------
-  { id: "manjushree", name: "Manjushree Finance Limited", shortName: "Manjushree Finance", category: "Class C - Finance Company" },
-  { id: "icfc", name: "ICFC Finance Limited", shortName: "ICFC Finance", category: "Class C - Finance Company" },
-  { id: "goodwill", name: "Goodwill Finance Limited", shortName: "Goodwill Finance", category: "Class C - Finance Company" },
-  { id: "pokhara", name: "Pokhara Finance Limited", shortName: "Pokhara Finance", category: "Class C - Finance Company" },
-  { id: "reliance", name: "Reliance Finance Limited", shortName: "Reliance Finance", category: "Class C - Finance Company" },
-  { id: "gurkhas", name: "Gurkhas Finance Limited", shortName: "Gurkhas Finance", category: "Class C - Finance Company" },
-  { id: "janaki", name: "Janaki Finance Limited", shortName: "Janaki Finance", category: "Class C - Finance Company" },
-  { id: "central", name: "Central Finance Limited", shortName: "Central Finance", category: "Class C - Finance Company" },
-  { id: "progressive", name: "Progressive Finance Limited", shortName: "Progressive Finance", category: "Class C - Finance Company" },
-  { id: "multipurpose", name: "Multipurpose Finance Limited", shortName: "Multipurpose Finance", category: "Class C - Finance Company" },
-  { id: "samriddhi", name: "Samriddhi Finance Company Limited", shortName: "Samriddhi Finance", category: "Class C - Finance Company" },
 
   // ---------------------------------------------------------------------------
   // SPECIALIZED & CENTRAL FINANCIAL INSTITUTIONS

@@ -55,9 +55,10 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
     designations: designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId })),
     employees: allEmployees.map((e) => ({
       id: e.id,
-      name: `${e.firstName} ${e.lastName}`,
+      name: e.fullName || `${(e as any).firstName || ''} ${(e as any).lastName || ''}`.trim(),
       employeeCode: e.employeeCode,
       attendanceCode: e.attendanceCode,
+      isSupervisor: e.isSupervisor,
     })),
     industryType: industryRow[0]?.value || "General",
   };
@@ -90,8 +91,7 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
   const employeeData: Partial<Employee> = {
     attendanceCode: formData.attendanceCode,
     employeeCode: formData.employeeCode,
-    firstName: formData.firstName,
-    lastName: formData.lastName,
+    fullName: formData.fullName,
     gender: formData.gender,
     dateOfBirth: new Date(formData.dateOfBirth),
     taxStatus: formData.taxStatus,
@@ -102,13 +102,10 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
     designationId: formData.designationId,
     branchId: formData.branchId,
     supervisorId: formData.supervisorId || null,
+    isSupervisor: !!formData.isSupervisor,
     joiningDate: new Date(formData.joiningDate),
     confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate) : null,
-    retirementDateProjected: formData.retirementDateProjected
-      ? new Date(formData.retirementDateProjected)
-      : null,
     status: formData.status,
-    salaryGrade: formData.salaryGrade,
     gradePercent: formData.gradePercent,
     gradeAmount: formData.gradeAmount,
     citizenshipNo: formData.citizenshipNo,

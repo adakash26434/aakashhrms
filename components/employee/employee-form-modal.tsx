@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Building2,
   CreditCard,
@@ -27,19 +27,18 @@ interface EmployeeFormModalProps {
   open: boolean;
   onClose: () => void;
   editingId: string | null;
-  onSave: (formData: EmployeeFormData) => Promise<void>;
+  onSave: (formData: EmployeeFormData) => Promise<{ success: boolean; validationErrors?: EmployeeValidationErrors; error?: string } | void>;
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];
   designations: { id: string; name: string; departmentId: string }[];
-  employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string }[];
+  employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string; isSupervisor?: boolean }[];
   industryType?: string;
 }
 
 const EMPTY_FORM: EmployeeFormData = {
   attendanceCode: "",
   employeeCode: "",
-  firstName: "",
-  lastName: "",
+  fullName: "",
   gender: "Male",
   dateOfBirth: "",
   taxStatus: "Normal Single",
@@ -49,12 +48,11 @@ const EMPTY_FORM: EmployeeFormData = {
   departmentId: "",
   designationId: "",
   branchId: "",
+  isSupervisor: false,
   supervisorId: "",
   joiningDate: "",
   confirmationDate: "",
-  retirementDateProjected: "",
   status: "Active",
-  salaryGrade: "",
   gradePercent: 100,
   gradeAmount: 0,
   citizenshipNo: "",
@@ -116,8 +114,7 @@ function buildFormFromEmployee(emp: Employee): EmployeeFormData {
   return {
     attendanceCode: emp.attendanceCode,
     employeeCode: emp.employeeCode,
-    firstName: emp.firstName,
-    lastName: emp.lastName,
+    fullName: emp.fullName,
     gender: emp.gender,
     dateOfBirth: toDateInputValue(emp.dateOfBirth),
     taxStatus: emp.taxStatus,
@@ -127,12 +124,11 @@ function buildFormFromEmployee(emp: Employee): EmployeeFormData {
     departmentId: emp.departmentId,
     designationId: emp.designationId,
     branchId: emp.branchId,
+    isSupervisor: emp.isSupervisor || false,
     supervisorId: emp.supervisorId || "",
     joiningDate: toDateInputValue(emp.joiningDate),
     confirmationDate: toDateInputValue(emp.confirmationDate),
-    retirementDateProjected: toDateInputValue(emp.retirementDateProjected),
     status: emp.status,
-    salaryGrade: emp.salaryGrade,
     gradePercent: emp.gradePercent,
     gradeAmount: emp.gradeAmount,
     citizenshipNo: emp.citizenshipNo,
@@ -185,89 +181,125 @@ export function EmployeeFormModal({
   const [editingName, setEditingName] = useState("");
   const [formData, setFormData] = useState<EmployeeFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<EmployeeValidationErrors>({});
+  const [hasDraft, setHasDraft] = useState(false);
   const toast = useToast();
 
-  const dialogKey = editingId ? `edit-${editingId}` : "new";
+  const initializedRef = useRef<string | null>(null);
 
+  // Initialize form state once per open session without resetting on re-renders
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      initializedRef.current = null;
+      return;
+    }
+
+    const currentKey = editingId ? `edit-${editingId}` : "new";
+    if (initializedRef.current === currentKey) {
+      return;
+    }
+    initializedRef.current = currentKey;
 
     if (editingId) {
       async function loadEmp() {
         const result = await getEmployeeByIdAction(editingId!);
         if (result.success && result.data) {
-          setEditingName(`${result.data.firstName} ${result.data.lastName}`);
+          setEditingName(result.data.fullName);
           setFormData(buildFormFromEmployee(result.data));
         }
       }
       loadEmp();
       setErrors({});
-    } else {
-      const existingEmpCodes = employees.map((e) => e.employeeCode || "").filter(Boolean);
-      const existingAtdCodes = employees.map((e) => e.attendanceCode || "").filter(Boolean);
-      const nextEmpCode = getNextEmployeeCode(existingEmpCodes);
-      const nextAtdCode = getNextAttendanceCode(existingAtdCodes, "ATD-");
-
-      setFormData({
-        ...EMPTY_FORM,
-        employeeCode: nextEmpCode,
-        attendanceCode: nextAtdCode,
-      });
-      setEditingName("");
       setActiveTab(0);
-      setErrors({});
-    }
-  }, [open, editingId, employees]);
+      setHasDraft(false);
+    } else {
+      // Check if a saved in-progress draft exists in sessionStorage
+      let restoredFromDraft = false;
+      if (typeof window !== "undefined") {
+        const savedDraft = sessionStorage.getItem("payroll_employee_new_draft");
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            setFormData(parsed);
+            setEditingName("");
+            setActiveTab(0);
+            setErrors({});
+            setHasDraft(true);
+            restoredFromDraft = true;
+          } catch {
+            sessionStorage.removeItem("payroll_employee_new_draft");
+          }
+        }
+      }
 
-  const validateCurrentTab = (tabIdx: number): boolean => {
-    const tabErrors = validateEmployeeTab(formData, tabIdx);
-    if (Object.keys(tabErrors).length > 0) {
-      setErrors(tabErrors);
-      const firstErrMsg = Object.values(tabErrors)[0];
-      toast.error(firstErrMsg || `Please complete all required fields in ${TABS[tabIdx].label}`);
-      return false;
-    }
-    setErrors({});
-    return true;
-  };
+      if (!restoredFromDraft) {
+        const existingEmpCodes = employees.map((e) => e.employeeCode || "").filter(Boolean);
+        const existingAtdCodes = employees.map((e) => e.attendanceCode || "").filter(Boolean);
+        const nextEmpCode = getNextEmployeeCode(existingEmpCodes);
+        const nextAtdCode = getNextAttendanceCode(existingAtdCodes, "ATD-");
 
-  const handleTabClick = (targetIdx: number) => {
-    if (targetIdx === activeTab) return;
-    
-    // Going backward is always permitted
-    if (targetIdx < activeTab) {
-      setErrors({});
-      setActiveTab(targetIdx);
-      return;
-    }
-
-    // If jumping forward, validate each intermediate tab
-    for (let i = activeTab; i < targetIdx; i++) {
-      const tErrors = validateEmployeeTab(formData, i);
-      if (Object.keys(tErrors).length > 0) {
-        setErrors(tErrors);
-        setActiveTab(i);
-        const firstErrMsg = Object.values(tErrors)[0];
-        toast.error(firstErrMsg || `Please complete the required fields in ${TABS[i].label} before proceeding.`);
-        return;
+        setFormData({
+          ...EMPTY_FORM,
+          employeeCode: nextEmpCode,
+          attendanceCode: nextAtdCode,
+        });
+        setEditingName("");
+        setActiveTab(0);
+        setErrors({});
+        setHasDraft(false);
       }
     }
+  }, [open, editingId]); // Only depends on modal visibility and target employee ID
 
+  // Auto-save in-progress new employee form to sessionStorage to protect against accidental loss
+  useEffect(() => {
+    if (!open || editingId) return;
+    const hasMeaningfulData = !!(
+      formData.fullName?.trim() ||
+      formData.mobileNo?.trim() ||
+      formData.citizenshipNo?.trim() ||
+      formData.departmentId ||
+      formData.designationId ||
+      formData.branchId ||
+      formData.joiningDate
+    );
+    if (hasMeaningfulData && typeof window !== "undefined") {
+      sessionStorage.setItem("payroll_employee_new_draft", JSON.stringify(formData));
+      setHasDraft(true);
+    }
+  }, [formData, open, editingId]);
+
+  const handleDiscardDraft = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("payroll_employee_new_draft");
+    }
+    const existingEmpCodes = employees.map((e) => e.employeeCode || "").filter(Boolean);
+    const existingAtdCodes = employees.map((e) => e.attendanceCode || "").filter(Boolean);
+    setFormData({
+      ...EMPTY_FORM,
+      employeeCode: getNextEmployeeCode(existingEmpCodes),
+      attendanceCode: getNextAttendanceCode(existingAtdCodes, "ATD-"),
+    });
     setErrors({});
+    setActiveTab(0);
+    setHasDraft(false);
+    toast.info("In-progress draft cleared");
+  };
+
+  // Free Tab Navigation: Never block navigation between tabs
+  const handleTabClick = (targetIdx: number) => {
+    if (targetIdx === activeTab) return;
     setActiveTab(targetIdx);
   };
 
   const handleNext = () => {
-    if (validateCurrentTab(activeTab)) {
+    if (activeTab < TABS.length - 1) {
       setActiveTab((prev) => prev + 1);
-      setErrors({});
     }
   };
 
   const handleBack = () => {
     if (activeTab > 0) {
       setActiveTab((prev) => prev - 1);
-      setErrors({});
     }
   };
 
@@ -276,12 +308,13 @@ export function EmployeeFormModal({
     const allErrors = validateEmployee(formData);
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
-      // Auto-switch to the first tab that has an error
+      // Auto-switch to the first tab that has an error so the user can easily see and resolve it
       for (let i = 0; i < TABS.length; i++) {
         const tErrors = validateEmployeeTab(formData, i);
-        if (Object.keys(tErrors).length > 0) {
+        const matchingErrorKeys = Object.keys(tErrors).filter((k) => k in allErrors);
+        if (matchingErrorKeys.length > 0) {
           setActiveTab(i);
-          const firstMsg = Object.values(tErrors)[0];
+          const firstMsg = allErrors[matchingErrorKeys[0] as keyof EmployeeValidationErrors];
           toast.error(firstMsg || `Please resolve errors in ${TABS[i].label}`);
           return;
         }
@@ -291,7 +324,25 @@ export function EmployeeFormModal({
 
     setIsSaving(true);
     try {
-      await onSave(formData);
+      const res = await onSave(formData);
+      if (res && !res.success) {
+        if (res.validationErrors && Object.keys(res.validationErrors).length > 0) {
+          setErrors(res.validationErrors);
+          for (let i = 0; i < TABS.length; i++) {
+            const tErrors = validateEmployeeTab(formData, i);
+            if (Object.keys(tErrors).some((k) => k in res.validationErrors!)) {
+              setActiveTab(i);
+              break;
+            }
+          }
+        }
+      } else {
+        // Successful save: clear sessionStorage draft
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("payroll_employee_new_draft");
+        }
+        setHasDraft(false);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save employee";
       toast.error(msg);
@@ -300,15 +351,19 @@ export function EmployeeFormModal({
     }
   };
 
-  // Calculate per-tab validation and completion status (E1 & E2)
+  // Calculate per-tab validation and completion status dynamically
   const tabStatus = TABS.map((_, idx) => {
     const tabErrs = validateEmployeeTab(formData, idx);
-    const errCount = Object.keys(tabErrs).length;
     
+    // Count active errors for this tab from the current errors state
+    const tabErrorFields = Object.keys(errors).filter((field) => field in tabErrs);
+    const hasError = tabErrorFields.length > 0;
+    const errCount = tabErrorFields.length;
+
     // Check if required fields for tab are filled
     let isFilled = false;
     if (idx === 0) {
-      isFilled = !!(formData.firstName?.trim() && formData.lastName?.trim() && formData.attendanceCode?.trim() && formData.employeeCode?.trim() && formData.dateOfBirth);
+      isFilled = !!(formData.fullName?.trim() && formData.attendanceCode?.trim() && formData.employeeCode?.trim() && formData.dateOfBirth);
     } else if (idx === 1) {
       isFilled = !!(formData.departmentId && formData.designationId && formData.branchId && formData.joiningDate);
     } else if (idx === 2) {
@@ -319,18 +374,16 @@ export function EmployeeFormModal({
       isFilled = !!(formData.bankName?.trim() && formData.bankAccountNumber?.trim());
     }
 
-    const isComplete = errCount === 0 && isFilled;
-    const hasError = errCount > 0 && isFilled; // only show error if user attempted to fill
+    const isComplete = !hasError && isFilled;
 
     return { errCount, isComplete, hasError };
   });
 
-  const completedCount = tabStatus.filter(t => t.isComplete).length;
+  const completedCount = tabStatus.filter((t) => t.isComplete).length;
   const progressPercent = Math.round((completedCount / TABS.length) * 100);
 
   return (
     <Dialog
-      key={dialogKey}
       open={open}
       onClose={onClose}
       title={editingId ? "Edit Employee" : "Add New Employee"}
@@ -342,10 +395,21 @@ export function EmployeeFormModal({
       size="3xl"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <span className="text-[11px] text-payroll-primary font-semibold tracking-wide">
-            Section {activeTab + 1} of {TABS.length} · {TABS[activeTab].label}
-          </span>
           <div className="flex items-center gap-3">
+            <span className="text-[11px] text-payroll-primary font-semibold tracking-wide">
+              Section {activeTab + 1} of {TABS.length} · {TABS[activeTab].label}
+            </span>
+            {!editingId && hasDraft && (
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="text-[11px] text-gray-400 hover:text-red-600 underline transition-colors cursor-pointer"
+              >
+                Reset Draft
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -356,38 +420,23 @@ export function EmployeeFormModal({
               </Button>
             )}
 
-            {!editingId ? (
-              activeTab < 4 ? (
-                <Button type="button" onClick={handleNext}>
-                  Next Section
-                </Button>
-              ) : (
-                <DataSaveButton
-                  onClick={handleSave}
-                  isSaving={isSaving}
-                  label="Add Employee"
-                />
-              )
-            ) : (
-              <div className="flex items-center gap-2">
-                {activeTab < 4 && (
-                  <Button type="button" variant="outline" onClick={handleNext}>
-                    Next Section
-                  </Button>
-                )}
-                <DataSaveButton
-                  onClick={handleSave}
-                  isSaving={isSaving}
-                  label="Save Changes"
-                />
-              </div>
+            {activeTab < TABS.length - 1 && (
+              <Button type="button" variant="outline" onClick={handleNext}>
+                Next Section
+              </Button>
             )}
+
+            <DataSaveButton
+              onClick={handleSave}
+              isSaving={isSaving}
+              label={editingId ? "Save Changes" : "Add Employee"}
+            />
           </div>
         </div>
       }
     >
       <div className="space-y-3">
-        {/* Section Completion Status Pill & Progress Bar (E2) */}
+        {/* Section Completion Status Pill & Progress Bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500 font-medium">Form Completion</span>
@@ -398,13 +447,13 @@ export function EmployeeFormModal({
           </div>
           <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-600 transition-all duration-300 ease-out"
+              className="h-full rounded-full bg-linear-to-r from-emerald-500 to-green-600 transition-all duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
-        {/* Tab Navigation with Error & Completion Badges (E1 & E2) */}
+        {/* Tab Navigation with Error & Completion Badges */}
         <div className="flex gap-0 border-b border-payroll-light overflow-x-auto scrollbar-none">
           {TABS.map((tab, idx) => {
             const Icon = tab.icon;
@@ -426,14 +475,14 @@ export function EmployeeFormModal({
                 <Icon className="h-3.5 w-3.5" />
                 <span>{tab.label}</span>
 
-                {/* Persistent Error Badge (E1) */}
+                {/* Persistent Error Badge */}
                 {status.hasError && (
                   <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 shadow-sm animate-pulse">
                     {status.errCount}
                   </span>
                 )}
 
-                {/* Section Complete Checkmark (E2) */}
+                {/* Section Complete Checkmark */}
                 {!status.hasError && status.isComplete && (
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
                     ✓
@@ -454,6 +503,8 @@ export function EmployeeFormModal({
           employees={employees}
           industryType={industryType}
           errors={errors}
+          setErrors={setErrors}
+          editingId={editingId}
         />
       </div>
     </Dialog>

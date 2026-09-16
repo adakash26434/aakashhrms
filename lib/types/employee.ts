@@ -1,6 +1,6 @@
 import type { EmployeeCategory } from "./system-control";
 
-export type EmployeeStatus = "Active" | "On Leave" | "Terminated";
+export type EmployeeStatus = "Active" | "Inactive";
 /**
  * Tax status aligned with Nepal IRD tax slab categories.
  * These values MUST match the `category` field in `tax_rate_slabs` table.
@@ -15,8 +15,7 @@ export interface Employee {
   // General Info
   attendanceCode: string;
   employeeCode: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   gender: "Male" | "Female" | "Other";
   dateOfBirth: Date;
   taxStatus: TaxStatus;
@@ -29,11 +28,10 @@ export interface Employee {
   designationId: string;
   branchId: string;
   supervisorId: string | null;
+  isSupervisor: boolean;
   joiningDate: Date;
   confirmationDate: Date | null;
-  retirementDateProjected: Date | null;
   status: EmployeeStatus;
-  salaryGrade: string;
   gradePercent: number;
   gradeAmount: number;
 
@@ -85,8 +83,7 @@ export interface Employee {
 export interface EmployeeFormData {
   attendanceCode: string;
   employeeCode: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   gender: "Male" | "Female" | "Other";
   dateOfBirth: string; 
   taxStatus: TaxStatus;
@@ -98,11 +95,10 @@ export interface EmployeeFormData {
   designationId: string;
   branchId: string;
   supervisorId: string;
+  isSupervisor: boolean;
   joiningDate: string;
   confirmationDate: string;
-  retirementDateProjected: string;
   status: EmployeeStatus;
-  salaryGrade: string;
   gradePercent: number;
   gradeAmount: number;
 
@@ -152,16 +148,16 @@ export interface EmployeeFilter {
 export interface EmployeeKPIs {
   total: number;
   active: number;
-  onLeave: number;
-  terminated: number;
+  inactive: number;
+  onLeave?: number;
+  terminated?: number;
   departmentsCount: number;
 }
 
 export interface EmployeeValidationErrors {
   attendanceCode?: string;
   employeeCode?: string;
-  firstName?: string;
-  lastName?: string;
+  fullName?: string;
   gender?: string;
   dateOfBirth?: string;
   taxStatus?: string;
@@ -172,11 +168,10 @@ export interface EmployeeValidationErrors {
   branchId?: string;
   designationId?: string;
   supervisorId?: string;
+  isSupervisor?: string;
   joiningDate?: string;
   confirmationDate?: string;
-  retirementDateProjected?: string;
   status?: string;
-  salaryGrade?: string;
   gradePercent?: string;
   gradeAmount?: string;
   citizenshipNo?: string;

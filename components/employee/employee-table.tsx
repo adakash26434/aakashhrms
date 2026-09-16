@@ -59,7 +59,7 @@ export function EmployeeTable({
       const getValue = (emp: Employee) => {
         switch (sortKey) {
           case "name":
-            return `${emp.firstName} ${emp.lastName}`.toLowerCase();
+            return emp.fullName.toLowerCase();
           case "attendanceCode":
             return emp.attendanceCode;
           case "employeeCode":
@@ -162,7 +162,7 @@ export function EmployeeTable({
         lookups.designationNameById,
       );
       const branch = resolveBranchName(emp.branchId, lookups.branchNameById);
-      const name = `"${emp.firstName} ${emp.lastName}"`;
+      const name = `"${emp.fullName}"`;
       const row = [
         emp.employeeCode,
         emp.attendanceCode,
@@ -364,20 +364,28 @@ export function EmployeeTable({
                   <td className="px-4 py-3 align-middle">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-payroll-light/70 text-[11px] font-bold text-payroll-navy border border-payroll-light shadow-2xs">
-                        {emp.firstName[0]}
-                        {emp.lastName[0]}
+                        {emp.fullName ? emp.fullName.slice(0, 2).toUpperCase() : "EM"}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-payroll-navy truncate">
-                          {emp.firstName} {emp.lastName}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-payroll-navy truncate">
+                            {emp.fullName}
+                          </span>
+                          {emp.isSupervisor && (
+                            <span className="rounded-md bg-blue-50 px-1.5 py-0.2 text-[9px] font-bold text-blue-700 border border-blue-200">
+                              Supervisor
+                            </span>
+                          )}
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1">
                           <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
                             {emp.category}
                           </span>
-                          <span className="rounded-md bg-payroll-light/50 px-1.5 py-0.5 text-[10px] font-medium text-payroll-navy">
-                            {emp.salaryGrade}
-                          </span>
+                          {emp.gradeAmount > 0 && (
+                            <span className="rounded-md bg-payroll-light/50 px-1.5 py-0.5 text-[10px] font-medium text-payroll-navy font-mono">
+                              NPR {Number(emp.gradeAmount).toLocaleString("en-IN")}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -401,13 +409,7 @@ export function EmployeeTable({
                   </td>
                   <td className="px-4 py-3 align-middle">
                     <Badge
-                      variant={
-                        emp.status === "Active"
-                          ? "success"
-                          : emp.status === "Terminated"
-                            ? "danger"
-                            : "warning"
-                      }
+                      variant={emp.status === "Active" ? "success" : "neutral"}
                       size="sm"
                     >
                       {emp.status}
@@ -416,7 +418,7 @@ export function EmployeeTable({
                   <td className="px-4 py-3 align-middle">
                     <div className="flex items-center justify-end gap-1">
                       <ActionButton
-                        label={`View ${emp.firstName} ${emp.lastName}`}
+                        label={`View ${emp.fullName}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelect(emp.id);
@@ -425,7 +427,7 @@ export function EmployeeTable({
                         <Eye className="h-3.5 w-3.5" />
                       </ActionButton>
                       <ActionButton
-                        label={`Edit ${emp.firstName} ${emp.lastName}`}
+                        label={`Edit ${emp.fullName}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEdit(emp.id);
@@ -434,7 +436,7 @@ export function EmployeeTable({
                         <Pencil className="h-3.5 w-3.5" />
                       </ActionButton>
                       <ActionButton
-                        label={`Delete ${emp.firstName} ${emp.lastName}`}
+                        label={`Delete ${emp.fullName}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onDelete(emp.id);

@@ -1180,7 +1180,7 @@ export function serializeStructuredAddress(addr: StructuredAddress): string {
     district: addr.district.trim(),
     localLevel: addr.localLevel.trim(),
     wardNo: addr.wardNo.trim(),
-    tole: addr.tole.trim(),
+    tole: addr.tole || "",
     formatted: formatStructuredAddress(addr),
   });
 }

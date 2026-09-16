@@ -15,8 +15,7 @@ interface EmployeeFiltersProps {
 const STATUS_TABS: Array<{ value: EmployeeFilter["status"]; label: string }> = [
   { value: "all", label: "All" },
   { value: "Active", label: "Active" },
-  { value: "On Leave", label: "On Leave" },
-  { value: "Terminated", label: "Terminated" },
+  { value: "Inactive", label: "Inactive" },
 ];
 
 const CATEGORY_OPTIONS = [
@@ -46,14 +45,14 @@ export function EmployeeFilters({ filters, setFilters, branches, departments }: 
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-        <div className="relative flex-1">
+        <div className="relative flex-1 text-payroll-navy">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-payroll-navy/40" />
           <input
             type="search"
             placeholder="Search by name, employee code, email, PAN, citizenship..."
             value={filters.search}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="h-10 w-full rounded-xl border border-payroll-light bg-white py-2 pl-10 pr-4 text-xs sm:text-sm text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs transition-all"
+            className="h-10 w-full rounded-xl border border-payroll-light bg-white py-2 pl-10 pr-4 text-xs sm:text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs transition-all"
           />
         </div>
 

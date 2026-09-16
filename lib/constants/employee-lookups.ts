@@ -33,7 +33,7 @@ export function buildEmployeeLookups(
     employeeNameById.set(e.id, e.name);
   }
   for (const e of employees) {
-    employeeNameById.set(e.id, `${e.firstName} ${e.lastName}`);
+    employeeNameById.set(e.id, e.fullName);
   }
 
   return {

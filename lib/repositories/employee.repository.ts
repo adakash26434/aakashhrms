@@ -36,8 +36,7 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
     id: row.employees.id,
     employeeCode: row.employees.employeeCode,
     attendanceCode: row.employees.attendanceCode,
-    firstName: row.employees.firstName,
-    lastName: row.employees.lastName,
+    fullName: row.employees.fullName || `${(row.employees as any).firstName || ''} ${(row.employees as any).lastName || ''}`.trim(),
     gender: row.employees.gender as Employee["gender"],
     dateOfBirth: new Date(row.employees.dateOfBirth),
     taxStatus: row.employees.taxStatus as Employee["taxStatus"],
@@ -48,12 +47,11 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
     designationId: row.employees.designationId,
     branchId: row.employees.branchId,
     supervisorId: row.employees.supervisorId,
+    isSupervisor: !!row.employees.isSupervisor,
     joiningDate: new Date(row.employees.joiningDate),
     confirmationDate: row.employees.confirmationDate ? new Date(row.employees.confirmationDate) : null,
-    retirementDateProjected: row.employees.retirementDateProjected ? new Date(row.employees.retirementDateProjected) : null,
-    status: row.employees.status as EmployeeStatus,
+    status: (row.employees.status === "Terminated" ? "Inactive" : row.employees.status) as EmployeeStatus,
     
-    salaryGrade: row.employees.salaryGrade || '',
     gradePercent: row.employees.gradePercent || 0,
     gradeAmount: Number(row.employees.gradeAmount) || 0,
 
@@ -107,8 +105,7 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
   if (filter.search && filter.search.trim() !== "") {
     const term = `%${filter.search.trim()}%`;
     const searchCondition = or(
-      ilike(employees.firstName, term),
-      ilike(employees.lastName, term),
+      ilike(employees.fullName, term),
       ilike(employees.employeeCode, term),
       ilike(employees.attendanceCode, term)
     );
@@ -171,8 +168,7 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
     const empInsert = await tx.insert(employees).values({
       employeeCode: data.employeeCode ?? '',
       attendanceCode: data.attendanceCode ?? '',
-      firstName: data.firstName ?? '',
-      lastName: data.lastName ?? '',
+      fullName: data.fullName ?? '',
       gender: data.gender ?? 'Other',
       dateOfBirth: toDbDate(data.dateOfBirth) ?? new Date().toISOString().split('T')[0],
       taxStatus: data.taxStatus ?? 'Normal Single',
@@ -183,11 +179,10 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
       designationId: data.designationId ?? '',
       branchId: data.branchId ?? '',
       supervisorId: toSafeUuid(data.supervisorId),
+      isSupervisor: !!data.isSupervisor,
       joiningDate: toDbDate(data.joiningDate) ?? new Date().toISOString().split('T')[0],
       confirmationDate: toDbDate(data.confirmationDate),
-      retirementDateProjected: toDbDate(data.retirementDateProjected),
       status: data.status || 'Active',
-      salaryGrade: data.salaryGrade,
       gradePercent: data.gradePercent,
       gradeAmount: data.gradeAmount?.toString(),
     }).returning({ id: employees.id });
@@ -231,7 +226,7 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
       });
     }
 
-    if (data.status === 'Terminated') {
+    if (data.status === 'Inactive' || (data.status as any) === 'Terminated') {
       await tx.insert(employeeTermination).values({
         employeeId: newEmpId,
         informedDate: toDbDate(data.informedDate),
@@ -272,8 +267,7 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
     await tx.update(employees).set({
       employeeCode: data.employeeCode,
       attendanceCode: data.attendanceCode,
-      firstName: data.firstName,
-      lastName: data.lastName,
+      fullName: data.fullName,
       gender: data.gender,
       dateOfBirth: data.dateOfBirth ? toDbDate(data.dateOfBirth) ?? undefined : undefined,
       taxStatus: data.taxStatus,
@@ -284,11 +278,10 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
       designationId: data.designationId,
       branchId: data.branchId,
       supervisorId: toSafeUuid(data.supervisorId),
+      isSupervisor: data.isSupervisor !== undefined ? !!data.isSupervisor : undefined,
       joiningDate: data.joiningDate ? toDbDate(data.joiningDate) ?? undefined : undefined,
       confirmationDate: toDbDate(data.confirmationDate),
-      retirementDateProjected: toDbDate(data.retirementDateProjected),
       status: data.status,
-      salaryGrade: data.salaryGrade,
       gradePercent: data.gradePercent,
       gradeAmount: data.gradeAmount?.toString(),
       updatedAt: new Date(),
@@ -349,7 +342,7 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
        }
     }
 
-    if (data.status === 'Terminated') {
+    if (data.status === 'Inactive' || (data.status as any) === 'Terminated') {
        const existingTerm = await tx.select().from(employeeTermination).where(eq(employeeTermination.employeeId, id));
        if (existingTerm.length > 0) {
           await tx.update(employeeTermination).set({

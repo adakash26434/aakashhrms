@@ -3,7 +3,6 @@
 import React, { useMemo } from "react";
 import { EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { NepaliDatePicker } from "@/components/ui/nepali-date";
-import { RadioGroup } from "@/components/ui/radio-group";
 import { NumberInput } from "@/components/ui/number-input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { BankCombobox } from "@/components/ui/bank-combobox";
@@ -33,9 +32,11 @@ interface EmployeeFormTabsProps {
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];
   designations: { id: string; name: string; departmentId: string }[];
-  employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string }[];
+  employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string; isSupervisor?: boolean }[];
   industryType?: string;
   errors?: EmployeeValidationErrors;
+  setErrors?: React.Dispatch<React.SetStateAction<EmployeeValidationErrors>>;
+  editingId?: string | null;
 }
 
 export function EmployeeFormTabs({
@@ -48,15 +49,24 @@ export function EmployeeFormTabs({
   employees,
   industryType,
   errors,
+  setErrors,
+  editingId,
 }: EmployeeFormTabsProps) {
   const update = (field: keyof EmployeeFormData, val: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: val }));
+    if (errors && errors[field as keyof EmployeeValidationErrors] && setErrors) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field as keyof EmployeeValidationErrors];
+        return next;
+      });
+    }
   };
 
   const allDistricts = useMemo(() => getAllDistricts(), []);
 
   const inputClass =
-    "w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]";
+    "w-full rounded-lg border border-payroll-light bg-white px-3 py-2 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary";
 
   const labelClass = (hasError: boolean) =>
     cn("text-xs font-medium transition-colors", hasError ? "text-red-500 font-semibold" : "text-gray-600");
@@ -184,42 +194,29 @@ export function EmployeeFormTabs({
             <p className="text-[11px] font-medium text-red-500">{errors.attendanceCode}</p>
           )}
         </div>
-        <div className="space-y-1">
-          <label className={labelClass(!!errors?.firstName)}>First Name *</label>
+        <div className="space-y-1 sm:col-span-2">
+          <label className={labelClass(!!errors?.fullName)}>Full Name *</label>
           <input
-            value={formData.firstName}
-            onChange={(e) => update("firstName", e.target.value)}
-            className={fieldInputClass(!!errors?.firstName)}
-            placeholder="e.g. Pratima"
+            value={formData.fullName}
+            onChange={(e) => update("fullName", e.target.value)}
+            className={fieldInputClass(!!errors?.fullName)}
+            placeholder="e.g. Pratima Shrestha"
           />
-          {errors?.firstName && (
-            <p className="text-[11px] font-medium text-red-500">{errors.firstName}</p>
+          {errors?.fullName && (
+            <p className="text-[11px] font-medium text-red-500">{errors.fullName}</p>
           )}
         </div>
         <div className="space-y-1">
-          <label className={labelClass(!!errors?.lastName)}>Last Name *</label>
-          <input
-            value={formData.lastName}
-            onChange={(e) => update("lastName", e.target.value)}
-            className={fieldInputClass(!!errors?.lastName)}
-            placeholder="e.g. Shrestha"
-          />
-          {errors?.lastName && (
-            <p className="text-[11px] font-medium text-red-500">{errors.lastName}</p>
-          )}
-        </div>
-        <div className="space-y-2">
           <label className="text-xs font-medium text-gray-600">Gender</label>
-          <RadioGroup
-            name="gender"
+          <select
             value={formData.gender}
-            onChange={(v) => update("gender", v)}
-            options={[
-              { label: "Male", value: "Male" },
-              { label: "Female", value: "Female" },
-              { label: "Other", value: "Other" },
-            ]}
-          />
+            onChange={(e) => update("gender", e.target.value)}
+            className={inputClass}
+          >
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
         <div className="space-y-1">
           <label className={labelClass(!!errors?.dateOfBirth)}>Date of Birth * (Minimum 18 Years)</label>
@@ -227,7 +224,7 @@ export function EmployeeFormTabs({
             value={parseLocalDateParts(formData.dateOfBirth)}
             onChange={(d) => update("dateOfBirth", formatLocalDate(d))}
             label=""
-            className={errors?.dateOfBirth ? "border-red-500 focus:border-red-500" : ""}
+            className={errors?.dateOfBirth ? "border-red-500 focus:ring-red-500" : ""}
           />
           {errors?.dateOfBirth && (
             <p className="text-[11px] font-medium text-red-500">{errors.dateOfBirth}</p>
@@ -359,19 +356,42 @@ export function EmployeeFormTabs({
           )}
         </div>
 
+        {/* Supervisor Checkbox */}
+        <div className="flex items-center gap-3 sm:col-span-2 p-3 bg-payroll-cream/60 rounded-lg border border-payroll-light/80">
+          <input
+            type="checkbox"
+            id="isSupervisorCheckbox"
+            checked={formData.isSupervisor}
+            onChange={(e) => update("isSupervisor", e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
+          />
+          <label htmlFor="isSupervisorCheckbox" className="text-xs font-semibold text-payroll-navy cursor-pointer select-none">
+            Is this employee a Supervisor?
+            <span className="block text-[11px] font-normal text-gray-500 mt-0.5">
+              If checked, this employee will appear as an eligible choice in the Supervisor dropdown for other employees.
+            </span>
+          </label>
+        </div>
+
         <div className="space-y-1">
           <label className="mb-1.5 block text-xs font-medium text-gray-600">Supervisor</label>
           <select
             value={formData.supervisorId || ""}
             onChange={(e) => update("supervisorId", e.target.value)}
-            className="h-9 w-full rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+            className="h-9 w-full rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary"
           >
             <option value="">-- No Supervisor --</option>
-            {(employees || []).map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name}
-              </option>
-            ))}
+            {(employees || [])
+              .filter(
+                (emp) =>
+                  (!editingId || emp.id !== editingId) &&
+                  (emp.isSupervisor || emp.id === formData.supervisorId)
+              )
+              .map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ""}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -381,7 +401,7 @@ export function EmployeeFormTabs({
             value={parseLocalDateParts(formData.joiningDate)}
             onChange={(d) => update("joiningDate", formatLocalDate(d))}
             label=""
-            className={errors?.joiningDate ? "border-red-500 focus:border-red-500" : ""}
+            className={errors?.joiningDate ? "border-red-500 focus:ring-red-500" : ""}
           />
           {errors?.joiningDate && (
             <p className="text-[11px] font-medium text-red-500">{errors.joiningDate}</p>
@@ -393,67 +413,22 @@ export function EmployeeFormTabs({
             value={parseLocalDateParts(formData.confirmationDate)}
             onChange={(d) => update("confirmationDate", formatLocalDate(d))}
             label=""
-            className={errors?.confirmationDate ? "border-red-500 focus:border-red-500" : ""}
+            className={errors?.confirmationDate ? "border-red-500 focus:ring-red-500" : ""}
           />
           {errors?.confirmationDate && (
             <p className="text-[11px] font-medium text-red-500">{errors.confirmationDate}</p>
           )}
         </div>
         <div className="space-y-1">
-          <label className={labelClass(!!errors?.retirementDateProjected)}>Retirement Date (Projected)</label>
-          <NepaliDatePicker
-            value={parseLocalDateParts(formData.retirementDateProjected)}
-            onChange={(d) => update("retirementDateProjected", formatLocalDate(d))}
-            label=""
-            className={errors?.retirementDateProjected ? "border-red-500 focus:border-red-500" : ""}
-          />
-          {errors?.retirementDateProjected && (
-            <p className="text-[11px] font-medium text-red-500">{errors.retirementDateProjected}</p>
-          )}
-        </div>
-        <div className="space-y-1">
           <label className="text-xs font-medium text-gray-600">Status</label>
           <select
             value={formData.status}
-            onChange={(e) => update("status", e.target.value)}
+            onChange={(e) => update("status", e.target.value as "Active" | "Inactive")}
             className={inputClass}
           >
             <option value="Active">Active</option>
-            <option value="On Leave">On Leave</option>
-            <option value="Terminated">Terminated</option>
+            <option value="Inactive">Inactive</option>
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className={labelClass(!!errors?.salaryGrade)}>Salary Grade *</label>
-          <select
-            value={formData.salaryGrade}
-            onChange={(e) => update("salaryGrade", e.target.value)}
-            className={fieldInputClass(!!errors?.salaryGrade)}
-          >
-            <option value="">Select grade</option>
-            <option value="G0">Grade 0 (Starting / Base Step)</option>
-            <option value="G1">Grade 1 (1 Year Increment)</option>
-            <option value="G2">Grade 2 (2 Years Increment)</option>
-            <option value="G3">Grade 3 (3 Years Increment)</option>
-            <option value="G4">Grade 4 (4 Years Increment)</option>
-            <option value="G5">Grade 5 (5 Years Increment)</option>
-            <option value="G6">Grade 6 (6 Years Increment)</option>
-            <option value="G7">Grade 7 (7 Years Increment)</option>
-            <option value="G8">Grade 8 (8 Years Increment)</option>
-            <option value="G9">Grade 9 (9 Years Increment)</option>
-            <option value="G10">Grade 10 (10 Years Increment)</option>
-            <option value="G11">Grade 11 (11 Years Increment)</option>
-            <option value="G12">Grade 12 (12 Years Increment)</option>
-            <option value="G13">Grade 13 (13 Years Increment)</option>
-            <option value="G14">Grade 14 (14 Years Increment)</option>
-            <option value="G15">Grade 15 (15 Years Maximum)</option>
-            {formData.salaryGrade && !Array.from({ length: 16 }, (_, i) => `G${i}`).includes(formData.salaryGrade) && (
-              <option value={formData.salaryGrade}>{formData.salaryGrade}</option>
-            )}
-          </select>
-          {errors?.salaryGrade && (
-            <p className="text-[11px] font-medium text-red-500">{errors.salaryGrade}</p>
-          )}
         </div>
         <div className="space-y-1">
           <label className={labelClass(!!errors?.gradeAmount)}>Grade Amount (NPR) *</label>
@@ -802,7 +777,7 @@ export function EmployeeFormTabs({
 
   // TAB 4: BANK & TERMINATION
   if (tabIndex === 4) {
-    const isTerminated = formData.status === "Terminated";
+    const isTerminated = formData.status === "Inactive";
 
     return (
       <div className="space-y-8 animate-[fadeIn_150ms_ease-out]">
@@ -867,7 +842,7 @@ export function EmployeeFormTabs({
                 value={parseLocalDateParts(formData.informedDate)}
                 onChange={(d) => update("informedDate", formatLocalDate(d))}
                 label=""
-                className={errors?.informedDate ? "border-red-500 focus:border-red-500" : ""}
+                className={errors?.informedDate ? "border-red-500 focus:ring-red-500" : ""}
               />
               {errors?.informedDate && (
                 <p className="text-[11px] font-medium text-red-500">{errors.informedDate}</p>
@@ -881,7 +856,7 @@ export function EmployeeFormTabs({
                 value={parseLocalDateParts(formData.terminationDate)}
                 onChange={(d) => update("terminationDate", formatLocalDate(d))}
                 label=""
-                className={errors?.terminationDate ? "border-red-500 focus:border-red-500" : ""}
+                className={errors?.terminationDate ? "border-red-500 focus:ring-red-500" : ""}
               />
               {errors?.terminationDate && (
                 <p className="text-[11px] font-medium text-red-500">{errors.terminationDate}</p>

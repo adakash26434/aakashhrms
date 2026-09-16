@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 
-import type { EmployeeKPIs, Employee, EmployeeFilter, EmployeeFormData } from "@/lib/types/employee";
+import type { EmployeeKPIs, Employee, EmployeeFilter, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { buildEmployeeLookups, type RawLookupData } from "@/lib/constants/employee-lookups";
 
 import { saveEmployeeAction, deleteEmployeeAction, getEmployeesAction, getEmployeeLookupDataAction } from "@/app/actions/employee.actions";
@@ -72,6 +72,18 @@ export function EmployeeClient({
     [employees, deleteTargetId],
   );
 
+  const modalEmployees = useMemo(() => {
+    return employees.length > 0
+      ? employees.map((e) => ({
+          id: e.id,
+          name: e.fullName,
+          employeeCode: e.employeeCode,
+          attendanceCode: e.attendanceCode,
+          isSupervisor: e.isSupervisor,
+        }))
+      : lookupData?.employees ?? [];
+  }, [employees, lookupData?.employees]);
+
   // Fetch lookup data on mount
   useEffect(() => {
     async function fetchLookups() {
@@ -106,7 +118,11 @@ export function EmployeeClient({
       if (!result.success) {
         const errorMsg = result.validationErrors ? Object.values(result.validationErrors)[0] : (result.error || "Failed to save employee");
         toast.error(errorMsg);
-        return;
+        return {
+          success: false,
+          validationErrors: result.validationErrors as EmployeeValidationErrors | undefined,
+          error: result.error,
+        };
       }
       
       toast.success(editingEmpId ? "Employee updated successfully!" : "Employee added successfully!");
@@ -119,9 +135,11 @@ export function EmployeeClient({
         setEmployees(refresh.data.employees);
         setKpis(refresh.data.kpis);
       }
+      return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save employee";
       toast.error(msg);
+      return { success: false, error: msg };
     }
   }
 
@@ -224,16 +242,7 @@ export function EmployeeClient({
         departments={lookupData?.departments ?? []}
         designations={lookupData?.designations ?? []}
         industryType={lookupData?.industryType}
-        employees={
-          employees.length > 0
-            ? employees.map((e) => ({
-                id: e.id,
-                name: `${e.firstName} ${e.lastName}`,
-                employeeCode: e.employeeCode,
-                attendanceCode: e.attendanceCode,
-              }))
-            : lookupData?.employees ?? []
-        }
+        employees={modalEmployees}
       />
 
       <ConfirmDeleteEmployeeDialog

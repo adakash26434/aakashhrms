@@ -99,7 +99,7 @@ export default async function MyProfilePage() {
     );
   }
 
-  const initials = `${profile.firstName?.[0] || ""}${profile.lastName?.[0] || ""}`.toUpperCase();
+  const initials = profile.fullName ? profile.fullName.slice(0, 2).toUpperCase() : "EM";
 
   return (
     <div className="space-y-6">
@@ -114,7 +114,7 @@ export default async function MyProfilePage() {
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-extrabold text-payroll-navy tracking-tight">
-                    {profile.firstName} {profile.lastName}
+                    {profile.fullName}
                   </h1>
                   <Badge
                     variant={profile.status === "Active" ? "success" : "neutral"}
@@ -154,7 +154,8 @@ export default async function MyProfilePage() {
         {/* 1. Employment Details */}
         <DetailSection title="Employment & Position" icon={Briefcase}>
           <DetailRow label="Employee Category" value={profile.category || "Permanent"} />
-          <DetailRow label="Salary Grade Level" value={profile.salaryGrade || "—"} />
+          <DetailRow label="Grade Amount" value={profile.gradeAmount ? `NPR ${Number(profile.gradeAmount).toLocaleString("en-IN")}` : "—"} />
+          <DetailRow label="Supervisor Status" value={profile.isSupervisor ? "Supervisor" : "No"} />
           <DetailRow label="Appointment Joining Date" value={formatDate(profile.joiningDate)} />
           <DetailRow label="Confirmation Date" value={formatDate(profile.confirmationDate)} />
           <DetailRow label="Income Tax Filing Status" value={profile.taxStatus || "Normal Single"} />
@@ -266,7 +267,7 @@ function DetailSection({
             {title}
           </h3>
         </div>
-        <div className="space-y-1">{children}</div>
+        <div className="divide-y divide-payroll-light/40">{children}</div>
       </CardContent>
     </Card>
   );
@@ -274,9 +275,9 @@ function DetailSection({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs py-1.5 border-b border-payroll-light/40 last:border-b-0 gap-1">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs py-1.5 gap-1">
       <span className="text-gray-500 font-medium">{label}</span>
-      <span className="font-bold text-payroll-navy text-left sm:text-right max-w-full sm:max-w-[65%] break-words">
+      <span className="font-bold text-payroll-navy text-left sm:text-right max-w-full sm:max-w-[65%] wrap-break-word">
         {value}
       </span>
     </div>

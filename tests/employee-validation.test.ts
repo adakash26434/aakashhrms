@@ -23,14 +23,14 @@ import {
   serializeStructuredAddress,
 } from '../lib/constants/nepal-locations';
 import { bsToAD, adToBS } from '../lib/utils/bs-calendar';
+import { NEPAL_BANKS } from '../lib/constants/nepal-banks';
 import type { EmployeeFormData } from '../lib/types/employee';
 
 function createValidEmployeeData(): EmployeeFormData {
   return {
     attendanceCode: "ATD-101",
     employeeCode: "EMP-101",
-    firstName: "Aarav",
-    lastName: "Sharma",
+    fullName: "Aarav Sharma",
     gender: "Male",
     dateOfBirth: "1995-05-15", // ~31 years old
     taxStatus: "Normal Single",
@@ -40,12 +40,11 @@ function createValidEmployeeData(): EmployeeFormData {
     departmentId: "dept-1",
     designationId: "desig-1",
     branchId: "branch-1",
+    isSupervisor: false,
     supervisorId: "",
     joiningDate: "2020-01-01", // Age at joining: ~24.6 years (>= 18)
     confirmationDate: "2020-06-01",
-    retirementDateProjected: "2055-05-15",
     status: "Active",
-    salaryGrade: "G9",
     gradePercent: 100,
     gradeAmount: 45000,
     citizenshipNo: "27-01-75-01234",
@@ -116,13 +115,13 @@ describe("Nepal Administrative Hierarchy & Address System", () => {
     assert.ok(lalitpurPalikas.includes("Lalitpur Metropolitan City"));
   });
 
-  it("should serialize, parse, and format structured addresses losslessly", () => {
+  it("should serialize, parse, and format structured addresses losslessly preserving spaces in tole", () => {
     const addr = {
       province: "P3",
       district: "Lalitpur",
       localLevel: "Lalitpur Metropolitan City",
       wardNo: "4",
-      tole: "Kumaripati",
+      tole: "Kumaripati Marg ",
     };
 
     const serialized = serializeStructuredAddress(addr);
@@ -131,48 +130,46 @@ describe("Nepal Administrative Hierarchy & Address System", () => {
     assert.equal(parsed.district, "Lalitpur");
     assert.equal(parsed.localLevel, "Lalitpur Metropolitan City");
     assert.equal(parsed.wardNo, "4");
-    assert.equal(parsed.tole, "Kumaripati");
+    assert.equal(parsed.tole, "Kumaripati Marg ");
 
     const formatted = formatStructuredAddress(parsed);
-    assert.equal(formatted, "Kumaripati-4, Lalitpur Metropolitan City, Lalitpur, Bagmati Province");
+    assert.equal(formatted, "Kumaripati Marg -4, Lalitpur Metropolitan City, Lalitpur, Bagmati Province");
   });
 });
 
 describe("Nepal Official Identity Documents Validation", () => {
-  it("validates Nepal Citizenship Numbers", () => {
+  it("validates Nepal Citizenship Numbers (relaxed for historical & district formats)", () => {
     assert.equal(validateCitizenshipNo("27-01-75-01234").isValid, true);
     assert.equal(validateCitizenshipNo("123/4567").isValid, true);
     assert.equal(validateCitizenshipNo("62-01-12-0849").isValid, true);
-    assert.equal(validateCitizenshipNo("ABC12345").isValid, false);
-    assert.equal(validateCitizenshipNo("12").isValid, false);
+    assert.equal(validateCitizenshipNo("BA-12345").isValid, true);
+    assert.equal(validateCitizenshipNo("!").isValid, false);
   });
 
-  it("validates National Identity Card (NID) Numbers (Exactly 10 digits)", () => {
+  it("validates National Identity Card (NID) Numbers (Flexible length 5-20 digits)", () => {
     assert.equal(validateNIDNo("123-456-7890").isValid, true);
     assert.equal(validateNIDNo("1234567890").isValid, true);
-    assert.equal(validateNIDNo("123456789").isValid, false); // 9 digits
-    assert.equal(validateNIDNo("12345678901").isValid, false); // 11 digits
+    assert.equal(validateNIDNo("123456789").isValid, true);
+    assert.equal(validateNIDNo("123").isValid, false); // < 5 digits
     assert.equal(validateNIDNo("ABC4567890").isValid, false);
   });
 
-  it("validates Nepal Passport Numbers", () => {
+  it("validates Nepal & Expat Passport Numbers (Flexible alphanumeric 4-25 chars)", () => {
     assert.equal(validatePassportNo("PA1234567").isValid, true);
     assert.equal(validatePassportNo("08123456").isValid, true);
     assert.equal(validatePassportNo("P1234567").isValid, true);
-    assert.equal(validatePassportNo("123").isValid, false);
-    assert.equal(validatePassportNo("PA1234567890").isValid, false); // too long
-    assert.equal(validatePassportNo("PA-12345").isValid, false);
+    assert.equal(validatePassportNo("PA-12345").isValid, true);
+    assert.equal(validatePassportNo("12").isValid, false); // too short
   });
 
-  it("validates Nepal Voter ID Numbers", () => {
+  it("validates Nepal Voter ID Numbers (Flexible alphanumeric 3-25 chars)", () => {
     assert.equal(validateVoterIdNo("12345678").isValid, true);
     assert.equal(validateVoterIdNo("0123456789").isValid, true);
     assert.equal(validateVoterIdNo("V-12345678").isValid, true);
-    assert.equal(validateVoterIdNo("123").isValid, false); // too short
-    assert.equal(validateVoterIdNo("123456789012345").isValid, false); // too long
+    assert.equal(validateVoterIdNo("1").isValid, false); // too short
   });
 
-  it("validates Nepal PAN Numbers (Exactly 9 digits)", () => {
+  it("validates Nepal PAN Numbers (Strictly 9 digits from IRD)", () => {
     assert.equal(validatePanNo("123456789").isValid, true);
     assert.equal(validatePanNo("12345678").isValid, false); // 8 digits
     assert.equal(validatePanNo("1234567890").isValid, false); // 10 digits
@@ -225,18 +222,9 @@ describe("Employee Chronological Date Validations", () => {
     assert.equal(errors.confirmationDate, "Confirmation date cannot be before joining date");
   });
 
-  it("fails if projected retirement date is before joining or confirmation date", () => {
-    const data = createValidEmployeeData();
-    data.joiningDate = "2023-01-01";
-    data.confirmationDate = "2023-06-01";
-    data.retirementDateProjected = "2023-03-01"; // Before confirmation date!
-    const errors = validateEmployee(data);
-    assert.equal(errors.retirementDateProjected, "Projected retirement date must be after confirmation date");
-  });
-
   it("validates termination date and notice date chronological consistency", () => {
     const data = createValidEmployeeData();
-    data.status = "Terminated";
+    data.status = "Inactive";
     data.joiningDate = "2023-01-01";
     data.terminationDate = "2022-01-01"; // Before joining!
     data.informedDate = "2022-05-01"; // After termination!
@@ -289,12 +277,12 @@ describe("Family Information & Marital Status Requirements", () => {
 describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
   it("validates Tab 0 (General Information) in isolation", () => {
     const data = createValidEmployeeData();
-    data.firstName = "";
+    data.fullName = "";
     data.dateOfBirth = "";
 
     // Tab 0 has errors
     const tab0Errors = validateEmployeeTab(data, 0);
-    assert.equal(tab0Errors.firstName, "First name is required");
+    assert.equal(tab0Errors.fullName, "Full name is required");
     assert.equal(tab0Errors.dateOfBirth, "Date of birth is required");
 
     // Other tabs are unaffected
@@ -305,13 +293,11 @@ describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
   it("validates Tab 1 (Office Information) in isolation", () => {
     const data = createValidEmployeeData();
     data.departmentId = "";
-    data.salaryGrade = "";
     data.shreni = "";
     data.gradeAmount = -1;
 
     const tab1Errors = validateEmployeeTab(data, 1);
     assert.equal(tab1Errors.departmentId, "Department is required");
-    assert.equal(tab1Errors.salaryGrade, "Salary grade is required");
     assert.equal(tab1Errors.shreni, "Shreni is required");
     assert.equal(tab1Errors.gradeAmount, "Grade amount is required");
 
@@ -321,7 +307,7 @@ describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
 
   it("validates Tab 2 (Personal Info & Documents & Addresses) in isolation", () => {
     const data = createValidEmployeeData();
-    data.citizenshipNo = "invalid citizenship";
+    data.citizenshipNo = "!@#$";
     data.nidNo = "123"; // invalid 3 digits
     data.permanentAddress = "";
 
@@ -345,7 +331,7 @@ describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
     data.bankName = "";
     data.bankBranch = "";
     data.bankAccountNumber = "";
-    data.status = "Terminated";
+    data.status = "Inactive";
     data.terminationDate = "";
 
     const tab4Errors = validateEmployeeTab(data, 4);
@@ -408,6 +394,14 @@ describe("Employee Code & Attendance Code Smart Generation", () => {
   it("generates numeric sequential attendance code when existing codes are numeric", () => {
     const atdCode = getNextAttendanceCode(["101", "102", "103"]);
     assert.equal(atdCode, "104");
+  });
+});
+
+describe("Nepal Banks Classification", () => {
+  it("excludes Class C Finance Companies from official Nepal bank list", () => {
+    const hasClassC = NEPAL_BANKS.some((b) => (b.category as string) === "Class C - Finance Company");
+    assert.equal(hasClassC, false);
+    assert.ok(NEPAL_BANKS.length > 0);
   });
 });
 
