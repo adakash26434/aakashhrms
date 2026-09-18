@@ -23,24 +23,14 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
-  // Check if a Super Admin is impersonating a company
+  // Check if a Super Admin is viewing via Impersonation mode FIRST
   const impersonation = await getImpersonationSession();
-
-  // 1. Forced password change redirect (applies to standard authenticated tenant users, not impersonation)
-  if (!impersonation && session?.user?.mustChangePassword) {
-    redirect("/change-password");
-  }
-
-  // 2. SELF-scoped users should never render the admin dashboard shell
-  if (session?.user?.scopeType === "SELF") {
-    redirect("/self-service");
-  }
 
   if (impersonation) {
     // Impersonation mode: resolve the tenant DB from the impersonation session
-    const tenantDb = await getTenantDb(impersonation.companySlug);
+    const tenantDb =
+      (await getTenantDb(impersonation.companySlug)) ||
+      (await import("@/lib/db").then((m) => m.getDbAsync(impersonation.companySlug)));
 
     if (tenantDb) {
       // Set the request-scope tenant DB so all downstream getDb() calls use it
@@ -63,6 +53,18 @@ export default async function DashboardLayout({
         }
       );
     }
+  }
+
+  const session = await auth();
+
+  // 1. Forced password change redirect (applies to standard authenticated tenant users, not impersonation)
+  if (session?.user?.mustChangePassword) {
+    redirect("/change-password");
+  }
+
+  // 2. SELF-scoped users should never render the admin dashboard shell
+  if (session?.user?.scopeType === "SELF") {
+    redirect("/self-service");
   }
 
   // Normal tenant flow

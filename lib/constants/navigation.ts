@@ -48,6 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Configuration",
     items: [
+      { label: "Company setup", href: "/setup/company-setup", icon: Building2, requiredModule: "ORG_STRUCTURE" },
       { label: "System control", href: "/setup/system-control", icon: Settings, requiredModule: "SYSTEM_CONTROL" },
       { label: "Fiscal year", href: "/setup/fiscal-year", icon: CalendarDays, requiredModule: "FISCAL_YEAR" },
       { label: "Tax rates", href: "/setup/tax-rates", icon: Percent, requiredModule: "TAX_RATES" },
@@ -59,7 +60,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Workforce",
     items: [
       { label: "Employees", href: "/workforce/employees", icon: Users, requiredModule: "EMPLOYEES" },
-      { label: "Departments", href: "/workforce/departments", icon: Building2, requiredModule: "ORG_STRUCTURE" },
       { label: "Salary mapping", href: "/workforce/salary-mapping", icon: DollarSign, requiredModule: "SALARY_MAPPING" },
     ],
   },

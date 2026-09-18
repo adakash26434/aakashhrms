@@ -13,19 +13,32 @@ export async function loginAction(
   formData: FormData
 ): Promise<LoginState> {
   try {
+    let companyCode = (formData.get('companyCode') as string || '').trim().toUpperCase();
+    if (companyCode && !companyCode.startsWith('CMP-')) {
+      companyCode = `CMP-${companyCode}`;
+    }
+    const email = (formData.get('email') as string || '').trim().toLowerCase();
+    const password = (formData.get('password') as string || '');
+
+    if (!companyCode) {
+      return { error: 'Please enter your company code.' };
+    }
+    if (!email) {
+      return { error: 'Please enter your email address.' };
+    }
+    if (!password) {
+      return { error: 'Please enter your password.' };
+    }
+
     // NextAuth signIn with standard redirect to /dashboard.
     // The dashboard page will dynamically check if onboarding is needed
     // using the resolved tenant context and redirect to /onboarding only if incomplete.
     await signIn('credentials', {
-      email: formData.get('email'),
-      password: formData.get('password'),
-      companyCode: formData.get('companyCode') || '',
+      email,
+      password,
+      companyCode,
       redirectTo: '/dashboard', 
-    });
-    
-    // signIn throws a redirect on success, so this line technically never runs,
-    // but TypeScript requires a return value to match the signature.
-    return undefined; 
+    }); 
   } catch (error: unknown) {
     if (error instanceof AuthError) {
       const cause = (error as any).cause?.err ?? (error as any).cause;

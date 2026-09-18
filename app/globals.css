@@ -53,6 +53,15 @@ body {
   background: #1b5e20;
 }
 
+/* Scrollbar hiding utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Canonical AakashHRMS Elevation System */
 .shadow-payroll-xs {
   box-shadow: 0 1px 2px 0 rgba(27, 58, 31, 0.05);
@@ -162,6 +171,99 @@ body {
     transform: scale(0.98);
   }
 }
+
+@keyframes auraPulse {
+  0%, 100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.2) translate(24px, -20px);
+    opacity: 0.85;
+  }
+}
+
+@keyframes auraFloat {
+  0%, 100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.15) translate(-28px, 24px);
+    opacity: 0.8;
+  }
+}
+
+@keyframes auraGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: rotate(180deg) scale(1.25);
+  }
+}
+
+@keyframes beamSlowSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes cornerGlowTR {
+  0%, 100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.16) translate(-14px, 14px);
+    opacity: 0.85;
+  }
+}
+
+@keyframes cornerGlowBL {
+  0%, 100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.15) translate(14px, -14px);
+    opacity: 0.8;
+  }
+}
+
+.animate-aura-pulse {
+  animation: auraPulse 7s ease-in-out infinite;
+}
+
+.animate-aura-float {
+  animation: auraFloat 9s ease-in-out infinite;
+}
+
+.animate-aura-glow {
+  animation: auraGlow 12s ease-in-out infinite;
+}
+
+.animate-beam-spin {
+  animation: beamSlowSpin 25s linear infinite;
+}
+
+.animate-corner-tr {
+  animation: cornerGlowTR 8s ease-in-out infinite;
+}
+
+.animate-corner-bl {
+  animation: cornerGlowBL 9s ease-in-out infinite;
+}
+
+
 
 /* =============================================================================
    ENTERPRISE PRINT STYLESHEET

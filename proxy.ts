@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import NextAuth from 'next-auth';
 import { authConfig } from './lib/auth/auth.config';
 
+import { verifyImpersonationToken, IMPERSONATION_COOKIE } from './lib/platform/impersonation';
+
 const nextAuthHandler = NextAuth(authConfig).auth;
 
 export default async function middleware(request: NextRequest) {
@@ -37,7 +39,22 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  // 2. Tenant Application Routes — Delegate to NextAuth for JWT session verification
+  // 2. Super Admin "View Company Workspace" (Impersonation Session)
+  // Super Admin can directly view and navigate the company workspace
+  // without needing tenant user credentials or being redirected to /login.
+  const impersonationCookie = request.cookies.get(IMPERSONATION_COOKIE)?.value;
+  if (impersonationCookie) {
+    const session = await verifyImpersonationToken(impersonationCookie);
+    if (session) {
+      // If navigating to /login or /change-password while in impersonation mode, redirect straight to /dashboard
+      if (url.pathname === '/login' || url.pathname === '/change-password') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
+  }
+
+  // 3. Tenant Application Routes — Delegate to NextAuth for JWT session verification
   return (nextAuthHandler as any)(request, {
     request: {
       headers: requestHeaders,

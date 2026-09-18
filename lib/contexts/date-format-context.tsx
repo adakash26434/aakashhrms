@@ -144,13 +144,23 @@ export function DateFormatProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
+const DEFAULT_DATE_FORMAT_CONTEXT: DateFormatContextValue = {
+  format: "bs-numeric",
+  setFormat: () => {},
+  isBS: true,
+  isAD: false,
+  calendar: "bs",
+  setCalendar: () => {},
+};
+
 /**
- * Read the current date format. Throws if used outside the provider.
+ * Read the current date format. Falls back gracefully to Bikram Sambat defaults
+ * if used outside the provider (e.g. in platform/control plane components).
  */
 export function useDateFormat(): DateFormatContextValue {
   const ctx = useContext(DateFormatContext);
   if (!ctx) {
-    throw new Error("useDateFormat must be used within <DateFormatProvider>");
+    return DEFAULT_DATE_FORMAT_CONTEXT;
   }
   return ctx;
 }

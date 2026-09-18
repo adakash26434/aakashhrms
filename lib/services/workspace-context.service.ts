@@ -18,9 +18,15 @@ export interface WorkspaceContext {
   };
   company: {
     name: string;
+    legalName?: string;
+    displayName?: string;
     code: string;
     slug: string;
     branch: string;
+    panVatNumber?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    headOfficeAddress?: string;
   };
   activeFiscalYear: {
     id: string | null;
@@ -62,7 +68,13 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
   // 1. Handle Impersonation ("View As Company") mode
   if (impersonation) {
     let companyName = impersonation.companyName;
+    let companyLegalName = impersonation.companyName;
+    let companyDisplayName = impersonation.companyName;
     let companyCode = 'CMP-ACTIVE';
+    let companyPan: string | undefined;
+    let companyPhone: string | undefined;
+    let companyEmail: string | undefined;
+    let companyAddress: string | undefined;
     const slug = impersonation.companySlug;
 
     const companyPromise = (async () => {
@@ -76,7 +88,13 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 
         if (comp) {
           companyName = comp.displayName || comp.legalName;
+          companyLegalName = comp.legalName;
+          companyDisplayName = comp.displayName;
           companyCode = comp.companyCode;
+          companyPan = comp.panVatNumber || undefined;
+          companyPhone = comp.contactPhone || undefined;
+          companyEmail = comp.contactEmail || undefined;
+          companyAddress = comp.headOfficeAddress || undefined;
         }
       } catch {
         // Fallback to session details
@@ -139,9 +157,15 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
       },
       company: {
         name: companyName,
+        legalName: companyLegalName || companyName,
+        displayName: companyDisplayName || companyName,
         code: companyCode,
         slug,
         branch: branchName,
+        panVatNumber: companyPan,
+        contactPhone: companyPhone,
+        contactEmail: companyEmail,
+        headOfficeAddress: companyAddress,
       },
       activeFiscalYear: {
         id: activeFyId,
@@ -160,7 +184,13 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
   const userId = session?.user?.id || '';
 
   let companyName = 'Company Workspace';
+  let companyLegalName = 'Company Workspace';
+  let companyDisplayName = 'Company Workspace';
   let companyCode = 'CMP-ACTIVE';
+  let companyPan: string | undefined;
+  let companyPhone: string | undefined;
+  let companyEmail: string | undefined;
+  let companyAddress: string | undefined;
   const slug = tenantSlug || 'default';
   let branchName = 'Main Branch';
   let userName = '';
@@ -182,7 +212,13 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 
         if (comp) {
           companyName = comp.displayName || comp.legalName;
+          companyLegalName = comp.legalName;
+          companyDisplayName = comp.displayName;
           companyCode = comp.companyCode;
+          companyPan = comp.panVatNumber || undefined;
+          companyPhone = comp.contactPhone || undefined;
+          companyEmail = comp.contactEmail || undefined;
+          companyAddress = comp.headOfficeAddress || undefined;
         }
       } catch (err) {
         console.error('Error resolving company info:', err);
@@ -313,9 +349,15 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
     },
     company: {
       name: companyName,
+      legalName: companyLegalName || companyName,
+      displayName: companyDisplayName || companyName,
       code: companyCode,
       slug,
       branch: branchName,
+      panVatNumber: companyPan,
+      contactPhone: companyPhone,
+      contactEmail: companyEmail,
+      headOfficeAddress: companyAddress,
     },
     activeFiscalYear: {
       id: activeFyId,

@@ -48,7 +48,8 @@ export const authConfig = {
       return session;
     },
     // Route protection: Require login for all protected routes, enforce password change and role confinement
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth, request }) {
+      const nextUrl = request.nextUrl;
       const isLoggedIn = !!auth?.user;
       const isAuthRoute = nextUrl.pathname.startsWith('/login');
       const isChangePasswordRoute = nextUrl.pathname.startsWith('/change-password');
@@ -60,6 +61,16 @@ export const authConfig = {
 
       // Allow static assets, platform routes, and APIs unconditionally
       if (isStaticAsset || isPlatformRoute || isApiRoute) {
+        return true;
+      }
+
+      // Super Admin "View Company Workspace" (Impersonation Mode)
+      // If super admin is viewing this company, bypass tenant user login
+      const impersonationCookie = request?.cookies?.get?.('platform_impersonation')?.value;
+      if (impersonationCookie) {
+        if (isAuthRoute || isChangePasswordRoute) {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
         return true;
       }
 

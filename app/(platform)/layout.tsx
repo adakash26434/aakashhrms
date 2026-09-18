@@ -9,6 +9,7 @@ import {
   verifyPlatformSession,
   PLATFORM_COOKIE_NAME,
 } from "@/lib/platform/auth";
+import { DateFormatProvider } from "@/lib/contexts/date-format-context";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +110,7 @@ export default async function PlatformLayout({
 
         {/* Main Content Workspace */}
         <main className="flex-1 min-w-0 p-6 sm:p-8 bg-payroll-cream overflow-y-auto h-full">
-          {children}
+          <DateFormatProvider>{children}</DateFormatProvider>
         </main>
       </div>
     </div>

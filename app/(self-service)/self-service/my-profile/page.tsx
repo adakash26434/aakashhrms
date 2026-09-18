@@ -154,6 +154,7 @@ export default async function MyProfilePage() {
         {/* 1. Employment Details */}
         <DetailSection title="Employment & Position" icon={Briefcase}>
           <DetailRow label="Employee Category" value={profile.category || "Permanent"} />
+          <DetailRow label="Grade / Level (Shreni)" value={profile.shreni || "—"} />
           <DetailRow label="Grade Amount" value={profile.gradeAmount ? `NPR ${Number(profile.gradeAmount).toLocaleString("en-IN")}` : "—"} />
           <DetailRow label="Supervisor Status" value={profile.isSupervisor ? "Supervisor" : "No"} />
           <DetailRow label="Appointment Joining Date" value={formatDate(profile.joiningDate)} />

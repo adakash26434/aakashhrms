@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { CheckCircle2, Info, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type BannerTone = "success" | "info";
+export type BannerTone = "success" | "info" | "error";
 
 interface BannerProps {
   /** Whether the banner is shown. */
@@ -61,17 +61,21 @@ export function Banner({
       aria-live="polite"
       className={cn(
         "flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm",
-        tone === "info"
+        tone === "error"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : tone === "info"
           ? "border-payroll-light bg-payroll-cream text-payroll-navy"
           : "border-emerald-200 bg-emerald-50 text-emerald-700",
         className,
       )}
     >
       <div className="flex items-center gap-2">
-        {tone === "info" ? (
-          <Info className="h-4 w-4 text-payroll-primary" />
+        {tone === "error" ? (
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+        ) : tone === "info" ? (
+          <Info className="h-4 w-4 shrink-0 text-payroll-primary" />
         ) : (
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
         )}
         <span>{message}</span>
       </div>
@@ -80,7 +84,9 @@ export function Banner({
         onClick={onDismiss}
         className={cn(
           "rounded-md p-1 transition-colors",
-          tone === "info"
+          tone === "error"
+            ? "text-red-700/70 hover:bg-red-100 hover:text-red-800"
+            : tone === "info"
             ? "text-gray-500 hover:bg-payroll-light/60 hover:text-payroll-navy"
             : "text-emerald-700/70 hover:bg-emerald-100 hover:text-emerald-800",
         )}
