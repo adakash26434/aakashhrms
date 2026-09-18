@@ -36,7 +36,7 @@ async function syncSchema() {
       const tenantDbs = await sql`
         SELECT 
           c.id, 
-          c.name, 
+          COALESCE(c.display_name, c.legal_name, c.slug) AS name, 
           c.slug, 
           td.db_name, 
           td.db_user, 
