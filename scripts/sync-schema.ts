@@ -42,8 +42,7 @@ async function syncSchema() {
           td.db_user, 
           td.db_password_encrypted, 
           td.db_host, 
-          td.db_port, 
-          td.db_ssl
+          td.db_port
         FROM companies c
         JOIN tenant_databases td ON td.company_id = c.id
         WHERE c.status = 'ACTIVE'
