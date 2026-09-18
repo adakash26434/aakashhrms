@@ -15,6 +15,7 @@ import {
 } from '@/lib/db/schema';
 import { requirePlatformAuth } from '@/lib/platform/auth';
 import { validatePhoneNumber } from '@/lib/utils/phone';
+import { adToBSString } from '@/lib/utils/bs-calendar';
 import { eq, and, ne } from 'drizzle-orm';
 import postgres from 'postgres';
 
@@ -283,7 +284,31 @@ export async function PATCH(
           const fy = body.initialSetupPayload.fiscalYear;
           if (fy.label) {
             const existingFYs = await tenantDb.select().from(fiscalYears);
-            const activeFY = existingFYs.find(f => f.status === 'Active') || existingFYs.find(f => f.slug === fy.slug) || existingFYs[0];
+            const activeFY =
+              existingFYs.find((f) => f.status === "Active") ||
+              existingFYs.find((f) => f.slug === fy.slug) ||
+              existingFYs[0];
+
+            const startAD = fy.startDateAD
+              ? new Date(fy.startDateAD)
+              : activeFY
+                ? activeFY.startDateAD
+                : new Date();
+            const endAD = fy.endDateAD
+              ? new Date(fy.endDateAD)
+              : activeFY
+                ? activeFY.endDateAD
+                : new Date();
+            const startBS =
+              fy.startDateBS ||
+              (activeFY ? activeFY.startDateBS : adToBSString(startAD));
+            const endBS =
+              fy.endDateBS ||
+              (activeFY ? activeFY.endDateBS : adToBSString(endAD));
+            const fromMonth =
+              fy.fromMonth ?? (activeFY ? activeFY.fromMonth : 4);
+            const toMonth = fy.toMonth ?? (activeFY ? activeFY.toMonth : 3);
+            const status = fy.status || "Active";
 
             if (activeFY) {
               await tenantDb
@@ -291,26 +316,31 @@ export async function PATCH(
                 .set({
                   label: fy.label,
                   slug: fy.slug || activeFY.slug,
-                  startDateBS: fy.startDateBS || activeFY.startDateBS,
-                  endDateBS: fy.endDateBS || activeFY.endDateBS,
-                  startDateAD: fy.startDateAD ? new Date(fy.startDateAD) : activeFY.startDateAD,
-                  endDateAD: fy.endDateAD ? new Date(fy.endDateAD) : activeFY.endDateAD,
-                  status: 'Active',
+                  fromMonth,
+                  toMonth,
+                  startDateBS: startBS,
+                  endDateBS: endBS,
+                  startDateAD: startAD,
+                  endDateAD: endAD,
+                  status,
                 })
                 .where(eq(fiscalYears.id, activeFY.id));
             } else {
-              await tenantDb.insert(fiscalYears).values({
-                label: fy.label,
-                slug: fy.slug,
-                fromMonth: 4,
-                toMonth: 3,
-                startDateBS: fy.startDateBS,
-                endDateBS: fy.endDateBS,
-                startDateAD: new Date(fy.startDateAD),
-                endDateAD: new Date(fy.endDateAD),
-                status: 'Active',
-                payslipsGenerated: false,
-              }).onConflictDoNothing();
+              await tenantDb
+                .insert(fiscalYears)
+                .values({
+                  label: fy.label,
+                  slug: fy.slug,
+                  fromMonth,
+                  toMonth,
+                  startDateBS: startBS,
+                  endDateBS: endBS,
+                  startDateAD: startAD,
+                  endDateAD: endAD,
+                  status,
+                  payslipsGenerated: false,
+                })
+                .onConflictDoNothing();
             }
           }
         }
@@ -476,11 +506,13 @@ export async function PATCH(
 
         // Synchronize tax rate slabs for the active fiscal year
         if (Array.isArray(body.initialSetupPayload?.taxSlabs)) {
-          const [activeFY] = await tenantDb
-            .select({ id: fiscalYears.id })
-            .from(fiscalYears)
-            .where(eq(fiscalYears.status, 'Active'))
-            .limit(1);
+          const existingFYs = await tenantDb.select().from(fiscalYears);
+          const activeFY =
+            existingFYs.find((f) => f.status?.toLowerCase() === "active") ||
+            existingFYs.find(
+              (f) => f.slug === body.initialSetupPayload?.fiscalYear?.slug
+            ) ||
+            existingFYs[0];
 
           if (activeFY) {
             await tenantDb
@@ -492,9 +524,14 @@ export async function PATCH(
                 fiscalYearId: activeFY.id,
                 category: slab.category,
                 amountFrom: String(slab.amountFrom),
-                amountTo: slab.amountTo !== null && slab.amountTo !== undefined && slab.amountTo !== '' ? String(slab.amountTo) : null,
+                amountTo:
+                  slab.amountTo !== null &&
+                  slab.amountTo !== undefined &&
+                  slab.amountTo !== ""
+                    ? String(slab.amountTo)
+                    : null,
                 ratePercent: String(slab.ratePercent),
-                fixedDeduction: String(slab.fixedDeduction || '0'),
+                fixedDeduction: String(slab.fixedDeduction || "0"),
               });
             }
           }

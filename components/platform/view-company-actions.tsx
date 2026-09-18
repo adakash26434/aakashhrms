@@ -39,12 +39,14 @@ export function ViewCompanyActions({ companyId, companyName }: ViewCompanyAction
 
       if (data.success) {
         toast.success(`Accessing workspace for ${companyName}...`);
-        router.push(data.redirectUrl || "/dashboard");
+        window.location.href = data.redirectUrl || "/dashboard";
       } else {
         toast.error(`Impersonation failed: ${data.error}`);
+        setIsStarting(false);
       }
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);
+      setIsStarting(false);
     } finally {
       setIsStarting(false);
     }

@@ -22,15 +22,23 @@ import {
   Hash,
   ArrowUpRight,
   ArrowDownRight,
+  CalendarDays,
+  Pencil,
+  Info,
 } from "lucide-react";
 import {
   INDUSTRY_SECTORS,
   IndustrySectorKey,
 } from "@/lib/constants/industry-types";
+import { getAvailableFiscalYearPresets } from "@/lib/utils/fiscal-year-presets";
+import { FiscalYearFormModal } from "@/components/fiscal-year/fiscal-year-form-modal";
+import type { FiscalYear, FiscalYearFormData, FiscalYearStatus } from "@/lib/types/fiscal-year";
 import {
-  getAvailableFiscalYearPresets,
-  FiscalYearPresetOption,
-} from "@/lib/utils/fiscal-year-presets";
+  formatADDate,
+  adToBSString,
+  BS_MONTHS_EN,
+  type BSMonthNumber,
+} from "@/lib/utils/bs-calendar";
 import {
   DEFAULT_NEPAL_LEAVE_TYPES,
   DEFAULT_PAY_HEADS,
@@ -42,6 +50,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useToast } from "@/components/ui/toast";
 import { validatePhoneNumber } from "@/lib/utils/phone";
+import { cn } from "@/lib/utils";
 
 export type EditModalTab =
   | "profile"
@@ -193,10 +202,13 @@ export interface EditCompanyModalProps {
       fiscalYear?: {
         label: string;
         slug: string;
+        fromMonth?: number;
+        toMonth?: number;
         startDateBS: string;
         endDateBS: string;
         startDateAD: string;
         endDateAD: string;
+        status?: string;
       };
       leaveTypes?: LeaveTypePreset[];
       otHourlyMultiplier?: number;
@@ -252,26 +264,88 @@ export function EditCompanyModal({
   );
 
   // 3. Fiscal year fields
-  const { current: defaultFY, options: fyOptions } = useMemo(
+  const { current: defaultFY } = useMemo(
     () => getAvailableFiscalYearPresets(),
     [],
   );
 
-  const initialFY = company.initialSetupPayload?.fiscalYear || defaultFY;
+  const companyFY = company.initialSetupPayload?.fiscalYear;
+  const initialFY = companyFY || {
+    label: defaultFY.label,
+    slug: defaultFY.slug,
+    fromMonth: 4,
+    toMonth: 3,
+    startDateBS: defaultFY.startDateBS,
+    endDateBS: defaultFY.endDateBS,
+    startDateAD: defaultFY.startDateAD,
+    endDateAD: defaultFY.endDateAD,
+    status: "Active",
+  };
   const [fyLabel, setFyLabel] = useState(initialFY.label);
   const [fySlug, setFySlug] = useState(initialFY.slug);
+  const [fyFromMonth, setFyFromMonth] = useState<BSMonthNumber>(
+    (initialFY.fromMonth as BSMonthNumber) || 4,
+  );
+  const [fyToMonth, setFyToMonth] = useState<BSMonthNumber>(
+    (initialFY.toMonth as BSMonthNumber) || 3,
+  );
   const [fyStartDateBS, setFyStartDateBS] = useState(initialFY.startDateBS);
   const [fyEndDateBS, setFyEndDateBS] = useState(initialFY.endDateBS);
-  const [fyStartDateAD, setFyStartDateAD] = useState(
-    initialFY.startDateAD
-      ? new Date(initialFY.startDateAD).toISOString().split("T")[0]
-      : defaultFY.startDateAD,
+  const [fyStartDateAD, setFyStartDateAD] = useState<Date>(
+    new Date(initialFY.startDateAD),
   );
-  const [fyEndDateAD, setFyEndDateAD] = useState(
-    initialFY.endDateAD
-      ? new Date(initialFY.endDateAD).toISOString().split("T")[0]
-      : defaultFY.endDateAD,
+  const [fyEndDateAD, setFyEndDateAD] = useState<Date>(
+    new Date(initialFY.endDateAD),
   );
+  const [fyStatus, setFyStatus] = useState<FiscalYearStatus>(
+    (initialFY.status as FiscalYearStatus) || "Active",
+  );
+
+  const [isFYModalOpen, setIsFYModalOpen] = useState(false);
+  const [fyModalMode, setFyModalMode] = useState<"edit" | "add">("edit");
+
+  const handleSaveFYFromModal = (formData: FiscalYearFormData) => {
+    const startBS = adToBSString(formData.startDateAD);
+    const endBS = adToBSString(formData.endDateAD);
+    setFyLabel(formData.label.trim());
+    setFySlug(formData.slug.trim());
+    setFyFromMonth(formData.fromMonth);
+    setFyToMonth(formData.toMonth);
+    setFyStartDateAD(formData.startDateAD);
+    setFyEndDateAD(formData.endDateAD);
+    setFyStartDateBS(startBS);
+    setFyEndDateBS(endBS);
+    setFyStatus(formData.status || "Active");
+    setIsFYModalOpen(false);
+  };
+
+  const fyModalInitialValue: FiscalYear | null = useMemo(() => {
+    if (fyModalMode === "add") return null;
+    return {
+      id: "company-edit-fy",
+      label: fyLabel,
+      slug: fySlug,
+      fromMonth: fyFromMonth,
+      toMonth: fyToMonth,
+      startDateAD: fyStartDateAD,
+      endDateAD: fyEndDateAD,
+      startDateBS: fyStartDateBS,
+      endDateBS: fyEndDateBS,
+      status: fyStatus,
+      payslipsGenerated: false,
+    };
+  }, [
+    fyModalMode,
+    fyLabel,
+    fySlug,
+    fyFromMonth,
+    fyToMonth,
+    fyStartDateAD,
+    fyEndDateAD,
+    fyStartDateBS,
+    fyEndDateBS,
+    fyStatus,
+  ]);
 
   // 4. Statutory Leaves & Overtime
   const [otHourlyMultiplier, setOtHourlyMultiplier] = useState<number>(
@@ -333,21 +407,27 @@ export function EditCompanyModal({
     );
     setNotes(company.notes || "");
 
-    const fy = company.initialSetupPayload?.fiscalYear || defaultFY;
-    setFyLabel(fy.label);
-    setFySlug(fy.slug);
-    setFyStartDateBS(fy.startDateBS);
-    setFyEndDateBS(fy.endDateBS);
-    setFyStartDateAD(
-      fy.startDateAD
-        ? new Date(fy.startDateAD).toISOString().split("T")[0]
-        : defaultFY.startDateAD,
-    );
-    setFyEndDateAD(
-      fy.endDateAD
-        ? new Date(fy.endDateAD).toISOString().split("T")[0]
-        : defaultFY.endDateAD,
-    );
+    const fy = company.initialSetupPayload?.fiscalYear;
+    const resolvedFY = fy || {
+      label: defaultFY.label,
+      slug: defaultFY.slug,
+      fromMonth: 4,
+      toMonth: 3,
+      startDateBS: defaultFY.startDateBS,
+      endDateBS: defaultFY.endDateBS,
+      startDateAD: defaultFY.startDateAD,
+      endDateAD: defaultFY.endDateAD,
+      status: "Active",
+    };
+    setFyLabel(resolvedFY.label);
+    setFySlug(resolvedFY.slug);
+    setFyFromMonth((resolvedFY.fromMonth as BSMonthNumber) || 4);
+    setFyToMonth((resolvedFY.toMonth as BSMonthNumber) || 3);
+    setFyStartDateBS(resolvedFY.startDateBS);
+    setFyEndDateBS(resolvedFY.endDateBS);
+    setFyStartDateAD(new Date(resolvedFY.startDateAD));
+    setFyEndDateAD(new Date(resolvedFY.endDateAD));
+    setFyStatus((resolvedFY.status as FiscalYearStatus) || "Active");
 
     setOtHourlyMultiplier(
       company.initialSetupPayload?.otHourlyMultiplier ?? 1.5,
@@ -394,16 +474,6 @@ export function EditCompanyModal({
     } else {
       setPhoneError(null);
     }
-  };
-
-  // Preset selector for FY
-  const handleSelectFYPreset = (opt: FiscalYearPresetOption) => {
-    setFyLabel(opt.label);
-    setFySlug(opt.slug);
-    setFyStartDateBS(opt.startDateBS);
-    setFyEndDateBS(opt.endDateBS);
-    setFyStartDateAD(opt.startDateAD);
-    setFyEndDateAD(opt.endDateAD);
   };
 
   // Leave Type inline editor
@@ -504,7 +574,35 @@ export function EditCompanyModal({
     });
   };
 
-  const handleResetTaxSlabs = () => {
+  const handleResetTaxSlabs = async () => {
+    try {
+      const res = await fetch("/api/platform/policies");
+      if (res.ok) {
+        const data = await res.json();
+        if (
+          data.success &&
+          data.activePack?.payload?.taxSlabsBaseline &&
+          data.activePack.payload.taxSlabsBaseline.length > 0
+        ) {
+          setTaxSlabs(
+            data.activePack.payload.taxSlabsBaseline.map((s: any) => ({
+              category: s.category,
+              amountFrom: String(s.amountFrom),
+              amountTo:
+                s.amountTo !== null && s.amountTo !== undefined && s.amountTo !== ""
+                  ? String(s.amountTo)
+                  : null,
+              ratePercent: String(s.ratePercent),
+              fixedDeduction: String(s.fixedDeduction || "0"),
+            }))
+          );
+          toast.info("Tax slabs reset to current Statutory Policy Pack baseline.");
+          return;
+        }
+      }
+    } catch {
+      // Fallback to DEFAULT_TAX_SLABS
+    }
     setTaxSlabs(DEFAULT_TAX_SLABS);
     toast.info("Tax slabs reset to standard Nepal IRD brackets.");
   };
@@ -544,10 +642,19 @@ export function EditCompanyModal({
           fiscalYear: {
             label: fyLabel.trim(),
             slug: fySlug.trim(),
+            fromMonth: fyFromMonth,
+            toMonth: fyToMonth,
             startDateBS: fyStartDateBS.trim(),
             endDateBS: fyEndDateBS.trim(),
-            startDateAD: fyStartDateAD,
-            endDateAD: fyEndDateAD,
+            startDateAD:
+              fyStartDateAD instanceof Date
+                ? fyStartDateAD.toISOString()
+                : new Date(fyStartDateAD).toISOString(),
+            endDateAD:
+              fyEndDateAD instanceof Date
+                ? fyEndDateAD.toISOString()
+                : new Date(fyEndDateAD).toISOString(),
+            status: fyStatus || "Active",
           },
           leaveTypes,
           otHourlyMultiplier,
@@ -599,7 +706,94 @@ export function EditCompanyModal({
         onClose={handleClose}
         title="Super Admin Company Configuration Editor"
         description={`Full control plane editor for ${company.displayName} (${company.companyCode}). All changes sync to the tenant database.`}
-        size="xl"
+        size="4xl"
+        headerBottom={
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button
+              type="button"
+              onClick={() => setActiveTab("profile")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                activeTab === "profile"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Building className="w-3.5 h-3.5" />
+              <span>1. Profile & Admin</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("branch")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                activeTab === "branch"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              <span>2. Head Office Branch</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("fiscal-year")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                activeTab === "fiscal-year"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>3. Fiscal Year</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("leaves")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                activeTab === "leaves"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Palmtree className="w-3.5 h-3.5" />
+              <span>4. Leaves & OT</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("pay-heads")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                activeTab === "pay-heads"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Coins className="w-3.5 h-3.5" />
+              <span>5. Pay Heads</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("tax-slabs")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                activeTab === "tax-slabs"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Percent className="w-3.5 h-3.5" />
+              <span>6. Tax Slabs</span>
+            </button>
+          </div>
+        }
         footer={
           <div className="flex items-center justify-between gap-3 w-full">
             <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
@@ -630,97 +824,13 @@ export function EditCompanyModal({
           </div>
         }
       >
-        <div className="space-y-4 py-1">
+        <div className="space-y-4">
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-semibold">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
               <span>{error}</span>
             </div>
           )}
-
-          {/* Tab Navigation */}
-          <div className="flex items-center gap-1 border-b border-payroll-light pb-2 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab("profile")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTab === "profile"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream"
-              }`}
-            >
-              <Building className="w-3.5 h-3.5" />
-              <span>1. Profile & Admin</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("branch")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTab === "branch"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream"
-              }`}
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>2. Head Office Branch</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("fiscal-year")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTab === "fiscal-year"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream"
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>3. Fiscal Year</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("leaves")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTab === "leaves"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream "
-              }`}
-            >
-              <Palmtree className="w-3.5 h-3.5" />
-              <span>4. Leaves & OT</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("pay-heads")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTab === "pay-heads"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream"
-              }`}
-            >
-              <Coins className="w-3.5 h-3.5" />
-              <span>5. Pay Heads</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("tax-slabs")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTab === "tax-slabs"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream"
-              }`}
-            >
-              <Percent className="w-3.5 h-3.5" />
-              <span>6. Tax Slabs</span>
-            </button>
-          </div>
-
-          {/* Form Content Area */}
-          <div className="max-h-[62vh] overflow-y-auto pr-1">
             {/* ════════════════════════════════════════════════════════════════════
                 TAB 1: LEGAL PROFILE & ADMIN CONTACT
             ════════════════════════════════════════════════════════════════════ */}
@@ -840,87 +950,89 @@ export function EditCompanyModal({
                   </div>
                 </div>
 
-                {/* Head Office Address */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                    Company Head Office Address
-                  </label>
-                  <input
-                    type="text"
-                    value={headOfficeAddress}
-                    onChange={(e) => setHeadOfficeAddress(e.target.value)}
-                    placeholder="e.g. Putalisadak, Kathmandu"
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
-                  />
+                {/* Head Office Address & Contact Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                      Company Head Office Address
+                    </label>
+                    <input
+                      type="text"
+                      value={headOfficeAddress}
+                      onChange={(e) => setHeadOfficeAddress(e.target.value)}
+                      placeholder="e.g. Putalisadak, Kathmandu"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                        Contact Phone
+                      </label>
+                      {!phoneError && contactPhone && (
+                        <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Valid
+                        </span>
+                      )}
+                    </div>
+                    <PhoneInput
+                      value={contactPhone}
+                      onChange={handlePhoneChange}
+                      hasError={Boolean(phoneError)}
+                      placeholder="9800000000 / 01-4XXXXXX"
+                    />
+                    {phoneError && (
+                      <p className="text-[11px] text-rose-600 font-semibold">
+                        {phoneError}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* Contact Phone */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Contact Phone
-                    </label>
-                    {!phoneError && contactPhone && (
-                      <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Valid
+                {/* Organization Industry Sector & Internal Notes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                        Organization Industry Sector (संस्थाको क्षेत्र)
+                      </label>
+                      <span className="text-[10px] text-payroll-primary font-semibold">
+                        Super Admin Exclusive
                       </span>
-                    )}
+                    </div>
+                    <select
+                      value={industryType}
+                      onChange={(e) =>
+                        setIndustryType(e.target.value as IndustrySectorKey)
+                      }
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                    >
+                      {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map(
+                        (key) => {
+                          const sec = INDUSTRY_SECTORS[key];
+                          return (
+                            <option key={key} value={key}>
+                              {sec.label} — {sec.labelNepali}
+                            </option>
+                          );
+                        },
+                      )}
+                    </select>
                   </div>
-                  <PhoneInput
-                    value={contactPhone}
-                    onChange={handlePhoneChange}
-                    hasError={Boolean(phoneError)}
-                    placeholder="9800000000 / 01-4XXXXXX"
-                  />
-                  {phoneError && (
-                    <p className="text-[11px] text-rose-600 font-semibold">
-                      {phoneError}
-                    </p>
-                  )}
-                </div>
 
-                {/* Organization Industry Sector */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Organization Industry Sector (संस्थाको क्षेत्र)
+                      Super Admin Notes (Internal)
                     </label>
-                    <span className="text-[10px] text-payroll-primary font-semibold">
-                      Super Admin Exclusive
-                    </span>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Optional internal notes about this company..."
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy resize-none shadow-payroll-xs"
+                    />
                   </div>
-                  <select
-                    value={industryType}
-                    onChange={(e) =>
-                      setIndustryType(e.target.value as IndustrySectorKey)
-                    }
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
-                  >
-                    {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map(
-                      (key) => {
-                        const sec = INDUSTRY_SECTORS[key];
-                        return (
-                          <option key={key} value={key}>
-                            {sec.label} — {sec.labelNepali}
-                          </option>
-                        );
-                      },
-                    )}
-                  </select>
-                </div>
-
-                {/* Internal Notes */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                    Super Admin Notes (Internal)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Optional internal notes about this company..."
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy resize-none shadow-payroll-xs"
-                  />
                 </div>
               </div>
             )}
@@ -1010,118 +1122,114 @@ export function EditCompanyModal({
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Fiscal Year Presets
+                      Active Operating Fiscal Year
                     </h4>
                     <p className="text-[11px] text-gray-500">
-                      Select a standard cycle or customize specific dates below
+                      Super Admin establishes or updates the active cycle for this company
                     </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => {
+                        setFyModalMode("add");
+                        setIsFYModalOpen(true);
+                      }}
+                      className="border-payroll-light text-payroll-navy hover:bg-payroll-cream text-xs h-7.5 px-2.5 font-medium flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-payroll-primary" />
+                      <span>Add Fiscal Year</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      onClick={() => {
+                        setFyModalMode("edit");
+                        setIsFYModalOpen(true);
+                      }}
+                      className="bg-payroll-primary hover:bg-payroll-primary/90 text-white text-xs h-7.5 px-2.5 font-semibold flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit Fiscal Year</span>
+                    </Button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {fyOptions.map((opt) => {
-                    const isSelected = fySlug === opt.slug;
-                    return (
-                      <div
-                        key={opt.slug}
-                        onClick={() => handleSelectFYPreset(opt)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? "border-payroll-primary bg-payroll-primary/5 ring-1 ring-payroll-primary/20 shadow-payroll-xs"
-                            : "border-payroll-light bg-white hover:bg-gray-50/50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-payroll-navy">
-                            {opt.label}
+                {/* Active Fiscal Year Primary Display Card */}
+                <div className="p-5 rounded-2xl border border-payroll-primary/30 bg-linear-to-br from-payroll-primary/5 via-white to-payroll-cream/30 shadow-payroll-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-payroll-light/60">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-payroll-primary/10 border border-payroll-primary/20 flex items-center justify-center text-payroll-primary shrink-0">
+                        <CalendarDays className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-bold text-payroll-navy">
+                            {fyLabel}
                           </span>
-                          {opt.isCurrent && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
-                              Current
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {fyStatus === "Active" ? "Active Operating Cycle" : "Configured Cycle"}
+                          </span>
                         </div>
-                        <p className="text-[10px] text-gray-500 font-mono mt-1">
-                          BS: {opt.startDateBS} ~ {opt.endDateBS}
+                        <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                          Database Slug: <span className="text-payroll-primary font-semibold">{fySlug}</span>
                         </p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+
+                  {/* 3 Detail Blocks */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                    <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Bikram Sambat (BS) Range
+                      </span>
+                      <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
+                        {fyStartDateBS} ~ {fyEndDateBS}
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">
+                        Bikram Sambat calendar
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Gregorian (AD) Equivalent
+                      </span>
+                      <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
+                        {formatADDate(fyStartDateAD, "short")} to {formatADDate(fyEndDateAD, "short")}
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">
+                        Stored in tenant DB as AD timestamp
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        Operational Month Range
+                      </span>
+                      <span className="text-xs font-bold text-payroll-navy mt-1 block">
+                        {BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]}
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">
+                        Month {fyFromMonth} through Month {fyToMonth} (12 Mo.)
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-4 bg-payroll-cream/20 rounded-xl border border-payroll-light space-y-3">
-                  <h5 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                    Custom Cycle & Calendar Ranges
-                  </h5>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 uppercase">
-                        Label (Display)
-                      </label>
-                      <input
-                        type="text"
-                        value={fyLabel}
-                        onChange={(e) => setFyLabel(e.target.value)}
-                        placeholder="2081/82"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-payroll-light bg-white text-payroll-navy font-bold shadow-2xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 uppercase">
-                        Slug (Code)
-                      </label>
-                      <input
-                        type="text"
-                        value={fySlug}
-                        onChange={(e) => setFySlug(e.target.value)}
-                        placeholder="2081-82"
-                        className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-payroll-light bg-white text-payroll-navy shadow-2xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 uppercase">
-                        Bikram Sambat (BS) Start ~ End
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={fyStartDateBS}
-                          onChange={(e) => setFyStartDateBS(e.target.value)}
-                          placeholder="2081-04-01"
-                          className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-payroll-light bg-white text-payroll-navy shadow-2xs"
-                        />
-                        <input
-                          type="text"
-                          value={fyEndDateBS}
-                          onChange={(e) => setFyEndDateBS(e.target.value)}
-                          placeholder="2082-03-31"
-                          className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-payroll-light bg-white text-payroll-navy shadow-2xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-gray-700 uppercase">
-                        Gregorian (AD) Start ~ End
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="date"
-                          value={fyStartDateAD}
-                          onChange={(e) => setFyStartDateAD(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-payroll-light bg-white text-payroll-navy shadow-2xs"
-                        />
-                        <input
-                          type="date"
-                          value={fyEndDateAD}
-                          onChange={(e) => setFyEndDateAD(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-payroll-light bg-white text-payroll-navy shadow-2xs"
-                        />
-                      </div>
-                    </div>
+                <div className="p-3 bg-payroll-cream/50 rounded-xl border border-payroll-light/70 text-xs text-payroll-navy flex items-start gap-2.5">
+                  <Info className="w-4 h-4 text-payroll-primary shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-payroll-navy">
+                      Active Cycle: <strong>{fyLabel}</strong> ({BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]})
+                    </p>
+                    <p className="text-[11px] text-gray-600">
+                      Changes made here synchronize with the tenant&apos;s <code>fiscal_years</code> table using canonical Bikram Sambat date mappings.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1588,9 +1696,19 @@ export function EditCompanyModal({
                 </div>
               </div>
             )}
-          </div>
         </div>
       </Dialog>
+
+      {/* Modal for adding or editing the Fiscal Year in company edit */}
+      {isFYModalOpen && (
+        <FiscalYearFormModal
+          key={fyModalMode === "edit" ? `edit-${fySlug}` : "add-new"}
+          open={isFYModalOpen}
+          onClose={() => setIsFYModalOpen(false)}
+          initialValue={fyModalInitialValue}
+          onSubmit={handleSaveFYFromModal}
+        />
+      )}
     </>
   );
 }

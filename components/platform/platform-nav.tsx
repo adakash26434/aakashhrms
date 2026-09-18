@@ -15,6 +15,7 @@ import {
   Coins,
   Gift,
   Percent,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,8 +55,15 @@ const NAV_SECTIONS: NavSection[] = [
         exact: false,
         icon: Building2,
       },
+      {
+        label: "Change Requests",
+        href: "/platform/change-requests",
+        exact: false,
+        icon: ShieldAlert,
+      },
     ],
   },
+
   {
     category: "Governance",
     items: [

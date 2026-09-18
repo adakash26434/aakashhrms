@@ -118,8 +118,10 @@ export async function POST(
       redirectUrl: '/dashboard',
     });
 
-    const isPlainHttp = process.env.AUTH_URL?.startsWith('http://') || process.env.NEXTAUTH_URL?.startsWith('http://');
-    const isSecure = !isPlainHttp && process.env.NODE_ENV === 'production';
+    const proto =
+      request.headers.get('x-forwarded-proto') ||
+      (request.url.startsWith('https') ? 'https' : 'http');
+    const isSecure = proto === 'https';
 
     // Set the impersonation cookie
     response.cookies.set(IMPERSONATION_COOKIE, impersonationToken, {
@@ -191,8 +193,14 @@ export async function DELETE(
       redirectUrl: '/platform',
     });
 
-    // Clear the impersonation cookie
-    response.cookies.delete(IMPERSONATION_COOKIE);
+    // Clear the impersonation cookie across the root path
+    response.cookies.set(IMPERSONATION_COOKIE, '', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
 
     return response;
   } catch (error: any) {
@@ -202,7 +210,13 @@ export async function DELETE(
       { success: false, error: error?.message || 'Failed to end impersonation session.' },
       { status: 500 }
     );
-    response.cookies.delete(IMPERSONATION_COOKIE);
+    response.cookies.set(IMPERSONATION_COOKIE, '', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
     return response;
   }
 }

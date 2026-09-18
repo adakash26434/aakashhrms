@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { StatutoryPolicyPackPayload } from "@/lib/platform/policy-pack-data";
 import {
   INDUSTRY_SECTORS,
   IndustrySectorKey,
@@ -31,6 +32,8 @@ import {
   Shield,
   Info,
   GitBranch,
+  Pencil,
+  Plus,
 } from "lucide-react";
 import { validatePhoneNumber } from "@/lib/utils/phone";
 import { slugifyCompanyName } from "@/lib/platform/company-code";
@@ -38,10 +41,15 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { getAvailableFiscalYearPresets } from "@/lib/utils/fiscal-year-presets";
+import { FiscalYearFormModal } from "@/components/fiscal-year/fiscal-year-form-modal";
+import type { FiscalYear, FiscalYearFormData, FiscalYearStatus } from "@/lib/types/fiscal-year";
 import {
-  getAvailableFiscalYearPresets,
-  FiscalYearPresetOption,
-} from "@/lib/utils/fiscal-year-presets";
+  formatADDate,
+  adToBSString,
+  BS_MONTHS_EN,
+  type BSMonthNumber,
+} from "@/lib/utils/bs-calendar";
 import {
   DEFAULT_NEPAL_LEAVE_TYPES,
   DEFAULT_PAY_HEADS,
@@ -188,15 +196,67 @@ export default function RegisterCompanyPage() {
     useState(false);
 
   // 3. Fiscal Year Setup
-  const { current: defaultFY, options: fyOptions } = useMemo(
-    () => getAvailableFiscalYearPresets(),
-    [],
-  );
-  const [selectedFYSlug, setSelectedFYSlug] = useState<string>(defaultFY.slug);
-  const selectedFY = useMemo(
-    () => fyOptions.find((f) => f.slug === selectedFYSlug) || defaultFY,
-    [fyOptions, selectedFYSlug, defaultFY],
-  );
+  const [configuredFY, setConfiguredFY] = useState<{
+    label: string;
+    slug: string;
+    fromMonth: BSMonthNumber;
+    toMonth: BSMonthNumber;
+    startDateAD: Date;
+    endDateAD: Date;
+    startDateBS: string;
+    endDateBS: string;
+    status: FiscalYearStatus;
+  }>(() => {
+    const { current: defaultFY } = getAvailableFiscalYearPresets();
+    return {
+      label: defaultFY.label,
+      slug: defaultFY.slug,
+      fromMonth: 4,
+      toMonth: 3,
+      startDateAD: new Date(defaultFY.startDateAD),
+      endDateAD: new Date(defaultFY.endDateAD),
+      startDateBS: defaultFY.startDateBS,
+      endDateBS: defaultFY.endDateBS,
+      status: "Active",
+    };
+  });
+
+  const [isFYModalOpen, setIsFYModalOpen] = useState(false);
+  const [fyModalMode, setFyModalMode] = useState<"edit" | "add">("edit");
+
+  const handleSaveFYFromModal = (formData: FiscalYearFormData) => {
+    const startBS = adToBSString(formData.startDateAD);
+    const endBS = adToBSString(formData.endDateAD);
+    setConfiguredFY({
+      label: formData.label.trim(),
+      slug: formData.slug.trim(),
+      fromMonth: formData.fromMonth,
+      toMonth: formData.toMonth,
+      startDateAD: formData.startDateAD,
+      endDateAD: formData.endDateAD,
+      startDateBS: startBS,
+      endDateBS: endBS,
+      status: formData.status || "Active",
+    });
+    setIsFYModalOpen(false);
+  };
+
+  const fyModalInitialValue: FiscalYear | null = useMemo(() => {
+    if (fyModalMode === "add") return null;
+    return {
+      id: "initial-active-fy",
+      label: configuredFY.label,
+      slug: configuredFY.slug,
+      fromMonth: configuredFY.fromMonth,
+      toMonth: configuredFY.toMonth,
+      startDateAD: configuredFY.startDateAD,
+      endDateAD: configuredFY.endDateAD,
+      startDateBS: configuredFY.startDateBS,
+      endDateBS: configuredFY.endDateBS,
+      status: configuredFY.status,
+      payslipsGenerated: false,
+    };
+  }, [fyModalMode, configuredFY]);
 
   // 4. Statutory Leaves & Overtime
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypePreset[]>(
@@ -209,6 +269,73 @@ export default function RegisterCompanyPage() {
 
   // 6. Tax Slabs
   const [taxSlabs, setTaxSlabs] = useState(DEFAULT_TAX_SLABS);
+
+  // Dynamically load & sync from active Statutory Policy Pack configured in Super Admin control plane
+  useEffect(() => {
+    let isMounted = true;
+    async function loadActivePolicyPack() {
+      try {
+        const res = await fetch("/api/platform/policies");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data.success && data.activePack?.payload) {
+          const pack: StatutoryPolicyPackPayload = data.activePack.payload;
+
+          // 1. Sync Tax Slabs baseline
+          if (pack.taxSlabsBaseline && pack.taxSlabsBaseline.length > 0) {
+            setTaxSlabs(
+              pack.taxSlabsBaseline.map((s) => ({
+                category: s.category,
+                amountFrom: String(s.amountFrom),
+                amountTo:
+                  s.amountTo !== null &&
+                  s.amountTo !== undefined &&
+                  s.amountTo !== ""
+                    ? String(s.amountTo)
+                    : null,
+                ratePercent: String(s.ratePercent),
+                fixedDeduction: String(s.fixedDeduction || "0"),
+              }))
+            );
+          }
+
+          // 2. Sync Overtime Multiplier
+          if (pack.otRules && pack.otRules.length > 0) {
+            const standardOt =
+              pack.otRules.find((r) => r.ruleType === "Hourly") || pack.otRules[0];
+            if (standardOt?.rateOfficeDay) {
+              const parsed = Number(standardOt.rateOfficeDay);
+              if (!isNaN(parsed) && parsed > 0) {
+                setOtHourlyMultiplier(parsed);
+              }
+            }
+          }
+
+          // 3. Sync Statutory Leave Rules
+          if (pack.leaveRules && pack.leaveRules.length > 0) {
+            setLeaveTypes(
+              pack.leaveRules.map((lr) => ({
+                name: lr.name,
+                code: lr.code,
+                category: lr.statutoryCode || lr.code || "STATUTORY",
+                daysPerYear: lr.daysPerYear,
+                isPaid: lr.leaveType === "Pay",
+                maxAccumulation: lr.maxAccumulation,
+                genderSpecific: lr.genderApplicable || "All",
+                isEncashable: lr.isEncashable,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Using default statutory baseline:", err);
+      }
+    }
+    loadActivePolicyPack();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Form handling state
   const [loading, setLoading] = useState(false);
@@ -308,12 +435,21 @@ export default function RegisterCompanyPage() {
         ).trim(),
         initialSetupPayload: {
           fiscalYear: {
-            label: selectedFY.label,
-            slug: selectedFY.slug,
-            startDateBS: selectedFY.startDateBS,
-            endDateBS: selectedFY.endDateBS,
-            startDateAD: selectedFY.startDateAD,
-            endDateAD: selectedFY.endDateAD,
+            label: configuredFY.label,
+            slug: configuredFY.slug,
+            fromMonth: configuredFY.fromMonth,
+            toMonth: configuredFY.toMonth,
+            startDateBS: configuredFY.startDateBS,
+            endDateBS: configuredFY.endDateBS,
+            startDateAD:
+              configuredFY.startDateAD instanceof Date
+                ? configuredFY.startDateAD.toISOString()
+                : new Date(configuredFY.startDateAD).toISOString(),
+            endDateAD:
+              configuredFY.endDateAD instanceof Date
+                ? configuredFY.endDateAD.toISOString()
+                : new Date(configuredFY.endDateAD).toISOString(),
+            status: configuredFY.status || "Active",
           },
           leaveTypes,
           otHourlyMultiplier,
@@ -604,7 +740,7 @@ export default function RegisterCompanyPage() {
                   <span className="text-rose-500">*</span>
                 </label>
                 <span className="text-[11px] text-gray-500">
-                  Pre-configures tenant Shreni / Hierarchy tiers
+                  Defines company industry classification
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -746,72 +882,129 @@ export default function RegisterCompanyPage() {
                   Initial Active Fiscal Year
                 </h2>
                 <p className="text-[11px] text-gray-500">
-                  Super Admin establishes the first active cycle; subsequent
+                  Super Admin establishes the primary active cycle; subsequent
                   years can be created by company admin
                 </p>
               </div>
             </div>
-            <Calendar className="w-4 h-4 text-payroll-primary/60" />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  setFyModalMode("add");
+                  setIsFYModalOpen(true);
+                }}
+                className="border-payroll-light text-payroll-navy hover:bg-payroll-cream text-xs h-7.5 px-2.5 font-medium flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 text-payroll-primary" />
+                <span>Add Fiscal Year</span>
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                onClick={() => {
+                  setFyModalMode("edit");
+                  setIsFYModalOpen(true);
+                }}
+                className="bg-payroll-primary hover:bg-payroll-primary/90 text-white text-xs h-7.5 px-2.5 font-semibold flex items-center gap-1.5 shadow-2xs"
+              >
+                <Pencil className="w-3 h-3" />
+                <span>Edit Fiscal Year</span>
+              </Button>
+            </div>
           </div>
 
           <CardContent className="p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {fyOptions.map((fy) => {
-                const isSelected = selectedFYSlug === fy.slug;
-                return (
-                  <div
-                    key={fy.slug}
-                    onClick={() => setSelectedFYSlug(fy.slug)}
-                    className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-payroll-primary bg-payroll-primary/5 ring-1 ring-payroll-primary/20 shadow-payroll-xs"
-                        : "border-payroll-light/80 bg-white hover:border-gray-300 hover:bg-gray-50/50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-payroll-navy">
-                            {fy.label}
-                          </span>
-                          {fy.isCurrent && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-1 font-mono">
-                          BS: {fy.startDateBS} ~ {fy.endDateBS}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          AD: {fy.formattedDateRangeAD}
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <CheckCircle2 className="w-4 h-4 text-payroll-primary shrink-0 mt-0.5" />
-                      )}
-                    </div>
+            {/* Active Fiscal Year Primary Display Card */}
+            <div className="p-5 rounded-2xl border border-payroll-primary/30 bg-linear-to-br from-payroll-primary/5 via-white to-payroll-cream/30 shadow-payroll-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-payroll-light/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-payroll-primary/10 border border-payroll-primary/20 flex items-center justify-center text-payroll-primary shrink-0">
+                    <CalendarDays className="w-5 h-5" />
                   </div>
-                );
-              })}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold text-payroll-navy">
+                        {configuredFY.label}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Active Operating Cycle
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                      Database Slug: <span className="text-payroll-primary font-semibold">{configuredFY.slug}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 Detail Blocks: BS Range, AD Equivalent, Operational Months */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Bikram Sambat (BS) Range
+                  </span>
+                  <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
+                    {configuredFY.startDateBS} ~ {configuredFY.endDateBS}
+                  </span>
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    Bikram Sambat calendar
+                  </span>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Gregorian (AD) Equivalent
+                  </span>
+                  <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
+                    {formatADDate(configuredFY.startDateAD, "short")} to {formatADDate(configuredFY.endDateAD, "short")}
+                  </span>
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    Stored in tenant DB as AD timestamp
+                  </span>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    Operational Month Range
+                  </span>
+                  <span className="text-xs font-bold text-payroll-navy mt-1 block">
+                    {BS_MONTHS_EN[configuredFY.fromMonth]} to {BS_MONTHS_EN[configuredFY.toMonth]}
+                  </span>
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    Month {configuredFY.fromMonth} through Month {configuredFY.toMonth} (12 Mo.)
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="p-3 bg-payroll-cream/50 rounded-xl border border-payroll-light/70 text-xs text-payroll-navy flex items-start gap-2.5">
               <Info className="w-4 h-4 text-payroll-primary shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-semibold text-payroll-navy">
-                  Active Cycle: <strong>{selectedFY.label}</strong> (Shrawan 1
-                  to Asar 31)
+                  Active Cycle: <strong>{configuredFY.label}</strong> ({BS_MONTHS_EN[configuredFY.fromMonth]} to {BS_MONTHS_EN[configuredFY.toMonth]})
                 </p>
                 <p className="text-[11px] text-gray-600">
-                  After this initial fiscal year is created by Super Admin, the
-                  company administrator can create future fiscal years directly
-                  from <strong>Setup → Fiscal Year</strong> whenever required.
+                  Configured with the canonical Bikram Sambat calendar system. After this initial fiscal year is established, the company administrator can manage future fiscal cycles directly from <strong>Setup → Fiscal Year</strong>.
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Modal for adding or editing the Fiscal Year */}
+        {isFYModalOpen && (
+          <FiscalYearFormModal
+            key={fyModalMode === "edit" ? `edit-${configuredFY.slug}` : "add-new"}
+            open={isFYModalOpen}
+            onClose={() => setIsFYModalOpen(false)}
+            initialValue={fyModalInitialValue}
+            onSubmit={handleSaveFYFromModal}
+          />
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════════
             SECTION 4: STATUTORY LEAVES & OVERTIME ALLOTMENTS
@@ -1019,7 +1212,7 @@ export default function RegisterCompanyPage() {
               </div>
               <div>
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                  Nepal IRD Progressive Income Tax Slabs ({selectedFY.label})
+                  Nepal IRD Progressive Income Tax Slabs ({configuredFY.label})
                 </h2>
                 <p className="text-[11px] text-gray-500">
                   Statutory progressive brackets under Nepal Income Tax Act 2058

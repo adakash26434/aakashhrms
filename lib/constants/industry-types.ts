@@ -34,19 +34,23 @@ export interface IndustrySectorMeta {
   badgeColor: string;
 }
 
-export interface ShreniPresetItem {
-  id: string;
-  name: string;
-  levelNumber?: number;
-  category: IndustrySectorKey;
-  description?: string;
+export interface ShreniLevelItem {
+  id: string; // e.g. "S1"
+  code: string; // e.g. "S1"
+  name: string; // e.g. "S1 — Level 1"
+  levelNumber: number; // 1
+  labelNepali: string; // "तह १ (सहयोगी तह)"
+  description?: string; // "Entry / Support Level"
+  category?: string;
 }
+
+export type ShreniPresetItem = ShreniLevelItem;
 
 export const INDUSTRY_SECTORS: Record<IndustrySectorKey, IndustrySectorMeta> = {
   BFIs: {
     id: "BFIs",
     label: "Banks & Financial Institutions",
-    labelNepali: "बैंक तथा वित्तीय संस्था (तह १ देखि ११)",
+    labelNepali: "बैंक तथा वित्तीय संस्था",
     shortLabel: "BFIs / Bank",
     description: "Commercial Banks (Class A), Development Banks (Class B), Finance (Class C), and Microfinance (Class D) regulated by NRB.",
     iconName: "Landmark",
@@ -63,209 +67,377 @@ export const INDUSTRY_SECTORS: Record<IndustrySectorKey, IndustrySectorMeta> = {
   },
   Corporate: {
     id: "Corporate",
-    label: "Corporate, Commercial & Tech",
-    labelNepali: "कम्पनी, व्यापार तथा निजी प्रतिष्ठान",
+    label: "Corporate & Private Enterprise",
+    labelNepali: "निजी तथा कर्पोरेट प्रतिष्ठान",
     shortLabel: "Corporate",
-    description: "Private & Public limited enterprises, IT companies, Trading houses, and Consultancy firms.",
+    description: "Public and Private Limited companies, Trading houses, Tech firms, and Commercial holding enterprises.",
     iconName: "Briefcase",
     badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
   },
   Healthcare: {
     id: "Healthcare",
-    label: "Healthcare & Hospitals",
-    labelNepali: "स्वास्थ्य, अस्पताल तथा क्लिनिक",
+    label: "Healthcare, Hospitals & Pharmaceuticals",
+    labelNepali: "स्वास्थ्य, अस्पताल तथा पोलिक्लिनिक",
     shortLabel: "Healthcare",
-    description: "Hospitals, Nursing Homes, Diagnostic Centers, and Pharmaceutical establishments.",
+    description: "Hospitals, Nursing Homes, Diagnostic centers, Polyclinics, and Pharmaceutical laboratories.",
     iconName: "Hospital",
     badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
   },
   Education: {
     id: "Education",
-    label: "Educational Institutions",
-    labelNepali: "शैक्षिक संस्था (स्कूल तथा कलेज)",
+    label: "Educational Institutions & Universities",
+    labelNepali: "शैक्षिक संस्था, क्याम्पस तथा विद्यालय",
     shortLabel: "Education",
-    description: "Schools, Colleges, Universities, and Academic / Vocational training institutions.",
+    description: "Colleges, Universities, Higher Secondary, and Primary schools under Ministry of Education.",
     iconName: "GraduationCap",
     badgeColor: "bg-indigo-50 text-indigo-800 border-indigo-200",
   },
   Manufacturing: {
     id: "Manufacturing",
-    label: "Manufacturing, Industry & Construction",
-    labelNepali: "उत्पादन, उद्योग तथा निर्माण",
-    shortLabel: "Industry",
-    description: "Factories, Production Plants, Hydropower, Mills, and Construction firms.",
+    label: "Manufacturing, FMCG & Heavy Industry",
+    labelNepali: "उद्योग, उत्पादन तथा निर्माण",
+    shortLabel: "Manufacturing",
+    description: "Factories, Production plants, FMCG manufacturers, and Infrastructure construction contractors.",
     iconName: "Factory",
     badgeColor: "bg-orange-50 text-orange-800 border-orange-200",
   },
   Hospitality: {
     id: "Hospitality",
-    label: "Hospitality & Tourism",
+    label: "Hospitality, Hotels & Tourism",
     labelNepali: "होटल, रिसोर्ट तथा पर्यटन",
     shortLabel: "Hospitality",
-    description: "Hotels, Resorts, Travel agencies, Restaurants, and Tourism operators.",
+    description: "Star Hotels, Resorts, Banquet centers, Airlines, Travel agencies, and Restaurant chains.",
     iconName: "Hotel",
-    badgeColor: "bg-teal-50 text-teal-800 border-teal-200",
+    badgeColor: "bg-amber-50 text-amber-900 border-amber-300",
   },
   NGO_INGO: {
     id: "NGO_INGO",
     label: "NGOs, INGOs & Development Sector",
-    labelNepali: "गैर-सरकारी तथा सामाजिक संस्था",
+    labelNepali: "गैर-सरकारी संस्था तथा विकास साझेदार",
     shortLabel: "NGO / INGO",
-    description: "Non-profit organizations, Community Development projects, and International Agencies.",
+    description: "Non-Governmental Organizations and International NGOs registered under Social Welfare Council.",
     iconName: "Globe2",
-    badgeColor: "bg-cyan-50 text-cyan-800 border-cyan-200",
+    badgeColor: "bg-teal-50 text-teal-800 border-teal-200",
   },
   Government: {
     id: "Government",
-    label: "Government & Public Enterprises",
-    labelNepali: "सरकारी तथा सार्वजनिक संस्थान",
-    shortLabel: "Public / Sansthan",
-    description: "Public Enterprises (संस्थान), Autonomous Boards, and Parastatal corporations.",
+    label: "Public Corporations & Semi-Govt Bodies",
+    labelNepali: "सार्वजनिक संस्थान तथा स्वायत्त निकाय",
+    shortLabel: "Public Enterprise",
+    description: "Public Corporations, Autonomous Boards, Municipal Undertakings, and Regulated Public Entities.",
     iconName: "ShieldCheck",
     badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
   },
   General: {
     id: "General",
     label: "General / Unclassified Organization",
-    labelNepali: "सामान्य / अन्य संस्था (अधिकतम तह १ देखि १२)",
+    labelNepali: "सामान्य / अन्य संस्था",
     shortLabel: "General / Universal",
-    description: "Unclassified or diversified organizations — equipped with the Maximum Universal 12-Tier Shreni Scale.",
+    description: "Diversified, commercial, or unclassified organizations operating across Nepal.",
     iconName: "Layers",
     badgeColor: "bg-slate-100 text-slate-800 border-slate-300",
   },
 };
 
-export const SHRENI_PRESETS_BY_SECTOR: Record<IndustrySectorKey, ShreniPresetItem[]> = {
-  // 1. Banking & Financial Institutions (Level 1 to 11)
-  BFIs: [
-    { id: "BFI-L10", name: "Level 10-11: Executive / Management (तह १०-११: कार्यकारी)", levelNumber: 11, category: "BFIs", description: "CEO, DCEO, General Manager" },
-    { id: "BFI-L8", name: "Level 8-9: Senior Manager / Manager (तह ८-९: व्यवस्थापक)", levelNumber: 9, category: "BFIs", description: "Department Head, Branch Manager" },
-    { id: "BFI-L7", name: "Level 7: Deputy / Assistant Manager (तह ७: सहायक व्यवस्थापक)", levelNumber: 7, category: "BFIs", description: "Deputy Manager, Asst. Manager" },
-    { id: "BFI-L6", name: "Level 6: Senior Officer / Officer (तह ६: अधिकृत)", levelNumber: 6, category: "BFIs", description: "Credit Officer, Operations Officer" },
-    { id: "BFI-L5", name: "Level 5: Junior Officer / Supervisor (तह ५: कनिष्ठ अधिकृत)", levelNumber: 5, category: "BFIs", description: "Junior Officer, Supervisor" },
-    { id: "BFI-L4", name: "Level 4: Senior Assistant (तह ४: वरिष्ठ सहायक)", levelNumber: 4, category: "BFIs", description: "Senior Assistant, Head Teller" },
-    { id: "BFI-L3", name: "Level 3: Assistant / Junior Assistant (तह ३: सहायक)", levelNumber: 3, category: "BFIs", description: "Assistant, Teller, Trainee" },
-    { id: "BFI-L1", name: "Level 1-2: Support Staff (तह १-२: सहयोगी तह)", levelNumber: 2, category: "BFIs", description: "Office Assistant, Driver, Messenger" },
-  ],
-
-  // 2. Cooperatives
-  Cooperatives: [
-    { id: "COOP-CEO", name: "व्यवस्थापक / मुख्य कार्यकारी (General Manager / CEO)", category: "Cooperatives", description: "प्रमुख कार्यकारी अधिकृत, व्यवस्थापक" },
-    { id: "COOP-OFF", name: "अधिकृत तह (Officer — Accounts / Credit)", category: "Cooperatives", description: "लेखा अधिकृत, ऋण अधिकृत" },
-    { id: "COOP-SRASST", name: "वरिष्ठ सहायक (Senior Assistant / Head Cashier)", category: "Cooperatives", description: "वरिष्ठ सहायक, क्यासियर" },
-    { id: "COOP-ASST", name: "सहायक तह (Assistant / Loan Supervisor)", category: "Cooperatives", description: "सहायक, ऋण सुपरभाइजर" },
-    { id: "COOP-JR", name: "कनिष्ठ सहायक / बजार प्रतिनिधि (Junior Assistant / Field Collector)", category: "Cooperatives", description: "कनिष्ठ सहायक, बजार प्रतिनिधि" },
-    { id: "COOP-SUPP", name: "सहयोगी तह (Support Staff / Peon)", category: "Cooperatives", description: "सहयोगी, कार्यालय सहयोगी" },
-  ],
-
-  // 3. Corporate & Private Sector
-  Corporate: [
-    { id: "CORP-EXEC", name: "Executive / C-Suite (विशिष्ट / कार्यकारी: MD, Director, VP)", category: "Corporate", description: "Managing Director, Director, VP" },
-    { id: "CORP-SRMGR", name: "Senior Management (वरिष्ठ व्यवस्थापन: GM, Senior Manager)", category: "Corporate", description: "General Manager, Senior Manager" },
-    { id: "CORP-MIDMGR", name: "Middle Management (मध्यम व्यवस्थापन: Manager, Asst. Manager)", category: "Corporate", description: "Manager, Assistant Manager" },
-    { id: "CORP-JROFF", name: "Junior Officer / Supervisory (कनिष्ठ अधिकृत / सुपरभाइजर)", category: "Corporate", description: "Team Lead, Junior Officer" },
-    { id: "CORP-ASST", name: "Assistant / Operational (सहायक / परिचालन तह)", category: "Corporate", description: "Associate, Assistant, Trainee" },
-    { id: "CORP-SUPP", name: "Support Staff (सहयोगी / सेवा तह)", category: "Corporate", description: "Office Assistant, Maintenance" },
-  ],
-
-  // 4. Healthcare & Hospitals
-  Healthcare: [
-    { id: "HLTH-DIR", name: "Medical Director / Hospital Administrator (मेडिकल डाइरेक्टर)", category: "Healthcare", description: "Chief Medical Officer, Administrator" },
-    { id: "HLTH-CONS", name: "Senior Consultant / Specialist (वरिष्ठ कन्सल्टेन्ट / विशेषज्ञ)", category: "Healthcare", description: "MD/MS Specialist Doctor" },
-    { id: "HLTH-MEDOFF", name: "Medical Officer / Registrar (मेडिकल अधिकृत / रजिस्ट्रार)", category: "Healthcare", description: "MBBS Resident / Medical Officer" },
-    { id: "HLTH-MATRON", name: "Nursing Supervisor / Matron (नर्सिङ सुपरभाइजर)", category: "Healthcare", description: "In-charge Nurse, Nursing Head" },
-    { id: "HLTH-STAFFNURSE", name: "Staff Nurse / Lab Technologist (स्टाफ नर्स / प्राविधिक)", category: "Healthcare", description: "BN/B.Sc Nurse, Senior Technologist" },
-    { id: "HLTH-ASST", name: "ANM / Assistant / Pharmacist (एएनएम / फार्मेसिस्ट / सहायक)", category: "Healthcare", description: "ANM, CMA, Pharmacy Assistant" },
-    { id: "HLTH-SUPP", name: "Hospital Support Staff / Ward Boy (अस्पताल सहयोगी / वार्ड ब्वाय)", category: "Healthcare", description: "Aaya, Ward Helper, Peon" },
-  ],
-
-  // 5. Educational Institutions
-  Education: [
-    { id: "EDU-PRIN", name: "Principal / Campus Chief (प्रिन्सिपल / क्याम्पस प्रमुख)", category: "Education", description: "Executive Academic Head" },
-    { id: "EDU-VICE", name: "Vice Principal / Academic Coordinator (उप-प्रिन्सिपल)", category: "Education", description: "Vice Principal, Program Coordinator" },
-    { id: "EDU-PROF", name: "Senior Faculty / Professor / PGT (वरिष्ठ प्राध्यापक / शिक्षक)", category: "Education", description: "Professor, Senior Lecturer" },
-    { id: "EDU-LECT", name: "Lecturer / Secondary Teacher (मा.वि. शिक्षक / प्राध्यापक)", category: "Education", description: "Subject Teacher / Lecturer" },
-    { id: "EDU-PRT", name: "Basic / Primary Teacher (प्रा.वि. / आ.वि. शिक्षक)", category: "Education", description: "Primary / Junior Teacher" },
-    { id: "EDU-ADMIN", name: "Administrative / Lab Assistant (प्रशासनिक / ल्याब सहायक)", category: "Education", description: "Accountant, Lab Assistant" },
-    { id: "EDU-SUPP", name: "School Support Staff / Helper (विद्यालय सहयोगी)", category: "Education", description: "Peon, Bus Helper, Caretaker" },
-  ],
-
-  // 6. Manufacturing, Industry & Construction
-  Manufacturing: [
-    { id: "MFG-PLANT", name: "Plant / Project Manager (आयोजना / प्लान्ट प्रबन्धक)", category: "Manufacturing", description: "Factory / Project Head" },
-    { id: "MFG-ENG", name: "Production Engineer / Quality Head (इन्जिनियर / गुणस्तर प्रमुख)", category: "Manufacturing", description: "Mechanical/Electrical Engineer, QC Head" },
-    { id: "MFG-SUP", name: "Shift Supervisor / Foreman (शिफ्ट सुपरभाइजर / फोरम्यान)", category: "Manufacturing", description: "Line Supervisor, Foreman" },
-    { id: "MFG-TECH", name: "Senior Technician / Machinist (वरिष्ठ प्राविधिक)", category: "Manufacturing", description: "Senior Mechanic, Electrician" },
-    { id: "MFG-OP", name: "Skilled Machine Operator (दक्ष मेसिन अपरेटर)", category: "Manufacturing", description: "Machine Operator, Driver" },
-    { id: "MFG-SEMI", name: "Semi-Skilled / Helper (अर्ध-दक्ष / सहयोगी)", category: "Manufacturing", description: "Assembly Line Helper" },
-    { id: "MFG-LABOR", name: "General Labor / Unskilled (सामान्य श्रमिक)", category: "Manufacturing", description: "Loading, Cleaning, General Labor" },
-  ],
-
-  // 7. Hospitality & Tourism
-  Hospitality: [
-    { id: "HOSP-GM", name: "General Manager / Resort Manager (महाप्रबन्धक)", category: "Hospitality", description: "Resort / Hotel General Manager" },
-    { id: "HOSP-DEPT", name: "Department Head (F&B, Front Office, Executive Chef)", category: "Hospitality", description: "F&B Manager, Executive Chef" },
-    { id: "HOSP-CAPT", name: "Supervisor / Restaurant Captain (सुपरभाइजर / क्याप्टेन)", category: "Hospitality", description: "Floor Supervisor, Captain" },
-    { id: "HOSP-STAFF", name: "Senior Staff / Front Desk / Cook (वरिष्ठ कर्मचारी / सेफ)", category: "Hospitality", description: "Receptionist, Chef de Partie" },
-    { id: "HOSP-ASST", name: "Associate / Steward / Housekeeper (सहयोगी कर्मचारी)", category: "Hospitality", description: "Waiter, Housekeeping Attendant" },
-    { id: "HOSP-UTIL", name: "Utility Staff / Kitchen Helper (युटिलिटी / सहयोगी)", category: "Hospitality", description: "Dishwasher, Utility Helper" },
-  ],
-
-  // 8. NGOs & INGOs
-  NGO_INGO: [
-    { id: "NGO-DIR", name: "Country Director / Executive Director (कार्यकारी निर्देशक)", category: "NGO_INGO", description: "Country Director, Executive Head" },
-    { id: "NGO-MGR", name: "Program Manager / Technical Lead (कार्यक्रम प्रबन्धक)", category: "NGO_INGO", description: "Program Manager, Thematic Lead" },
-    { id: "NGO-OFF", name: "Project Officer / Coordinator (परियोजना अधिकृत)", category: "NGO_INGO", description: "Project Officer, M&E Officer" },
-    { id: "NGO-FIELD", name: "Field Officer / Monitoring Officer (कार्यक्षेत्र अधिकृत)", category: "NGO_INGO", description: "Field Officer, District Coordinator" },
-    { id: "NGO-ASST", name: "Finance / Admin Assistant (प्रशासन तथा वित्त सहायक)", category: "NGO_INGO", description: "Accounts Assistant, Admin Assistant" },
-    { id: "NGO-MOB", name: "Community Mobilizer / Social Mobilizer (सामाजिक परिचालक)", category: "NGO_INGO", description: "Social Mobilizer, Field Assistant" },
-    { id: "NGO-SUPP", name: "Support Staff / Driver (सहयोगी कर्मचारी / चालक)", category: "NGO_INGO", description: "Driver, Office Helper" },
-  ],
-
-  // 9. Government & Public Enterprises
-  Government: [
-    { id: "GOV-SPEC", name: "विशिष्ट श्रेणी (Special Class / Executive)", category: "Government", description: "Chief Secretary, Secretary" },
-    { id: "GOV-S1", name: "प्रथम श्रेणी (First Class / Shreni 1 / Level 8-9)", category: "Government", description: "Joint Secretary / Director" },
-    { id: "GOV-S2", name: "द्वितीय श्रेणी (Second Class / Shreni 2 / Level 7)", category: "Government", description: "Deputy Secretary / Under Secretary" },
-    { id: "GOV-S3", name: "तृतीय श्रेणी (Third Class / Shreni 3 / Level 6)", category: "Government", description: "Section Officer / अधिकृत" },
-    { id: "GOV-S4", name: "चतुर्थ श्रेणी (Fourth Class / Shreni 4 / Level 4-5)", category: "Government", description: "Nayab Subba / Senior Assistant" },
-    { id: "GOV-S5", name: "पञ्चम श्रेणी (Fifth Class / Shreni 5 / Level 3)", category: "Government", description: "Kharidar / Assistant" },
-    { id: "GOV-UNCAT", name: "श्रेणी विहीन (Uncategorized / Level 1-2)", category: "Government", description: "Support Staff, Helper" },
-  ],
-
-  // 10. General / Unclassified Organizations (MAXIMUM UNIVERSAL 12-TIER SCALE)
-  General: [
-    { id: "GEN-L12", name: "Level 12: Executive / Top Board (तह १२: विशिष्ट / शीर्ष व्यवस्थापन)", levelNumber: 12, category: "General", description: "CEO, Managing Director, Chairman" },
-    { id: "GEN-L11", name: "Level 11: Chief Officer / Senior Director (तह ११: मुख्य अधिकृत)", levelNumber: 11, category: "General", description: "Chief Executive Officer, Senior Director" },
-    { id: "GEN-L10", name: "Level 10: Director / Senior Management (तह १०: निर्देशक / वरिष्ठ व्यवस्थापन)", levelNumber: 10, category: "General", description: "Director, Division Head" },
-    { id: "GEN-L9", name: "Level 9: Senior Manager / Head (तह ९: वरिष्ठ प्रबन्धक)", levelNumber: 9, category: "General", description: "Senior Manager, Department Head" },
-    { id: "GEN-L8", name: "Level 8: Manager / Operations Lead (तह ८: प्रबन्धक)", levelNumber: 8, category: "General", description: "Manager, Assistant Director" },
-    { id: "GEN-L7", name: "Level 7: Deputy / Assistant Manager (तह ७: सहायक प्रबन्धक)", levelNumber: 7, category: "General", description: "Deputy Manager, Asst. Manager" },
-    { id: "GEN-L6", name: "Level 6: Senior Officer / Section Head (तह ६: वरिष्ठ अधिकृत)", levelNumber: 6, category: "General", description: "Senior Officer, Unit Lead" },
-    { id: "GEN-L5", name: "Level 5: Officer / Specialist (तह ५: अधिकृत)", levelNumber: 5, category: "General", description: "Officer, Subject Specialist" },
-    { id: "GEN-L4", name: "Level 4: Junior Officer / Supervisor (तह ४: कनिष्ठ अधिकृत)", levelNumber: 4, category: "General", description: "Junior Officer, Team Supervisor" },
-    { id: "GEN-L3", name: "Level 3: Senior Assistant / Senior Associate (तह ३: वरिष्ठ सहायक)", levelNumber: 3, category: "General", description: "Senior Assistant, Senior Associate" },
-    { id: "GEN-L2", name: "Level 2: Assistant / Associate / Trainee (तह २: सहायक)", levelNumber: 2, category: "General", description: "Assistant, Junior Associate, Trainee" },
-    { id: "GEN-L1", name: "Level 1: Support Staff / Office Assistant (तह १: सहयोगी तह)", levelNumber: 1, category: "General", description: "Office Assistant, Support, Driver" },
-  ],
-};
+/**
+ * Canonical Universal Shreni Level Scale (S1 to S15).
+ * Shreni represents the grade/tier/level in an organization,
+ * while the role/title is cleanly governed by Designation.
+ */
+export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
+  {
+    id: "S1",
+    code: "S1",
+    name: "S1 — Level 1",
+    levelNumber: 1,
+    labelNepali: "तह १ (सहयोगी तह)",
+    description: "Entry / Support / Operational Level",
+    category: "General",
+  },
+  {
+    id: "S2",
+    code: "S2",
+    name: "S2 — Level 2",
+    levelNumber: 2,
+    labelNepali: "तह २ (कनिष्ठ सहायक)",
+    description: "Junior Assistant / Trainee Level",
+    category: "General",
+  },
+  {
+    id: "S3",
+    code: "S3",
+    name: "S3 — Level 3",
+    levelNumber: 3,
+    labelNepali: "तह ३ (सहायक तह)",
+    description: "Assistant Level",
+    category: "General",
+  },
+  {
+    id: "S4",
+    code: "S4",
+    name: "S4 — Level 4",
+    levelNumber: 4,
+    labelNepali: "तह ४ (वरिष्ठ सहायक)",
+    description: "Senior Assistant Level",
+    category: "General",
+  },
+  {
+    id: "S5",
+    code: "S5",
+    name: "S5 — Level 5",
+    levelNumber: 5,
+    labelNepali: "तह ५ (सुपरभाइजर / कनिष्ठ अधिकृत)",
+    description: "Supervisor / Junior Officer Level",
+    category: "General",
+  },
+  {
+    id: "S6",
+    code: "S6",
+    name: "S6 — Level 6",
+    levelNumber: 6,
+    labelNepali: "तह ६ (अधिकृत तह)",
+    description: "Officer Level",
+    category: "General",
+  },
+  {
+    id: "S7",
+    code: "S7",
+    name: "S7 — Level 7",
+    levelNumber: 7,
+    labelNepali: "तह ७ (वरिष्ठ अधिकृत)",
+    description: "Senior Officer Level",
+    category: "General",
+  },
+  {
+    id: "S8",
+    code: "S8",
+    name: "S8 — Level 8",
+    levelNumber: 8,
+    labelNepali: "तह ८ (सहायक प्रबन्धक)",
+    description: "Assistant Manager Level",
+    category: "General",
+  },
+  {
+    id: "S9",
+    code: "S9",
+    name: "S9 — Level 9",
+    levelNumber: 9,
+    labelNepali: "तह ९ (उप-प्रबन्धक)",
+    description: "Deputy Manager Level",
+    category: "General",
+  },
+  {
+    id: "S10",
+    code: "S10",
+    name: "S10 — Level 10",
+    levelNumber: 10,
+    labelNepali: "तह १० (प्रबन्धक)",
+    description: "Manager Level",
+    category: "General",
+  },
+  {
+    id: "S11",
+    code: "S11",
+    name: "S11 — Level 11",
+    levelNumber: 11,
+    labelNepali: "तह ११ (वरिष्ठ प्रबन्धक / निर्देशक)",
+    description: "Senior Manager / Director Level",
+    category: "General",
+  },
+  {
+    id: "S12",
+    code: "S12",
+    name: "S12 — Level 12",
+    levelNumber: 12,
+    labelNepali: "तह १२ (कार्यकारी / महाप्रबन्धक)",
+    description: "Executive / General Manager Level",
+    category: "General",
+  },
+  {
+    id: "S13",
+    code: "S13",
+    name: "S13 — Level 13",
+    levelNumber: 13,
+    labelNepali: "तह १३ (उप-कार्यकारी प्रमुख)",
+    description: "Deputy Executive / Division Head",
+    category: "General",
+  },
+  {
+    id: "S14",
+    code: "S14",
+    name: "S14 — Level 14",
+    levelNumber: 14,
+    labelNepali: "तह १४ (कार्यकारी निर्देशक)",
+    description: "Executive Director / VP Level",
+    category: "General",
+  },
+  {
+    id: "S15",
+    code: "S15",
+    name: "S15 — Level 15",
+    levelNumber: 15,
+    labelNepali: "तह १५ (प्रमुख कार्यकारी अधिकृत)",
+    description: "Chief Executive Officer / C-Suite Apex",
+    category: "General",
+  },
+];
 
 /**
- * Returns the recommended presets for the specified industry sector,
- * falling back to the Maximum 12-Tier General scale if unclassified or undefined.
+ * Returns the canonical Universal Shreni Levels (S1 to S15).
+ */
+export function getStandardShreniLevels(): ShreniLevelItem[] {
+  return STANDARD_SHRENI_LEVELS;
+}
+
+/**
+ * Banking & Financial Institutions (BFI) Scale — 15 Levels
+ */
+export const BFI_SHRENI_PRESET: ShreniLevelItem[] = [
+  { id: "B1", code: "L1", name: "Level 1 — Junior Assistant", levelNumber: 1, labelNepali: "तह १ (कनिष्ठ सहायक)", description: "Entry Level Operations / Trainee Support", category: "BFIs" },
+  { id: "B2", code: "L2", name: "Level 2 — Assistant", levelNumber: 2, labelNepali: "तह २ (सहायक)", description: "Teller / Customer Care / Operational Assistant", category: "BFIs" },
+  { id: "B3", code: "L3", name: "Level 3 — Senior Assistant", levelNumber: 3, labelNepali: "तह ३ (वरिष्ठ सहायक)", description: "Senior Teller / Account Specialist", category: "BFIs" },
+  { id: "B4", code: "L4", name: "Level 4 — Supervisor", levelNumber: 4, labelNepali: "तह ४ (सुपरभाइजर)", description: "Branch Service Supervisor / Clearing Lead", category: "BFIs" },
+  { id: "B5", code: "L5", name: "Level 5 — Junior Officer", levelNumber: 5, labelNepali: "तह ५ (कनिष्ठ अधिकृत)", description: "Credit / Trade Finance / Junior Relationship Manager", category: "BFIs" },
+  { id: "B6", code: "L6", name: "Level 6 — Officer", levelNumber: 6, labelNepali: "तह ६ (अधिकृत)", description: "Relationship Manager / Compliance Officer", category: "BFIs" },
+  { id: "B7", code: "L7", name: "Level 7 — Senior Officer", levelNumber: 7, labelNepali: "तह ७ (वरिष्ठ अधिकृत)", description: "Branch Manager (Class C) / Central Operations Lead", category: "BFIs" },
+  { id: "B8", code: "L8", name: "Level 8 — Assistant Manager", levelNumber: 8, labelNepali: "तह ८ (सहायक प्रबन्धक)", description: "Branch Manager (Class B) / Unit Head", category: "BFIs" },
+  { id: "B9", code: "L9", name: "Level 9 — Deputy Manager", levelNumber: 9, labelNepali: "तह ९ (उप-प्रबन्धक)", description: "Provincial Credit Head / Branch Manager (Main)", category: "BFIs" },
+  { id: "B10", code: "L10", name: "Level 10 — Manager", levelNumber: 10, labelNepali: "तह १० (प्रबन्धक)", description: "Department Head / Corporate Branch Manager", category: "BFIs" },
+  { id: "B11", code: "L11", name: "Level 11 — Senior Manager", levelNumber: 11, labelNepali: "तह ११ (वरिष्ठ प्रबन्धक)", description: "Province Head / Chief Risk Officer", category: "BFIs" },
+  { id: "B12", code: "L12", name: "Level 12 — Chief Manager", levelNumber: 12, labelNepali: "तह १२ (मुख्य प्रबन्धक)", description: "Division Head / Senior Vice President", category: "BFIs" },
+  { id: "B13", code: "L13", name: "Level 13 — Assistant General Manager (AGM)", levelNumber: 13, labelNepali: "तह १३ (सहायक महाप्रबन्धक)", description: "Apex Management / Division Executive", category: "BFIs" },
+  { id: "B14", code: "L14", name: "Level 14 — Deputy General Manager (DGM)", levelNumber: 14, labelNepali: "तह १४ (नायब महाप्रबन्धक)", description: "Second-in-Command / Executive Leadership", category: "BFIs" },
+  { id: "B15", code: "L15", name: "Level 15 — Chief Executive Officer (CEO)", levelNumber: 15, labelNepali: "तह १५ (प्रमुख कार्यकारी अधिकृत)", description: "Apex Executive Head of Organization", category: "BFIs" },
+];
+
+/**
+ * Nepal Public Corporation / Sansthan Scale (तह १ देखि १२)
+ */
+export const SANSTHAN_SHRENI_PRESET: ShreniLevelItem[] = [
+  { id: "S1", code: "T1", name: "तह १ — कार्यालय सहयोगी", levelNumber: 1, labelNepali: "तह १ (कार्यालय सहयोगी)", description: "Support & Utility Staff", category: "Government" },
+  { id: "S2", code: "T2", name: "तह २ — कनिष्ठ सहायक", levelNumber: 2, labelNepali: "तह २ (कनिष्ठ सहायक)", description: "Junior Assistant / Technical Helper", category: "Government" },
+  { id: "S3", code: "T3", name: "तह ३ — सहायक", levelNumber: 3, labelNepali: "तह ३ (सहायक)", description: "Assistant (Non-Gazetted)", category: "Government" },
+  { id: "S4", code: "T4", name: "तह ४ — वरिष्ठ सहायक", levelNumber: 4, labelNepali: "तह ४ (वरिष्ठ सहायक)", description: "Senior Assistant (Non-Gazetted 1st)", category: "Government" },
+  { id: "S5", code: "T5", name: "तह ५ — मुख्य सहायक", levelNumber: 5, labelNepali: "तह ५ (मुख्य सहायक / सुपरभाइजर)", description: "Chief Assistant / Supervisor", category: "Government" },
+  { id: "S6", code: "T6", name: "तह ६ — अधिकृत", levelNumber: 6, labelNepali: "तह ६ (अधिकृत - राजपत्रांकित तृतीय)", description: "Officer (Gazetted 3rd / Entry Officer)", category: "Government" },
+  { id: "S7", code: "T7", name: "तह ७ — वरिष्ठ अधिकृत", levelNumber: 7, labelNepali: "तह ७ (वरिष्ठ अधिकृत)", description: "Senior Officer", category: "Government" },
+  { id: "S8", code: "T8", name: "तह ८ — सहायक निर्देशक", levelNumber: 8, labelNepali: "तह ८ (सहायक निर्देशक / उप-प्रबन्धक)", description: "Assistant Director / Deputy Manager", category: "Government" },
+  { id: "S9", code: "T9", name: "तह ९ — उपनिर्देशक", levelNumber: 9, labelNepali: "तह ९ (उपनिर्देशक / प्रबन्धक)", description: "Deputy Director / Manager (Gazetted 2nd)", category: "Government" },
+  { id: "S10", code: "T10", name: "तह १० — निर्देशक", levelNumber: 10, labelNepali: "तह १० (निर्देशक / वरिष्ठ प्रबन्धक)", description: "Director / Joint Director (Gazetted 1st)", category: "Government" },
+  { id: "S11", code: "T11", name: "तह ११ — वरिष्ठ निर्देशक", levelNumber: 11, labelNepali: "तह ११ (वरिष्ठ निर्देशक / नायब महाप्रबन्धक)", description: "Senior Director / Deputy General Manager", category: "Government" },
+  { id: "S12", code: "T12", name: "तह १२ — महाप्रबन्धक", levelNumber: 12, labelNepali: "तह १२ (कार्यकारी निर्देशक / महाप्रबन्धक)", description: "Executive Director / Managing Director", category: "Government" },
+];
+
+/**
+ * Corporate & Tech Enterprise Scale (10 Levels)
+ */
+export const CORPORATE_SHRENI_PRESET: ShreniLevelItem[] = [
+  { id: "C1", code: "L1", name: "Level 1 — Associate / Support", levelNumber: 1, labelNepali: "तह १ (सहयोगी)", description: "Entry Associate & Operational Support", category: "Corporate" },
+  { id: "C2", code: "L2", name: "Level 2 — Junior Specialist / Executive", levelNumber: 2, labelNepali: "तह २ (कनिष्ठ अधिकृत)", description: "Junior Developer / Operations Executive", category: "Corporate" },
+  { id: "C3", code: "L3", name: "Level 3 — Specialist / Mid-Level", levelNumber: 3, labelNepali: "तह ३ (अधिकृत)", description: "Independent Contributor / Mid Engineer", category: "Corporate" },
+  { id: "C4", code: "L4", name: "Level 4 — Senior Specialist", levelNumber: 4, labelNepali: "तह ४ (वरिष्ठ अधिकृत)", description: "Senior Engineer / Senior Functional Executive", category: "Corporate" },
+  { id: "C5", code: "L5", name: "Level 5 — Team Lead / Assistant Manager", levelNumber: 5, labelNepali: "तह ५ (टोली प्रमुख)", description: "Module Lead / Assistant Manager", category: "Corporate" },
+  { id: "C6", code: "L6", name: "Level 6 — Manager / Staff Specialist", levelNumber: 6, labelNepali: "तह ६ (प्रबन्धक)", description: "Department Manager / Technical Architect", category: "Corporate" },
+  { id: "C7", code: "L7", name: "Level 7 — Senior Manager / Principal", levelNumber: 7, labelNepali: "तह ७ (वरिष्ठ प्रबन्धक)", description: "Practice Lead / Principal Specialist", category: "Corporate" },
+  { id: "C8", code: "L8", name: "Level 8 — Associate Director / Head", levelNumber: 8, labelNepali: "तह ८ (विभागीय प्रमुख)", description: "Head of Function / Associate Director", category: "Corporate" },
+  { id: "C9", code: "L9", name: "Level 9 — Director / Vice President", levelNumber: 9, labelNepali: "तह ९ (निर्देशक)", description: "Strategic Business Unit Head / VP", category: "Corporate" },
+  { id: "C10", code: "L10", name: "Level 10 — Executive / C-Suite", levelNumber: 10, labelNepali: "तह १० (कार्यकारी प्रमुख)", description: "Managing Director / CXO Apex", category: "Corporate" },
+];
+
+/**
+ * NGO / INGO Development Sector Scale (Band 1 to Band 7)
+ */
+export const NGO_SHRENI_PRESET: ShreniLevelItem[] = [
+  { id: "N1", code: "B1", name: "Band 1 — Support Staff", levelNumber: 1, labelNepali: "ब्यान्ड १ (सहायक कर्मचारी)", description: "Logistics, Driver & Office Assistant", category: "NGO_INGO" },
+  { id: "N2", code: "B2", name: "Band 2 — Program Assistant", levelNumber: 2, labelNepali: "ब्यान्ड २ (कार्यक्रम सहायक)", description: "Field Assistant / Admin Assistant", category: "NGO_INGO" },
+  { id: "N3", code: "B3", name: "Band 3 — Program Officer", levelNumber: 3, labelNepali: "ब्यान्ड ३ (कार्यक्रम अधिकृत)", description: "District Officer / MEAL Officer", category: "NGO_INGO" },
+  { id: "N4", code: "B4", name: "Band 4 — Senior Officer / Specialist", levelNumber: 4, labelNepali: "ब्यान्ड ४ (वरिष्ठ अधिकृत)", description: "Thematic Specialist / Senior Program Officer", category: "NGO_INGO" },
+  { id: "N5", code: "B5", name: "Band 5 — Project Manager / Coordinator", levelNumber: 5, labelNepali: "ब्यान्ड ५ (आयोजना प्रबन्धक)", description: "Project Coordinator / Regional Lead", category: "NGO_INGO" },
+  { id: "N6", code: "B6", name: "Band 6 — Head of Programs", levelNumber: 6, labelNepali: "ब्यान्ड ६ (विभाग प्रमुख)", description: "Head of Operations / Program Director", category: "NGO_INGO" },
+  { id: "N7", code: "B7", name: "Band 7 — Country Representative", levelNumber: 7, labelNepali: "ब्यान्ड ७ (देशीय निर्देशक)", description: "Country Director / Representative", category: "NGO_INGO" },
+];
+
+export interface IndustryPresetTemplate {
+  key: string;
+  name: string;
+  nameNepali: string;
+  description: string;
+  levelCount: number;
+  levels: ShreniLevelItem[];
+}
+
+export const INDUSTRY_PRESET_TEMPLATES: IndustryPresetTemplate[] = [
+  {
+    key: "universal",
+    name: "Universal Canonical Scale (S1 to S15)",
+    nameNepali: "सार्वभौमिक तह संरचना (S1 देखि S15)",
+    description: "Standard 15-tier progression suitable for cross-industry and enterprise payroll.",
+    levelCount: 15,
+    levels: STANDARD_SHRENI_LEVELS,
+  },
+  {
+    key: "bfi",
+    name: "BFI / Banking Industry Scale (15 Levels)",
+    nameNepali: "बैंक तथा वित्तीय संस्था तह संरचना (१५ तह)",
+    description: "Standard hierarchy for Commercial, Development Banks & Finance companies in Nepal.",
+    levelCount: 15,
+    levels: BFI_SHRENI_PRESET,
+  },
+  {
+    key: "sansthan",
+    name: "Nepal Public Enterprise / Sansthan (तह १ देखि १२)",
+    nameNepali: "सार्वजनिक संस्थान / सरकारी निकाय (तह १ देखि १२)",
+    description: "Civil & Public Corporation scale with non-gazetted (तह १-५) and gazetted (तह ६-१२).",
+    levelCount: 12,
+    levels: SANSTHAN_SHRENI_PRESET,
+  },
+  {
+    key: "corporate",
+    name: "Corporate & Tech Enterprise (10 Levels)",
+    nameNepali: "कर्पोरेट तथा सूचना प्रविधि प्रतिष्ठान (१० तह)",
+    description: "Clean 10-level hierarchy from Junior Associate to C-Suite Executives.",
+    levelCount: 10,
+    levels: CORPORATE_SHRENI_PRESET,
+  },
+  {
+    key: "ngo",
+    name: "NGO / INGO Band Scale (Bands 1 to 7)",
+    nameNepali: "गैर-सरकारी संस्था ब्यान्ड संरचना (ब्यान्ड १ देखि ७)",
+    description: "Social Welfare Council & INGO standard thematic bands from Support to Country Director.",
+    levelCount: 7,
+    levels: NGO_SHRENI_PRESET,
+  },
+];
+
+export function getPresetLevels(presetKey: string): ShreniLevelItem[] {
+  const match = INDUSTRY_PRESET_TEMPLATES.find((t) => t.key.toLowerCase() === presetKey.toLowerCase());
+  return match ? match.levels : STANDARD_SHRENI_LEVELS;
+}
+
+/**
+ * Backward-compatible helper for code importing getRecommendedShreniPresets.
  */
 export function getRecommendedShreniPresets(sector?: string | null): ShreniPresetItem[] {
-  const key = (sector as IndustrySectorKey) || "General";
-  return SHRENI_PRESETS_BY_SECTOR[key] || SHRENI_PRESETS_BY_SECTOR.General;
+  return STANDARD_SHRENI_LEVELS;
 }
 
 /**
- * Returns all presets across all sectors flat-mapped.
+ * Backward-compatible helper for code importing getAllShreniPresets.
  */
 export function getAllShreniPresets(): ShreniPresetItem[] {
-  const items: ShreniPresetItem[] = [];
-  (Object.keys(SHRENI_PRESETS_BY_SECTOR) as IndustrySectorKey[]).forEach((key) => {
-    items.push(...SHRENI_PRESETS_BY_SECTOR[key]);
-  });
-  return items;
+  return STANDARD_SHRENI_LEVELS;
 }
+
+export const SHRENI_PRESETS_BY_SECTOR: Record<IndustrySectorKey, ShreniPresetItem[]> = {
+  BFIs: STANDARD_SHRENI_LEVELS,
+  Cooperatives: STANDARD_SHRENI_LEVELS,
+  Corporate: STANDARD_SHRENI_LEVELS,
+  Healthcare: STANDARD_SHRENI_LEVELS,
+  Education: STANDARD_SHRENI_LEVELS,
+  Manufacturing: STANDARD_SHRENI_LEVELS,
+  Hospitality: STANDARD_SHRENI_LEVELS,
+  NGO_INGO: STANDARD_SHRENI_LEVELS,
+  Government: STANDARD_SHRENI_LEVELS,
+  General: STANDARD_SHRENI_LEVELS,
+};
+

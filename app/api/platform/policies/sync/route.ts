@@ -203,11 +203,10 @@ export async function POST(request: Request) {
 
         // E. Sync Baseline Tax Slabs if provided
         if (packPayload.taxSlabsBaseline && packPayload.taxSlabsBaseline.length > 0) {
-          const [activeFY] = await tenantDb
-            .select({ id: fiscalYears.id })
-            .from(fiscalYears)
-            .where(eq(fiscalYears.status, 'Active'))
-            .limit(1);
+          const existingFYs = await tenantDb.select().from(fiscalYears);
+          const activeFY =
+            existingFYs.find((f) => f.status?.toLowerCase() === "active") ||
+            existingFYs[0];
 
           if (activeFY) {
             // Synchronize and update tax slabs for active fiscal year to match policy pack baseline
@@ -247,11 +246,16 @@ export async function POST(request: Request) {
           // Non-blocking audit log
         }
 
-        // D. Update company policy pack version on control plane
+        // D. Update company policy pack version & initialSetupPayload on control plane
+        const currentSetup = (company.initialSetupPayload as any) || {};
         await platformDb
           .update(companies)
           .set({
             policyPackVersion: packPayload.version,
+            initialSetupPayload: {
+              ...currentSetup,
+              taxSlabs: packPayload.taxSlabsBaseline || currentSetup.taxSlabs,
+            },
             updatedAt: new Date(),
           })
           .where(eq(companies.id, company.id));

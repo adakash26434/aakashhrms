@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 import { getAvailableFiscalYearPresets } from '../../utils/fiscal-year-presets';
+import { adToBSString } from '../../utils/bs-calendar';
 import {
   DEFAULT_DEPARTMENTS,
   DEFAULT_DESIGNATIONS,
@@ -31,10 +32,13 @@ export interface SeedTenantOptions {
   fiscalYear?: {
     label: string;
     slug: string;
-    startDateBS: string;
-    endDateBS: string;
+    fromMonth?: number;
+    toMonth?: number;
+    startDateBS?: string;
+    endDateBS?: string;
     startDateAD: string;
     endDateAD: string;
+    status?: string;
   };
   leaveTypes?: LeaveTypePreset[];
   otHourlyMultiplier?: number;
@@ -258,7 +262,17 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
 
     // 5. SEED ACTIVE FISCAL YEAR
     const defaultPresets = getAvailableFiscalYearPresets();
-    const targetFY = fiscalYear || defaultPresets.current;
+    const targetFY = fiscalYear || {
+      label: defaultPresets.current.label,
+      slug: defaultPresets.current.slug,
+      fromMonth: 4,
+      toMonth: 3,
+      startDateBS: defaultPresets.current.startDateBS,
+      endDateBS: defaultPresets.current.endDateBS,
+      startDateAD: defaultPresets.current.startDateAD,
+      endDateAD: defaultPresets.current.endDateAD,
+      status: 'Active',
+    };
 
     const existingFY = await tenantDb
       .select()
@@ -268,18 +282,23 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
 
     let fiscalYearId: string;
     if (existingFY.length === 0) {
+      const startAD = new Date(targetFY.startDateAD);
+      const endAD = new Date(targetFY.endDateAD);
+      const startBS = targetFY.startDateBS || adToBSString(startAD);
+      const endBS = targetFY.endDateBS || adToBSString(endAD);
+
       const [newFY] = await tenantDb
         .insert(schema.fiscalYears)
         .values({
           label: targetFY.label,
           slug: targetFY.slug,
-          fromMonth: 4, // Shrawan
-          toMonth: 3, // Asar
-          startDateBS: targetFY.startDateBS,
-          endDateBS: targetFY.endDateBS,
-          startDateAD: new Date(targetFY.startDateAD),
-          endDateAD: new Date(targetFY.endDateAD),
-          status: 'Active',
+          fromMonth: targetFY.fromMonth || 4, // Shrawan
+          toMonth: targetFY.toMonth || 3, // Asar
+          startDateBS: startBS,
+          endDateBS: endBS,
+          startDateAD: startAD,
+          endDateAD: endAD,
+          status: targetFY.status || 'Active',
           payslipsGenerated: false,
         })
         .returning({ id: schema.fiscalYears.id });

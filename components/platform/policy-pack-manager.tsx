@@ -999,7 +999,94 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
         onClose={() => setIsEditModalOpen(false)}
         title={`Edit Statutory Policy Rules (v${editingPack.version}.0)`}
         description="Configure central compliance parameters governed across all tenant company databases."
-        size="xl"
+        size="4xl"
+        headerBottom={
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button
+              type="button"
+              onClick={() => setModalTab("leaves")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                modalTab === "leaves"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Palmtree className="w-3.5 h-3.5" />
+              <span>1. Leaves</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModalTab("overtime")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                modalTab === "overtime"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>2. Overtime</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModalTab("deductions")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                modalTab === "deductions"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Coins className="w-3.5 h-3.5" />
+              <span>3. SSF & Deductions</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModalTab("benefits")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                modalTab === "benefits"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Gift className="w-3.5 h-3.5" />
+              <span>4. Statutory Bonus</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModalTab("tax")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                modalTab === "tax"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <Percent className="w-3.5 h-3.5" />
+              <span>5. Tax Slabs</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModalTab("meta")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                modalTab === "meta"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
+              )}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>6. Pack Metadata</span>
+            </button>
+          </div>
+        }
         footer={
           <div className="flex items-center justify-between gap-3 w-full">
             <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
@@ -1029,95 +1116,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
           </div>
         }
       >
-        <div className="space-y-4 py-1">
-          {/* Modal Tab Bar */}
-          <div className="flex items-center gap-1 border-b border-payroll-light pb-2 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setModalTab("leaves")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                modalTab === "leaves"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream ",
-              )}
-            >
-              <Palmtree className="w-3.5 h-3.5" />
-              <span>1. Leaves</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalTab("overtime")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                modalTab === "overtime"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream",
-              )}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>2. Overtime</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalTab("deductions")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                modalTab === "deductions"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream ",
-              )}
-            >
-              <Coins className="w-3.5 h-3.5" />
-              <span>3. SSF & Deductions</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalTab("benefits")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                modalTab === "benefits"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream",
-              )}
-            >
-              <Gift className="w-3.5 h-3.5" />
-              <span>4. Statutory Bonus</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalTab("tax")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                modalTab === "tax"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream",
-              )}
-            >
-              <Percent className="w-3.5 h-3.5" />
-              <span>5. Tax Slabs</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalTab("meta")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                modalTab === "meta"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy hover:bg-payroll-cream ",
-              )}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>6. Pack Metadata</span>
-            </button>
-          </div>
-
-          <div className="max-h-[62vh] overflow-y-auto pr-1">
+        <div className="space-y-4">
             {/* ── SUBTAB 1: LEAVES ── */}
             {modalTab === "leaves" && (
               <div className="space-y-3">
@@ -1781,7 +1780,6 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                 </div>
               </div>
             )}
-          </div>
         </div>
       </Dialog>
     </div>

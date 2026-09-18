@@ -31,17 +31,11 @@ function getImpersonationKey(): Uint8Array {
 }
 
 /**
- * Reads and verifies the impersonation cookie from the current request.
- * Returns the impersonation session details if valid, or null if not impersonating.
- *
- * Use this in server components and layouts to detect when a Super Admin
- * is viewing a company's data via the "View As Company" flow.
+ * Verifies an impersonation token string directly.
+ * Suitable for middleware, proxies, and edge handlers that have the raw cookie value.
  */
-export async function getImpersonationSession(): Promise<ImpersonationSession | null> {
+export async function verifyImpersonationToken(tokenValue?: string | null): Promise<ImpersonationSession | null> {
   try {
-    const cookieStore = await cookies();
-    const tokenValue = cookieStore.get(IMPERSONATION_COOKIE)?.value;
-
     if (!tokenValue) return null;
 
     const key = getImpersonationKey();
@@ -67,6 +61,24 @@ export async function getImpersonationSession(): Promise<ImpersonationSession | 
       companyName: (payload.companyName as string) || 'Unknown Company',
       logId: (payload.logId as string) || '',
     };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads and verifies the impersonation cookie from the current request.
+ * Returns the impersonation session details if valid, or null if not impersonating.
+ *
+ * Use this in server components and layouts to detect when a Super Admin
+ * is viewing a company's data via the "View As Company" flow.
+ */
+export async function getImpersonationSession(): Promise<ImpersonationSession | null> {
+  try {
+    const cookieStore = await cookies();
+    const tokenValue = cookieStore.get(IMPERSONATION_COOKIE)?.value;
+    if (!tokenValue) return null;
+    return verifyImpersonationToken(tokenValue);
   } catch {
     return null;
   }
