@@ -6,38 +6,50 @@ import type {
   TDSReportRow,
   LeaveBalanceRow,
   LoanSummaryRow,
+  CompanyReportInfo,
 } from "@/lib/types/report";
+import { useWorkspaceContext } from "@/lib/contexts/workspace-context";
 
 // ─── 1. Salary Sheet Individual Slips Printable ──────────────────────────────
 interface SalarySheetIndividualSlipsProps {
   rows: SalarySheetRow[];
   periodLabel: string;
+  company?: CompanyReportInfo;
 }
 
 export function SalarySheetIndividualSlips({
   rows,
   periodLabel,
+  company,
 }: SalarySheetIndividualSlipsProps) {
+  const workspaceCtx = useWorkspaceContext();
+  const activeCompany = company || workspaceCtx?.company;
+  const companyLegalName =
+    activeCompany?.legalName ||
+    activeCompany?.displayName ||
+    activeCompany?.name ||
+    "OFFICIAL SALARY SLIP";
+
   return (
     <div className="space-y-8 print:space-y-0">
       {rows.map((row, idx) => (
         <div
           key={row.employeeCode || idx}
-          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-[#d7e8d0] shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
+          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-payroll-light shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
           style={{ pageBreakAfter: "always", breakAfter: "page" }}
         >
           {/* Header */}
-          <div className="border-b-2 border-[#1b3a1f] pb-3 mb-4 flex justify-between items-start">
+          <div className="border-b-2 border-payroll-navy pb-3 mb-4 flex justify-between items-start">
             <div>
-              <h2 className="text-base font-black text-[#1b3a1f] uppercase tracking-wider">
-                AAKASHHRMS ENTERPRISE — OFFICIAL SALARY SLIP
+              <h2 className="text-base font-black text-payroll-navy uppercase tracking-wider">
+                {companyLegalName} — OFFICIAL SALARY SLIP
               </h2>
               <p className="text-xs text-gray-500 font-semibold">
                 Period: {periodLabel}
               </p>
             </div>
             <div className="text-right text-xs">
-              <span className="font-bold text-[#1b3a1f] uppercase">
+              <span className="font-bold text-payroll-navy uppercase">
                 CONFIDENTIAL RECORD
               </span>
               <p className="text-[10px] text-gray-500 font-mono">
@@ -47,12 +59,12 @@ export function SalarySheetIndividualSlips({
           </div>
 
           {/* Employee Details Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f6faf6] p-3 rounded-lg border border-[#d7e8d0] text-xs mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-payroll-cream p-3 rounded-lg border border-payroll-light text-xs mb-4">
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Employee Name
               </span>
-              <span className="font-bold text-[#1b3a1f]">
+              <span className="font-bold text-payroll-navy">
                 {row.employeeName}
               </span>
             </div>
@@ -60,7 +72,7 @@ export function SalarySheetIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Code
               </span>
-              <span className="font-mono font-bold text-[#1b3a1f]">
+              <span className="font-mono font-bold text-payroll-navy">
                 {row.employeeCode}
               </span>
             </div>
@@ -68,7 +80,7 @@ export function SalarySheetIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Department
               </span>
-              <span className="font-semibold text-[#1b3a1f]">
+              <span className="font-semibold text-payroll-navy">
                 {row.departmentName}
               </span>
             </div>
@@ -76,7 +88,7 @@ export function SalarySheetIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Designation
               </span>
-              <span className="font-semibold text-[#1b3a1f]">
+              <span className="font-semibold text-payroll-navy">
                 {row.designationName}
               </span>
             </div>
@@ -84,8 +96,8 @@ export function SalarySheetIndividualSlips({
 
           {/* Earnings & Deductions Breakdown Table */}
           <div className="grid grid-cols-2 gap-4 text-xs mb-6">
-            <div className="border border-[#d7e8d0] rounded-lg p-3">
-              <h3 className="font-bold text-emerald-800 uppercase text-[11px] border-b border-[#d7e8d0] pb-1 mb-2">
+            <div className="border border-payroll-light rounded-lg p-3">
+              <h3 className="font-bold text-emerald-800 uppercase text-[11px] border-b border-payroll-light pb-1 mb-2">
                 Earnings Summary
               </h3>
               <div className="space-y-1">
@@ -115,7 +127,7 @@ export function SalarySheetIndividualSlips({
                     </span>
                   </div>
                 ))}
-                <div className="flex justify-between font-bold border-t border-[#d7e8d0] pt-1 mt-2 text-emerald-800">
+                <div className="flex justify-between font-bold border-t border-payroll-light pt-1 mt-2 text-emerald-800">
                   <span>Gross Earnings:</span>
                   <span className="font-mono">
                     NPR {Number(row.grossEarnings).toLocaleString()}
@@ -124,8 +136,8 @@ export function SalarySheetIndividualSlips({
               </div>
             </div>
 
-            <div className="border border-[#d7e8d0] rounded-lg p-3">
-              <h3 className="font-bold text-red-800 uppercase text-[11px] border-b border-[#d7e8d0] pb-1 mb-2">
+            <div className="border border-payroll-light rounded-lg p-3">
+              <h3 className="font-bold text-red-800 uppercase text-[11px] border-b border-payroll-light pb-1 mb-2">
                 Deductions Summary
               </h3>
               <div className="space-y-1">
@@ -177,7 +189,7 @@ export function SalarySheetIndividualSlips({
                     </span>
                   </div>
                 ))}
-                <div className="flex justify-between font-bold border-t border-[#d7e8d0] pt-1 mt-2 text-red-800">
+                <div className="flex justify-between font-bold border-t border-payroll-light pt-1 mt-2 text-red-800">
                   <span>Total Deductions:</span>
                   <span className="font-mono">
                     NPR {Number(row.totalDeductions).toLocaleString()}
@@ -193,7 +205,7 @@ export function SalarySheetIndividualSlips({
               <span className="text-[10px] text-gray-500 block uppercase font-medium">
                 Bank Transfer Details
               </span>
-              <span className="font-bold text-[#1b3a1f]">
+              <span className="font-bold text-payroll-navy">
                 {row.bankName || "Bank Transfer"} — {row.bankAccountNumberMasked || row.bankAccountNumberFull}
               </span>
             </div>
@@ -246,13 +258,13 @@ export function AttendanceIndividualSlips({
       {rows.map((row, idx) => (
         <div
           key={row.employeeCode || idx}
-          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-[#d7e8d0] shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
+          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-payroll-light shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
           style={{ pageBreakAfter: "always", breakAfter: "page" }}
         >
           {/* Header */}
-          <div className="border-b-2 border-[#1b3a1f] pb-3 mb-4 flex justify-between items-start">
+          <div className="border-b-2 border-payroll-navy pb-3 mb-4 flex justify-between items-start">
             <div>
-              <h2 className="text-base font-black text-[#1b3a1f] uppercase tracking-wider">
+              <h2 className="text-base font-black text-payroll-navy uppercase tracking-wider">
                 ATTENDANCE & OVERTIME LEDGER STATEMENT
               </h2>
               <p className="text-xs text-gray-500 font-semibold">
@@ -260,7 +272,7 @@ export function AttendanceIndividualSlips({
               </p>
             </div>
             <div className="text-right text-xs">
-              <span className="font-bold text-[#1b3a1f] uppercase">
+              <span className="font-bold text-payroll-navy uppercase">
                 NEPAL LABOUR ACT COMPLIANT
               </span>
               <p className="text-[10px] text-gray-500 font-mono">
@@ -270,12 +282,12 @@ export function AttendanceIndividualSlips({
           </div>
 
           {/* Employee Details Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#f6faf6] p-3 rounded-lg border border-[#d7e8d0] text-xs mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-payroll-cream p-3 rounded-lg border border-payroll-light text-xs mb-4">
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Employee Name
               </span>
-              <span className="font-bold text-[#1b3a1f]">
+              <span className="font-bold text-payroll-navy">
                 {row.employeeName}
               </span>
             </div>
@@ -283,7 +295,7 @@ export function AttendanceIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Code
               </span>
-              <span className="font-mono font-bold text-[#1b3a1f]">
+              <span className="font-mono font-bold text-payroll-navy">
                 {row.employeeCode}
               </span>
             </div>
@@ -291,7 +303,7 @@ export function AttendanceIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Department
               </span>
-              <span className="font-semibold text-[#1b3a1f]">
+              <span className="font-semibold text-payroll-navy">
                 {row.departmentName}
               </span>
             </div>
@@ -299,7 +311,7 @@ export function AttendanceIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Position / Designation
               </span>
-              <span className="font-semibold text-[#1b3a1f]">
+              <span className="font-semibold text-payroll-navy">
                 {row.designationName || "Staff"}
               </span>
             </div>
@@ -307,11 +319,11 @@ export function AttendanceIndividualSlips({
 
           {/* Attendance Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-xs mb-6">
-            <div className="p-3 border border-[#d7e8d0] rounded-lg bg-gray-50">
+            <div className="p-3 border border-payroll-light rounded-lg bg-gray-50">
               <span className="text-[10px] text-gray-500 uppercase block font-semibold">
                 Working Days
               </span>
-              <span className="text-lg font-bold text-[#1b3a1f]">
+              <span className="text-lg font-bold text-payroll-navy">
                 {row.totalWorkingDays}
               </span>
             </div>
@@ -351,8 +363,8 @@ export function AttendanceIndividualSlips({
 
           {/* Overtime & Deduction Particulars */}
           <div className="grid grid-cols-2 gap-4 text-xs mb-8">
-            <div className="border border-[#d7e8d0] rounded-lg p-3 bg-emerald-50/40">
-              <h3 className="font-bold text-emerald-800 uppercase text-[11px] border-b border-[#d7e8d0] pb-1 mb-2">
+            <div className="border border-payroll-light rounded-lg p-3 bg-emerald-50/40">
+              <h3 className="font-bold text-emerald-800 uppercase text-[11px] border-b border-payroll-light pb-1 mb-2">
                 Overtime Summary
               </h3>
               <div className="space-y-1.5">
@@ -364,7 +376,7 @@ export function AttendanceIndividualSlips({
                   <span className="text-gray-600">Off-Day OT Hours:</span>
                   <span className="font-semibold">{row.totalOtHoursOff} hrs</span>
                 </div>
-                <div className="flex justify-between font-bold border-t border-[#d7e8d0] pt-1 text-emerald-800">
+                <div className="flex justify-between font-bold border-t border-payroll-light pt-1 text-emerald-800">
                   <span>OT Earned Amount:</span>
                   <span className="font-mono">
                     NPR {Number(row.otEarnedAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -373,8 +385,8 @@ export function AttendanceIndividualSlips({
               </div>
             </div>
 
-            <div className="border border-[#d7e8d0] rounded-lg p-3 bg-red-50/40">
-              <h3 className="font-bold text-red-800 uppercase text-[11px] border-b border-[#d7e8d0] pb-1 mb-2">
+            <div className="border border-payroll-light rounded-lg p-3 bg-red-50/40">
+              <h3 className="font-bold text-red-800 uppercase text-[11px] border-b border-payroll-light pb-1 mb-2">
                 Leave Deduction Details
               </h3>
               <div className="space-y-1.5">
@@ -382,7 +394,7 @@ export function AttendanceIndividualSlips({
                   <span className="text-gray-600">Unpaid Days:</span>
                   <span className="font-semibold">{Number(row.nonPayLeaveDays) + Number(row.absentDays)} days</span>
                 </div>
-                <div className="flex justify-between font-bold border-t border-[#d7e8d0] pt-1 text-red-800">
+                <div className="flex justify-between font-bold border-t border-payroll-light pt-1 text-red-800">
                   <span>Leave Deduction Amount:</span>
                   <span className="font-mono">
                     NPR {Number(row.leaveDeductionAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -428,13 +440,13 @@ export function TDSIndividualSlips({
       {rows.map((row, idx) => (
         <div
           key={row.employeeCode || idx}
-          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-[#d7e8d0] shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
+          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-payroll-light shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
           style={{ pageBreakAfter: "always", breakAfter: "page" }}
         >
           {/* Header */}
-          <div className="border-b-2 border-[#1b3a1f] pb-3 mb-4 flex justify-between items-start">
+          <div className="border-b-2 border-payroll-navy pb-3 mb-4 flex justify-between items-start">
             <div>
-              <h2 className="text-base font-black text-[#1b3a1f] uppercase tracking-wider">
+              <h2 className="text-base font-black text-payroll-navy uppercase tracking-wider">
                 GOVERNMENT OF NEPAL IRD — e-TDS TAX CREDIT CERTIFICATE
               </h2>
               <p className="text-xs text-gray-500 font-semibold">
@@ -442,7 +454,7 @@ export function TDSIndividualSlips({
               </p>
             </div>
             <div className="text-right text-xs">
-              <span className="font-bold text-[#1b3a1f] uppercase">
+              <span className="font-bold text-payroll-navy uppercase">
                 INCOME TAX ACT COMPLIANT
               </span>
               <p className="text-[10px] text-gray-500 font-mono">
@@ -452,12 +464,12 @@ export function TDSIndividualSlips({
           </div>
 
           {/* Particulars Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f6faf6] p-3 rounded-lg border border-[#d7e8d0] text-xs mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-payroll-cream p-3 rounded-lg border border-payroll-light text-xs mb-4">
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Tax Payer Name
               </span>
-              <span className="font-bold text-[#1b3a1f]">{row.employeeName}</span>
+              <span className="font-bold text-payroll-navy">{row.employeeName}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
@@ -471,19 +483,19 @@ export function TDSIndividualSlips({
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Tax Status
               </span>
-              <span className="font-semibold text-[#1b3a1f]">{row.taxStatus}</span>
+              <span className="font-semibold text-payroll-navy">{row.taxStatus}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Employee Code
               </span>
-              <span className="font-mono font-semibold text-[#1b3a1f]">{row.employeeCode}</span>
+              <span className="font-mono font-semibold text-payroll-navy">{row.employeeCode}</span>
             </div>
           </div>
 
           {/* Tax Breakdown Table */}
-          <div className="border border-[#d7e8d0] rounded-lg p-4 text-xs mb-8 space-y-2 bg-white">
-            <h3 className="font-bold text-[#1b3a1f] uppercase text-[11px] border-b pb-1">
+          <div className="border border-payroll-light rounded-lg p-4 text-xs mb-8 space-y-2 bg-white">
+            <h3 className="font-bold text-payroll-navy uppercase text-[11px] border-b pb-1">
               Taxable Income & Deductions Breakdown
             </h3>
             <div className="grid grid-cols-2 gap-4 pt-1">
@@ -502,10 +514,10 @@ export function TDSIndividualSlips({
                 </div>
               </div>
 
-              <div className="space-y-1.5 border-l border-[#d7e8d0] pl-4">
+              <div className="space-y-1.5 border-l border-payroll-light pl-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Taxable Net Income:</span>
-                  <span className="font-mono font-semibold text-[#1b3a1f]">NPR {Number(row.taxableIncome).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                  <span className="font-mono font-semibold text-payroll-navy">NPR {Number(row.taxableIncome).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between font-bold text-red-700 pt-2 border-t text-sm">
                   <span>TDS Deducted & Remitted:</span>
@@ -551,13 +563,13 @@ export function LeaveIndividualSlips({
       {rows.map((row, idx) => (
         <div
           key={`${row.employeeCode}-${idx}`}
-          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-[#d7e8d0] shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
+          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-payroll-light shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
           style={{ pageBreakAfter: "always", breakAfter: "page" }}
         >
           {/* Header */}
-          <div className="border-b-2 border-[#1b3a1f] pb-3 mb-4 flex justify-between items-start">
+          <div className="border-b-2 border-payroll-navy pb-3 mb-4 flex justify-between items-start">
             <div>
-              <h2 className="text-base font-black text-[#1b3a1f] uppercase tracking-wider">
+              <h2 className="text-base font-black text-payroll-navy uppercase tracking-wider">
                 ANNUAL LEAVE LEDGER & BALANCE CERTIFICATE
               </h2>
               <p className="text-xs text-gray-500 font-semibold">
@@ -565,7 +577,7 @@ export function LeaveIndividualSlips({
               </p>
             </div>
             <div className="text-right text-xs">
-              <span className="font-bold text-[#1b3a1f] uppercase">
+              <span className="font-bold text-payroll-navy uppercase">
                 EMPLOYEE LEAVE RECORD
               </span>
               <p className="text-[10px] text-gray-500 font-mono">
@@ -575,36 +587,36 @@ export function LeaveIndividualSlips({
           </div>
 
           {/* Particulars Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f6faf6] p-3 rounded-lg border border-[#d7e8d0] text-xs mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-payroll-cream p-3 rounded-lg border border-payroll-light text-xs mb-4">
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Employee Name
               </span>
-              <span className="font-bold text-[#1b3a1f]">{row.employeeName}</span>
+              <span className="font-bold text-payroll-navy">{row.employeeName}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Code
               </span>
-              <span className="font-mono font-bold text-[#1b3a1f]">{row.employeeCode}</span>
+              <span className="font-mono font-bold text-payroll-navy">{row.employeeCode}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Department
               </span>
-              <span className="font-semibold text-[#1b3a1f]">{row.departmentName}</span>
+              <span className="font-semibold text-payroll-navy">{row.departmentName}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Leave Category
               </span>
-              <span className="font-bold text-[#2e7d32]">{row.leaveTypeName}</span>
+              <span className="font-bold text-payroll-primary">{row.leaveTypeName}</span>
             </div>
           </div>
 
           {/* Balances Card */}
           <div className="grid grid-cols-4 gap-3 text-center text-xs mb-8">
-            <div className="p-3 border border-[#d7e8d0] rounded-lg">
+            <div className="p-3 border border-payroll-light rounded-lg">
               <span className="text-[10px] text-gray-500 uppercase block font-semibold">Allotted</span>
               <span className="text-base font-bold text-gray-800">{row.allotted} days</span>
             </div>
@@ -658,13 +670,13 @@ export function LoanIndividualSlips({
       {rows.map((row, idx) => (
         <div
           key={row.loanId || idx}
-          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-[#d7e8d0] shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
+          className="w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-payroll-light shadow-sm page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
           style={{ pageBreakAfter: "always", breakAfter: "page" }}
         >
           {/* Header */}
-          <div className="border-b-2 border-[#1b3a1f] pb-3 mb-4 flex justify-between items-start">
+          <div className="border-b-2 border-payroll-navy pb-3 mb-4 flex justify-between items-start">
             <div>
-              <h2 className="text-base font-black text-[#1b3a1f] uppercase tracking-wider">
+              <h2 className="text-base font-black text-payroll-navy uppercase tracking-wider">
                 STAFF LOAN & REPAYMENT ACCOUNT STATEMENT
               </h2>
               <p className="text-xs text-gray-500 font-semibold">
@@ -672,7 +684,7 @@ export function LoanIndividualSlips({
               </p>
             </div>
             <div className="text-right text-xs">
-              <span className="font-bold text-[#1b3a1f] uppercase">
+              <span className="font-bold text-payroll-navy uppercase">
                 LOAN ACCOUNT STATEMENT
               </span>
               <p className="text-[10px] text-gray-500 font-mono">
@@ -682,38 +694,38 @@ export function LoanIndividualSlips({
           </div>
 
           {/* Particulars Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f6faf6] p-3 rounded-lg border border-[#d7e8d0] text-xs mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-payroll-cream p-3 rounded-lg border border-payroll-light text-xs mb-4">
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Borrower Name
               </span>
-              <span className="font-bold text-[#1b3a1f]">{row.employeeName}</span>
+              <span className="font-bold text-payroll-navy">{row.employeeName}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Employee Code
               </span>
-              <span className="font-mono font-bold text-[#1b3a1f]">{row.employeeCode}</span>
+              <span className="font-mono font-bold text-payroll-navy">{row.employeeCode}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Department
               </span>
-              <span className="font-semibold text-[#1b3a1f]">{row.departmentName}</span>
+              <span className="font-semibold text-payroll-navy">{row.departmentName}</span>
             </div>
             <div>
               <span className="text-[10px] text-gray-400 uppercase font-medium block">
                 Loan Category
               </span>
-              <span className="font-bold text-[#2e7d32]">{row.loanTypeName}</span>
+              <span className="font-bold text-payroll-primary">{row.loanTypeName}</span>
             </div>
           </div>
 
           {/* Loan Principal & Recovery Summary Table */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs mb-8">
-            <div className="p-3 border border-[#d7e8d0] rounded-lg">
+            <div className="p-3 border border-payroll-light rounded-lg">
               <span className="text-[10px] text-gray-500 uppercase block font-semibold">Disbursed Amount</span>
-              <span className="text-base font-bold text-[#1b3a1f]">NPR {Number(row.loanAmount).toLocaleString()}</span>
+              <span className="text-base font-bold text-payroll-navy">NPR {Number(row.loanAmount).toLocaleString()}</span>
             </div>
             <div className="p-3 border border-emerald-200 rounded-lg bg-emerald-50">
               <span className="text-[10px] text-emerald-700 uppercase block font-bold">Total Returned</span>
@@ -723,9 +735,9 @@ export function LoanIndividualSlips({
               <span className="text-[10px] text-rose-700 uppercase block font-bold">Remaining Principal</span>
               <span className="text-base font-black text-rose-700">NPR {Number(row.remainingAmount).toLocaleString()}</span>
             </div>
-            <div className="p-3 border border-[#d7e8d0] rounded-lg">
+            <div className="p-3 border border-payroll-light rounded-lg">
               <span className="text-[10px] text-gray-500 uppercase block font-semibold">Monthly EMI</span>
-              <span className="text-base font-bold text-[#1b3a1f]">NPR {Number(row.installmentAmount).toLocaleString()}</span>
+              <span className="text-base font-bold text-payroll-navy">NPR {Number(row.installmentAmount).toLocaleString()}</span>
             </div>
           </div>
 

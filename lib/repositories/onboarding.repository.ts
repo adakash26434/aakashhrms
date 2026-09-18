@@ -23,6 +23,7 @@ import type {
 } from '@/lib/types/onboarding';
 import { platformDb } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
+import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '@/lib/platform/policy-pack-data';
 
 export async function getOnboardingStatus(
   currentUserId: string,
@@ -169,28 +170,8 @@ export async function saveCompanyProfile(data: OnboardingStep2CompanyInput): Pro
       })
       .returning({ id: fiscalYears.id });
 
-    // Seed standard Nepal IRD Progressive Income Tax Slabs for this fiscal year
-    const standardSlabs = [
-      // Normal Single Individual
-      { category: 'Normal Single', amountFrom: '0', amountTo: '500000', ratePercent: '1.00', fixedDeduction: '0' },
-      { category: 'Normal Single', amountFrom: '500000', amountTo: '700000', ratePercent: '10.00', fixedDeduction: '5000' },
-      { category: 'Normal Single', amountFrom: '700000', amountTo: '1000000', ratePercent: '20.00', fixedDeduction: '25000' },
-      { category: 'Normal Single', amountFrom: '1000000', amountTo: '2000000', ratePercent: '30.00', fixedDeduction: '85000' },
-      { category: 'Normal Single', amountFrom: '2000000', amountTo: null, ratePercent: '36.00', fixedDeduction: '385000' },
-
-      // Married Couple
-      { category: 'Married', amountFrom: '0', amountTo: '600000', ratePercent: '1.00', fixedDeduction: '0' },
-      { category: 'Married', amountFrom: '600000', amountTo: '800000', ratePercent: '10.00', fixedDeduction: '6000' },
-      { category: 'Married', amountFrom: '800000', amountTo: '1100000', ratePercent: '20.00', fixedDeduction: '26000' },
-      { category: 'Married', amountFrom: '1100000', amountTo: '2000000', ratePercent: '30.00', fixedDeduction: '86000' },
-      { category: 'Married', amountFrom: '2000000', amountTo: null, ratePercent: '36.00', fixedDeduction: '356000' },
-
-      // Handicapped
-      { category: 'Handicapped', amountFrom: '0', amountTo: '500000', ratePercent: '1.00', fixedDeduction: '0' },
-      { category: 'Handicapped', amountFrom: '500000', amountTo: '700000', ratePercent: '5.00', fixedDeduction: '2500' },
-      { category: 'Handicapped', amountFrom: '700000', amountTo: '2000000', ratePercent: '10.00', fixedDeduction: '12500' },
-      { category: 'Handicapped', amountFrom: '2000000', amountTo: null, ratePercent: '15.00', fixedDeduction: '142500' },
-    ];
+    // Seed standard Nepal IRD Progressive Income Tax Slabs for this fiscal year (FY 2083/84 statutory baseline)
+    const standardSlabs = DEFAULT_NEPAL_POLICY_PACK_V1.taxSlabsBaseline || [];
 
     for (const slab of standardSlabs) {
       await db.insert(taxRateSlabs).values({

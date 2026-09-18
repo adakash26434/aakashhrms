@@ -234,7 +234,7 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
             onSingleEmployeeAction={handleSingleEmployeeAction}
           />
         ) : (
-          <div className="rounded-xl border border-dashed border-[#d7e8d0] bg-[#f6faf6] p-10 text-center text-xs text-gray-500">
+          <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500">
             Select Fiscal Year and view parameters from the filter bar above and click "Generate Report".
           </div>
         )}
@@ -256,6 +256,7 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
         isSingleEmployee={singleEmployeeRow !== null || !!filterState.employeeId || previewDisplayData?.rows.length === 1}
         onPrintSummary={handlePrintSummary}
         onPrintIndividualSlips={handlePrintIndividualSlips}
+        company={lookupData.company}
         metaDetails={[
           { label: "Fiscal Year", value: fyLabel },
           { label: "Type", value: filterState.reportType || "MONTHLY" },

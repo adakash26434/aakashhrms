@@ -156,7 +156,7 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
       if (editingHead) {
         const result = await updatePayHeadAction(editingHead.id, payload);
         if (!result.success) {
-          showBanner(`Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`, "info");
+          showBanner(`Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`, "error");
           return;
         }
         // Update the array state
@@ -165,7 +165,7 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
       } else {
         const result = await createPayHeadAction(payload);
         if (!result.success) {
-          showBanner(`Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`, "info");
+          showBanner(`Could not save: ${result.validationErrors ? Object.values(result.validationErrors)[0] : result.error}`, "error");
           return;
         }
         // Append to the array state
@@ -175,7 +175,7 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
       handleCloseForm();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown error";
-      showBanner(`Could not save: ${msg}`, "info");
+      showBanner(`Could not save: ${msg}`, "error");
     }
   }
 
@@ -185,7 +185,7 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
     try {
       const result = await deletePayHeadAction(deletingHead.id);
       if (!result.success) {
-        showBanner(`Could not delete: ${result.error}`, "info");
+        showBanner(result.error || `Could not delete pay head "${name}".`, "error");
       } else {
         // Filter out from the array state
         setHeads((prev) => prev.filter((ph) => ph.id !== deletingHead.id));
@@ -193,7 +193,7 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown error";
-      showBanner(`Could not delete: ${msg}`, "info");
+      showBanner(msg, "error");
     } finally {
       handleCloseDelete();
     }

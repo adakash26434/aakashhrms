@@ -25,6 +25,8 @@ export interface DialogProps {
   footer?: React.ReactNode;
   size?: keyof typeof sizeClasses;
   className?: string;
+  bodyClassName?: string;
+  headerBottom?: React.ReactNode;
 }
 
 export function Dialog({
@@ -36,6 +38,8 @@ export function Dialog({
   footer,
   size = "md",
   className,
+  bodyClassName,
+  headerBottom,
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -96,41 +100,53 @@ export function Dialog({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-payroll-light/70 bg-white px-5 pt-4.5 pb-3.5">
-          <div className="min-w-0 flex-1">
-            <h2
-              id="dialog-title"
-              className="text-base font-bold text-payroll-navy tracking-tight"
-            >
-              {title}
-            </h2>
-            {description && (
-              <p
-                id="dialog-description"
-                className="mt-1 text-xs text-gray-500 leading-relaxed"
+        <div className="flex shrink-0 flex-col border-b border-payroll-light/70 bg-white">
+          <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-4.5 pb-3.5">
+            <div className="min-w-0 flex-1">
+              <h2
+                id="dialog-title"
+                className="text-base font-bold text-payroll-navy tracking-tight"
               >
-                {description}
-              </p>
-            )}
+                {title}
+              </h2>
+              {description && (
+                <p
+                  id="dialog-description"
+                  className="mt-1 text-xs text-gray-500 leading-relaxed"
+                >
+                  {description}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary cursor-pointer"
+              aria-label="Close dialog"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary cursor-pointer"
-            aria-label="Close dialog"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {headerBottom && (
+            <div className="px-5 sm:px-6 py-2 border-t border-payroll-light/50 bg-payroll-cream/30">
+              {headerBottom}
+            </div>
+          )}
         </div>
 
-        {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        {/* Body (Single unified scroll container) */}
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto px-5 sm:px-6 py-4",
+            bodyClassName,
+          )}
+        >
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-payroll-light/60 bg-payroll-cream/50 px-5 py-3.5">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-payroll-light/60 bg-payroll-cream/50 px-5 sm:px-6 py-3.5">
             {footer}
           </div>
         )}

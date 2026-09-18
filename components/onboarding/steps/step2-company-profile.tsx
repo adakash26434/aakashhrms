@@ -5,7 +5,6 @@ import { OnboardingStep2CompanyInput } from "@/lib/types/onboarding";
 import {
   INDUSTRY_SECTORS,
   IndustrySectorKey,
-  getRecommendedShreniPresets,
 } from "@/lib/constants/industry-types";
 import {
   Building,
@@ -202,7 +201,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
         </div>
       </div>
 
-      {/* ── Section B: Organization Industry Type & Shreni Hierarchy (Locked by Super Admin) ── */}
+      {/* ── Section B: Organization Industry Classification (Locked by Super Admin) ── */}
       <div className="space-y-3 pt-2">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -221,7 +220,6 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
           const selectedKey = (data.industryType || "General") as IndustrySectorKey;
           const selectedSector = INDUSTRY_SECTORS[selectedKey] || INDUSTRY_SECTORS.General;
           const Icon = SECTOR_ICONS[selectedKey] || Layers;
-          const previewPresets = getRecommendedShreniPresets(selectedKey);
 
           return (
             <div className="rounded-2xl border border-payroll-light bg-payroll-cream/40 p-4 text-xs space-y-3">
@@ -254,29 +252,11 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                 </div>
               </div>
 
-              {/* Sector Description & Hierarchy Rules */}
+              {/* Sector Description */}
               <div className="space-y-1.5 px-1">
                 <p className="text-[11px] text-gray-600 leading-relaxed">
                   {selectedSector.description}
                 </p>
-              </div>
-
-              {/* Live Preview of Unlocked Shreni Tiers */}
-              <div className="bg-white/80 p-3 rounded-xl border border-payroll-light/80 space-y-2">
-                <div className="flex items-center gap-1.5 text-payroll-navy font-bold text-[11px]">
-                  <Sparkles className="h-3.5 w-3.5 text-payroll-primary shrink-0" />
-                  <span>Configured Employee Shreni / Level Hierarchy Tiers:</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {previewPresets.map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-[10px] font-semibold text-payroll-navy shadow-2xs"
-                    >
-                      {p.name.split("(")[0].trim()}
-                    </span>
-                  ))}
-                </div>
               </div>
 
               {/* Super Admin Notice */}

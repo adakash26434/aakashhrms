@@ -117,59 +117,101 @@ export function Step5PayHeadsTax({ data, fiscalYearLabel }: Step5Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           {/* Unmarried Slabs */}
           <div className="p-4 bg-gray-50/80 rounded-2xl border border-gray-200 text-xs">
-            <h5 className="font-bold text-gray-900 mb-2">
-              Unmarried (Single) Individual
-            </h5>
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="font-bold text-gray-900">
+                Unmarried (Single) Individual
+              </h5>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                Standard
+              </span>
+            </div>
             <ul className="space-y-1 text-[11px] text-gray-600">
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>First NPR 500,000</span>
+                <span>0 - 1,000,000</span>
                 <strong className="text-gray-900">1% (SST)</strong>
               </li>
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>Next NPR 200,000 (500K - 700K)</span>
+                <span>1,000,001 - 1,500,000</span>
                 <strong className="text-gray-900">10%</strong>
               </li>
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>Next NPR 300,000 (700K - 1M)</span>
+                <span>1,500,001 - 2,500,000</span>
                 <strong className="text-gray-900">20%</strong>
               </li>
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>Next NPR 1,000,000 (1M - 2M)</span>
-                <strong className="text-gray-900">30%</strong>
+                <span>2,500,001 - 4,000,000</span>
+                <strong className="text-gray-900">27%</strong>
               </li>
               <li className="flex justify-between py-1">
-                <span>Above NPR 2,000,000</span>
-                <strong className="text-gray-900">36%</strong>
+                <span>Above 4,000,001</span>
+                <strong className="text-gray-900">29%</strong>
               </li>
             </ul>
           </div>
 
           {/* Married Slabs */}
           <div className="p-4 bg-gray-50/80 rounded-2xl border border-gray-200 text-xs">
-            <h5 className="font-bold text-gray-900 mb-2">Married Couple</h5>
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="font-bold text-gray-900">Married Couple</h5>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                Joint
+              </span>
+            </div>
             <ul className="space-y-1 text-[11px] text-gray-600">
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>First NPR 600,000</span>
+                <span>0 - 1,000,000</span>
                 <strong className="text-gray-900">1% (SST)</strong>
               </li>
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>Next NPR 200,000 (600K - 800K)</span>
+                <span>1,000,001 - 1,500,000</span>
                 <strong className="text-gray-900">10%</strong>
               </li>
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>Next NPR 300,000 (800K - 1.1M)</span>
+                <span>1,500,001 - 2,500,000</span>
                 <strong className="text-gray-900">20%</strong>
               </li>
               <li className="flex justify-between py-1 border-b border-gray-200/60">
-                <span>Next NPR 900,000 (1.1M - 2M)</span>
-                <strong className="text-gray-900">30%</strong>
+                <span>2,500,001 - 4,000,000</span>
+                <strong className="text-gray-900">27%</strong>
               </li>
               <li className="flex justify-between py-1">
-                <span>Above NPR 2,000,000</span>
-                <strong className="text-gray-900">36%</strong>
+                <span>Above 4,000,001</span>
+                <strong className="text-gray-900">29%</strong>
+              </li>
+            </ul>
+          </div>
+
+          {/* Handicapped Slabs */}
+          <div className="p-4 bg-gray-50/80 rounded-2xl border border-gray-200 text-xs">
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="font-bold text-gray-900">Handicapped</h5>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                Concessional
+              </span>
+            </div>
+            <ul className="space-y-1 text-[11px] text-gray-600">
+              <li className="flex justify-between py-1 border-b border-gray-200/60">
+                <span>0 - 1,500,000</span>
+                <strong className="text-gray-900">1% (SST)</strong>
+              </li>
+              <li className="flex justify-between py-1 border-b border-gray-200/60">
+                <span>1,500,001 - 2,000,000</span>
+                <strong className="text-gray-900">10%</strong>
+              </li>
+              <li className="flex justify-between py-1 border-b border-gray-200/60">
+                <span>2,000,001 - 3,000,000</span>
+                <strong className="text-gray-900">20%</strong>
+              </li>
+              <li className="flex justify-between py-1 border-b border-gray-200/60">
+                <span>3,000,001 - 4,500,000</span>
+                <strong className="text-gray-900">27%</strong>
+              </li>
+              <li className="flex justify-between py-1">
+                <span>Above 4,500,001</span>
+                <strong className="text-gray-900">29%</strong>
               </li>
             </ul>
           </div>

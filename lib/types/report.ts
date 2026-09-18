@@ -12,7 +12,19 @@ export interface ReportPayrollRunOption {
   totalNetPayable: string;
 }
 
+export interface CompanyReportInfo {
+  legalName: string;
+  displayName: string;
+  name?: string;
+  code?: string;
+  panVatNumber?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  headOfficeAddress?: string;
+}
+
 export interface ReportFilterLookupData {
+  company?: CompanyReportInfo;
   fiscalYears: { id: string; label: string; status: string }[];
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];

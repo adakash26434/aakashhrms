@@ -1,13 +1,21 @@
 "use client";
 
-import type { PayslipPrintData } from "@/lib/types/report";
+import type { PayslipPrintData, CompanyReportInfo } from "@/lib/types/report";
 import { maskAccountNumber } from "@/lib/engines/report.engine";
+import { useWorkspaceContext } from "@/lib/contexts/workspace-context";
 
 interface PayslipPrintableProps {
   data: PayslipPrintData[];
+  company?: CompanyReportInfo;
 }
 
-export function PayslipPrintable({ data }: PayslipPrintableProps) {
+export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
+  const workspaceCtx = useWorkspaceContext();
+  const activeCompany = company || workspaceCtx?.company;
+  const companyLegalName =
+    activeCompany?.legalName ||
+    activeCompany?.displayName ||
+    activeCompany?.name;
   if (!data || data.length === 0) {
     return (
       <div className="p-8 text-center text-xs text-gray-500">
@@ -51,7 +59,12 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
             {/* Payslip Header */}
             <div className="flex items-start justify-between border-b-2 border-payroll-navy pb-4 mb-4">
               <div>
-                <h2 className="text-lg font-black text-payroll-navy uppercase tracking-wider">
+                {companyLegalName && (
+                  <h1 className="text-base font-black text-payroll-navy uppercase tracking-wider mb-0.5">
+                    {companyLegalName}
+                  </h1>
+                )}
+                <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                   PAYROLL SALARY SLIP
                 </h2>
                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
@@ -66,6 +79,11 @@ export function PayslipPrintable({ data }: PayslipPrintableProps) {
                 <p className="text-[11px] font-mono text-gray-500 mt-0.5">
                   Slip ID: #{slip.id ? slip.id.slice(0, 8) : "N/A"}
                 </p>
+                {activeCompany?.panVatNumber && (
+                  <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
+                    PAN: {activeCompany.panVatNumber}
+                  </p>
+                )}
               </div>
             </div>
 

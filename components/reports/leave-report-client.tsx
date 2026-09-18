@@ -246,10 +246,10 @@ export function LeaveReportClient({
         meta={
           activeReportData ? (
             <>
-              <span className="inline-flex items-center gap-1 rounded-md border border-[#d7e8d0] bg-[#d7e8d0]/60 px-2.5 py-0.5 text-xs font-semibold text-[#1b3a1f]">
+              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
                 FY: {selectedFyLabel}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-md border border-[#d7e8d0] bg-[#d7e8d0]/60 px-2.5 py-0.5 text-xs font-semibold text-[#1b3a1f]">
+              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
                 Covered: {activeReportData.totalEmployees} Staff
               </span>
             </>
@@ -295,14 +295,14 @@ export function LeaveReportClient({
         <div className={isPreviewOpen ? "print:hidden space-y-6" : "space-y-6"}>
           {/* Executive KPI Summary Widgets */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-[#d7e8d0] bg-white p-4 shadow-payroll-sm">
+            <div className="rounded-xl border border-payroll-light bg-white p-4 shadow-payroll-sm">
               <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-green-50 p-2 text-[#2e7d32]">
+                <div className="rounded-lg bg-green-50 p-2 text-payroll-primary">
                   <Users className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="text-[11px] font-medium text-gray-500">Employees Covered</p>
-                  <p className="text-lg font-bold text-[#1b3a1f]">{activeReportData.totalEmployees}</p>
+                  <p className="text-lg font-bold text-payroll-navy">{activeReportData.totalEmployees}</p>
                 </div>
               </div>
             </div>
@@ -346,13 +346,13 @@ export function LeaveReportClient({
 
           {/* 5-Mode Sub-Tab Control */}
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-[#f6faf6] p-2 rounded-xl border border-[#d7e8d0]">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-payroll-cream p-2 rounded-xl border border-payroll-light">
               <div className="inline-flex flex-wrap items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setLeaveMode("BALANCES")}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    leaveMode === "BALANCES" ? "bg-[#2e7d32] text-white shadow-payroll-sm" : "text-gray-600 hover:text-[#1b3a1f]"
+                    leaveMode === "BALANCES" ? "bg-payroll-primary text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
                   }`}
                 >
                   Leave Balances ({activeReportData.balanceRows.length})
@@ -361,7 +361,7 @@ export function LeaveReportClient({
                   type="button"
                   onClick={() => setLeaveMode("TAKEN")}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    leaveMode === "TAKEN" ? "bg-purple-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-[#1b3a1f]"
+                    leaveMode === "TAKEN" ? "bg-purple-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
                   }`}
                 >
                   Leave Taken ({modeFilteredBalances.length})
@@ -370,7 +370,7 @@ export function LeaveReportClient({
                   type="button"
                   onClick={() => setLeaveMode("APPLICATIONS")}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    leaveMode === "APPLICATIONS" ? "bg-[#1b3a1f] text-white shadow-payroll-sm" : "text-gray-600 hover:text-[#1b3a1f]"
+                    leaveMode === "APPLICATIONS" ? "bg-payroll-navy text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
                   }`}
                 >
                   All Applications ({activeReportData.applicationRows.length})
@@ -379,7 +379,7 @@ export function LeaveReportClient({
                   type="button"
                   onClick={() => setLeaveMode("APPROVED")}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    leaveMode === "APPROVED" ? "bg-emerald-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-[#1b3a1f]"
+                    leaveMode === "APPROVED" ? "bg-emerald-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
                   }`}
                 >
                   Approved Only ({activeReportData.applicationRows.filter(r => r.status.toUpperCase() === "APPROVED").length})
@@ -388,7 +388,7 @@ export function LeaveReportClient({
                   type="button"
                   onClick={() => setLeaveMode("REJECTED")}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    leaveMode === "REJECTED" ? "bg-red-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-[#1b3a1f]"
+                    leaveMode === "REJECTED" ? "bg-red-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
                   }`}
                 >
                   Rejected Only ({activeReportData.applicationRows.filter(r => r.status.toUpperCase() === "REJECTED").length})
@@ -424,6 +424,7 @@ export function LeaveReportClient({
         isSingleEmployee={singleEmployeeRow !== null || !!filter.employeeId || previewDisplayData?.balanceRows.length === 1}
         onPrintSummary={handlePrintSummary}
         onPrintIndividualSlips={activeTab === "BALANCES" ? handlePrintIndividualSlips : undefined}
+        company={initialLookups.company}
         metaDetails={[
           { label: "Fiscal Year", value: selectedFyLabel },
           { label: "Scope", value: (singleEmployeeRow || filter.employeeId) ? `Single Employee` : isIndividualSlipsView ? "Individual Slips (Page-by-Page)" : "All Selected Employees" },

@@ -149,7 +149,7 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
       {/* Printable Payslips Container */}
       <div className={isPreviewOpen ? "print:hidden" : ""}>
         {activePayslips.length > 0 ? (
-          <PayslipPrintable data={activePayslips} />
+          <PayslipPrintable data={activePayslips} company={lookupData.company} />
         ) : (
           <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500 print:hidden">
             Select a locked payroll run and click "Generate Report" to view payslips.
@@ -168,12 +168,13 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
         isSingleEmployee={activePayslips.length === 1}
         onPrintSummary={handlePrint}
         onPrintIndividualSlips={handlePrint}
+        company={lookupData.company}
         metaDetails={[
           { label: "Payroll Run", value: selectedRunLabel },
           { label: "Total Slips", value: `${activePayslips.length} Employee(s)` },
         ]}
       >
-        <PayslipPrintable data={activePayslips} />
+        <PayslipPrintable data={activePayslips} company={lookupData.company} />
       </ReportPreviewModal>
     </div>
   );

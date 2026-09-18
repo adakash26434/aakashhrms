@@ -18,12 +18,19 @@ import {
   loanTypes,
   users,
   attendanceRecords,
+  systemConfig,
 } from "@/lib/db/schema";
+import { getCurrentTenantContext, getRequestScopeTenantDb } from "@/lib/db/tenant-context";
+import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
+import { companies } from "@/lib/platform/schema";
+import { getImpersonationSession } from "@/lib/platform/impersonation";
+import { auth } from "@/lib/auth";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import * as engine from "@/lib/engines/report.engine";
 import { BS_MONTHS_EN, bsToAD } from "@/lib/utils/bs-calendar";
 import { NepaliDate } from "nepali-date-library";
 import type {
+  CompanyReportInfo,
   ReportFilterLookupData,
   ReportPayrollRunOption,
   SalarySheetFilter,
@@ -52,8 +59,114 @@ import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 
 // ─── Filter Lookups ────────────────────────────────────────────────────────
 
+export async function getCompanyReportInfo(): Promise<CompanyReportInfo> {
+  const currentCtx = getCurrentTenantContext();
+  const reqScope = getRequestScopeTenantDb();
+  let slug = currentCtx?.tenantSlug || reqScope?.slug;
+
+  if (!slug) {
+    try {
+      const imp = await getImpersonationSession();
+      if (imp?.companySlug) slug = imp.companySlug;
+    } catch {
+      // Ignore
+    }
+  }
+
+  if (!slug) {
+    try {
+      const session = await auth();
+      if (session?.user?.tenantSlug) slug = session.user.tenantSlug;
+    } catch {
+      // Ignore
+    }
+  }
+
+  // 1. Resolve from platform companies table by slug
+  if (slug) {
+    try {
+      await ensurePlatformTablesExist();
+      const [comp] = await platformDb
+        .select()
+        .from(companies)
+        .where(eq(companies.slug, slug))
+        .limit(1);
+
+      if (comp) {
+        return {
+          legalName: comp.legalName || comp.displayName || "Company Workspace",
+          displayName: comp.displayName || comp.legalName || "Company Workspace",
+          code: comp.companyCode,
+          panVatNumber: comp.panVatNumber || undefined,
+          contactPhone: comp.contactPhone || undefined,
+          contactEmail: comp.contactEmail || undefined,
+          headOfficeAddress: comp.headOfficeAddress || undefined,
+        };
+      }
+    } catch (err) {
+      console.error("Error fetching company from platformDb in report.service:", err);
+    }
+  }
+
+  // 2. Fallback: check tenantDb systemConfig & branches
+  try {
+    const db = getDb();
+    const [configs, branchList] = await Promise.all([
+      db.select().from(systemConfig).catch(() => []),
+      db.select().from(branches).limit(1).catch(() => []),
+    ]);
+
+    const configMap = new Map(configs.map((c) => [c.key, c.value]));
+    const legalName = configMap.get("company_legal_name");
+    const displayName = configMap.get("company_display_name");
+    const panVat = configMap.get("company_pan_vat");
+    const phone = configMap.get("company_phone") || branchList[0]?.phone;
+    const address = configMap.get("company_office_address") || branchList[0]?.location;
+    const email = configMap.get("company_contact_email") || branchList[0]?.email;
+    const code = configMap.get("company_code") || branchList[0]?.code;
+
+    if (legalName || displayName) {
+      return {
+        legalName: legalName || displayName || "Company Workspace",
+        displayName: displayName || legalName || "Company Workspace",
+        code: code || undefined,
+        panVatNumber: panVat || undefined,
+        contactPhone: phone || undefined,
+        contactEmail: email || undefined,
+        headOfficeAddress: address || undefined,
+      };
+    }
+  } catch {
+    // Ignore
+  }
+
+  // 3. Fallback: If platformDb has companies (e.g. single-tenant / local dev)
+  try {
+    await ensurePlatformTablesExist();
+    const [firstComp] = await platformDb.select().from(companies).limit(1);
+    if (firstComp) {
+      return {
+        legalName: firstComp.legalName || firstComp.displayName,
+        displayName: firstComp.displayName || firstComp.legalName,
+        code: firstComp.companyCode,
+        panVatNumber: firstComp.panVatNumber || undefined,
+        contactPhone: firstComp.contactPhone || undefined,
+        contactEmail: firstComp.contactEmail || undefined,
+        headOfficeAddress: firstComp.headOfficeAddress || undefined,
+      };
+    }
+  } catch {
+    // Ignore
+  }
+
+  return {
+    legalName: "Company Workspace",
+    displayName: "Company Workspace",
+  };
+}
+
 export async function getReportFilterLookupData(): Promise<ReportFilterLookupData> {
-  const [fyList, branchList, deptList, desigList, lockedRuns, lTypes, lnTypes, empList] = await Promise.all([
+  const [fyList, branchList, deptList, desigList, lockedRuns, lTypes, lnTypes, empList, companyInfo] = await Promise.all([
     getDb()
       .select({
         id: fiscalYears.id,
@@ -109,6 +222,8 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
       })
       .from(employees)
       .orderBy(employees.fullName),
+
+    getCompanyReportInfo(),
   ]);
 
   const lockedPayrollRuns: ReportPayrollRunOption[] = lockedRuns.map((r) => {
@@ -131,6 +246,7 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
   }));
 
   return {
+    company: companyInfo,
     fiscalYears: fyList,
     branches: branchList,
     departments: deptList,

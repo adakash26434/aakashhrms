@@ -365,6 +365,7 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
         isSingleEmployee={singleEmployeeRow !== null || !!filterState.employeeId || previewDisplayData?.rows.length === 1}
         onPrintSummary={handlePrintSummary}
         onPrintIndividualSlips={activeTab === "SALARY_SHEET" ? handlePrintIndividualSlips : undefined}
+        company={lookupData.company}
         metaDetails={[
           { label: "Payroll Run", value: selectedRunLabel },
           { label: "Report View", value: (singleEmployeeRow || filterState.employeeId) ? `Single Employee` : isIndividualSlipsView ? "Individual Slips (Page-by-Page)" : activeTab === "SALARY_SHEET" ? "Full Salary Sheet" : "Pay Head Summary" },
@@ -372,7 +373,7 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
         ]}
       >
         {isIndividualSlipsView && previewDisplayData ? (
-          <SalarySheetIndividualSlips rows={previewDisplayData.rows} periodLabel={selectedRunLabel} />
+          <SalarySheetIndividualSlips rows={previewDisplayData.rows} periodLabel={selectedRunLabel} company={lookupData.company} />
         ) : activeTab === "SALARY_SHEET" && previewDisplayData ? (
           <SalarySheetTable data={previewDisplayData} />
         ) : (

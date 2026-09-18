@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { Building2, Clock, FileBadge2 } from "lucide-react";
 import { SystemControlHero } from "./system-control-hero";
-import { OfficeTimeCard } from "./office-time-card";
 import { ManualAttendanceCard } from "./manual-attendance-card";
-import { LeavePermissionsCard } from "./leave-permissions-card";
 import { StatutoryDeductionLimitsCard } from "./statutory-deduction-limits-card";
 import { InsuranceDiscountsCard } from "./insurance-discounts-card";
 import { Banner, type BannerTone } from "@/components/ui/banner";
@@ -64,10 +64,6 @@ export function SystemControlClient({ initialData, isSuperAdmin = false }: Syste
     }
   }
 
-  function onSave(): void {
-    throw new Error("Function not implemented.");
-  }
-
   return (
     <div className="mx-auto max-w-350 space-y-6 p-6">
       <Banner
@@ -77,33 +73,42 @@ export function SystemControlClient({ initialData, isSuperAdmin = false }: Syste
         onDismiss={dismissBanner}
       />
 
-      {/* Note: I added disabled={!hasChanges} so the button behaves correctly! */}
       <SystemControlHero onSave={handleSave} isSaving={isSaving} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <OfficeTimeCard
-          value={data.officeTime}
-          onChange={(officeTime) => {
-            setData((d) => ({ ...d, officeTime }));
-            setHasChanges(true);
-          }}
-        />
-        <ManualAttendanceCard
-          value={data.manualAttendance}
-          onChange={(manualAttendance) => {
-            setData((d) => ({ ...d, manualAttendance }));
-            setHasChanges(true);
-          }}
-        />
+      {/* Consolidated Company Setup Reference Card */}
+      <div className="rounded-xl border border-emerald-200/80 bg-linear-to-r from-emerald-50/70 via-white to-emerald-50/30 p-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-white shadow-xs">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Organization Timing &amp; Classifications Master
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Weekly operating schedule, office shift hours, winter timing, and statutory employment classifications (SSF, PF, Festival Bonus) are unified in Company Setup.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/setup/company-setup?tab=work_schedule"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-50 transition-colors"
+            >
+              <Clock className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Work Timing</span>
+            </Link>
+            <Link
+              href="/setup/company-setup?tab=employment_types"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
+            >
+              <FileBadge2 className="h-3.5 w-3.5" />
+              <span>Employment Types</span>
+            </Link>
+          </div>
+        </div>
       </div>
-
-      <LeavePermissionsCard
-        value={data.leavePermissions}
-        onChange={(leavePermissions) => {
-          setData((d) => ({ ...d, leavePermissions }));
-          setHasChanges(true);
-        }}
-      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <StatutoryDeductionLimitsCard
@@ -118,6 +123,16 @@ export function SystemControlClient({ initialData, isSuperAdmin = false }: Syste
           isSuperAdmin={isSuperAdmin}
           onChange={(insuranceDiscounts) => {
             setData((d) => ({ ...d, insuranceDiscounts }));
+            setHasChanges(true);
+          }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ManualAttendanceCard
+          value={data.manualAttendance}
+          onChange={(manualAttendance) => {
+            setData((d) => ({ ...d, manualAttendance }));
             setHasChanges(true);
           }}
         />

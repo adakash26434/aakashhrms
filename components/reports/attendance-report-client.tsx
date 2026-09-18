@@ -202,7 +202,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
         meta={
           activeReportData ? (
             <>
-              <span className="inline-flex items-center gap-1 rounded-md border border-[#d7e8d0] bg-[#d7e8d0]/60 px-2.5 py-0.5 text-xs font-semibold text-[#1b3a1f]">
+              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
                 Period: {reportData?.monthLabel || ""} ({fyLabel})
               </span>
               <span className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
@@ -212,7 +212,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
               }`}>
                 {reportData?.isLocked ? "Locked Payroll Data" : "Draft Pre-Payroll Data"}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-[#2e7d32]">
+              <span className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-payroll-primary">
                 Manual Attendance Ledger (Biometric Standby)
               </span>
             </>
@@ -253,7 +253,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
             onSingleEmployeeAction={handleSingleEmployeeAction}
           />
         ) : (
-          <div className="rounded-xl border border-dashed border-[#d7e8d0] bg-[#f6faf6] p-10 text-center text-xs text-gray-500">
+          <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500">
             Select Fiscal Year and BS Month from the filter bar above and click "Generate Report".
           </div>
         )}
@@ -275,6 +275,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
         isSingleEmployee={singleEmployeeRow !== null || !!filterState.employeeId || previewDisplayData?.rows.length === 1}
         onPrintSummary={handlePrintSummary}
         onPrintIndividualSlips={handlePrintIndividualSlips}
+        company={lookupData.company}
         metaDetails={[
           { label: "Fiscal Year", value: fyLabel },
           { label: "Period", value: reportData?.monthLabel || "N/A" },

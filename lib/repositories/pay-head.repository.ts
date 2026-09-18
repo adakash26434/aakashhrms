@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
-import { payHeads } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { payHeads, employeeSalaryHeads, employeeSalaryMap, employees, payrollSlipHeads } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import type { PayHead, PayHeadType, CalcBasis, CalcParameter } from '@/lib/types/pay-head';
 
 type PayHeadRow = typeof payHeads.$inferSelect;
@@ -99,6 +99,53 @@ export async function updatePayHead(id: string, data: CreatePayload): Promise<Pa
   }).where(eq(payHeads.id, id)).returning();
 
   return mapRowToPayHead(rows[0]);
+}
+
+export interface PayHeadSalaryMappingUsage {
+  count: number;
+  sampleEmployees: Array<{ fullName: string; employeeCode: string }>;
+}
+
+export async function getPayHeadSalaryMappingUsage(payHeadId: string): Promise<PayHeadSalaryMappingUsage> {
+  const db = getDb();
+
+  const countRows = await db
+    .select({ total: sql<number>`count(distinct ${employeeSalaryMap.employeeId})::int` })
+    .from(employeeSalaryHeads)
+    .innerJoin(employeeSalaryMap, eq(employeeSalaryHeads.salaryMapId, employeeSalaryMap.id))
+    .where(eq(employeeSalaryHeads.payHeadId, payHeadId));
+
+  const total = countRows[0]?.total ?? 0;
+  if (total === 0) {
+    return { count: 0, sampleEmployees: [] };
+  }
+
+  const sampleRows = await db
+    .selectDistinct({
+      fullName: employees.fullName,
+      employeeCode: employees.employeeCode,
+    })
+    .from(employeeSalaryHeads)
+    .innerJoin(employeeSalaryMap, eq(employeeSalaryHeads.salaryMapId, employeeSalaryMap.id))
+    .innerJoin(employees, eq(employeeSalaryMap.employeeId, employees.id))
+    .where(eq(employeeSalaryHeads.payHeadId, payHeadId))
+    .limit(5);
+
+  return {
+    count: total,
+    sampleEmployees: sampleRows,
+  };
+}
+
+export async function getPayHeadPayslipUsage(payHeadId: string): Promise<{ count: number }> {
+  const countRows = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(payrollSlipHeads)
+    .where(eq(payrollSlipHeads.payHeadId, payHeadId));
+
+  return {
+    count: countRows[0]?.total ?? 0,
+  };
 }
 
 export async function deletePayHead(id: string): Promise<void> {

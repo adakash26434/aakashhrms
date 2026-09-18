@@ -29,6 +29,24 @@ export class StatutoryHeadDeletionError extends Error {
   }
 }
 
+export class PayHeadInUseError extends Error {
+  constructor(public payHeadName: string, public employeeDetails: string = "") {
+    super(
+      `Cannot delete pay head "${payHeadName}" because it is currently assigned in employee salary mapping${employeeDetails}. Please remove this pay head from employee salary mappings before deleting.`
+    );
+    this.name = "PayHeadInUseError";
+  }
+}
+
+export class PayHeadLinkedToPayslipError extends Error {
+  constructor(public payHeadName: string, public count: number) {
+    super(
+      `Cannot delete pay head "${payHeadName}" because it is linked to generated employee payslips (${count} slip${count === 1 ? '' : 's'}). To maintain payroll audit history, pay heads referenced in payslips cannot be deleted.`
+    );
+    this.name = "PayHeadLinkedToPayslipError";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -188,7 +206,42 @@ export async function deletePayHead(id: string): Promise<void> {
     throw new StatutoryHeadDeletionError(existing.name);
   }
 
-  await repository.deletePayHead(id);
+  // 1. Guard against pay heads assigned in Employee Salary Mapping
+  const mappingUsage = await repository.getPayHeadSalaryMappingUsage(id);
+  if (mappingUsage.count > 0) {
+    const sampleList = mappingUsage.sampleEmployees
+      .map((e) => `${e.fullName} (${e.employeeCode})`)
+      .join(", ");
+    const remainder = mappingUsage.count - mappingUsage.sampleEmployees.length;
+    const employeeDetails = mappingUsage.sampleEmployees.length > 0
+      ? ` (assigned to ${mappingUsage.count} employee${mappingUsage.count === 1 ? '' : 's'}: ${sampleList}${remainder > 0 ? ` and ${remainder} more` : ''})`
+      : ` (assigned to ${mappingUsage.count} employee${mappingUsage.count === 1 ? '' : 's'})`;
+
+    throw new PayHeadInUseError(existing.name, employeeDetails);
+  }
+
+  // 2. Guard against pay heads linked to historical/generated Payslips
+  const payslipUsage = await repository.getPayHeadPayslipUsage(id);
+  if (payslipUsage.count > 0) {
+    throw new PayHeadLinkedToPayslipError(existing.name, payslipUsage.count);
+  }
+
+  // 3. Fallback catch for unexpected foreign key constraints
+  try {
+    await repository.deletePayHead(id);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.includes("foreign key") ||
+      msg.includes("23503") ||
+      msg.includes("violates foreign key constraint")
+    ) {
+      throw new Error(
+        `Cannot delete pay head "${existing.name}" because it is currently referenced by other payroll records. Please remove all references before deleting.`
+      );
+    }
+    throw err;
+  }
 
   await recordAuditLog({
     action: "DELETE",
