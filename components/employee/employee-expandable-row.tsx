@@ -23,7 +23,7 @@ function DetailCard({
 }) {
   return (
     <div
-      className={`rounded-lg border border-[#d7e8d0]/80 bg-white p-3 shadow-sm ${className ?? ""}`}
+      className={`rounded-lg border border-payroll-light/80 bg-white p-3 shadow-sm ${className ?? ""}`}
     >
       <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
         {title}
@@ -37,7 +37,7 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   return (
     <div className="flex items-start justify-between gap-2 text-xs">
       <span className="text-gray-500 shrink-0">{label}</span>
-      <span className="text-right font-medium text-[#1b3a1f]">{value}</span>
+      <span className="text-right font-medium text-payroll-navy">{value}</span>
     </div>
   );
 }
@@ -57,7 +57,7 @@ export function EmployeeExpandableRow({
   );
 
   return (
-    <div className="border-b border-[#d7e8d0] bg-[#f6faf6]/70 px-4 py-3">
+    <div className="border-b border-payroll-light bg-payroll-cream/70 px-4 py-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <DetailCard title="Identity">
           <div className="space-y-1.5">
@@ -72,7 +72,7 @@ export function EmployeeExpandableRow({
         <DetailCard title="Employment">
           <div className="space-y-1.5">
             <DetailRow label="Category" value={employee.category} />
-            <DetailRow label="Shreni" value={employee.shreni} />
+            <DetailRow label="Level / Shreni" value={employee.shreni} />
             <DetailRow label="Supervisor" value={supervisorName} />
             <DetailRow
               label="Confirmed"

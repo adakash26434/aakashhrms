@@ -20,6 +20,10 @@ import {
   getNextEmployeeCode,
   getNextAttendanceCode,
 } from "@/lib/engines/employee.engine";
+import { getShreniLevelsAction } from "@/app/actions/shreni.actions";
+import { getEmploymentTypesAction } from "@/app/actions/company-setup.actions";
+import type { ShreniLevelItem } from "@/lib/constants/industry-types";
+import type { EmploymentType } from "@/lib/types/company-setup";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -182,9 +186,27 @@ export function EmployeeFormModal({
   const [formData, setFormData] = useState<EmployeeFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<EmployeeValidationErrors>({});
   const [hasDraft, setHasDraft] = useState(false);
+  const [shreniLevels, setShreniLevels] = useState<ShreniLevelItem[]>([]);
+  const [employmentTypes, setEmploymentTypes] = useState<EmploymentType[]>([]);
   const toast = useToast();
 
   const initializedRef = useRef<string | null>(null);
+
+  // Load organizational custom levels and classifications on modal open
+  useEffect(() => {
+    if (!open) return;
+    async function loadOrgMetadata() {
+      try {
+        const [lvlRes, typRes] = await Promise.all([
+          getShreniLevelsAction(),
+          getEmploymentTypesAction(),
+        ]);
+        if (lvlRes.success && lvlRes.data) setShreniLevels(lvlRes.data);
+        if (typRes.success && typRes.data) setEmploymentTypes(typRes.data);
+      } catch {}
+    }
+    loadOrgMetadata();
+  }, [open]);
 
   // Initialize form state once per open session without resetting on re-renders
   useEffect(() => {
@@ -502,6 +524,8 @@ export function EmployeeFormModal({
           designations={designations}
           employees={employees}
           industryType={industryType}
+          shreniLevels={shreniLevels}
+          employmentTypes={employmentTypes}
           errors={errors}
           setErrors={setErrors}
           editingId={editingId}

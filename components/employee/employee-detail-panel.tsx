@@ -185,7 +185,7 @@ export function EmployeeDetailPanel({
               <Field label="Category" value={employee.category} />
               <Field label="Department" value={departmentName} />
               <Field label="Designation" value={designationName} />
-              <Field label="Shreni" value={employee.shreni || "—"} />
+              <Field label="Level / Shreni" value={employee.shreni || "—"} />
               <Field label="Branch" value={branchName} />
               <Field label="Is Supervisor" value={employee.isSupervisor ? "Yes" : "No"} />
               <Field label="Supervisor" value={supervisorName} />

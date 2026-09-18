@@ -34,14 +34,6 @@ export function DashboardHeroSection({ data }: DashboardHeroProps) {
         </Link>
 
         <Link
-          href="/setup/company"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-payroll-light bg-white hover:bg-payroll-cream text-xs font-semibold text-payroll-navy transition-all shadow-payroll-xs"
-        >
-          <Settings2 className="h-3.5 w-3.5 text-payroll-primary" />
-          <span>System Setup</span>
-        </Link>
-
-        <Link
           href="/payroll/generate"
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-payroll-primary hover:bg-payroll-primary-hover text-xs font-bold text-white transition-all shadow-payroll-sm active:scale-[0.98]"
         >

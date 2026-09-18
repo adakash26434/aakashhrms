@@ -3,113 +3,106 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
-  INDUSTRY_SECTORS,
-  IndustrySectorKey,
-  getRecommendedShreniPresets,
+  STANDARD_SHRENI_LEVELS,
+  ShreniLevelItem,
 } from "@/lib/constants/industry-types";
 import {
   Layers,
   Check,
   ChevronsUpDown,
   X,
-  Building2,
-  Briefcase,
-  Landmark,
-  ShieldCheck,
-  Hospital,
-  GraduationCap,
-  Factory,
-  Hotel,
-  Globe2,
-  Lock,
+  Sparkles,
 } from "lucide-react";
-
-const SECTOR_ICONS: Record<IndustrySectorKey, any> = {
-  BFIs: Landmark,
-  Cooperatives: Building2,
-  Corporate: Briefcase,
-  Healthcare: Hospital,
-  Education: GraduationCap,
-  Manufacturing: Factory,
-  Hospitality: Hotel,
-  NGO_INGO: Globe2,
-  Government: ShieldCheck,
-  General: Layers,
-};
 
 interface ShreniComboboxProps {
   value: string;
   onChange: (value: string) => void;
-  industryType?: string;
   placeholder?: string;
   disabled?: boolean;
   hasError?: boolean;
   className?: string;
   id?: string;
+  industryType?: string; // Kept for backwards-compatible component interface
+  levels?: ShreniLevelItem[]; // Optional tenant-customized levels
 }
 
 export function ShreniCombobox({
   value,
   onChange,
-  industryType = "General",
-  placeholder = "Select Shreni / Level / Tier...",
+  placeholder = "Select Level (e.g. S1, S2, S3...)",
   disabled = false,
   hasError = false,
   className,
   id,
+  levels,
 }: ShreniComboboxProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const currentSectorKey = useMemo<IndustrySectorKey>(() => {
-    if (industryType && industryType in INDUSTRY_SECTORS) {
-      return industryType as IndustrySectorKey;
-    }
-    return "General";
-  }, [industryType]);
+  const availableLevels = useMemo(() => {
+    return levels && levels.length > 0 ? levels : STANDARD_SHRENI_LEVELS;
+  }, [levels]);
 
-  const currentSectorMeta = useMemo(() => {
-    return INDUSTRY_SECTORS[currentSectorKey] || INDUSTRY_SECTORS.General;
-  }, [currentSectorKey]);
-
-  // Strictly locked to the company's designated sector presets configured by Super Admin
-  const sectorPresets = useMemo(() => {
-    return getRecommendedShreniPresets(currentSectorKey);
-  }, [currentSectorKey]);
-
+  // Sync displayed query when external value changes
   useEffect(() => {
-    setSearchQuery(value || "");
-  }, [value]);
+    if (!value) {
+      setSearchQuery("");
+      return;
+    }
+    const matched = availableLevels.find(
+      (l) =>
+        l.code.toLowerCase() === value.toLowerCase() ||
+        l.id.toLowerCase() === value.toLowerCase() ||
+        l.name.toLowerCase() === value.toLowerCase()
+    );
+    if (matched) {
+      setSearchQuery(`${matched.code} — Level ${matched.levelNumber}`);
+    } else {
+      setSearchQuery(value);
+    }
+  }, [value, availableLevels]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
-        setSearchQuery(value || "");
+        if (value) {
+          const matched = availableLevels.find(
+            (l) =>
+              l.code.toLowerCase() === value.toLowerCase() ||
+              l.id.toLowerCase() === value.toLowerCase()
+          );
+          setSearchQuery(matched ? `${matched.code} — Level ${matched.levelNumber}` : value);
+        } else {
+          setSearchQuery("");
+        }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [value]);
+  }, [value, availableLevels]);
 
-  // Filter strictly within the company's designated presets
-  const filteredPresets = useMemo(() => {
+  // Filter levels based on search query
+  const filteredLevels = useMemo(() => {
     if (!searchQuery.trim()) {
-      return sectorPresets;
+      return availableLevels;
     }
     const q = searchQuery.toLowerCase().trim();
-    return sectorPresets.filter(
-      (opt) =>
-        opt.name.toLowerCase().includes(q) ||
-        (opt.description && opt.description.toLowerCase().includes(q))
+    return availableLevels.filter(
+      (lvl) =>
+        lvl.code.toLowerCase().includes(q) ||
+        lvl.name.toLowerCase().includes(q) ||
+        lvl.labelNepali.toLowerCase().includes(q) ||
+        String(lvl.levelNumber) === q ||
+        (lvl.description && lvl.description.toLowerCase().includes(q))
     );
-  }, [searchQuery, sectorPresets]);
+  }, [searchQuery, availableLevels]);
 
-  const handleSelect = (selectedName: string) => {
-    onChange(selectedName);
-    setSearchQuery(selectedName);
+  const handleSelect = (level: ShreniLevelItem) => {
+    onChange(level.code);
+    setSearchQuery(`${level.code} — Level ${level.levelNumber}`);
     setOpen(false);
   };
 
@@ -120,12 +113,10 @@ export function ShreniCombobox({
     inputRef.current?.focus();
   };
 
-  const SectorIcon = SECTOR_ICONS[currentSectorKey] || Layers;
-
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
       <div className="relative flex items-center">
-        <SectorIcon className="pointer-events-none absolute left-3 h-4 w-4 text-[#1e7e47]" />
+        <Layers className="pointer-events-none absolute left-3 h-4 w-4 text-[#1e7e47]" />
         <input
           id={id}
           ref={inputRef}
@@ -135,12 +126,17 @@ export function ShreniCombobox({
             setSearchQuery(e.target.value);
             if (!open) setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              if (filteredPresets.length > 0) {
-                handleSelect(filteredPresets[0].name);
+              if (filteredLevels.length > 0) {
+                handleSelect(filteredLevels[0]);
+              } else if (searchQuery.trim()) {
+                onChange(searchQuery.trim().toUpperCase());
+                setOpen(false);
               }
             } else if (e.key === "Escape") {
               setOpen(false);
@@ -181,54 +177,106 @@ export function ShreniCombobox({
 
       {open && !disabled && (
         <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg animate-[fadeIn_100ms_ease-out]">
-          {/* Locked Company Sector Header Banner */}
-          <div className="bg-slate-50 px-3 py-2 text-xs border-b border-slate-200 flex items-center justify-between gap-2 select-none">
-            <div className="flex items-center gap-1.5 text-slate-800 font-semibold truncate">
-              <SectorIcon className="h-3.5 w-3.5 text-[#1e7e47] shrink-0" />
-              <span className="truncate">{currentSectorMeta.label}</span>
+          {/* Quick-Select Level Pills Header */}
+          <div className="bg-slate-50 p-2.5 border-b border-slate-200 space-y-1.5 select-none">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+              <span className="flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-emerald-600" />
+                <span>Quick Select Level (तह / श्रेणी):</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {availableLevels[0]?.code} – {availableLevels[availableLevels.length - 1]?.code}
+              </span>
             </div>
-            <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full font-medium shrink-0 shadow-2xs">
-              <Lock className="h-2.5 w-2.5 text-slate-500" />
-              <span>Company Scale</span>
-            </span>
+            <div className="flex flex-wrap gap-1">
+              {availableLevels.map((lvl) => {
+                const isSelected =
+                  value?.toUpperCase() === lvl.code.toUpperCase();
+                return (
+                  <button
+                    key={lvl.id || lvl.code}
+                    type="button"
+                    onClick={() => handleSelect(lvl)}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer",
+                      isSelected
+                        ? "bg-[#1e7e47] text-white shadow-2xs"
+                        : "bg-white border border-slate-200 text-slate-700 hover:border-emerald-500 hover:text-emerald-700"
+                    )}
+                  >
+                    {lvl.code}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* List items strictly from company's preset tiers */}
+          {/* Full Level List */}
           <div className="p-1 space-y-0.5">
-            {filteredPresets.map((opt) => {
+            {filteredLevels.map((lvl) => {
               const isSelected =
-                opt.name.toLowerCase() === (value || "").toLowerCase();
+                value?.toUpperCase() === lvl.code.toUpperCase() ||
+                value?.toLowerCase() === lvl.name.toLowerCase();
 
               return (
                 <div
-                  key={opt.id}
-                  onClick={() => handleSelect(opt.name)}
+                  key={lvl.id}
+                  onClick={() => handleSelect(lvl)}
                   className={cn(
-                    "flex items-start justify-between p-2.5 rounded-lg text-xs cursor-pointer transition-colors",
+                    "flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors",
                     isSelected
                       ? "bg-emerald-50 text-[#1e7e47] font-semibold"
                       : "text-slate-800 hover:bg-slate-50"
                   )}
                 >
-                  <div className="flex-1 pr-2">
-                    <p className="font-medium text-slate-900">{opt.name}</p>
-                    {opt.description && (
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {opt.description}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={cn(
+                        "flex h-7 w-8 items-center justify-center rounded-md font-mono text-xs font-bold shrink-0",
+                        isSelected
+                          ? "bg-[#1e7e47] text-white"
+                          : "bg-slate-100 text-slate-700 border border-slate-200"
+                      )}
+                    >
+                      {lvl.code}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">
+                        Level {lvl.levelNumber}{" "}
+                        <span className="font-normal text-slate-500">
+                          ({lvl.labelNepali})
+                        </span>
                       </p>
-                    )}
+                      {lvl.description && (
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {lvl.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {isSelected && (
-                    <Check className="h-4 w-4 text-[#1e7e47] shrink-0 mt-0.5" />
+                    <Check className="h-4 w-4 text-[#1e7e47] shrink-0 ml-2" />
                   )}
                 </div>
               );
             })}
 
-            {filteredPresets.length === 0 && (
-              <div className="p-4 text-center text-xs text-slate-500">
-                No Shreni found matching &quot;{searchQuery}&quot; in {currentSectorMeta.shortLabel}.
+            {filteredLevels.length === 0 && (
+              <div className="p-4 text-center text-xs text-slate-500 space-y-2">
+                <p>No predefined level matching &quot;{searchQuery}&quot;</p>
+                {searchQuery.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(searchQuery.trim().toUpperCase());
+                      setOpen(false);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 cursor-pointer"
+                  >
+                    <span>Use &quot;{searchQuery.trim().toUpperCase()}&quot; as custom level</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -237,3 +285,4 @@ export function ShreniCombobox({
     </div>
   );
 }
+

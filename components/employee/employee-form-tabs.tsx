@@ -17,6 +17,8 @@ import {
 } from "@/lib/engines/employee.engine";
 import { cn } from "@/lib/utils";
 import { Sparkles, Check, Info, Link as LinkIcon, RefreshCw, Lock } from "lucide-react";
+import type { ShreniLevelItem } from "@/lib/constants/industry-types";
+import type { EmploymentType } from "@/lib/types/company-setup";
 
 const formatLocalDate = (d: Date): string => {
   const y = d.getFullYear();
@@ -34,6 +36,8 @@ interface EmployeeFormTabsProps {
   designations: { id: string; name: string; departmentId: string }[];
   employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string; isSupervisor?: boolean }[];
   industryType?: string;
+  shreniLevels?: ShreniLevelItem[];
+  employmentTypes?: EmploymentType[];
   errors?: EmployeeValidationErrors;
   setErrors?: React.Dispatch<React.SetStateAction<EmployeeValidationErrors>>;
   editingId?: string | null;
@@ -48,6 +52,8 @@ export function EmployeeFormTabs({
   designations,
   employees,
   industryType,
+  shreniLevels,
+  employmentTypes,
   errors,
   setErrors,
   editingId,
@@ -269,31 +275,45 @@ export function EmployeeFormTabs({
             onChange={(e) => update("category", e.target.value)}
             className={inputClass}
           >
-            <option value="Permanent">Permanent</option>
-            <option value="Temporary">Temporary</option>
-            <option value="OutSource">OutSource</option>
-            <option value="Consultant">Consultant</option>
-            <option value="Trainee">Trainee</option>
-            <option value="Volunteer">Volunteer</option>
-            <option value="Contract">Contract</option>
+            {employmentTypes && employmentTypes.length > 0 ? (
+              employmentTypes.map((et) => (
+                <option key={et.id || et.code} value={et.name}>
+                  {et.name} {et.nameNepali ? `(${et.nameNepali})` : ""}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="Permanent">Permanent</option>
+                <option value="Temporary">Temporary</option>
+                <option value="OutSource">OutSource</option>
+                <option value="Consultant">Consultant</option>
+                <option value="Trainee">Trainee</option>
+                <option value="Volunteer">Volunteer</option>
+                <option value="Contract">Contract</option>
+              </>
+            )}
           </select>
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <label className={labelClass(!!errors?.shreni)}>
-              Shreni (श्रेणी / Class / Level) *
+              Shreni / Level (तह / श्रेणी) *
             </label>
-            <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-medium">
-              <Lock className="h-2.5 w-2.5 text-gray-400" />
-              <span>Company Scale</span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
+              <span>
+                {shreniLevels && shreniLevels.length > 0
+                  ? `${shreniLevels[0]?.code} – ${shreniLevels[shreniLevels.length - 1]?.code}`
+                  : "S1 – S15 Scale"}
+              </span>
             </span>
           </div>
           <ShreniCombobox
             value={formData.shreni}
             onChange={(val) => update("shreni", val)}
             industryType={industryType}
+            levels={shreniLevels}
             hasError={!!errors?.shreni}
-            placeholder="Select Shreni / Level..."
+            placeholder="Select Level (e.g. S1, S2, S3...)"
           />
           {errors?.shreni && (
             <p className="text-[11px] font-medium text-red-500">{errors.shreni}</p>
