@@ -64,7 +64,11 @@ export const companies = pgTable('companies', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
 
+export type Company = typeof companies.$inferSelect;
+export type NewCompany = typeof companies.$inferInsert;
+
 // -----------------------------------------------------------------------------
+
 // 3. TENANT DATABASES (Encrypted Connection Configs)
 // -----------------------------------------------------------------------------
 export const tenantDatabases = pgTable('tenant_databases', {
@@ -151,3 +155,27 @@ export const platformImpersonationLog = pgTable('platform_impersonation_log', {
   userAgent: text('user_agent'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// -----------------------------------------------------------------------------
+// 9. COMPANY DATA CHANGE REQUESTS (Tenant Tier 1 Verification Workflow)
+// -----------------------------------------------------------------------------
+export const companyChangeRequests = pgTable('company_change_requests', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  requestedByUserId: uuid('requested_by_user_id'),
+  requestedByUserEmail: varchar('requested_by_user_email', { length: 255 }).notNull(),
+  status: varchar('status', { length: 20 }).default('PENDING').notNull(), // PENDING, APPROVED, REJECTED, CANCELLED
+  currentValues: jsonb('current_values').notNull(),
+  proposedValues: jsonb('proposed_values').notNull(),
+  reason: text('reason').notNull(),
+  documentReference: text('document_reference'),
+  reviewedByPlatformUserId: uuid('reviewed_by_platform_user_id').references(() => platformUsers.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  rejectionReason: text('rejection_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+export type CompanyChangeRequest = typeof companyChangeRequests.$inferSelect;
+export type NewCompanyChangeRequest = typeof companyChangeRequests.$inferInsert;
+

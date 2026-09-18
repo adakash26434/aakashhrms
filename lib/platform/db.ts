@@ -219,6 +219,28 @@ export async function ensurePlatformTablesExist(): Promise<void> {
           );
         `);
 
+        await pSql.unsafe(`
+          CREATE TABLE IF NOT EXISTS company_change_requests (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+            requested_by_user_id UUID,
+            requested_by_user_email VARCHAR(255) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+            current_values JSONB NOT NULL,
+            proposed_values JSONB NOT NULL,
+            reason TEXT NOT NULL,
+            document_reference TEXT,
+            reviewed_by_platform_user_id UUID REFERENCES platform_users(id) ON DELETE SET NULL,
+            reviewed_at TIMESTAMP WITH TIME ZONE,
+            rejection_reason TEXT,
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+          );
+          CREATE INDEX IF NOT EXISTS idx_company_change_requests_company_id ON company_change_requests(company_id);
+          CREATE INDEX IF NOT EXISTS idx_company_change_requests_status ON company_change_requests(status);
+        `);
+
+
         // 3. Ensure initial Super Admin account is seeded
         const email = (process.env.SUPER_ADMIN_EMAIL || 'superadmin@aakashhrms.com').toLowerCase().trim();
         const passwordPlain = process.env.SUPER_ADMIN_PASSWORD || 'SuperPassword123!';

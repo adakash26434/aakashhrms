@@ -13,6 +13,8 @@ export const branches = pgTable('branches', {
   location: varchar('location', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 50 }).notNull(),
   email: varchar('email', { length: 255 }).notNull(),
+  isHeadOffice: boolean('is_head_office').default(false).notNull(),
+  remoteCategory: varchar('remote_category', { length: 20 }).default('NONE').notNull(),
   status: varchar('status', { length: 20 }).default('active').notNull(), // "active" | "inactive"
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -51,6 +53,50 @@ export const designations = pgTable('designations', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   departmentIdIdx: index('designations_department_id_idx').on(table.departmentId),
+}));
+
+// -----------------------------------------------------------------------------
+// SHRENI / GRADE LEVELS TABLE
+// -----------------------------------------------------------------------------
+export const shreniLevels = pgTable('shreni_levels', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 50 }).notNull().unique(), // e.g. "S1", "L6", "OFF-1"
+  name: varchar('name', { length: 255 }).notNull(),         // e.g. "Officer Level 6" or "तह ६"
+  levelNumber: integer('level_number').notNull(),           // 1 to 15+
+  labelNepali: varchar('label_nepali', { length: 255 }).notNull(), // e.g. "तह ६ (अधिकृत तह)"
+  description: text('description'),
+  minSalary: numeric('min_salary', { precision: 15, scale: 2 }).default('0').notNull(),
+  maxSalary: numeric('max_salary', { precision: 15, scale: 2 }).default('0').notNull(),
+  rankOrder: integer('rank_order').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  levelNumberIdx: index('shreni_levels_level_number_idx').on(table.levelNumber),
+  isActiveIdx: index('shreni_levels_is_active_idx').on(table.isActive),
+}));
+
+// -----------------------------------------------------------------------------
+// EMPLOYMENT TYPES / CATEGORIES TABLE
+// -----------------------------------------------------------------------------
+export const employmentTypes = pgTable('employment_types', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 50 }).notNull().unique(), // e.g. "PERMANENT", "CONTRACT"
+  name: varchar('name', { length: 100 }).notNull(),        // "Permanent", "Contract", "Probation"
+  nameNepali: varchar('name_nepali', { length: 100 }),     // "नियमित / स्थायी", "समयावधि / करार"
+  isPfEligible: boolean('is_pf_eligible').default(true).notNull(),
+  isSsfEligible: boolean('is_ssf_eligible').default(true).notNull(),
+  isFestivalEligible: boolean('is_festival_eligible').default(true).notNull(),
+  isLeaveEligible: boolean('is_leave_eligible').default(true).notNull(),
+  isOtEligible: boolean('is_ot_eligible').default(true).notNull(),
+  noticePeriodDays: integer('notice_period_days').default(30).notNull(),
+  probationMonths: integer('probation_months').default(6).notNull(),
+  rankOrder: integer('rank_order').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  isActiveIdx: index('employment_types_is_active_idx').on(table.isActive),
 }));
 
 // -----------------------------------------------------------------------------

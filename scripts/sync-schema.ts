@@ -2,6 +2,7 @@ import postgres from 'postgres';
 import * as dotenv from 'dotenv';
 import { decryptCredential } from '../lib/platform/crypto';
 import { ensureTenantSchema } from '../lib/db/tenant-schema-sync';
+import { ensurePlatformTablesExist } from '../lib/platform/db';
 
 dotenv.config({ path: '.env' });
 
@@ -29,7 +30,9 @@ async function syncSchema() {
     `;
 
     if (tableCheck?.has_companies) {
-      console.log('🏢 Multi-tenant control plane detected. Fetching active tenant databases...');
+      console.log('🏢 Multi-tenant control plane detected. Ensuring platform tables and change request schemas exist...');
+      await ensurePlatformTablesExist();
+      console.log('Fetching active tenant databases...');
       const tenantDbs = await sql`
         SELECT 
           c.id, 
