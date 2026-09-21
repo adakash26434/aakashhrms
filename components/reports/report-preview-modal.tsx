@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Printer, Download, X, FileText, CheckCircle2, ShieldCheck, Users, User } from "lucide-react";
+import { Printer, Download, X, FileText, CheckCircle2, Users, User } from "lucide-react";
 import { useWorkspaceContext } from "@/lib/contexts/workspace-context";
 import type { CompanyReportInfo } from "@/lib/types/report";
 

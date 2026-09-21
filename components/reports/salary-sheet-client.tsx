@@ -6,6 +6,9 @@ import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
 import { SalarySheetTable } from "./salary-sheet-table";
 import { PayslipHeadTable } from "./payslip-head-table";
 import { ReportActionToolbar } from "./report-action-toolbar";
+import { ReportDataTableShell } from "./report-data-table-shell";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
 import type {
   ReportFilterLookupData,
   SalarySheetReportData,
@@ -14,11 +17,11 @@ import type {
 } from "@/lib/types/report";
 import {
   getSalarySheetReportAction,
-  exportSalarySheetCsvAction,
   getPayslipHeadSummaryAction,
 } from "@/app/actions/report.actions";
-import { AlertCircle, FileSpreadsheet, Layers } from "lucide-react";
+import { AlertCircle, FileSpreadsheet, Layers, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 const ReportPreviewModal = dynamic(
   () => import("./report-preview-modal").then((m) => m.ReportPreviewModal),
@@ -49,6 +52,8 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
   const [singleEmployeeRow, setSingleEmployeeRow] = useState<SalarySheetRow | null>(null);
   const [isIndividualSlipsView, setIsIndividualSlipsView] = useState(false);
 
+  const toast = useToast();
+
   const handlePrintSummary = () => {
     setIsIndividualSlipsView(false);
     setTimeout(() => {
@@ -63,9 +68,7 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
     }, 100);
   };
 
-  const toast = useToast();
-
-  const fetchReport = async (filters: ReportFilterState) => {
+  const fetchReport = async (filters: ReportFilterState, tabToFetch: "SALARY_SHEET" | "HEAD_SUMMARY" = activeTab) => {
     if (!filters.payrollRunId) {
       setError("Please select a locked payroll run.");
       toast.error("Please select a locked payroll run.");
@@ -75,7 +78,7 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
     setIsLoading(true);
 
     try {
-      if (activeTab === "SALARY_SHEET") {
+      if (tabToFetch === "SALARY_SHEET") {
         const res = await getSalarySheetReportAction({
           payrollRunId: filters.payrollRunId,
           branchId: filters.branchId,
@@ -122,15 +125,14 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
   const handleFilterChange = (newFilters: ReportFilterState) => {
     setFilterState(newFilters);
     setSingleEmployeeRow(null);
-    fetchReport(newFilters);
+    fetchReport(newFilters, activeTab);
   };
 
   const handleTabChange = (tab: "SALARY_SHEET" | "HEAD_SUMMARY") => {
     setActiveTab(tab);
     setSingleEmployeeRow(null);
     if (filterState.payrollRunId) {
-      // Re-fetch data for the new tab with current filters
-      fetchReport(filterState);
+      fetchReport(filterState, tab);
     }
   };
 
@@ -174,7 +176,8 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
     setIsExporting(true);
     try {
       const exportRows = rowsToExport || activeSheetData?.rows || sheetData.rows;
-      let csv = "SN,Code,EmployeeName,Department,BasicSalary,GradeAmount,OTAmount,GrossEarnings,AbsentDeduction,PF,SSF,CIT,TDS,LoanDeduction,TotalDeductions,NetPayable,BankName,BankAccount\n";
+      let csv =
+        "SN,Code,EmployeeName,Department,BasicSalary,GradeAmount,OTAmount,GrossEarnings,AbsentDeduction,PF,SSF,CIT,TDS,LoanDeduction,TotalDeductions,NetPayable,BankName,BankAccount\n";
       exportRows.forEach((r, idx) => {
         csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${r.departmentName}",${r.basicSalary},${r.gradeAmount},${r.otAmount},${r.grossEarnings},${r.absentDeduction},${r.pfEmployee},${r.ssfEmployee},${r.citDeduction},${r.tdsThisMonth},${r.loanDeduction},${r.totalDeductions},${r.netPayable},"${r.bankName}","${r.bankAccountNumberFull}"\n`;
       });
@@ -223,7 +226,9 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
     window.print();
   };
 
-  const selectedRunLabel = lookupData.lockedPayrollRuns.find((r) => r.id === filterState.payrollRunId)?.label || "Selected Run";
+  const selectedRunLabel =
+    lookupData.lockedPayrollRuns.find((r) => r.id === filterState.payrollRunId)?.label ||
+    "Selected Run";
 
   const previewDisplayData: SalarySheetReportData | null = useMemo(() => {
     if (singleEmployeeRow && sheetData) {
@@ -243,67 +248,21 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
   }, [singleEmployeeRow, sheetData, activeSheetData]);
 
   return (
-    <div className="space-y-6">
-      {/* Top Action Toolbar */}
-      <ReportActionToolbar
-        title="Salary Sheet & Pay Head Report"
-        subtitle="View earnings, dynamic allowances, deductions, and net payable breakdown for locked monthly payroll runs."
-        onPrint={handlePrint}
-        onExport={() => handleExportCsv()}
-        onPreview={() => {
-          setSingleEmployeeRow(null);
-          setIsPreviewOpen(true);
-        }}
-        isExporting={isExporting}
-        hasData={!!activeSheetData || headSummaryRows.length > 0}
-        badge="Monthly Master"
-        meta={
-          activeSheetData ? (
-            <>
-              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
-                Period: {selectedRunLabel}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
-                Total Staff: {activeSheetData.summary.totalEmployees}
-              </span>
-            </>
-          ) : undefined
-        }
+    <PageFrame size="wide" spacing="default">
+      {/* Canonical Standard Page Header */}
+      <PageHeader
+        title="Salary Sheet Report"
+        description="View earnings, dynamic allowances, deductions, and net payable breakdown for locked monthly payroll runs."
       >
-        {/* Tab Switcher using SegmentedControl */}
-        <div className="inline-flex rounded-lg border border-payroll-light bg-payroll-cream p-1 shadow-payroll-sm">
-          <button
-            onClick={() => {
-              setActiveTab("SALARY_SHEET");
-              if (filterState.payrollRunId) fetchReport(filterState);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-              activeTab === "SALARY_SHEET"
-                ? "bg-payroll-primary text-white shadow-payroll-sm"
-                : "text-gray-600 hover:text-payroll-navy"
-            }`}
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5" />
-            Salary Sheet
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("HEAD_SUMMARY");
-              if (filterState.payrollRunId) fetchReport(filterState);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-              activeTab === "HEAD_SUMMARY"
-                ? "bg-payroll-primary text-white shadow-payroll-sm"
-                : "text-gray-600 hover:text-payroll-navy"
-            }`}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            Pay Head Summary
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
+            <ShieldCheck className="h-4 w-4" />
+            <span>Locked Run Data Enforced</span>
+          </span>
         </div>
-      </ReportActionToolbar>
+      </PageHeader>
 
-      {/* Filter Bar with Designation Enabled */}
+      {/* Filter Bar */}
       <ReportFilterBar
         lookupData={lookupData}
         showRunSelector={true}
@@ -324,29 +283,93 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
         </div>
       )}
 
-      {/* Tab Content */}
-      <div className={isPreviewOpen ? "print:hidden" : ""}>
-        {activeTab === "SALARY_SHEET" ? (
-          activeSheetData ? (
-            <SalarySheetTable
-              data={activeSheetData}
-              onExportCsv={() => handleExportCsv()}
-              isExporting={isExporting}
-              onSingleEmployeeAction={handleSingleEmployeeAction}
-            />
+      {/* Report Result Section */}
+      <div className="space-y-4">
+        {/* Standard Action Toolbar */}
+        <ReportActionToolbar
+          onPrint={handlePrint}
+          onExport={() => handleExportCsv()}
+          onPreview={() => {
+            setSingleEmployeeRow(null);
+            setIsPreviewOpen(true);
+          }}
+          isExporting={isExporting}
+          hasData={Boolean(activeSheetData || headSummaryRows.length > 0)}
+          meta={
+            activeSheetData ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                  Period: {selectedRunLabel}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                  Staff: {activeSheetData.summary.totalEmployees}
+                </span>
+              </div>
+            ) : undefined
+          }
+        >
+          {/* Sub-tab Switcher: Salary Sheet vs Pay Head Summary */}
+          <div className="inline-flex rounded-lg border border-payroll-light bg-payroll-cream p-1 shadow-payroll-xs">
+            <button
+              type="button"
+              onClick={() => handleTabChange("SALARY_SHEET")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                activeTab === "SALARY_SHEET"
+                  ? "bg-payroll-primary text-white shadow-payroll-xs"
+                  : "text-gray-600 hover:text-payroll-navy"
+              )}
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              <span>Salary Sheet</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange("HEAD_SUMMARY")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                activeTab === "HEAD_SUMMARY"
+                  ? "bg-payroll-primary text-white shadow-payroll-xs"
+                  : "text-gray-600 hover:text-payroll-navy"
+              )}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Pay Head Summary</span>
+            </button>
+          </div>
+        </ReportActionToolbar>
+
+        {/* Tab Content inside Report Shell */}
+        <div className={isPreviewOpen ? "print:hidden" : ""}>
+          {activeTab === "SALARY_SHEET" ? (
+            activeSheetData ? (
+              <SalarySheetTable
+                data={activeSheetData}
+                onExportCsv={() => handleExportCsv()}
+                isExporting={isExporting}
+                onSingleEmployeeAction={handleSingleEmployeeAction}
+              />
+            ) : (
+              <ReportDataTableShell
+                isEmpty={true}
+                emptyTitle="No Salary Sheet Loaded"
+                emptyDescription="Select a locked payroll run from the filter options above and click &quot;Generate Report&quot;."
+                emptyAction={
+                  <a
+                    href="/payroll/review"
+                    className="font-semibold text-payroll-primary hover:underline text-xs inline-flex items-center gap-1"
+                  >
+                    Lock a payroll run in Review section →
+                  </a>
+                }
+              >
+                <div />
+              </ReportDataTableShell>
+            )
           ) : (
-            <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500">
-              <FileSpreadsheet className="mx-auto h-8 w-8 text-payroll-primary mb-2 opacity-60" />
-              <p className="font-bold text-payroll-navy">No Salary Sheet Loaded</p>
-              <p className="mt-1 text-gray-500">Select a locked payroll run from the filter options above and click "Generate Report".</p>
-              <a href="/payroll/review" className="mt-3 inline-block font-semibold text-payroll-primary hover:underline">
-                Lock a payroll run in Review section →
-              </a>
-            </div>
-          )
-        ) : (
-          <PayslipHeadTable rows={headSummaryRows} runLabel={headRunLabel} />
-        )}
+            <PayslipHeadTable rows={headSummaryRows} runLabel={headRunLabel} />
+          )}
+        </div>
       </div>
 
       {/* Full Document Preview Modal */}
@@ -357,29 +380,62 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
           setSingleEmployeeRow(null);
           setIsIndividualSlipsView(false);
         }}
-        title={singleEmployeeRow || filterState.employeeId ? `Single Employee Report — ${singleEmployeeRow?.employeeName || activeSheetData?.rows[0]?.employeeName || "Employee"}` : isIndividualSlipsView ? "Employee Salary Slips (Individual A4 Pages)" : "Monthly Salary Sheet Statement"}
+        title={
+          singleEmployeeRow || filterState.employeeId
+            ? `Single Employee Report — ${
+                singleEmployeeRow?.employeeName ||
+                activeSheetData?.rows[0]?.employeeName ||
+                "Employee"
+              }`
+            : isIndividualSlipsView
+            ? "Employee Salary Slips (Individual A4 Pages)"
+            : "Monthly Salary Sheet Statement"
+        }
         subtitle={`Period: ${selectedRunLabel}`}
         onPrint={handlePrintSummary}
         onExport={() => handleExportCsv(singleEmployeeRow ? [singleEmployeeRow] : undefined)}
         isExporting={isExporting}
-        isSingleEmployee={singleEmployeeRow !== null || !!filterState.employeeId || previewDisplayData?.rows.length === 1}
+        isSingleEmployee={
+          singleEmployeeRow !== null ||
+          Boolean(filterState.employeeId) ||
+          previewDisplayData?.rows.length === 1
+        }
         onPrintSummary={handlePrintSummary}
-        onPrintIndividualSlips={activeTab === "SALARY_SHEET" ? handlePrintIndividualSlips : undefined}
+        onPrintIndividualSlips={
+          activeTab === "SALARY_SHEET" ? handlePrintIndividualSlips : undefined
+        }
         company={lookupData.company}
         metaDetails={[
           { label: "Payroll Run", value: selectedRunLabel },
-          { label: "Report View", value: (singleEmployeeRow || filterState.employeeId) ? `Single Employee` : isIndividualSlipsView ? "Individual Slips (Page-by-Page)" : activeTab === "SALARY_SHEET" ? "Full Salary Sheet" : "Pay Head Summary" },
-          { label: "Employees Count", value: previewDisplayData ? String(previewDisplayData.rows.length) : "N/A" },
+          {
+            label: "Report View",
+            value:
+              singleEmployeeRow || filterState.employeeId
+                ? "Single Employee"
+                : isIndividualSlipsView
+                ? "Individual Slips (Page-by-Page)"
+                : activeTab === "SALARY_SHEET"
+                ? "Full Salary Sheet"
+                : "Pay Head Summary",
+          },
+          {
+            label: "Employees Count",
+            value: previewDisplayData ? String(previewDisplayData.rows.length) : "N/A",
+          },
         ]}
       >
         {isIndividualSlipsView && previewDisplayData ? (
-          <SalarySheetIndividualSlips rows={previewDisplayData.rows} periodLabel={selectedRunLabel} company={lookupData.company} />
+          <SalarySheetIndividualSlips
+            rows={previewDisplayData.rows}
+            periodLabel={selectedRunLabel}
+            company={lookupData.company}
+          />
         ) : activeTab === "SALARY_SHEET" && previewDisplayData ? (
           <SalarySheetTable data={previewDisplayData} />
         ) : (
           <PayslipHeadTable rows={headSummaryRows} runLabel={headRunLabel} />
         )}
       </ReportPreviewModal>
-    </div>
+    </PageFrame>
   );
 }

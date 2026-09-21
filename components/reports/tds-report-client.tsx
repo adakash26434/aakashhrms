@@ -4,11 +4,14 @@ import { useState, useMemo } from "react";
 import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
 import { TDSReportTable } from "./tds-report-table";
 import { ReportActionToolbar } from "./report-action-toolbar";
+import { ReportDataTableShell } from "./report-data-table-shell";
 import { ReportPreviewModal } from "./report-preview-modal";
 import { TDSIndividualSlips } from "./individual-report-slips";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
 import type { ReportFilterLookupData, TDSReportData, TDSReportRow } from "@/lib/types/report";
-import { getTDSReportAction, exportTDSCsvAction } from "@/app/actions/report.actions";
-import { AlertCircle } from "lucide-react";
+import { getTDSReportAction } from "@/app/actions/report.actions";
+import { AlertCircle, Receipt, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 interface TDSReportClientProps {
@@ -29,6 +32,8 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
   const [singleEmployeeRow, setSingleEmployeeRow] = useState<TDSReportRow | null>(null);
   const [isIndividualSlipsView, setIsIndividualSlipsView] = useState(false);
 
+  const toast = useToast();
+
   const handlePrintSummary = () => {
     setIsIndividualSlipsView(false);
     setTimeout(() => {
@@ -42,8 +47,6 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
       window.print();
     }, 100);
   };
-
-  const toast = useToast();
 
   const fetchReport = async (filters: ReportFilterState) => {
     if (!filters.fiscalYearId) {
@@ -121,9 +124,14 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
     setIsExporting(true);
     try {
       const exportRows = rowsToExport || activeReportData?.rows || reportData.rows;
-      let csv = "SN,Code,EmployeeName,PANNumber,TaxStatus,Period,GrossIncome,PFDeducted,CITDeducted,TaxableIncome,TDSDeducted\n";
+      let csv =
+        "SN,Code,EmployeeName,PANNumber,TaxStatus,Period,GrossIncome,PFDeducted,CITDeducted,TaxableIncome,TDSDeducted\n";
       exportRows.forEach((r, idx) => {
-        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${r.panNumber || "N/A"}","${r.taxStatus}","${r.period}",${r.grossIncome},${r.pfDeducted},${r.citDeducted},${r.taxableIncome},${r.tdsDeducted}\n`;
+        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${
+          r.panNumber || "N/A"
+        }","${r.taxStatus}","${r.period}",${r.grossIncome},${r.pfDeducted},${
+          r.citDeducted
+        },${r.taxableIncome},${r.tdsDeducted}\n`;
       });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -170,7 +178,9 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
     window.print();
   };
 
-  const fyLabel = lookupData.fiscalYears.find((f) => f.id === filterState.fiscalYearId)?.label || "Selected FY";
+  const fyLabel =
+    lookupData.fiscalYears.find((f) => f.id === filterState.fiscalYearId)?.label ||
+    "Selected FY";
 
   const previewDisplayData: TDSReportData | null = useMemo(() => {
     if (singleEmployeeRow && reportData) {
@@ -186,21 +196,19 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
   }, [singleEmployeeRow, reportData, activeReportData]);
 
   return (
-    <div className="space-y-6">
-      {/* Top Action Toolbar */}
-      <ReportActionToolbar
-        title="TDS / IRD Tax Compliance Statement"
-        subtitle="Generate IRD-compatible monthly and annual tax deduction statements (ETDS format) with employee PAN details."
-        onPrint={handlePrint}
-        onExport={() => handleExportCsv()}
-        onPreview={() => {
-          setSingleEmployeeRow(null);
-          setIsPreviewOpen(true);
-        }}
-        isExporting={isExporting}
-        hasData={!!activeReportData}
-        badge="IRD Compliance"
-      />
+    <PageFrame size="wide" spacing="default">
+      {/* Canonical Standard Page Header */}
+      <PageHeader
+        title="TDS / IRD Tax Report"
+        description="Inspect statutory tax deductions, PAN validations, and generate Inland Revenue Department (IRD) ETDS filing statements."
+      >
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
+            <ShieldCheck className="h-4 w-4" />
+            <span>IRD Compliance Slabs</span>
+          </span>
+        </div>
+      </PageHeader>
 
       {/* Filter Bar */}
       <ReportFilterBar
@@ -224,20 +232,63 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
         </div>
       )}
 
-      {/* Report Table */}
-      <div className={isPreviewOpen ? "print:hidden" : ""}>
-        {activeReportData ? (
-          <TDSReportTable
-            data={activeReportData}
-            onExportCsv={() => handleExportCsv()}
-            isExporting={isExporting}
-            onSingleEmployeeAction={handleSingleEmployeeAction}
-          />
-        ) : (
-          <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500">
-            Select Fiscal Year and view parameters from the filter bar above and click "Generate Report".
+      {/* Report Result Section */}
+      <div className="space-y-4">
+        {/* Standard Action Toolbar */}
+        <ReportActionToolbar
+          onPrint={handlePrint}
+          onExport={() => handleExportCsv()}
+          onPreview={() => {
+            setSingleEmployeeRow(null);
+            setIsPreviewOpen(true);
+          }}
+          isExporting={isExporting}
+          hasData={Boolean(activeReportData)}
+          meta={
+            activeReportData ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                  FY: {fyLabel}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                  Period: {reportData?.period || "N/A"}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                  Total Tax: NPR {Number(activeReportData.totalTds).toLocaleString()}
+                </span>
+              </div>
+            ) : undefined
+          }
+        >
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-payroll-primary/10 text-payroll-primary">
+              <Receipt className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
+              ETDS Statements
+            </span>
           </div>
-        )}
+        </ReportActionToolbar>
+
+        {/* Report Table inside Shell */}
+        <div className={isPreviewOpen ? "print:hidden" : ""}>
+          {activeReportData ? (
+            <TDSReportTable
+              data={activeReportData}
+              onExportCsv={() => handleExportCsv()}
+              isExporting={isExporting}
+              onSingleEmployeeAction={handleSingleEmployeeAction}
+            />
+          ) : (
+            <ReportDataTableShell
+              isEmpty={true}
+              emptyTitle="No TDS Records Loaded"
+              emptyDescription="Select Fiscal Year and view parameters from the filter bar above and click &quot;Generate Report&quot;."
+            >
+              <div />
+            </ReportDataTableShell>
+          )}
+        </div>
       </div>
 
       {/* Preview Modal */}
@@ -248,30 +299,59 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
           setSingleEmployeeRow(null);
           setIsIndividualSlipsView(false);
         }}
-        title={singleEmployeeRow || filterState.employeeId ? `Single Employee TDS Tax Statement — ${singleEmployeeRow?.employeeName || activeReportData?.rows[0]?.employeeName || "Employee"}` : isIndividualSlipsView ? "e-TDS Tax Certificates (Individual A4 Pages)" : "TDS / IRD Tax Statement (ETDS)"}
+        title={
+          singleEmployeeRow || filterState.employeeId
+            ? `Single Employee TDS Tax Statement — ${
+                singleEmployeeRow?.employeeName ||
+                activeReportData?.rows[0]?.employeeName ||
+                "Employee"
+              }`
+            : isIndividualSlipsView
+            ? "e-TDS Tax Certificates (Individual A4 Pages)"
+            : "TDS / IRD Tax Statement (ETDS)"
+        }
         subtitle={`Period: ${reportData?.period || ""} (${fyLabel})`}
         onPrint={handlePrintSummary}
         onExport={() => handleExportCsv(singleEmployeeRow ? [singleEmployeeRow] : undefined)}
         isExporting={isExporting}
-        isSingleEmployee={singleEmployeeRow !== null || !!filterState.employeeId || previewDisplayData?.rows.length === 1}
+        isSingleEmployee={
+          singleEmployeeRow !== null ||
+          Boolean(filterState.employeeId) ||
+          previewDisplayData?.rows.length === 1
+        }
         onPrintSummary={handlePrintSummary}
         onPrintIndividualSlips={handlePrintIndividualSlips}
         company={lookupData.company}
         metaDetails={[
           { label: "Fiscal Year", value: fyLabel },
           { label: "Type", value: filterState.reportType || "MONTHLY" },
-          { label: "Scope", value: (singleEmployeeRow || filterState.employeeId) ? `Single Employee` : isIndividualSlipsView ? "Individual Slips (Page-by-Page)" : "All Selected Employees" },
-          { label: "Total Tax Deducted", value: previewDisplayData ? `NPR ${Number(previewDisplayData.totalTds).toLocaleString()}` : "0" },
+          {
+            label: "Scope",
+            value:
+              singleEmployeeRow || filterState.employeeId
+                ? "Single Employee"
+                : isIndividualSlipsView
+                ? "Individual Slips (Page-by-Page)"
+                : "All Selected Employees",
+          },
+          {
+            label: "Total Tax Deducted",
+            value: previewDisplayData
+              ? `NPR ${Number(previewDisplayData.totalTds).toLocaleString()}`
+              : "0",
+          },
         ]}
       >
-        {previewDisplayData && (
-          isIndividualSlipsView ? (
-            <TDSIndividualSlips rows={previewDisplayData.rows} periodLabel={`${reportData?.period || ""} (${fyLabel})`} />
+        {previewDisplayData &&
+          (isIndividualSlipsView ? (
+            <TDSIndividualSlips
+              rows={previewDisplayData.rows}
+              periodLabel={`${reportData?.period || ""} (${fyLabel})`}
+            />
           ) : (
             <TDSReportTable data={previewDisplayData} />
-          )
-        )}
+          ))}
       </ReportPreviewModal>
-    </div>
+    </PageFrame>
   );
 }

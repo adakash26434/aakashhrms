@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
 import { AttendanceReportTable } from "./attendance-report-table";
 import { ReportActionToolbar } from "./report-action-toolbar";
+import { ReportDataTableShell } from "./report-data-table-shell";
 import { ReportPreviewModal } from "./report-preview-modal";
 import { AttendanceIndividualSlips } from "./individual-report-slips";
-import type { ReportFilterLookupData, AttendanceReportData, AttendanceReportRow } from "@/lib/types/report";
-import {
-  getAttendanceReportAction,
-  exportAttendanceCsvAction,
-} from "@/app/actions/report.actions";
-import { AlertCircle } from "lucide-react";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import type {
+  ReportFilterLookupData,
+  AttendanceReportData,
+  AttendanceReportRow,
+} from "@/lib/types/report";
+import { getAttendanceReportAction } from "@/app/actions/report.actions";
+import { AlertCircle, CalendarCheck, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 interface AttendanceReportClientProps {
@@ -30,26 +34,6 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [singleEmployeeRow, setSingleEmployeeRow] = useState<AttendanceReportRow | null>(null);
   const [isIndividualSlipsView, setIsIndividualSlipsView] = useState(false);
-
-  useEffect(() => {
-    if (filterState.fiscalYearId && filterState.bsMonth) {
-      fetchReport(filterState);
-    }
-  }, []);
-
-  const handlePrintSummary = () => {
-    setIsIndividualSlipsView(false);
-    setTimeout(() => {
-      window.print();
-    }, 50);
-  };
-
-  const handlePrintIndividualSlips = () => {
-    setIsIndividualSlipsView(true);
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
 
   const toast = useToast();
 
@@ -91,6 +75,22 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
     }
   };
 
+
+
+  const handlePrintSummary = () => {
+    setIsIndividualSlipsView(false);
+    setTimeout(() => {
+      window.print();
+    }, 50);
+  };
+
+  const handlePrintIndividualSlips = () => {
+    setIsIndividualSlipsView(true);
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   const handleFilterChange = (newFilters: ReportFilterState) => {
     setFilterState(newFilters);
     setSingleEmployeeRow(null);
@@ -122,9 +122,14 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
     setIsExporting(true);
     try {
       const exportRows = rowsToExport || activeReportData?.rows || reportData.rows;
-      let csv = "SN,Code,EmployeeName,Department,WorkingDays,Present,PayLeave,NonPayLeave,AbsentDays,OfficeOT,OffDayOT,OTEarned,LeaveDeduction\n";
+      let csv =
+        "SN,Code,EmployeeName,Department,WorkingDays,Present,PayLeave,NonPayLeave,AbsentDays,OfficeOT,OffDayOT,OTEarned,LeaveDeduction\n";
       exportRows.forEach((r, idx) => {
-        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${r.departmentName}",${r.totalWorkingDays},${r.presentDays},${r.payLeaveDays},${r.nonPayLeaveDays},${r.absentDays},${r.totalOtHoursOffice},${r.totalOtHoursOff},${r.otEarnedAmount},${r.leaveDeductionAmount}\n`;
+        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${r.departmentName}",${
+          r.totalWorkingDays
+        },${r.presentDays},${r.payLeaveDays},${r.nonPayLeaveDays},${r.absentDays},${
+          r.totalOtHoursOffice
+        },${r.totalOtHoursOff},${r.otEarnedAmount},${r.leaveDeductionAmount}\n`;
       });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -171,7 +176,9 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
     window.print();
   };
 
-  const fyLabel = lookupData.fiscalYears.find((f) => f.id === filterState.fiscalYearId)?.label || "Selected FY";
+  const fyLabel =
+    lookupData.fiscalYears.find((f) => f.id === filterState.fiscalYearId)?.label ||
+    "Selected FY";
 
   const previewDisplayData: AttendanceReportData | null = useMemo(() => {
     if (singleEmployeeRow && reportData) {
@@ -185,40 +192,19 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
   }, [singleEmployeeRow, reportData, activeReportData]);
 
   return (
-    <div className="space-y-6">
-      {/* Top Action Toolbar */}
-      <ReportActionToolbar
-        title="Attendance & Overtime Ledger Report"
-        subtitle="View monthly working days, present/absent counts, leave deductions, and calculated overtime hours."
-        onPrint={handlePrint}
-        onExport={() => handleExportCsv()}
-        onPreview={() => {
-          setSingleEmployeeRow(null);
-          setIsPreviewOpen(true);
-        }}
-        isExporting={isExporting}
-        hasData={!!activeReportData}
-        badge="Nepal Labour Act"
-        meta={
-          activeReportData ? (
-            <>
-              <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-light/60 px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
-                Period: {reportData?.monthLabel || ""} ({fyLabel})
-              </span>
-              <span className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
-                reportData?.isLocked
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-amber-200 bg-amber-50 text-amber-800"
-              }`}>
-                {reportData?.isLocked ? "Locked Payroll Data" : "Draft Pre-Payroll Data"}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-payroll-primary">
-                Manual Attendance Ledger (Biometric Standby)
-              </span>
-            </>
-          ) : undefined
-        }
-      />
+    <PageFrame size="wide" spacing="default">
+      {/* Canonical Standard Page Header */}
+      <PageHeader
+        title="Attendance & OT Report"
+        description="Device punch details, manual status matrix (P/A/L/HD), and statutory monthly working days, absent deductions, and OT earned summary."
+      >
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
+            <ShieldCheck className="h-4 w-4" />
+            <span>Nepal Labour Act Standards</span>
+          </span>
+        </div>
+      </PageHeader>
 
       {/* Filter Bar */}
       <ReportFilterBar
@@ -243,20 +229,66 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
         </div>
       )}
 
-      {/* Report Table */}
-      <div className={isPreviewOpen ? "print:hidden" : ""}>
-        {activeReportData ? (
-          <AttendanceReportTable
-            data={activeReportData}
-            onExportCsv={() => handleExportCsv()}
-            isExporting={isExporting}
-            onSingleEmployeeAction={handleSingleEmployeeAction}
-          />
-        ) : (
-          <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-10 text-center text-xs text-gray-500">
-            Select Fiscal Year and BS Month from the filter bar above and click "Generate Report".
+      {/* Report Result Section */}
+      <div className="space-y-4">
+        {/* Standard Action Toolbar */}
+        <ReportActionToolbar
+          onPrint={handlePrint}
+          onExport={() => handleExportCsv()}
+          onPreview={() => {
+            setSingleEmployeeRow(null);
+            setIsPreviewOpen(true);
+          }}
+          isExporting={isExporting}
+          hasData={Boolean(activeReportData)}
+          meta={
+            activeReportData ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                  Period: {reportData?.monthLabel || ""} ({fyLabel})
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
+                    reportData?.isLocked
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  {reportData?.isLocked ? "Locked Payroll Data" : "Draft Pre-Payroll Data"}
+                </span>
+              </div>
+            ) : undefined
+          }
+        >
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-payroll-primary/10 text-payroll-primary">
+              <CalendarCheck className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
+              Attendance Matrix
+            </span>
           </div>
-        )}
+        </ReportActionToolbar>
+
+        {/* Report Table inside Shell */}
+        <div className={isPreviewOpen ? "print:hidden" : ""}>
+          {activeReportData ? (
+            <AttendanceReportTable
+              data={activeReportData}
+              onExportCsv={() => handleExportCsv()}
+              isExporting={isExporting}
+              onSingleEmployeeAction={handleSingleEmployeeAction}
+            />
+          ) : (
+            <ReportDataTableShell
+              isEmpty={true}
+              emptyTitle="No Attendance Records Loaded"
+              emptyDescription="Select Fiscal Year and BS Month from the filter bar above and click &quot;Generate Report&quot;."
+            >
+              <div />
+            </ReportDataTableShell>
+          )}
+        </div>
       </div>
 
       {/* Preview Modal */}
@@ -267,30 +299,54 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
           setSingleEmployeeRow(null);
           setIsIndividualSlipsView(false);
         }}
-        title={singleEmployeeRow || filterState.employeeId ? `Single Employee Attendance — ${singleEmployeeRow?.employeeName || activeReportData?.rows[0]?.employeeName || "Employee"}` : isIndividualSlipsView ? "Attendance & OT Statements (Individual A4 Pages)" : "Attendance & OT Statement"}
+        title={
+          singleEmployeeRow || filterState.employeeId
+            ? `Single Employee Attendance — ${
+                singleEmployeeRow?.employeeName ||
+                activeReportData?.rows[0]?.employeeName ||
+                "Employee"
+              }`
+            : isIndividualSlipsView
+            ? "Attendance & OT Statements (Individual A4 Pages)"
+            : "Attendance & OT Statement"
+        }
         subtitle={`Period: ${reportData?.monthLabel || ""} (${fyLabel})`}
         onPrint={handlePrintSummary}
         onExport={() => handleExportCsv(singleEmployeeRow ? [singleEmployeeRow] : undefined)}
         isExporting={isExporting}
-        isSingleEmployee={singleEmployeeRow !== null || !!filterState.employeeId || previewDisplayData?.rows.length === 1}
+        isSingleEmployee={
+          singleEmployeeRow !== null ||
+          Boolean(filterState.employeeId) ||
+          previewDisplayData?.rows.length === 1
+        }
         onPrintSummary={handlePrintSummary}
         onPrintIndividualSlips={handlePrintIndividualSlips}
         company={lookupData.company}
         metaDetails={[
           { label: "Fiscal Year", value: fyLabel },
           { label: "Period", value: reportData?.monthLabel || "N/A" },
-          { label: "Scope", value: (singleEmployeeRow || filterState.employeeId) ? `Single Employee` : isIndividualSlipsView ? "Individual Slips (Page-by-Page)" : "All Selected Employees" },
+          {
+            label: "Scope",
+            value:
+              singleEmployeeRow || filterState.employeeId
+                ? "Single Employee"
+                : isIndividualSlipsView
+                ? "Individual Slips (Page-by-Page)"
+                : "All Selected Employees",
+          },
           { label: "Lock Status", value: reportData?.isLocked ? "LOCKED" : "UNLOCKED" },
         ]}
       >
-        {previewDisplayData && (
-          isIndividualSlipsView ? (
-            <AttendanceIndividualSlips rows={previewDisplayData.rows} periodLabel={`${reportData?.monthLabel || ""} (${fyLabel})`} />
+        {previewDisplayData &&
+          (isIndividualSlipsView ? (
+            <AttendanceIndividualSlips
+              rows={previewDisplayData.rows}
+              periodLabel={`${reportData?.monthLabel || ""} (${fyLabel})`}
+            />
           ) : (
             <AttendanceReportTable data={previewDisplayData} />
-          )
-        )}
+          ))}
       </ReportPreviewModal>
-    </div>
+    </PageFrame>
   );
 }

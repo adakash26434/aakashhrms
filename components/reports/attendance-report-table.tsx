@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import type { AttendanceReportData, AttendanceReportRow } from "@/lib/types/report";
-import { Download, AlertTriangle, CheckCircle2, Eye, Printer, Calendar, Search, Users, Clock, Check, X, Palmtree } from "lucide-react";
+import { Download, Eye, Printer, Calendar, Search, Users, Clock } from "lucide-react";
 
 interface AttendanceReportTableProps {
   data: AttendanceReportData;
@@ -17,7 +17,7 @@ export function AttendanceReportTable({
   isExporting = false,
   onSingleEmployeeAction,
 }: AttendanceReportTableProps) {
-  const { rows, monthLabel, fiscalYearLabel, totalEmployees, isLocked, reportFormat, dateHeaders } = data;
+  const { rows, reportFormat, dateHeaders } = data;
   const [calendarType, setCalendarType] = useState<"BS" | "AD">("BS");
   const [searchTerm, setSearchTerm] = useState("");
   const [fromDay, setFromDay] = useState<number>(1);
@@ -50,21 +50,6 @@ export function AttendanceReportTable({
       r.departmentName.toLowerCase().includes(q) ||
       r.designationName.toLowerCase().includes(q)
     );
-  });
-
-  // Calculate Cumulative KPI Metrics for selected day range
-  let totalPresentSum = 0;
-  let totalLeaveSum = 0;
-  let totalAbsentSum = 0;
-
-  filteredRows.forEach((r) => {
-    const detailsInRange = (r.dailyDetails || []).filter((d) => d.dayNum >= fromDay && d.dayNum <= toDay);
-    detailsInRange.forEach((d) => {
-      const st = d.statusCode || "P";
-      if (st === "P" || st === "HD") totalPresentSum += st === "HD" ? 0.5 : 1;
-      else if (st === "L") totalLeaveSum += 1;
-      else if (st === "A" || st === "LWOP") totalAbsentSum += 1;
-    });
   });
 
   return (

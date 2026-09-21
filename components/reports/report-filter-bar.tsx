@@ -1,9 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Filter, RefreshCw, X, RotateCcw, User, Building2, Briefcase } from "lucide-react";
+import {
+  Search,
+  Filter,
+  RefreshCw,
+  X,
+  RotateCcw,
+  User,
+  Building2,
+  Briefcase,
+  CalendarDays,
+  CreditCard,
+} from "lucide-react";
 import type { ReportFilterLookupData } from "@/lib/types/report";
 import { BS_MONTHS_LIST } from "@/lib/utils/bs-calendar";
+import { cn } from "@/lib/utils";
 
 export interface ReportFilterState {
   payrollRunId?: string;
@@ -21,7 +33,7 @@ export interface ReportFilterState {
   search?: string;
 }
 
-interface ReportFilterBarProps {
+export interface ReportFilterBarProps {
   lookupData: ReportFilterLookupData;
   showRunSelector?: boolean;
   showFYSelector?: boolean;
@@ -65,7 +77,9 @@ export function ReportFilterBar({
   const [fiscalYearId, setFiscalYearId] = useState<string>(defaultFy);
   const [bsMonth, setBsMonth] = useState<number>(8); // Default Mangsir
   const [reportType, setReportType] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
-  const [reportFormat, setReportFormat] = useState<"DEVICE_PUNCH" | "STATUS_MATRIX" | "STATUTORY_SUMMARY">("STATUTORY_SUMMARY");
+  const [reportFormat, setReportFormat] = useState<
+    "DEVICE_PUNCH" | "STATUS_MATRIX" | "STATUTORY_SUMMARY"
+  >("STATUTORY_SUMMARY");
   const [branchId, setBranchId] = useState<string>("");
   const [departmentId, setDepartmentId] = useState<string>("");
   const [designationId, setDesignationId] = useState<string>("");
@@ -76,7 +90,7 @@ export function ReportFilterBar({
   const [search, setSearch] = useState<string>("");
 
   const handleApply = (overrides?: Partial<ReportFilterState>) => {
-    const nextState = {
+    const nextState: ReportFilterState = {
       payrollRunId: showRunSelector ? payrollRunId : undefined,
       fiscalYearId: showFYSelector ? fiscalYearId : undefined,
       bsMonth: showMonthSelector ? bsMonth : undefined,
@@ -86,8 +100,8 @@ export function ReportFilterBar({
       departmentId: departmentId || undefined,
       designationId: designationId || undefined,
       employeeId: employeeId || undefined,
-      leaveTypeId: leaveTypeId || undefined,
-      loanTypeId: loanTypeId || undefined,
+      leaveTypeId: showLeaveTypeFilter ? leaveTypeId || undefined : undefined,
+      loanTypeId: showLoanTypeFilter ? loanTypeId || undefined : undefined,
       payHeadType: showPayHeadTypeFilter ? payHeadType : undefined,
       search: search || undefined,
       ...overrides,
@@ -109,6 +123,7 @@ export function ReportFilterBar({
       fiscalYearId: showFYSelector ? fiscalYearId : undefined,
       bsMonth: showMonthSelector ? bsMonth : undefined,
       reportType: showReportTypeToggle ? reportType : undefined,
+      reportFormat: showReportFormatToggle ? reportFormat : undefined,
       branchId: undefined,
       departmentId: undefined,
       designationId: undefined,
@@ -123,17 +138,29 @@ export function ReportFilterBar({
   const selectedEmployeeObj = lookupData.employees?.find((e) => e.id === employeeId);
   const selectedBranchObj = lookupData.branches?.find((b) => b.id === branchId);
   const selectedDeptObj = lookupData.departments?.find((d) => d.id === departmentId);
+  const selectedDesigObj = lookupData.designations?.find((d) => d.id === designationId);
+  const selectedLeaveTypeObj = lookupData.leaveTypes?.find((l) => l.id === leaveTypeId);
+  const selectedLoanTypeObj = lookupData.loanTypes?.find((l) => l.id === loanTypeId);
 
-  const hasActiveFilterChips = !!(employeeId || branchId || departmentId || search);
+  const hasActiveFilterChips = Boolean(
+    employeeId ||
+      branchId ||
+      departmentId ||
+      designationId ||
+      leaveTypeId ||
+      loanTypeId ||
+      search
+  );
 
   return (
-    <div className="rounded-xl border border-[#d7e8d0] bg-white p-4 shadow-sm space-y-4 print:hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d7e8d0]/60 pb-3">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#1b3a1f]">
-          <Filter className="h-4 w-4 text-[#2e7d32]" />
+    <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 sm:p-5 shadow-payroll-xs space-y-4 print:hidden">
+      {/* Filter Header & Mode Toggles */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-payroll-light/60 pb-3">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-payroll-navy">
+          <Filter className="h-4 w-4 text-payroll-primary" />
           <span>Report Filter Options</span>
           {hasActiveFilterChips && (
-            <span className="inline-flex items-center rounded-full bg-[#2e7d32]/10 px-2 py-0.5 text-[10px] font-bold text-[#2e7d32]">
+            <span className="inline-flex items-center rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-2.5 py-0.5 text-[10px] font-bold text-payroll-primary">
               Filters Active
             </span>
           )}
@@ -144,7 +171,7 @@ export function ReportFilterBar({
             <button
               type="button"
               onClick={handleResetAll}
-              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition-all"
+              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition-all active:scale-[0.98]"
             >
               <RotateCcw className="h-3 w-3" />
               Reset Filters
@@ -152,30 +179,34 @@ export function ReportFilterBar({
           )}
 
           {showReportTypeToggle && (
-            <div className="inline-flex rounded-lg border border-[#d7e8d0] bg-[#f6faf6] p-1">
+            <div className="inline-flex rounded-lg border border-payroll-light bg-payroll-cream p-1">
               <button
+                type="button"
                 onClick={() => {
                   setReportType("MONTHLY");
                   handleApply({ reportType: "MONTHLY" });
                 }}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                className={cn(
+                  "px-3 py-1 text-xs font-semibold rounded-md transition-all",
                   reportType === "MONTHLY"
-                    ? "bg-[#2e7d32] text-white shadow-xs"
-                    : "text-gray-600 hover:text-[#1b3a1f]"
-                }`}
+                    ? "bg-payroll-primary text-white shadow-payroll-xs"
+                    : "text-gray-600 hover:text-payroll-navy"
+                )}
               >
                 Monthly View
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setReportType("ANNUAL");
                   handleApply({ reportType: "ANNUAL" });
                 }}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                className={cn(
+                  "px-3 py-1 text-xs font-semibold rounded-md transition-all",
                   reportType === "ANNUAL"
-                    ? "bg-[#2e7d32] text-white shadow-xs"
-                    : "text-gray-600 hover:text-[#1b3a1f]"
-                }`}
+                    ? "bg-payroll-primary text-white shadow-payroll-xs"
+                    : "text-gray-600 hover:text-payroll-navy"
+                )}
               >
                 Annual View (FY)
               </button>
@@ -195,7 +226,7 @@ export function ReportFilterBar({
             <select
               value={payrollRunId}
               onChange={(e) => setPayrollRunId(e.target.value)}
-              className="h-9 w-full rounded-lg border border-[#d7e8d0] bg-white px-2.5 text-xs font-medium text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none"
+              className="h-9 w-full rounded-lg border border-payroll-light bg-white px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none"
             >
               {lookupData.lockedPayrollRuns.length === 0 ? (
                 <option value="">No LOCKED runs available</option>
@@ -219,7 +250,7 @@ export function ReportFilterBar({
             <select
               value={fiscalYearId}
               onChange={(e) => setFiscalYearId(e.target.value)}
-              className="h-9 w-full rounded-lg border border-[#d7e8d0] bg-white px-2.5 text-xs font-medium text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none"
+              className="h-9 w-full rounded-lg border border-payroll-light bg-white px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none"
             >
               {lookupData.fiscalYears.map((fy) => (
                 <option key={fy.id} value={fy.id}>
@@ -239,7 +270,7 @@ export function ReportFilterBar({
             <select
               value={bsMonth}
               onChange={(e) => setBsMonth(Number(e.target.value))}
-              className="h-9 w-full rounded-lg border border-[#d7e8d0] bg-white px-2.5 text-xs font-medium text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none"
+              className="h-9 w-full rounded-lg border border-payroll-light bg-white px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none"
             >
               {BS_MONTHS_LIST.map((m, idx) => (
                 <option key={idx + 1} value={idx + 1}>
@@ -259,9 +290,10 @@ export function ReportFilterBar({
             <select
               value={branchId}
               onChange={(e) => setBranchId(e.target.value)}
-              className={`h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none ${
-                branchId ? "border-[#2e7d32] bg-green-50/20" : "border-[#d7e8d0] bg-white"
-              }`}
+              className={cn(
+                "h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                branchId ? "border-payroll-primary bg-payroll-primary/5" : "border-payroll-light bg-white"
+              )}
             >
               <option value="">All Branches</option>
               {lookupData.branches.map((b) => (
@@ -276,17 +308,27 @@ export function ReportFilterBar({
         {/* Report Format Selector */}
         {showReportFormatToggle && (
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-[#2e7d32] uppercase tracking-wider">
+            <label className="text-[11px] font-bold text-payroll-primary uppercase tracking-wider">
               Report Format Mode
             </label>
             <select
               value={reportFormat}
-              onChange={(e) => setReportFormat(e.target.value as any)}
-              className="h-9 w-full rounded-lg border border-[#2e7d32] bg-green-50/30 px-2.5 text-xs font-bold text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none"
+              onChange={(e) =>
+                setReportFormat(
+                  e.target.value as "DEVICE_PUNCH" | "STATUS_MATRIX" | "STATUTORY_SUMMARY"
+                )
+              }
+              className="h-9 w-full rounded-lg border border-payroll-primary bg-payroll-primary/10 px-2.5 text-xs font-bold text-payroll-navy focus:border-payroll-primary focus:outline-none"
             >
-              <option value="STATUTORY_SUMMARY">Monthly Summary Ledger (Nepal Labour Act & OT)</option>
-              <option value="DEVICE_PUNCH">As Per Device (Daily Punch In/Out Times)</option>
-              <option value="STATUS_MATRIX">As Per Manual Attendance (Daily Status Matrix)</option>
+              <option value="STATUTORY_SUMMARY">
+                Monthly Summary Ledger (Nepal Labour Act & OT)
+              </option>
+              <option value="DEVICE_PUNCH">
+                As Per Device (Daily Punch In/Out Times)
+              </option>
+              <option value="STATUS_MATRIX">
+                As Per Manual Attendance (Daily Status Matrix)
+              </option>
             </select>
           </div>
         )}
@@ -300,9 +342,10 @@ export function ReportFilterBar({
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
-              className={`h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none ${
-                departmentId ? "border-[#2e7d32] bg-green-50/20" : "border-[#d7e8d0] bg-white"
-              }`}
+              className={cn(
+                "h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                departmentId ? "border-payroll-primary bg-payroll-primary/5" : "border-payroll-light bg-white"
+              )}
             >
               <option value="">All Departments</option>
               {lookupData.departments.map((d) => (
@@ -323,9 +366,10 @@ export function ReportFilterBar({
             <select
               value={designationId}
               onChange={(e) => setDesignationId(e.target.value)}
-              className={`h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none ${
-                designationId ? "border-[#2e7d32] bg-green-50/20" : "border-[#d7e8d0] bg-white"
-              }`}
+              className={cn(
+                "h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                designationId ? "border-payroll-primary bg-payroll-primary/5" : "border-payroll-light bg-white"
+              )}
             >
               <option value="">All Positions / Designations</option>
               {lookupData.designations?.map((d) => (
@@ -337,18 +381,67 @@ export function ReportFilterBar({
           </div>
         )}
 
+        {/* Leave Type Filter */}
+        {showLeaveTypeFilter && (
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+              <CalendarDays className="h-3 w-3" /> Leave Type
+            </label>
+            <select
+              value={leaveTypeId}
+              onChange={(e) => setLeaveTypeId(e.target.value)}
+              className={cn(
+                "h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                leaveTypeId ? "border-payroll-primary bg-payroll-primary/5" : "border-payroll-light bg-white"
+              )}
+            >
+              <option value="">All Leave Types</option>
+              {lookupData.leaveTypes?.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} ({l.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Loan Type Filter */}
+        {showLoanTypeFilter && (
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+              <CreditCard className="h-3 w-3" /> Loan Type
+            </label>
+            <select
+              value={loanTypeId}
+              onChange={(e) => setLoanTypeId(e.target.value)}
+              className={cn(
+                "h-9 w-full rounded-lg border px-2.5 text-xs font-medium text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                loanTypeId ? "border-payroll-primary bg-payroll-primary/5" : "border-payroll-light bg-white"
+              )}
+            >
+              <option value="">All Loan Types</option>
+              {lookupData.loanTypes?.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Specific Single Employee Filter */}
         {showEmployeeFilter && (
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-[#2e7d32] uppercase tracking-wider flex items-center gap-1">
+            <label className="text-[11px] font-semibold text-payroll-primary uppercase tracking-wider flex items-center gap-1">
               <User className="h-3 w-3" /> Single Employee Filter
             </label>
             <select
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              className={`h-9 w-full rounded-lg border px-2.5 text-xs font-bold text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none ${
-                employeeId ? "border-[#2e7d32] bg-purple-50/40 text-purple-900" : "border-[#d7e8d0] bg-white"
-              }`}
+              className={cn(
+                "h-9 w-full rounded-lg border px-2.5 text-xs font-bold text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                employeeId ? "border-payroll-primary bg-purple-50/40 text-purple-900" : "border-payroll-light bg-white"
+              )}
             >
               <option value="">All Employees (Full Company)</option>
               {lookupData.employees?.map((e) => (
@@ -372,9 +465,10 @@ export function ReportFilterBar({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Name or code..."
-                className={`h-9 w-full rounded-lg border pl-8 pr-2.5 text-xs text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none ${
-                  search ? "border-[#2e7d32] bg-green-50/20" : "border-[#d7e8d0] bg-white"
-                }`}
+                className={cn(
+                  "h-9 w-full rounded-lg border pl-8 pr-2.5 text-xs text-payroll-navy focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none",
+                  search ? "border-payroll-primary bg-payroll-primary/5" : "border-payroll-light bg-white"
+                )}
               />
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
             </div>
@@ -383,11 +477,12 @@ export function ReportFilterBar({
       </div>
 
       {/* Full-Width Generate Action Button below options */}
-      <div className="pt-2">
+      <div className="pt-1">
         <button
+          type="button"
           onClick={() => handleApply()}
           disabled={isLoading}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2e7d32] px-6 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-[#1b3a1f] hover:shadow-md disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-payroll-primary px-6 text-xs font-bold uppercase tracking-wider text-white shadow-payroll-xs transition-all hover:bg-payroll-primary-hover hover:shadow-payroll-sm disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2"
         >
           {isLoading ? (
             <>
@@ -405,7 +500,7 @@ export function ReportFilterBar({
 
       {/* Active Filter Chips / Badges Toolbar */}
       {hasActiveFilterChips && (
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#d7e8d0]/40 text-xs">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-payroll-light/60 text-xs">
           <span className="text-[11px] font-semibold text-gray-500">Active Filters:</span>
 
           {selectedEmployeeObj && (
@@ -462,17 +557,71 @@ export function ReportFilterBar({
             </span>
           )}
 
-          {search && (
+          {selectedDesigObj && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800 border border-teal-200">
+              <Briefcase className="h-3 w-3 text-teal-600" />
+              Designation: {selectedDesigObj.name}
+              <button
+                type="button"
+                onClick={() => {
+                  setDesignationId("");
+                  handleApply({ designationId: undefined });
+                }}
+                className="rounded-full p-0.5 hover:bg-teal-200 text-teal-700"
+                title="Remove designation filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedLeaveTypeObj && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
-              <Search className="h-3 w-3 text-amber-600" />
-              Search: "{search}"
+              <CalendarDays className="h-3 w-3 text-amber-600" />
+              Leave: {selectedLeaveTypeObj.name}
+              <button
+                type="button"
+                onClick={() => {
+                  setLeaveTypeId("");
+                  handleApply({ leaveTypeId: undefined });
+                }}
+                className="rounded-full p-0.5 hover:bg-amber-200 text-amber-700"
+                title="Remove leave type filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedLoanTypeObj && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 border border-blue-200">
+              <CreditCard className="h-3 w-3 text-blue-600" />
+              Loan: {selectedLoanTypeObj.name}
+              <button
+                type="button"
+                onClick={() => {
+                  setLoanTypeId("");
+                  handleApply({ loanTypeId: undefined });
+                }}
+                className="rounded-full p-0.5 hover:bg-blue-200 text-blue-700"
+                title="Remove loan type filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+
+          {search && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-800 border border-slate-200">
+              <Search className="h-3 w-3 text-slate-600" />
+              Search: &quot;{search}&quot;
               <button
                 type="button"
                 onClick={() => {
                   setSearch("");
                   handleApply({ search: undefined });
                 }}
-                className="rounded-full p-0.5 hover:bg-amber-200 text-amber-700"
+                className="rounded-full p-0.5 hover:bg-slate-200 text-slate-700"
                 title="Remove search filter"
               >
                 <X className="h-3 w-3" />

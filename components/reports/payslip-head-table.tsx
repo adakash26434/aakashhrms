@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import type { PayslipHeadSummaryRow } from "@/lib/types/report";
-import { Search, Filter } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface PayslipHeadTableProps {
   rows: PayslipHeadSummaryRow[];
