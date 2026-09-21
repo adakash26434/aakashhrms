@@ -12,8 +12,10 @@ import dynamic from "next/dynamic";
 import { EmployeeKPIsGrid } from "./employee-kpi-cards";
 import { EmployeeFilters } from "./employee-filters";
 import { EmployeeTable } from "./employee-table";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { TableShell } from "@/components/ui/table-shell";
 
 const EmployeeDetailPanel = dynamic(
   () => import("./employee-detail-panel").then((m) => m.EmployeeDetailPanel),
@@ -169,16 +171,11 @@ export function EmployeeClient({
   }
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-payroll-navy">Employee Directory</h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Manage employee records, personal information, employment details,
-            and salary mappings across branches.
-          </p>
-        </div>
+    <PageFrame size="wide" spacing="default">
+      <PageHeader
+        title="Employee Directory"
+        description="Manage employee records, personal information, employment details, and salary mappings across branches."
+      >
         <Button
           onClick={() => {
             setEditingEmpId(null);
@@ -189,19 +186,22 @@ export function EmployeeClient({
           <Plus className="h-4 w-4" />
           Add Employee
         </Button>
-      </div>
+      </PageHeader>
 
       <EmployeeKPIsGrid kpis={kpis} />
 
-      <Card className="overflow-hidden">
-        <div className="space-y-4 border-b border-payroll-light/80 p-5">
+      <TableShell
+        totalCount={kpis.total}
+        filteredCount={employees.length}
+        toolbar={
           <EmployeeFilters
             filters={filters}
             setFilters={setFilters}
             branches={lookupData?.branches ?? []}
             departments={lookupData?.departments ?? []}
           />
-        </div>
+        }
+      >
         <EmployeeTable
           employees={employees}
           isLoading={loading}
@@ -214,7 +214,7 @@ export function EmployeeClient({
           }}
           onDelete={(id) => setDeleteTargetId(id)}
         />
-      </Card>
+      </TableShell>
 
       <EmployeeDetailPanel
         open={!!selectedEmpId}
@@ -251,6 +251,6 @@ export function EmployeeClient({
         onClose={() => setDeleteTargetId(null)}
         onConfirm={confirmDeleteEmployee}
       />
-    </div>
+    </PageFrame>
   );
 }

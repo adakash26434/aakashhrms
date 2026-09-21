@@ -7,5 +7,5 @@ export default async function DepartmentsPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "ORG_STRUCTURE");
 
-  redirect("/setup/company-setup?tab=departments");
+  redirect("/workforce/organization?tab=departments");
 }

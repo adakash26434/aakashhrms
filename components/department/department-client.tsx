@@ -28,7 +28,6 @@ import { DepartmentDetailPanel } from "./department-detail-panel";
 import { DepartmentFormModal } from "./department-form-modal";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { HowDepartmentsWork } from "./how-departments-work";
-import { Card } from "@/components/ui/card";
 
 import { DesignationsTable } from "@/components/designation/designations-table";
 import { DesignationDetailPanel } from "@/components/designation/designation-detail-panel";
@@ -41,9 +40,13 @@ import { BranchDetailPanel } from "@/components/branch/branch-detail-panel";
 import { BranchFormModal } from "@/components/branch/branch-form-modal";
 import { ConfirmDeleteDialog as ConfirmDeleteBranchDialog } from "@/components/branch/confirm-delete-dialog";
 import { HowBranchesWork } from "@/components/branch/how-branches-work";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { TableShell } from "@/components/ui/table-shell";
 
 interface DepartmentClientProps {
   initialData: DepartmentData;
+  initialTab?: OrgTab;
 }
 
 interface BannerState {
@@ -52,7 +55,7 @@ interface BannerState {
   tone: BannerTone;
 }
 
-export function DepartmentClient({ initialData }: DepartmentClientProps) {
+export function DepartmentClient({ initialData, initialTab = "branches" }: DepartmentClientProps) {
   // -- Data State --
   const [departments, setDepartments] = useState<Department[]>(initialData.departments);
   const [designations, setDesignations] = useState<Designation[]>(initialData.designations ?? []);
@@ -98,7 +101,7 @@ export function DepartmentClient({ initialData }: DepartmentClientProps) {
   // -- UI State --
   const [search, setSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("");
-  const [orgTab, setOrgTab] = useState<OrgTab>("departments");
+  const [orgTab, setOrgTab] = useState<OrgTab>(initialTab || "branches");
 
   const [viewingDepartment, setViewingDepartment] = useState<Department | null>(null);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
@@ -330,122 +333,13 @@ export function DepartmentClient({ initialData }: DepartmentClientProps) {
   const showDepartmentsTab = orgTab === "departments";
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <PageFrame size="wide" spacing="default">
       <Banner visible={banner.visible} message={banner.message} tone={banner.tone} onDismiss={dismissBanner} />
 
-      {orgTab === "designations" ? (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold leading-tight tracking-tight text-payroll-navy">Designations</h1>
-            <p className="max-w-3xl text-sm leading-relaxed text-gray-500">
-              Manage job positions (designations) across departments.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
-            <Button type="button" onClick={handleOpenCreateDesig} size="md">
-              <Plus className="h-4 w-4" /> Add Designation
-            </Button>
-          </div>
-        </div>
-      ) : orgTab === "branches" ? (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold leading-tight tracking-tight text-payroll-navy">Branches</h1>
-            <p className="max-w-3xl text-sm leading-relaxed text-gray-500">
-              Manage office locations. Branches define where departments and employees are situated.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
-            <Button type="button" onClick={handleOpenCreateBranch} size="md">
-              <Plus className="h-4 w-4" /> Add Branch
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <DepartmentHero onNew={handleOpenCreateDept} />
-      )}
-
-      {orgTab === "designations" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-xl border border-payroll-light/80 bg-white p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50">
-                <Briefcase className="h-5 w-5 text-amber-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Total Designations</p>
-                <p className="mt-0.5 text-xl font-semibold text-payroll-navy tabular-nums">{desigCounts.total}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-payroll-light/80 bg-white p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Active</p>
-                <p className="mt-0.5 text-xl font-semibold text-payroll-navy tabular-nums">{desigCounts.active}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-payroll-light/80 bg-white p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50">
-                <Users className="h-5 w-5 text-violet-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Employees</p>
-                <p className="mt-0.5 text-xl font-semibold text-payroll-navy tabular-nums">{desigCounts.totalEmployees}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : orgTab === "branches" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-xl border border-payroll-light/80 bg-white p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50">
-                <Building2 className="h-5 w-5 text-payroll-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Total Branches</p>
-                <p className="mt-0.5 text-xl font-semibold text-payroll-navy tabular-nums">{branchCounts.total}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-payroll-light/80 bg-white p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Active</p>
-                <p className="mt-0.5 text-xl font-semibold text-payroll-navy tabular-nums">{branchCounts.active}</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-payroll-light/80 bg-white p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
-                <Building2 className="h-5 w-5 text-gray-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Inactive</p>
-                <p className="mt-0.5 text-xl font-semibold text-payroll-navy tabular-nums">{branchCounts.inactive}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <DepartmentKpiCards
-          counts={{
-            ...deptCounts,
-            totalDesignations: designations.length > 0 ? desigCounts.total : deptCounts.totalDesignations,
-            totalEmployees: designations.length > 0 ? desigCounts.totalEmployees : deptCounts.totalEmployees,
-          }}
-        />
-      )}
+      <PageHeader
+        title="Organization Hub"
+        description="Manage office branches, departments, and job designations across your organization."
+      />
 
       <DepartmentTabs
         active={orgTab}
@@ -455,55 +349,195 @@ export function DepartmentClient({ initialData }: DepartmentClientProps) {
         onChange={handleTabChange}
       />
 
-      {showDepartmentsTab ? (
-        <>
-          <DepartmentSearch
-            search={search} onSearchChange={setSearch}
-            branches={branches.length > 0 ? branches : initialData.branches} branchFilter={branchFilter} onBranchFilterChange={setBranchFilter}
-            totalCount={departments.length} filteredCount={filtered.length}
-          />
-          <DepartmentsCard
-            departments={filtered} branchNameById={branchNameById}
-            onView={handleOpenViewDept} onEdit={handleOpenEditDeptFromTable} onDelete={handleOpenDeleteDept}
-          />
-        </>
-      ) : orgTab === "designations" ? (
+      {orgTab === "designations" ? (
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <input type="search" value={desigSearch} onChange={(e) => setDesigSearch(e.target.value)}
-              placeholder="Search designations..."
-              className="h-9 w-full max-w-md rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-            />
-            <p className="text-xs text-gray-500 tabular-nums">
-              Showing <span className="font-semibold text-payroll-navy">{filteredDesignations.length}</span> of <span className="font-semibold text-payroll-navy">{designations.length}</span> designations
-            </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold tracking-tight text-payroll-navy">Designations</h2>
+              <p className="max-w-3xl text-xs text-gray-500">
+                Manage job positions (designations) across departments.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" onClick={handleOpenCreateDesig} size="md">
+                <Plus className="h-4 w-4" /> Add Designation
+              </Button>
+            </div>
           </div>
-          <Card className="overflow-hidden">
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Designations</p>
+                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{desigCounts.total}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Active</p>
+                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{desigCounts.active}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-payroll-cream text-payroll-navy border border-payroll-light/80">
+                  <Users className="h-5 w-5 text-payroll-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Employees</p>
+                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{desigCounts.totalEmployees}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <TableShell
+            totalCount={designations.length}
+            filteredCount={filteredDesignations.length}
+            toolbar={
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
+                <input
+                  type="search"
+                  value={desigSearch}
+                  onChange={(e) => setDesigSearch(e.target.value)}
+                  placeholder="Search designations..."
+                  className="h-9 w-full max-w-md rounded-xl border border-payroll-light bg-white px-3 text-xs sm:text-sm text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+                />
+              </div>
+            }
+          >
             <DesignationsTable
-              designations={filteredDesignations} departmentNameById={departmentNameById}
-              onView={handleOpenViewDesig} onEdit={handleOpenEditDesigFromTable} onDelete={handleOpenDeleteDesig}
+              designations={filteredDesignations}
+              departmentNameById={departmentNameById}
+              onView={handleOpenViewDesig}
+              onEdit={handleOpenEditDesigFromTable}
+              onDelete={handleOpenDeleteDesig}
             />
-          </Card>
+          </TableShell>
           <HowDesignationsWork />
+        </div>
+      ) : orgTab === "branches" ? (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold tracking-tight text-payroll-navy">Branches</h2>
+              <p className="max-w-3xl text-xs text-gray-500">
+                Manage office locations. Branches define where departments and employees are situated.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" onClick={handleOpenCreateBranch} size="md">
+                <Plus className="h-4 w-4" /> Add Branch
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-payroll-cream text-payroll-primary border border-payroll-light/80">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Branches</p>
+                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{branchCounts.total}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Active</p>
+                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{branchCounts.active}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Inactive</p>
+                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{branchCounts.inactive}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <TableShell
+            totalCount={branches.length}
+            filteredCount={filteredBranches.length}
+            toolbar={
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
+                <input
+                  type="search"
+                  value={branchSearch}
+                  onChange={(e) => setBranchSearch(e.target.value)}
+                  placeholder="Search branches..."
+                  className="h-9 w-full max-w-md rounded-xl border border-payroll-light bg-white px-3 text-xs sm:text-sm text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+                />
+              </div>
+            }
+          >
+            <BranchesTable
+              branches={filteredBranches}
+              onView={handleOpenViewBranch}
+              onEdit={handleOpenEditBranchFromTable}
+              onDelete={handleOpenDeleteBranch}
+            />
+          </TableShell>
+          <HowBranchesWork />
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <input type="search" value={branchSearch} onChange={(e) => setBranchSearch(e.target.value)}
-              placeholder="Search branches..."
-              className="h-9 w-full max-w-md rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+          <DepartmentHero onNew={handleOpenCreateDept} />
+
+          <DepartmentKpiCards
+            counts={{
+              ...deptCounts,
+              totalDesignations: designations.length > 0 ? desigCounts.total : deptCounts.totalDesignations,
+              totalEmployees: designations.length > 0 ? desigCounts.totalEmployees : deptCounts.totalEmployees,
+            }}
+          />
+
+          <TableShell
+            totalCount={departments.length}
+            filteredCount={filtered.length}
+            toolbar={
+              <DepartmentSearch
+                search={search}
+                onSearchChange={setSearch}
+                branches={branches.length > 0 ? branches : initialData.branches}
+                branchFilter={branchFilter}
+                onBranchFilterChange={setBranchFilter}
+                totalCount={departments.length}
+                filteredCount={filtered.length}
+              />
+            }
+          >
+            <DepartmentsCard
+              departments={filtered}
+              branchNameById={branchNameById}
+              onView={handleOpenViewDept}
+              onEdit={handleOpenEditDeptFromTable}
+              onDelete={handleOpenDeleteDept}
             />
-            <p className="text-xs text-gray-500 tabular-nums">
-              Showing <span className="font-semibold text-payroll-navy">{filteredBranches.length}</span> of <span className="font-semibold text-payroll-navy">{branches.length}</span> branches
-            </p>
-          </div>
-          <Card className="overflow-hidden">
-            <BranchesTable
-              branches={filteredBranches}
-              onView={handleOpenViewBranch} onEdit={handleOpenEditBranchFromTable} onDelete={handleOpenDeleteBranch}
-            />
-          </Card>
-          <HowBranchesWork />
+          </TableShell>
+          <HowDepartmentsWork />
         </div>
       )}
 
@@ -537,6 +571,6 @@ export function DepartmentClient({ initialData }: DepartmentClientProps) {
         onClose={handleCloseBranchForm} onSubmit={handleSubmitBranchForm} />
       <ConfirmDeleteBranchDialog open={Boolean(deletingBranch)} branch={deletingBranch}
         onClose={handleCloseDeleteBranch} onConfirm={handleConfirmDeleteBranch} />
-    </div>
+    </PageFrame>
   );
 }

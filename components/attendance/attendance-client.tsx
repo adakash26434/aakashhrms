@@ -4,8 +4,10 @@ import { useState, useMemo } from "react";
 import { Plus, Upload, Lock } from "lucide-react";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { TableShell } from "@/components/ui/table-shell";
 import type { AttendanceData, AttendanceRecord, AttendanceFilter, AttendanceFormData, AttendanceBulkItem } from "@/lib/types/attendance";
 import { filterAttendanceRecords } from "@/lib/engines/attendance.engine";
 import dynamic from "next/dynamic";
@@ -207,7 +209,7 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
   }
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <PageFrame size="wide" spacing="default">
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -215,14 +217,10 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
         onDismiss={() => setBanner((b) => ({ ...b, visible: false }))}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-payroll-navy">Attendance & OT Engine</h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Active Fiscal Year: <span className="font-semibold text-payroll-primary">{data.activeFiscalYear.label}</span>. 
-            Track daily attendance punches, evaluate grace windows, and lock calculations for Phase 6 payroll.
-          </p>
-        </div>
+      <PageHeader
+        title="Attendance & OT Engine"
+        description={`Active Fiscal Year: ${data.activeFiscalYear.label}. Track daily attendance punches, evaluate grace windows, and lock calculations for Phase 6 payroll.`}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
             <Upload className="h-4 w-4" /> 1-Click Bulk Entry
@@ -243,7 +241,7 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
             <Lock className="h-4 w-4 mr-1 text-amber-600" /> Run Pre-Payroll Lock
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       <AttendanceKPIsGrid kpis={data.kpis} />
 
@@ -257,8 +255,11 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
         onChange={handleTabChange}
       />
 
-      <Card className="overflow-hidden">
-        <div className="space-y-4 border-b border-payroll-light/80 p-5">
+      <TableShell
+        title="Attendance Records"
+        totalCount={data.records.length}
+        filteredCount={filteredRecords.length}
+        toolbar={
           <AttendanceFilters
             filter={filter}
             setFilter={setFilter}
@@ -271,8 +272,8 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
             hasActiveFilters={hasActiveFilters}
             isLoading={isLoading}
           />
-        </div>
-
+        }
+      >
         <AttendanceTable
           records={filteredRecords}
           totalCountForDate={data.records.length}
@@ -284,7 +285,7 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
           }}
           onDelete={(id) => setDeleteId(id)}
         />
-      </Card>
+      </TableShell>
 
       <AttendanceFormModal
         open={isFormOpen}
@@ -321,6 +322,6 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
       />
-    </div>
+    </PageFrame>
   );
 }

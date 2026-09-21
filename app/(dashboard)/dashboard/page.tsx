@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { PageFrame } from "@/components/layout/page-frame";
 import { ComplianceCenter } from "@/components/dashboard/compliance-center";
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
 import { DashboardHeroSection } from "@/components/dashboard/dashboard-hero";
@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const headcountTotal = data.headcount.reduce((sum, d) => sum + d.count, 0);
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <PageFrame size="wide" spacing="default">
       <DashboardHeroSection data={data.hero} />
       <KpiGrid
         metrics={data.metrics}
@@ -44,6 +44,6 @@ export default async function DashboardPage() {
         <RecentActivity items={data.activity} />
         <UpcomingEvents items={data.upcoming} />
       </div>
-    </div>
+    </PageFrame>
   );
 }

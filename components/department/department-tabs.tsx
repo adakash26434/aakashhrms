@@ -1,15 +1,15 @@
 "use client";
 
-import { Briefcase, Building2, Users } from "lucide-react";
+import { Briefcase, Building2, MapPin, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type OrgTab = "departments" | "designations" | "branches";
+export type OrgTab = "branches" | "departments" | "designations";
 
 interface OrgTabMeta {
   id: OrgTab;
   label: string;
   count: number;
-  icon: typeof Building2;
+  icon: LucideIcon;
 }
 
 interface DepartmentTabsProps {
@@ -20,14 +20,6 @@ interface DepartmentTabsProps {
   onChange: (next: OrgTab) => void;
 }
 
-/**
- * Three-way segmented control for the Organization Structure
- * page: Departments · Designations · Branches.
- *
- * The "Departments" tab shows the department table.
- * The "Designations" tab shows the designation table inline.
- * The "Branches" tab is a placeholder.
- */
 export function DepartmentTabs({
   active,
   departmentCount,
@@ -36,6 +28,12 @@ export function DepartmentTabs({
   onChange,
 }: DepartmentTabsProps) {
   const tabs: OrgTabMeta[] = [
+    {
+      id: "branches",
+      label: "Branches",
+      count: branchCount,
+      icon: MapPin,
+    },
     {
       id: "departments",
       label: "Departments",
@@ -48,19 +46,13 @@ export function DepartmentTabs({
       count: designationCount,
       icon: Briefcase,
     },
-    {
-      id: "branches",
-      label: "Branches",
-      count: branchCount,
-      icon: Users,
-    },
   ];
 
   return (
     <div
       role="tablist"
-      aria-label="Organization structure"
-      className="inline-flex w-full max-w-2xl rounded-xl border border-[#d7e8d0]/80 bg-white p-1"
+      aria-label="Organization structure tabs"
+      className="inline-flex w-full max-w-2xl rounded-2xl border border-payroll-light/80 bg-white p-1.5 shadow-payroll-xs"
     >
       {tabs.map((t) => {
         const isActive = t.id === active;
@@ -73,20 +65,20 @@ export function DepartmentTabs({
             aria-selected={isActive}
             onClick={() => onChange(t.id)}
             className={cn(
-              "inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium cursor-pointer transition-colors",
+              "inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold cursor-pointer transition-all",
               isActive
-                ? "bg-[#2e7d32] text-white shadow-sm"
-                : "text-[#1b3a1f] hover:bg-[#f6faf6]",
+                ? "bg-payroll-primary text-white shadow-payroll-xs"
+                : "text-payroll-navy hover:bg-payroll-cream",
             )}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 shrink-0" />
             <span>{t.label}</span>
             <span
               className={cn(
-                "rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+                "rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums font-mono",
                 isActive
                   ? "bg-white/20 text-white"
-                  : "bg-[#d7e8d0]/60 text-[#1b3a1f]",
+                  : "bg-payroll-cream text-payroll-navy border border-payroll-light/60",
               )}
             >
               {t.count}
