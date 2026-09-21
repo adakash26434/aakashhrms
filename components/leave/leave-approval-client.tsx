@@ -49,7 +49,7 @@ function isToday(date: Date): boolean {
   );
 }
 
-export function LeaveApprovalClient() {
+export function LeaveApprovalClient({ embedded = false }: { embedded?: boolean } = {}) {
   const [applications, setApplications] = useState<EnrichedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [lookupData, setLookupData] = useState<LeaveLookupData | null>(null);
@@ -212,7 +212,7 @@ export function LeaveApprovalClient() {
   };
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <div className={embedded ? "space-y-6" : "mx-auto max-w-350 space-y-6 p-6"}>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -221,9 +221,11 @@ export function LeaveApprovalClient() {
       />
 
       <div>
-        <h1 className="text-xl font-bold text-payroll-navy">Leave Approvals</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Review and act on pending employee leave applications
+        {!embedded && (
+          <h1 className="text-xl font-bold text-payroll-navy">Leave Approvals</h1>
+        )}
+        <p className="text-sm text-gray-500">
+          {embedded ? "Review and act on pending team leave applications" : "Review and act on pending employee leave applications"}
         </p>
       </div>
 

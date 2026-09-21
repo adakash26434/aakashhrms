@@ -48,11 +48,13 @@ interface EnrichedApplication extends LeaveApplication {
 interface LeaveApplicationClientProps {
   initialApplications: EnrichedApplication[];
   initialKpis: LeaveKPIs;
+  embedded?: boolean;
 }
 
 export function LeaveApplicationClient({
   initialApplications,
   initialKpis,
+  embedded = false,
 }: LeaveApplicationClientProps) {
   const [applications, setApplications] = useState(initialApplications);
   const [kpis, setKpis] = useState(initialKpis);
@@ -268,7 +270,7 @@ export function LeaveApplicationClient({
   );
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <div className={embedded ? "space-y-6" : "mx-auto max-w-350 space-y-6 p-6"}>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -278,11 +280,13 @@ export function LeaveApplicationClient({
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-payroll-navy">
-            Leave Applications
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage employee leave requests and approvals
+          {!embedded && (
+            <h1 className="text-xl font-bold text-payroll-navy">
+              Leave Applications
+            </h1>
+          )}
+          <p className="text-sm text-gray-500">
+            {embedded ? "Review and log employee leave requests" : "Manage employee leave requests and approvals"}
           </p>
         </div>
         <Button onClick={handleOpenNewModal} size="md">

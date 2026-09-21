@@ -24,6 +24,7 @@ interface LeaveRulesClientProps {
   initialRules: LeaveRule[];
   initialKpis: LeaveRuleKPIs;
   leaveTypes: { id: string; name: string; code: string }[];
+  embedded?: boolean;
 }
 
 function LeaveRuleKPICards({ kpis }: { kpis: LeaveRuleKPIs }) {
@@ -81,6 +82,7 @@ export function LeaveRulesClient({
   initialRules,
   initialKpis,
   leaveTypes,
+  embedded = false,
 }: LeaveRulesClientProps) {
   const [rules, setRules] = useState<LeaveRule[]>(initialRules);
   const [kpis, setKpis] = useState<LeaveRuleKPIs>(initialKpis);
@@ -94,9 +96,16 @@ export function LeaveRulesClient({
     visible: boolean;
     message: string;
     tone: "success" | "info";
-  }>({ visible: false, message: "", tone: "success" });
+  }>({
+    visible: false,
+    message: "",
+    tone: "success",
+  });
 
-  const showBanner = (message: string, tone: "success" | "info" = "success") => {
+  const showBanner = (
+    message: string,
+    tone: "success" | "info" = "success"
+  ) => {
     setBanner({ visible: true, message, tone });
     if (tone === "success") {
       toast.success(message);
@@ -163,11 +172,11 @@ export function LeaveRulesClient({
   }, [deleteTarget]);
 
   const deleteDescription = deleteTarget
-    ? `Are you sure you want to delete the leave rule "${deleteTarget.ruleName}"? This action cannot be undone.`
+    ? `Are you sure you want to delete the leave rule for "${deleteTarget.leaveTypeName}"? This action cannot be undone.`
     : "";
 
   return (
-    <div className="space-y-6 p-6 mx-auto max-w-350">
+    <div className={embedded ? "space-y-6" : "space-y-6 p-6 mx-auto max-w-350"}>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -177,10 +186,12 @@ export function LeaveRulesClient({
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#1b3a1f] flex items-center gap-2">
-            ⚖️ Leave Rules
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          {!embedded && (
+            <h1 className="text-xl font-bold text-[#1b3a1f] flex items-center gap-2">
+              ⚖️ Leave Rules
+            </h1>
+          )}
+          <p className="text-sm text-gray-500">
             Configure how leave days are accrued, encashed, and statutory limits.
           </p>
         </div>

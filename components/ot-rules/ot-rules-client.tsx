@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { Timer, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import type {
   OtRule,
@@ -24,6 +23,7 @@ interface OtRulesClientProps {
   initialOtKPIs: OtRuleKPIs;
   otMultiplierOfficeDay?: number;
   otMultiplierOffDay?: number;
+  embedded?: boolean;
 }
 
 function OtKPICards({
@@ -83,62 +83,62 @@ export function OtRulesClient({
   initialOtRules,
   initialOtKPIs,
   otMultiplierOfficeDay = 1.5,
-  otMultiplierOffDay = 2.0,
+  otMultiplierOffDay = 1.5,
+  embedded = false,
 }: OtRulesClientProps) {
-  const toast = useToast();
   const [otRules, setOtRules] = useState<OtRule[]>(initialOtRules);
   const [otKPIs, setOtKPIs] = useState<OtRuleKPIs>(initialOtKPIs);
-
   const [otFormOpen, setOtFormOpen] = useState(false);
   const [otFormSession, setOtFormSession] = useState(0);
   const [editingOtRule, setEditingOtRule] = useState<OtRule | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const toast = useToast();
+
+  const handleNewOtRule = useCallback(() => {
+    setEditingOtRule(null);
+    setOtFormSession((s) => s + 1);
+    setOtFormOpen(true);
+  }, []);
 
   const handleEditOtRule = useCallback((rule: OtRule) => {
     setEditingOtRule(rule);
-    setOtFormSession((session) => session + 1);
+    setOtFormSession((s) => s + 1);
     setOtFormOpen(true);
   }, []);
 
   const handleSaveOtRule = useCallback(
     async (id: string | null, data: OtRuleFormData) => {
-      try {
-        const res = await saveOtRuleAction(id, data);
-        if (res.success) {
-          toast.success(id ? "OT rule updated successfully." : "New OT rule created successfully.");
-          const refresh = await getOtRulesWithKPIsAction();
-          if (refresh.success && refresh.data) {
-            setOtRules(refresh.data.rules);
-            setOtKPIs(refresh.data.kpis);
-          }
-        } else {
-          toast.error(res.error || "Failed to save OT rule.");
+      const res = await saveOtRuleAction(id, data);
+      if (res.success && res.data) {
+        toast.success(
+          id
+            ? "Overtime rule updated successfully."
+            : "New overtime rule created successfully."
+        );
+        const refresh = await getOtRulesWithKPIsAction();
+        if (refresh.success && refresh.data) {
+          setOtRules(refresh.data.rules);
+          setOtKPIs(refresh.data.kpis);
         }
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "Failed to save OT rule.");
+      } else {
+        throw new Error(res.error || "Failed to save OT rule.");
       }
     },
-    [toast],
+    [toast]
   );
 
-  const handleDeleteRequest = useCallback(
-    (rule: OtRule) => {
-      setDeleteTarget({ id: rule.id, name: rule.ruleName });
-      setDeleteDialogOpen(true);
-    },
-    [],
-  );
+  const handleDeleteRequest = useCallback((rule: OtRule) => {
+    setDeleteTarget({ id: rule.id, name: rule.ruleName });
+    setDeleteDialogOpen(true);
+  }, []);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
     try {
       const res = await deleteOtRuleAction(deleteTarget.id);
       if (res.success) {
-        toast.success(`OT rule "${deleteTarget.name}" deleted successfully.`);
+        toast.success("Overtime rule deleted successfully.");
         const refresh = await getOtRulesWithKPIsAction();
         if (refresh.success && refresh.data) {
           setOtRules(refresh.data.rules);
@@ -160,13 +160,15 @@ export function OtRulesClient({
     : "";
 
   return (
-    <div className="space-y-6 p-6 mx-auto max-w-350">
+    <div className={embedded ? "space-y-6" : "space-y-6 p-6 mx-auto max-w-350"}>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#1b3a1f]">
-            ⏱️ Overtime Rules
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          {!embedded && (
+            <h1 className="text-xl font-semibold text-[#1b3a1f]">
+              ⏱️ Overtime Rules
+            </h1>
+          )}
+          <p className="text-sm text-gray-500">
             Configure overtime calculation multipliers for the organization.
           </p>
         </div>
@@ -180,7 +182,7 @@ export function OtRulesClient({
               Statutory Global Overtime Standard Active
             </strong>
             <p className="text-sm text-green-700 leading-relaxed font-semibold">
-              As per Section 2(a) and Section 37 of **Nepal's Labour Act, 2017
+              As per Section 2(a) and Section 37 of **Nepal&apos;s Labour Act, 2017
               (2074)**, overtime is calculated globally for all employees at
               **1.5 times** the basic hourly rate:
             </p>

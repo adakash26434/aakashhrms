@@ -32,6 +32,7 @@ const ConfirmDeleteDialog = dynamic(
 interface LeaveTypesClientProps {
   initialTypes: LeaveTypeRecord[];
   initialKpis: LeaveTypeKPIs;
+  embedded?: boolean;
 }
 
 function LeaveTypeKPICards({ kpis }: { kpis: LeaveTypeKPIs }) {
@@ -88,6 +89,7 @@ function LeaveTypeKPICards({ kpis }: { kpis: LeaveTypeKPIs }) {
 export function LeaveTypesClient({
   initialTypes,
   initialKpis,
+  embedded = false,
 }: LeaveTypesClientProps) {
   const [types, setTypes] = useState<LeaveTypeRecord[]>(initialTypes);
   const [kpis, setKpis] = useState<LeaveTypeKPIs>(initialKpis);
@@ -174,7 +176,7 @@ export function LeaveTypesClient({
     : "";
 
   return (
-    <div className="space-y-6 p-6 mx-auto max-w-350">
+    <div className={embedded ? "space-y-6" : "space-y-6 p-6 mx-auto max-w-350"}>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -184,10 +186,12 @@ export function LeaveTypesClient({
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-payroll-navy flex items-center gap-2">
-            📅 Leave Types
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          {!embedded && (
+            <h1 className="text-xl font-bold text-payroll-navy flex items-center gap-2">
+              📅 Leave Types
+            </h1>
+          )}
+          <p className="text-sm text-gray-500">
             Manage statutory policies (Nepal Labour Act 2074) and custom company leave packages.
           </p>
         </div>
