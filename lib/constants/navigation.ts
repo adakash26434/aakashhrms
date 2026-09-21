@@ -2,17 +2,12 @@ import {
   LayoutDashboard,
   Settings,
   CalendarDays,
-  Percent,
-  FileText,
   Users,
   Building2,
   DollarSign,
   Clock,
   CalendarCheck,
-  CheckSquare,
-  Timer,
   FilePen,
-  ShieldCheck,
   Wallet,
   CreditCard,
   Table,
@@ -31,10 +26,13 @@ export interface NavItem {
   badge?: number;
   /** The permission module required to VIEW this nav item. Undefined = always visible. */
   requiredModule?: string;
+  /** Multiple permission modules: user needs ANY of these to VIEW this nav item. */
+  requiredModules?: string[];
 }
 
 export interface NavGroup {
   label: string;
+  href?: string;
   items: NavItem[];
 }
 
@@ -46,57 +44,39 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Configuration",
-    items: [
-      { label: "Company setup", href: "/setup/company-setup", icon: Building2, requiredModule: "ORG_STRUCTURE" },
-      { label: "System control", href: "/setup/system-control", icon: Settings, requiredModule: "SYSTEM_CONTROL" },
-      { label: "Fiscal year", href: "/setup/fiscal-year", icon: CalendarDays, requiredModule: "FISCAL_YEAR" },
-      { label: "Tax rates", href: "/setup/tax-rates", icon: Percent, requiredModule: "TAX_RATES" },
-      { label: "Pay heads", href: "/setup/pay-heads", icon: FileText, requiredModule: "PAY_HEADS" },
-      { label: "Holidays", href: "/setup/holidays", icon: CalendarDays, requiredModule: "HOLIDAYS" },
-    ],
-  },
-  {
     label: "Workforce",
     items: [
       { label: "Employees", href: "/workforce/employees", icon: Users, requiredModule: "EMPLOYEES" },
-      { label: "Salary mapping", href: "/workforce/salary-mapping", icon: DollarSign, requiredModule: "SALARY_MAPPING" },
+      { label: "Organization", href: "/workforce/organization", icon: Building2, requiredModule: "ORG_STRUCTURE" },
+      { label: "Salary structure", href: "/workforce/salary-mapping", icon: DollarSign, requiredModule: "SALARY_MAPPING" },
     ],
   },
   {
     label: "Time & Leave",
     items: [
       { label: "Attendance", href: "/timeAndLeave/attendance", icon: Clock, requiredModule: "ATTENDANCE" },
-      { label: "Leave types", href: "/timeAndLeave/leave-types", icon: CalendarDays, requiredModule: "LEAVE_TYPES" },
-      { label: "Leave rules", href: "/timeAndLeave/leave-rules", icon: ScrollText, requiredModule: "LEAVE_RULES" },
       {
-        label: "Leave applications",
-        href: "/timeAndLeave/applications",
+        label: "Leaves",
+        href: "/timeAndLeave/leaves",
         icon: CalendarCheck,
-        requiredModule: "LEAVE_APPLICATIONS",
+        requiredModules: ["LEAVE_APPLICATIONS", "LEAVE_APPROVALS"],
       },
       {
-        label: "Leave approvals",
-        href: "/timeAndLeave/approvals",
-        icon: CheckSquare,
-        requiredModule: "LEAVE_APPROVALS",
-      },
-      { label: "OT rules", 
-        href: "/timeAndLeave/ot-rules", 
-        icon: Timer,
-        requiredModule: "OT_RULES",
+        label: "Policies",
+        href: "/timeAndLeave/policies",
+        icon: ScrollText,
+        requiredModules: ["LEAVE_TYPES", "LEAVE_RULES", "OT_RULES"],
       },
     ],
   },
   {
-    label: "Payroll",
+    label: "Payroll & Finance",
     items: [
-      { label: "Generate payslip", href: "/payroll/generate", icon: FilePen, requiredModule: "PAYROLL_GENERATE" },
       {
-        label: "Review & approve",
-        href: "/payroll/review",
-        icon: ShieldCheck,
-        requiredModule: "PAYROLL_REVIEW",
+        label: "Payroll",
+        href: "/payroll",
+        icon: FilePen,
+        requiredModules: ["PAYROLL_GENERATE", "PAYROLL_REVIEW"],
       },
       { label: "Leave salary", href: "/payroll/leave-salary", icon: Wallet, requiredModule: "LEAVE_SALARY" },
       { label: "Loan management", href: "/loans", icon: CreditCard, requiredModule: "LOANS" },
@@ -119,7 +99,31 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "System",
+    label: "Configuration",
+    href: "/setup",
+    items: [
+      {
+        label: "Company & Work Policy",
+        href: "/setup/company-setup",
+        icon: Building2,
+        requiredModule: "ORG_STRUCTURE",
+      },
+      {
+        label: "Payroll Rules",
+        href: "/setup/payroll-rules",
+        icon: Settings,
+        requiredModules: ["FISCAL_YEAR", "TAX_RATES", "PAY_HEADS", "SYSTEM_CONTROL"],
+      },
+      {
+        label: "Holiday Calendar",
+        href: "/setup/holidays",
+        icon: CalendarDays,
+        requiredModule: "HOLIDAYS",
+      },
+    ],
+  },
+  {
+    label: "Administration",
     items: [
       { label: "Users & roles", href: "/admin/users", icon: UserCog, requiredModule: "USERS_ROLES" },
       { label: "Roles & permissions", href: "/admin/roles", icon: Shield, requiredModule: "USERS_ROLES" },
@@ -127,4 +131,3 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
-

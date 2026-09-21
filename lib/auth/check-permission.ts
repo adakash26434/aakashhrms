@@ -160,3 +160,19 @@ export async function checkPermissionWithScope(
   const userId = await verifyPermission(action, module);
   return resolveUserScope(userId, session?.user?.tenantSlug);
 }
+
+/**
+ * Checks if the currently authenticated user has permission to perform an action.
+ * Returns true if allowed, false if not authenticated or unauthorized (does not throw).
+ */
+export async function hasPermission(
+  action: PermissionAction,
+  module: PermissionModule
+): Promise<boolean> {
+  try {
+    await verifyPermission(action, module);
+    return true;
+  } catch {
+    return false;
+  }
+}

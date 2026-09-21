@@ -66,7 +66,6 @@ const nextConfig: NextConfig = {
       { source: "/time-and-leave", destination: "/timeAndLeave/attendance", permanent: false },
       { source: "/time-and-leave/:path*", destination: "/timeAndLeave/:path*", permanent: false },
       { source: "/workforce", destination: "/workforce/employees", permanent: false },
-      { source: "/setup", destination: "/setup/system-control", permanent: false },
       { source: "/admin", destination: "/admin/users", permanent: false },
 
       // Shorthand Shortcuts
@@ -79,10 +78,10 @@ const nextConfig: NextConfig = {
       { source: "/applications", destination: "/timeAndLeave/applications", permanent: false },
       { source: "/approvals", destination: "/timeAndLeave/approvals", permanent: false },
       { source: "/ot-rules", destination: "/timeAndLeave/ot-rules", permanent: false },
-      { source: "/system-control", destination: "/setup/system-control", permanent: false },
-      { source: "/fiscal-year", destination: "/setup/fiscal-year", permanent: false },
-      { source: "/tax-rates", destination: "/setup/tax-rates", permanent: false },
-      { source: "/pay-heads", destination: "/setup/pay-heads", permanent: false },
+      { source: "/system-control", destination: "/setup/payroll-rules?tab=rules-defaults", permanent: false },
+      { source: "/fiscal-year", destination: "/setup/payroll-rules?tab=fiscal-year", permanent: false },
+      { source: "/tax-rates", destination: "/setup/payroll-rules?tab=tax-rates", permanent: false },
+      { source: "/pay-heads", destination: "/setup/payroll-rules?tab=pay-heads", permanent: false },
       { source: "/holidays", destination: "/setup/holidays", permanent: false },
       { source: "/users", destination: "/admin/users", permanent: false },
       { source: "/roles", destination: "/admin/roles", permanent: false },
