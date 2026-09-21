@@ -34,6 +34,7 @@ export default async function GeneratePayrollPage() {
       occasionalAllowances={occasionalAllowances}
       allPayHeads={allPayHeads}
       userRole={userRole}
+      initialMode="generate"
     />
   );
 }

@@ -7,13 +7,12 @@ import {
   ClipboardList, 
   CheckSquare, 
   ShieldCheck, 
-  AlertCircle, 
   RefreshCw, 
   Trash2, 
   AlertTriangle 
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import type { PayrollSlip, PayrollSlipHead, PayrollRun, PayrollRunStatus } from "@/lib/types/payroll";
+import type { PayrollSlip, PayrollSlipHead, PayrollRun, PayrollRunStatus, PayrollSlipOverridePayload } from "@/lib/types/payroll";
 import { 
   getPayslipWithHeadsAction, 
   updatePayrollSlipOverrideAction,
@@ -21,6 +20,9 @@ import {
   deleteEmployeePayslipAction,
   addPayHeadToPayslipAction
 } from "@/app/actions/payroll.actions";
+
+import { TableShell } from "@/components/ui/table-shell";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 const PayslipDetailModal = dynamic(
   () => import("./payslip-detail-modal").then((m) => m.PayslipDetailModal),
@@ -92,7 +94,7 @@ export function PayrollReviewGrid({
     if (!selectedSlip) return;
     setError(null);
 
-    const payload: any = {
+    const payload: PayrollSlipOverridePayload = {
       slipId: selectedSlip.id,
       reason
     };
@@ -246,144 +248,162 @@ export function PayrollReviewGrid({
 
   return (
     <div className="space-y-6">
-      {error && (
-        <div className="flex items-start gap-2.5 rounded-lg bg-red-50 p-3.5 text-xs text-red-700">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{error}</span>
+      {error && <ErrorBanner message={error} />}
+
+      <TableShell
+        title="Monthly Payslips Ledger"
+        totalCount={slips.length}
+        filteredCount={filteredSlips.length}
+        toolbar={
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search staff name or employee ID..."
+                className="w-full rounded-lg border border-payroll-light bg-white pl-9 pr-3 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
+              />
+            </div>
+            {departments.length > 0 && (
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="rounded-lg border border-payroll-light bg-white px-3 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
+              >
+                <option value="all">All Departments</option>
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3.5">Employee</th>
+                <th className="px-6 py-3.5">Department / Role</th>
+                <th className="px-6 py-3.5">Bank Details</th>
+                <th className="px-6 py-3.5 text-right font-medium">Basic</th>
+                <th className="px-6 py-3.5 text-right font-medium">Grade</th>
+                <th className="px-6 py-3.5 text-right font-medium">OT</th>
+                <th className="px-6 py-3.5 text-right font-medium">Gross</th>
+                <th className="px-6 py-3.5 text-right font-medium">Deductions</th>
+                <th className="px-6 py-3.5 text-right font-medium">Loan</th>
+                <th className="px-6 py-3.5 text-right font-medium">TDS (Tax)</th>
+                <th className="px-6 py-3.5 text-right font-bold">Net Salary</th>
+                <th className="px-6 py-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSlips.map((slip) => (
+                <tr
+                  key={slip.id}
+                  className="border-b border-payroll-light/60 transition-colors hover:bg-payroll-cream/30 text-xs"
+                >
+                  <td className="px-6 py-4">
+                    <div>
+                      <span className="font-semibold text-payroll-navy">{slip.employeeName}</span>
+                      <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 tabular-nums">
+                        {slip.employeeCode}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {slip.departmentName} <br />
+                    <span className="text-[10px] text-gray-400">{slip.designationName}</span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500 text-[11px]">
+                    <span className="font-semibold text-gray-700">{slip.bankName}</span> <br />
+                    <span className="text-gray-400 font-medium tabular-nums">{slip.bankAccountNumber}</span>
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-gray-700">
+                    Rs. {Number(slip.basicSalary).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-gray-700">
+                    Rs. {Number(slip.gradeAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-emerald-600 font-medium">
+                    Rs. {Number(slip.otAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-emerald-600 font-bold">
+                    Rs. {Number(slip.grossEarnings).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-red-500">
+                    Rs. {Number(slip.totalDeductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-red-500 font-semibold">
+                    Rs. {Number(slip.loanDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right tabular-nums text-red-500">
+                    Rs. {Number(slip.tdsThisMonth).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right font-bold tabular-nums text-payroll-navy">
+                    Rs. {Number(slip.netPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => handleOpenDetail(slip)}
+                        className="inline-flex items-center gap-1 text-xs text-payroll-primary font-bold hover:underline cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        {isDraft ? "Override" : "View Breakdown"}
+                      </button>
+
+                      {isDraft && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleRecalculateSlip(slip.id)}
+                            disabled={recalculatingSlipId === slip.id}
+                            title="Recalculate from master data (salary mapping, new pay heads, attendance)"
+                            className="rounded p-1 text-gray-500 hover:bg-payroll-cream hover:text-payroll-primary transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${recalculatingSlipId === slip.id ? "animate-spin text-payroll-primary" : ""}`} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteSlip(slip)}
+                            title="Remove employee from draft batch"
+                            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </TableShell>
+
+      {/* Locked Audit Notice */}
+      {isLocked && (
+        <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50/60 p-4 text-xs text-green-900 shadow-payroll-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-bold text-green-900">Finalized & Locked Payroll Batch</p>
+              <p className="text-[11px] text-green-800">
+                This batch is locked for audit integrity. Payslip line-items cannot be altered. Bank transfers and statutory ledgers can be exported from the top header.
+              </p>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between rounded-xl border border-payroll-light bg-white p-4 shadow-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by staff name or employee ID..."
-            className="w-full rounded-lg border border-payroll-light bg-white pl-10 pr-4 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
-          />
-        </div>
-
-        <select
-          value={deptFilter}
-          onChange={(e) => setDeptFilter(e.target.value)}
-          className="rounded-lg border border-payroll-light bg-white px-3.5 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
-        >
-          <option value="all">All Departments</option>
-          {departments.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Payslips Grid Table */}
-      <div className="overflow-x-auto rounded-xl border border-payroll-light bg-white shadow-sm">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              <th className="px-6 py-3.5">Employee</th>
-              <th className="px-6 py-3.5">Department / Role</th>
-              <th className="px-6 py-3.5">Bank Details</th>
-              <th className="px-6 py-3.5 text-right font-medium">Basic</th>
-              <th className="px-6 py-3.5 text-right font-medium">Grade</th>
-              <th className="px-6 py-3.5 text-right font-medium">OT</th>
-              <th className="px-6 py-3.5 text-right font-medium">Gross</th>
-              <th className="px-6 py-3.5 text-right font-medium">Deductions</th>
-              <th className="px-6 py-3.5 text-right font-medium">Loan</th>
-              <th className="px-6 py-3.5 text-right font-medium">TDS (Tax)</th>
-              <th className="px-6 py-3.5 text-right font-bold">Net Salary</th>
-              <th className="px-6 py-3.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSlips.map((slip) => (
-              <tr
-                key={slip.id}
-                className="border-b border-payroll-light/60 transition-colors hover:bg-payroll-cream/30 text-xs"
-              >
-                <td className="px-6 py-4">
-                  <div>
-                    <span className="font-semibold text-payroll-navy">{slip.employeeName}</span>
-                    <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 tabular-nums">
-                      {slip.employeeCode}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-gray-500">
-                  {slip.departmentName} <br />
-                  <span className="text-[10px] text-gray-400">{slip.designationName}</span>
-                </td>
-                <td className="px-6 py-4 text-gray-500 text-[11px]">
-                  <span className="font-semibold text-gray-700">{slip.bankName}</span> <br />
-                  <span className="text-gray-400 font-medium tabular-nums">{slip.bankAccountNumber}</span>
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-gray-700">
-                  Rs. {Number(slip.basicSalary).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-gray-700">
-                  Rs. {Number(slip.gradeAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-emerald-600 font-medium">
-                  Rs. {Number(slip.otAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-emerald-600 font-bold">
-                  Rs. {Number(slip.grossEarnings).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-red-500">
-                  Rs. {Number(slip.totalDeductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-red-500 font-semibold">
-                  Rs. {Number(slip.loanDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right tabular-nums text-red-500">
-                  Rs. {Number(slip.tdsThisMonth).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right font-bold tabular-nums text-payroll-navy">
-                  Rs. {Number(slip.netPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button
-                      onClick={() => handleOpenDetail(slip)}
-                      className="inline-flex items-center gap-1 text-xs text-payroll-primary font-bold hover:underline"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      {isDraft ? "Override" : "View Breakdown"}
-                    </button>
-
-                    {isDraft && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleRecalculateSlip(slip.id)}
-                          disabled={recalculatingSlipId === slip.id}
-                          title="Recalculate from master data (salary mapping, new pay heads, attendance)"
-                          className="rounded p-1 text-gray-500 hover:bg-payroll-cream hover:text-payroll-primary transition-all disabled:opacity-50"
-                        >
-                          <RefreshCw className={`h-3.5 w-3.5 ${recalculatingSlipId === slip.id ? "animate-spin text-payroll-primary" : ""}`} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteSlip(slip)}
-                          title="Remove employee from draft batch"
-                          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
 
       {/* RBAC Verification Panel */}
       {!isLocked && (

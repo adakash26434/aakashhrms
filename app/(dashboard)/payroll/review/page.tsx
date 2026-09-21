@@ -9,9 +9,16 @@ export const metadata = {
   description: "Verify, audit and lock monthly payroll runs.",
 };
 
-export default async function ReviewPayrollPage() {
+interface ReviewPayrollPageProps {
+  searchParams?: Promise<{ runId?: string }>;
+}
+
+export default async function ReviewPayrollPage({ searchParams }: ReviewPayrollPageProps) {
   await ensureTenantContext();
   await checkPermission("VIEW", "PAYROLL_REVIEW");
+
+  const resolvedParams = searchParams ? await searchParams : {};
+  const initialRunId = resolvedParams.runId || null;
 
   const {
     runs,
@@ -34,6 +41,8 @@ export default async function ReviewPayrollPage() {
       occasionalAllowances={occasionalAllowances}
       allPayHeads={allPayHeads}
       userRole={userRole}
+      initialMode="review"
+      initialRunId={initialRunId}
     />
   );
 }

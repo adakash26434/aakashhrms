@@ -1645,7 +1645,11 @@ export async function getPayrollGeneratePageData() {
     branchId: e.branchId,
     departmentId: e.departmentId,
     designationId: e.designationId,
-    category: e.category
+    category: e.category,
+    hasBank: Boolean(e.bankAccountNumber && e.bankAccountNumber.trim() !== ""),
+    bankName: e.bankName || null,
+    bankAccountNumber: e.bankAccountNumber || null,
+    panNumber: e.panNumber || null,
   }));
   const occasionalAllowances = payHeadsList
     .filter(ph => ph.flags.isFestivalAllowance || ph.flags.isRemoteAllowance)

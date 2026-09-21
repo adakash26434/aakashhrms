@@ -1,32 +1,83 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, List, FileText, ArrowLeft, RefreshCw, AlertCircle, Trash2, AlertTriangle, ClipboardList } from "lucide-react";
-import type { PayrollRun, PayrollSlip, PayrollRunSetupPayload, PayrollRunStatus } from "@/lib/types/payroll";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Plus,
+  List,
+  ArrowLeft,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+  ClipboardList,
+  Calendar,
+  Layers,
+  Lock,
+  DollarSign,
+} from "lucide-react";
+import type {
+  PayrollRun,
+  PayrollSlip,
+  PayrollRunSetupPayload,
+  PayrollRunStatus,
+} from "@/lib/types/payroll";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import { PayrollTable } from "./payroll-table";
 import { PayrollSetupForm } from "./payroll-setup-form";
 import { PayrollSummaryCard } from "./payroll-summary-card";
 import { PayrollRunPipeline } from "./payroll-run-pipeline";
 import { PayrollReviewGrid } from "./payroll-review-grid";
+import { PayrollExceptionsCard } from "./payroll-exceptions-card";
 import { BankExportButton } from "./bank-export-button";
-import { 
-  generatePayrollRunAction, 
-  transitionPayrollRunAction, 
+import {
+  generatePayrollRunAction,
+  transitionPayrollRunAction,
   getPayrollRunDetailsAction,
-  deletePayrollRunAction
+  deletePayrollRunAction,
 } from "@/app/actions/payroll.actions";
 import { useToast } from "@/components/ui/toast";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { KpiStrip, type KpiMetric } from "@/components/layout/kpi-strip";
+import { ContentCard } from "@/components/ui/content-card";
+import { ErrorBanner } from "@/components/ui/error-banner";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-interface PayrollClientProps {
+export interface PayrollClientProps {
   initialRuns: PayrollRun[];
   branches: Array<{ id: string; name: string }>;
   departments: Array<{ id: string; name: string }>;
   designations: Array<{ id: string; name: string }>;
-  employees: Array<{ id: string; name: string; employeeCode: string; branchId: string; departmentId: string; designationId: string; category: string }>;
-  occasionalAllowances: Array<{ id: string; name: string; isFestivalAllowance: boolean; isRemoteAllowance: boolean }>;
-  allPayHeads?: Array<{ id: string; name: string; code: string; type: 'allowance' | 'deduction' }>;
+  employees: Array<{
+    id: string;
+    name: string;
+    employeeCode: string;
+    branchId: string;
+    departmentId: string;
+    designationId: string;
+    category: string;
+    hasBank?: boolean;
+    bankName?: string | null;
+    bankAccountNumber?: string | null;
+    panNumber?: string | null;
+  }>;
+  occasionalAllowances: Array<{
+    id: string;
+    name: string;
+    isFestivalAllowance: boolean;
+    isRemoteAllowance: boolean;
+  }>;
+  allPayHeads?: Array<{
+    id: string;
+    name: string;
+    code: string;
+    type: "allowance" | "deduction";
+  }>;
   userRole: string;
+  initialMode?: "generate" | "review" | "list";
+  initialRunId?: string | null;
+  canGenerate?: boolean;
+  canReview?: boolean;
 }
 
 export default function PayrollClient({
@@ -37,11 +88,19 @@ export default function PayrollClient({
   employees,
   occasionalAllowances,
   allPayHeads,
-  userRole
+  userRole,
+  initialMode = "list",
+  initialRunId = null,
+  canGenerate = true,
+  canReview = true,
 }: PayrollClientProps) {
   const toast = useToast();
   const [runs, setRuns] = useState<PayrollRun[]>(initialRuns);
-  const [activeTab, setActiveTab] = useState<"list" | "generate">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "generate">(() => {
+    if (initialMode === "generate" && canGenerate) return "generate";
+    if (initialRuns.length === 0 && canGenerate) return "generate";
+    return "list";
+  });
   const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
   const [selectedSlips, setSelectedSlips] = useState<PayrollSlip[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -49,6 +108,10 @@ export default function PayrollClient({
   const [error, setError] = useState<string | null>(null);
   const [confirmDiscardRun, setConfirmDiscardRun] = useState<PayrollRun | null>(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
+
+  const getBSMonthName = (m: number) => {
+    return BS_MONTHS_EN[m] ?? "Unknown";
+  };
 
   const handleSelectRun = async (run: PayrollRun) => {
     setError(null);
@@ -72,6 +135,24 @@ export default function PayrollClient({
     }
   };
 
+  // Auto-select initialRunId if provided
+  useEffect(() => {
+    if (!initialRunId) return;
+    let isMounted = true;
+    const target = runs.find((r) => r.id === initialRunId);
+    if (target) {
+      getPayrollRunDetailsAction(target.id).then((res) => {
+        if (isMounted && res.success && res.data) {
+          setSelectedRun(res.data.payrollRun);
+          setSelectedSlips(res.data.slips);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [initialRunId, runs]);
+
   const handleBackToList = () => {
     setSelectedRun(null);
     setSelectedSlips([]);
@@ -88,7 +169,7 @@ export default function PayrollClient({
         return;
       }
       toast.success("Payroll run cancelled and reverted to initial state.");
-      setRuns(runs.filter(r => r.id !== run.id));
+      setRuns((prev) => prev.filter((r) => r.id !== run.id));
       if (selectedRun?.id === run.id) {
         setSelectedRun(null);
         setSelectedSlips([]);
@@ -108,7 +189,9 @@ export default function PayrollClient({
       if (res.success && res.data) {
         setSelectedRun(res.data.payrollRun);
         setSelectedSlips(res.data.slips);
-        setRuns(runs.map(r => r.id === selectedRun.id ? res.data!.payrollRun : r));
+        setRuns((prev) =>
+          prev.map((r) => (r.id === selectedRun.id ? res.data!.payrollRun : r))
+        );
       }
     } catch (err) {
       console.error("Failed to refresh run details", err);
@@ -128,9 +211,12 @@ export default function PayrollClient({
       }
 
       toast.success("Payroll run generated successfully!");
-      // If recreateIfExists, remove old run with same period and prepend new
       const filtered = runs.filter(
-        r => !(r.payPeriodMonth === res.data!.payPeriodMonth && r.payPeriodYear === res.data!.payPeriodYear)
+        (r) =>
+          !(
+            r.payPeriodMonth === res.data!.payPeriodMonth &&
+            r.payPeriodYear === res.data!.payPeriodYear
+          )
       );
       setRuns([res.data, ...filtered]);
       await handleSelectRun(res.data);
@@ -155,128 +241,179 @@ export default function PayrollClient({
       throw new Error(msg);
     }
 
-    toast.success(`Payroll run transitioned to ${toStatus}.`);
-    // Refresh run detail state
+    toast.success(`Payroll run transitioned to ${toStatus.replace("_", " ")}.`);
     setSelectedRun(res.data);
-    
-    // Update in history list
-    setRuns(runs.map(r => r.id === selectedRun.id ? res.data! : r));
+    setRuns((prev) =>
+      prev.map((r) => (r.id === selectedRun.id ? res.data! : r))
+    );
   };
 
-  const getBSMonthName = (m: number) => {
-    return BS_MONTHS_EN[m] ?? "Unknown";
-  };
+  // High-level Registry KPI metrics
+  const overviewKpis: KpiMetric[] = useMemo(() => {
+    const totalRuns = runs.length;
+    const inReview = runs.filter(
+      (r) => r.status === "DRAFT" || r.status === "UNDER_REVIEW"
+    ).length;
+    const locked = runs.filter((r) => r.status === "LOCKED").length;
+    const latestRun = runs[0];
+    const latestNet = latestRun ? Number(latestRun.totalNetPayable) : 0;
+
+    return [
+      {
+        title: "Batches Tracked",
+        value: totalRuns,
+        subtext: "Fiscal year runs recorded",
+        icon: Calendar,
+      },
+      {
+        title: "In Review / Draft",
+        value: inReview,
+        subtext: "Pending audit verification",
+        icon: Layers,
+        badge: inReview > 0 ? "Action Required" : undefined,
+      },
+      {
+        title: "Locked & Amortized",
+        value: locked,
+        subtext: "Finalized bank disbursements",
+        icon: Lock,
+      },
+      {
+        title: "Latest Net Disbursed",
+        value: `Rs. ${latestNet.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        subtext: latestRun
+          ? `${getBSMonthName(latestRun.payPeriodMonth)} ${latestRun.payPeriodYear}`
+          : "No run yet",
+        icon: DollarSign,
+      },
+    ];
+  }, [runs]);
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between border-b border-payroll-light pb-4">
-        <div>
-          <h1 className="text-xl font-bold text-payroll-navy tracking-tight">Monthly Payroll Processing</h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Process base salaries, calculate slab-based progressive taxes, apply employee loans and finalize bank payments.
-          </p>
-        </div>
-
-        {selectedRun ? (
-          <div className="flex items-center gap-2">
-            {selectedRun.status === 'DRAFT' && (
-              <button
+    <PageFrame size="wide" spacing="default">
+      {/* Top Header */}
+      {selectedRun ? (
+        <PageHeader
+          title={`Payroll Batch: ${getBSMonthName(selectedRun.payPeriodMonth)} ${selectedRun.payPeriodYear}`}
+          description={`BS Period: ${getBSMonthName(selectedRun.payPeriodMonth)} ${selectedRun.payPeriodYear} (${selectedRun.payPeriodStartDate} to ${selectedRun.payPeriodEndDate}) · Active Role: ${userRole}`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedRun.status === "DRAFT" && (
+              <Button
                 type="button"
-                onClick={() => handleStatusChange('UNDER_REVIEW')}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-payroll-navy transition-all"
+                onClick={() => handleStatusChange("UNDER_REVIEW")}
+                className="bg-payroll-primary text-white hover:bg-payroll-navy cursor-pointer font-semibold shadow-payroll-xs"
+                size="sm"
               >
-                <ClipboardList className="h-4 w-4" />
+                <ClipboardList className="h-4 w-4 mr-1.5" />
                 Submit for Review
-              </button>
+              </Button>
             )}
-            {selectedRun.status === 'LOCKED' && (
-              <BankExportButton 
-                runId={selectedRun.id} 
-                filename={`Bank_Transfer_${getBSMonthName(selectedRun.payPeriodMonth)}_${selectedRun.payPeriodYear}.csv`} 
+            {selectedRun.status === "LOCKED" && (
+              <BankExportButton
+                runId={selectedRun.id}
+                filename={`Bank_Transfer_${getBSMonthName(selectedRun.payPeriodMonth)}_${selectedRun.payPeriodYear}.csv`}
               />
             )}
-            {selectedRun.status !== 'LOCKED' && (
+            {selectedRun.status !== "LOCKED" && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmDiscardRun(selectedRun)}
+                className="border-red-200 bg-red-50/60 text-red-700 hover:bg-red-100 hover:text-red-800 cursor-pointer text-xs"
+                size="sm"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Discard Batch
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBackToList}
+              className="border-payroll-light/80 bg-white text-payroll-navy hover:bg-payroll-cream cursor-pointer text-xs"
+              size="sm"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+              All Batches
+            </Button>
+          </div>
+        </PageHeader>
+      ) : (
+        <PageHeader
+          title="Payroll Workspace"
+          description="Unified control center to generate draft calculations, audit payslips, review exceptions, and lock monthly disbursements."
+        >
+          {/* Segmented Mode Switcher */}
+          <div className="inline-flex items-center rounded-xl border border-payroll-light/80 bg-payroll-cream/50 p-1 shadow-payroll-xs">
+            {canReview && (
               <button
                 type="button"
-                onClick={() => setConfirmDiscardRun(selectedRun)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-red-600 shadow-sm hover:bg-red-100 transition-all"
+                onClick={() => {
+                  setActiveTab("list");
+                  setError(null);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none",
+                  activeTab === "list"
+                    ? "bg-payroll-primary text-white shadow-payroll-xs"
+                    : "text-gray-600 hover:text-payroll-navy hover:bg-white/60"
+                )}
               >
-                <Trash2 className="h-4 w-4" />
-                Discard Batch
+                <List className="h-3.5 w-3.5" />
+                Review & Batches
               </button>
             )}
-            <button
-              onClick={handleBackToList}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-payroll-light bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-payroll-navy shadow-sm hover:bg-payroll-light/20"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to List
-            </button>
+            {canGenerate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("generate");
+                  setError(null);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none",
+                  activeTab === "generate"
+                    ? "bg-payroll-primary text-white shadow-payroll-xs"
+                    : "text-gray-600 hover:text-payroll-navy hover:bg-white/60"
+                )}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Generate Draft
+              </button>
+            )}
           </div>
-        ) : (
-          <div className="flex rounded-lg border border-payroll-light bg-white p-0.5 shadow-sm">
-            <button
-              onClick={() => { setActiveTab("list"); setError(null); }}
-              className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold transition-all ${
-                activeTab === "list"
-                  ? "bg-payroll-primary text-white shadow-sm"
-                  : "text-gray-600 hover:bg-payroll-light/20"
-              }`}
-            >
-              <List className="h-4 w-4" />
-              Payroll History
-            </button>
-            <button
-              onClick={() => { setActiveTab("generate"); setError(null); }}
-              className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold transition-all ${
-                activeTab === "generate"
-                  ? "bg-payroll-primary text-white shadow-sm"
-                  : "text-gray-600 hover:bg-payroll-light/20"
-              }`}
-            >
-              <Plus className="h-4 w-4" />
-              Generate Payroll
-            </button>
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <div className="flex items-start gap-2.5 rounded-lg bg-red-50 p-3.5 text-xs text-red-700">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
+        </PageHeader>
       )}
 
-      {selectedRun ? (
-        // Detailed Payroll Batch Review View
-        <div className="space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between border border-payroll-light bg-white rounded-xl p-5 shadow-sm">
-            <div>
-              <h2 className="text-base font-bold text-payroll-navy">
-                Payroll Batch Details: {getBSMonthName(selectedRun.payPeriodMonth)} {selectedRun.payPeriodYear}
-              </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Range: {selectedRun.payPeriodStartDate} to {selectedRun.payPeriodEndDate}
-              </p>
-            </div>
-            <div className="mt-2 md:mt-0 rounded-lg bg-payroll-cream px-3.5 py-1.5 border border-payroll-light text-xs font-semibold text-gray-600">
-              Active Role: <span className="text-payroll-primary">{userRole}</span>
-            </div>
-          </div>
+      {/* Global Error Banner */}
+      {error && <ErrorBanner message={error} />}
 
-          {/* Run Statistics Summary */}
+      {/* Workspace Body */}
+      {selectedRun ? (
+        // Selected Run Workspace: Details, KPIs, Pipeline, Exceptions & Grid
+        <div className="space-y-6">
+          {/* Run Statistics Summary Strip */}
           <PayrollSummaryCard run={selectedRun} />
 
-          {/* Workflow progress line */}
+          {/* Workflow Pipeline */}
           <PayrollRunPipeline run={selectedRun} />
 
-          {/* Editable slips table */}
+          {/* Pre-Lock Audit Exceptions Card */}
+          <PayrollExceptionsCard
+            slips={selectedSlips}
+            onSelectSlip={() => {
+              // Smooth scroll to table
+            }}
+          />
+
+          {/* Payslips Review Grid */}
           {isLoadingDetails ? (
-            <div className="flex flex-col items-center justify-center py-16">
+            <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-payroll-light/80 bg-white">
               <RefreshCw className="h-8 w-8 animate-spin text-payroll-primary" />
-              <p className="text-xs text-gray-500 mt-2 font-medium">Loading payslips data...</p>
+              <p className="text-xs text-gray-500 mt-2.5 font-medium">
+                Loading batch payslips & line-item heads...
+              </p>
             </div>
           ) : (
             <PayrollReviewGrid
@@ -291,23 +428,31 @@ export default function PayrollClient({
           )}
         </div>
       ) : activeTab === "list" ? (
-        // Past Runs History
-        <PayrollTable 
-          runs={runs} 
-          onSelect={handleSelectRun} 
-          onDelete={handleDeleteRun}
-        />
+        // Run Registry View with KPIs and TableShell
+        <div className="space-y-6">
+          <KpiStrip metrics={overviewKpis} columns={4} />
+          <PayrollTable
+            runs={runs}
+            onSelect={handleSelectRun}
+            onDelete={handleDeleteRun}
+          />
+        </div>
       ) : (
-        // Run Calculation Creator Form
-        <PayrollSetupForm
-          branches={branches}
-          departments={departments}
-          designations={designations}
-          employees={employees}
-          occasionalAllowances={occasionalAllowances}
-          onSubmit={handleGenerateRun}
-          isLoading={isGenerating}
-        />
+        // Generate Draft View inside ContentCard
+        <ContentCard
+          title="Generate Monthly Payroll Batch"
+          subtitle="Define pay period scope, select participating employees, apply festival/remote allowances, and compute automated draft payslips."
+        >
+          <PayrollSetupForm
+            branches={branches}
+            departments={departments}
+            designations={designations}
+            employees={employees}
+            occasionalAllowances={occasionalAllowances}
+            onSubmit={handleGenerateRun}
+            isLoading={isGenerating}
+          />
+        </ContentCard>
       )}
 
       {/* Discard Batch Confirmation Modal */}
@@ -325,12 +470,14 @@ export default function PayrollClient({
                 <p className="mt-1 text-xs text-gray-600">
                   Are you sure you want to cancel and delete the payroll batch for{" "}
                   <span className="font-semibold text-gray-800">
-                    {getBSMonthName(confirmDiscardRun.payPeriodMonth)} {confirmDiscardRun.payPeriodYear}
+                    {getBSMonthName(confirmDiscardRun.payPeriodMonth)}{" "}
+                    {confirmDiscardRun.payPeriodYear}
                   </span>
                   ?
                 </p>
                 <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
-                  This will delete all generated payslips and fallback to the initial un-generated state, allowing you to generate payslips again for this month.
+                  This will delete all generated payslips and fallback to the initial
+                  un-generated state, allowing you to generate payslips again for this month.
                 </div>
               </div>
             </div>
@@ -340,7 +487,7 @@ export default function PayrollClient({
                 type="button"
                 onClick={() => setConfirmDiscardRun(null)}
                 disabled={isDiscarding}
-                className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
               >
                 Keep Batch
               </button>
@@ -348,7 +495,7 @@ export default function PayrollClient({
                 type="button"
                 onClick={() => handleDeleteRun(confirmDiscardRun)}
                 disabled={isDiscarding}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 disabled:opacity-50 cursor-pointer"
               >
                 {isDiscarding ? "Discarding..." : "Yes, Discard Batch"}
               </button>
@@ -356,6 +503,6 @@ export default function PayrollClient({
           </div>
         </div>
       )}
-    </div>
+    </PageFrame>
   );
 }

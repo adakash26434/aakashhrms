@@ -619,7 +619,7 @@ export function PayslipDetailModal({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h4 className="text-xs font-bold text-payroll-navy">Missed an Allowance or Deduction?</h4>
-                    <p className="text-[11px] text-gray-500">Attach any company pay head to this employee's payslip and automatically recalculate progressive taxes.</p>
+                    <p className="text-[11px] text-gray-500">Attach any company pay head to this employee&apos;s payslip and automatically recalculate progressive taxes.</p>
                   </div>
                   {availablePayHeads.length > 0 ? (
                     <button
