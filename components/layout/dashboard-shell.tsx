@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopHeader } from "@/components/layout/top-header";
 import { DateFormatProvider } from "@/lib/contexts/date-format-context";
@@ -13,23 +13,23 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ children, context }: DashboardShellProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    const saved = localStorage.getItem("sidebarCollapsed");
-    if (saved !== null) {
-      setSidebarCollapsed(saved === "true");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebarCollapsed") === "true";
     }
-  }, []);
+    return false;
+  });
 
   const handleToggleSidebar = () => {
-    const newState = !sidebarCollapsed;
-    setSidebarCollapsed(newState);
-    if (isMounted) {
-      localStorage.setItem("sidebarCollapsed", String(newState));
-    }
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sidebarCollapsed", String(next));
+      } catch {
+        // ignore localStorage access errors in restricted envs
+      }
+      return next;
+    });
   };
 
   return (
@@ -45,7 +45,11 @@ export function DashboardShell({ children, context }: DashboardShellProps) {
           </aside>
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden print:h-auto print:overflow-visible print:block">
             <div className="print:hidden">
-              <TopHeader context={context} />
+              <TopHeader
+                context={context}
+                onToggleSidebar={handleToggleSidebar}
+                isSidebarCollapsed={sidebarCollapsed}
+              />
             </div>
             <main className="flex-1 overflow-y-auto bg-payroll-cream p-6 print:p-0 print:bg-white print:overflow-visible print:block">
               {children}

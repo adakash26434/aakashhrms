@@ -12,6 +12,7 @@ import {
   Wallet,
   UserCircle,
   ArrowUpRight,
+  PanelLeftOpen,
 } from "lucide-react";
 import { DateFormatMenu } from "@/components/ui/date-format-menu";
 import { logoutAction } from "@/app/actions/auth.actions";
@@ -20,9 +21,15 @@ import type { WorkspaceContext } from "@/lib/services/workspace-context.service"
 
 interface TopHeaderProps {
   context?: WorkspaceContext;
+  onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
-export function TopHeader({ context }: TopHeaderProps) {
+export function TopHeader({
+  context,
+  onToggleSidebar,
+  isSidebarCollapsed = false,
+}: TopHeaderProps) {
   const companyName = context?.company.name || "Company Workspace";
   const companyCode = context?.company.code || "CMP-ACTIVE";
   const branchName = context?.company.branch || "Head Office";
@@ -66,7 +73,20 @@ export function TopHeader({ context }: TopHeaderProps) {
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-payroll-light/80 bg-white px-4 sm:px-6 relative z-20 shadow-payroll-xs">
-      {/* Clean Workspace Breadcrumb (no duplicate brand logo) */}
+      {/* Sidebar expand button when collapsed */}
+      {isSidebarCollapsed && onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          title="Expand sidebar"
+          className="flex h-8 w-8 items-center justify-center rounded-xl border border-payroll-light/80 bg-payroll-cream text-payroll-navy hover:bg-white transition-all cursor-pointer mr-1"
+          aria-label="Expand sidebar"
+        >
+          <PanelLeftOpen className="h-4 w-4 text-payroll-primary" />
+        </button>
+      )}
+
+      {/* Clean Workspace Breadcrumb */}
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex items-center gap-2 text-xs text-payroll-navy">
           <div className="flex h-7.5 w-7.5 items-center justify-center rounded-xl bg-payroll-cream text-payroll-primary border border-payroll-light/80 shadow-2xs shrink-0">
@@ -108,7 +128,7 @@ export function TopHeader({ context }: TopHeaderProps) {
 
         {/* Active Fiscal Year Pill */}
         <Link
-          href="/setup/fiscal-year"
+          href="/setup/payroll-rules?tab=fiscal-year"
           title="Active Fiscal Year (Click to manage)"
           className="hidden items-center gap-1.5 rounded-xl border border-payroll-light/80 bg-payroll-cream/60 px-2.5 py-1 text-xs font-semibold text-payroll-navy hover:bg-white hover:border-payroll-light transition-all sm:flex shadow-payroll-xs"
         >
