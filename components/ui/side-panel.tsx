@@ -12,6 +12,7 @@ const widthClasses = {
   xl: "w-full sm:max-w-xl",
   "2xl": "w-full sm:max-w-2xl",
   "3xl": "w-full sm:max-w-3xl",
+  "4xl": "w-full sm:max-w-4xl",
 } as const;
 
 export interface SidePanelProps {
