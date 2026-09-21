@@ -44,6 +44,30 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Configuration",
+    href: "/setup",
+    items: [
+      {
+        label: "Company & Work Policy",
+        href: "/setup/company-setup",
+        icon: Building2,
+        requiredModule: "ORG_STRUCTURE",
+      },
+      {
+        label: "Payroll & Compliance Rules",
+        href: "/setup/payroll-rules",
+        icon: Settings,
+        requiredModules: ["FISCAL_YEAR", "TAX_RATES", "PAY_HEADS", "SYSTEM_CONTROL"],
+      },
+      {
+        label: "Holiday Calendar",
+        href: "/setup/holidays",
+        icon: CalendarDays,
+        requiredModule: "HOLIDAYS",
+      },
+    ],
+  },
+  {
     label: "Workforce",
     items: [
       { label: "Employees", href: "/workforce/employees", icon: Users, requiredModule: "EMPLOYEES" },
@@ -98,30 +122,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Loan report", href: "/reports/loan", icon: CreditCard, requiredModule: "REPORTS_LOAN" },
     ],
   },
-  {
-    label: "Configuration",
-    href: "/setup",
-    items: [
-      {
-        label: "Company & Work Policy",
-        href: "/setup/company-setup",
-        icon: Building2,
-        requiredModule: "ORG_STRUCTURE",
-      },
-      {
-        label: "Payroll Rules",
-        href: "/setup/payroll-rules",
-        icon: Settings,
-        requiredModules: ["FISCAL_YEAR", "TAX_RATES", "PAY_HEADS", "SYSTEM_CONTROL"],
-      },
-      {
-        label: "Holiday Calendar",
-        href: "/setup/holidays",
-        icon: CalendarDays,
-        requiredModule: "HOLIDAYS",
-      },
-    ],
-  },
+  
   {
     label: "Administration",
     items: [
