@@ -88,7 +88,6 @@ function Field({ id, label, value, onChange, prefix, suffix, min, max, disabled,
 export function InsuranceDiscountsCard({
   value,
   onChange,
-  isSuperAdmin = false,
 }: InsuranceDiscountsCardProps) {
   return (
     <Card>

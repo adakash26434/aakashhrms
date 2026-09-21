@@ -6,7 +6,7 @@ import { ensureTenantContext } from "@/lib/db";
 import { checkPermission } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
-  title: "Company & Organizational Setup | AakashHRMS",
+  title: "Company & Work Policy | AakashHRMS",
   description:
     "Master setup module for custom Shreni grade levels, branch registries, departments, designations, and Nepal Labour Act parameters.",
 };

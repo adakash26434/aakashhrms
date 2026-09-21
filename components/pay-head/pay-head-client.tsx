@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Plus, Layers, ArrowUpCircle, ArrowDownCircle, ShieldCheck } from "lucide-react";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { KpiStrip, type KpiMetric } from "@/components/layout/kpi-strip";
+import { Button } from "@/components/ui/button";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import { useToast } from "@/components/ui/toast";
 import type { PayHead, PayHeadData, PayHeadFormData, TypeFilter } from "@/lib/types/pay-head";
 import { countByType, filterPayHeads } from "@/lib/engines/pay-head.engine";
 import { createPayHeadAction, updatePayHeadAction, deletePayHeadAction } from "@/app/actions/pay-head.actions";
-import { PayHeadHero } from "./pay-head-hero";
-import { PayHeadKpiCards } from "./pay-head-kpi-cards";
 import { PayHeadSearchAndTabs } from "./pay-head-search-and-tabs";
 import { PayHeadsCard } from "./pay-heads-card";
 import { PayHeadDetailPanel } from "./pay-head-detail-panel";
@@ -17,6 +20,7 @@ import { HowPayHeadsWork } from "./how-pay-heads-work";
 
 interface PayHeadClientProps {
   initialData: PayHeadData;
+  embedded?: boolean;
 }
 
 interface BannerState {
@@ -46,13 +50,12 @@ interface BannerState {
  * service layer — this component is just the orchestrator and
  * the view.
  */
-export function PayHeadClient({ initialData }: PayHeadClientProps) {
+export function PayHeadClient({ initialData, embedded = false }: PayHeadClientProps) {
   // -- Data -----------------------------------------------------------------
 
   const [heads, setHeads] = useState<PayHead[]>(initialData.payHeads);
-   // NEW: Keep departments and designations in state so they update
-  const [departments, setDepartments] = useState(initialData.departments);
-  const [designations, setDesignations] = useState(initialData.designations);
+  const [departments] = useState(initialData.departments);
+  const [designations] = useState(initialData.designations);
 
   // -- Derived maps for fast id → name lookups -----------------------------
 
@@ -200,10 +203,44 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
   }
 
 
+  // -- KPI Metrics --------------------------------------------------------
+  const kpiMetrics: KpiMetric[] = useMemo(
+    () => [
+      {
+        title: "Total Heads",
+        value: `${counts.total} Heads`,
+        subtext: "Master salary components",
+        icon: Layers,
+      },
+      {
+        title: "Allowances (Earnings)",
+        value: `${counts.allowances} Earnings`,
+        subtext: "Taxable & fixed allowances",
+        icon: ArrowUpCircle,
+        badge: "Earnings",
+      },
+      {
+        title: "Deductions",
+        value: `${counts.deductions} Deductions`,
+        subtext: "Salary withholding heads",
+        icon: ArrowDownCircle,
+        badge: "Deductions",
+      },
+      {
+        title: "Statutory Heads",
+        value: `${counts.statutory} Mandatory`,
+        subtext: "Nepal Labour & Tax mandates",
+        icon: ShieldCheck,
+        badge: "Statutory",
+      },
+    ],
+    [counts],
+  );
+
   // -- Render -------------------------------------------------------------
 
-  return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+  const content = (
+    <>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -211,9 +248,40 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
         onDismiss={dismissBanner}
       />
 
-      <PayHeadHero onNew={handleOpenCreate} />
+      {embedded ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-payroll-border/50">
+          <div>
+            <h3 className="text-base font-semibold text-payroll-navy">Pay Heads Configuration</h3>
+            <p className="text-xs text-payroll-slate">Allowance and deduction heads with calculation rules, tax effects, and compliance flags.</p>
+          </div>
+          <Button
+            type="button"
+            onClick={handleOpenCreate}
+            size="md"
+            className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            <span>New Pay Head</span>
+          </Button>
+        </div>
+      ) : (
+        <PageHeader
+          title="Pay Heads Master"
+          description="Configure salary allowance and deduction heads with calculation rules, tax effects, statutory compliance flags, and organizational applicability."
+        >
+          <Button
+            type="button"
+            onClick={handleOpenCreate}
+            size="md"
+            className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            <span>New Pay Head</span>
+          </Button>
+        </PageHeader>
+      )}
 
-      <PayHeadKpiCards counts={counts} />
+      <KpiStrip metrics={kpiMetrics} columns={4} />
 
       <PayHeadSearchAndTabs
         search={search}
@@ -262,6 +330,16 @@ export function PayHeadClient({ initialData }: PayHeadClientProps) {
         onClose={handleCloseDelete}
         onConfirm={handleConfirmDelete}
       />
-    </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return (
+    <PageFrame size="wide" spacing="default">
+      {content}
+    </PageFrame>
   );
 }

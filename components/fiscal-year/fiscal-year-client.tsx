@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { FiscalYearHero } from "./fiscal-year-hero";
+import { useState, useMemo } from "react";
+import { Plus, CalendarDays, Calendar, Lock, CheckCircle2 } from "lucide-react";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { KpiStrip, type KpiMetric } from "@/components/layout/kpi-strip";
+import { Button } from "@/components/ui/button";
+import { DateFormatMenu } from "@/components/ui/date-format-menu";
 import { FiscalYearTable } from "./fiscal-year-table";
 import { FiscalYearFormModal } from "./fiscal-year-form-modal";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
@@ -23,6 +28,7 @@ import {
 
 interface FiscalYearClientProps {
   initialData: FiscalYearData;
+  embedded?: boolean;
 }
 
 /**
@@ -33,7 +39,7 @@ interface FiscalYearClientProps {
  * the repository. Allows making fiscal years Active or Inactive,
  * and unlocking previously locked fiscal years.
  */
-export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
+export function FiscalYearClient({ initialData, embedded = false }: FiscalYearClientProps) {
   const [data, setData] = useState<FiscalYearData>(initialData);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -246,10 +252,48 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
     }
   }
 
+  // -- KPI Metrics --------------------------------------------------------
+  const activeFY = useMemo(
+    () => data.fiscalYears.find((fy) => fy.status === "Active"),
+    [data.fiscalYears],
+  );
+  const lockedCount = useMemo(
+    () => data.fiscalYears.filter((fy) => fy.status === "Locked" || fy.payslipsGenerated).length,
+    [data.fiscalYears],
+  );
+
+  const kpiMetrics: KpiMetric[] = [
+    {
+      title: "Active Fiscal Year",
+      value: activeFY?.label ?? "None Active",
+      subtext: activeFY ? `${activeFY.startDateBS} to ${activeFY.endDateBS}` : "Please activate a cycle",
+      icon: CalendarDays,
+      badge: activeFY ? "Current Active" : "Action Needed",
+    },
+    {
+      title: "Configured Cycles",
+      value: `${data.fiscalYears.length} Total FY`,
+      subtext: "Recorded accounting periods",
+      icon: Calendar,
+    },
+    {
+      title: "Locked Records",
+      value: `${lockedCount} Locked`,
+      subtext: "Protected from payroll changes",
+      icon: Lock,
+    },
+    {
+      title: "Statutory Range",
+      value: "Shrawan – Ashadh",
+      subtext: "Nepal Government standard",
+      icon: CheckCircle2,
+    },
+  ];
+
   // -- Render --------------------------------------------------------------
 
-  return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+  const content = (
+    <>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -257,7 +301,44 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
         onDismiss={dismissBanner}
       />
 
-      <FiscalYearHero onCreate={handleOpenCreate} />
+      {embedded ? (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
+          <div>
+            <h2 className="text-base font-bold text-payroll-navy">Fiscal Year Cycles</h2>
+            <p className="text-xs text-muted-foreground">Manage Bikram Sambat fiscal years and accounting period locks.</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <DateFormatMenu size="md" />
+            <Button
+              onClick={handleOpenCreate}
+              size="md"
+              className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span>New Fiscal Year</span>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <PageHeader
+          title="Fiscal Year Setup"
+          description="Manage Bikram Sambat fiscal years and accounting cycle parameters. Historical records are protected once payslips are generated."
+        >
+          <div className="flex items-center gap-2">
+            <DateFormatMenu size="md" />
+            <Button
+              onClick={handleOpenCreate}
+              size="md"
+              className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span>New Fiscal Year</span>
+            </Button>
+          </div>
+        </PageHeader>
+      )}
+
+      <KpiStrip metrics={kpiMetrics} columns={4} />
 
       <FiscalYearTable
         fiscalYears={data.fiscalYears}
@@ -288,6 +369,16 @@ export function FiscalYearClient({ initialData }: FiscalYearClientProps) {
         onClose={handleCloseUnlock}
         onConfirm={handleConfirmUnlock}
       />
-    </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return (
+    <PageFrame size="wide" spacing="default">
+      {content}
+    </PageFrame>
   );
 }

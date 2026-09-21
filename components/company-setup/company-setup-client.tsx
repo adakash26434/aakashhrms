@@ -1,18 +1,14 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Building2,
   Layers,
-  Users,
-  Briefcase,
   FileBadge2,
   Clock,
-  Settings2,
-  ChevronRight,
   ShieldCheck,
-  CheckCircle2,
   Search,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CompanyMasterSetupData } from "@/lib/types/company-setup";
@@ -20,13 +16,19 @@ import type { Department, DepartmentFormData } from "@/lib/types/department";
 import type { Designation, DesignationFormData } from "@/lib/types/designation";
 import type { Branch, BranchFormData } from "@/lib/types/branch";
 
+// Shared Layout Primitives
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+
 // Sub-components
 import { ShreniManagerTab } from "./shreni-manager-tab";
 import { EmploymentTypesTab } from "./employment-types-tab";
 import { WorkScheduleTab } from "./work-schedule-tab";
 import { CompanyProfileTab } from "./company-profile-tab";
+import { OrganizationShortcutsCard } from "./organization-shortcuts-card";
+import { LegacyOrgTabNotice } from "./legacy-org-tab-notice";
 
-// Reusable Department / Branch / Designation Components
+// Reusable Department / Branch / Designation Components (for backward-compatible tab views)
 import { DepartmentsCard } from "@/components/department/departments-card";
 import { DepartmentDetailPanel } from "@/components/department/department-detail-panel";
 import { DepartmentFormModal } from "@/components/department/department-form-modal";
@@ -60,22 +62,24 @@ import {
 import { useToast } from "@/components/ui/toast";
 
 export type MasterSetupTab =
+  | "company_profile"
+  | "work_schedule"
+  | "employment_types"
   | "shreni"
+  | "organization"
   | "branches"
   | "departments"
-  | "designations"
-  | "employment_types"
-  | "work_schedule"
-  | "company_profile";
+  | "designations";
 
 const VALID_TABS: MasterSetupTab[] = [
+  "company_profile",
+  "work_schedule",
+  "employment_types",
   "shreni",
+  "organization",
   "branches",
   "departments",
   "designations",
-  "employment_types",
-  "work_schedule",
-  "company_profile",
 ];
 
 interface CompanySetupClientProps {
@@ -89,18 +93,8 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
     if (initialTab && VALID_TABS.includes(initialTab as MasterSetupTab)) {
       return initialTab as MasterSetupTab;
     }
-    return "shreni";
+    return "company_profile";
   });
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab");
-      if (tab && VALID_TABS.includes(tab as MasterSetupTab)) {
-        setActiveTab(tab as MasterSetupTab);
-      }
-    }
-  }, []);
 
   const handleTabClick = (tabId: MasterSetupTab) => {
     setActiveTab(tabId);
@@ -120,23 +114,21 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
   const [workSchedule, setWorkSchedule] = useState(initialData.workSchedule);
   const [companyProfile, setCompanyProfile] = useState(initialData.companyProfile);
 
-  // Departments UI State
+  // Departments UI State (for backward-compatible view)
   const [deptSearch, setDeptSearch] = useState("");
-  const [deptBranchFilter, setDeptBranchFilter] = useState("");
   const [viewingDept, setViewingDept] = useState<Department | null>(null);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [isDeptFormOpen, setIsDeptFormOpen] = useState(false);
   const [deletingDept, setDeletingDept] = useState<Department | null>(null);
 
-  // Designations UI State
+  // Designations UI State (for backward-compatible view)
   const [desigSearch, setDesigSearch] = useState("");
-  const [desigDeptFilter, setDesigDeptFilter] = useState("");
   const [viewingDesig, setViewingDesig] = useState<Designation | null>(null);
   const [editingDesig, setEditingDesig] = useState<Designation | null>(null);
   const [isDesigFormOpen, setIsDesigFormOpen] = useState(false);
   const [deletingDesig, setDeletingDesig] = useState<Designation | null>(null);
 
-  // Branches UI State
+  // Branches UI State (for backward-compatible view)
   const [branchSearch, setBranchSearch] = useState("");
   const [viewingBranch, setViewingBranch] = useState<Branch | null>(null);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
@@ -167,24 +159,18 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
   }, [branches, branchSearch]);
 
   const filteredDepartments = useMemo(() => {
-    return departments.filter((d) => {
-      const matchesBranch = !deptBranchFilter || d.branchId === deptBranchFilter;
-      const matchesSearch =
-        !deptSearch.trim() ||
-        d.name.toLowerCase().includes(deptSearch.toLowerCase()) ||
-        d.code.toLowerCase().includes(deptSearch.toLowerCase());
-      return matchesBranch && matchesSearch;
-    });
-  }, [departments, deptBranchFilter, deptSearch]);
+    if (!deptSearch.trim()) return departments;
+    const q = deptSearch.toLowerCase();
+    return departments.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q)
+    );
+  }, [departments, deptSearch]);
 
   const filteredDesignations = useMemo(() => {
-    return designations.filter((d) => {
-      const matchesDept = !desigDeptFilter || d.departmentId === desigDeptFilter;
-      const matchesSearch =
-        !desigSearch.trim() || d.name.toLowerCase().includes(desigSearch.toLowerCase());
-      return matchesDept && matchesSearch;
-    });
-  }, [designations, desigDeptFilter, desigSearch]);
+    if (!desigSearch.trim()) return designations;
+    const q = desigSearch.toLowerCase();
+    return designations.filter((d) => d.name.toLowerCase().includes(q));
+  }, [designations, desigSearch]);
 
   // Department Actions
   async function handleSubmitDept(payload: DepartmentFormData) {
@@ -321,78 +307,121 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
     }
   }
 
-  // Tabs metadata
-  const TABS = [
-    { id: "shreni" as MasterSetupTab, label: "Shreni / Grade Levels", labelNepali: "तह / श्रेणी", count: shreniLevels.length, icon: Layers },
-    { id: "branches" as MasterSetupTab, label: "Branches", labelNepali: "शाखा", count: branches.length, icon: Users },
-    { id: "departments" as MasterSetupTab, label: "Departments", labelNepali: "विभाग", count: departments.length, icon: Building2 },
-    { id: "designations" as MasterSetupTab, label: "Designations", labelNepali: "पद", count: designations.length, icon: Briefcase },
-    { id: "employment_types" as MasterSetupTab, label: "Employment Types", labelNepali: "रोजगार प्रकार", count: employmentTypes.length, icon: FileBadge2 },
-    { id: "work_schedule" as MasterSetupTab, label: "Work Timing & Shifts", labelNepali: "कार्य समय", count: `${workSchedule.workingDaysPerWeek}d`, icon: Clock },
-    { id: "company_profile" as MasterSetupTab, label: "Company Profile", labelNepali: "संस्था विवरण", count: null, icon: Settings2 },
+  // Clean 5 Primary Sections (Section 6.2 of Guide)
+  const PRIMARY_SECTIONS = [
+    {
+      id: "company_profile" as MasterSetupTab,
+      label: "Company Profile",
+      sublabel: "Legal Identity & Signatories",
+      icon: Building2,
+      count: null,
+    },
+    {
+      id: "work_schedule" as MasterSetupTab,
+      label: "Work Schedule",
+      sublabel: "Timing & Shifts",
+      icon: Clock,
+      count: `${workSchedule.workingDaysPerWeek}d`,
+    },
+    {
+      id: "employment_types" as MasterSetupTab,
+      label: "Employment Types",
+      sublabel: "Contracts & Eligibility",
+      icon: FileBadge2,
+      count: employmentTypes.length,
+    },
+    {
+      id: "shreni" as MasterSetupTab,
+      label: "Shreni Levels",
+      sublabel: "Grade Ladders & Bands",
+      icon: Layers,
+      count: shreniLevels.length,
+    },
+    {
+      id: "organization" as MasterSetupTab,
+      label: "Organization Shortcuts",
+      sublabel: "Branches, Depts, Desigs",
+      icon: Network,
+      count: branches.length + departments.length + designations.length,
+    },
   ];
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 uppercase tracking-wider">
-            <span>Configuration &amp; Administration</span>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            <span>Master Setup</span>
-          </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-            Company &amp; Organizational Setup (संस्थागत मास्टर सेटअप)
-          </h1>
-          <p className="mt-1 text-xs text-slate-500">
-            Configure internal organizational structures, custom Shreni grade levels, branch registries, and Labour Act parameters for {companyProfile.displayName || companyProfile.legalName}.
-          </p>
-        </div>
+  const isLegacyOrgTab =
+    activeTab === "branches" ||
+    activeTab === "departments" ||
+    activeTab === "designations";
 
+  return (
+    <PageFrame size="wide" spacing="default">
+      {/* Page Header */}
+      <PageHeader
+        title="Company & Work Policy"
+        description={`Master configuration for legal identity, work rules, employment classifications, and policy parameters for ${companyProfile.displayName || companyProfile.legalName}.`}
+      >
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-cream px-3 py-1 text-xs font-bold text-payroll-primary border border-payroll-primary/20">
             <ShieldCheck className="h-3.5 w-3.5" />
             <span>Nepal Labour Act Compliant</span>
           </span>
         </div>
+      </PageHeader>
+
+      {/* Context Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-payroll-light bg-payroll-cream/40 px-4 py-2.5 text-xs text-payroll-navy shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-bold text-payroll-navy">
+            {companyProfile.displayName || companyProfile.legalName}
+          </span>
+          <span className="text-gray-300">·</span>
+          <span className="text-gray-600 font-mono text-[11px]">
+            {companyProfile.panVatNumber ? `PAN: ${companyProfile.panVatNumber}` : "No PAN"}
+          </span>
+          <span className="text-gray-300">·</span>
+          <span className="text-gray-600 font-mono text-[11px]">
+            Industry: {companyProfile.industryType || "General"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-payroll-primary">
+          <span>Schedule: {workSchedule.workingDaysPerWeek}d/wk ({workSchedule.coreStartTime} - {workSchedule.coreEndTime})</span>
+        </div>
       </div>
 
-      {/* Segmented Tab Bar */}
+      {/* Primary Section Navigation Tabs */}
       <div className="overflow-x-auto pb-1">
         <div
           role="tablist"
-          className="inline-flex min-w-full sm:min-w-0 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs gap-1"
+          className="inline-flex min-w-full sm:min-w-0 rounded-xl border border-payroll-light bg-white p-1 shadow-2xs gap-1"
         >
-          {TABS.map((t) => {
-            const isActive = t.id === activeTab;
-            const Icon = t.icon;
+          {PRIMARY_SECTIONS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
             return (
               <button
-                key={t.id}
+                key={tab.id}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => handleTabClick(t.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold cursor-pointer transition-all whitespace-nowrap",
+                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold cursor-pointer transition-all whitespace-nowrap select-none",
                   isActive
-                    ? "bg-[#1e7e47] text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-payroll-primary text-white shadow-xs"
+                    : "text-gray-600 hover:bg-payroll-cream/50 hover:text-payroll-navy"
                 )}
               >
-                <Icon className="h-4 w-4" />
-                <span>{t.label}</span>
-                {t.count !== null && (
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{tab.label}</span>
+                {tab.count !== null && (
                   <span
                     className={cn(
                       "rounded-md px-1.5 py-0.2 text-[10px] font-mono font-bold",
                       isActive
                         ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-700"
+                        : "bg-payroll-cream text-payroll-navy border border-payroll-light/70"
                     )}
                   >
-                    {t.count}
+                    {tab.count}
                   </span>
                 )}
               </button>
@@ -401,29 +430,17 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
         </div>
       </div>
 
-      {/* Tab Panels */}
-      <div>
-        {activeTab === "shreni" && (
-          <ShreniManagerTab
-            levels={shreniLevels}
-            onLevelsChange={(updated) => setShreniLevels(updated)}
-          />
-        )}
+      {/* Backward-Compatibility Transition Banner if old query tab is active */}
+      {isLegacyOrgTab && (
+        <LegacyOrgTabNotice
+          entityType={activeTab}
+          onBackToCompanySetup={() => handleTabClick("company_profile")}
+        />
+      )}
 
-        {activeTab === "employment_types" && (
-          <EmploymentTypesTab
-            types={employmentTypes}
-            onTypesChange={(updated) => setEmploymentTypes(updated)}
-          />
-        )}
-
-        {activeTab === "work_schedule" && (
-          <WorkScheduleTab
-            schedule={workSchedule}
-            onScheduleChange={(updated) => setWorkSchedule(updated)}
-          />
-        )}
-
+      {/* Main Tab Panels */}
+      <div className="space-y-6">
+        {/* Section 1: Company Profile */}
         {activeTab === "company_profile" && (
           <CompanyProfileTab
             profile={companyProfile}
@@ -431,26 +448,60 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
           />
         )}
 
+        {/* Section 2: Work Schedule */}
+        {activeTab === "work_schedule" && (
+          <WorkScheduleTab
+            schedule={workSchedule}
+            onScheduleChange={(updated) => setWorkSchedule(updated)}
+          />
+        )}
+
+        {/* Section 3: Employment Types */}
+        {activeTab === "employment_types" && (
+          <EmploymentTypesTab
+            types={employmentTypes}
+            onTypesChange={(updated) => setEmploymentTypes(updated)}
+          />
+        )}
+
+        {/* Section 4: Shreni Levels */}
+        {activeTab === "shreni" && (
+          <ShreniManagerTab
+            levels={shreniLevels}
+            onLevelsChange={(updated) => setShreniLevels(updated)}
+          />
+        )}
+
+        {/* Section 5: Organization Shortcuts */}
+        {activeTab === "organization" && (
+          <OrganizationShortcutsCard
+            branches={branches}
+            departments={departments}
+            designations={designations}
+          />
+        )}
+
+        {/* Backward Compatibility View: Branches */}
         {activeTab === "branches" && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Branches &amp; Office Locations (शाखा तथा कार्यालयहरू)
+                <h3 className="text-sm font-bold text-payroll-navy">
+                  Branches &amp; Office Locations
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Manage physical branch locations, regional offices, and head office branch assignment.
+                <p className="text-xs text-gray-500">
+                  Manage physical branch locations and head office assignment.
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search branches..."
                     value={branchSearch}
                     onChange={(e) => setBranchSearch(e.target.value)}
-                    className="h-8.5 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="h-8.5 w-56 rounded-lg border border-payroll-light bg-white pl-8 pr-3 text-xs text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none"
                   />
                 </div>
                 <button
@@ -459,7 +510,7 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
                     setEditingBranch(null);
                     setIsBranchFormOpen(true);
                   }}
-                  className="h-8.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  className="h-8.5 px-3 rounded-lg bg-payroll-primary hover:bg-payroll-navy text-white text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
                   <span>+ Add Branch</span>
                 </button>
@@ -477,49 +528,36 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
           </div>
         )}
 
+        {/* Backward Compatibility View: Departments */}
         {activeTab === "departments" && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Departments &amp; Functional Units (विभागहरू)
+                <h3 className="text-sm font-bold text-payroll-navy">
+                  Departments &amp; Units
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Configure corporate departments, assign branch locations, and map lead personnel.
+                <p className="text-xs text-gray-500">
+                  Manage organizational units and branch associations.
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search departments..."
                     value={deptSearch}
                     onChange={(e) => setDeptSearch(e.target.value)}
-                    className="h-8.5 w-48 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="h-8.5 w-56 rounded-lg border border-payroll-light bg-white pl-8 pr-3 text-xs text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none"
                   />
                 </div>
-                {branches.length > 1 && (
-                  <select
-                    value={deptBranchFilter}
-                    onChange={(e) => setDeptBranchFilter(e.target.value)}
-                    className="h-8.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="">All Branches</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
                 <button
                   type="button"
                   onClick={() => {
                     setEditingDept(null);
                     setIsDeptFormOpen(true);
                   }}
-                  className="h-8.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  className="h-8.5 px-3 rounded-lg bg-payroll-primary hover:bg-payroll-navy text-white text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
                   <span>+ Add Department</span>
                 </button>
@@ -538,49 +576,36 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
           </div>
         )}
 
+        {/* Backward Compatibility View: Designations */}
         {activeTab === "designations" && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Designations &amp; Job Roles (पद तथा ओहोदाहरू)
+                <h3 className="text-sm font-bold text-payroll-navy">
+                  Job Designations &amp; Roles
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Define job titles and map them to their parent department.
+                <p className="text-xs text-gray-500">
+                  Manage standard job titles and department assignments.
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search designations..."
                     value={desigSearch}
                     onChange={(e) => setDesigSearch(e.target.value)}
-                    className="h-8.5 w-48 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="h-8.5 w-56 rounded-lg border border-payroll-light bg-white pl-8 pr-3 text-xs text-payroll-navy placeholder:text-gray-400 focus:border-payroll-primary focus:outline-none"
                   />
                 </div>
-                {departments.length > 0 && (
-                  <select
-                    value={desigDeptFilter}
-                    onChange={(e) => setDesigDeptFilter(e.target.value)}
-                    className="h-8.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="">All Departments</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
                 <button
                   type="button"
                   onClick={() => {
                     setEditingDesig(null);
                     setIsDesigFormOpen(true);
                   }}
-                  className="h-8.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  className="h-8.5 px-3 rounded-lg bg-payroll-primary hover:bg-payroll-navy text-white text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
                   <span>+ Add Designation</span>
                 </button>
@@ -600,7 +625,7 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
         )}
       </div>
 
-      {/* Modals & Panels for Departments */}
+      {/* Modals & Panels for Departments (Backward Compatibility) */}
       {viewingDept && (
         <DepartmentDetailPanel
           open={Boolean(viewingDept)}
@@ -634,7 +659,7 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
         />
       )}
 
-      {/* Modals & Panels for Designations */}
+      {/* Modals & Panels for Designations (Backward Compatibility) */}
       {viewingDesig && (
         <DesignationDetailPanel
           open={Boolean(viewingDesig)}
@@ -668,7 +693,7 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
         />
       )}
 
-      {/* Modals & Panels for Branches */}
+      {/* Modals & Panels for Branches (Backward Compatibility) */}
       {viewingBranch && (
         <BranchDetailPanel
           open={Boolean(viewingBranch)}
@@ -699,6 +724,6 @@ export function CompanySetupClient({ initialData, initialTab }: CompanySetupClie
           onConfirm={handleDeleteBranch}
         />
       )}
-    </div>
+    </PageFrame>
   );
 }

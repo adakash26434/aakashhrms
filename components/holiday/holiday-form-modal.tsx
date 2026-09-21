@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { BSDatePicker } from "@/components/ui/bs-date-picker";
@@ -216,10 +216,10 @@ export function HolidayFormModal({
                 }
                 placeholder="e.g. Dashain"
                 className={cn(
-                  "h-9 w-full rounded-lg border bg-white px-3 text-sm text-[#1b3a1f] focus:outline-none focus:ring-1",
+                  "h-9 w-full rounded-lg border bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1",
                   errors.name
                     ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                    : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-[#2e7d32]",
+                    : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
                 )}
               />
             </Field>
@@ -238,7 +238,7 @@ export function HolidayFormModal({
                     onClick={toggle}
                     aria-haspopup="listbox"
                     aria-expanded={open}
-                    className="h-9 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] flex items-center justify-between"
+                    className="h-9 w-full rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary flex items-center justify-between"
                   >
                     <span className="flex-1 text-left">
                       {selected?.label ?? "Select category"}
@@ -397,14 +397,14 @@ function CheckboxPill({
       className={cn(
         "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors min-w-0",
         checked
-          ? "border-[#2e7d32]/40 bg-green-50/60 text-[#1b3a1f]"
-          : "border-[#d7e8d0] bg-white text-[#1b3a1f] hover:bg-[#f6faf6]",
+          ? "border-payroll-primary/40 bg-green-50/60 text-payroll-navy"
+          : "border-payroll-light bg-white text-payroll-navy hover:bg-payroll-cream",
       )}
     >
       <span
         className={cn(
           "relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-          checked ? "border-[#2e7d32] bg-[#2e7d32]" : "border-gray-300 bg-white",
+          checked ? "border-payroll-primary bg-payroll-primary" : "border-gray-300 bg-white",
         )}
         aria-hidden
       >

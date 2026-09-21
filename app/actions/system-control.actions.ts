@@ -5,8 +5,6 @@ import * as scService from '@/lib/services/system-control.service';
 import { revalidatePath } from 'next/cache';
 import type { SystemControlData } from '@/lib/types/system-control';
 import { checkPermission } from '@/lib/auth/check-permission';
-import { getImpersonationSession } from '@/lib/platform/impersonation';
-import { verifyPlatformSession } from '@/lib/platform/auth';
 
 export async function saveSystemControlAction(data: SystemControlData) {
   await ensureTenantContext();
@@ -20,6 +18,7 @@ export async function saveSystemControlAction(data: SystemControlData) {
 
     const result = await scService.saveSystemControlSettings(data);
     revalidatePath('/setup/system-control');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {

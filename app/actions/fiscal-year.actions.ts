@@ -12,6 +12,7 @@ export async function createFiscalYearAction(data: FiscalYearFormData) {
     await checkPermission('EDIT', 'FISCAL_YEAR');
     const result = await fyService.createFiscalYear(data);
     revalidatePath('/setup/fiscal-year');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -30,6 +31,7 @@ export async function updateFiscalYearAction(id: string, data: FiscalYearFormDat
     await checkPermission('EDIT', 'FISCAL_YEAR');
     const result = await fyService.updateFiscalYear(id, data);
     revalidatePath('/setup/fiscal-year');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -48,6 +50,7 @@ export async function deleteFiscalYearAction(id: string) {
     await checkPermission('EDIT', 'FISCAL_YEAR');
     await fyService.deleteFiscalYear(id);
     revalidatePath('/setup/fiscal-year');
+    revalidatePath('/setup/payroll-rules');
     return { success: true };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -63,6 +66,7 @@ export async function setFiscalYearStatusAction(id: string, status: "Active" | "
     await checkPermission('EDIT', 'FISCAL_YEAR');
     const result = await fyService.setFiscalYearStatus(id, status);
     revalidatePath('/setup/fiscal-year');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -78,6 +82,7 @@ export async function unlockFiscalYearAction(id: string, newStatus: "Active" | "
     await checkPermission('EDIT', 'FISCAL_YEAR');
     const result = await fyService.unlockFiscalYear(id, newStatus);
     revalidatePath('/setup/fiscal-year');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -94,6 +99,7 @@ export async function lockFiscalYearAction(id: string) {
     await checkPermission('EDIT', 'FISCAL_YEAR');
     const result = await fyService.lockFiscalYear(id);
     revalidatePath('/setup/fiscal-year');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {

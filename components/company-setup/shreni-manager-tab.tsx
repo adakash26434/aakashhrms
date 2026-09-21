@@ -8,13 +8,9 @@ import {
   Sparkles,
   Edit2,
   Trash2,
-  CheckCircle2,
   AlertCircle,
-  HelpCircle,
   Download,
   Info,
-  ChevronRight,
-  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";

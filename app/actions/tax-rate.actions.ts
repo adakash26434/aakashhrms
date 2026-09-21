@@ -23,6 +23,7 @@ export async function createTaxSlabAction(payload: { fiscalYearId: string; categ
     await checkPermission('EDIT', 'TAX_RATES');
     const result = await service.createSlab(payload);
     revalidatePath('/setup/tax-rates');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -41,6 +42,7 @@ export async function updateTaxSlabAction(id: string, payload: TaxSlabFormData) 
     await checkPermission('EDIT', 'TAX_RATES');
     const result = await service.updateSlab(id, payload);
     revalidatePath('/setup/tax-rates');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -59,6 +61,7 @@ export async function deleteTaxSlabAction(id: string) {
     await checkPermission('EDIT', 'TAX_RATES');
     await service.deleteSlab(id);
     revalidatePath('/setup/tax-rates');
+    revalidatePath('/setup/payroll-rules');
     return { success: true };
   } catch (error: unknown) {
     if (error instanceof Error) {

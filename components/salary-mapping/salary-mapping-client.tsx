@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Upload, Download, UserMinus } from "lucide-react";
+import { Plus, Upload, UserMinus } from "lucide-react";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -27,7 +27,9 @@ import { SalaryMappingFormModal } from "./salary-mapping-form-modal";
 import { SalaryMappingDetailPanel } from "./salary-mapping-detail-panel";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { SalaryMappingBulkActions } from "./salary-mapping-bulk-actions";
-import { Card } from "@/components/ui/card";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { TableShell } from "@/components/ui/table-shell";
 
 interface SalaryMappingClientProps {
   initialData: SalaryMappingData;
@@ -298,7 +300,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
   }
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <PageFrame size="wide" spacing="default">
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -306,33 +308,25 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         onDismiss={dismissBanner}
       />
 
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-payroll-navy">
-            Salary Mapping
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Define employee salary structures — basic salary, grade %,
-            allowances, deductions, and loan deductions.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
-            <Upload className="h-4 w-4" />
-            Bulk
-          </Button>
-          <Button
-            onClick={() => {
-              setEditingMappingId(null);
-              setIsFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Mapping
-          </Button>
-        </div>
-      </div>
+      {/* Standard PageHeader */}
+      <PageHeader
+        title="Salary Structure"
+        description="Define employee salary structures — basic salary, grade %, allowances, deductions, and loan deductions."
+      >
+        <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
+          <Upload className="h-4 w-4" />
+          Bulk
+        </Button>
+        <Button
+          onClick={() => {
+            setEditingMappingId(null);
+            setIsFormOpen(true);
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Add Mapping
+        </Button>
+      </PageHeader>
 
       {/* KPI Cards */}
       <SalaryMappingKPIsGrid kpis={kpis} />
@@ -347,18 +341,19 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         onChange={handleTabChange}
       />
 
-      {/* Filters */}
-      <Card className="overflow-hidden">
-        <div className="space-y-4 border-b border-payroll-light/80 p-5">
+      {/* Table Shell with Filters and Table */}
+      <TableShell
+        totalCount={activeTab === "unmapped" ? unmappedEmployees.length : mappings.length}
+        filteredCount={activeTab === "unmapped" ? filteredUnmapped.length : filteredMappings.length}
+        toolbar={
           <SalaryMappingFilters
             filter={filter}
             setFilter={setFilter}
             departments={initialData.departments}
             branches={initialData.branches}
           />
-        </div>
-
-        {/* Table — show mappings or unmapped employees based on tab */}
+        }
+      >
         {activeTab === "unmapped" ? (
           <UnmappedEmployeesTable
             employees={filteredUnmapped}
@@ -379,7 +374,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
             onDelete={handleDeleteMapping}
           />
         )}
-      </Card>
+      </TableShell>
 
       {/* Detail Panel */}
       <SalaryMappingDetailPanel
@@ -447,7 +442,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
           showBanner("Bulk salary mappings updated successfully");
         }}
       />
-    </div>
+    </PageFrame>
   );
 }
 

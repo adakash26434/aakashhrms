@@ -23,6 +23,7 @@ export async function createPayHeadAction(data: PayHeadFormData) {
     await checkPermission('ADD', 'PAY_HEADS');
     const result = await phService.createPayHead(data);
     revalidatePath('/setup/pay-heads');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -41,6 +42,7 @@ export async function updatePayHeadAction(id: string, data: PayHeadFormData) {
     await checkPermission('EDIT', 'PAY_HEADS');
     const result = await phService.updatePayHead(id, data);
     revalidatePath('/setup/pay-heads');
+    revalidatePath('/setup/payroll-rules');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -59,6 +61,7 @@ export async function deletePayHeadAction(id: string) {
     await checkPermission('DELETE', 'PAY_HEADS');
     await phService.deletePayHead(id);
     revalidatePath('/setup/pay-heads');
+    revalidatePath('/setup/payroll-rules');
     return { success: true };
   } catch (error: unknown) {
     if (error instanceof Error) {

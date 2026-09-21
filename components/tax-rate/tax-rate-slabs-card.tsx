@@ -1,7 +1,7 @@
 "use client";
 
-import { Plus, Percent } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Plus } from "lucide-react";
+import { TableShell } from "@/components/ui/table-shell";
 import { Button } from "@/components/ui/button";
 import { TaxRateSlabsTable } from "./tax-rate-slabs-table";
 import type { TaxCategory, TaxSlab } from "@/lib/types/tax-rate";
@@ -20,14 +20,6 @@ interface TaxRateSlabsCardProps {
 const LOCKED_NEW_SLAB_TOOLTIP =
   "Payslips have been generated for this fiscal year — adding new slabs is disabled.";
 
-/**
- * The "card" wrapper for one category's slabs. Matches the screenshot:
- * a single rounded card with a header row (icon + category name +
- * "Tax slabs for FY 2081/82" subtitle + New Slab button) and a table
- * of slabs beneath.
- *
- * Presentational: state/handlers come from the parent client component.
- */
 export function TaxRateSlabsCard({
   category,
   fiscalYearLabel,
@@ -38,45 +30,32 @@ export function TaxRateSlabsCard({
   onDelete,
 }: TaxRateSlabsCardProps) {
   return (
-    <Card className="overflow-hidden">
-      {/* Header row: icon, category name + subtitle, New Slab button */}
-      <div className="flex flex-col gap-3 border-b border-[#d7e8d0]/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#d7e8d0]/70">
-            <Percent className="h-5 w-5 text-[#2e7d32]" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-[#1b3a1f]">
-              {category}
-            </h2>
-            <p className="mt-0.5 text-sm text-gray-500">
-              Tax slabs for{" "}
-              <span className="font-medium text-[#1b3a1f]">
-                {fiscalYearLabel}
-              </span>
-            </p>
-          </div>
-        </div>
-
+    <TableShell
+      title={`${category} — Tax Slabs (${fiscalYearLabel})`}
+      totalCount={slabs.length}
+      actions={
         <Button
           type="button"
           onClick={onAdd}
-          size="md"
+          size="sm"
           disabled={isLocked}
           title={isLocked ? LOCKED_NEW_SLAB_TOOLTIP : undefined}
+          className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
         >
-          <Plus className="h-4 w-4" />
-          New Slab
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          <span>New Slab</span>
         </Button>
-      </div>
-
-      {/* Slab table */}
+      }
+      isEmpty={slabs.length === 0}
+      emptyTitle={`No tax slabs for ${category}`}
+      emptyDescription={`No slabs configured for ${fiscalYearLabel}. Click 'New Slab' to add the first progressive bracket.`}
+    >
       <TaxRateSlabsTable
         slabs={slabs}
         isLocked={isLocked}
         onEdit={onEdit}
         onDelete={onDelete}
       />
-    </Card>
+    </TableShell>
   );
 }

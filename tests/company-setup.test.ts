@@ -118,7 +118,7 @@ describe("Company & Organizational Setup Master Module Architecture", () => {
       const workforceHrefs = workforceGroup.items.map((i) => i.href);
       assert.ok(workforceHrefs.includes("/workforce/employees"));
       assert.ok(workforceHrefs.includes("/workforce/salary-mapping"));
-      assert.equal(workforceHrefs.includes("/workforce/departments"), false, "Duplicate departments link must be removed from Workforce");
+      assert.ok(workforceHrefs.includes("/workforce/organization"), "Organization points to /workforce/organization");
     });
 
     it("should ensure Configuration sidebar contains unified Company Setup master hub", async () => {

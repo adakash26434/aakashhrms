@@ -1,8 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { HolidayHero } from "./holiday-hero";
-import { HolidayKpiCards } from "./holiday-kpi-cards";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { KpiStrip, type KpiMetric } from "@/components/layout/kpi-strip";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, type DropdownOption } from "@/components/ui/dropdown-menu";
+import { CalendarDays, Sun, Building2, MapPin, Plus, ChevronDown } from "lucide-react";
 import { HolidaySearch } from "./holiday-search";
 import { HolidayCardsGrid } from "./holiday-cards-grid";
 import { HolidayDetailPanel } from "./holiday-detail-panel";
@@ -12,7 +17,6 @@ import { HowHolidaysWork } from "./how-holidays-work";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import { useToast } from "@/components/ui/toast";
 import type { Holiday, HolidayData, HolidayFormData, CategoryFilter } from "@/lib/types/holiday";
-// REMOVED CategoryFilter since the engine doesn't use it
 import { countHolidays, filterHolidays } from "@/lib/engines/holiday.engine";
 
 // Server Actions
@@ -67,13 +71,65 @@ export function HolidayClient({ initialData }: HolidayClientProps) {
     return m;
   }, [data.branches]);
 
-  // FIX: Only pass what the engine expects!
   const filtered = useMemo(
     () => filterHolidays({ holidays: data.holidays, search, category: categoryFilter }),
     [data.holidays, search, categoryFilter]
   );
 
   const counts = useMemo(() => countHolidays(data.holidays), [data.holidays]);
+
+  const selectedFY = data.fiscalYears?.find((fy) => fy.id === selectedFYId);
+
+  const fyOptions: DropdownOption<string>[] = useMemo(
+    () =>
+      (data.fiscalYears || []).map((fy) => ({
+        value: fy.id,
+        label: fy.label,
+        description: fy.isLocked
+          ? "Locked — payslips have been generated"
+          : "Active — editable",
+        adornment: fy.isLocked ? (
+          <Badge variant="default" className="text-[10px]">
+            Locked
+          </Badge>
+        ) : (
+          <Badge variant="success" className="text-[10px]">
+            Active
+          </Badge>
+        ),
+      })),
+    [data.fiscalYears],
+  );
+
+  const kpiMetrics: KpiMetric[] = useMemo(
+    () => [
+      {
+        title: "Total Holidays",
+        value: counts.total,
+        subtext: "Defined in system",
+        icon: CalendarDays,
+      },
+      {
+        title: "Holiday Days",
+        value: `${counts.totalDays} Days`,
+        subtext: "Total off days",
+        icon: Sun,
+      },
+      {
+        title: "All Branches",
+        value: counts.allBranchCount,
+        subtext: "Nationwide applicability",
+        icon: Building2,
+      },
+      {
+        title: "Branch Specific",
+        value: counts.total - counts.allBranchCount,
+        subtext: "Regional holidays",
+        icon: MapPin,
+      },
+    ],
+    [counts],
+  );
 
   // -- Handlers --
   function handleOpenCreate() {
@@ -161,18 +217,51 @@ export function HolidayClient({ initialData }: HolidayClientProps) {
   }
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+    <PageFrame size="wide" spacing="default">
       <Banner visible={banner.visible} message={banner.message} tone={banner.tone} onDismiss={dismissBanner} />
 
-      <HolidayHero
-        fiscalYears={data.fiscalYears}
-        selectedFYId={selectedFYId}
-        onChangeFY={setSelectedFYId}
-        onNew={handleOpenCreate}
-      />
-      
-      {/* FIX: Removed totalBranches as the component doesn't expect it */}
-      <HolidayKpiCards counts={counts} />
+      <PageHeader
+        title="Holidays Setup"
+        description={`Define festival holidays and calendar events for ${selectedFY?.label ?? "the selected fiscal year"}. All branches or specific branches can be assigned.`}
+      >
+        <div className="flex shrink-0 items-center gap-2">
+          <DropdownMenu<string>
+            value={selectedFYId}
+            onChange={setSelectedFYId}
+            options={fyOptions}
+            ariaLabel="Select fiscal year"
+            minWidth={260}
+            renderTrigger={({ open, selected, triggerRef, toggle }) => (
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={toggle}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-payroll-border bg-white px-3 text-sm font-medium text-payroll-navy shadow-xs transition-colors hover:bg-payroll-light focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+              >
+                <CalendarDays className="h-4 w-4 text-payroll-primary" />
+                <span className="text-muted-foreground">FY</span>
+                <span className="text-sm font-semibold text-payroll-navy">
+                  {selected?.label ?? "Select year"}
+                </span>
+                {selected?.adornment}
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
+                    open ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            )}
+          />
+          <Button type="button" onClick={handleOpenCreate} size="md">
+            <Plus className="h-4 w-4 mr-1.5" />
+            New Holiday
+          </Button>
+        </div>
+      </PageHeader>
+
+      <KpiStrip metrics={kpiMetrics} columns={4} />
 
       <HolidaySearch
         search={search}
@@ -218,6 +307,6 @@ export function HolidayClient({ initialData }: HolidayClientProps) {
         onClose={handleCloseDelete}
         onConfirm={handleConfirmDelete}
       />
-    </div>
+    </PageFrame>
   );
 }

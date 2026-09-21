@@ -56,19 +56,19 @@ export function HolidayCard({
   const days = holidayDayCount(holiday);
 
   return (
-    <div className="group relative flex flex-col rounded-xl border border-[#d7e8d0]/80 bg-white p-5 transition-shadow hover:shadow-sm">
+    <div className="group relative flex flex-col rounded-xl border border-payroll-light/80 bg-white p-5 transition-shadow hover:shadow-sm">
       {/* Header row: icon + name + actions */}
       <div className="flex items-start justify-between gap-3">
         <button
           type="button"
           onClick={() => onView(holiday)}
-          className="flex min-w-0 flex-1 items-start gap-3 rounded-md cursor-pointer text-left transition-colors hover:bg-[#f6faf6] "
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-md cursor-pointer text-left transition-colors hover:bg-payroll-cream "
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 ">
             <CalendarDays className="h-5 w-5 text-amber-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[#1b3a1f]">
+            <p className="truncate text-sm font-semibold text-payroll-navy">
               {holiday.name}
             </p>
             <p className="mt-0.5 text-xs text-gray-500">
@@ -94,7 +94,7 @@ export function HolidayCard({
       </div>
 
       {/* Divider */}
-      <div className="my-3 border-t border-[#d7e8d0]/60" />
+      <div className="my-3 border-t border-payroll-light/60" />
 
       {/* Detail rows */}
       <dl className="space-y-2.5 text-sm">
@@ -102,7 +102,7 @@ export function HolidayCard({
         <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-0.5">
           <dt className="text-xs text-gray-500">Date Range</dt>
           <dd className="min-w-0">
-            <p className="text-[13px] font-medium text-[#1b3a1f] tabular-nums">
+            <p className="text-[13px] font-medium text-payroll-navy tabular-nums">
               {formatDateRange(holiday.startDate, holiday.endDate)}
             </p>
             <DualDateLabel
@@ -121,7 +121,7 @@ export function HolidayCard({
                 "inline-flex rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
                 days > 1
                   ? "bg-green-50 text-green-700"
-                  : "bg-[#d7e8d0]/60 text-[#1b3a1f]",
+                  : "bg-payroll-light/60 text-payroll-navy",
               )}
             >
               {formatDays(days)}
@@ -176,7 +176,7 @@ function ActionButton({
         "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer",
         danger
           ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
-          : "text-gray-500 hover:bg-[#d7e8d0]/60 hover:text-[#2e7d32]",
+          : "text-gray-500 hover:bg-payroll-light/60 hover:text-payroll-primary",
       )}
     >
       {children}
@@ -204,7 +204,7 @@ function DualDateLabel({
   if (!start || !end) {
     return (
       <p className="mt-0.5 text-[11px] text-gray-400 tabular-nums">
-        <span className="mr-1.5 inline-block rounded bg-[#f6faf6] px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+        <span className="mr-1.5 inline-block rounded bg-payroll-cream px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
           AD
         </span>
         —
@@ -213,7 +213,6 @@ function DualDateLabel({
   }
 
   const startAD = formatADDate(start, "short"); // "30 Nov 2024"
-  const endAD = formatADDate(end, "short");
   const sameYear = start.getFullYear() === end.getFullYear();
   // For multi-year ranges (rare but possible) we show the year on both.
   const startStr = sameYear
@@ -223,7 +222,7 @@ function DualDateLabel({
 
   return (
     <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-500 tabular-nums">
-      <span className="inline-block rounded bg-[#f6faf6] px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+      <span className="inline-block rounded bg-payroll-cream px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
         AD
       </span>
       <span>
@@ -236,7 +235,6 @@ function DualDateLabel({
 function BranchesCell({
   ids,
   branchNameById,
-  totalBranchCount,
 }: {
   ids: string[];
   branchNameById: Map<string, string>;
@@ -246,7 +244,7 @@ function BranchesCell({
   if (ids.length === 0) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-[13px] text-[#1b3a1f]">All Branches</span>
+        <span className="text-[13px] text-payroll-navy">All Branches</span>
       </div>
     );
   }
@@ -258,11 +256,11 @@ function BranchesCell({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="truncate text-[13px] text-[#1b3a1f]">
+      <span className="truncate text-[13px] text-payroll-navy">
         {visible.join(", ")}
       </span>
       {overflow > 0 && (
-        <span className="shrink-0 rounded bg-[#d7e8d0]/60 px-1.5 py-0.5 text-[10px] font-semibold text-[#1b3a1f] tabular-nums">
+        <span className="shrink-0 rounded bg-payroll-light/60 px-1.5 py-0.5 text-[10px] font-semibold text-payroll-navy tabular-nums">
           +{overflow}
         </span>
       )}

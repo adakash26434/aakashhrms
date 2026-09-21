@@ -1,17 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Percent } from "lucide-react";
-import { TaxRateHero } from "./tax-rate-hero";
+import { Percent, ChevronDown, Layers, TrendingUp, ListChecks } from "lucide-react";
+import { PageFrame } from "@/components/layout/page-frame";
+import { PageHeader } from "@/components/ui/page-header";
+import { KpiStrip, type KpiMetric } from "@/components/layout/kpi-strip";
+import { DropdownMenu, type DropdownOption } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { TaxRateTabs } from "./tax-rate-tabs";
 import { TaxRateSlabsCard } from "./tax-rate-slabs-card";
-import { TaxRateKpiCards } from "./tax-rate-kpi-cards";
 import { TaxSlabFormModal } from "./tax-slab-form-modal";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import { useToast } from "@/components/ui/toast";
 import {
   TAX_CATEGORIES,
+  formatRateLabel,
   type TaxCategory,
   type TaxRateData,
   type TaxSlab,
@@ -27,6 +31,7 @@ import { createTaxSlabAction, updateTaxSlabAction, deleteTaxSlabAction } from "@
 
 interface TaxRateClientProps {
   initialData: TaxRateData;
+  embedded?: boolean;
 }
 
 interface BannerState {
@@ -35,31 +40,11 @@ interface BannerState {
   tone: BannerTone;
 }
 
-/**
- * Top-level state container for the Tax Rate Setup page.
- *
- * Responsibilities:
- *  - Hold the mutable slab dataset (synced to the repository via the
- *    service after every create/update/delete).
- *  - Track the active fiscal year and category tab.
- *  - Wire the form modal, the delete dialog, and the banner.
- *
- * **Data flow:**
- *   user action → service.createSlab/updateSlab/deleteSlab
- *              → repository (mock today, DB tomorrow)
- *              → optimistic state update on success
- *              → banner message
- *
- * All authorization, validation, and persistence live in the service
- * layer — this component is just the orchestrator and the view.
- */
-export function TaxRateClient({ initialData }: TaxRateClientProps) {
+export function TaxRateClient({ initialData, embedded = false }: TaxRateClientProps) {
   // -- Data -----------------------------------------------------------------
-
   const [slabs, setSlabs] = useState<TaxSlab[]>(initialData.slabs);
 
   // -- Selected fiscal year -------------------------------------------------
-  // Default to the FIRST (newest, non-locked) fiscal year.
   const defaultFYId = useMemo(() => {
     const firstNonLocked = initialData.fiscalYears.find((fy) => !fy.isLocked);
     return (firstNonLocked ?? initialData.fiscalYears[0])?.id ?? "";
@@ -73,13 +58,11 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
   const isLocked = Boolean(selectedFY?.isLocked);
 
   // -- Active category tab --------------------------------------------------
-
   const [activeCategory, setActiveCategory] = useState<TaxCategory>(
     TAX_CATEGORIES[0],
   );
 
   // -- Form modal state -----------------------------------------------------
-
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSlab, setEditingSlab] = useState<TaxSlab | null>(null);
   const [newSlabDefaults, setNewSlabDefaults] = useState<{
@@ -88,11 +71,11 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
     ratePercent: number;
     fixedDeduction: number;
   } | null>(null);
+
   // -- Delete dialog state --------------------------------------------------
-
   const [deletingSlab, setDeletingSlab] = useState<TaxSlab | null>(null);
-
   const [modalKey, setModalKey] = useState<number>(0);
+
   const toast = useToast();
   const [banner, setBanner] = useState<BannerState>({
     visible: false,
@@ -114,7 +97,6 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
   }
 
   // -- Derived: slabs for the active (category, FY) ------------------------
-
   const slabsForActiveCategory = useMemo(
     () =>
       slabs
@@ -126,23 +108,13 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
     [slabs, selectedFYId, activeCategory],
   );
 
-  /**
-   * The "last" (top) slab for the active (category, FY) — used by
-   * the form modal to pre-fill the new slab's `amountFrom` to
-   * `last.amountTo + 1`.
-   */
-  const previousSlab =
-    slabsForActiveCategory[slabsForActiveCategory.length - 1] ?? null;
-
   // -- Derived: slabs for KPI cards (all categories, selected FY) ----------
-
   const slabsForKpi = useMemo(
     () => slabs.filter((s) => s.fiscalYearId === selectedFYId),
     [slabs, selectedFYId],
   );
 
   // -- Derived: per-category "configured" map -------------------------------
-
   const configuredMap = useMemo(() => {
     const out: Partial<Record<TaxCategory, boolean>> = {};
     for (const c of TAX_CATEGORIES) {
@@ -156,20 +128,14 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
   }, [slabs, selectedFYId]);
 
   // -- Form open/close handlers -------------------------------------------
-
- function handleOpenCreate() {
-    // 1. Get all slabs for the CURRENT fiscal year and CURRENT category
+  function handleOpenCreate() {
     const currentLadder = slabs
       .filter((s) => s.fiscalYearId === selectedFYId && s.category === activeCategory)
       .sort((a, b) => a.amountFrom - b.amountFrom);
 
-    // 2. Find the last slab in that specific ladder
     const last = currentLadder.length > 0 ? currentLadder[currentLadder.length - 1] : null;
-
-    // 3. Let the engine calculate the perfect next defaults
     const defaults = buildNextSlabDefaults(last);
     
-    // 4. Save defaults to state and open the modal
     setNewSlabDefaults(defaults);
     setModalKey(Date.now());
     setEditingSlab(null);
@@ -194,7 +160,6 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
   }
 
   // -- Form submit (async — calls the service) -----------------------------
-
   async function handleSubmitForm(payload: TaxSlabFormData) {
     try {
       if (editingSlab) {
@@ -225,10 +190,7 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
     }
   }
 
-
-
   // -- Delete (async — calls the service) ----------------------------------
-
   function handleOpenDelete(slab: TaxSlab) {
     if (isLocked) {
       showBanner(
@@ -244,7 +206,7 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
     setDeletingSlab(null);
   }
 
-    async function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!deletingSlab) return;
     try {
       const result = await deleteTaxSlabAction(deletingSlab.id);
@@ -263,7 +225,6 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
   }
 
   // -- KPI derived values (engine functions) --------------------------------
-
   const highestRate = highestRateForFY({
     slabs,
     fiscalYearId: selectedFYId,
@@ -273,38 +234,94 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
     fiscalYearId: selectedFYId,
   });
 
-  // -- Render -------------------------------------------------------------
+  // -- FY Dropdown Options ------------------------------------------------
+  const fyDropdownOptions: DropdownOption<string>[] = useMemo(
+    () =>
+      initialData.fiscalYears.map((fy) => ({
+        value: fy.id,
+        label: fy.label,
+        description: fy.isLocked
+          ? "Locked — payslips generated"
+          : "Active — editable",
+        adornment: fy.isLocked ? (
+          <Badge variant="default" className="text-[10px]">
+            Locked
+          </Badge>
+        ) : (
+          <Badge variant="success" className="text-[10px]">
+            Active
+          </Badge>
+        ),
+      })),
+    [initialData.fiscalYears],
+  );
 
+  // -- KPI Metrics --------------------------------------------------------
+  const kpiMetrics: KpiMetric[] = useMemo(
+    () => [
+      {
+        title: "Selected Fiscal Year",
+        value: selectedFY?.label ?? "None Selected",
+        subtext: isLocked ? "Locked — payslips generated" : "Active & editable cycle",
+        icon: Percent,
+        badge: isLocked ? "Locked" : "Active",
+      },
+      {
+        title: "Slabs Configured",
+        value: `${slabsForKpi.length} Active Slabs`,
+        subtext: "Across all tax categories",
+        icon: Layers,
+      },
+      {
+        title: "Categories Defined",
+        value: `${configuredCount} of ${TAX_CATEGORIES.length} Categories`,
+        subtext: "Single, Married, and Handicapped",
+        icon: ListChecks,
+        badge: configuredCount === TAX_CATEGORIES.length ? "Complete" : "In Progress",
+      },
+      {
+        title: "Highest Marginal Rate",
+        value: highestRate > 0 ? formatRateLabel(highestRate) : "—",
+        subtext: "Maximum statutory bracket",
+        icon: TrendingUp,
+      },
+    ],
+    [selectedFY, isLocked, slabsForKpi.length, configuredCount, highestRate],
+  );
+
+  // Empty state: no fiscal years exist at all.
   if (initialData.fiscalYears.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl p-6 text-center">
-        <div className="rounded-xl border border-dashed border-payroll-light bg-white p-12 shadow-sm space-y-6">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-payroll-cream">
-            <Percent className="h-8 w-8 text-payroll-primary" />
+      <PageFrame size="wide" spacing="default">
+        <PageHeader
+          title="Tax Rates & Slabs Setup"
+          description="Configure progressive TDS slabs, marginal thresholds, and deduction rates per fiscal year."
+        />
+        <div className="rounded-xl border border-payroll-light bg-white p-12 text-center shadow-xs">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-payroll-cream text-payroll-primary">
+            <Percent className="h-6 w-6" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-payroll-navy">
-              No Fiscal Years Defined
-            </h2>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">
-              Tax rates are configured per fiscal year. You need to create at least one fiscal year before you can set up tax rates.
-            </p>
-          </div>
-          <div>
+          <h2 className="mt-4 text-base font-bold text-payroll-navy">
+            No Fiscal Years Defined
+          </h2>
+          <p className="mt-1 text-xs text-gray-500 max-w-md mx-auto">
+            Tax rates are configured per fiscal year. You need to create at least one fiscal year before you can set up tax rates.
+          </p>
+          <div className="mt-5">
             <a
-              href="/setup/fiscal-year"
-              className="inline-flex items-center justify-center rounded-lg bg-payroll-primary px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-payroll-navy focus:outline-none focus:ring-2 focus:ring-payroll-primary focus:ring-offset-2"
+              href="/setup/payroll-rules?tab=fiscal-year"
+              className="inline-flex items-center justify-center rounded-lg bg-payroll-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-payroll-navy"
             >
               Set Up Fiscal Years
             </a>
           </div>
         </div>
-      </div>
+      </PageFrame>
     );
   }
 
-  return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
+  const content = (
+    <>
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -312,11 +329,84 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
         onDismiss={dismissBanner}
       />
 
-      <TaxRateHero
-        fiscalYears={initialData.fiscalYears}
-        selectedFYId={selectedFYId}
-        onChangeFY={setSelectedFYId}
-      />
+      {embedded ? (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
+          <div>
+            <h2 className="text-base font-bold text-payroll-navy">Progressive Tax Slabs</h2>
+            <p className="text-xs text-muted-foreground">
+              Configure slab-based TDS rates for {selectedFY?.label ?? "the selected fiscal year"} across Normal Single, Married, and Handicapped categories.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <DropdownMenu<string>
+              value={selectedFYId}
+              onChange={setSelectedFYId}
+              options={fyDropdownOptions}
+              ariaLabel="Select fiscal year"
+              minWidth={240}
+              renderTrigger={({ open, selected, triggerRef, toggle }) => (
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  onClick={toggle}
+                  aria-haspopup="listbox"
+                  aria-expanded={open}
+                  className="inline-flex items-center gap-2 rounded-lg border border-payroll-light bg-white px-3 py-2 text-xs font-medium text-payroll-navy shadow-xs transition-colors hover:bg-payroll-cream focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
+                >
+                  <Percent className="h-4 w-4 text-payroll-primary" />
+                  <span className="text-gray-500">FY</span>
+                  <span className="text-xs font-bold text-payroll-navy">
+                    {selected?.label ?? "Select year"}
+                  </span>
+                  {selected?.adornment}
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+                      open ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+              )}
+            />
+          </div>
+        </div>
+      ) : (
+        <PageHeader
+          title="Tax Rates & Slabs Setup"
+          description={`Configure progressive TDS slabs, marginal thresholds, and deduction rates for ${selectedFY?.label ?? "the selected fiscal year"}.`}
+        >
+          <DropdownMenu<string>
+            value={selectedFYId}
+            onChange={setSelectedFYId}
+            options={fyDropdownOptions}
+            ariaLabel="Select fiscal year"
+            minWidth={260}
+            renderTrigger={({ open, selected, triggerRef, toggle }) => (
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={toggle}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                className="inline-flex items-center gap-2 rounded-lg border border-payroll-light bg-white px-3 py-2 text-xs font-medium text-payroll-navy shadow-xs transition-colors hover:bg-payroll-cream focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
+              >
+                <Percent className="h-4 w-4 text-payroll-primary" />
+                <span className="text-gray-500">FY</span>
+                <span className="text-xs font-bold text-payroll-navy">
+                  {selected?.label ?? "Select year"}
+                </span>
+                {selected?.adornment}
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+                    open ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            )}
+          />
+        </PageHeader>
+      )}
+
+      <KpiStrip metrics={kpiMetrics} columns={4} />
 
       <TaxRateTabs
         active={activeCategory}
@@ -334,14 +424,7 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
         onDelete={handleOpenDelete}
       />
 
-      <TaxRateKpiCards
-        slabs={slabsForKpi}
-        highestRate={highestRate}
-        configuredCount={configuredCount}
-        totalCategories={TAX_CATEGORIES.length}
-      />
-
-           <TaxSlabFormModal
+      <TaxSlabFormModal
         key={editingSlab ? `edit-${editingSlab.id}` : `new-${modalKey}`}
         open={isFormOpen}
         editingSlab={editingSlab}
@@ -360,6 +443,16 @@ export function TaxRateClient({ initialData }: TaxRateClientProps) {
         onClose={handleCloseDelete}
         onConfirm={handleConfirmDelete}
       />
-    </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return (
+    <PageFrame size="wide" spacing="default">
+      {content}
+    </PageFrame>
   );
 }

@@ -6,18 +6,13 @@ import {
   Plus,
   Edit2,
   Trash2,
-  ShieldCheck,
   Check,
   X,
   AlertCircle,
-  Clock,
-  CalendarCheck,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 import type { EmploymentType, EmploymentTypeFormData } from "@/lib/types/company-setup";
 import {
   createEmploymentTypeAction,

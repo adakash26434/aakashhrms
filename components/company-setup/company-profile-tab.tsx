@@ -5,24 +5,17 @@ import {
   Building2,
   Save,
   FileText,
-  Phone,
-  Mail,
-  MapPin,
   CheckCircle2,
   Shield,
   Lock,
   Clock,
-  AlertCircle,
   XCircle,
-  ExternalLink,
-  ChevronRight,
   ShieldAlert,
   X,
   Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 import { INDUSTRY_SECTORS, type IndustrySectorKey } from "@/lib/constants/industry-types";
 import type { CompanyProfileSetupData } from "@/lib/types/company-setup";
 import type { Tier1CompanyValues } from "@/lib/platform/company-resolver";
@@ -32,6 +25,23 @@ import {
   cancelCompanyChangeRequestAction,
   getCompanyChangeRequestStatusAction,
 } from "@/app/actions/company-setup.actions";
+
+interface CompanyChangeRequestRecord {
+  id: string;
+  companyId: string;
+  requestedByUserId?: string | null;
+  requestedByUserEmail?: string;
+  status: string;
+  currentValues?: unknown;
+  proposedValues?: unknown;
+  reason?: string;
+  documentReference?: string | null;
+  reviewedByPlatformUserId?: string | null;
+  reviewedAt?: Date | string | null;
+  rejectionReason?: string | null;
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+}
 
 interface CompanyProfileTabProps {
   profile: CompanyProfileSetupData;
@@ -45,8 +55,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
   const [hasChanges, setHasChanges] = useState(false);
 
   // Change request state
-  const [activeRequest, setActiveRequest] = useState<any | null>(null);
-  const [isLoadingRequest, setIsLoadingRequest] = useState(true);
+  const [activeRequest, setActiveRequest] = useState<CompanyChangeRequestRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
@@ -65,7 +74,6 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
   // Load active change request status on mount
   useEffect(() => {
     async function loadStatus() {
-      setIsLoadingRequest(true);
       try {
         const res = await getCompanyChangeRequestStatusAction();
         if (res.success && res.data) {
@@ -75,8 +83,6 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
         }
       } catch (err) {
         console.warn("Failed to check change request status:", err);
-      } finally {
-        setIsLoadingRequest(false);
       }
     }
     loadStatus();
@@ -184,11 +190,13 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 <p className="mt-1 text-xs text-amber-900/80 max-w-2xl">
                   A verification request was submitted by{" "}
                   <strong className="text-amber-950 font-semibold">{activeRequest.requestedByUserEmail}</strong> on{" "}
-                  {new Date(activeRequest.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  {activeRequest.createdAt
+                    ? new Date(activeRequest.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "Recently"}
                   . To protect tax filings and regulatory records, current legal values remain active until reviewed.
                 </p>
                 <div className="mt-2 text-xs text-amber-800/90 font-medium">

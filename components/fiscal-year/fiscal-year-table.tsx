@@ -1,8 +1,7 @@
 "use client";
 
 import { Lock, LockOpen, Power, PowerOff, Pencil, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { TableShell } from "@/components/ui/table-shell";
 import { cn } from "@/lib/utils";
 import { BSDateDisplay } from "@/components/ui/nepali-date";
 import { useDateFormat } from "@/lib/contexts/date-format-context";
@@ -57,218 +56,218 @@ export function FiscalYearTable({
   const isLong = activeFormat === "bs-long" || activeFormat === "ad-long";
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-215 text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60 text-[11px] uppercase tracking-wider text-gray-500">
-                <th scope="col" className="px-5 py-3 font-semibold">
-                  FY
-                </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
-                  {isAD ? "From Month (A.D.)" : "From Month"}
-                </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
-                  {isAD ? "To Month (A.D.)" : "To Month"}
-                </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
-                  {dateRangeColumnHeader(isAD, isLong)}
-                </th>
-                <th scope="col" className="px-5 py-3 font-semibold">
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-5 py-3 text-right font-semibold"
+    <TableShell
+      title="Fiscal Year Records"
+      totalCount={fiscalYears.length}
+      isEmpty={fiscalYears.length === 0}
+      emptyTitle="No fiscal years configured yet"
+      emptyDescription="Click 'New Fiscal Year' above to configure an accounting cycle."
+    >
+      <table className="w-full min-w-215 text-left text-sm">
+        <thead>
+          <tr className="border-b border-payroll-light/80 bg-payroll-cream/40 text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+            <th scope="col" className="px-5 py-3 font-semibold">
+              FY
+            </th>
+            <th scope="col" className="px-5 py-3 font-semibold">
+              {isAD ? "From Month (A.D.)" : "From Month"}
+            </th>
+            <th scope="col" className="px-5 py-3 font-semibold">
+              {isAD ? "To Month (A.D.)" : "To Month"}
+            </th>
+            <th scope="col" className="px-5 py-3 font-semibold">
+              {dateRangeColumnHeader(isAD, isLong)}
+            </th>
+            <th scope="col" className="px-5 py-3 font-semibold">
+              Status
+            </th>
+            <th
+              scope="col"
+              className="px-5 py-3 text-right font-semibold"
+            >
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {fiscalYears.length === 0 ? (
+            <tr>
+              <td
+                colSpan={6}
+                className="px-5 py-10 text-center text-sm text-gray-500"
+              >
+                No fiscal years configured yet. Click{" "}
+                <span className="font-medium text-payroll-navy">
+                  New Fiscal Year
+                </span>{" "}
+                to add one.
+              </td>
+            </tr>
+          ) : (
+            fiscalYears.map((fy) => {
+              const isLocked = fy.status === "Locked" || fy.payslipsGenerated;
+              const isActive = fy.status === "Active" && !isLocked;
+
+              const fromName = isAD
+                ? adMonthName(fy.startDateAD)
+                : bsMonthName(fy.fromMonth);
+              const toName = isAD
+                ? adMonthName(fy.endDateAD)
+                : bsMonthName(fy.toMonth);
+              return (
+                <tr
+                  key={fy.id}
+                  className="border-b border-payroll-light/60 last:border-b-0 transition-colors hover:bg-payroll-cream/40"
                 >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {fiscalYears.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-5 py-10 text-center text-sm text-gray-500"
-                  >
-                    No fiscal years configured yet. Click{" "}
-                    <span className="font-medium text-[#1b3a1f]">
-                      New Fiscal Year
-                    </span>{" "}
-                    to add one.
+                  {/* FY (label + slug) */}
+                  <td className="px-5 py-4 align-middle">
+                    <div className="font-semibold text-payroll-navy">
+                      {fy.label}
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {fy.slug}
+                    </div>
                   </td>
-                </tr>
-              ) : (
-                fiscalYears.map((fy) => {
-                  const isLocked = fy.status === "Locked" || fy.payslipsGenerated;
-                  const isActive = fy.status === "Active" && !isLocked;
-                  const isInactive = fy.status === "Inactive" && !isLocked;
 
-                  const fromName = isAD
-                    ? adMonthName(fy.startDateAD)
-                    : bsMonthName(fy.fromMonth);
-                  const toName = isAD
-                    ? adMonthName(fy.endDateAD)
-                    : bsMonthName(fy.toMonth);
-                  return (
-                    <tr
-                      key={fy.id}
-                      className="border-b border-[#d7e8d0]/60 last:border-b-0 transition-colors hover:bg-[#f6faf6]/40"
-                    >
-                      {/* FY (label + slug) */}
-                      <td className="px-5 py-4 align-middle">
-                        <div className="font-semibold text-[#1b3a1f]">
-                          {fy.label}
-                        </div>
-                        <div className="mt-0.5 text-xs text-gray-500">
-                          {fy.slug}
-                        </div>
-                      </td>
+                  {/* From month */}
+                  <td className="px-5 py-4 align-middle text-payroll-navy">
+                    {fromName}
+                  </td>
 
-                      {/* From month */}
-                      <td className="px-5 py-4 align-middle text-[#1b3a1f]">
-                        {fromName}
-                      </td>
+                  {/* To month */}
+                  <td className="px-5 py-4 align-middle text-payroll-navy">
+                    {toName}
+                  </td>
 
-                      {/* To month */}
-                      <td className="px-5 py-4 align-middle text-[#1b3a1f]">
-                        {toName}
-                      </td>
+                  {/* Date Range — format-aware via BSDateDisplay.
+                      Long variant: regular text, two lines if narrow.
+                      Compact variants: tabular-nums mono on one line. */}
+                  <td className="px-5 py-4 align-middle">
+                    {isLong ? (
+                      <div className="flex flex-col gap-0.5 text-[13px] text-payroll-navy">
+                        <BSDateDisplay
+                          date={fy.startDateAD}
+                          format={activeFormat}
+                        />
+                        <span
+                          className="text-[11px] text-gray-400"
+                          aria-hidden="true"
+                        >
+                          ↓
+                        </span>
+                        <BSDateDisplay
+                          date={fy.endDateAD}
+                          format={activeFormat}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 font-mono text-[13px] tabular-nums text-payroll-navy">
+                        <BSDateDisplay
+                          date={fy.startDateAD}
+                          format={activeFormat}
+                        />
+                        <span className="text-gray-400" aria-hidden="true">
+                          →
+                        </span>
+                        <BSDateDisplay
+                          date={fy.endDateAD}
+                          format={activeFormat}
+                        />
+                      </div>
+                    )}
+                  </td>
 
-                      {/* Date Range — format-aware via BSDateDisplay.
-                          Long variant: regular text, two lines if narrow.
-                          Compact variants: tabular-nums mono on one line. */}
-                      <td className="px-5 py-4 align-middle">
-                        {isLong ? (
-                          <div className="flex flex-col gap-0.5 text-[13px] text-[#1b3a1f]">
-                            <BSDateDisplay
-                              date={fy.startDateAD}
-                              format={activeFormat}
-                            />
-                            <span
-                              className="text-[11px] text-gray-400"
-                              aria-hidden="true"
-                            >
-                              ↓
-                            </span>
-                            <BSDateDisplay
-                              date={fy.endDateAD}
-                              format={activeFormat}
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 font-mono text-[13px] tabular-nums text-[#1b3a1f]">
-                            <BSDateDisplay
-                              date={fy.startDateAD}
-                              format={activeFormat}
-                            />
-                            <span className="text-gray-400" aria-hidden="true">
-                              →
-                            </span>
-                            <BSDateDisplay
-                              date={fy.endDateAD}
-                              format={activeFormat}
-                            />
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-5 py-4 align-middle">
-                        {isLocked ? (
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                              <Lock className="h-3 w-3 text-amber-600" />
-                              Locked
-                            </span>
-                            {onUnlock && (
-                              <button
-                                type="button"
-                                onClick={() => onUnlock(fy)}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
-                              >
-                                <LockOpen className="w-3 h-3" />
-                                Unlock
-                              </button>
-                            )}
-                          </div>
-                        ) : isActive ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-5 py-4 align-middle">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {isLocked && onUnlock && (
-                            <ActionButton
-                              label={`Unlock ${fy.label}`}
-                              tooltip="Unlock this fiscal year to enable edits"
-                              onClick={() => onUnlock(fy)}
-                            >
-                              <LockOpen className="h-3.5 w-3.5 text-emerald-600 hover:text-emerald-700" />
-                            </ActionButton>
-                          )}
-
-                          {!isLocked && onToggleStatus && (
-                            isActive ? (
-                              <ActionButton
-                                label={`Deactivate ${fy.label}`}
-                                tooltip="Set status as Inactive"
-                                onClick={() => onToggleStatus(fy, "Inactive")}
-                              >
-                                <PowerOff className="h-3.5 w-3.5 text-gray-400 hover:text-amber-600" />
-                              </ActionButton>
-                            ) : (
-                              <ActionButton
-                                label={`Activate ${fy.label}`}
-                                tooltip="Set as Active fiscal year"
-                                onClick={() => onToggleStatus(fy, "Active")}
-                              >
-                                <Power className="h-3.5 w-3.5 text-emerald-600 hover:text-emerald-700" />
-                              </ActionButton>
-                            )
-                          )}
-
-                          <ActionButton
-                            label={`Edit ${fy.label}`}
-                            tooltip={isLocked ? LOCKED_TOOLTIP : undefined}
-                            disabled={isLocked}
-                            onClick={() => onEdit(fy)}
+                  {/* Status */}
+                  <td className="px-5 py-4 align-middle">
+                    {isLocked ? (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          <Lock className="h-3 w-3 text-amber-600" />
+                          Locked
+                        </span>
+                        {onUnlock && (
+                          <button
+                            type="button"
+                            onClick={() => onUnlock(fy)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </ActionButton>
-                          <ActionButton
-                            label={`Delete ${fy.label}`}
-                            tooltip={isLocked ? LOCKED_TOOLTIP : undefined}
-                            disabled={isLocked}
-                            onClick={() => onDelete(fy)}
-                            danger
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </ActionButton>
-                        </div>
-                      </td>
+                            <LockOpen className="w-3 h-3" />
+                            Unlock
+                          </button>
+                        )}
+                      </div>
+                    ) : isActive ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                        Inactive
+                      </span>
+                    )}
+                  </td>
 
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
+                  {/* Actions */}
+                  <td className="px-5 py-4 align-middle">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {isLocked && onUnlock && (
+                        <ActionButton
+                          label={`Unlock ${fy.label}`}
+                          tooltip="Unlock this fiscal year to enable edits"
+                          onClick={() => onUnlock(fy)}
+                        >
+                          <LockOpen className="h-3.5 w-3.5 text-emerald-600 hover:text-emerald-700" />
+                        </ActionButton>
+                      )}
+
+                      {!isLocked && onToggleStatus && (
+                        isActive ? (
+                          <ActionButton
+                            label={`Deactivate ${fy.label}`}
+                            tooltip="Set status as Inactive"
+                            onClick={() => onToggleStatus(fy, "Inactive")}
+                          >
+                            <PowerOff className="h-3.5 w-3.5 text-gray-400 hover:text-amber-600" />
+                          </ActionButton>
+                        ) : (
+                          <ActionButton
+                            label={`Activate ${fy.label}`}
+                            tooltip="Set as Active fiscal year"
+                            onClick={() => onToggleStatus(fy, "Active")}
+                          >
+                            <Power className="h-3.5 w-3.5 text-emerald-600 hover:text-emerald-700" />
+                          </ActionButton>
+                        )
+                      )}
+
+                      <ActionButton
+                        label={`Edit ${fy.label}`}
+                        tooltip={isLocked ? LOCKED_TOOLTIP : undefined}
+                        disabled={isLocked}
+                        onClick={() => onEdit(fy)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </ActionButton>
+                      <ActionButton
+                        label={`Delete ${fy.label}`}
+                        tooltip={isLocked ? LOCKED_TOOLTIP : undefined}
+                        disabled={isLocked}
+                        onClick={() => onDelete(fy)}
+                        danger
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </ActionButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+    </TableShell>
   );
 }
 
@@ -303,7 +302,7 @@ function ActionButton({
           ? "cursor-not-allowed text-gray-300"
           : danger
             ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
-            : "text-gray-500 hover:bg-[#d7e8d0]/60 hover:text-[#2e7d32]",
+            : "text-gray-500 hover:bg-payroll-primary/10 hover:text-payroll-primary",
       )}
     >
       {children}

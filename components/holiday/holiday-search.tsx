@@ -57,10 +57,10 @@ export function HolidaySearch({
                 onClick={toggle}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] transition-colors hover:bg-[#f6faf6] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] whitespace-nowrap"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-payroll-border bg-white px-3 text-sm text-payroll-navy transition-colors hover:bg-payroll-light focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary whitespace-nowrap shadow-xs"
               >
-                <Filter className="h-3.5 w-3.5 text-gray-400" />
-                <span className="font-medium text-gray-700">Category:</span>
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="font-medium text-muted-foreground">Category:</span>
                 <span className="font-semibold">{selected?.label ?? "All"}</span>
               </button>
             )}
@@ -69,22 +69,22 @@ export function HolidaySearch({
 
         {/* Search input */}
         <div className="relative w-full">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2e7d32]/50" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search holidays..."
-          className="h-9 w-full rounded-lg border border-[#d7e8d0] bg-white py-2 pl-10 pr-3 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
-        />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-payroll-primary/50" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search holidays..."
+            className="h-9 w-full rounded-lg border border-payroll-border bg-white py-2 pl-10 pr-3 text-sm text-payroll-navy placeholder:text-muted-foreground focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-xs"
+          />
+        </div>
       </div>
-    </div>
 
       {/* Right side: count */}
-      <p className="hidden text-xs text-gray-500 sm:block tabular-nums">
+      <p className="hidden text-xs text-muted-foreground sm:block tabular-nums">
         Showing{" "}
-        <span className="font-semibold text-[#1b3a1f]">{filteredCount}</span>{" "}
-        of <span className="font-semibold text-[#1b3a1f]">{totalCount}</span>{" "}
+        <span className="font-semibold text-payroll-navy">{filteredCount}</span>{" "}
+        of <span className="font-semibold text-payroll-navy">{totalCount}</span>{" "}
         holidays
       </p>
     </div>
