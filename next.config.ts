@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
   // (see experimental.cpus below) takes longer, so give it more headroom.
   staticPageGenerationTimeout: 300,
   experimental: {
+    cpus: 1,
     serverMinification: false,
     optimizePackageImports: [
       "lucide-react",

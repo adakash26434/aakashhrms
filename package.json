@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbo": "next dev --turbo",
-    "build": "next build --debug-prerender",
+    "build": "next build --webpack",
     "postbuild": "node scripts/copy-standalone-assets.js",
     "start": "next start",
     "lint": "eslint",
