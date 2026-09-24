@@ -133,6 +133,13 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
       "updated_at" timestamp DEFAULT now() NOT NULL
     )`,
     `CREATE INDEX IF NOT EXISTS "employment_types_is_active_idx" ON "employment_types" ("is_active")`,
+    `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "grade_count" integer DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "grade_amount" numeric(15, 2) DEFAULT '0'`,
+    `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "grade_percent" integer DEFAULT 0`,
+    `ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "basic_salary" numeric(15, 2) DEFAULT '0'`,
+    `ALTER TABLE "employee_salary_map" ADD COLUMN IF NOT EXISTS "grade_count" integer DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "employee_salary_map" ADD COLUMN IF NOT EXISTS "grade_amount" numeric(15, 2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "employee_salary_map" ADD COLUMN IF NOT EXISTS "grade_percent" numeric(5, 2) DEFAULT '0' NOT NULL`,
   ];
 
   for (const q of otherColumnQueries) {

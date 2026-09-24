@@ -393,7 +393,9 @@ export const employees = pgTable('employees', {
   joiningDate: date('joining_date').notNull(),
   confirmationDate: date('confirmation_date'),
 
+  basicSalary: numeric('basic_salary', { precision: 15, scale: 2 }).default('0'),
   gradePercent: integer('grade_percent').default(0),
+  gradeCount: integer('grade_count').default(0).notNull(),
   gradeAmount: numeric('grade_amount', { precision: 15, scale: 2 }).default('0'),
   
   status: varchar('status', { length: 50 }).default('Active').notNull(),
@@ -489,6 +491,7 @@ export const employeeSalaryMap = pgTable('employee_salary_map', {
   // Core Base Components (Stored as NUMERIC(15, 2) in DB, mapped to Number in JS)
   basicSalary: numeric('basic_salary', { precision: 15, scale: 2 }).notNull(),
   gradePercent: numeric('grade_percent', { precision: 5, scale: 2 }).default('0').notNull(),
+  gradeCount: integer('grade_count').default(0).notNull(),
   gradeAmount: numeric('grade_amount', { precision: 15, scale: 2 }).default('0').notNull(),
   
   // Loan Deduction Placeholders (Matching Excel Sheet columns & SalaryMapping type)

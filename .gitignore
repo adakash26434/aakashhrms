@@ -43,3 +43,6 @@ next-env.d.ts
 tsc-out.txt
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# Local scratch directory
+/scratch/
