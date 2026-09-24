@@ -10,8 +10,11 @@ import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as auditRepository from "@/lib/repositories/audit.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
-import type { DashboardData } from "@/lib/types/dashboard";
+import * as attendanceRepository from "@/lib/repositories/attendance.repository";
+import type { ApprovalItem, DashboardData, TodayWorkforceSummary } from "@/lib/types/dashboard";
 import { DEPARTMENT_COLORS, PAYROLL_COLORS } from "@/lib/constants/colors";
+import { formatNPR, getInitials } from "@/lib/utils";
+import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import Decimal from "decimal.js";
 import { ensureTenantContext } from "@/lib/db";
 
@@ -26,24 +29,32 @@ export async function getDashboardSnapshot(): Promise<DashboardData> {
 }
 
 async function buildSnapshot(): Promise<DashboardData> {
+  const todayIso = new Date().toISOString().split("T")[0];
+
   const [
     employeesList,
     payrollRunsList,
-    leaveAppsList,
+    pendingLeaveAppsList,
+    approvedLeavesList,
+    leaveTypesList,
     loanTypesList,
     branchesList,
     departmentsList,
     auditLogsData,
     allLoans,
+    todayAttendanceRecords,
   ] = await Promise.all([
     employeeRepository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "Active" }).catch(e => { console.error('[DASHBOARD_SERVICE] Employees query failed:', e); return []; }),
     payrollRepository.findAllPayrollRuns().catch(e => { console.error('[DASHBOARD_SERVICE] Payroll runs query failed:', e); return []; }),
     leaveRepository.findAllLeaveApplications({ status: "Pending", leaveTypeId: "all", search: "" }).catch(e => { console.error('[DASHBOARD_SERVICE] Leave apps query failed:', e); return []; }),
+    leaveRepository.findAllLeaveApplications({ status: "Approved" }).catch(() => []),
+    leaveRepository.findAllLeaveTypes().catch(() => []),
     loanRepository.findAllLoanTypes().catch(e => { console.error('[DASHBOARD_SERVICE] Loan types query failed:', e); return []; }),
     branchRepository.findAllBranches().catch(e => { console.error('[DASHBOARD_SERVICE] Branches query failed:', e); return []; }),
     departmentRepository.findAllDepartments().catch(e => { console.error('[DASHBOARD_SERVICE] Departments query failed:', e); return []; }),
     auditRepository.findAuditLogs({ limit: 10 }).catch(e => { console.error('[DASHBOARD_SERVICE] Audit logs query failed:', e); return { logs: [], total: 0 }; }),
     loanRepository.findAllLoans().catch(e => { console.error('[DASHBOARD_SERVICE] Loans query failed:', e); return []; }),
+    attendanceRepository.findAttendanceByDate(todayIso).catch(() => []),
   ]);
 
   const auditLogsList = auditLogsData?.logs || [];
@@ -78,6 +89,88 @@ async function buildSnapshot(): Promise<DashboardData> {
     }
   }
 
+  // Real pending approval requests from active database tables
+  const pendingItems: ApprovalItem[] = [];
+
+  for (const app of pendingLeaveAppsList) {
+    const emp = employeesList.find((e) => e.id === app.employeeId);
+    const empName = emp ? emp.fullName : "Employee";
+    const lt = leaveTypesList.find((t) => t.id === app.leaveTypeId);
+    const leaveName = lt?.name || "Leave Request";
+    const fromStr = new Date(app.effectiveFrom).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const toStr = new Date(app.effectiveTo).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const dateRange = fromStr === toStr ? fromStr : `${fromStr}–${toStr}`;
+
+    pendingItems.push({
+      id: app.id,
+      name: empName,
+      initials: getInitials(empName),
+      type: leaveName,
+      durationOrAmount: `${app.noOfDays} ${app.noOfDays === 1 ? "day" : "days"}`,
+      dateTag: `${dateRange} · Pending review`,
+      hasPayrollImpact: false,
+      category: "leave",
+    });
+  }
+
+  for (const loan of allLoans) {
+    if (loan.status === "ACTIVE" && loan.remainingAmount > 0) {
+      const emp = employeesList.find((e) => e.id === loan.employeeId);
+      const empName = emp ? emp.fullName : loan.employeeName || "Employee";
+      const loanType = loanTypesList.find((lt) => lt.id === loan.loanTypeId);
+      pendingItems.push({
+        id: loan.id,
+        name: empName,
+        initials: getInitials(empName),
+        type: loanType?.name || loan.loanTypeName || "Salary Advance",
+        durationOrAmount: formatNPR(loan.installmentAmount || loan.remainingAmount),
+        dateTag: `${loan.givenDate} · Payroll impact`,
+        hasPayrollImpact: true,
+        category: "loans",
+      });
+    }
+  }
+
+  // Real daily attendance calculation from active employee roster and approved leaves
+  const now = new Date();
+  const activeLeavesToday = approvedLeavesList.filter((l) => {
+    const from = new Date(l.effectiveFrom);
+    const to = new Date(l.effectiveTo);
+    return now >= from && now <= to;
+  });
+
+  const realTotal = activeEmployeesCount;
+  const realOnLeave = activeLeavesToday.length;
+  let realPresent = 0;
+  let realAbsent = 0;
+  let realLate = 0;
+
+  if (todayAttendanceRecords.length > 0) {
+    realPresent = todayAttendanceRecords.filter(a => a.status === "Present" || a.status === "Half Day").length;
+    realAbsent = todayAttendanceRecords.filter(a => a.status === "Absent").length;
+    realLate = todayAttendanceRecords.filter(a => !!a.isLate).length;
+  } else {
+    // When no specific attendance logs have been punched today, present is active roster minus approved leaves
+    realPresent = Math.max(0, realTotal - realOnLeave);
+    realAbsent = 0;
+    realLate = 0;
+  }
+
+  const presentPct = realTotal > 0 ? ((realPresent / realTotal) * 100).toFixed(1) : "100.0";
+  const leavePct = realTotal > 0 ? ((realOnLeave / realTotal) * 100).toFixed(1) : "0.0";
+  const absentPct = realTotal > 0 ? ((realAbsent / realTotal) * 100).toFixed(1) : "0.0";
+
+  const todayWorkforce: TodayWorkforceSummary = {
+    total: realTotal,
+    present: realPresent,
+    onLeave: realOnLeave,
+    absent: realAbsent,
+    lateCount: realLate,
+    presentPercent: presentPct,
+    leavePercent: leavePct,
+    absentPercent: absentPct,
+  };
+
   // Group headcount by department
   const headcountMap = new Map<string, number>();
   departmentsList.forEach(d => headcountMap.set(d.name, 0));
@@ -93,12 +186,15 @@ async function buildSnapshot(): Promise<DashboardData> {
     color: DEPARTMENT_COLORS[index % DEPARTMENT_COLORS.length]
   }));
 
-  // Build trend from recent runs
-  const trend = payrollRunsList.slice(-5).map(run => ({
-    month: `Month ${run.payPeriodMonth}`,
-    gross: Number(run.totalGross) / 1000000,
-    net: Number(run.totalNetPayable) / 1000000,
-    tds: Number(run.totalTds) / 1000000
+  // Build real trend from actual payroll runs in the database
+  const trend = payrollRunsList.slice(-6).map(run => ({
+    month: BS_MONTHS_EN[run.payPeriodMonth] || `Month ${run.payPeriodMonth}`,
+    monthNum: run.payPeriodMonth,
+    year: run.payPeriodYear,
+    gross: Number(run.totalGross) || 0,
+    net: Number(run.totalNetPayable) || 0,
+    tds: Number(run.totalTds) || 0,
+    isEstimated: run.status !== "LOCKED",
   }));
 
   // Map activity logs
@@ -127,69 +223,77 @@ async function buildSnapshot(): Promise<DashboardData> {
     // Fallback to Administrator
   }
 
-  return {
-    hero: {
-      greeting: `Welcome back, ${displayName} — Dashboard Overview`,
-      summary: `${activeEmployeesCount} active employees across ${branchesCount} branches. ${leaveAppsList.length} open leave requests pending approval.`,
-      payrollLockNote: latestRun ? `Last Run Status: ${latestRun.status}` : "No payroll runs yet",
-    },
-    metrics: [
-      {
-        id: "employees",
-        label: "Total Employees",
-        value: activeEmployeesCount.toLocaleString(),
-        subtext: `Active across ${branchesCount} branches`,
-        badge: "Live Count",
-        badgeVariant: "success",
-        icon: "users",
+    const currentBsMonthName = latestRun ? (BS_MONTHS_EN[latestRun.payPeriodMonth] || `Month ${latestRun.payPeriodMonth}`) : "";
+    const periodLabel = latestRun ? `${currentBsMonthName} ${latestRun.payPeriodYear}` : "No run";
+
+    return {
+      hero: {
+        greeting: `Welcome back, ${displayName} — Dashboard Overview`,
+        summary: `${activeEmployeesCount} active employees across ${branchesCount} branches. ${pendingItems.length} requests pending review.`,
+        payrollLockNote: latestRun ? `Last Run Status: ${latestRun.status}` : "No payroll runs yet",
       },
-      {
-        id: "liability",
-        label: "Latest Payroll Liability",
-        value: `NPR ${(grossPayroll / 10000000).toFixed(2)} Cr`,
-        subtext: "Gross before statutory deductions",
-        badge: latestRun?.status || "N/A",
-        badgeVariant: "info",
-        highlighted: true,
-        icon: "wallet",
+      metrics: [
+        {
+          id: "employees",
+          label: "Total Employees",
+          value: activeEmployeesCount.toLocaleString(),
+          subtext: `Active across ${branchesCount} branches`,
+          badge: "Live Count",
+          badgeVariant: "success",
+          icon: "users",
+        },
+        {
+          id: "liability",
+          label: "Latest Payroll Liability",
+          value: formatNPR(grossPayroll),
+          subtext: "Gross before statutory deductions",
+          badge: latestRun?.status || "N/A",
+          badgeVariant: "info",
+          highlighted: true,
+          icon: "wallet",
+        },
+        {
+          id: "leave",
+          label: "Open Leave Requests",
+          value: pendingLeaveAppsList.length.toString(),
+          subtext: "Awaiting supervisor approval",
+          badge: pendingLeaveAppsList.length > 0 ? "Pending" : "Clear",
+          badgeVariant: pendingLeaveAppsList.length > 0 ? "warning" : "success",
+          icon: "calendar",
+        },
+        {
+          id: "loans",
+          label: "Active Loan Exposure",
+          value: formatNPR(totalLoanExposure.toNumber()),
+          subtext: "Total remaining principal",
+          badge: "Active Loans",
+          badgeVariant: "neutral",
+          icon: "credit-card",
+        },
+        {
+          id: "compliance",
+          label: "Compliance Health",
+          value: "100%",
+          subtext: "PF, SSF, CIT, TDS configured",
+          badge: "Active",
+          badgeVariant: "success",
+          icon: "shield",
+        },
+      ],
+      pendingApprovals: {
+        value: pendingItems.length,
+        subtext: pendingItems.length === 1 ? "1 request needs approval" : `${pendingItems.length} requests need approval`,
+        badge: pendingItems.length > 0 ? "Action Required" : "All Clear",
+        items: pendingItems,
       },
-      {
-        id: "leave",
-        label: "Open Leave Requests",
-        value: leaveAppsList.length.toString(),
-        subtext: "Awaiting supervisor approval",
-        badge: leaveAppsList.length > 0 ? "Pending" : "Clear",
-        badgeVariant: leaveAppsList.length > 0 ? "warning" : "success",
-        icon: "calendar",
-      },
-      {
-        id: "loans",
-        label: "Active Loan Exposure",
-        value: `NPR ${(totalLoanExposure.toNumber() / 100000).toFixed(2)} L`,
-        subtext: "Total remaining principal",
-        badge: "Active Loans",
-        badgeVariant: "neutral",
-        icon: "credit-card",
-      },
-      {
-        id: "compliance",
-        label: "Compliance Health",
-        value: "100%",
-        subtext: "PF, SSF, CIT, TDS configured",
-        badge: "Active",
-        badgeVariant: "success",
-        icon: "shield",
-      },
-    ],
-    pendingApprovals: {
-      value: leaveAppsList.length,
-      subtext: "Across leave module",
-      badge: "Pending",
-    },
-    currentRun: {
-      id: latestRun?.id || "N/A",
-      period: latestRun ? `Month ${latestRun.payPeriodMonth} ${latestRun.payPeriodYear}` : "No run",
-      dateRange: latestRun ? `${latestRun.payPeriodStartDate} – ${latestRun.payPeriodEndDate}` : "N/A",
+      currentRun: {
+        id: latestRun?.id || "N/A",
+        period: periodLabel,
+        payPeriodMonth: latestRun?.payPeriodMonth,
+        payPeriodYear: latestRun?.payPeriodYear,
+        payPeriodStartDate: latestRun?.payPeriodStartDate,
+        payPeriodEndDate: latestRun?.payPeriodEndDate,
+        dateRange: latestRun ? `${latestRun.payPeriodStartDate} – ${latestRun.payPeriodEndDate}` : "N/A",
       statusLabel: latestRun?.status || "None",
       statusVariant: latestRun?.status === "LOCKED" ? "success" : "warning",
       awaitingLabel: latestRun?.status || "None",
@@ -212,15 +316,16 @@ async function buildSnapshot(): Promise<DashboardData> {
       ],
     },
     validationExceptions: [],
-    trend: trend.length ? trend : [{ month: "No Data", gross: 0, net: 0, tds: 0 }],
+    trend: trend,
     headcount: headcount.length ? headcount : [{ name: "General", count: activeEmployeesCount, color: DEPARTMENT_COLORS[0] }],
     attendance: [
-      { day: "Mon", present: activeEmployeesCount, leave: 0, absent: 0 },
-      { day: "Tue", present: activeEmployeesCount, leave: 0, absent: 0 },
-      { day: "Wed", present: activeEmployeesCount, leave: 0, absent: 0 },
-      { day: "Thu", present: activeEmployeesCount, leave: 0, absent: 0 },
-      { day: "Fri", present: activeEmployeesCount, leave: 0, absent: 0 },
+      { day: "Mon", present: realPresent, leave: realOnLeave, absent: realAbsent },
+      { day: "Tue", present: realPresent, leave: realOnLeave, absent: realAbsent },
+      { day: "Wed", present: realPresent, leave: realOnLeave, absent: realAbsent },
+      { day: "Thu", present: realPresent, leave: realOnLeave, absent: realAbsent },
+      { day: "Fri", present: realPresent, leave: realOnLeave, absent: realAbsent },
     ],
+    todayWorkforce,
     complianceScore: 100,
     compliance: [
       { id: "pf", code: "PF", name: "Provident Fund", status: "on-track", readiness: 100, detail: "Configured & calculated" },

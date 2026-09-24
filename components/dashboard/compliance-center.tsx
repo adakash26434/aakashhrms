@@ -35,75 +35,68 @@ const statusConfig = {
 
 export function ComplianceCenter({ score, items }: ComplianceCenterProps) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="bg-white border-payroll-border shadow-payroll-xs">
+      <CardHeader className="pb-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-payroll-light">
-              <ShieldCheck className="h-5 w-5 text-payroll-primary" />
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-payroll-primary-light text-payroll-primary border border-payroll-primary-border">
+              <ShieldCheck className="h-4.5 w-4.5" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                Compliance Center
-              </p>
-              <h3 className="text-lg font-semibold text-payroll-navy">
-                Nepal statutory health · {score}%
+              <h3 className="text-sm sm:text-base font-semibold text-gray-950">
+                Nepal statutory compliance · {score}%
               </h3>
+              <p className="text-xs text-gray-500">
+                Labour Act 2074 & IRD readiness
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="info">Nepal Labour Act 2074</Badge>
             <a
               href="/setup/tax-rates"
-              className="flex items-center gap-1 text-xs text-payroll-primary font-semibold hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-payroll-primary font-semibold hover:underline"
             >
-              <span>Statutory Setup</span>
+              <span>Statutory setup</span>
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {items.map((item) => {
-            const config = statusConfig[item.status];
+            const config = statusConfig[item.status] || statusConfig["on-track"];
             const StatusIcon = config.icon;
 
             return (
               <div
                 key={item.id}
-                className="rounded-lg border border-payroll-light/60 p-4"
+                className="rounded-lg border border-payroll-border/80 bg-gray-50/50 p-3.5 hover:bg-gray-50 transition-colors"
               >
-                <div className="mb-3 flex items-start justify-between">
-                  <span className="text-sm font-medium text-gray-400">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-900 font-mono">
                     {item.code}
                   </span>
-                  <Badge variant={config.variant} className="gap-1">
+                  <Badge variant={config.variant} size="sm" className="gap-1">
                     <StatusIcon className="h-3 w-3" />
-                    {config.label}
+                    <span>{config.label}</span>
                   </Badge>
                 </div>
-                <h4 className="text-sm font-semibold text-payroll-navy">
+                <h4 className="text-xs font-semibold text-gray-900">
                   {item.name}
                 </h4>
-                <div className="mt-3">
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Submission readiness</span>
-                    <span className="font-medium text-payroll-primary">
+                <div className="mt-2.5">
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="text-gray-500">Readiness</span>
+                    <span className="font-semibold text-payroll-primary font-mono">
                       {item.readiness}%
                     </span>
                   </div>
                   <Progress value={item.readiness} />
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                   {item.detail}
                 </p>
-                {item.lastSubmitted && item.nextDue && (
-                  <div className="mt-3 space-y-0.5 border-t border-payroll-cream pt-2 text-xs text-gray-400">
-                    <p>Last submitted · {item.lastSubmitted}</p>
-                    <p>Next due · {item.nextDue}</p>
-                  </div>
-                )}
               </div>
             );
           })}

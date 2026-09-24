@@ -14,7 +14,7 @@ const MonthlyPayrollTrend = dynamic(
     ),
   {
     loading: () => (
-      <div className="h-[320px] animate-pulse rounded-xl border border-[#d7e8d0] bg-[#d7e8d0]/60" />
+      <div className="h-80 animate-pulse rounded-xl border border-[#d7e8d0] bg-[#d7e8d0]/60" />
     ),
   },
 );
@@ -26,7 +26,7 @@ const HeadcountByDepartment = dynamic(
     ),
   {
     loading: () => (
-      <div className="h-[320px] animate-pulse rounded-xl border border-[#d7e8d0] bg-[#d7e8d0]/60" />
+      <div className="h-80 animate-pulse rounded-xl border border-[#d7e8d0] bg-[#d7e8d0]/60" />
     ),
   },
 );
@@ -38,7 +38,7 @@ const AttendanceLeaveChart = dynamic(
     ),
   {
     loading: () => (
-      <div className="h-[300px] animate-pulse rounded-xl border border-[#d7e8d0] bg-[#d7e8d0]/60" />
+      <div className="h-75 animate-pulse rounded-xl border border-[#d7e8d0] bg-[#d7e8d0]/60" />
     ),
   },
 );

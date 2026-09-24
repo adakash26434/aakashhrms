@@ -45,6 +45,10 @@ export interface PayrollRunSummary {
   netPayable: number;
   deductions: { label: string; amount: number; color: string }[];
   workflowSteps: WorkflowStep[];
+  payPeriodMonth?: number;
+  payPeriodYear?: number;
+  payPeriodStartDate?: string;
+  payPeriodEndDate?: string;
 }
 
 export interface ValidationException {
@@ -61,6 +65,9 @@ export interface TrendDataPoint {
   gross: number;
   net: number;
   tds: number;
+  isEstimated?: boolean;
+  monthNum?: number;
+  year?: number;
 }
 
 export interface DepartmentHeadcount {
@@ -107,15 +114,43 @@ export interface UpcomingEvent {
   priority: PriorityLevel;
 }
 
+export interface ApprovalItem {
+  id: string;
+  name: string;
+  initials: string;
+  type: string;
+  durationOrAmount: string;
+  dateTag: string;
+  hasPayrollImpact: boolean;
+  category: "leave" | "attendance" | "loans";
+}
+
+export interface TodayWorkforceSummary {
+  total: number;
+  present: number;
+  onLeave: number;
+  absent: number;
+  lateCount: number;
+  presentPercent: string;
+  leavePercent: string;
+  absentPercent: string;
+}
+
 export interface DashboardData {
   hero: DashboardHero;
   metrics: KpiMetric[];
-  pendingApprovals: { value: number; subtext: string; badge: string };
+  pendingApprovals: {
+    value: number;
+    subtext: string;
+    badge: string;
+    items?: ApprovalItem[];
+  };
   currentRun: PayrollRunSummary;
   validationExceptions: ValidationException[];
   trend: TrendDataPoint[];
   headcount: DepartmentHeadcount[];
   attendance: AttendanceDay[];
+  todayWorkforce?: TodayWorkforceSummary;
   complianceScore: number;
   compliance: ComplianceItem[];
   activity: ActivityItem[];
