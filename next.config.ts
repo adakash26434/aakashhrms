@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Normalize NODE_ENV to strip trailing whitespace or CRLF from cloud/cPanel env files
+const envObj = process.env as Record<string, string | undefined>;
+if (envObj.NODE_ENV) {
+  envObj.NODE_ENV = envObj.NODE_ENV.trim().replace(/\r/g, "");
+}
+if (process.env.npm_lifecycle_event === "build" || process.argv.includes("build")) {
+  envObj.NODE_ENV = "production";
+}
+
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
