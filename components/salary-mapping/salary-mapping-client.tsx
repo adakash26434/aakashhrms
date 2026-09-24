@@ -403,6 +403,7 @@ export function SalaryMappingClient({ initialData }: SalaryMappingClientProps) {
         allowanceHeads={initialData.allowanceHeads}
         deductionHeads={initialData.deductionHeads}
         fiscalYears={initialData.fiscalYears}
+        gradePolicy={initialData.gradePolicy}
       />
 
       {/* Delete Dialog */}

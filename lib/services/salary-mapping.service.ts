@@ -66,6 +66,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     branches,
     designations,
     fiscalYears,
+    systemControl,
   ] = await Promise.all([
     repository.findActiveMappings(),
     employeeRepository.findAll({
@@ -80,6 +81,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     branchRepository.findAllBranches(),
     designationRepository.findAllDesignations(),
     fiscalYearRepository.findAllFiscalYears(),
+    import("@/lib/repositories/system-control.repository").then((m) => m.findSettings()),
   ]);
 
   // Filter ONLY Active employees for payroll mapping accuracy
@@ -100,6 +102,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     branchName: branchNameById.get(e.branchId) ?? "—",
     designationName: desigNameById.get(e.designationId) ?? "—",
     gradePercent: e.gradePercent,
+    gradeCount: e.gradeCount ?? 0,
     gradeAmount: e.gradeAmount,
   }));
 
@@ -143,6 +146,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     branches: branches.map((b) => ({ id: b.id, name: b.name })),
     fiscalYears: availableFyList,
     kpis,
+    gradePolicy: systemControl.gradePolicy,
   };
 }
 
@@ -256,6 +260,7 @@ export async function createMapping(data: SalaryMappingFormData): Promise<Salary
     effectiveFrom: data.effectiveFrom,
     basicSalary: data.basicSalary,
     gradePercent: data.gradePercent,
+    gradeCount: data.gradeCount ?? 0,
     gradeAmount: data.gradeAmount,
     salaryHeads,
     loan1Deduction: data.loan1Deduction,
@@ -316,6 +321,7 @@ export async function updateMapping(
     effectiveFrom: data.effectiveFrom || existing.effectiveFrom,
     basicSalary: data.basicSalary,
     gradePercent: data.gradePercent,
+    gradeCount: data.gradeCount ?? existing.gradeCount ?? 0,
     gradeAmount: data.gradeAmount,
     salaryHeads,
     loan1Deduction: data.loan1Deduction,

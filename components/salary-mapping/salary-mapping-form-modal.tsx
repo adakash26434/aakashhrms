@@ -10,6 +10,11 @@ import type {
   SalaryHeadFormItem,
   SalaryMapping,
 } from "@/lib/types/salary-mapping";
+import type { GradePolicySettings } from "@/lib/types/system-control";
+import {
+  DEFAULT_GRADE_POLICY,
+  calculateTotalGradeAmount,
+} from "@/lib/engines/grade-policy.engine";
 
 interface SalaryMappingFormModalProps {
   open: boolean;
@@ -21,6 +26,7 @@ interface SalaryMappingFormModalProps {
     departmentName: string;
     designationName: string;
     gradePercent: number;
+    gradeCount?: number;
     gradeAmount: number;
   }[];
   allowanceHeads: {
@@ -36,6 +42,7 @@ interface SalaryMappingFormModalProps {
     calcParameter: string;
   }[];
   fiscalYears?: { id: string; fyNumber: string }[];
+  gradePolicy?: GradePolicySettings;
   onClose: () => void;
   onSave: (data: SalaryMappingFormData) => void;
 }
@@ -163,11 +170,13 @@ export function SalaryMappingFormModal({
   allowanceHeads,
   deductionHeads,
   fiscalYears,
+  gradePolicy,
   onClose,
   onSave,
 }: SalaryMappingFormModalProps) {
   const isEdit = Boolean(editingMapping);
   const defaultFyId = fiscalYears?.[0]?.id;
+  const activeGradePolicy = gradePolicy || DEFAULT_GRADE_POLICY;
   const [form, setForm] = useState<FormState>(() =>
     buildInitialForm(defaultFyId),
   );
@@ -269,21 +278,29 @@ export function SalaryMappingFormModal({
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => {
       const next = { ...f, [key]: value };
-      if (key === "basicSalary" && isSsfEnrolled) {
+      if (key === "basicSalary") {
         const basicNum = Number(value) || 0;
-        const ssfErAmt = Math.round(basicNum * 0.20);
-        const ssfTotalAmt = Math.round(basicNum * 0.31);
-
-        if (ssfAllowanceHead) {
-          const idx = next.allowanceHeadIds.indexOf(ssfAllowanceHead.id);
-          if (idx >= 0) {
-            next.allowanceAmounts[idx] = String(ssfErAmt);
-          }
+        const currentEmp = employees.find((e) => e.id === next.employeeId);
+        if (currentEmp && currentEmp.gradeCount !== undefined && currentEmp.gradeCount > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
+          const autoGrade = calculateTotalGradeAmount(basicNum, currentEmp.gradeCount, activeGradePolicy);
+          next.gradeAmount = String(autoGrade);
         }
-        if (ssfDeductionHead) {
-          const idx = next.deductionHeadIds.indexOf(ssfDeductionHead.id);
-          if (idx >= 0) {
-            next.deductionAmounts[idx] = String(ssfTotalAmt);
+
+        if (isSsfEnrolled) {
+          const ssfErAmt = Math.round(basicNum * 0.20);
+          const ssfTotalAmt = Math.round(basicNum * 0.31);
+
+          if (ssfAllowanceHead) {
+            const idx = next.allowanceHeadIds.indexOf(ssfAllowanceHead.id);
+            if (idx >= 0) {
+              next.allowanceAmounts[idx] = String(ssfErAmt);
+            }
+          }
+          if (ssfDeductionHead) {
+            const idx = next.deductionHeadIds.indexOf(ssfDeductionHead.id);
+            if (idx >= 0) {
+              next.deductionAmounts[idx] = String(ssfTotalAmt);
+            }
           }
         }
       }
@@ -293,11 +310,16 @@ export function SalaryMappingFormModal({
 
   function handleEmployeeSelect(id: string) {
     const emp = employees.find((e) => e.id === id);
+    let gradeAmt = emp ? emp.gradeAmount : 0;
+    const basicNum = Number(form.basicSalary) || 0;
+    if (emp && emp.gradeCount !== undefined && emp.gradeCount > 0 && basicNum > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
+      gradeAmt = calculateTotalGradeAmount(basicNum, emp.gradeCount, activeGradePolicy);
+    }
     setForm((f) => ({
       ...f,
       employeeId: id,
       gradePercent: emp ? String(emp.gradePercent) : "100",
-      gradeAmount: emp ? String(emp.gradeAmount) : "0",
+      gradeAmount: String(gradeAmt),
     }));
   }
 
@@ -471,9 +493,16 @@ export function SalaryMappingFormModal({
               )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">
-                Grade Amount
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-600">
+                  Grade Amount
+                </label>
+                {selectedEmployee?.gradeCount !== undefined && selectedEmployee.gradeCount > 0 && (
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                    {selectedEmployee.gradeCount} Grade(s) • Basic/30
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
                 min={0}

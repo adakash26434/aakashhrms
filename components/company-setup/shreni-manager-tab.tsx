@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Layers,
   Plus,
@@ -11,6 +12,8 @@ import {
   AlertCircle,
   Download,
   Info,
+  Scale,
+  ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -96,8 +99,8 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
       levelNumber: level.levelNumber,
       labelNepali: level.labelNepali,
       description: level.description || "",
-      minSalary: 0,
-      maxSalary: 0,
+      minSalary: level.minSalary ?? 0,
+      maxSalary: level.maxSalary ?? 0,
       rankOrder: level.levelNumber,
       isActive: true,
     });
@@ -234,6 +237,30 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
         </div>
       </div>
 
+      {/* Grade Policy Contextual Banner */}
+      <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 p-4 shadow-payroll-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+            <Scale className="h-4 w-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-slate-800">
+              Statutory Grade Amount Calculation (ग्रेड रकम हिसाब नीति)
+            </h4>
+            <p className="mt-0.5 text-xs text-slate-600">
+              Grade increments are automatically computed from starting/current Basic Salary using statutory daily rate (1 Grade = Basic ÷ 30) or custom company policy. Promotion pay protection ensures base salary exceeds prior basic + grade.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/setup/system-control"
+          className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-xs hover:bg-blue-50 hover:text-blue-800 transition-colors"
+        >
+          <span>Configure Grade Policy</span>
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+
       {/* Search & Stats Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative w-full sm:max-w-xs">
@@ -261,10 +288,11 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
           <table className="w-full text-left text-xs">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 w-20 text-center">Rank</th>
-                <th className="px-4 py-3 w-28">Code</th>
+                <th className="px-4 py-3 w-16 text-center">Rank</th>
+                <th className="px-4 py-3 w-24">Code</th>
                 <th className="px-4 py-3">Level Title (English)</th>
                 <th className="px-4 py-3">Devnagari Label (नेपाली)</th>
+                <th className="px-4 py-3 w-36">Starting Scale (Basic)</th>
                 <th className="px-4 py-3">Scope / Responsibilities</th>
                 <th className="px-4 py-3 w-28 text-right">Actions</th>
               </tr>
@@ -287,6 +315,15 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
                   </td>
                   <td className="px-4 py-3 font-nepali text-slate-800">
                     {lvl.labelNepali}
+                  </td>
+                  <td className="px-4 py-3">
+                    {lvl.minSalary && lvl.minSalary > 0 ? (
+                      <span className="inline-flex items-center font-mono font-semibold text-emerald-800 bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-200/60 text-xs">
+                        NPR {lvl.minSalary.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 italic">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
                     {lvl.description || <span className="text-slate-300 italic">—</span>}
@@ -316,7 +353,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
 
               {filteredLevels.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                  <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
                     <Layers className="mx-auto h-8 w-8 text-slate-300 mb-2" />
                     <p className="font-semibold text-slate-600">No grade levels found</p>
                     <p className="text-slate-400 mt-1">Try searching for something else or add a new level.</p>
@@ -413,6 +450,54 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
               onChange={(e) => setFormData({ ...formData, labelNepali: e.target.value })}
               className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 font-nepali"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Starting Basic Scale (NPR)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="100"
+                placeholder="e.g. 35000"
+                value={formData.minSalary || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    minSalary: Number(e.target.value) || 0,
+                  })
+                }
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Starting basic scale. Used for 1 Grade = Basic ÷ 30.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Max Scale Ceiling (NPR)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="100"
+                placeholder="e.g. 55000 (Optional)"
+                value={formData.maxSalary || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maxSalary: Number(e.target.value) || 0,
+                  })
+                }
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-mono text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Highest scale boundary before promotion.
+              </p>
+            </div>
           </div>
 
           <div>

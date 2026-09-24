@@ -29,6 +29,7 @@ export interface SalaryMappingValidationErrors {
   effectiveFrom?: string;
   basicSalary?: string;
   gradePercent?: string;
+  gradeCount?: string;
   gradeAmount?: string;
   salaryHeads?: string;
   loan1Deduction?: string;
@@ -94,6 +95,11 @@ export function validateSalaryMapping(
   // 4. Grade percent
   if (!Number.isFinite(data.gradePercent) || data.gradePercent < 0 || data.gradePercent > 200) {
     errors.gradePercent = "Grade % must be between 0 and 200.";
+  }
+
+  // 4b. Grade count
+  if (data.gradeCount !== undefined && (!Number.isFinite(data.gradeCount) || data.gradeCount < 0)) {
+    errors.gradeCount = "Grade count must be 0 or greater.";
   }
 
   // 5. Grade amount

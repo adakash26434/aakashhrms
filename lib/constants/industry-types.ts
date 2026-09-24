@@ -42,6 +42,8 @@ export interface ShreniLevelItem {
   labelNepali: string; // "तह १ (सहयोगी तह)"
   description?: string; // "Entry / Support Level"
   category?: string;
+  minSalary?: number;
+  maxSalary?: number;
 }
 
 export type ShreniPresetItem = ShreniLevelItem;

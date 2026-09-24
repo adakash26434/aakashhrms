@@ -57,6 +57,8 @@ export interface SalaryMapping {
   basicSalary: number;
   /** Grade % — e.g. 100 means 100% of basic (full grade), 50 means 50%  */
   gradePercent: number;
+  /** Grade count — number of earned grades (e.g. 0, 1, 2, 3...) */
+  gradeCount?: number;
   /** Grade amount in NPR — pre-populated from Employee, editable here */
   gradeAmount: number;
 
@@ -90,6 +92,7 @@ export interface SalaryMappingFormData {
   effectiveFrom: string;
   basicSalary: number;
   gradePercent: number;
+  gradeCount?: number;
   gradeAmount: number;
   salaryHeads: SalaryHeadFormItem[];
   loan1Deduction: number;
@@ -143,6 +146,7 @@ export interface SalaryMappingData {
     branchName: string;
     designationName: string;
     gradePercent: number;
+    gradeCount?: number;
     gradeAmount: number;
   }[];
   /** Pay heads grouped by type for the form */
@@ -155,6 +159,8 @@ export interface SalaryMappingData {
   fiscalYears: { id: string; fyNumber: string }[];
   /** KPIs computed from mappings */
   kpis: SalaryMappingKPIs;
+  /** Active company grade policy */
+  gradePolicy?: import("@/lib/types/system-control").GradePolicySettings;
 }
 
 // ---------------------------------------------------------------------------

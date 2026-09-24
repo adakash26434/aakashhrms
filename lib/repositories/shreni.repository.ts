@@ -18,6 +18,8 @@ function mapRowToItem(row: ShreniRow): ShreniLevelItem {
     levelNumber: row.levelNumber,
     labelNepali: row.labelNepali,
     description: row.description || undefined,
+    minSalary: row.minSalary ? Number(row.minSalary) : 0,
+    maxSalary: row.maxSalary ? Number(row.maxSalary) : 0,
   };
 }
 

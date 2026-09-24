@@ -58,6 +58,7 @@ function mapRowsToSalaryMappings(mapRows: SalaryMapRow[], headRows: SalaryHeadRo
     effectiveFrom: row.effectiveFrom,
     basicSalary: Number(row.basicSalary) || 0,
     gradePercent: Number(row.gradePercent) || 0,
+    gradeCount: row.gradeCount ?? 0,
     gradeAmount: Number(row.gradeAmount) || 0,
     salaryHeads: headsByMapId.get(row.id) || [],
     loan1Deduction: Number(row.loan1Deduction) || 0,
@@ -144,6 +145,7 @@ export async function saveSalaryMapping(data: {
   effectiveFrom?: string;
   basicSalary: number;
   gradePercent?: number;
+  gradeCount?: number;
   gradeAmount?: number;
   salaryHeads: Array<{ payHeadId: string; amount: number; isChangeable?: boolean }>;
   loan1Deduction?: number;
@@ -175,6 +177,7 @@ export async function saveSalaryMapping(data: {
         effectiveFrom,
         basicSalary: data.basicSalary.toString(),
         gradePercent: (data.gradePercent ?? 0).toString(),
+        gradeCount: data.gradeCount ?? existingRecord?.gradeCount ?? 0,
         gradeAmount: (data.gradeAmount ?? 0).toString(),
         loan1Deduction: (data.loan1Deduction ?? 0).toString(),
         loan2Deduction: (data.loan2Deduction ?? 0).toString(),
@@ -191,6 +194,7 @@ export async function saveSalaryMapping(data: {
         effectiveFrom,
         basicSalary: data.basicSalary.toString(),
         gradePercent: (data.gradePercent ?? 0).toString(),
+        gradeCount: data.gradeCount ?? 0,
         gradeAmount: (data.gradeAmount ?? 0).toString(),
         loan1Deduction: (data.loan1Deduction ?? 0).toString(),
         loan2Deduction: (data.loan2Deduction ?? 0).toString(),
