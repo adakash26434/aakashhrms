@@ -58,6 +58,9 @@ export function BankCombobox({
     );
   }, [searchQuery]);
 
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   // Group filtered banks by category
   const groupedBanks = useMemo(() => {
     const groups: { [key: string]: NepalBank[] } = {};
@@ -67,6 +70,27 @@ export function BankCombobox({
     });
     return groups;
   }, [filteredBanks]);
+
+  // Reset highlighted index when filtered banks change or dropdown opens
+  useEffect(() => {
+    if (open) {
+      const idx = filteredBanks.findIndex(
+        (b) => b.name === value || b.shortName === value
+      );
+      setHighlightedIndex(idx >= 0 ? idx : 0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [open, filteredBanks, value]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (open && highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      itemRefs.current[highlightedIndex]?.scrollIntoView({
+        block: "nearest",
+      });
+    }
+  }, [highlightedIndex, open]);
 
   const handleSelectBank = (bankName: string) => {
     onChange(bankName);
@@ -81,6 +105,39 @@ export function BankCombobox({
     if (!open) setOpen(true);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        setHighlightedIndex(0);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev < filteredBanks.length - 1 ? prev + 1 : 0
+        );
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        setHighlightedIndex(filteredBanks.length - 1);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredBanks.length - 1
+        );
+      }
+    } else if (e.key === "Enter") {
+      if (open && highlightedIndex >= 0 && filteredBanks[highlightedIndex]) {
+        e.preventDefault();
+        handleSelectBank(filteredBanks[highlightedIndex].name);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange("");
@@ -91,19 +148,20 @@ export function BankCombobox({
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
       <div className="relative flex items-center">
-        <Building2 className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" />
+        <Building2 className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-gray-400" />
         <input
           id={id}
           ref={inputRef}
           type="text"
           value={searchQuery}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           onFocus={() => !disabled && setOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
           className={cn(
-            "w-full h-9 rounded-lg border border-[#d7e8d0] bg-white pl-9 pr-14 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] disabled:opacity-50 transition-all",
+            "w-full h-10 rounded-lg border border-slate-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47] disabled:opacity-50",
             hasError && "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20"
           )}
         />
@@ -131,7 +189,7 @@ export function BankCombobox({
 
       {/* Dropdown Menu */}
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-[#d7e8d0] bg-white py-1 shadow-lg animate-[fadeIn_100ms_ease-out]">
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg animate-[fadeIn_100ms_ease-out]">
           {/* Header search info */}
           <div className="px-3 py-1.5 border-b border-gray-100 bg-[#f6faf6] flex items-center justify-between text-[11px] text-gray-500 font-medium">
             <span>Official Nepal Banks ({filteredBanks.length})</span>
@@ -142,44 +200,59 @@ export function BankCombobox({
             <div className="p-3 text-center text-xs text-gray-500">
               <p className="font-medium text-[#1b3a1f]">No matching bank found</p>
               <p className="mt-0.5 text-[11px] text-gray-400">
-                You can keep &quot;{searchQuery}&quot; as custom bank name.
+                Press Enter to keep &quot;{searchQuery}&quot; as custom bank name.
               </p>
             </div>
           ) : (
-            Object.entries(groupedBanks).map(([category, list]) => (
-              <div key={category} className="py-1">
-                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#2e7d32] bg-green-50/50">
-                  {category}
-                </div>
-                {list.map((bank) => {
-                  const isSelected = value === bank.name || value === bank.shortName;
-                  return (
-                    <button
-                      key={bank.id}
-                      type="button"
-                      onClick={() => handleSelectBank(bank.name)}
-                      className={cn(
-                        "w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-[#f6faf6] transition-colors cursor-pointer",
-                        isSelected && "bg-green-50/80 font-semibold text-[#2e7d32]"
-                      )}
-                    >
-                      <div className="flex flex-col min-w-0 pr-2">
-                        <span className="text-[#1b3a1f] font-medium truncate">{bank.name}</span>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400 font-mono">
-                          <span>{bank.shortName}</span>
-                          {bank.swiftCode && (
-                            <span className="bg-gray-100 px-1 rounded text-gray-500 font-mono">
-                              SWIFT: {bank.swiftCode}
-                            </span>
-                          )}
+            (() => {
+              let runningIdx = -1;
+              return Object.entries(groupedBanks).map(([category, list]) => (
+                <div key={category} className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#2e7d32] bg-green-50/50">
+                    {category}
+                  </div>
+                  {list.map((bank) => {
+                    runningIdx += 1;
+                    const thisIdx = runningIdx;
+                    const isSelected = value === bank.name || value === bank.shortName;
+                    const isHighlighted = highlightedIndex === thisIdx;
+
+                    return (
+                      <button
+                        key={bank.id}
+                        ref={(el) => {
+                          itemRefs.current[thisIdx] = el;
+                        }}
+                        type="button"
+                        onClick={() => handleSelectBank(bank.name)}
+                        onMouseEnter={() => setHighlightedIndex(thisIdx)}
+                        className={cn(
+                          "w-full px-3 py-2 text-left text-xs flex items-center justify-between transition-colors cursor-pointer",
+                          isHighlighted
+                            ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                            : isSelected
+                            ? "bg-green-50/80 font-semibold text-[#2e7d32]"
+                            : "hover:bg-slate-50 text-slate-800"
+                        )}
+                      >
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span className="font-medium truncate">{bank.name}</span>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400 font-mono">
+                            <span>{bank.shortName}</span>
+                            {bank.swiftCode && (
+                              <span className="bg-gray-100 px-1 rounded text-gray-500 font-mono">
+                                SWIFT: {bank.swiftCode}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {isSelected && <Check className="h-3.5 w-3.5 text-[#2e7d32] shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            ))
+                        {isSelected && <Check className="h-3.5 w-3.5 text-[#2e7d32] shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ));
+            })()
           )}
         </div>
       )}

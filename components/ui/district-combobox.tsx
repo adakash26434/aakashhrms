@@ -90,6 +90,30 @@ export function DistrictCombobox({
     return Object.values(groups).filter((g) => g.districts.length > 0);
   }, [filteredDistricts]);
 
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Reset highlighted index when filtered districts change or dropdown opens
+  useEffect(() => {
+    if (open) {
+      const idx = filteredDistricts.findIndex(
+        (d) => d.name.toLowerCase() === value?.toLowerCase()
+      );
+      setHighlightedIndex(idx >= 0 ? idx : 0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [open, filteredDistricts, value]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (open && highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      itemRefs.current[highlightedIndex]?.scrollIntoView({
+        block: "nearest",
+      });
+    }
+  }, [highlightedIndex, open]);
+
   const handleSelectDistrict = (districtName: string) => {
     onChange(districtName);
     setSearchQuery(districtName);
@@ -102,6 +126,39 @@ export function DistrictCombobox({
     if (!open) setOpen(true);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        setHighlightedIndex(0);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev < filteredDistricts.length - 1 ? prev + 1 : 0
+        );
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        setHighlightedIndex(filteredDistricts.length - 1);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredDistricts.length - 1
+        );
+      }
+    } else if (e.key === "Enter") {
+      if (open && highlightedIndex >= 0 && filteredDistricts[highlightedIndex]) {
+        e.preventDefault();
+        handleSelectDistrict(filteredDistricts[highlightedIndex].name);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange("");
@@ -112,24 +169,23 @@ export function DistrictCombobox({
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
       <div className="relative flex items-center">
-        <MapPin className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" />
+        <MapPin className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-gray-400" />
         <input
           id={id}
           ref={inputRef}
           type="text"
           value={searchQuery}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           onFocus={() => {
             if (!disabled) setOpen(true);
           }}
           disabled={disabled}
           placeholder={placeholder}
+          autoComplete="off"
           className={cn(
-            "h-9 w-full rounded-lg border bg-white pl-9 pr-16 text-sm text-payroll-navy placeholder:text-gray-400 transition-all",
-            "focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary",
-            hasError
-              ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-red-500"
-              : "border-payroll-light hover:border-gray-300",
+            "h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]",
+            hasError && "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-red-500",
             disabled && "cursor-not-allowed bg-gray-50 text-gray-400"
           )}
         />
@@ -156,43 +212,53 @@ export function DistrictCombobox({
       </div>
 
       {open && (
-        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-payroll-light bg-white p-1 shadow-lg scrollbar-thin">
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg scrollbar-thin">
           {groupedByProvince.length === 0 ? (
             <div className="p-3 text-center text-xs text-gray-500">
               No districts found matching &ldquo;{searchQuery}&rdquo;
             </div>
           ) : (
-            groupedByProvince.map((group) => (
-              <div key={group.provinceName} className="mb-2 last:mb-0">
-                <div className="sticky top-0 bg-gray-50/95 px-2.5 py-1 text-[11px] font-semibold text-payroll-primary backdrop-blur-xs">
-                  {group.provinceName} ({group.provinceNameNepali})
+            (() => {
+              let runningIdx = -1;
+              return groupedByProvince.map((group) => (
+                <div key={group.provinceName} className="mb-2 last:mb-0">
+                  <div className="sticky top-0 bg-gray-50/95 px-2.5 py-1 text-[11px] font-semibold text-[#1e7e47] backdrop-blur-xs">
+                    {group.provinceName}
+                  </div>
+                  <div className="mt-0.5 space-y-0.5">
+                    {group.districts.map((d) => {
+                      runningIdx += 1;
+                      const thisIdx = runningIdx;
+                      const isSelected = value?.toLowerCase() === d.name.toLowerCase();
+                      const isHighlighted = highlightedIndex === thisIdx;
+
+                      return (
+                        <button
+                          key={d.id}
+                          ref={(el) => {
+                            itemRefs.current[thisIdx] = el;
+                          }}
+                          type="button"
+                          onClick={() => handleSelectDistrict(d.name)}
+                          onMouseEnter={() => setHighlightedIndex(thisIdx)}
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer",
+                            isHighlighted
+                              ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                              : isSelected
+                              ? "bg-emerald-50 font-medium text-payroll-navy"
+                              : "text-gray-700 hover:bg-gray-50 hover:text-payroll-navy"
+                          )}
+                        >
+                          <span className="font-medium">{d.name}</span>
+                          {isSelected && <Check className="h-4 w-4 text-[#1e7e47]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="mt-0.5 space-y-0.5">
-                  {group.districts.map((d) => {
-                    const isSelected = value?.toLowerCase() === d.name.toLowerCase();
-                    return (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => handleSelectDistrict(d.name)}
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer",
-                          isSelected
-                            ? "bg-emerald-50 font-medium text-payroll-navy"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-payroll-navy"
-                        )}
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-medium text-payroll-navy">{d.name}</span>
-                          <span className="text-[10px] text-gray-400">{d.nameNepali}</span>
-                        </div>
-                        {isSelected && <Check className="h-4 w-4 text-payroll-primary" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
+              ));
+            })()
           )}
         </div>
       )}

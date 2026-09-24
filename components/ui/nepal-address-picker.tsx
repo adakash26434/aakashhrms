@@ -40,8 +40,10 @@ function SearchableAddressSelect({
 }: SearchableAddressSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -71,6 +73,28 @@ function SearchableAddressSelect({
     );
   }, [options, search]);
 
+  // Reset or initialize highlighted index when dropdown opens or filtered options change
+  useEffect(() => {
+    if (open) {
+      const idx = filteredOptions.findIndex(
+        (o) => o.value.toLowerCase() === (value || "").toLowerCase()
+      );
+      setHighlightedIndex(idx >= 0 ? idx : 0);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [open, filteredOptions, value]);
+
+  // Auto-scroll highlighted item into view
+  useEffect(() => {
+    if (open && highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      itemRefs.current[highlightedIndex]?.scrollIntoView({
+        block: "nearest",
+      });
+    }
+  }, [highlightedIndex, open]);
+
   const handleSelect = (val: string) => {
     onChange(val);
     setOpen(false);
@@ -83,33 +107,64 @@ function SearchableAddressSelect({
     setSearch("");
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev < filteredOptions.length - 1 ? prev + 1 : 0
+        );
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredOptions.length - 1
+        );
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (open && highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        handleSelect(filteredOptions[highlightedIndex].value);
+      } else if (!open) {
+        setOpen(true);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      setSearch("");
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative w-full">
       <div
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={handleKeyDown}
         onClick={() => {
           if (!disabled) {
             setOpen((prev) => !prev);
-            setTimeout(() => inputRef.current?.focus(), 50);
           }
         }}
         className={cn(
-          "w-full rounded-lg border bg-white px-3 py-2 text-sm flex items-center justify-between transition-colors cursor-pointer select-none",
+          "w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs sm:text-sm flex items-center justify-between shadow-2xs transition-colors cursor-pointer select-none hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]",
           hasError
-            ? "border-red-500 ring-1 ring-red-500/20"
-            : "border-payroll-light hover:border-payroll-primary/60",
-          open && "border-payroll-primary ring-1 ring-payroll-primary/20",
-          disabled && "bg-gray-50 text-gray-400 cursor-not-allowed border-payroll-light/60"
+            ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/20"
+            : "",
+          open && "border-[#1e7e47] ring-1 ring-[#1e7e47]",
+          disabled && "bg-gray-50 text-gray-400 cursor-not-allowed border-slate-200"
         )}
       >
         <div className="truncate flex-1 pr-2">
           {selectedOption ? (
-            <span className="text-payroll-navy font-medium">
+            <span className="text-slate-800 font-medium">
               {selectedOption.label}
-              {selectedOption.labelNepali ? (
-                <span className="text-gray-400 text-xs ml-1.5 font-normal">
-                  ({selectedOption.labelNepali})
-                </span>
-              ) : null}
             </span>
           ) : (
             <span className="text-gray-400 text-xs">{placeholder}</span>
@@ -121,7 +176,7 @@ function SearchableAddressSelect({
             <button
               type="button"
               onClick={handleClear}
-              className="p-0.5 hover:text-gray-600 rounded"
+              className="p-0.5 hover:text-gray-600 rounded cursor-pointer"
               title="Clear selection"
             >
               <X className="w-3.5 h-3.5" />
@@ -132,56 +187,59 @@ function SearchableAddressSelect({
       </div>
 
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-payroll-light bg-white shadow-payroll-md overflow-hidden animate-[fadeIn_100ms_ease-out]">
-          <div className="p-2 border-b border-payroll-light/80 bg-payroll-cream/50 flex items-center gap-2">
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden animate-[fadeIn_100ms_ease-out]">
+          <div className="p-2 border-b border-slate-100 bg-slate-50/80 flex items-center gap-2">
             <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
             <input
               ref={inputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Type to filter..."
-              className="w-full bg-transparent text-xs text-payroll-navy placeholder-gray-400 focus:outline-none"
+              className="w-full bg-transparent text-xs text-slate-800 placeholder-gray-400 focus:outline-none"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="text-gray-400 hover:text-gray-600 p-0.5"
+                className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
             )}
           </div>
 
-          <div className="max-h-56 overflow-y-auto p-1 divide-y divide-payroll-light/30">
+          <div className="max-h-56 overflow-y-auto p-1 divide-y divide-slate-100/50 scrollbar-thin">
             {filteredOptions.length === 0 ? (
               <div className="p-3 text-center text-xs text-gray-400">
                 {emptyMessage}
               </div>
             ) : (
-              filteredOptions.map((opt) => {
+              filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value.toLowerCase() === (value || "").toLowerCase();
+                const isHighlighted = highlightedIndex === idx;
                 return (
                   <div
                     key={opt.value}
+                    ref={(el) => {
+                      itemRefs.current[idx] = el;
+                    }}
                     onClick={() => handleSelect(opt.value)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
                     className={cn(
                       "px-3 py-2 text-xs rounded-lg flex items-center justify-between cursor-pointer transition-colors",
-                      isSelected
-                        ? "bg-payroll-primary/10 text-payroll-primary font-semibold"
-                        : "text-payroll-navy hover:bg-payroll-cream/80"
+                      isHighlighted
+                        ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                        : isSelected
+                        ? "bg-emerald-50 text-slate-900 font-semibold"
+                        : "text-slate-700 hover:bg-slate-50"
                     )}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>{opt.label}</span>
-                      {opt.labelNepali && (
-                        <span className="text-[11px] text-gray-400">
-                          ({opt.labelNepali})
-                        </span>
-                      )}
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-payroll-primary shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#1e7e47] shrink-0" />}
                   </div>
                 );
               })
@@ -273,7 +331,7 @@ export function NepalAddressPicker({
   };
 
   const inputClass =
-    "w-full rounded-lg border border-payroll-light bg-white px-3 py-2 text-sm text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary";
+    "w-full h-10 rounded-lg border border-slate-200 bg-white px-3.5 text-xs sm:text-sm text-slate-900 shadow-2xs transition-colors hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]";
 
   // Format options for SearchableAddressSelect
   const permDistrictOptions: OptionItem[] = useMemo(
@@ -299,17 +357,17 @@ export function NepalAddressPicker({
   return (
     <div className="space-y-6">
       {/* 1. PERMANENT ADDRESS */}
-      <div className="rounded-xl border border-payroll-light/80 bg-white p-4 space-y-4 shadow-xs">
-        <div className="flex items-center gap-2 border-b border-payroll-light pb-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-payroll-primary">
-            <MapPin className="h-4 w-4" />
+      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-4 shadow-2xs">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-[#1e7e47]">
+            <MapPin className="h-3.5 w-3.5" />
           </div>
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
-              Permanent Address (स्थायी ठेगाना) *
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              Permanent Address *
             </h4>
             <p className="text-[11px] text-gray-500">
-              Official address as recorded on Citizenship / NID card.
+              Official legal residence as recorded on Citizenship or National ID.
             </p>
           </div>
         </div>
@@ -323,7 +381,7 @@ export function NepalAddressPicker({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Province */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Province (प्रदेश) *</label>
+            <label className="text-xs font-medium text-slate-700">Province *</label>
             <select
               value={perm.province}
               onChange={(e) => updatePerm("province", e.target.value)}
@@ -332,7 +390,7 @@ export function NepalAddressPicker({
               <option value="">Select Province</option>
               {PROVINCES.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.nameNepali})
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -340,7 +398,7 @@ export function NepalAddressPicker({
 
           {/* Searchable District */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">District (जिल्ला) *</label>
+            <label className="text-xs font-medium text-slate-700">District *</label>
             <SearchableAddressSelect
               value={perm.district}
               onChange={(val) => updatePerm("district", val)}
@@ -353,16 +411,16 @@ export function NepalAddressPicker({
 
           {/* Searchable Local Level / Palika */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">
-              Local Level (गाउँपालिका / नगरपालिका) *
+            <label className="text-xs font-medium text-slate-700">
+              Municipality / Local Level *
             </label>
             <SearchableAddressSelect
               value={perm.localLevel}
               onChange={(val) => updatePerm("localLevel", val)}
               options={permPalikaOptions}
-              placeholder={perm.district ? "Search or select municipality / palika..." : "Select district first"}
+              placeholder={perm.district ? "Search or select municipality..." : "Select district first"}
               disabled={!perm.district}
-              emptyMessage="No municipality/palika found in this district"
+              emptyMessage="No municipality found in this district"
             />
           </div>
         </div>
@@ -370,7 +428,7 @@ export function NepalAddressPicker({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Ward No */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Ward No. (वडा नं.)</label>
+            <label className="text-xs font-medium text-slate-700">Ward Number</label>
             <input
               type="number"
               min={1}
@@ -384,7 +442,7 @@ export function NepalAddressPicker({
 
           {/* Tole / Street */}
           <div className="space-y-1 md:col-span-2">
-            <label className="text-xs font-medium text-gray-600">Tole / Street / House No. (टोल / सडक)</label>
+            <label className="text-xs font-medium text-slate-700">Street Address / Tole / House No</label>
             <input
               type="text"
               value={perm.tole}
@@ -397,15 +455,15 @@ export function NepalAddressPicker({
       </div>
 
       {/* 2. TEMPORARY ADDRESS */}
-      <div className="rounded-xl border border-payroll-light/80 bg-payroll-cream/60 p-4 space-y-4 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-payroll-light pb-2">
+      <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-4 shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-              <MapPin className="h-4 w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+              <MapPin className="h-3.5 w-3.5" />
             </div>
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
-                Temporary Address (अस्थायी ठेगाना)
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Temporary Address
               </h4>
               <p className="text-[11px] text-gray-500">
                 Current residence address if different from permanent address.
@@ -418,7 +476,7 @@ export function NepalAddressPicker({
             onClick={handleCopyPermanentToTemporary}
             disabled={!perm.province || !perm.district}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg border border-payroll-light bg-white px-2.5 py-1 text-xs font-medium text-payroll-navy shadow-2xs hover:bg-payroll-cream transition-colors",
+              "inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer",
               (!perm.province || !perm.district) && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -429,7 +487,7 @@ export function NepalAddressPicker({
               </>
             ) : (
               <>
-                <Copy className="h-3.5 w-3.5 text-payroll-primary" />
+                <Copy className="h-3.5 w-3.5 text-[#1e7e47]" />
                 <span>Copy from Permanent</span>
               </>
             )}
@@ -439,7 +497,7 @@ export function NepalAddressPicker({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Province */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Province (प्रदेश)</label>
+            <label className="text-xs font-medium text-slate-700">Province</label>
             <select
               value={temp.province}
               onChange={(e) => updateTemp("province", e.target.value)}
@@ -448,7 +506,7 @@ export function NepalAddressPicker({
               <option value="">Select Province</option>
               {PROVINCES.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.nameNepali})
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -456,7 +514,7 @@ export function NepalAddressPicker({
 
           {/* Searchable District */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">District (जिल्ला)</label>
+            <label className="text-xs font-medium text-slate-700">District</label>
             <SearchableAddressSelect
               value={temp.district}
               onChange={(val) => updateTemp("district", val)}
@@ -469,16 +527,16 @@ export function NepalAddressPicker({
 
           {/* Searchable Local Level / Palika */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">
-              Local Level (गाउँपालिका / नगरपालिका)
+            <label className="text-xs font-medium text-slate-700">
+              Municipality / Local Level
             </label>
             <SearchableAddressSelect
               value={temp.localLevel}
               onChange={(val) => updateTemp("localLevel", val)}
               options={tempPalikaOptions}
-              placeholder={temp.district ? "Search or select municipality / palika..." : "Select district first"}
+              placeholder={temp.district ? "Search or select municipality..." : "Select district first"}
               disabled={!temp.district}
-              emptyMessage="No municipality/palika found in this district"
+              emptyMessage="No municipality found in this district"
             />
           </div>
         </div>
@@ -486,7 +544,7 @@ export function NepalAddressPicker({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Ward No */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Ward No. (वडा नं.)</label>
+            <label className="text-xs font-medium text-slate-700">Ward Number</label>
             <input
               type="number"
               min={1}
@@ -500,7 +558,7 @@ export function NepalAddressPicker({
 
           {/* Tole / Street */}
           <div className="space-y-1 md:col-span-2">
-            <label className="text-xs font-medium text-gray-600">Tole / Street / House No. (टोल / सडक)</label>
+            <label className="text-xs font-medium text-slate-700">Street Address / Tole / House No</label>
             <input
               type="text"
               value={temp.tole}

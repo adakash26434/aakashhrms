@@ -28,6 +28,9 @@ export class EmployeeInUseError extends Error {
   }
 }
 
+import * as shreniRepository from "@/lib/repositories/shreni.repository";
+import * as systemControlRepository from "@/lib/repositories/system-control.repository";
+
 export interface EmployeeLookupData {
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];
@@ -37,11 +40,13 @@ export interface EmployeeLookupData {
 export async function getEmployeeLookupData(scope?: ScopeFilter) {
   const scopeCondition = scope ? buildEmployeeScopeCondition(scope) : undefined;
   const db = getDb();
-  const [branches, departments, designations, allEmployees, industryRow] = await Promise.all([
+  const [branches, departments, designations, allEmployees, shreniLevels, systemControl, industryRow] = await Promise.all([
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
     repository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "all" }, scopeCondition),
+    shreniRepository.findAllShreniLevels(),
+    systemControlRepository.findSettings(),
     db
       .select({ value: systemConfig.value })
       .from(systemConfig)
@@ -53,6 +58,8 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
     branches: branches.map((b) => ({ id: b.id, name: b.name })),
     departments: departments.map((d) => ({ id: d.id, name: d.name })),
     designations: designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId })),
+    shreniLevels,
+    gradePolicy: systemControl.gradePolicy,
     employees: allEmployees.map((e) => ({
       id: e.id,
       name: e.fullName || `${(e as any).firstName || ''} ${(e as any).lastName || ''}`.trim(),
@@ -106,7 +113,9 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
     joiningDate: new Date(formData.joiningDate),
     confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate) : null,
     status: formData.status,
+    basicSalary: formData.basicSalary ? Number(formData.basicSalary) : 0,
     gradePercent: formData.gradePercent,
+    gradeCount: formData.gradeCount ?? 0,
     gradeAmount: formData.gradeAmount,
     citizenshipNo: formData.citizenshipNo,
     issuingDistrict: formData.issuingDistrict,

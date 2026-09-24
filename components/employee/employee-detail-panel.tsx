@@ -5,11 +5,9 @@ import {
   AlertTriangle,
   Building2,
   CreditCard,
-  HeartHandshake,
   IdCard,
   MapPin,
   Pencil,
-  Phone,
   User,
   Users,
 } from "lucide-react";
@@ -138,12 +136,12 @@ export function EmployeeDetailPanel({
     >
       {employee && (
         <div className="space-y-6">
-          <div className="flex items-center gap-3 rounded-xl border border-payroll-light/80 bg-payroll-cream/50 p-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-payroll-primary text-base font-bold text-white">
+          <div className="flex items-center gap-3.5 rounded-xl border border-payroll-border bg-[#F6F8F5]/80 p-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#165a3d] text-base font-semibold text-white shadow-2xs">
               {employee.fullName ? employee.fullName.slice(0, 2).toUpperCase() : "EM"}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-semibold text-payroll-navy">
+              <h3 className="text-base font-semibold text-payroll-ink">
                 {employee.fullName}
               </h3>
               <p className="font-mono text-xs text-gray-500">
@@ -204,8 +202,12 @@ export function EmployeeDetailPanel({
                 }
               />
               <Field
+                label="Grade Progression"
+                value={`${employee.gradeCount ?? 0} Grade(s)`}
+              />
+              <Field
                 label="Grade Amount"
-                value={employee.gradeAmount ? `NPR ${Number(employee.gradeAmount).toLocaleString("en-IN")}` : "—"}
+                value={employee.gradeAmount ? `NPR ${Number(employee.gradeAmount).toLocaleString("en-IN")}` : "NPR 0"}
               />
             </FieldGrid>
           </DetailSection>
@@ -231,12 +233,12 @@ export function EmployeeDetailPanel({
               <Field label="Mobile Number" value={employee.mobileNo} />
               <Field label="Phone (Home)" value={employee.phoneHome || "—"} />
               <Field
-                label="Permanent Address (स्थायी ठेगाना)"
+                label="Permanent Address"
                 value={permFormatted}
                 className="sm:col-span-2"
               />
               <Field
-                label="Temporary Address (अस्थायी ठेगाना)"
+                label="Temporary Address"
                 value={tempFormatted}
                 className="sm:col-span-2"
               />
@@ -307,7 +309,7 @@ function DetailSection({
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-2 border-b border-payroll-light/70 pb-2">
+      <div className="flex items-center gap-2 border-b border-payroll-border pb-2">
         <Icon className="h-4 w-4 text-payroll-primary" />
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
           {title}
@@ -338,7 +340,7 @@ function Field({
       <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
         {label}
       </p>
-      <div className="text-sm font-semibold text-payroll-navy">{value}</div>
+      <div className="text-sm font-semibold text-payroll-ink">{value}</div>
     </div>
   );
 }

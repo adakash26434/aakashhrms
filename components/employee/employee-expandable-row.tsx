@@ -73,6 +73,7 @@ export function EmployeeExpandableRow({
           <div className="space-y-1.5">
             <DetailRow label="Category" value={employee.category} />
             <DetailRow label="Level / Shreni" value={employee.shreni} />
+            <DetailRow label="Grade" value={`${employee.gradeCount ?? 0} Grade(s)`} />
             <DetailRow label="Supervisor" value={supervisorName} />
             <DetailRow
               label="Confirmed"

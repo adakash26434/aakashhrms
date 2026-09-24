@@ -46,6 +46,7 @@ function createValidEmployeeData(): EmployeeFormData {
     confirmationDate: "2020-06-01",
     status: "Active",
     gradePercent: 100,
+    gradeCount: 0,
     gradeAmount: 45000,
     citizenshipNo: "27-01-75-01234",
     issuingDistrict: "Kathmandu",

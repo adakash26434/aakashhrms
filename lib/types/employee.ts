@@ -32,7 +32,9 @@ export interface Employee {
   joiningDate: Date;
   confirmationDate: Date | null;
   status: EmployeeStatus;
+  basicSalary?: number;
   gradePercent: number;
+  gradeCount?: number;
   gradeAmount: number;
 
   // Personal Info
@@ -99,7 +101,9 @@ export interface EmployeeFormData {
   joiningDate: string;
   confirmationDate: string;
   status: EmployeeStatus;
+  basicSalary?: number;
   gradePercent: number;
+  gradeCount: number;
   gradeAmount: number;
 
   citizenshipNo: string;
@@ -173,6 +177,7 @@ export interface EmployeeValidationErrors {
   confirmationDate?: string;
   status?: string;
   gradePercent?: string;
+  gradeCount?: string;
   gradeAmount?: string;
   citizenshipNo?: string;
   issuingDistrict?: string;

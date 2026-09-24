@@ -51,8 +51,9 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
     joiningDate: new Date(row.employees.joiningDate),
     confirmationDate: row.employees.confirmationDate ? new Date(row.employees.confirmationDate) : null,
     status: (row.employees.status === "Terminated" ? "Inactive" : row.employees.status) as EmployeeStatus,
-    
+    basicSalary: Number(row.employees.basicSalary) || 0,
     gradePercent: row.employees.gradePercent || 0,
+    gradeCount: row.employees.gradeCount ?? 0,
     gradeAmount: Number(row.employees.gradeAmount) || 0,
 
     citizenshipNo: row.employee_personal?.citizenshipNo || '',
@@ -183,7 +184,9 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
       joiningDate: toDbDate(data.joiningDate) ?? new Date().toISOString().split('T')[0],
       confirmationDate: toDbDate(data.confirmationDate),
       status: data.status || 'Active',
+      basicSalary: data.basicSalary !== undefined ? data.basicSalary.toString() : '0',
       gradePercent: data.gradePercent,
+      gradeCount: data.gradeCount ?? 0,
       gradeAmount: data.gradeAmount?.toString(),
     }).returning({ id: employees.id });
     
@@ -282,7 +285,9 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
       joiningDate: data.joiningDate ? toDbDate(data.joiningDate) ?? undefined : undefined,
       confirmationDate: toDbDate(data.confirmationDate),
       status: data.status,
+      basicSalary: data.basicSalary !== undefined ? data.basicSalary.toString() : undefined,
       gradePercent: data.gradePercent,
+      gradeCount: data.gradeCount !== undefined ? data.gradeCount : undefined,
       gradeAmount: data.gradeAmount?.toString(),
       updatedAt: new Date(),
     }).where(eq(employees.id, id));

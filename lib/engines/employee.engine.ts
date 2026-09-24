@@ -80,6 +80,9 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     if (!data.branchId?.trim()) errors.branchId = "Branch is required";
     if (!data.designationId?.trim()) errors.designationId = "Designation is required";
     if (!data.shreni?.trim()) errors.shreni = "Shreni is required";
+    if (data.gradeCount !== undefined && data.gradeCount !== null && (Number(data.gradeCount) < 0 || !Number.isInteger(Number(data.gradeCount)))) {
+      errors.gradeCount = "Grade count must be a non-negative integer";
+    }
     if (data.gradeAmount === undefined || data.gradeAmount === null || Number(data.gradeAmount) < 0 || String(data.gradeAmount).trim() === "") {
       errors.gradeAmount = "Grade amount is required";
     }

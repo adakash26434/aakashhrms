@@ -149,7 +149,8 @@ export function PhoneInput({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 w-full min-w-0",
+        "flex items-center w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-2xs transition-colors hover:border-slate-300 focus-within:border-[#1e7e47] focus-within:ring-1 focus-within:ring-[#1e7e47]",
+        hasError && "border-red-500 focus-within:border-red-500 focus-within:ring-red-500 bg-red-50/20",
         containerClassName,
       )}
     >
@@ -160,9 +161,8 @@ export function PhoneInput({
           onChange={handleCountryChange}
           disabled={disabled}
           className={cn(
-            "h-10 max-w-31.25 sm:max-w-35 rounded-xl border border-payroll-light bg-payroll-cream px-2.5 text-xs font-semibold text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-2 focus:ring-payroll-primary cursor-pointer disabled:opacity-50 text-ellipsis overflow-hidden transition-all shadow-sm",
-            hasError &&
-              "border-rose-300 bg-rose-50/40 text-rose-800 focus:ring-rose-500",
+            "h-10 max-w-27.5 sm:max-w-32.5 rounded-l-lg border-0 border-r border-slate-200 bg-slate-50/80 px-2 text-xs font-medium text-slate-700 focus:outline-none cursor-pointer disabled:opacity-50 text-ellipsis overflow-hidden",
+            hasError && "text-red-700 bg-red-50/40",
             selectClassName,
           )}
         >
@@ -174,7 +174,7 @@ export function PhoneInput({
         </select>
       </div>
       <div className="relative flex-1 min-w-0">
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs text-gray-400 font-mono">
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-xs text-gray-400 font-mono">
           +{currentCallingCode}
         </div>
         <input
@@ -185,9 +185,8 @@ export function PhoneInput({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "w-full h-10 rounded-xl border border-payroll-light bg-payroll-cream pl-12 pr-3.5 text-sm text-payroll-navy placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-payroll-primary disabled:opacity-50 transition-all shadow-sm font-sans",
-            hasError &&
-              "border-rose-300 focus:border-transparent focus:ring-rose-500 bg-rose-50/40 text-rose-900 placeholder:text-rose-300",
+            "w-full h-10 rounded-r-lg border-0 bg-transparent pl-11 pr-3 text-xs sm:text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:opacity-50",
+            hasError && "text-red-900 placeholder:text-red-300",
             className,
           )}
         />

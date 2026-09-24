@@ -50,23 +50,6 @@ export interface NepaliDatePickerProps {
   placeholder?: string;
 }
 
-const BS_MONTHS_NAMES = [
-  "",
-  "बैशाख",
-  "जेठ",
-  "असार",
-  "श्रावण",
-  "भाद्र",
-  "असोज",
-  "कार्तिक",
-  "मंसिर",
-  "पौष",
-  "माघ",
-  "फागुन",
-  "चैत्र",
-] as const;
-
-const BS_WEEKDAYS = ["आ", "सो", "मं", "बु", "बि", "शु", "श"] as const;
 const AD_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
 
 const AD_MONTHS_NAMES = [
@@ -94,7 +77,7 @@ function pad2(n: number): string {
  * styled with our canonical AakashHRMS lush green system palette:
  * - Smart auto-slash formatting when typing YYYY/MM/DD manually
  * - Forest-green header with circular nav buttons (< >) and Month / Year selectors
- * - Weekday initials header (आ सो मं बु बि शु श / Su Mo Tu We Th Fr Sa)
+ * - Weekday initials header (Su Mo Tu We Th Fr Sa)
  * - Mint-green day cells with signature soft-yellow highlight for selected dates
  * - Attached deep-forest green eraser button for instant clearing
  */
@@ -409,23 +392,23 @@ export function NepaliDatePicker({
   }
 
   return (
-    <div ref={containerRef} className={cn("relative inline-block w-full", className)}>
+    <div ref={containerRef} className={cn("relative inline-block w-full", isOpen && "z-50", className)}>
       {label && (
-        <label className="mb-1 block text-xs font-bold text-payroll-navy">
+        <label className="mb-1 block text-xs font-bold text-slate-800">
           {label}
-          {required && <span className="ml-1 text-rose-500">*</span>}
+          {required && <span className="ml-1 text-red-500">*</span>}
         </label>
       )}
 
-      {/* Input Group with Attached Greenish Eraser Button */}
+      {/* Input Group with Attached Eraser Button */}
       <div
         className={cn(
-          "relative flex items-center rounded-lg border bg-white shadow-xs transition-all text-payroll-navy",
+          "relative flex items-center h-10 rounded-lg border border-slate-200 bg-white shadow-2xs transition-colors text-slate-900",
           isOpen
-            ? "border-payroll-primary ring-2 ring-payroll-primary/20"
+            ? "border-[#1e7e47] ring-1 ring-[#1e7e47]"
             : error
-              ? "border-rose-400 focus-within:ring-1 focus-within:ring-rose-500"
-              : "border-payroll-light/80 hover:border-gray-300 focus-within:ring-1 focus-within:ring-payroll-primary",
+              ? "border-red-500 bg-red-50/20 focus-within:ring-1 focus-within:ring-red-500"
+              : "hover:border-slate-300 focus-within:border-[#1e7e47] focus-within:ring-1 focus-within:ring-[#1e7e47]",
           disabled && "cursor-not-allowed bg-gray-50 opacity-70",
         )}
       >
@@ -437,17 +420,17 @@ export function NepaliDatePicker({
           onClick={() => !disabled && setIsOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-transparent py-2 pl-3 pr-10 text-xs sm:text-sm font-mono font-medium placeholder-gray-400 focus:outline-none"
+          className="h-full w-full bg-transparent pl-3.5 pr-10 text-xs sm:text-sm font-mono font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
         />
 
-        {/* Attached Eraser Button (Deep System Forest Navy/Green) */}
+        {/* Attached Eraser Button */}
         <button
           type="button"
           tabIndex={-1}
           disabled={disabled}
           onClick={handleClear}
           title="Clear date"
-          className="absolute right-0 top-0 bottom-0 px-2.5 bg-payroll-navy hover:bg-payroll-primary-hover text-white rounded-r-lg flex items-center justify-center transition-colors shadow-inner"
+          className="absolute right-0 top-0 bottom-0 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-r-lg flex items-center justify-center transition-colors border-l border-slate-200 cursor-pointer"
         >
           <Eraser className="w-3.5 h-3.5" />
         </button>
@@ -455,43 +438,43 @@ export function NepaliDatePicker({
 
       {/* Opposite Calendar Context Hint */}
       {value && !isNaN(value.getTime()) && (
-        <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500 font-mono">
+        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 font-mono">
           <span>
             {isBS
-              ? `A.D.: ${formatADDate(value, "long")}`
-              : `B.S.: ${(() => {
+              ? `AD Equivalent: ${formatADDate(value, "long")}`
+              : `BS Equivalent: ${(() => {
                   const bs = adToBS(value);
-                  return `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)} (${bs.monthName})`;
+                  return `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)} (${BS_MONTHS_EN[bs.month] || bs.monthName})`;
                 })()}`}
           </span>
-          <span className="text-[10px] uppercase font-bold text-payroll-primary tracking-wider">
+          <span className="text-[10px] uppercase font-bold text-[#1e7e47] tracking-wider">
             {isBS ? "B.S. Calendar" : "A.D. Calendar"}
           </span>
         </div>
       )}
 
       {error && (
-        <p className="mt-1 text-xs text-rose-600 font-semibold" role="alert">
+        <p className="mt-1 text-xs text-red-600 font-semibold" role="alert">
           {error}
         </p>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          POPUP CALENDAR MODAL (GREENISH PALETTE MATCHING SYSTEM)
+          POPUP CALENDAR MODAL
          ══════════════════════════════════════════════════════════════════════ */}
       {isOpen && !disabled && (
         <div
-          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-payroll-light bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
-          style={{ minWidth: "268px" }}
+          className="absolute left-0 top-full mt-1.5 z-999 w-72 rounded-lg border border-slate-300 bg-white p-2.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+          style={{ minWidth: "272px" }}
         >
-          {/* Header Bar — System Emerald/Forest Green */}
-          <div className="rounded-t-lg bg-linear-to-r from-payroll-primary to-emerald-700 px-2 py-1.5 flex items-center justify-between text-white shadow-xs">
+          {/* Header Bar */}
+          <div className="rounded-md bg-[#1e7e47] px-2.5 py-1.5 flex items-center justify-between text-white shadow-xs">
             {/* Previous Month Arrow Button */}
             <button
               type="button"
               onClick={handlePrevMonth}
               title="Previous Month"
-              className="w-6 h-6 rounded-full bg-payroll-primary-hover hover:opacity-90 text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+              className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -503,15 +486,15 @@ export function NepaliDatePicker({
                 <select
                   value={viewMonth}
                   onChange={(e) => setViewMonth(Number(e.target.value))}
-                  className="appearance-none bg-white text-payroll-navy text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-payroll-light focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-xs"
+                  className="appearance-none bg-white text-slate-800 text-xs font-semibold pl-2.5 pr-5 py-0.5 rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-white cursor-pointer shadow-xs"
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
-                      {isBS ? `${BS_MONTHS_EN[m]} (${BS_MONTHS_NAMES[m]})` : AD_MONTHS_NAMES[m]}
+                      {isBS ? BS_MONTHS_EN[m] : AD_MONTHS_NAMES[m]}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3 h-3 text-payroll-primary absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-slate-500 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               {/* Year Dropdown */}
@@ -519,15 +502,15 @@ export function NepaliDatePicker({
                 <select
                   value={viewYear}
                   onChange={(e) => setViewYear(Number(e.target.value))}
-                  className="appearance-none bg-white text-payroll-navy text-xs font-bold pl-2.5 pr-5 py-0.5 rounded-md border border-payroll-light focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-xs font-mono"
+                  className="appearance-none bg-white text-slate-800 text-xs font-semibold pl-2.5 pr-5 py-0.5 rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-white cursor-pointer shadow-xs font-mono"
                 >
                   {yearOptions.map((y) => (
                     <option key={y} value={y}>
-                      {isBS ? `${y} (${toNepaliNumerals(y)})` : y}
+                      {y}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3 h-3 text-payroll-primary absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-slate-500 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
@@ -536,15 +519,15 @@ export function NepaliDatePicker({
               type="button"
               onClick={handleNextMonth}
               title="Next Month"
-              className="w-6 h-6 rounded-full bg-payroll-primary-hover hover:opacity-90 text-white flex items-center justify-center transition-transform active:scale-95 shadow-xs"
+              className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* Weekday Row Header */}
-          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-xs font-extrabold text-payroll-navy">
-            {(isBS ? BS_WEEKDAYS : AD_WEEKDAYS).map((dayName, idx) => (
+          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-[11px] font-semibold text-slate-500">
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((dayName, idx) => (
               <div key={idx} className="py-0.5">
                 {dayName}
               </div>
@@ -569,14 +552,14 @@ export function NepaliDatePicker({
                   type="button"
                   onClick={() => handleSelectDay(day)}
                   className={cn(
-                    "h-7 w-full flex items-center justify-center rounded-xs text-xs font-bold transition-all cursor-pointer select-none",
+                    "h-7 w-full flex items-center justify-center rounded-sm text-xs font-medium transition-all cursor-pointer select-none",
                     selected
-                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-payroll-navy border border-[#f5d742] shadow-xs scale-105 z-10"
-                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-payroll-primary-hover border border-[#d2ead5]",
-                    isToday && !selected && "ring-1.5 ring-payroll-primary font-black text-payroll-navy",
+                      ? "bg-[#1e7e47] text-white font-bold shadow-xs z-10"
+                      : "hover:bg-slate-100 text-slate-800",
+                    isToday && !selected && "ring-1.5 ring-[#1e7e47] font-bold text-[#1e7e47]",
                   )}
                 >
-                  {isBS ? toNepaliNumerals(day) : day}
+                  {day}
                 </button>
               );
             })}

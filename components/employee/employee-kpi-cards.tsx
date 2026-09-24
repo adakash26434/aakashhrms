@@ -1,63 +1,80 @@
 import { Card } from "@/components/ui/card";
-import { Users, CheckCircle2, CalendarDays, UserX, Building2 } from "lucide-react";
+import { Users, CheckCircle2, CalendarDays, AlertCircle } from "lucide-react";
 import type { EmployeeKPIs } from "@/lib/types/employee";
 
-export function EmployeeKPIsGrid({ kpis }: { kpis: EmployeeKPIs }) {
-  const metrics = [
+interface EmployeeKPIsGridProps {
+  kpis: EmployeeKPIs;
+  incompleteCount?: number;
+}
+
+export function EmployeeKPIsGrid({ kpis, incompleteCount }: EmployeeKPIsGridProps) {
+  const incompleteValue =
+    typeof incompleteCount === "number"
+      ? incompleteCount
+      : (kpis.terminated ?? 0) + (kpis.inactive ?? 0) > 0
+      ? (kpis.terminated ?? 0) + (kpis.inactive ?? 0)
+      : Math.max(0, kpis.total - kpis.active - (kpis.onLeave ?? 0));
+
+  const items = [
     {
-      label: "All Employees",
       value: kpis.total,
+      label: "Total Employees",
+      subtext: "across all branches",
       icon: Users,
-      tone: "bg-payroll-cream text-payroll-primary border border-payroll-light/80",
+      iconColor: "text-gray-400 group-hover:text-payroll-primary",
     },
     {
-      label: "Active",
       value: kpis.active,
+      label: "Active",
+      subtext: "currently working",
       icon: CheckCircle2,
-      tone: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
+      iconColor: "text-emerald-500",
     },
     {
+      value: kpis.onLeave ?? 0,
       label: "On Leave",
-      value: kpis.onLeave,
+      subtext: "approved leaves",
       icon: CalendarDays,
-      tone: "bg-amber-50 text-amber-700 border border-amber-200/60",
+      iconColor: "text-amber-500",
     },
     {
-      label: "Terminated",
-      value: kpis.terminated,
-      icon: UserX,
-      tone: "bg-rose-50 text-rose-700 border border-rose-200/60",
-    },
-    {
-      label: "Departments",
-      value: kpis.departmentsCount,
-      icon: Building2,
-      tone: "bg-payroll-light/60 text-payroll-navy border border-payroll-light",
+      value: incompleteValue,
+      label: "Incomplete Profiles",
+      subtext: "need attention",
+      icon: AlertCircle,
+      iconColor: "text-rose-400",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-      {metrics.map((m) => (
-        <Card
-          key={m.label}
-          className="overflow-hidden p-3.5 transition-all duration-200 hover:-translate-y-0.5 shadow-payroll-xs hover:shadow-payroll-sm"
-        >
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                {m.label}
-              </p>
-              <p className="text-xl sm:text-2xl font-bold tabular-nums text-payroll-navy">
-                {m.value}
-              </p>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <Card
+            key={item.label}
+            className="group relative flex flex-col justify-between p-4.5 bg-white border-payroll-border hover:border-payroll-border/80 transition-all rounded-xl shadow-payroll-xs"
+          >
+            <div>
+              <div className="flex items-start justify-between">
+                <p className="text-[13px] font-medium text-gray-500">
+                  {item.label}
+                </p>
+                <Icon className={`h-4 w-4 transition-colors ${item.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-[28px] font-semibold tracking-tight text-gray-950 font-sans">
+                  {item.value}
+                </span>
+              </div>
             </div>
-            <div className={`rounded-xl p-2.5 ${m.tone}`}>
-              <m.icon className="h-4.5 w-4.5" />
+
+            <div className="mt-2.5 pt-2 border-t border-gray-100 text-[11px] text-gray-400">
+              {item.subtext}
             </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 }

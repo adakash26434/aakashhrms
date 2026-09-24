@@ -22,8 +22,10 @@ import {
 } from "@/lib/engines/employee.engine";
 import { getShreniLevelsAction } from "@/app/actions/shreni.actions";
 import { getEmploymentTypesAction } from "@/app/actions/company-setup.actions";
+import { getEmployeeLookupDataAction } from "@/app/actions/employee.actions";
 import type { ShreniLevelItem } from "@/lib/constants/industry-types";
 import type { EmploymentType } from "@/lib/types/company-setup";
+import type { GradePolicySettings } from "@/lib/types/system-control";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +39,8 @@ interface EmployeeFormModalProps {
   designations: { id: string; name: string; departmentId: string }[];
   employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string; isSupervisor?: boolean }[];
   industryType?: string;
+  shreniLevels?: ShreniLevelItem[];
+  gradePolicy?: GradePolicySettings;
 }
 
 const EMPTY_FORM: EmployeeFormData = {
@@ -57,7 +61,9 @@ const EMPTY_FORM: EmployeeFormData = {
   joiningDate: "",
   confirmationDate: "",
   status: "Active",
+  basicSalary: 0,
   gradePercent: 100,
+  gradeCount: 0,
   gradeAmount: 0,
   citizenshipNo: "",
   issuingDistrict: "",
@@ -133,7 +139,9 @@ function buildFormFromEmployee(emp: Employee): EmployeeFormData {
     joiningDate: toDateInputValue(emp.joiningDate),
     confirmationDate: toDateInputValue(emp.confirmationDate),
     status: emp.status,
+    basicSalary: emp.basicSalary ?? 0,
     gradePercent: emp.gradePercent,
+    gradeCount: emp.gradeCount ?? 0,
     gradeAmount: emp.gradeAmount,
     citizenshipNo: emp.citizenshipNo,
     issuingDistrict: emp.issuingDistrict,
@@ -179,6 +187,8 @@ export function EmployeeFormModal({
   designations,
   employees,
   industryType,
+  shreniLevels: initialShreniLevels,
+  gradePolicy: initialGradePolicy,
 }: EmployeeFormModalProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -186,8 +196,9 @@ export function EmployeeFormModal({
   const [formData, setFormData] = useState<EmployeeFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<EmployeeValidationErrors>({});
   const [hasDraft, setHasDraft] = useState(false);
-  const [shreniLevels, setShreniLevels] = useState<ShreniLevelItem[]>([]);
+  const [shreniLevels, setShreniLevels] = useState<ShreniLevelItem[]>(initialShreniLevels || []);
   const [employmentTypes, setEmploymentTypes] = useState<EmploymentType[]>([]);
+  const [gradePolicy, setGradePolicy] = useState<GradePolicySettings | undefined>(initialGradePolicy);
   const toast = useToast();
 
   const initializedRef = useRef<string | null>(null);
@@ -197,16 +208,33 @@ export function EmployeeFormModal({
     if (!open) return;
     async function loadOrgMetadata() {
       try {
-        const [lvlRes, typRes] = await Promise.all([
-          getShreniLevelsAction(),
-          getEmploymentTypesAction(),
-        ]);
-        if (lvlRes.success && lvlRes.data) setShreniLevels(lvlRes.data);
-        if (typRes.success && typRes.data) setEmploymentTypes(typRes.data);
+        const promises: Promise<any>[] = [getEmploymentTypesAction()];
+        if (!initialShreniLevels || initialShreniLevels.length === 0) {
+          promises.push(getShreniLevelsAction());
+        }
+        if (!initialGradePolicy) {
+          promises.push(getEmployeeLookupDataAction());
+        }
+        const results = await Promise.all(promises);
+        const typRes = results[0];
+        if (typRes?.success && typRes.data) setEmploymentTypes(typRes.data);
+
+        results.forEach((res) => {
+          if (res?.success && res.data) {
+            if (Array.isArray(res.data) && res.data.length > 0 && "levelNumber" in res.data[0]) {
+              setShreniLevels(res.data);
+            } else if ("gradePolicy" in res.data && res.data.gradePolicy) {
+              setGradePolicy(res.data.gradePolicy);
+              if (res.data.shreniLevels?.length) {
+                setShreniLevels(res.data.shreniLevels);
+              }
+            }
+          }
+        });
       } catch {}
     }
     loadOrgMetadata();
-  }, [open]);
+  }, [open, initialShreniLevels, initialGradePolicy]);
 
   // Initialize form state once per open session without resetting on re-renders
   useEffect(() => {
@@ -222,55 +250,54 @@ export function EmployeeFormModal({
     initializedRef.current = currentKey;
 
     if (editingId) {
-      async function loadEmp() {
-        const result = await getEmployeeByIdAction(editingId!);
+      getEmployeeByIdAction(editingId!).then((result) => {
         if (result.success && result.data) {
           setEditingName(result.data.fullName);
           setFormData(buildFormFromEmployee(result.data));
+          setErrors({});
+          setActiveTab(0);
+          setHasDraft(false);
         }
-      }
-      loadEmp();
-      setErrors({});
-      setActiveTab(0);
-      setHasDraft(false);
+      });
     } else {
-      // Check if a saved in-progress draft exists in sessionStorage
-      let restoredFromDraft = false;
-      if (typeof window !== "undefined") {
-        const savedDraft = sessionStorage.getItem("payroll_employee_new_draft");
-        if (savedDraft) {
-          try {
-            const parsed = JSON.parse(savedDraft);
-            setFormData(parsed);
-            setEditingName("");
-            setActiveTab(0);
-            setErrors({});
-            setHasDraft(true);
-            restoredFromDraft = true;
-          } catch {
-            sessionStorage.removeItem("payroll_employee_new_draft");
+      queueMicrotask(() => {
+        let restoredFromDraft = false;
+        if (typeof window !== "undefined") {
+          const savedDraft = sessionStorage.getItem("payroll_employee_new_draft");
+          if (savedDraft) {
+            try {
+              const parsed = JSON.parse(savedDraft);
+              setFormData(parsed);
+              setEditingName("");
+              setActiveTab(0);
+              setErrors({});
+              setHasDraft(true);
+              restoredFromDraft = true;
+            } catch {
+              sessionStorage.removeItem("payroll_employee_new_draft");
+            }
           }
         }
-      }
 
-      if (!restoredFromDraft) {
-        const existingEmpCodes = employees.map((e) => e.employeeCode || "").filter(Boolean);
-        const existingAtdCodes = employees.map((e) => e.attendanceCode || "").filter(Boolean);
-        const nextEmpCode = getNextEmployeeCode(existingEmpCodes);
-        const nextAtdCode = getNextAttendanceCode(existingAtdCodes, "ATD-");
+        if (!restoredFromDraft) {
+          const existingEmpCodes = employees.map((e) => e.employeeCode || "").filter(Boolean);
+          const existingAtdCodes = employees.map((e) => e.attendanceCode || "").filter(Boolean);
+          const nextEmpCode = getNextEmployeeCode(existingEmpCodes);
+          const nextAtdCode = getNextAttendanceCode(existingAtdCodes, "ATD-");
 
-        setFormData({
-          ...EMPTY_FORM,
-          employeeCode: nextEmpCode,
-          attendanceCode: nextAtdCode,
-        });
-        setEditingName("");
-        setActiveTab(0);
-        setErrors({});
-        setHasDraft(false);
-      }
+          setFormData({
+            ...EMPTY_FORM,
+            employeeCode: nextEmpCode,
+            attendanceCode: nextAtdCode,
+          });
+          setEditingName("");
+          setActiveTab(0);
+          setErrors({});
+          setHasDraft(false);
+        }
+      });
     }
-  }, [open, editingId]); // Only depends on modal visibility and target employee ID
+  }, [open, editingId, employees]);
 
   // Auto-save in-progress new employee form to sessionStorage to protect against accidental loss
   useEffect(() => {
@@ -286,7 +313,6 @@ export function EmployeeFormModal({
     );
     if (hasMeaningfulData && typeof window !== "undefined") {
       sessionStorage.setItem("payroll_employee_new_draft", JSON.stringify(formData));
-      setHasDraft(true);
     }
   }, [formData, open, editingId]);
 
@@ -526,6 +552,7 @@ export function EmployeeFormModal({
           industryType={industryType}
           shreniLevels={shreniLevels}
           employmentTypes={employmentTypes}
+          gradePolicy={gradePolicy}
           errors={errors}
           setErrors={setErrors}
           editingId={editingId}

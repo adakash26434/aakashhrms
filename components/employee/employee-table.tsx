@@ -4,14 +4,16 @@ import React, { useMemo, useState } from "react";
 import {
   ArrowUpDown,
   Eye,
-  Minus,
   Pencil,
-  Plus,
   Trash2,
   Users,
+  RotateCcw,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/ui/table-pagination";
 import {
   resolveBranchName,
   resolveDesignationName,
@@ -20,7 +22,6 @@ import {
 } from "@/lib/constants/employee-lookups";
 import { Employee } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
-import { EmployeeExpandableRow } from "./employee-expandable-row";
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -29,6 +30,8 @@ interface EmployeeTableProps {
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onClearFilters?: () => void;
+  hasActiveFilters?: boolean;
 }
 
 type SortKey =
@@ -38,7 +41,17 @@ type SortKey =
   | "departmentId"
   | "designationId"
   | "branchId"
+  | "category"
   | "status";
+
+function getInitials(name: string): string {
+  if (!name) return "EM";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 export function EmployeeTable({
   employees,
@@ -47,8 +60,9 @@ export function EmployeeTable({
   onSelect,
   onEdit,
   onDelete,
+  onClearFilters,
+  hasActiveFilters,
 }: EmployeeTableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("employeeCode");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -79,6 +93,8 @@ export function EmployeeTable({
               emp.branchId,
               lookups.branchNameById,
             ).toLowerCase();
+          case "category":
+            return (emp.category || "").toLowerCase();
           case "status":
             return emp.status;
           default:
@@ -94,6 +110,14 @@ export function EmployeeTable({
     return list;
   }, [employees, lookups, sortDir, sortKey]);
 
+  const { paginateList, paginationProps } = useTablePagination<Employee>({
+    totalItems: sortedEmployees.length,
+    initialPageSize: 10,
+    pageSizeOptions: [10, 20, 50, 100],
+  });
+
+  const paginatedEmployees = paginateList(sortedEmployees);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -103,36 +127,6 @@ export function EmployeeTable({
     setSortDir("asc");
   }
 
-  function toggleExpand(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    setExpandedId((prev) => (prev === id ? null : id));
-  }
-
-  const isAllSelected =
-    sortedEmployees.length > 0 && selectedIds.size === sortedEmployees.length;
-  const isSomeSelected =
-    selectedIds.size > 0 && selectedIds.size < sortedEmployees.length;
-
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(sortedEmployees.map((e) => e.id)));
-    }
-  };
-
-  const handleToggleRow = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
 
   const handleExportSelected = () => {
     const selectedEmps = sortedEmployees.filter((e) => selectedIds.has(e.id));
@@ -204,18 +198,30 @@ export function EmployeeTable({
           icon={<Users className="h-6 w-6 text-payroll-primary" />}
           title="No employees found"
           description="No employees match the selected filters or search query. Try adjusting your filters or add a new employee profile."
+          action={
+            hasActiveFilters && onClearFilters ? (
+              <button
+                type="button"
+                onClick={onClearFilters}
+                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors shadow-2xs cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+                <span>Clear Filters</span>
+              </button>
+            ) : undefined
+          }
         />
       </div>
     );
   }
 
   return (
-    <div className="relative overflow-x-auto rounded-2xl border border-payroll-light/80 bg-white shadow-payroll-xs">
-      {/* Floating Bulk Action Bar */}
+    <div className="relative overflow-hidden rounded-xl border border-payroll-border bg-white shadow-payroll-xs">
+      {/* Floating Bulk Action Bar if items selected */}
       {selectedIds.size > 0 && (
-        <div className="sticky top-2 z-30 m-3 flex items-center justify-between rounded-xl bg-payroll-navy px-4 py-2.5 text-white shadow-payroll-lg animate-[slideInUp_150ms_ease-out]">
-          <div className="flex items-center gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-payroll-primary text-xs font-bold text-white shadow-payroll-xs">
+        <div className="sticky top-2 z-30 m-3 flex items-center justify-between rounded-lg bg-payroll-ink px-4 py-2 text-white shadow-payroll-md animate-[slideInUp_150ms_ease-out]">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-payroll-primary text-xs font-semibold text-white">
               {selectedIds.size}
             </span>
             <span className="text-xs font-medium">
@@ -229,14 +235,14 @@ export function EmployeeTable({
             <button
               type="button"
               onClick={handleExportSelected}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover px-3 py-1.5 text-xs font-semibold text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover px-2.5 py-1 text-xs font-semibold text-white transition-colors cursor-pointer"
             >
               Export CSV
             </button>
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
-              className="rounded-lg bg-white/10 hover:bg-white/20 px-2.5 py-1.5 text-xs text-white transition-colors cursor-pointer"
+              className="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-xs text-white transition-colors cursor-pointer"
             >
               Clear
             </button>
@@ -244,179 +250,164 @@ export function EmployeeTable({
         </div>
       )}
 
-      <table className="w-full text-left text-xs text-gray-600">
-        <thead className="bg-payroll-cream/70 text-xs font-bold text-payroll-navy border-b border-payroll-light/80">
-          <tr>
-            {/* Checkbox Column */}
-            <th scope="col" className="w-8 px-3 py-3 text-center align-middle">
-              <input
-                type="checkbox"
-                checked={isAllSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = isSomeSelected;
-                }}
-                onChange={handleSelectAll}
-                className="h-3.5 w-3.5 rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary cursor-pointer"
-                title="Select all"
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs text-gray-700">
+          <thead className="bg-gray-50/80 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-payroll-border select-none">
+            <tr>
+              <SortHeader
+                label="ATT. CODE"
+                onClick={() => toggleSort("attendanceCode")}
               />
-            </th>
-            <th
-              scope="col"
-              className="w-8 px-2 py-3 text-center align-middle"
-            />
-            <SortHeader
-              label="Attn Code"
-              onClick={() => toggleSort("attendanceCode")}
-            />
-            <SortHeader
-              label="Emp Code"
-              onClick={() => toggleSort("employeeCode")}
-            />
-            <SortHeader
-              label="Employee Name"
-              onClick={() => toggleSort("name")}
-            />
-            <SortHeader
-              label="Department"
-              onClick={() => toggleSort("departmentId")}
-            />
-            <SortHeader
-              label="Designation"
-              onClick={() => toggleSort("designationId")}
-            />
-            <th scope="col" className="px-4 py-3 font-bold text-payroll-navy">
-              Contact
-            </th>
-            <SortHeader label="Branch" onClick={() => toggleSort("branchId")} />
-            <SortHeader label="Status" onClick={() => toggleSort("status")} />
-            <th
-              scope="col"
-              className="px-4 py-3 text-right font-bold text-payroll-navy"
-            >
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-payroll-light/50 bg-white">
-          {sortedEmployees.map((emp) => {
-            const isExpanded = expandedId === emp.id;
-            const isRowSelected = selectedIds.has(emp.id);
-            const departmentName = resolveDepartmentName(
-              emp.departmentId,
-              lookups.departmentNameById,
-            );
-            const designationName = resolveDesignationName(
-              emp.designationId,
-              lookups.designationNameById,
-            );
-            const branchName = resolveBranchName(
-              emp.branchId,
-              lookups.branchNameById,
-            );
+              <SortHeader
+                label="EMP. CODE"
+                onClick={() => toggleSort("employeeCode")}
+              />
+              <SortHeader
+                label="EMPLOYEE"
+                onClick={() => toggleSort("name")}
+              />
+              <SortHeader
+                label="DEPARTMENT"
+                onClick={() => toggleSort("departmentId")}
+              />
+              <SortHeader
+                label="DESIGNATION"
+                onClick={() => toggleSort("designationId")}
+              />
+              <SortHeader
+                label="BRANCH"
+                onClick={() => toggleSort("branchId")}
+              />
+              <th scope="col" className="px-4 py-3.5">
+                CONTACT
+              </th>
+              <SortHeader
+                label="TYPE"
+                onClick={() => toggleSort("category")}
+              />
+              <SortHeader
+                label="STATUS"
+                onClick={() => toggleSort("status")}
+              />
+              <th
+                scope="col"
+                className="px-4 py-3.5 text-right w-24"
+              >
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-payroll-border/60 bg-white">
+            {paginatedEmployees.map((emp) => {
+              const departmentName = resolveDepartmentName(
+                emp.departmentId,
+                lookups.departmentNameById,
+              );
+              const designationName = resolveDesignationName(
+                emp.designationId,
+                lookups.designationNameById,
+              );
+              const branchName = resolveBranchName(
+                emp.branchId,
+                lookups.branchNameById,
+              );
 
-            return (
-              <React.Fragment key={emp.id}>
+              const initials = getInitials(emp.fullName);
+              const isLeave = (emp.status as string) === "On Leave";
+              const isActive = emp.status === "Active";
+
+              return (
                 <tr
+                  key={emp.id}
                   onClick={() => onSelect(emp.id)}
-                  className={cn(
-                    "cursor-pointer transition-colors select-none",
-                    isRowSelected
-                      ? "bg-payroll-light/40 hover:bg-payroll-light/50"
-                      : "hover:bg-payroll-cream/50",
-                    isExpanded && "bg-payroll-cream/70",
-                  )}
+                  className="group transition-colors hover:bg-gray-50/70 cursor-pointer select-none"
                 >
-                  {/* Row Checkbox */}
-                  <td
-                    className="px-3 py-3 text-center align-middle"
-                    onClick={(e) => handleToggleRow(emp.id, e)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isRowSelected}
-                      onChange={() => {}}
-                      className="h-3.5 w-3.5 rounded border-payroll-light text-payroll-primary focus:ring-payroll-primary cursor-pointer"
-                    />
-                  </td>
-
-                  <td
-                    className="px-2 py-3 text-center align-middle"
-                    onClick={(e) => toggleExpand(emp.id, e)}
-                  >
-                    <button
-                      type="button"
-                      aria-label={isExpanded ? "Collapse row" : "Expand row"}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-payroll-light/60 hover:text-payroll-navy transition-colors"
-                    >
-                      {isExpanded ? (
-                        <Minus className="h-3.5 w-3.5" />
-                      ) : (
-                        <Plus className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 font-mono font-bold text-payroll-navy align-middle">
+                  {/* ATT. CODE */}
+                  <td className="px-4 py-3.5 font-mono text-xs font-semibold text-payroll-ink align-middle whitespace-nowrap">
                     {emp.attendanceCode}
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-500 align-middle">
+
+                  {/* EMP. CODE */}
+                  <td className="px-4 py-3.5 font-mono text-xs text-gray-500 align-middle whitespace-nowrap">
                     {emp.employeeCode}
                   </td>
-                  <td className="px-4 py-3 align-middle">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-payroll-light/70 text-[11px] font-bold text-payroll-navy border border-payroll-light shadow-2xs">
-                        {emp.fullName ? emp.fullName.slice(0, 2).toUpperCase() : "EM"}
+
+                  {/* EMPLOYEE (Avatar + Name) */}
+                  <td className="px-4 py-3.5 align-middle">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#165a3d] text-[11px] font-semibold text-white shadow-2xs">
+                        {initials}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-payroll-navy truncate">
-                            {emp.fullName}
-                          </span>
-                          {emp.isSupervisor && (
-                            <span className="rounded-md bg-blue-50 px-1.5 py-0.2 text-[9px] font-bold text-blue-700 border border-blue-200">
-                              Supervisor
-                            </span>
-                          )}
+                      <div className="min-w-0 max-w-50">
+                        <div className="font-semibold text-sm text-payroll-ink truncate">
+                          {emp.fullName}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                          <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
-                            {emp.category}
+                        {emp.isSupervisor && (
+                          <span className="inline-block mt-0.5 rounded bg-blue-50 px-1.5 py-0.2 text-[9px] font-semibold text-blue-700 border border-blue-200">
+                            Supervisor
                           </span>
-                          {emp.gradeAmount > 0 && (
-                            <span className="rounded-md bg-payroll-light/50 px-1.5 py-0.5 text-[10px] font-medium text-payroll-navy font-mono">
-                              NPR {Number(emp.gradeAmount).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 align-middle text-gray-600">
-                    {departmentName}
+
+                  {/* DEPARTMENT */}
+                  <td className="px-4 py-3.5 align-middle text-gray-700 whitespace-nowrap">
+                    {departmentName || "—"}
                   </td>
-                  <td className="px-4 py-3 align-middle text-gray-600">
-                    {designationName}
+
+                  {/* DESIGNATION (Separated right after Department) */}
+                  <td className="px-4 py-3.5 align-middle text-gray-600 whitespace-nowrap">
+                    {designationName || "—"}
                   </td>
-                  <td className="px-4 py-3 align-middle">
-                    <div className="text-gray-700 truncate max-w-44">
-                      {emp.email}
+
+                  {/* BRANCH */}
+                  <td className="px-4 py-3.5 align-middle text-gray-600 whitespace-nowrap">
+                    {branchName || "—"}
+                  </td>
+
+                  {/* CONTACT (Email + Phone Stack) */}
+                  <td className="px-4 py-3.5 align-middle">
+                    <div className="min-w-0 max-w-55">
+                      <div className="text-xs text-gray-700 truncate font-normal">
+                        {emp.companyEmail || emp.email || "—"}
+                      </div>
+                      <div className="text-xs text-gray-400 font-mono mt-0.5">
+                        {emp.mobileNo || "—"}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-gray-400 font-mono">
-                      {emp.mobileNo}
-                    </div>
                   </td>
-                  <td className="px-4 py-3 align-middle text-gray-600">
-                    {branchName}
+
+                  {/* TYPE (Soft outline pill) */}
+                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
+                    <span className="inline-flex items-center rounded-md border border-blue-200/80 bg-blue-50/60 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                      {emp.category || "Full Time"}
+                    </span>
                   </td>
-                  <td className="px-4 py-3 align-middle">
-                    <Badge
-                      variant={emp.status === "Active" ? "success" : "neutral"}
-                      size="sm"
-                    >
-                      {emp.status}
-                    </Badge>
+
+                  {/* STATUS (Pill with dot) */}
+                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
+                    {isLeave ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        On Leave
+                      </span>
+                    ) : isActive ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                        <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                        {emp.status}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-4 py-3 align-middle">
-                    <div className="flex items-center justify-end gap-1">
+
+                  {/* ACTIONS (Quiet View Eye, Edit Pencil, Delete Trash) */}
+                  <td className="px-4 py-3.5 align-middle text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                       <ActionButton
                         label={`View ${emp.fullName}`}
                         onClick={(e) => {
@@ -448,18 +439,17 @@ export function EmployeeTable({
                     </div>
                   </td>
                 </tr>
-                {isExpanded && (
-                  <tr>
-                    <td colSpan={11} className="p-0 bg-payroll-cream/30">
-                      <EmployeeExpandableRow employee={emp} lookups={lookups} />
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Reusable Table Pagination Footer with Limit Selection */}
+      <TablePagination
+        {...paginationProps}
+        itemName="employees"
+      />
     </div>
   );
 }
@@ -472,14 +462,14 @@ function SortHeader({
   onClick: () => void;
 }) {
   return (
-    <th scope="col" className="px-4 py-3 font-bold text-payroll-navy">
+    <th scope="col" className="px-4 py-3.5">
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left transition-colors hover:text-payroll-primary cursor-pointer select-none"
+        className="inline-flex items-center gap-1 transition-colors hover:text-payroll-ink cursor-pointer select-none"
       >
-        {label}
-        <ArrowUpDown className="h-3 w-3 opacity-60" />
+        <span>{label}</span>
+        <ArrowUpDown className="h-3 w-3 opacity-50" />
       </button>
     </th>
   );
@@ -503,10 +493,10 @@ function ActionButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer",
+        "inline-flex h-7 w-7 items-center justify-center rounded transition-colors cursor-pointer",
         danger
-          ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
-          : "text-gray-500 hover:bg-payroll-light/60 hover:text-payroll-primary",
+          ? "text-gray-400 hover:bg-red-50 hover:text-red-600"
+          : "text-gray-400 hover:bg-gray-100 hover:text-payroll-ink",
       )}
     >
       {children}
