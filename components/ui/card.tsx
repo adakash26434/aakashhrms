@@ -10,9 +10,9 @@ export function Card({ children, className, interactive = false, ...props }: Car
   return (
     <div
       className={cn(
-        "rounded-2xl border border-payroll-light/80 bg-white shadow-payroll-sm transition-all duration-200",
+        "rounded-xl border border-payroll-border bg-white shadow-payroll-xs transition-all duration-200",
         interactive &&
-          "hover:-translate-y-0.5 hover:shadow-payroll-md hover:border-payroll-primary/40 cursor-pointer",
+          "hover:-translate-y-0.5 hover:shadow-payroll-sm hover:border-payroll-primary/30 cursor-pointer",
         className,
       )}
       {...props}

@@ -1,13 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 :root {
-  --payroll-cream: #f6faf6;
-  --payroll-light: #d7e8d0;
-  --payroll-primary: #2e7d32;
-  --payroll-navy: #1b3a1f;
-  --payroll-primary-hover: #1b5e20;
-  --background: #f6faf6;
-  --foreground: #1b3a1f;
+  /* Brand accent — v0 aligned */
+  --payroll-primary: #1B6B54;
+  --payroll-primary-hover: #155743;
+  --payroll-primary-light: #EBF4F0;
+  --payroll-primary-light-2: #F3F8F5;
+  --payroll-primary-border: #DDECE3;
+
+  /* Surfaces & canvas */
+  --payroll-cream: #F6F8F5;
+  --payroll-light: #E4E7E4;
+  --payroll-navy: #111827;
+  --payroll-sidebar-bg: #FFFFFF;
+  --payroll-header-bg: #FFFFFF;
+  --payroll-workspace-bg: #F6F8F5;
+  --payroll-surface: #FFFFFF;
+  --payroll-surface-soft: #FBFCFB;
+
+  /* Text */
+  --payroll-ink: #111827;
+  --payroll-text: #2C2C2C;
+  --payroll-text-muted: #6B7280;
+  --payroll-text-caption: #9CA3AF;
+
+  /* Borders */
+  --payroll-border: #E4E7E4;
+  --payroll-border-light: #F0F1F0;
+  --payroll-divider: #ECEFED;
+
+  --background: #F6F8F5;
+  --foreground: #111827;
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -16,23 +40,55 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-payroll-cream: #f6faf6;
-  --color-payroll-light: #d7e8d0;
-  --color-payroll-primary: #2e7d32;
-  --color-payroll-navy: #1b3a1f;
-  --color-payroll-primary-hover: #1b5e20;
-  --font-sans: 'Inter', var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --color-payroll-cream: #F6F8F5;
+  --color-payroll-light: #E4E7E4;
+  --color-payroll-primary: #1B6B54;
+  --color-payroll-navy: #111827;
+  --color-payroll-primary-hover: #155743;
+  --color-payroll-primary-light: #EBF4F0;
+  --color-payroll-border: #E4E7E4;
+  --color-payroll-workspace: #F6F8F5;
+  --font-sans: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 html,
 body {
-  background: #f6faf6;
-  color: #1b3a1f;
-  font-family: 'Inter', var(--font-inter), system-ui, -apple-system, sans-serif;
+  background: #F6F8F5;
+  color: #111827;
+  font-family: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Universal inheritance so all nested elements, containers, and cards inherit Poppins */
+*,
+*::before,
+*::after {
+  font-family: inherit;
+}
+
+/* Explicitly ensure form controls and table cells inherit and use Poppins by default */
+input,
+button,
+select,
+textarea,
+optgroup,
+table,
+th,
+td {
+  font-family: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Monospace overrides for codes, numbers, and financial codes */
+code,
+kbd,
+samp,
+pre,
+.font-mono,
+[data-font-mono="true"] {
+  font-family: 'JetBrains Mono', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
 }
 
 ::-webkit-scrollbar {
@@ -62,9 +118,9 @@ body {
   scrollbar-width: none;
 }
 
-/* Canonical AakashHRMS Elevation System */
+/* Canonical AakashHRMS Elevation System — v0 aligned */
 .shadow-payroll-xs {
-  box-shadow: 0 1px 2px 0 rgba(27, 58, 31, 0.05);
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
 }
 
 .payroll-input {
@@ -81,17 +137,11 @@ body {
 }
 
 .shadow-payroll-sm {
-  box-shadow:
-    0 1px 2px -1px rgba(27, 58, 31, 0.08),
-    0 4px 6px -2px rgba(27, 58, 31, 0.04),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 8px 24px -16px rgba(17, 24, 39, 0.08);
 }
 
 .shadow-payroll-md {
-  box-shadow:
-    0 1px 2px -1px rgba(27, 58, 31, 0.1),
-    0 8px 16px -4px rgba(27, 58, 31, 0.08),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 24px -14px rgba(17, 24, 39, 0.12), 0 2px 8px rgba(17, 24, 39, 0.04);
 }
 
 .shadow-payroll-lg {

@@ -12,15 +12,17 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatNPR(
   value: number,
-  unit: "full" | "cr" | "lakh" = "full",
+  unit?: "full" | "cr" | "lakh",
 ): string {
-  if (unit === "cr") {
-    return `NPR ${(value / 10_000_000).toFixed(2)} Cr`;
-  }
-  if (unit === "lakh") {
-    return `NPR ${(value / 100_000).toFixed(1)}L`;
-  }
-  return `NPR ${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  void unit; // Intentionally ignored: full-number NPR formatting is globally enforced
+  const num = Number(value) || 0;
+  const isNegative = num < 0;
+  const absValue = Math.abs(num);
+  const formatted = absValue.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return isNegative ? `-NPR ${formatted}` : `NPR ${formatted}`;
 }
 
 export function getInitials(name: string): string {
@@ -30,6 +32,50 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+const AD_MONTHS = [
+  "",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+const BS_MONTH_NAMES = [
+  "",
+  "Baisakh", "Jestha", "Asar", "Shrawan", "Bhadra", "Aswin",
+  "Kartik", "Mangsir", "Poush", "Magh", "Falgun", "Chaitra",
+];
+
+/**
+ * Format month label for payroll cycles according to selected calendar (BS vs AD).
+ * In BS mode: returns Nepali month name (e.g. "Shrawan 2083").
+ * In AD mode: returns English month name (e.g. "July 2026").
+ */
+export function formatPayrollCycleMonth(
+  monthNum?: number,
+  year?: number,
+  startDate?: string,
+  calendar: "bs" | "ad" = "bs"
+): string {
+  if (calendar === "bs") {
+    const m = monthNum && monthNum >= 1 && monthNum <= 12 ? monthNum : 4;
+    const name = BS_MONTH_NAMES[m] || `Month ${m}`;
+    return year ? `${name} ${year}` : name;
+  }
+
+  // AD calendar
+  if (startDate) {
+    const d = new Date(startDate);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    }
+  }
+
+  const m = monthNum && monthNum >= 1 && monthNum <= 12 ? monthNum : 4;
+  const adMonthIndex = ((m + 2) % 12) + 1; // BS 1 (Baisakh) -> 4 (April), BS 4 (Shrawan) -> 7 (July)
+  const adMonthName = AD_MONTHS[adMonthIndex] || `Month ${m}`;
+  const adYear = year ? (m >= 10 ? year - 56 : year - 57) : new Date().getFullYear();
+  return `${adMonthName} ${adYear}`;
 }
 
 /**
