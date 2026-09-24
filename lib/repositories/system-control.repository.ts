@@ -2,6 +2,7 @@ import { getDb } from '@/lib/db';
 import { systemConfig } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import type { SystemControlData, EmployeeCategory, Meridiem } from '@/lib/types/system-control';
+import { DEFAULT_GRADE_POLICY } from '@/lib/engines/grade-policy.engine';
 
 // Default values as defined by the Excel specifications
 const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
@@ -41,6 +42,18 @@ const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
     womenDiscountPercent: 10,
     handicappedDiscountPercent: 0,
     remoteAllowanceNpr: 50000,
+  },
+  gradePolicy: {
+    calculationMethod: "STATUTORY_DAILY_RATE",
+    daysInMonthForDailyRate: 30,
+    fixedGradePercent: 3.33,
+    fixedAmountPerGrade: 0,
+    maxGradesAllowedPerLevel: 10,
+    promotionRule: {
+      enforceNonReduction: true,
+      guaranteeMinimumOneNewGrade: true,
+      handlingMethod: "RESET_TO_ZERO_WITH_STEPPING",
+    },
   },
 };
 
@@ -116,10 +129,19 @@ export async function findSettings(): Promise<SystemControlData> {
       handicappedDiscountPercent: 0,
       remoteAllowanceNpr: getNumber('insuranceDiscounts.remoteAllowanceNpr', DEFAULT_SYSTEM_CONTROL.insuranceDiscounts.remoteAllowanceNpr),
     },
+    gradePolicy: {
+      calculationMethod: getString('gradePolicy.calculationMethod', DEFAULT_GRADE_POLICY.calculationMethod),
+      daysInMonthForDailyRate: getNumber('gradePolicy.daysInMonthForDailyRate', DEFAULT_GRADE_POLICY.daysInMonthForDailyRate),
+      fixedGradePercent: getNumber('gradePolicy.fixedGradePercent', DEFAULT_GRADE_POLICY.fixedGradePercent),
+      fixedAmountPerGrade: getNumber('gradePolicy.fixedAmountPerGrade', DEFAULT_GRADE_POLICY.fixedAmountPerGrade),
+      maxGradesAllowedPerLevel: getNumber('gradePolicy.maxGradesAllowedPerLevel', DEFAULT_GRADE_POLICY.maxGradesAllowedPerLevel),
+      promotionRule: getJson('gradePolicy.promotionRule', DEFAULT_GRADE_POLICY.promotionRule),
+    },
   };
 }
 
 export async function updateSettings(data: SystemControlData): Promise<SystemControlData> {
+  const policy = data.gradePolicy ?? DEFAULT_GRADE_POLICY;
   const entries = [
     { key: 'officeTime.inTime', value: JSON.stringify(data.officeTime.inTime), dataType: 'json' },
     { key: 'officeTime.outTime', value: JSON.stringify(data.officeTime.outTime), dataType: 'json' },
@@ -144,6 +166,13 @@ export async function updateSettings(data: SystemControlData): Promise<SystemCon
     { key: 'insuranceDiscounts.womenDiscountPercent', value: String(data.insuranceDiscounts.womenDiscountPercent), dataType: 'number' },
     { key: 'insuranceDiscounts.handicappedDiscountPercent', value: '0', dataType: 'number' },
     { key: 'insuranceDiscounts.remoteAllowanceNpr', value: String(data.insuranceDiscounts.remoteAllowanceNpr), dataType: 'number' },
+
+    { key: 'gradePolicy.calculationMethod', value: policy.calculationMethod, dataType: 'string' },
+    { key: 'gradePolicy.daysInMonthForDailyRate', value: String(policy.daysInMonthForDailyRate ?? 30), dataType: 'number' },
+    { key: 'gradePolicy.fixedGradePercent', value: String(policy.fixedGradePercent ?? 3.33), dataType: 'number' },
+    { key: 'gradePolicy.fixedAmountPerGrade', value: String(policy.fixedAmountPerGrade ?? 0), dataType: 'number' },
+    { key: 'gradePolicy.maxGradesAllowedPerLevel', value: String(policy.maxGradesAllowedPerLevel ?? 10), dataType: 'number' },
+    { key: 'gradePolicy.promotionRule', value: JSON.stringify(policy.promotionRule), dataType: 'json' },
   ];
 
   const db = getDb();

@@ -47,6 +47,18 @@ export const mockSettings: SystemControlData = {
     handicappedDiscountPercent: 0,
     remoteAllowanceNpr: 50000,
   },
+  gradePolicy: {
+    calculationMethod: "STATUTORY_DAILY_RATE",
+    daysInMonthForDailyRate: 30,
+    fixedGradePercent: 3.33,
+    fixedAmountPerGrade: 0,
+    maxGradesAllowedPerLevel: 10,
+    promotionRule: {
+      enforceNonReduction: true,
+      guaranteeMinimumOneNewGrade: true,
+      handlingMethod: "RESET_TO_ZERO_WITH_STEPPING",
+    },
+  },
 };
 
 /**

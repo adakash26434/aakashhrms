@@ -42,6 +42,12 @@ export interface SystemControlValidationErrors {
   // Overtime
   otMultiplierOfficeDay?: string;
   otMultiplierOffDay?: string;
+
+  // Grade Policy
+  daysInMonthForDailyRate?: string;
+  fixedGradePercent?: string;
+  fixedAmountPerGrade?: string;
+  maxGradesAllowedPerLevel?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +140,22 @@ export function validateSystemControl(
   }
   if (data.officeTime.otMultiplierOffDay !== undefined && data.officeTime.otMultiplierOffDay < 1.5) {
     errors.otMultiplierOffDay = "Off Day overtime multiplier cannot be less than 1.5.";
+  }
+
+  // Grade Policy
+  if (data.gradePolicy) {
+    if (data.gradePolicy.daysInMonthForDailyRate !== undefined && (data.gradePolicy.daysInMonthForDailyRate < 1 || data.gradePolicy.daysInMonthForDailyRate > 31)) {
+      errors.daysInMonthForDailyRate = "Days in month must be between 1 and 31.";
+    }
+    if (data.gradePolicy.fixedGradePercent !== undefined && !isPercent(data.gradePolicy.fixedGradePercent)) {
+      errors.fixedGradePercent = "Fixed grade percent must be between 0 and 100.";
+    }
+    if (data.gradePolicy.fixedAmountPerGrade !== undefined && data.gradePolicy.fixedAmountPerGrade < 0) {
+      errors.fixedAmountPerGrade = "Fixed amount per grade cannot be negative.";
+    }
+    if (data.gradePolicy.maxGradesAllowedPerLevel !== undefined && data.gradePolicy.maxGradesAllowedPerLevel < 0) {
+      errors.maxGradesAllowedPerLevel = "Maximum grades cap cannot be negative.";
+    }
   }
 
   return errors;

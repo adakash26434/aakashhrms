@@ -17,8 +17,20 @@ export async function saveSystemControlAction(data: SystemControlData) {
     data.statutoryDeductionLimits.handicappedDeductionPercent = 0;
 
     const result = await scService.saveSystemControlSettings(data);
+
+    // Automatically recalculate and synchronize grade amounts across all active employees
+    if (data.gradePolicy) {
+      await scService.syncAllEmployeeGradesWithPolicy(data.gradePolicy);
+    }
+
     revalidatePath('/setup/system-control');
     revalidatePath('/setup/payroll-rules');
+    revalidatePath('/workforce/employees');
+    revalidatePath('/workforce/employees/[id]/edit');
+    revalidatePath('/workforce/employees/new');
+    revalidatePath('/workforce/salary-mapping');
+    revalidatePath('/payroll/process');
+
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -28,5 +40,26 @@ export async function saveSystemControlAction(data: SystemControlData) {
       return { success: false, error: error.message };
     }
     return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function syncAllEmployeeGradesAction() {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'SYSTEM_CONTROL');
+    const result = await scService.syncAllEmployeeGradesWithPolicy();
+
+    revalidatePath('/setup/system-control');
+    revalidatePath('/setup/payroll-rules');
+    revalidatePath('/workforce/employees');
+    revalidatePath('/workforce/employees/[id]/edit');
+    revalidatePath('/workforce/employees/new');
+    revalidatePath('/workforce/salary-mapping');
+    revalidatePath('/payroll/process');
+
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Failed to sync employee grades';
+    return { success: false, error: msg };
   }
 }

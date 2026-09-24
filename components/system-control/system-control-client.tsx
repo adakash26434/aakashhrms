@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ManualAttendanceCard } from "./manual-attendance-card";
 import { StatutoryDeductionLimitsCard } from "./statutory-deduction-limits-card";
 import { InsuranceDiscountsCard } from "./insurance-discounts-card";
+import { GradePolicyCard } from "./grade-policy-card";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import type { SystemControlData } from "@/lib/types/system-control";
 import { saveSystemControlAction } from "@/app/actions/system-control.actions";
@@ -175,6 +176,24 @@ export function SystemControlClient({
             }}
           />
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Grade &amp; Promotion Policy (ग्रेड तथा पदोन्नति व्यवस्था)
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Configure statutory grade calculation methodology, basic salary multiplier, and promotion pay protection
+          </p>
+        </div>
+        <GradePolicyCard
+          value={data.gradePolicy}
+          onChange={(gradePolicy) => {
+            setData((d) => ({ ...d, gradePolicy }));
+            setHasChanges(true);
+          }}
+        />
       </div>
 
       <div className="space-y-3">

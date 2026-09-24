@@ -69,10 +69,34 @@ export interface InsuranceDiscountsSettings {
   remoteAllowanceNpr: number;
 }
 
+export type GradeCalculationMethod =
+  | "STATUTORY_DAILY_RATE"
+  | "FIXED_AMOUNT_PER_GRADE"
+  | "PERCENTAGE_OF_BASIC"
+  | "MANUAL_INPUT"
+  | "DISABLED_NO_GRADES";
+
+export interface PromotionRuleSettings {
+  enforceNonReduction: boolean;
+  guaranteeMinimumOneNewGrade: boolean;
+  handlingMethod: "RESET_TO_ZERO_WITH_STEPPING" | "DIRECT_BASIC_ADJUSTMENT";
+}
+
+export interface GradePolicySettings {
+  calculationMethod: GradeCalculationMethod;
+  daysInMonthForDailyRate: number;
+  fixedGradePercent: number;
+  fixedAmountPerGrade: number;
+  maxGradesAllowedPerLevel: number;
+  promotionRule: PromotionRuleSettings;
+}
+
 export interface SystemControlData {
   officeTime: OfficeTimeSettings;
   manualAttendance: ManualAttendanceSettings;
   leavePermissions: LeavePermissionsSettings;
   statutoryDeductionLimits: StatutoryDeductionLimitsSettings;
   insuranceDiscounts: InsuranceDiscountsSettings;
+  gradePolicy?: GradePolicySettings;
 }
+
