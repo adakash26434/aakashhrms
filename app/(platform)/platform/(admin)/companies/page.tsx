@@ -319,167 +319,165 @@ export default function PlatformCompaniesPage() {
       )}
 
       {/* ── Filter and Search Toolbar ── */}
-      <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
-        <CardContent className="p-4 space-y-3.5">
-          {/* Status Filter Tabs */}
-          <div className="flex flex-wrap gap-1.5 pb-2 border-b border-payroll-light/60">
-            <button
-              onClick={() => setStatusFilter("ALL")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none",
-                statusFilter === "ALL"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
-              )}
-            >
-              All Companies ({companies.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter("ACTIVE")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none",
-                statusFilter === "ACTIVE"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
-              )}
-            >
-              Active ({activeCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter("PENDING")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none",
-                statusFilter === "PENDING"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
-              )}
-            >
-              Pending Provision ({pendingCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter("SUSPENDED")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none",
-                statusFilter === "SUSPENDED"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
-              )}
-            >
-              Suspended ({suspendedCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter("ARCHIVED")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer select-none",
-                statusFilter === "ARCHIVED"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
-              )}
-            >
-              Archived ({archivedCount})
-            </button>
-          </div>
+      <div className="space-y-3.5">
+        {/* Status Filter Tabs */}
+        <div className="flex flex-wrap gap-1.5 pb-2 border-b border-zinc-200">
+          <button
+            onClick={() => setStatusFilter("ALL")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none",
+              statusFilter === "ALL"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+            )}
+          >
+            All Companies ({companies.length})
+          </button>
+          <button
+            onClick={() => setStatusFilter("ACTIVE")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none",
+              statusFilter === "ACTIVE"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+            )}
+          >
+            Active ({activeCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("PENDING")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none",
+              statusFilter === "PENDING"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+            )}
+          >
+            Pending Provision ({pendingCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("SUSPENDED")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none",
+              statusFilter === "SUSPENDED"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+            )}
+          >
+            Suspended ({suspendedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("ARCHIVED")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none",
+              statusFilter === "ARCHIVED"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+            )}
+          >
+            Archived ({archivedCount})
+          </button>
+        </div>
 
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="search"
-              placeholder="Search by legal name, company code (e.g. CMP-111111), or database slug..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-payroll-light bg-white text-payroll-navy text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary transition-all placeholder:text-gray-400 shadow-payroll-xs"
-            />
-          </div>
-        </CardContent>
-      </Card>
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="search"
+            placeholder="Search by legal name, company code (e.g. CMP-111111), or database slug..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-all placeholder:text-zinc-400 shadow-2xs"
+          />
+        </div>
+      </div>
 
       {/* ── Directory Table ── */}
-      <Card className="border-payroll-light/80 shadow-payroll-xs bg-white overflow-hidden">
+      <div className="w-full">
         {loading ? (
-          <CardContent className="py-16 text-center text-gray-500 text-xs">
-            <Loader2 className="w-6 h-6 animate-spin text-payroll-primary mx-auto mb-2" />
+          <div className="py-16 text-center text-zinc-500 text-xs">
+            <Loader2 className="w-6 h-6 animate-spin text-zinc-600 mx-auto mb-2" />
             <span>Loading tenant companies directory...</span>
-          </CardContent>
+          </div>
         ) : filtered.length === 0 ? (
-          <CardContent className="py-12">
+          <div className="py-12">
             <EmptyState
-              icon={<Building2 className="w-6 h-6 text-payroll-primary" />}
+              icon={<Building2 className="w-6 h-6 text-zinc-500" />}
               title="No tenant companies found"
               description="No tenant companies match your active search query or status filter. Try clearing filters or register a new company."
             />
-          </CardContent>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-payroll-cream/70 text-payroll-navy font-bold uppercase tracking-wider border-b border-payroll-light text-[11px]">
-                <tr>
-                  <th className="px-5 py-3.5">Company Details</th>
-                  <th className="px-4 py-3.5">Company Code</th>
-                  <th className="px-4 py-3.5">Database Identifier</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+              <thead>
+                <tr className="border-b border-zinc-200 bg-transparent text-zinc-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="px-4 py-3">Company Details</th>
+                  <th className="px-4 py-3">Company Code</th>
+                  <th className="px-4 py-3">Database Identifier</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-payroll-light/50 bg-white">
+              <tbody className="divide-y divide-zinc-100 bg-white">
                 {filtered.map((company) => (
-                  <tr key={company.id} className="hover:bg-payroll-cream/40 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="font-bold text-payroll-navy text-xs">{company.displayName}</div>
-                      <div className="text-[11px] text-gray-500">{company.legalName}</div>
-                      <div className="text-[10px] text-gray-400 mt-0.5">{company.contactEmail}</div>
+                  <tr key={company.id} className="border-b border-zinc-100 hover:bg-zinc-50/60 transition-colors">
+                    <td className="px-4 py-4">
+                      <div className="font-medium text-zinc-900 text-xs">{company.displayName}</div>
+                      <div className="text-[11px] text-zinc-500">{company.legalName}</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5 font-mono">{company.contactEmail}</div>
                     </td>
 
-                    <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-payroll-cream text-payroll-primary border border-payroll-light font-mono text-xs font-bold">
+                    <td className="px-4 py-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 border border-zinc-200 font-mono text-xs font-medium">
                         {company.companyCode}
                       </span>
                     </td>
 
-                    <td className="px-4 py-3.5">
-                      <div className="text-xs font-mono font-bold text-gray-700">pay_t_{company.slug}</div>
-                      <div className="text-[10px] text-gray-400">Slug: {company.slug}</div>
+                    <td className="px-4 py-4">
+                      <div className="text-xs font-mono font-medium text-zinc-800">pay_t_{company.slug}</div>
+                      <div className="text-[10px] text-zinc-400 font-mono">Slug: {company.slug}</div>
                     </td>
 
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-4">
                       {company.status === "ACTIVE" && (
                         <Badge variant="success" size="sm">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> ACTIVE
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Active
                         </Badge>
                       )}
                       {company.status === "PENDING" && (
                         <Badge variant="warning" size="sm">
-                          <Clock className="w-3 h-3 mr-1" /> PENDING
+                          <Clock className="w-3 h-3 mr-1" /> Pending
                         </Badge>
                       )}
                       {company.status === "SUSPENDED" && (
                         <Badge variant="warning" size="sm">
-                          <PauseCircle className="w-3 h-3 mr-1" /> SUSPENDED
+                          <PauseCircle className="w-3 h-3 mr-1" /> Suspended
                         </Badge>
                       )}
                       {company.status === "ARCHIVED" && (
                         <Badge variant="neutral" size="sm">
-                          <Archive className="w-3 h-3 mr-1" /> ARCHIVED
+                          <Archive className="w-3 h-3 mr-1" /> Archived
                         </Badge>
                       )}
                     </td>
 
-                    <td className="px-5 py-3.5 text-right space-x-2">
+                    <td className="px-4 py-4 text-right space-x-2">
                       {company.status === "PENDING" && (
                         <Button
                           size="sm"
                           onClick={() => handleProvision(company.id)}
                           isLoading={provisioningId === company.id}
                           disabled={provisioningId === company.id}
-                          className="bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs font-bold shadow-payroll-xs"
+                          className="bg-emerald-900 hover:bg-emerald-950 text-white text-xs font-medium shadow-none"
                         >
                           Approve & Provision
                         </Button>
                       )}
                       <Link href={`/platform/companies/${company.id}`}>
-                        <Button variant="outline" size="sm" className="text-xs font-bold">
+                        <Button variant="outline" size="sm" className="text-xs font-medium border-zinc-200 text-zinc-700 hover:bg-zinc-100 shadow-none">
                           <span>Manage</span>
-                          <ExternalLink className="w-3 h-3 ml-1 text-payroll-primary" />
+                          <ExternalLink className="w-3 h-3 ml-1 text-zinc-500" />
                         </Button>
                       </Link>
                     </td>
@@ -489,7 +487,7 @@ export default function PlatformCompaniesPage() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

@@ -58,100 +58,84 @@ export default async function PlatformDashboardPage() {
         </Link>
       </div>
 
-      {/* ── Metrics Grid ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── Top Summary Metrics ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/60 py-2">
         {/* Total Companies */}
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm transition-shadow">
-          <CardContent className="p-5">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                Total Companies
-              </span>
-              <div className="p-2.5 rounded-xl bg-payroll-cream text-payroll-primary border border-payroll-light shadow-2xs">
-                <Building2 className="w-4.5 h-4.5" />
-              </div>
+              <p className="text-xs font-medium text-zinc-500">Total registered companies</p>
+              <Building2 className="h-4 w-4 text-zinc-400" />
             </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-extrabold text-payroll-navy">
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                 {totalCompanies}
               </span>
-              <Badge variant="neutral" size="sm">
-                Registered
-              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-100 text-xs text-zinc-400">
+            Registered tenant organizations
+          </div>
+        </div>
 
         {/* Active Tenants */}
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm transition-shadow">
-          <CardContent className="p-5">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                Active Tenants
-              </span>
-              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                <CheckCircle2 className="w-4.5 h-4.5" />
-              </div>
+              <p className="text-xs font-medium text-zinc-500">Active live tenants</p>
+              <CheckCircle2 className="h-4 w-4 text-emerald-700" />
             </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-extrabold text-payroll-navy">
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                 {activeTenants}
               </span>
-              <Badge variant="success" size="sm">
-                Live DBs
-              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-100 text-xs text-zinc-400">
+            Provisioned isolated databases
+          </div>
+        </div>
 
         {/* Pending Provision */}
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm transition-shadow">
-          <CardContent className="p-5">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                Pending Provision
-              </span>
-              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
-                <Clock className="w-4.5 h-4.5" />
-              </div>
+              <p className="text-xs font-medium text-zinc-500">Pending provision</p>
+              <Clock className="h-4 w-4 text-amber-600" />
             </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-extrabold text-payroll-navy">
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                 {pendingTenants}
               </span>
-              <Badge variant="warning" size="sm">
-                Awaiting Pipeline
-              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-100 text-xs text-zinc-400">
+            Awaiting pipeline deployment
+          </div>
+        </div>
 
         {/* Statutory Policy Pack */}
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm transition-shadow">
-          <CardContent className="p-5">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                Statutory Pack
-              </span>
-              <div className="p-2.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
-                <Layers className="w-4.5 h-4.5" />
-              </div>
+              <p className="text-xs font-medium text-zinc-500">Statutory policy pack</p>
+              <Layers className="h-4 w-4 text-zinc-600" />
             </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-extrabold text-payroll-navy">
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                 v{activePolicyPack?.version || "1.0"}
               </span>
-              <Badge variant="info" size="sm">
-                Labour Act 2074
-              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-100 text-xs text-zinc-400">
+            Labour Act 2074 standards
+          </div>
+        </div>
       </div>
 
       {/* ── Architecture Hero Banners ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card className="border-payroll-navy bg-gradient-to-br from-payroll-navy via-payroll-navy to-payroll-primary/90 text-white shadow-payroll-md overflow-hidden relative">
+        <Card className="border-payroll-navy bg-linear-to-br from-payroll-navy via-payroll-navy to-payroll-primary/90 text-white shadow-payroll-md overflow-hidden relative">
           <CardContent className="p-6 relative z-10 space-y-3.5">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/10 text-white text-xs font-semibold border border-white/20">
               <Database className="w-3.5 h-3.5 text-emerald-300" />
@@ -205,70 +189,72 @@ export default async function PlatformDashboardPage() {
       </div>
 
       {/* ── Live Companies Directory Section ── */}
-      <Card className="border-payroll-light/80 shadow-payroll-xs bg-white overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-payroll-light/60 flex items-center justify-between bg-payroll-cream/40">
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-payroll-navy">
+            <h3 className="text-sm font-semibold text-zinc-900">
               Recent Tenant Companies ({allCompanies.length})
             </h3>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-[11px] text-zinc-500 mt-0.5">
               Live sync from platform control database.
             </p>
           </div>
           <Link
             href="/platform/companies"
-            className="text-xs font-bold text-payroll-primary hover:underline"
+            className="text-xs font-semibold text-zinc-900 hover:text-emerald-700 transition-colors"
           >
             View all companies →
           </Link>
         </div>
 
         {recentCompanies.length === 0 ? (
-          <CardContent className="py-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-payroll-cream border border-payroll-light flex items-center justify-center mx-auto text-payroll-primary shadow-2xs">
+          <div className="py-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto text-zinc-600 shadow-2xs">
               <Building2 className="w-6 h-6" />
             </div>
-            <p className="text-payroll-navy font-bold text-sm">
+            <p className="text-zinc-900 font-semibold text-sm">
               No companies registered on the platform yet.
             </p>
-            <p className="text-gray-500 text-xs">
+            <p className="text-zinc-500 text-xs">
               Get started by registering your first SaaS client organization.
             </p>
             <div>
               <Link href="/platform/companies/new">
-                <Button size="sm" className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs shadow-payroll-xs mt-2">
+                <Button size="sm" className="bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-xs shadow-2xs mt-2">
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   <span>Register First Company</span>
                 </Button>
               </Link>
             </div>
-          </CardContent>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-payroll-cream/70 text-payroll-navy font-bold border-b border-payroll-light text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="px-5 py-3.5">Company Code</th>
-                  <th className="px-4 py-3.5">Name</th>
-                  <th className="px-4 py-3.5">Database Identifier</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-5 py-3.5 text-right">Action</th>
+              <thead>
+                <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-3">Company Code</th>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Database Identifier</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-payroll-light/50 bg-white">
+              <tbody className="divide-y divide-zinc-100 bg-white">
                 {recentCompanies.map((comp) => {
                   const dbRecord = allDatabases.find((d) => d.companyId === comp.id);
                   const isLive = comp.status === "ACTIVE";
 
                   return (
-                    <tr key={comp.id} className="hover:bg-payroll-cream/40 transition-colors">
-                      <td className="px-5 py-3.5 font-mono font-bold text-payroll-primary">
-                        {comp.companyCode}
+                    <tr key={comp.id} className="border-b border-zinc-100 hover:bg-zinc-50/60 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 border border-zinc-200 font-mono text-xs font-medium">
+                          {comp.companyCode}
+                        </span>
                       </td>
-                      <td className="px-4 py-3.5 font-bold text-payroll-navy">
+                      <td className="px-4 py-3.5 font-medium text-zinc-900">
                         {comp.displayName || comp.legalName}
                       </td>
-                      <td className="px-4 py-3.5 font-mono text-[11px] text-gray-600">
+                      <td className="px-4 py-3.5 font-mono text-[11px] text-zinc-500">
                         {dbRecord ? dbRecord.dbName : `pay_t_${comp.slug}`}
                       </td>
                       <td className="px-4 py-3.5">
@@ -285,10 +271,10 @@ export default async function PlatformDashboardPage() {
                           {comp.status}
                         </Badge>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         <Link
                           href={`/platform/companies/${comp.id}`}
-                          className="font-bold text-payroll-primary hover:underline text-xs"
+                          className="font-medium text-emerald-800 hover:text-emerald-900 hover:underline text-xs"
                         >
                           Manage →
                         </Link>
@@ -300,7 +286,7 @@ export default async function PlatformDashboardPage() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

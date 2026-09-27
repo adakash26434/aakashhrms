@@ -226,51 +226,79 @@ export function UserClient({
         </div>
       )}
 
-      {/* KPI Stat Cards (Top Row) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top Summary Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
         {/* Total Users */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2e7d32]/15 text-[#2e7d32]">
-            <Users className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Users</p>
-            <p className="text-2xl font-bold text-[#1b3a1f]">{kpis.total}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Total system accounts</p>
+              <Users className="h-4 w-4 text-zinc-400" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.total}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Registered login credentials
+          </div>
+        </div>
 
         {/* Active Users */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-            <UserCheck className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Users</p>
-            <p className="text-2xl font-bold text-emerald-700">{kpis.active}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Active accounts</p>
+              <UserCheck className="h-4 w-4 text-emerald-700" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.active}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Authorized for system access
+          </div>
+        </div>
 
         {/* Inactive Users */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
-            <UserX className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Inactive Users</p>
-            <p className="text-2xl font-bold text-gray-700">{kpis.inactive}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Inactive accounts</p>
+              <UserX className="h-4 w-4 text-rose-500" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.inactive}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Suspended or revoked access
+          </div>
+        </div>
 
         {/* Linked to Employee */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-600">
-            <Link2 className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Linked Employees</p>
-            <p className="text-2xl font-bold text-green-700">{kpis.linkedToEmployee}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Linked personnel</p>
+              <Link2 className="h-4 w-4 text-zinc-600" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.linkedToEmployee}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Mapped to workforce records
+          </div>
+        </div>
       </div>
 
       {/* Filters & Actions Header */}

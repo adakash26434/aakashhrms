@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Lock, AlertTriangle, CheckCircle, Calculator } from "lucide-react";
+import { Lock, AlertTriangle, Calculator } from "lucide-react";
 
 interface AttendanceLockModalProps {
   open: boolean;
@@ -11,31 +12,65 @@ interface AttendanceLockModalProps {
   employeesCount: number;
 }
 
-export function AttendanceLockModal({ open, onClose, onRunEngine, employeesCount }: AttendanceLockModalProps) {
+export function AttendanceLockModal({
+  open,
+  onClose,
+  onRunEngine,
+  employeesCount,
+}: AttendanceLockModalProps) {
   const [bsMonth, setBsMonth] = useState(4); // Default Shrawan
   const [datePrefix, setDatePrefix] = useState(new Date().toISOString().substring(0, 7)); // e.g. "2026-07"
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 border-t-8 border-amber-500">
-        <div className="flex items-center gap-2 text-amber-600">
-          <Calculator className="h-6 w-6 shrink-0" />
-          <h2 className="text-lg font-bold text-[#1b3a1f]">Pre-Payroll Calculation Engine</h2>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Pre-Payroll Calculation Engine"
+      description="Aggregate attendances, compute unpaid leave deductions (LWOP) and overtime, and seal the period."
+      size="lg"
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            Locking: {employeesCount} employees
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                onRunEngine(bsMonth, datePrefix);
+                onClose();
+              }}
+              className="rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm flex items-center gap-1.5"
+            >
+              <Lock className="h-4 w-4" />
+              Run Engine & Lock Period
+            </Button>
+          </div>
         </div>
-
-        <p className="text-xs text-gray-600 leading-relaxed">
-          Running this engine aggregates present days, calculates statutory unpaid leave deductions (<span className="font-mono font-bold">LWOP</span>) 
-          against Phase 3 salary mappings, computes earned overtime from assigned OT rules, and 
-          <span className="font-bold text-amber-700"> LOCKS the period</span> for Phase 6 payslip generation.
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-xs text-zinc-600 leading-relaxed">
+          Running this engine aggregates present days, calculates statutory unpaid leave deductions (<span className="font-mono font-semibold text-zinc-900">LWOP</span>) 
+          against salary mappings, computes earned overtime from assigned OT rules, and 
+          <span className="font-semibold text-amber-800"> locks the period</span> for payroll batch generation.
         </p>
 
-        <div className="space-y-3 pt-2 text-sm">
+        <div className="space-y-4 pt-1">
           <div>
-            <label className="block font-semibold text-gray-700">Select B.S. Pay Month *</label>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+              Select B.S. Pay Month <span className="text-red-500">*</span>
+            </label>
             <select
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-semibold text-[#1b3a1f] focus:border-[#2e7d32] focus:outline-none"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
               value={bsMonth}
               onChange={(e) => setBsMonth(Number(e.target.value))}
             >
@@ -55,34 +90,29 @@ export function AttendanceLockModal({ open, onClose, onRunEngine, employeesCount
           </div>
 
           <div>
-            <label className="block font-semibold text-gray-700">A.D. Date Range Matcher *</label>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+              A.D. Date Range Matcher <span className="text-red-500">*</span>
+            </label>
             <input
               type="month"
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs text-gray-600 focus:border-[#2e7d32] focus:outline-none"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
               value={datePrefix}
               onChange={(e) => setDatePrefix(e.target.value)}
             />
-            <p className="mt-1 text-[11px] text-gray-400">Selects all attendance punches matching this year/month prefix.</p>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              Matches attendance punches corresponding to this month period.
+            </p>
           </div>
 
-          <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2 border border-amber-200">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-            <span>
-              <strong className="block">Immutability Warning:</strong> Once locked, daily attendance punches for all {employeesCount} active employees become read-only.
-            </span>
+          <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900 flex items-start gap-2.5">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              <strong className="block font-semibold">Immutability Notice:</strong>
+              Once locked, daily attendance punches for all {employeesCount} active employees become read-only and sealed for payroll.
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-3 border-t">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={() => onRunEngine(bsMonth, datePrefix)}
-            className="bg-amber-600 text-white hover:bg-amber-700 font-semibold"
-          >
-            <Lock className="h-4 w-4 mr-1.5" /> Run Engine & Lock Period
-          </Button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

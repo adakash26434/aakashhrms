@@ -7,5 +7,5 @@ export default async function SystemControlPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "SYSTEM_CONTROL");
 
-  redirect("/setup/payroll-rules?tab=rules-defaults");
+  redirect("/setup/company-setup?section=payroll_rules&tab=rules-defaults");
 }

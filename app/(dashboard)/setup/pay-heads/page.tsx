@@ -7,5 +7,5 @@ export default async function PayHeadsPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "PAY_HEADS");
 
-  redirect("/setup/payroll-rules?tab=pay-heads");
+  redirect("/setup/company-setup?section=payroll_rules&tab=pay-heads");
 }

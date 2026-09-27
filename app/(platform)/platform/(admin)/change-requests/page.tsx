@@ -511,72 +511,72 @@ export default function PlatformChangeRequestsPage() {
             {/* Modal Body */}
             <div className="p-6 space-y-5 overflow-y-auto flex-1">
               {/* Diff Table */}
-              <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
-                      <th className="py-2.5 px-3 w-1/4">Credential Field</th>
-                      <th className="py-2.5 px-3 w-3/8">Current Active Value</th>
-                      <th className="py-2.5 px-3 w-3/8">Proposed Value</th>
+                    <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      <th className="py-2.5 px-3.5 w-1/4">Credential Field</th>
+                      <th className="py-2.5 px-3.5 w-3/8">Current Active Value</th>
+                      <th className="py-2.5 px-3.5 w-3/8">Proposed Value</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-zinc-100 bg-white">
                     {/* Legal Name */}
-                    <tr className={cn(selectedRequest.proposedValues.legalName !== selectedRequest.currentValues.legalName && "bg-amber-50/40")}>
-                      <td className="py-2.5 px-3 font-semibold text-slate-700">Legal Registered Name</td>
-                      <td className="py-2.5 px-3 text-slate-600">{selectedRequest.currentValues.legalName || "—"}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                    <tr className={cn("border-b border-zinc-100 transition-colors", selectedRequest.proposedValues.legalName !== selectedRequest.currentValues.legalName ? "bg-amber-50/50" : "hover:bg-zinc-50/60")}>
+                      <td className="py-3 px-3.5 font-medium text-zinc-700">Legal Registered Name</td>
+                      <td className="py-3 px-3.5 text-zinc-500">{selectedRequest.currentValues.legalName || "—"}</td>
+                      <td className="py-3 px-3.5 font-medium text-zinc-900">
                         {selectedRequest.proposedValues.legalName}
                         {selectedRequest.proposedValues.legalName !== selectedRequest.currentValues.legalName && (
-                          <span className="ml-1.5 text-[10px] text-amber-700 font-normal bg-amber-100 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-[10px] text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
 
                     {/* PAN / VAT */}
-                    <tr className={cn(selectedRequest.proposedValues.panVatNumber !== selectedRequest.currentValues.panVatNumber && "bg-amber-50/40")}>
-                      <td className="py-2.5 px-3 font-semibold text-slate-700">PAN / VAT Number</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-600">{selectedRequest.currentValues.panVatNumber || "—"}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                    <tr className={cn("border-b border-zinc-100 transition-colors", selectedRequest.proposedValues.panVatNumber !== selectedRequest.currentValues.panVatNumber ? "bg-amber-50/50" : "hover:bg-zinc-50/60")}>
+                      <td className="py-3 px-3.5 font-medium text-zinc-700">PAN / VAT Number</td>
+                      <td className="py-3 px-3.5 font-mono text-zinc-500">{selectedRequest.currentValues.panVatNumber || "—"}</td>
+                      <td className="py-3 px-3.5 font-mono font-medium text-zinc-900">
                         {selectedRequest.proposedValues.panVatNumber || "—"}
                         {selectedRequest.proposedValues.panVatNumber !== selectedRequest.currentValues.panVatNumber && (
-                          <span className="ml-1.5 text-[10px] text-amber-700 font-normal bg-amber-100 px-1.5 py-0.5 rounded font-sans">Changed</span>
+                          <span className="ml-2 text-[10px] text-amber-700 font-sans font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
 
                     {/* Reg Number */}
-                    <tr className={cn(selectedRequest.proposedValues.registrationNumber !== selectedRequest.currentValues.registrationNumber && "bg-amber-50/40")}>
-                      <td className="py-2.5 px-3 font-semibold text-slate-700">Registration Number</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-600">{selectedRequest.currentValues.registrationNumber || "—"}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                    <tr className={cn("border-b border-zinc-100 transition-colors", selectedRequest.proposedValues.registrationNumber !== selectedRequest.currentValues.registrationNumber ? "bg-amber-50/50" : "hover:bg-zinc-50/60")}>
+                      <td className="py-3 px-3.5 font-medium text-zinc-700">Registration Number</td>
+                      <td className="py-3 px-3.5 font-mono text-zinc-500">{selectedRequest.currentValues.registrationNumber || "—"}</td>
+                      <td className="py-3 px-3.5 font-mono font-medium text-zinc-900">
                         {selectedRequest.proposedValues.registrationNumber || "—"}
                         {selectedRequest.proposedValues.registrationNumber !== selectedRequest.currentValues.registrationNumber && (
-                          <span className="ml-1.5 text-[10px] text-amber-700 font-normal bg-amber-100 px-1.5 py-0.5 rounded font-sans">Changed</span>
+                          <span className="ml-2 text-[10px] text-amber-700 font-sans font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
 
                     {/* Industry Sector */}
-                    <tr className={cn(selectedRequest.proposedValues.industryType !== selectedRequest.currentValues.industryType && "bg-amber-50/40")}>
-                      <td className="py-2.5 px-3 font-semibold text-slate-700">Industry Sector</td>
-                      <td className="py-2.5 px-3 text-slate-600">{selectedRequest.currentValues.industryType || "General"}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                    <tr className={cn("border-b border-zinc-100 transition-colors", selectedRequest.proposedValues.industryType !== selectedRequest.currentValues.industryType ? "bg-amber-50/50" : "hover:bg-zinc-50/60")}>
+                      <td className="py-3 px-3.5 font-medium text-zinc-700">Industry Sector</td>
+                      <td className="py-3 px-3.5 text-zinc-500">{selectedRequest.currentValues.industryType || "General"}</td>
+                      <td className="py-3 px-3.5 font-medium text-zinc-900">
                         {selectedRequest.proposedValues.industryType || "General"}
                         {selectedRequest.proposedValues.industryType !== selectedRequest.currentValues.industryType && (
-                          <span className="ml-1.5 text-[10px] text-amber-700 font-normal bg-amber-100 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-[10px] text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
 
                     {/* Address */}
-                    <tr className={cn(selectedRequest.proposedValues.headOfficeAddress !== selectedRequest.currentValues.headOfficeAddress && "bg-amber-50/40")}>
-                      <td className="py-2.5 px-3 font-semibold text-slate-700">Head Office Address</td>
-                      <td className="py-2.5 px-3 text-slate-600">{selectedRequest.currentValues.headOfficeAddress || "—"}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                    <tr className={cn("border-b border-zinc-100 transition-colors", selectedRequest.proposedValues.headOfficeAddress !== selectedRequest.currentValues.headOfficeAddress ? "bg-amber-50/50" : "hover:bg-zinc-50/60")}>
+                      <td className="py-3 px-3.5 font-medium text-zinc-700">Head Office Address</td>
+                      <td className="py-3 px-3.5 text-zinc-500">{selectedRequest.currentValues.headOfficeAddress || "—"}</td>
+                      <td className="py-3 px-3.5 font-medium text-zinc-900">
                         {selectedRequest.proposedValues.headOfficeAddress || "—"}
                         {selectedRequest.proposedValues.headOfficeAddress !== selectedRequest.currentValues.headOfficeAddress && (
-                          <span className="ml-1.5 text-[10px] text-amber-700 font-normal bg-amber-100 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-[10px] text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>

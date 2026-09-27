@@ -80,7 +80,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
       code: `S${nextLevelNum}`,
       name: `Level ${nextLevelNum}`,
       levelNumber: nextLevelNum,
-      labelNepali: `तह ${nextLevelNum}`,
+      labelNepali: "",
       description: "",
       minSalary: 0,
       maxSalary: 0,
@@ -192,71 +192,60 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
 
   return (
     <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
-      {/* Information Header & Preset Callout */}
-      <div className="rounded-2xl border border-emerald-100 bg-linear-to-r from-emerald-50/80 via-white to-emerald-50/40 p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-              <Layers className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
-                  Shreni / Grade Level Master (तह / श्रेणी संरचना)
-                </h3>
-                <span className="rounded-full bg-emerald-100/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                  {levels.length} Configured Levels
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-slate-600 max-w-2xl">
-                Define the grade scale and hierarchical career progression tiers for your organization.
-                These levels automatically sync into the employee onboarding dropdown and salary mapping.
-              </p>
-            </div>
+      {/* ── Top Clean Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 tracking-tight">
+              Grade Ladder &amp; Shreni Hierarchy
+            </h3>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+              {levels.length} Configured Levels
+            </span>
           </div>
+          <p className="mt-1 text-xs text-slate-500 max-w-2xl">
+            Define the grade scale and hierarchical career progression tiers for your organization.
+            These levels automatically sync into employee onboarding and salary mapping.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsPresetModalOpen(true)}
-              className="gap-2 border-emerald-300 text-emerald-800 hover:bg-emerald-50 cursor-pointer shadow-xs text-xs font-semibold"
-            >
-              <Sparkles className="h-4 w-4 text-emerald-600" />
-              <span>Load Industry Preset</span>
-            </Button>
-            <Button
-              type="button"
-              onClick={handleOpenCreate}
-              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm text-xs font-semibold"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Custom Level</span>
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsPresetModalOpen(true)}
+            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs text-xs font-medium h-9 px-3.5 rounded-lg"
+          >
+            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <span>Load Industry Preset</span>
+          </Button>
+          <Button
+            type="button"
+            onClick={handleOpenCreate}
+            className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Custom Level</span>
+          </Button>
         </div>
       </div>
 
-      {/* Grade Policy Contextual Banner */}
-      <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 p-4 shadow-payroll-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-            <Scale className="h-4 w-4" />
-          </div>
+      {/* Grade Policy Callout */}
+      <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-start gap-2.5">
+          <Scale className="h-4 w-4 text-emerald-700 shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-xs font-bold text-slate-800">
-              Statutory Grade Amount Calculation (ग्रेड रकम हिसाब नीति)
-            </h4>
-            <p className="mt-0.5 text-xs text-slate-600">
-              Grade increments are automatically computed from starting/current Basic Salary using statutory daily rate (1 Grade = Basic ÷ 30) or custom company policy. Promotion pay protection ensures base salary exceeds prior basic + grade.
-            </p>
+            <span className="font-semibold text-slate-800">Statutory Grade Calculation Policy:</span>{" "}
+            <span className="text-slate-600">
+              Grade increments compute automatically from starting/current Basic Salary using statutory daily rate (1 Grade = Basic ÷ 30) or custom company policy with promotion pay protection.
+            </span>
           </div>
         </div>
         <Link
-          href="/setup/system-control"
-          className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-xs hover:bg-blue-50 hover:text-blue-800 transition-colors"
+          href="/setup/company-setup?section=system_control"
+          className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:text-emerald-800 shrink-0"
         >
-          <span>Configure Grade Policy</span>
+          <span>Configure Policy</span>
           <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -267,7 +256,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by code, title, or Devnagari..."
+            placeholder="Search by code or title..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -283,73 +272,72 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
       </div>
 
       {/* Level List / Table */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3 w-16 text-center">Rank</th>
-                <th className="px-4 py-3 w-24">Code</th>
-                <th className="px-4 py-3">Level Title (English)</th>
-                <th className="px-4 py-3">Devnagari Label (नेपाली)</th>
-                <th className="px-4 py-3 w-36">Starting Scale (Basic)</th>
-                <th className="px-4 py-3">Scope / Responsibilities</th>
-                <th className="px-4 py-3 w-28 text-right">Actions</th>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <th className="px-4 py-3 w-16 text-center">Rank</th>
+              <th className="px-4 py-3 w-24">Code</th>
+              <th className="px-4 py-3">Level Title</th>
+              <th className="px-4 py-3">Nepali Label</th>
+              <th className="px-4 py-3 w-40">Starting Scale (Basic)</th>
+              <th className="px-4 py-3">Scope & Responsibilities</th>
+              <th className="px-4 py-3 w-28 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-200 text-zinc-700">
+            {filteredLevels.map((lvl) => (
+              <tr key={lvl.id} className="hover:bg-zinc-50/60 transition-colors">
+                <td className="px-4 py-3.5 text-center">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-medium text-zinc-600 font-mono">
+                    {lvl.levelNumber}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-zinc-200/70 bg-zinc-50 text-zinc-800 font-mono font-medium text-xs">
+                    {lvl.code}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5 font-medium text-zinc-900">
+                  {lvl.name}
+                </td>
+                <td className="px-4 py-3.5 font-nepali text-zinc-700">
+                  {lvl.labelNepali}
+                </td>
+                <td className="px-4 py-3.5">
+                  {lvl.minSalary && lvl.minSalary > 0 ? (
+                    <span className="inline-flex items-center font-mono font-medium text-emerald-800 bg-emerald-50/70 px-2 py-0.5 rounded-md border border-emerald-200/50 text-xs">
+                      NPR {lvl.minSalary.toLocaleString()}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-300 italic">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3.5 text-zinc-500 max-w-xs truncate">
+                  {lvl.description || <span className="text-zinc-300 italic">—</span>}
+                </td>
+                <td className="px-4 py-3.5 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(lvl)}
+                      className="p-1 rounded text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer"
+                      title="Edit level"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingLevel(lvl)}
+                      className="p-1 rounded text-zinc-400 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Delete level"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-              {filteredLevels.map((lvl) => (
-                <tr key={lvl.id} className="hover:bg-emerald-50/30 transition-colors">
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600 font-mono">
-                      {lvl.levelNumber}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono font-bold text-xs">
-                      {lvl.code}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-slate-900">
-                    {lvl.name}
-                  </td>
-                  <td className="px-4 py-3 font-nepali text-slate-800">
-                    {lvl.labelNepali}
-                  </td>
-                  <td className="px-4 py-3">
-                    {lvl.minSalary && lvl.minSalary > 0 ? (
-                      <span className="inline-flex items-center font-mono font-semibold text-emerald-800 bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-200/60 text-xs">
-                        NPR {lvl.minSalary.toLocaleString()}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300 italic">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
-                    {lvl.description || <span className="text-slate-300 italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(lvl)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
-                        title="Edit level"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingLevel(lvl)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                        title="Delete level"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            ))}
 
               {filteredLevels.length === 0 && (
                 <tr>
@@ -363,7 +351,6 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
             </tbody>
           </table>
         </div>
-      </div>
 
       {/* Add / Edit Level Modal */}
       <Dialog
@@ -440,15 +427,15 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Devnagari Label (नेपालीमा)
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Local Script Label (Optional)
             </label>
             <input
               type="text"
-              placeholder="e.g. तह ६ (अधिकृत तह)"
+              placeholder="e.g. Level 6 (Officer Level)"
               value={formData.labelNepali}
               onChange={(e) => setFormData({ ...formData, labelNepali: e.target.value })}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 font-nepali"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             />
           </div>
 

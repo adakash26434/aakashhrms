@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Users, Briefcase, ArrowUpRight, Info } from "lucide-react";
+import { Building2, Users, Briefcase } from "lucide-react";
 import type { Branch } from "@/lib/types/branch";
 import type { Department } from "@/lib/types/department";
 import type { Designation } from "@/lib/types/designation";
@@ -17,129 +17,103 @@ export function OrganizationShortcutsCard({
   departments,
   designations,
 }: OrganizationShortcutsCardProps) {
+  const units = [
+    {
+      id: "branches",
+      title: "Branches & office locations",
+      description: "Regional office networks, physical facilities, and head office designation.",
+      count: branches.length,
+      countLabel: branches.length === 1 ? "branch" : "branches",
+      href: "/workforce/organization?tab=branches",
+      actionText: "Manage branch registry",
+      icon: Building2,
+    },
+    {
+      id: "departments",
+      title: "Departments & functional units",
+      description: "Organizational business divisions, unit groupings, and managerial cost centers.",
+      count: departments.length,
+      countLabel: departments.length === 1 ? "department" : "departments",
+      href: "/workforce/organization?tab=departments",
+      actionText: "Manage department structure",
+      icon: Users,
+    },
+    {
+      id: "designations",
+      title: "Job designations & roles",
+      description: "Standard job titles, organizational tiers, and cross-departmental roles.",
+      count: designations.length,
+      countLabel: designations.length === 1 ? "designation" : "designations",
+      href: "/workforce/organization?tab=designations",
+      actionText: "Manage job titles",
+      icon: Briefcase,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Centralization Advisory Banner */}
-      <div className="flex items-start gap-3 rounded-xl border border-payroll-primary/20 bg-payroll-cream/60 p-4 text-xs text-payroll-navy shadow-xs">
-        <Info className="h-4 w-4 shrink-0 text-payroll-primary mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-bold text-payroll-navy">
-            Organizational Structure Centralized Under Workforce
-          </p>
-          <p className="text-gray-600 leading-relaxed">
-            Day-to-day management of physical branches, departments, and job designations is now unified under{" "}
-            <Link
-              href="/workforce/organization"
-              className="font-bold text-payroll-primary hover:underline inline-flex items-center gap-0.5"
-            >
-              Workforce → Organization
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-            . This keeps organizational maintenance connected with active employee records while keeping company setup focused on legal identity, working schedules, and policy rules.
-          </p>
-        </div>
+    <div className="space-y-8 animate-[fadeIn_150ms_ease-out]">
+      {/* Top Header */}
+      <div className="pb-5 border-b border-slate-200/80">
+        <h2 className="text-lg font-semibold text-slate-900 tracking-tight">
+          Organization units
+        </h2>
+        <p className="mt-1 text-xs text-slate-500 max-w-2xl leading-relaxed">
+          Physical locations, functional business units, and standard roles configured across the organization.
+        </p>
       </div>
 
-      {/* 3 Overview & Shortcut Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Branches Card */}
-        <div className="flex flex-col justify-between rounded-xl border border-payroll-light bg-white p-5 shadow-xs transition-all hover:border-payroll-primary/40 hover:shadow-sm">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <span className="rounded-full bg-payroll-cream px-2.5 py-0.5 text-xs font-mono font-bold text-payroll-primary border border-payroll-light/80">
-                {branches.length} {branches.length === 1 ? "Branch" : "Branches"}
-              </span>
-            </div>
+      {/* Institutional Guidance Note */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-600 leading-relaxed">
+        <p className="font-semibold text-slate-900 mb-0.5">
+          Workforce structural management
+        </p>
+        <p>
+          Day-to-day assignments of employees to branches, departments, and designations are administered under{" "}
+          <Link
+            href="/workforce/organization"
+            className="font-medium text-emerald-800 hover:text-emerald-950 underline underline-offset-2"
+          >
+            Workforce organization
+          </Link>
+          . Company setup maintains top-level legal identity, work schedules, and compensation policies.
+        </p>
+      </div>
 
-            <div>
-              <h4 className="text-sm font-bold text-payroll-navy">
-                Branches &amp; Office Locations
-              </h4>
-              <p className="text-xs text-gray-500 mt-1 leading-normal">
-                Regional offices, physical operating branches, and head office designation.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 border-t border-payroll-light/60 pt-3">
-            <Link
-              href="/workforce/organization?tab=branches"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-payroll-primary hover:underline hover:text-payroll-navy transition-colors"
+      {/* Directory List */}
+      <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+        {units.map((unit) => {
+          const Icon = unit.icon;
+          return (
+            <div
+              key={unit.id}
+              className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
-              <span>Manage Branches</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Departments Card */}
-        <div className="flex flex-col justify-between rounded-xl border border-payroll-light bg-white p-5 shadow-xs transition-all hover:border-payroll-primary/40 hover:shadow-sm">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
-                <Users className="h-5 w-5" />
+              <div className="flex items-start gap-3.5">
+                <Icon className="h-5 w-5 text-slate-400 mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {unit.title}
+                    </h3>
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-mono font-medium text-slate-700">
+                      {unit.count} {unit.countLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 max-w-xl">
+                    {unit.description}
+                  </p>
+                </div>
               </div>
-              <span className="rounded-full bg-payroll-cream px-2.5 py-0.5 text-xs font-mono font-bold text-payroll-primary border border-payroll-light/80">
-                {departments.length} {departments.length === 1 ? "Department" : "Departments"}
-              </span>
+
+              <Link
+                href={unit.href}
+                className="self-start sm:self-center shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+              >
+                {unit.actionText}
+              </Link>
             </div>
-
-            <div>
-              <h4 className="text-sm font-bold text-payroll-navy">
-                Departments &amp; Units
-              </h4>
-              <p className="text-xs text-gray-500 mt-1 leading-normal">
-                Functional business units, branch associations, and head of department assignments.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 border-t border-payroll-light/60 pt-3">
-            <Link
-              href="/workforce/organization?tab=departments"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-payroll-primary hover:underline hover:text-payroll-navy transition-colors"
-            >
-              <span>Manage Departments</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Designations Card */}
-        <div className="flex flex-col justify-between rounded-xl border border-payroll-light bg-white p-5 shadow-xs transition-all hover:border-payroll-primary/40 hover:shadow-sm">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
-                <Briefcase className="h-5 w-5" />
-              </div>
-              <span className="rounded-full bg-payroll-cream px-2.5 py-0.5 text-xs font-mono font-bold text-payroll-primary border border-payroll-light/80">
-                {designations.length} {designations.length === 1 ? "Designation" : "Designations"}
-              </span>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-bold text-payroll-navy">
-                Job Designations &amp; Roles
-              </h4>
-              <p className="text-xs text-gray-500 mt-1 leading-normal">
-                Standard job titles, organizational roles, and hierarchy designations.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 border-t border-payroll-light/60 pt-3">
-            <Link
-              href="/workforce/organization?tab=designations"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-payroll-primary hover:underline hover:text-payroll-navy transition-colors"
-            >
-              <span>Manage Designations</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </div>
   );

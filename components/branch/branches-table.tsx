@@ -41,62 +41,62 @@ export function BranchesTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-180 text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60 text-[11px] uppercase tracking-wider text-gray-500">
-            <th scope="col" className="px-5 py-3 font-semibold">Branch</th>
-            <th scope="col" className="px-5 py-3 font-semibold">Code</th>
-            <th scope="col" className="px-5 py-3 font-semibold">Location</th>
-            <th scope="col" className="px-5 py-3 font-semibold">Contact</th>
-            <th scope="col" className="px-5 py-3 font-semibold">Status</th>
-            <th scope="col" className="px-5 py-3 text-right font-semibold">Actions</th>
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500">
+            <th scope="col" className="px-4 py-4 font-semibold">Branch</th>
+            <th scope="col" className="px-4 py-4 font-semibold">Code</th>
+            <th scope="col" className="px-4 py-4 font-semibold">Location</th>
+            <th scope="col" className="px-4 py-4 font-semibold">Contact</th>
+            <th scope="col" className="px-4 py-4 font-semibold">Status</th>
+            <th scope="col" className="px-4 py-4 text-right font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody>
           {branches.map((b) => (
             <tr
               key={b.id}
-              className="border-b border-[#d7e8d0]/60 last:border-b-0 transition-colors hover:bg-[#f6faf6]/40"
+              className="border-b border-zinc-100 last:border-b-0 transition-colors hover:bg-zinc-50/60"
             >
-              <td className="px-5 py-4 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#2e7d32]">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/40">
                     <Building2 className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block font-medium text-[#1b3a1f]">
+                    <span className="block font-medium text-zinc-950">
                       {b.name}
                     </span>
                   </span>
                 </div>
               </td>
-              <td className="px-5 py-4 align-middle">
-                <code className="rounded bg-[#d7e8d0]/60 px-1.5 py-0.5 text-[11px] font-mono text-[#1b3a1f]">
+              <td className="px-4 py-4 align-middle">
+                <code className="rounded border border-zinc-200/60 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-mono text-zinc-700">
                   {b.code}
                 </code>
               </td>
-              <td className="px-5 py-4 align-middle">
-                <div className="flex items-center gap-1.5 text-gray-600">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <td className="px-4 py-4 align-middle">
+                <div className="flex items-center gap-1.5 text-zinc-600">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                   <span className="truncate max-w-40">{b.location}</span>
                 </div>
               </td>
-              <td className="px-5 py-4 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <div className="space-y-0.5">
                   {b.phone && (
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-zinc-600">
+                      <Phone className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                       <span>{b.phone}</span>
                     </div>
                   )}
                   {b.email && (
-                    <span className="text-xs text-gray-500">{b.email}</span>
+                    <span className="text-xs text-zinc-400">{b.email}</span>
                   )}
                 </div>
               </td>
-              <td className="px-5 py-4 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <StatusPill status={b.status} />
               </td>
-              <td className="px-5 py-4 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <div className="flex items-center justify-end gap-1">
                   <ActionButton label={`View ${b.name}`} onClick={() => onView(b)}>
                     <Eye className="h-3.5 w-3.5" />
@@ -122,16 +122,16 @@ function StatusPill({ status }: { status: BranchStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium",
         status === "active"
-          ? "border-green-200 bg-green-50 text-green-700"
-          : "border-gray-200 bg-gray-100 text-gray-600",
+          ? "border-emerald-200/50 bg-emerald-50/70 text-emerald-800"
+          : "border-zinc-200/60 bg-zinc-50 text-zinc-600",
       )}
     >
       <span
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",
-          status === "active" ? "bg-emerald-500" : "bg-gray-400",
+          status === "active" ? "bg-emerald-600" : "bg-zinc-400",
         )}
         aria-hidden
       />
@@ -151,10 +151,10 @@ function ActionButton({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+        "inline-flex h-7 w-7 items-center justify-center rounded transition-colors",
         danger
-          ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
-          : "text-gray-500 hover:bg-[#d7e8d0]/60 hover:text-[#2e7d32]",
+          ? "text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
+          : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >
       {children}

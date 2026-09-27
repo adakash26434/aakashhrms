@@ -56,87 +56,87 @@ export function AttendanceTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="bg-payroll-cream text-[11px] font-semibold uppercase tracking-wider text-gray-500 border-b border-payroll-light">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
           <tr>
-            <th className="p-4">Employee</th>
-            <th className="p-4">Attendance Code</th>
-            <th className="p-4">Department / Branch</th>
-            <th className="p-4">Status</th>
-            <th className="p-4">In / Out Time</th>
-            <th className="p-4">Work Hrs</th>
-            <th className="p-4">OT Hrs</th>
-            <th className="p-4">Flags</th>
-            <th className="p-4 text-right">Actions</th>
+            <th className="px-4 py-4">Employee</th>
+            <th className="px-4 py-4">Attendance Code</th>
+            <th className="px-4 py-4">Department / Branch</th>
+            <th className="px-4 py-4">Status</th>
+            <th className="px-4 py-4">In / Out Time</th>
+            <th className="px-4 py-4">Work Hrs</th>
+            <th className="px-4 py-4">OT Hrs</th>
+            <th className="px-4 py-4">Flags</th>
+            <th className="px-4 py-4 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-payroll-light/60">
+        <tbody className="divide-y divide-zinc-200">
           {records.map((r) => (
-            <tr key={r.id} className="hover:bg-payroll-cream/40 cursor-pointer transition-colors" onClick={() => onSelect(r)}>
-              <td className="p-4">
-                <div className="font-semibold text-payroll-navy">{r.employeeName}</div>
+            <tr key={r.id} className="hover:bg-zinc-50/60 cursor-pointer transition-colors" onClick={() => onSelect(r)}>
+              <td className="px-4 py-4">
+                <div className="font-medium text-zinc-950">{r.employeeName}</div>
               </td>
-              <td className="p-4 font-mono text-xs text-gray-600">
+              <td className="px-4 py-4 font-mono text-xs text-zinc-500">
                 <div>{r.attendanceCode}</div>
                 {r.employeeCode && r.employeeCode !== r.attendanceCode && (
-                  <div className="text-[10px] text-gray-400">Emp: {r.employeeCode}</div>
+                  <div className="text-[10px] text-zinc-400">Emp: {r.employeeCode}</div>
                 )}
               </td>
-              <td className="p-4 text-gray-600">
+              <td className="px-4 py-4 text-zinc-600">
                 <div>{r.departmentName}</div>
                 {r.branchName && r.branchName !== "—" && (
-                  <div className="text-[11px] text-gray-400">{r.branchName}</div>
+                  <div className="text-[11px] text-zinc-400">{r.branchName}</div>
                 )}
               </td>
-              <td className="p-4">
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  r.status === "Present" ? "bg-emerald-100 text-emerald-800" :
-                  r.status === "Absent" || r.status === "LWOP" ? "bg-rose-100 text-rose-800" :
-                  r.status === "Weekly Off" || r.status === "Holiday" ? "bg-blue-100 text-blue-800" :
-                  "bg-amber-100 text-amber-800"
+              <td className="px-4 py-4">
+                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${
+                  r.status === "Present" ? "border-emerald-200/50 bg-emerald-50/70 text-emerald-800" :
+                  r.status === "Absent" || r.status === "LWOP" ? "border-rose-200/50 bg-rose-50/70 text-rose-800" :
+                  r.status === "Weekly Off" || r.status === "Holiday" ? "border-sky-200/50 bg-sky-50/70 text-sky-800" :
+                  "border-amber-200/50 bg-amber-50/70 text-amber-800"
                 }`}>
                   {r.status}
                 </span>
               </td>
-              <td className="p-4 text-xs font-mono text-gray-700">
+              <td className="px-4 py-4 text-xs font-mono text-zinc-700">
                 {r.inTime || "—"} / {r.outTime || "—"}
               </td>
-              <td className="p-4 font-semibold text-payroll-navy">{r.workHours}</td>
-              <td className="p-4">
+              <td className="px-4 py-4 font-semibold tabular-nums text-zinc-950">{r.workHours}</td>
+              <td className="px-4 py-4">
                 {(r.otHoursOfficeDay > 0 || r.otHoursOffDay > 0) ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-payroll-primary/10 px-2 py-0.5 text-xs font-bold text-payroll-primary">
+                  <span className="inline-flex items-center gap-1 rounded border border-emerald-200/50 bg-emerald-50/70 px-2 py-0.5 text-xs font-medium text-emerald-800 tabular-nums">
                     +{r.otHoursOfficeDay + r.otHoursOffDay} hrs
                   </span>
-                ) : <span className="text-gray-400">—</span>}
+                ) : <span className="text-zinc-400">—</span>}
               </td>
-              <td className="p-4">
+              <td className="px-4 py-4">
                 <div className="flex items-center gap-1.5">
                   {r.isLate && (
-                    <span title="Late Arrival" className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                    <span title="Late Arrival" className="inline-flex items-center gap-1 rounded border border-amber-200/50 bg-amber-50/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
                       <AlertTriangle className="h-3 w-3" /> Late
                     </span>
                   )}
                   {r.isLocked && (
-                    <span title="Locked for Payroll" className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-700">
+                    <span title="Locked for Payroll" className="inline-flex items-center gap-1 rounded border border-zinc-200/60 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
                       <Lock className="h-3 w-3" /> Locked
                     </span>
                   )}
                 </div>
               </td>
-              <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-end gap-2">
+              <td className="px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-end gap-1">
                   <button
                     onClick={() => onEdit(r)}
                     disabled={r.isLocked}
-                    className={`rounded p-1.5 ${r.isLocked ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-100 hover:text-payroll-primary"}`}
+                    className={`rounded p-1.5 transition-colors ${r.isLocked ? "text-zinc-300 cursor-not-allowed" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"}`}
                   >
-                    <Edit2 className="h-4 w-4" />
+                    <Edit2 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => onDelete(r.id)}
                     disabled={r.isLocked}
-                    className={`rounded p-1.5 ${r.isLocked ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-rose-50 hover:text-rose-600"}`}
+                    className={`rounded p-1.5 transition-colors ${r.isLocked ? "text-zinc-300 cursor-not-allowed" : "text-zinc-400 hover:bg-rose-50 hover:text-rose-600"}`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </td>

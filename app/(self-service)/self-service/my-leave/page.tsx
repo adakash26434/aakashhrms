@@ -147,76 +147,73 @@ export default async function MyLeavePage() {
 
       {/* ── Leave Applications History Table ── */}
       <div className="space-y-3">
-        <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-          Leave Application History ({applications.length})
-        </h2>
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
+          <h2 className="text-xs font-semibold text-zinc-900 uppercase tracking-wider">
+            Leave Application History ({applications.length})
+          </h2>
+        </div>
 
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white overflow-hidden">
-          {applications.length === 0 ? (
-            <CardContent className="py-12">
-              <EmptyState
-                icon={<Clock className="h-8 w-8 text-payroll-primary" />}
-                title="No leave requests submitted"
-                description="Your submitted leave applications and approval reviews will be displayed here."
-              />
-            </CardContent>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-payroll-cream/70 text-payroll-navy font-bold uppercase tracking-wider border-b border-payroll-light text-[11px]">
-                  <tr>
-                    <th className="px-5 py-3.5">Category</th>
-                    <th className="px-4 py-3.5">Effective Dates</th>
-                    <th className="px-4 py-3.5 text-center">Duration</th>
-                    <th className="px-4 py-3.5">Reason</th>
-                    <th className="px-4 py-3.5 text-center">Status</th>
-                    <th className="px-5 py-3.5">Reviewer Remarks</th>
+        {applications.length === 0 ? (
+          <div className="py-12 text-center text-xs text-zinc-500 font-medium">
+            <Clock className="h-7 w-7 text-zinc-300 mx-auto mb-2" />
+            <p className="font-semibold text-zinc-800">No leave requests submitted</p>
+            <p className="text-zinc-500 text-[11px] mt-0.5">Your submitted leave applications and approval reviews will be displayed here.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Effective Dates</th>
+                  <th className="px-4 py-3 text-center">Duration</th>
+                  <th className="px-4 py-3">Reason</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3">Reviewer Remarks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {applications.map((app) => (
+                  <tr key={app.id} className="hover:bg-zinc-50/60 transition-colors">
+                    <td className="px-4 py-3.5 font-medium text-zinc-900">
+                      {app.leaveTypeName}
+                    </td>
+                    <td className="px-4 py-3.5 text-zinc-600 font-mono text-[11px]">
+                      {app.effectiveFrom} → {app.effectiveTo}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-zinc-200/70 bg-zinc-50 text-zinc-700 font-mono text-[11px]">
+                        {app.noOfDays} day(s)
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-zinc-600 max-w-[200px] truncate" title={app.reason}>
+                      {app.reason || "—"}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <Badge
+                        variant={
+                          app.status === "Approved"
+                            ? "success"
+                            : app.status === "Pending"
+                            ? "warning"
+                            : app.status === "Rejected"
+                            ? "danger"
+                            : "neutral"
+                        }
+                        size="sm"
+                      >
+                        {app.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3.5 text-zinc-500 max-w-[200px] truncate text-[11px]" title={app.reviewRemarks || ""}>
+                      {app.reviewRemarks || "—"}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-payroll-light/50 bg-white">
-                  {applications.map((app) => (
-                    <tr key={app.id} className="hover:bg-payroll-cream/40 transition-colors">
-                      <td className="px-5 py-3.5 font-bold text-payroll-navy">
-                        {app.leaveTypeName}
-                      </td>
-                      <td className="px-4 py-3.5 text-gray-600 font-mono text-[11px]">
-                        {app.effectiveFrom} → {app.effectiveTo}
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-payroll-cream text-payroll-navy font-bold text-[11px] border border-payroll-light">
-                          {app.noOfDays} day(s)
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-gray-600 max-w-[200px] truncate" title={app.reason}>
-                        {app.reason || "—"}
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <Badge
-                          variant={
-                            app.status === "Approved"
-                              ? "success"
-                              : app.status === "Pending"
-                              ? "warning"
-                              : app.status === "Rejected"
-                              ? "danger"
-                              : "neutral"
-                          }
-                          size="sm"
-                          className="font-bold"
-                        >
-                          {app.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-500 max-w-[200px] truncate text-[11px]" title={app.reviewRemarks || ""}>
-                        {app.reviewRemarks || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

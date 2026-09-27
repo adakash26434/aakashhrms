@@ -1,69 +1,72 @@
 "use client";
 
 import { Users, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import type { AttendanceKPIs } from "@/lib/types/attendance";
 
 export function AttendanceKPIsGrid({ kpis }: { kpis: AttendanceKPIs }) {
-  const cards = [
+  const metrics = [
     {
-      label: "Total Employees",
+      label: "Total employees",
       value: kpis.totalEmployees,
+      subtext: "Roster headcount",
       icon: Users,
-      color: "text-payroll-navy",
-      bg: "bg-payroll-light/60 border border-payroll-light",
+      iconColor: "text-zinc-400",
     },
     {
-      label: "Present Today",
+      label: "Present today",
       value: kpis.presentCount,
+      subtext: "Logged attendance",
       icon: CheckCircle,
-      color: "text-emerald-700",
-      bg: "bg-emerald-50 border border-emerald-200/60",
+      iconColor: "text-emerald-700",
     },
     {
       label: "Absent / LWOP",
       value: kpis.absentCount,
+      subtext: "Unexcused or leave without pay",
       icon: XCircle,
-      color: "text-rose-700",
-      bg: "bg-rose-50 border border-rose-200/60",
+      iconColor: "text-rose-500",
     },
     {
-      label: "Late Arrivals",
+      label: "Late arrivals",
       value: kpis.lateCount,
+      subtext: "Past grace threshold",
       icon: AlertTriangle,
-      color: "text-amber-700",
-      bg: "bg-amber-50 border border-amber-200/60",
+      iconColor: "text-amber-500",
     },
     {
-      label: "Total OT Hours",
-      value: `${kpis.totalOtHours} hrs`,
+      label: "Total OT hours",
+      value: `${kpis.totalOtHours}h`,
+      subtext: "Approved overtime",
       icon: Clock,
-      color: "text-payroll-primary",
-      bg: "bg-payroll-cream text-payroll-primary border border-payroll-light/80",
+      iconColor: "text-zinc-600",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {cards.map((c, idx) => {
-        const Icon = c.icon;
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
         return (
-          <Card
-            key={idx}
-            className="flex items-center gap-3 p-3.5 shadow-payroll-xs hover:shadow-payroll-sm transition-all hover:-translate-y-0.5"
+          <div
+            key={m.label}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
           >
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.bg}`}>
-              <Icon className={`h-4.5 w-4.5 ${c.color}`} />
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 truncate">
-                {c.label}
-              </p>
-              <p className="mt-0.5 text-lg font-bold text-payroll-navy tabular-nums truncate">
-                {c.value}
-              </p>
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
             </div>
-          </Card>
+          </div>
         );
       })}
     </div>

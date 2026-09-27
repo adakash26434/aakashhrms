@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Check, X, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { AttendanceBulkItem, AttendanceStatus } from "@/lib/types/attendance";
 
 interface AttendanceBulkModalProps {
@@ -22,8 +24,6 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
     }
     return initial;
   });
-
-  if (!open) return null;
 
   function setAllStatus(status: AttendanceStatus) {
     setItems((prev) => {
@@ -64,75 +64,141 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
         [id]: {
           status: nextStatus,
           workHours: nextWorkHours,
-          otHours: nextOtHours
-        }
+          otHours: nextOtHours,
+        },
       };
     });
   }
 
+  const handlePost = () => {
+    const payload: AttendanceBulkItem[] = Object.entries(items).map(([empId, val]) => ({
+      employeeId: empId,
+      status: val.status,
+      workHours: val.workHours,
+      otHoursOfficeDay: val.status === "Holiday" || val.status === "Weekly Off" ? 0 : val.otHours,
+      otHoursOffDay: val.status === "Holiday" || val.status === "Weekly Off" ? val.otHours : 0,
+      remarks: "Bulk attendance posting",
+    }));
+    onSave(date, payload);
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex flex-col h-[85vh] w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b pb-4">
-          <div>
-            <h2 className="text-lg font-bold text-payroll-navy">Daily Bulk Attendance Posting</h2>
-            <p className="text-xs text-gray-500">Post attendance for all active employees simultaneously in one atomic batch.</p>
-          </div>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Daily Bulk Attendance Posting"
+      description="Post attendance for all active employees simultaneously in one atomic batch."
+      size="4xl"
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            Batch size: {employees.length} records • Effective: {date}
+          </span>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-gray-600">Target Date:</span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handlePost}
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+            >
+              Post Bulk Attendance ({employees.length} Records)
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* Controls Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200/80 bg-zinc-50/50 p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-zinc-700">Target Date:</span>
             <input
               type="date"
-              className="rounded-lg border border-gray-300 p-1.5 text-xs font-semibold text-payroll-primary"
+              className="rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-zinc-500 mr-1">Quick Mark:</span>
+            <button
+              type="button"
+              onClick={() => setAllStatus("Present")}
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50/60 px-2.5 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-100/60 transition-colors"
+            >
+              <Check className="h-3 w-3" /> All Present
+            </button>
+            <button
+              type="button"
+              onClick={() => setAllStatus("Absent")}
+              className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-xs font-medium text-rose-900 hover:bg-rose-100/60 transition-colors"
+            >
+              <X className="h-3 w-3" /> All Absent
+            </button>
+            <button
+              type="button"
+              onClick={() => setAllStatus("Half Day")}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50/60 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100/60 transition-colors"
+            >
+              <Clock className="h-3 w-3" /> All Half Day
+            </button>
+            <button
+              type="button"
+              onClick={() => setAllStatus("Holiday")}
+              className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              Holiday / Off
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 py-3 bg-payroll-cream px-4 rounded-lg my-3 border border-payroll-light">
-          <span className="text-xs font-bold text-gray-600">Quick Mark All:</span>
-          <Button size="sm" variant="outline" className="h-7 text-xs bg-emerald-50 text-emerald-700 border-emerald-300" onClick={() => setAllStatus("Present")}>
-            <Check className="h-3 w-3 mr-1" /> All Present
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs bg-rose-50 text-rose-700 border-rose-300" onClick={() => setAllStatus("Absent")}>
-            <X className="h-3 w-3 mr-1" /> All Absent
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs bg-amber-50 text-amber-700 border-amber-300" onClick={() => setAllStatus("Half Day")}>
-            <Clock className="h-3 w-3 mr-1" /> All Half Day
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs bg-gray-100 text-gray-700" onClick={() => setAllStatus("Holiday")}>
-            Holiday / Off
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto border rounded-xl">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-payroll-light/60 font-semibold text-gray-700 uppercase">
+        {/* Edge-to-edge Table */}
+        <div className="max-h-[50vh] overflow-y-auto border border-zinc-200/80 rounded-md">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 bg-zinc-200 border-b border-zinc-300 text-[11px] font-semibold text-zinc-900 uppercase tracking-wider z-10">
               <tr>
-                <th className="p-3">Employee</th>
-                <th className="p-3">Department</th>
-                <th className="p-3">Status</th>
-                <th className="p-3 w-24">Work Hrs</th>
-                <th className="p-3 w-24">OT Hrs</th>
+                <th className="px-4 py-3">Employee</th>
+                <th className="px-4 py-3">Department</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 w-28 text-center">Work Hrs</th>
+                <th className="px-4 py-3 w-28 text-center">OT Hrs</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-zinc-200 bg-white">
               {employees.map((e) => {
                 const item = items[e.id] || { status: "Present", workHours: 8, otHours: 0 };
                 return (
-                  <tr key={e.id} className="hover:bg-gray-50">
-                    <td className="p-3 font-semibold text-payroll-navy">{e.fullName} <span className="font-mono text-[10px] text-gray-500">({e.attendanceCode})</span></td>
-                    <td className="p-3 text-gray-600">{e.departmentName}</td>
-                    <td className="p-3">
+                  <tr key={e.id} className="hover:bg-zinc-50/70 transition-colors">
+                    <td className="px-4 py-3 font-medium text-zinc-900">
+                      {e.fullName} <span className="font-mono text-[11px] text-zinc-400">({e.attendanceCode})</span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-600">{e.departmentName}</td>
+                    <td className="px-4 py-3">
                       <select
-                        className={`rounded border p-1 text-xs font-semibold ${
-                          item.status === "Present" ? "bg-emerald-50 text-emerald-800 border-emerald-300" :
-                          item.status === "Absent" || item.status === "LWOP" ? "bg-rose-50 text-rose-800 border-rose-300" : "bg-amber-50 text-amber-800 border-amber-300"
-                        }`}
+                        className={cn(
+                          "rounded-md border px-2 py-1 text-xs font-medium outline-none transition-colors",
+                          item.status === "Present"
+                            ? "bg-emerald-50/70 text-emerald-900 border-emerald-200 focus:border-emerald-700"
+                            : item.status === "Absent" || item.status === "LWOP"
+                            ? "bg-rose-50/70 text-rose-900 border-rose-200 focus:border-rose-700"
+                            : "bg-amber-50/70 text-amber-900 border-amber-200 focus:border-amber-700"
+                        )}
                         value={item.status}
                         onChange={(ev) => {
                           const st = ev.target.value as AttendanceStatus;
-                          updateEmp(e.id, { status: st, workHours: st === "Present" ? 8 : st === "Half Day" ? 4 : 0 });
+                          updateEmp(e.id, {
+                            status: st,
+                            workHours: st === "Present" ? 8 : st === "Half Day" ? 4 : 0,
+                          });
                         }}
                       >
                         <option value="Present">Present</option>
@@ -144,18 +210,20 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                         <option value="Weekly Off">Weekly Off</option>
                       </select>
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3 text-center">
                       <input
                         type="number"
-                        className="w-16 rounded border p-1 text-center font-mono"
+                        step="0.5"
+                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center font-mono text-zinc-800 text-xs outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
                         value={item.workHours}
                         onChange={(ev) => updateEmp(e.id, { workHours: Number(ev.target.value) })}
                       />
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3 text-center">
                       <input
                         type="number"
-                        className="w-16 rounded border p-1 text-center font-mono text-payroll-primary font-bold"
+                        step="0.5"
+                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center font-mono text-zinc-800 text-xs outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
                         value={item.otHours}
                         onChange={(ev) => updateEmp(e.id, { otHours: Number(ev.target.value) })}
                       />
@@ -166,27 +234,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
             </tbody>
           </table>
         </div>
-
-        <div className="flex items-center justify-end gap-2 pt-4 border-t mt-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={() => {
-              const payload: AttendanceBulkItem[] = Object.entries(items).map(([empId, val]) => ({
-                employeeId: empId,
-                status: val.status,
-                workHours: val.workHours,
-                otHoursOfficeDay: val.status === "Holiday" || val.status === "Weekly Off" ? 0 : val.otHours,
-                otHoursOffDay: val.status === "Holiday" || val.status === "Weekly Off" ? val.otHours : 0,
-                remarks: "Bulk attendance posting",
-              }));
-              onSave(date, payload);
-            }}
-            className="bg-payroll-primary text-white hover:bg-payroll-navy"
-          >
-            Post Bulk Attendance ({employees.length} Records)
-          </Button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

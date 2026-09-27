@@ -5,7 +5,6 @@ import { FileText, ShieldAlert, CheckCircle2, UserCheck, Database, Calendar, Use
 import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
 import { platformAuditLogs, companies, platformUsers } from "@/lib/platform/schema";
 import { desc, eq } from "drizzle-orm";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -42,44 +41,44 @@ export default async function PlatformAuditLogsPage() {
         </p>
       </div>
 
-      <Card className="border-payroll-light/80 shadow-payroll-xs bg-white overflow-hidden">
-        <div className="p-4 sm:p-5 bg-payroll-cream/50 border-b border-payroll-light/60 flex items-center justify-between">
-          <span className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+          <span className="text-xs font-semibold text-zinc-700 uppercase tracking-wider">
             Audit Records ({logs.length})
           </span>
-          <Badge variant="neutral" size="sm" className="font-mono">
+          <Badge variant="neutral" size="sm" className="font-mono text-zinc-600 bg-zinc-100 border-zinc-200">
             Last 50 Events
           </Badge>
         </div>
 
         {logs.length === 0 ? (
-          <CardContent className="py-12">
+          <div className="py-12">
             <EmptyState
-              icon={<FileText className="w-6 h-6 text-payroll-primary" />}
+              icon={<FileText className="w-6 h-6 text-zinc-500" />}
               title="No platform audit log records found"
               description="Platform administrative actions (company registration, database provisioning, lifecycle updates) will be automatically captured here."
             />
-          </CardContent>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-payroll-cream/70 text-payroll-navy font-bold border-b border-payroll-light text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="px-5 py-3.5">Timestamp</th>
-                  <th className="px-4 py-3.5">Action</th>
-                  <th className="px-4 py-3.5">Target Organization</th>
-                  <th className="px-4 py-3.5">Actor</th>
-                  <th className="px-5 py-3.5">Forensic Metadata</th>
+              <thead>
+                <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-3">Timestamp</th>
+                  <th className="px-4 py-3">Action</th>
+                  <th className="px-4 py-3">Target Organization</th>
+                  <th className="px-4 py-3">Actor</th>
+                  <th className="px-4 py-3">Forensic Metadata</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-payroll-light/50 bg-white">
+              <tbody className="divide-y divide-zinc-100 bg-white">
                 {logs.map((log) => {
                   const isSuccess = log.action.includes("SUCCESS") || log.action.includes("REGISTER") || log.action.includes("PROVISION");
                   const metaObj = (log.meta as Record<string, any>) || {};
 
                   return (
-                    <tr key={log.id} className="hover:bg-payroll-cream/40 transition-colors">
-                      <td className="px-5 py-3.5 whitespace-nowrap text-gray-500 font-mono text-[11px]">
+                    <tr key={log.id} className="border-b border-zinc-100 hover:bg-zinc-50/60 transition-colors">
+                      <td className="px-4 py-3.5 whitespace-nowrap text-zinc-500 font-mono text-[11px]">
                         {new Date(log.createdAt).toLocaleString()}
                       </td>
 
@@ -87,7 +86,7 @@ export default async function PlatformAuditLogsPage() {
                         <Badge
                           variant={isSuccess ? "success" : "info"}
                           size="sm"
-                          className="font-mono font-bold gap-1"
+                          className="font-mono font-medium gap-1"
                         >
                           {isSuccess ? <CheckCircle2 className="h-3 w-3" /> : <Database className="h-3 w-3" />}
                           <span>{log.action}</span>
@@ -97,34 +96,34 @@ export default async function PlatformAuditLogsPage() {
                       <td className="px-4 py-3.5">
                         {log.companyName ? (
                           <div>
-                            <span className="font-bold text-payroll-navy block">{log.companyName}</span>
-                            <span className="text-[10px] font-mono text-payroll-primary font-bold">{log.companyCode}</span>
+                            <span className="font-medium text-zinc-900 block">{log.companyName}</span>
+                            <span className="text-[10px] font-mono text-zinc-500">{log.companyCode}</span>
                           </div>
                         ) : (
-                          <span className="text-gray-400 font-medium">System Platform</span>
+                          <span className="text-zinc-400 font-medium">System Platform</span>
                         )}
                       </td>
 
                       <td className="px-4 py-3.5">
                         {log.actorName ? (
                           <div className="flex items-center gap-2">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-payroll-cream text-payroll-primary border border-payroll-light text-[10px] font-bold">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200 text-[10px] font-medium">
                               <User className="h-3 w-3" />
                             </div>
                             <div>
-                              <span className="font-bold text-payroll-navy block">{log.actorName}</span>
-                              <span className="text-[10px] text-gray-400">{log.actorEmail}</span>
+                              <span className="font-medium text-zinc-900 block">{log.actorName}</span>
+                              <span className="text-[10px] text-zinc-400">{log.actorEmail}</span>
                             </div>
                           </div>
                         ) : (
-                          <span className="text-gray-500 font-mono text-[11px]">System Daemon</span>
+                          <span className="text-zinc-500 font-mono text-[11px]">System Daemon</span>
                         )}
                       </td>
 
-                      <td className="px-5 py-3.5 text-gray-600 font-mono text-[11px]">
-                        {metaObj.dbName && <div>DB: <span className="font-bold text-payroll-navy">{metaObj.dbName}</span></div>}
-                        {metaObj.slug && <div>Slug: <span className="text-payroll-primary">{metaObj.slug}</span></div>}
-                        {metaObj.adminEmail && <div className="text-[10px] text-gray-400">{metaObj.adminEmail}</div>}
+                      <td className="px-4 py-3.5 text-zinc-600 font-mono text-[11px]">
+                        {metaObj.dbName && <div>DB: <span className="font-medium text-zinc-900">{metaObj.dbName}</span></div>}
+                        {metaObj.slug && <div>Slug: <span className="text-zinc-700">{metaObj.slug}</span></div>}
+                        {metaObj.adminEmail && <div className="text-[10px] text-zinc-400">{metaObj.adminEmail}</div>}
                       </td>
                     </tr>
                   );
@@ -133,7 +132,7 @@ export default async function PlatformAuditLogsPage() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

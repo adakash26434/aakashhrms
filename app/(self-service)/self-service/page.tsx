@@ -69,43 +69,39 @@ export default async function SelfServiceDashboardPage() {
         )}
       </div>
 
-      {/* ── KPI Cards Grid ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── Top Summary Metrics ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/60 py-2">
         {/* Latest Net Pay */}
-        <DashboardCard
+        <DashboardMetric
           icon={Wallet}
-          iconBg="bg-payroll-cream text-payroll-primary border-payroll-light"
-          label="Latest Net Pay"
+          label="Latest net pay"
           value={payslip ? `NPR ${Number(payslip.netPayable).toLocaleString("en-NP")}` : "—"}
           subtext={payslip ? `Month ${payslip.payPeriodMonth}, ${payslip.payPeriodYear} BS` : "No payslip processed yet"}
           href="/self-service/my-payslips"
         />
 
         {/* Leave Balance */}
-        <DashboardCard
+        <DashboardMetric
           icon={CalendarDays}
-          iconBg="bg-blue-50 text-blue-700 border-blue-200"
-          label="Leave Balance"
+          label="Leave balance"
           value={`${leave.totalBalance} days`}
           subtext={`${leave.totalTaken} taken of ${leave.totalAllotted} allotted`}
           href="/self-service/my-leave"
         />
 
         {/* Pending Requests */}
-        <DashboardCard
+        <DashboardMetric
           icon={Clock}
-          iconBg="bg-amber-50 text-amber-700 border-amber-200"
-          label="Pending Requests"
+          label="Pending requests"
           value={String(dashboard.pendingLeaveCount)}
-          subtext="Applications awaiting approval"
+          subtext="Applications awaiting review"
           href="/self-service/my-leave"
         />
 
         {/* Active Loans */}
-        <DashboardCard
+        <DashboardMetric
           icon={Banknote}
-          iconBg="bg-purple-50 text-purple-700 border-purple-200"
-          label="Active Loans"
+          label="Active loans"
           value={dashboard.activeLoans.count > 0 ? `NPR ${dashboard.activeLoans.totalRemaining.toLocaleString("en-NP")}` : "None"}
           subtext={dashboard.activeLoans.count > 0 ? `${dashboard.activeLoans.count} active EMI loan(s)` : "No outstanding loans"}
           href="/self-service/my-loans"
@@ -137,47 +133,38 @@ export default async function SelfServiceDashboardPage() {
   );
 }
 
-function DashboardCard({
+function DashboardMetric({
   icon: Icon,
-  iconBg,
   label,
   value,
   subtext,
   href,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
   label: string;
   value: string;
   subtext: string;
   href: string;
 }) {
   return (
-    <Link href={href} className="block group">
-      <Card className="border-payroll-light/80 bg-white shadow-payroll-xs group-hover:shadow-payroll-sm group-hover:border-payroll-primary/40 transition-all h-full">
-        <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-              {label}
-            </span>
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-2xs ${iconBg}`}>
-              <Icon className="h-4.5 w-4.5" />
-            </div>
-          </div>
+    <Link href={href} className="group block py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-colors" />
+      </div>
 
-          <div>
-            <p className="text-xl sm:text-2xl font-extrabold text-payroll-navy tracking-tight">
-              {value}
-            </p>
-            <p className="text-[11px] text-gray-500 mt-0.5">{subtext}</p>
-          </div>
+      <div className="mt-2.5">
+        <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+          {value}
+        </span>
+      </div>
 
-          <div className="pt-2 border-t border-payroll-light/50 flex items-center text-xs font-bold text-payroll-primary group-hover:translate-x-1 transition-transform">
-            <span>View details</span>
-            <ArrowRight className="h-3.5 w-3.5 ml-1" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mt-3 pt-2 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-400 group-hover:text-zinc-900 transition-colors">
+        <span className="truncate">{subtext}</span>
+        <ArrowRight className="h-3.5 w-3.5 ml-1 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+      </div>
     </Link>
   );
 }

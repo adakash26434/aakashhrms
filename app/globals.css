@@ -29,6 +29,9 @@
   --payroll-border: #E4E7E4;
   --payroll-border-light: #F0F1F0;
   --payroll-divider: #ECEFED;
+  /* Table-specific: header separator (stronger) and row divider (medium) */
+  --payroll-border-table: #D1D5DB;
+  --payroll-border-row: #E4E7E4;
 
   --background: #F6F8F5;
   --foreground: #111827;
@@ -47,6 +50,8 @@
   --color-payroll-primary-hover: #155743;
   --color-payroll-primary-light: #EBF4F0;
   --color-payroll-border: #E4E7E4;
+  --color-payroll-border-table: #D1D5DB;
+  --color-payroll-border-row: #E4E7E4;
   --color-payroll-workspace: #F6F8F5;
   --font-sans: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -81,6 +86,22 @@ td {
   font-family: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* ============================================================================
+   GLOBAL FOCUS RING — Emerald brand colour on all text inputs, selects, textareas
+   Overrides any Tailwind zinc/slate/gray focus utilities applied per-component.
+   Uses !important to win against specificity of co-located Tailwind variants.
+   ============================================================================ */
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none !important;
+  border-color: #1B6B54 !important; /* payroll-primary / emerald-800 */
+  box-shadow: 0 0 0 1px #1B6B54 !important;
+}
+
 /* Monospace overrides for codes, numbers, and financial codes */
 code,
 kbd,
@@ -92,8 +113,8 @@ pre,
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -101,12 +122,12 @@ pre,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2e7d32;
+  background: #d4d4d8;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #1b5e20;
+  background: #a1a1aa;
 }
 
 /* Scrollbar hiding utility */
@@ -121,6 +142,59 @@ pre,
 /* Canonical AakashHRMS Elevation System — v0 aligned */
 .shadow-payroll-xs {
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+}
+
+/* =============================================================================
+   DATA TABLE SYSTEM
+   These rules define the visual language for all tabular data in AakashHRMS.
+   They are intentionally un-!important so Tailwind utilities override freely.
+   ============================================================================= */
+
+/* Table header: zinc-200 ground — clearly distinguishes header zone from data rows */
+table thead tr,
+table > thead > tr {
+  background-color: rgb(241, 241, 241) !important; /* zinc-200 */
+}
+
+/* Header cells: near-black labels, strong bottom border anchors the header zone */
+table thead th {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgb(24 24 27); /* zinc-900 */
+  border-bottom: 1.5px solid rgb(212 212 216); /* zinc-300 */
+  white-space: nowrap;
+}
+
+/* Body rows: only transition, let Tailwind handle hover colors */
+table tbody tr {
+  transition: background-color 100ms ease;
+}
+
+/* Row dividers: medium weight for clear row separation */
+table tbody tr + tr {
+  border-top: 1px solid rgb(228 228 231); /* zinc-200 */
+}
+
+/* Filter select inputs — recessed feel, matches search input */
+.filter-select {
+  background-color: rgb(250 250 250); /* zinc-50 */
+  border: 1px solid rgb(228 228 231); /* zinc-200 */
+  border-radius: 6px;
+  font-size: 12px;
+  color: rgb(39 39 42); /* zinc-800 */
+  padding: 6px 8px;
+  transition: background-color 120ms, border-color 120ms;
+  cursor: pointer;
+  appearance: none;
+}
+.filter-select:hover {
+  border-color: rgb(161 161 170); /* zinc-400 */
+}
+.filter-select:focus {
+  background-color: white;
+  border-color: rgb(161 161 170);
+  outline: none;
 }
 
 .payroll-input {
@@ -318,10 +392,23 @@ pre,
 /* =============================================================================
    ENTERPRISE PRINT STYLESHEET
    ============================================================================= */
+
+/* @page MUST be at the stylesheet root — NOT inside @media print (that's invalid CSS) */
+@page {
+  size: A4 portrait;
+  margin: 12mm 10mm;
+}
+
+/* Named page for wide tabular reports — referenced by body.print-landscape */
+@page landscape-sheet {
+  size: A4 landscape;
+  margin: 8mm 6mm;
+}
+
 @media print {
-  @page {
-    size: A4 landscape;
-    margin: 8mm 6mm;
+  /* Apply landscape named page when class is present on body */
+  body.print-landscape {
+    page: landscape-sheet;
   }
 
   html, body {
@@ -344,15 +431,18 @@ pre,
     display: none !important;
   }
 
-  /* Reset all containers from scroll/flex constraints */
-  div, main, section, article {
+  /* Reset scroll/height constraints on layout containers only */
+  main, section, article {
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    position: static !important;
     box-shadow: none !important;
-    border-radius: 0 !important;
-    background-color: transparent !important;
+  }
+
+  /* Reset scroll wrappers — but do NOT force position:static globally (breaks table layout) */
+  div {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* Modal overlay reset for printing */
@@ -364,14 +454,20 @@ pre,
     overflow: visible !important;
   }
 
+  /* Preserve white background on table cells */
+  th, td {
+    background-color: #ffffff !important;
+  }
+
   /* Printable Document Table Styling */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
     page-break-inside: auto !important;
-    font-size: 8.5pt !important;
     margin-top: 8px !important;
     margin-bottom: 8px !important;
+    overflow: visible !important;
+    display: table !important;
   }
 
   tr {
@@ -385,12 +481,6 @@ pre,
 
   tfoot {
     display: table-footer-group !important;
-  }
-
-  th, td {
-    padding: 4px 6px !important;
-    border: 1px solid #cbd5e1 !important;
-    word-break: normal !important;
   }
 
   th {
@@ -413,3 +503,4 @@ pre,
     display: block !important;
   }
 }
+

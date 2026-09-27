@@ -133,65 +133,79 @@ export function AuditClient({
 
   return (
     <div className="space-y-6">
-      {/* ── KPI Stat Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top Summary Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
         {/* Total Events */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#2e7d32]/15 text-[#2e7d32]">
-            <Activity className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Total System Logs
-            </p>
-            <p className="text-2xl font-bold text-[#1b3a1f]">
-              {kpis.totalEvents.toLocaleString()}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Total system audit logs</p>
+              <Activity className="h-4 w-4 text-zinc-400" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.totalEvents.toLocaleString()}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Immutable compliance event log
+          </div>
+        </div>
 
         {/* Events Today */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Events Today
-            </p>
-            <p className="text-2xl font-bold text-emerald-700">
-              {kpis.todayEvents.toLocaleString()}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Security events today</p>
+              <ShieldCheck className="h-4 w-4 text-emerald-700" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.todayEvents.toLocaleString()}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Recorded since 00:00 midnight
+          </div>
+        </div>
 
         {/* Denied Attempts */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
-            <ShieldAlert className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Denied Attempts
-            </p>
-            <p className="text-2xl font-bold text-red-700">
-              {kpis.deniedEvents.toLocaleString()}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Denied access attempts</p>
+              <ShieldAlert className="h-4 w-4 text-rose-500" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                {kpis.deniedEvents.toLocaleString()}
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Blocked unauthorized requests
+          </div>
+        </div>
 
         {/* System Activity */}
-        <Card className="p-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-            <Shield className="h-5 w-5" />
-          </div>
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Active Modules
-            </p>
-            <p className="text-2xl font-bold text-purple-700">All Modules</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-zinc-500">Active audit scope</p>
+              <Shield className="h-4 w-4 text-zinc-600" />
+            </div>
+            <div className="mt-2.5">
+              <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 font-sans">
+                All Modules
+              </span>
+            </div>
           </div>
-        </Card>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Enterprise-wide telemetry active
+          </div>
+        </div>
       </div>
 
       {/* ── Main System Activity Log Table ── */}

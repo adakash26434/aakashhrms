@@ -145,125 +145,108 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
 
   return (
     <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
-      {/* Banner */}
-      <div className="rounded-2xl border border-sky-100 bg-linear-to-r from-sky-50/80 via-white to-sky-50/40 p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white shadow-sm">
-              <FileBadge2 className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
-                  Employment Classifications & Terms (रोजगार प्रकार तथा सेवा शर्त)
-                </h3>
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
-                  {types.length} Categories
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-slate-600 max-w-2xl">
-                Configure organizational employment categories under the Nepal Labour Act 2074 (Section 10).
-                Define statutory benefit eligibility for Social Security Fund (SSF), Provident Fund (PF), Festival Dashain Allowance, and Leave Accrual.
-              </p>
-            </div>
+      {/* ── Top Clean Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 tracking-tight">
+              Employment Types &amp; Classifications
+            </h3>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+              {types.length} Categories
+            </span>
           </div>
-
-          <Button
-            type="button"
-            onClick={handleOpenCreate}
-            className="gap-2 bg-sky-600 hover:bg-sky-700 text-white cursor-pointer shadow-sm text-xs font-semibold"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Classification</span>
-          </Button>
+          <p className="mt-1 text-xs text-slate-500 max-w-2xl">
+            Define employment terms, probation rules, and statutory benefit eligibility for SSF, PF, and Festival Allowances.
+          </p>
         </div>
+
+        <Button
+          type="button"
+          onClick={handleOpenCreate}
+          className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-center"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Classification</span>
+        </Button>
       </div>
 
       {/* Categories Table */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3">Classification Title</th>
-                <th className="px-4 py-3">Devnagari (नेपाली)</th>
-                <th className="px-3 py-3 text-center">SSF Eligible</th>
-                <th className="px-3 py-3 text-center">PF Eligible</th>
-                <th className="px-3 py-3 text-center">Festival Bonus</th>
-                <th className="px-3 py-3 text-center">Leave Accrual</th>
-                <th className="px-3 py-3 text-center">Notice (Days)</th>
-                <th className="px-4 py-3 w-24 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-              {types.map((t) => (
-                <tr key={t.id} className="hover:bg-sky-50/30 transition-colors">
-                  <td className="px-4 py-3 font-semibold text-slate-900">
-                    <div className="flex items-center gap-2">
-                      <span>{t.name}</span>
-                      <span className="font-mono text-[10px] text-slate-400">({t.code})</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-nepali text-slate-700">
-                    {t.nameNepali || <span className="text-slate-300 italic">—</span>}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {t.isSsfEligible ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                        <Check className="h-3 w-3" /> Yes
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                        <X className="h-3 w-3" /> No
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {t.isPfEligible ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                        <Check className="h-3 w-3" /> Yes
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                        <X className="h-3 w-3" /> No
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {t.isFestivalEligible ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                        <Check className="h-3 w-3" /> Yes
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                        <X className="h-3 w-3" /> No
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {t.isLeaveEligible ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                        <Check className="h-3 w-3" /> Yes
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                        <X className="h-3 w-3" /> No
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center font-mono font-bold text-slate-700">
-                    {t.noticePeriodDays}d
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(t)}
-                        className="p-1.5 text-slate-400 hover:text-sky-700 hover:bg-sky-50 rounded-md transition-colors cursor-pointer"
-                        title="Edit category"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <th className="px-4 py-3">Classification Title</th>
+              <th className="px-4 py-3">Local Title</th>
+              <th className="px-3 py-3 text-center">SSF Eligible</th>
+              <th className="px-3 py-3 text-center">PF Eligible</th>
+              <th className="px-3 py-3 text-center">Festival Bonus</th>
+              <th className="px-3 py-3 text-center">Leave Accrual</th>
+              <th className="px-3 py-3 text-center">Notice (Days)</th>
+              <th className="px-4 py-3 w-24 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-200 text-zinc-700">
+            {types.map((t) => (
+              <tr key={t.id} className="hover:bg-zinc-50/60 transition-colors">
+                <td className="px-4 py-3.5 font-medium text-zinc-900">
+                  <div className="flex items-center gap-2">
+                    <span>{t.name}</span>
+                    <span className="font-mono text-[11px] text-zinc-400">({t.code})</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3.5 font-nepali text-zinc-700">
+                  {t.nameNepali || <span className="text-zinc-300 italic">—</span>}
+                </td>
+                <td className="px-3 py-3.5 text-center">
+                  {t.isSsfEligible ? (
+                    <span className="inline-flex items-center text-xs font-medium text-emerald-800">
+                      <Check className="h-3.5 w-3.5 mr-0.5 text-emerald-700" /> Yes
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400 text-xs">No</span>
+                  )}
+                </td>
+                <td className="px-3 py-3.5 text-center">
+                  {t.isPfEligible ? (
+                    <span className="inline-flex items-center text-xs font-medium text-emerald-800">
+                      <Check className="h-3.5 w-3.5 mr-0.5 text-emerald-700" /> Yes
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400 text-xs">No</span>
+                  )}
+                </td>
+                <td className="px-3 py-3.5 text-center">
+                  {t.isFestivalEligible ? (
+                    <span className="inline-flex items-center text-xs font-medium text-emerald-800">
+                      <Check className="h-3.5 w-3.5 mr-0.5 text-emerald-700" /> Yes
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400 text-xs">No</span>
+                  )}
+                </td>
+                <td className="px-3 py-3.5 text-center">
+                  {t.isLeaveEligible ? (
+                    <span className="inline-flex items-center text-xs font-medium text-emerald-800">
+                      <Check className="h-3.5 w-3.5 mr-0.5 text-emerald-700" /> Yes
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400 text-xs">No</span>
+                  )}
+                </td>
+                <td className="px-3 py-3.5 text-center font-mono font-medium text-zinc-700">
+                  {t.noticePeriodDays}d
+                </td>
+                <td className="px-4 py-3.5 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(t)}
+                      className="p-1 rounded text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer"
+                      title="Edit category"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
                       <button
                         type="button"
                         onClick={() => setDeletingType(t)}
@@ -279,7 +262,6 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
             </tbody>
           </table>
         </div>
-      </div>
 
       {/* Add / Edit Category Modal */}
       <Dialog
@@ -324,15 +306,15 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Nepali Devnagari Title
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Local Script Title (Optional)
             </label>
             <input
               type="text"
-              placeholder="e.g. नियमित / स्थायी रोजगारी"
+              placeholder="e.g. Regular Permanent Staff"
               value={formData.nameNepali || ""}
               onChange={(e) => setFormData({ ...formData, nameNepali: e.target.value })}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 font-nepali focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             />
           </div>
 

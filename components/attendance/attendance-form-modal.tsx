@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { AttendanceRecord, AttendanceFormData, AttendanceStatus } from "@/lib/types/attendance";
 import { calculateWorkHours, evaluateLateArrival } from "@/lib/engines/attendance.engine";
 
@@ -14,7 +16,14 @@ interface AttendanceFormModalProps {
   selectedDate: string;
 }
 
-export function AttendanceFormModal({ open, onClose, onSave, initialData, employees, selectedDate }: AttendanceFormModalProps) {
+export function AttendanceFormModal({
+  open,
+  onClose,
+  onSave,
+  initialData,
+  employees,
+  selectedDate,
+}: AttendanceFormModalProps) {
   const [employeeId, setEmployeeId] = useState("");
   const [date, setDate] = useState(selectedDate);
   const [status, setStatus] = useState<AttendanceStatus>("Present");
@@ -88,174 +97,261 @@ export function AttendanceFormModal({ open, onClose, onSave, initialData, employ
     }
   }, [initialData, open, employees, selectedDate]);
 
-  if (!open) return null;
+  const handleSave = () => {
+    onSave({
+      employeeId,
+      attendanceDate: date,
+      status,
+      inTime,
+      outTime,
+      workHours,
+      otHoursOfficeDay: otOffice,
+      otHoursOffDay: otOff,
+      isLate,
+      remarks,
+    });
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
-        <h2 className="text-lg font-bold text-payroll-navy">
-          {initialData ? "Edit Daily Punch Record" : "Log Daily Attendance Punch"}
-        </h2>
-
-        <div className="space-y-3 text-sm">
-          <div>
-            <label className="block font-medium text-gray-700">Employee *</label>
-            <select
-              disabled={!!initialData}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={initialData ? "Edit Daily Punch Record" : "Log Daily Attendance Punch"}
+      description="Manually record or override punch timings, work hours, and statutory overtime."
+      size="2xl"
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            {date} • Status: {status}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
             >
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.fullName} ({e.attendanceCode})</option>
-              ))}
-            </select>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+            >
+              Save Punch
+            </Button>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Section 1: Staff & Status */}
+        <FormSection
+          title="Staff & Status"
+          description="Identify the staff member, calendar date, and the attendance classification."
+          isFirst
+        >
+          <div className="space-y-4">
             <div>
-              <label className="block font-medium text-gray-700">Date *</label>
-              <input
-                type="date"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-gray-700">Status *</label>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Staff Member <span className="text-red-500">*</span>
+              </label>
               <select
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={status}
-                onChange={(e) => {
-                  const s = e.target.value as AttendanceStatus;
-                  setStatus(s);
-                  recompute(inTime, outTime, s);
-                }}
+                disabled={!!initialData}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
               >
-                <option value="Present">Present</option>
-                <option value="Absent">Absent</option>
-                <option value="Half Day">Half Day</option>
-                <option value="On Leave">On Leave (Paid)</option>
-                <option value="LWOP">LWOP (Unpaid Leave)</option>
-                <option value="Holiday">Holiday</option>
-                <option value="Weekly Off">Weekly Off</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.fullName} ({e.attendanceCode})
+                  </option>
+                ))}
               </select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-medium text-gray-700">In Time</label>
-              <input
-                type="text"
-                placeholder="e.g. 09:05 AM"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={inTime}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setInTime(val);
-                  recompute(val, outTime, status);
-                }}
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-gray-700">Out Time</label>
-              <input
-                type="text"
-                placeholder="e.g. 05:15 PM"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={outTime}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setOutTime(val);
-                  recompute(inTime, val, status);
-                }}
-              />
-            </div>
-          </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Punch Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block font-medium text-gray-700">Work Hours</label>
-              <input
-                type="number"
-                step="0.5"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={workHours}
-                onChange={(e) => setWorkHours(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-gray-700">OT (Office Day)</label>
-              <input
-                type="number"
-                step="0.5"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={otOffice}
-                onChange={(e) => setOtOffice(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-gray-700">OT (Off Day)</label>
-              <input
-                type="number"
-                step="0.5"
-                className="mt-1 w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-                value={otOff}
-                onChange={(e) => setOtOff(Number(e.target.value))}
-              />
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Attendance Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={status}
+                  onChange={(e) => {
+                    const s = e.target.value as AttendanceStatus;
+                    setStatus(s);
+                    recompute(inTime, outTime, s);
+                  }}
+                >
+                  <option value="Present">Present</option>
+                  <option value="Absent">Absent</option>
+                  <option value="Half Day">Half Day</option>
+                  <option value="On Leave">On Leave (Paid)</option>
+                  <option value="LWOP">LWOP (Unpaid Leave)</option>
+                  <option value="Holiday">Holiday</option>
+                  <option value="Weekly Off">Weekly Off</option>
+                </select>
+              </div>
             </div>
           </div>
+        </FormSection>
 
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="isLateCheck"
-              checked={isLate}
-              onChange={(e) => setIsLate(e.target.checked)}
-              className="rounded border-gray-300 text-payroll-primary focus:ring-payroll-primary"
-            />
-            <label htmlFor="isLateCheck" className="text-xs font-medium text-gray-700 cursor-pointer">
-              Flag as Late Arrival (exceeded 40-min grace window)
-            </label>
+        {/* Section 2: Punch Timings & Work Hours */}
+        <FormSection
+          title="Punch Clock & Computation"
+          description="Specify in/out timestamps, standard working hours, and any applicable overtime."
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  In Time (hh:mm AM/PM)
+                </label>
+                <input
+                  type="text"
+                  placeholder="09:00 AM"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={inTime}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setInTime(val);
+                    recompute(val, outTime, status);
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Out Time (hh:mm AM/PM)
+                </label>
+                <input
+                  type="text"
+                  placeholder="05:00 PM"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={outTime}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setOutTime(val);
+                    recompute(inTime, val, status);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Work Hours
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={workHours}
+                  onChange={(e) => setWorkHours(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  OT (Office Day)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={otOffice}
+                  onChange={(e) => setOtOffice(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  OT (Off Day / Holiday)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  value={otOff}
+                  onChange={(e) => setOtOff(Number(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <label
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                  isLate
+                    ? "border-amber-500 bg-amber-50/50 text-amber-900"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  id="isLateCheck"
+                  checked={isLate}
+                  onChange={(e) => setIsLate(e.target.checked)}
+                  className="rounded border-zinc-300 text-amber-600 focus:ring-amber-500"
+                />
+                <span>Flag as Late Arrival (exceeded 40-minute grace window)</span>
+              </label>
+            </div>
           </div>
+        </FormSection>
 
+        {/* Section 3: Justification Remarks */}
+        <FormSection
+          title="Justification Remarks"
+          description="Document operational reasoning or supervisor reference for this manual entry."
+        >
           <div>
-            <label className="block font-medium text-gray-700">Remarks</label>
             <textarea
               rows={2}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-xs focus:outline-none focus:ring-1 focus:ring-payroll-primary"
-              placeholder="Reason for manual override..."
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+              placeholder="Reason for manual override or log correction..."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
             />
           </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-2 border-t">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={() => {
-              onSave({
-                employeeId,
-                attendanceDate: date,
-                status,
-                inTime,
-                outTime,
-                workHours,
-                otHoursOfficeDay: otOffice,
-                otHoursOffDay: otOff,
-                isLate,
-                remarks,
-              });
-            }}
-            className="bg-payroll-primary text-white hover:bg-payroll-navy"
-          >
-            Save Punch
-          </Button>
-        </div>
+        </FormSection>
       </div>
+    </Dialog>
+  );
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+  isFirst = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  isFirst?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
     </div>
   );
 }

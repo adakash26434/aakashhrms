@@ -7,5 +7,5 @@ export default async function FiscalYearPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "FISCAL_YEAR");
 
-  redirect("/setup/payroll-rules?tab=fiscal-year");
+  redirect("/setup/company-setup?section=payroll_rules&tab=fiscal-year");
 }
