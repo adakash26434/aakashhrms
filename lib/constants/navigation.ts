@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  Settings,
   CalendarDays,
   Users,
   Building2,
@@ -48,16 +47,10 @@ export const NAV_GROUPS: NavGroup[] = [
     href: "/setup",
     items: [
       {
-        label: "Company & Work Policy",
+        label: "Company Setup",
         href: "/setup/company-setup",
         icon: Building2,
         requiredModule: "ORG_STRUCTURE",
-      },
-      {
-        label: "Payroll & Compliance Rules",
-        href: "/setup/payroll-rules",
-        icon: Settings,
-        requiredModules: ["FISCAL_YEAR", "TAX_RATES", "PAY_HEADS", "SYSTEM_CONTROL"],
       },
       {
         label: "Holiday Calendar",
