@@ -222,7 +222,7 @@ export interface PayHeadFormData {
 
 export interface PayHeadData {
   departments: { id: string; name: string }[];
-  designations: { id: string; name: string }[];
+  designations: { id: string; name: string; departmentId?: string }[];
   payHeads: PayHead[];
 }
 

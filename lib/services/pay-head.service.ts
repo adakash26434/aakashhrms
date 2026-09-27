@@ -58,12 +58,49 @@ export async function getPayHeadData(): Promise<PayHeadData> {
     designationRepository.findAllDesignations(),
   ]);
 
-  const sorted = [...payHeads].sort((a, b) => a.code.localeCompare(b.code));
+  const allDeptIds = departments.map((d) => d.id);
+  const allDesigIds = designations.map((d) => d.id);
+
+  // Guarantee every payhead has explicit real department and designation IDs populated
+  const hydratedPayHeads = payHeads.map((h) => {
+    const hasDepts = Array.isArray(h.applicableDepartmentIds) && h.applicableDepartmentIds.length > 0;
+    const hasDesigs = Array.isArray(h.applicableDesignationIds) && h.applicableDesignationIds.length > 0;
+
+    const deptIds = hasDepts ? h.applicableDepartmentIds : allDeptIds;
+    const desigIds = hasDesigs ? h.applicableDesignationIds : allDesigIds;
+
+    // Asynchronously backfill persistent database row if it had legacy empty arrays
+    if ((!hasDepts && allDeptIds.length > 0) || (!hasDesigs && allDesigIds.length > 0)) {
+      repository
+        .updatePayHead(h.id, {
+          name: h.name,
+          type: h.type,
+          effectOnTax: h.effectOnTax,
+          calcBasis: h.calcBasis,
+          calcParameter: h.calcParameter,
+          calcPercent: h.calcPercent,
+          applicableDepartmentIds: deptIds,
+          applicableDesignationIds: desigIds,
+          flags: h.flags,
+        })
+        .catch((err) => {
+          console.warn(`[getPayHeadData] Auto-sync applicability backfill error for ${h.code}:`, err);
+        });
+    }
+
+    return {
+      ...h,
+      applicableDepartmentIds: deptIds,
+      applicableDesignationIds: desigIds,
+    };
+  });
+
+  const sorted = [...hydratedPayHeads].sort((a, b) => a.code.localeCompare(b.code));
   
   return {
     payHeads: sorted,
     departments: departments.map((d) => ({ id: d.id, name: d.name })),
-    designations: designations.map((d) => ({ id: d.id, name: d.name })),
+    designations: designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId })),
   };
 }
 
@@ -72,9 +109,9 @@ export async function getDepartments(): Promise<Array<{ id: string; name: string
   return departments.map((d) => ({ id: d.id, name: d.name }));
 }
 
-export async function getDesignations(): Promise<Array<{ id: string; name: string }>> {
+export async function getDesignations(): Promise<Array<{ id: string; name: string; departmentId?: string }>> {
   const designations = await designationRepository.findAllDesignations();
-  return designations.map((d) => ({ id: d.id, name: d.name }));
+  return designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId }));
 }
 
 // ---------------------------------------------------------------------------

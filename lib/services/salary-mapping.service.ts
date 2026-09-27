@@ -6,6 +6,9 @@ import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
+import { getDb } from "@/lib/db";
+import { employees as employeesTable } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import {
   validateSalaryMapping,
   calculateNetSalary,
@@ -101,6 +104,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     branchId: e.branchId,
     branchName: branchNameById.get(e.branchId) ?? "—",
     designationName: desigNameById.get(e.designationId) ?? "—",
+    basicSalary: Number(e.basicSalary) || 0,
     gradePercent: e.gradePercent,
     gradeCount: e.gradeCount ?? 0,
     gradeAmount: e.gradeAmount,
@@ -173,6 +177,8 @@ export async function getLookupData() {
         employeeCode: e.employeeCode,
         fullName: e.fullName,
         departmentId: e.departmentId,
+        basicSalary: Number(e.basicSalary) || 0,
+        gradeCount: e.gradeCount ?? 0,
         gradePercent: e.gradePercent,
         gradeAmount: e.gradeAmount,
       })),
@@ -241,10 +247,11 @@ export async function createMapping(data: SalaryMappingFormData): Promise<Salary
     throw new SalaryMappingValidationError(errors);
   }
 
+  const safeGradePercent = (data.gradePercent === 100 || !data.gradePercent) ? 0 : data.gradePercent;
   const salaryHeads = await buildSalaryHeads(data.salaryHeads);
   const netAmount = calculateNetSalary({
     basicSalary: data.basicSalary,
-    gradePercent: data.gradePercent,
+    gradePercent: safeGradePercent,
     gradeAmount: data.gradeAmount,
     salaryHeads: salaryHeads.map((h) => ({
       payHeadType: h.payHeadType,
@@ -254,12 +261,12 @@ export async function createMapping(data: SalaryMappingFormData): Promise<Salary
     loan2Deduction: data.loan2Deduction,
   });
 
-  return repository.create({
+  const created = await repository.create({
     employeeId: data.employeeId,
     fiscalYearId: data.fiscalYearId,
     effectiveFrom: data.effectiveFrom,
     basicSalary: data.basicSalary,
-    gradePercent: data.gradePercent,
+    gradePercent: safeGradePercent,
     gradeCount: data.gradeCount ?? 0,
     gradeAmount: data.gradeAmount,
     salaryHeads,
@@ -267,6 +274,25 @@ export async function createMapping(data: SalaryMappingFormData): Promise<Salary
     loan2Deduction: data.loan2Deduction,
     netAmount,
   });
+
+  // Sync basic salary and grade back to Employee master
+  try {
+    const db = getDb();
+    await db
+      .update(employeesTable)
+      .set({
+        basicSalary: data.basicSalary.toString(),
+        gradeCount: data.gradeCount ?? 0,
+        gradeAmount: (data.gradeAmount ?? 0).toString(),
+        gradePercent: safeGradePercent,
+        updatedAt: new Date(),
+      })
+      .where(eq(employeesTable.id, data.employeeId));
+  } catch (err) {
+    console.error(`Failed to sync employee master record from createMapping for ${data.employeeId}:`, err);
+  }
+
+  return created;
 }
 
 /**
@@ -302,10 +328,11 @@ export async function updateMapping(
     throw new SalaryMappingValidationError(errors);
   }
 
+  const safeGradePercent = (data.gradePercent === 100 || !data.gradePercent) ? 0 : data.gradePercent;
   const salaryHeads = await buildSalaryHeads(data.salaryHeads);
   const netAmount = calculateNetSalary({
     basicSalary: data.basicSalary,
-    gradePercent: data.gradePercent,
+    gradePercent: safeGradePercent,
     gradeAmount: data.gradeAmount,
     salaryHeads: salaryHeads.map((h) => ({
       payHeadType: h.payHeadType,
@@ -320,7 +347,7 @@ export async function updateMapping(
     fiscalYearId: data.fiscalYearId || existing.fiscalYearId,
     effectiveFrom: data.effectiveFrom || existing.effectiveFrom,
     basicSalary: data.basicSalary,
-    gradePercent: data.gradePercent,
+    gradePercent: safeGradePercent,
     gradeCount: data.gradeCount ?? existing.gradeCount ?? 0,
     gradeAmount: data.gradeAmount,
     salaryHeads,
@@ -331,6 +358,23 @@ export async function updateMapping(
 
   if (!updated) {
     throw new SalaryMappingNotFoundError(id);
+  }
+
+  // Sync basic salary and grade back to Employee master
+  try {
+    const db = getDb();
+    await db
+      .update(employeesTable)
+      .set({
+        basicSalary: data.basicSalary.toString(),
+        gradeCount: data.gradeCount ?? 0,
+        gradeAmount: (data.gradeAmount ?? 0).toString(),
+        gradePercent: safeGradePercent,
+        updatedAt: new Date(),
+      })
+      .where(eq(employeesTable.id, data.employeeId));
+  } catch (err) {
+    console.error(`Failed to sync employee master record from updateMapping for ${data.employeeId}:`, err);
   }
 
   return updated;

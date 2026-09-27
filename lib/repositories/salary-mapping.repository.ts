@@ -51,25 +51,43 @@ function mapRowsToSalaryMappings(mapRows: SalaryMapRow[], headRows: SalaryHeadRo
     headsByMapId.set(row.salaryMapId, list);
   }
 
-  return mapRows.map((row) => ({
-    id: row.id,
-    employeeId: row.employeeId,
-    fiscalYearId: row.fiscalYearId,
-    effectiveFrom: row.effectiveFrom,
-    basicSalary: Number(row.basicSalary) || 0,
-    gradePercent: Number(row.gradePercent) || 0,
-    gradeCount: row.gradeCount ?? 0,
-    gradeAmount: Number(row.gradeAmount) || 0,
-    salaryHeads: headsByMapId.get(row.id) || [],
-    loan1Deduction: Number(row.loan1Deduction) || 0,
-    loan2Deduction: Number(row.loan2Deduction) || 0,
-    loan1Remaining: 0,
-    loan2Remaining: 0,
-    netAmount: Number(row.netAmount) || 0,
-    isActive: row.isActive,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
+  return mapRows.map((row) => {
+    const rawGp = Number(row.gradePercent) || 0;
+    const gradePercent = rawGp === 100 ? 0 : rawGp;
+    const basicSalary = Number(row.basicSalary) || 0;
+    const gradeAmount = Number(row.gradeAmount) || 0;
+    const heads = headsByMapId.get(row.id) || [];
+    const loan1 = Number(row.loan1Deduction) || 0;
+    const loan2 = Number(row.loan2Deduction) || 0;
+
+    let netAmount = Number(row.netAmount) || 0;
+    // If the legacy row was saved with 100% gradePercent, recalculate the true netAmount to fix the doubled salary
+    if (rawGp === 100) {
+      const allowances = heads.filter((h) => h.payHeadType === 'allowance').reduce((s, h) => s + h.amount, 0);
+      const deductions = heads.filter((h) => h.payHeadType === 'deduction').reduce((s, h) => s + h.amount, 0);
+      netAmount = Math.max(0, Math.round(basicSalary + gradeAmount + allowances - deductions - loan1 - loan2));
+    }
+
+    return {
+      id: row.id,
+      employeeId: row.employeeId,
+      fiscalYearId: row.fiscalYearId,
+      effectiveFrom: row.effectiveFrom,
+      basicSalary,
+      gradePercent,
+      gradeCount: row.gradeCount ?? 0,
+      gradeAmount,
+      salaryHeads: heads,
+      loan1Deduction: loan1,
+      loan2Deduction: loan2,
+      loan1Remaining: 0,
+      loan2Remaining: 0,
+      netAmount,
+      isActive: row.isActive,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  });
 }
 
 async function fetchHeadsForMaps(mapIds: string[]): Promise<SalaryHeadRowJoined[]> {

@@ -390,6 +390,12 @@ export async function bootstrapStatutoryLeavesAndOT(
 
 export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Promise<void> {
   const db = getDb();
+  const [allDepts, allDesigs] = await Promise.all([
+    db.select({ id: departments.id }).from(departments),
+    db.select({ id: designations.id }).from(designations),
+  ]);
+  const deptIds = allDepts.map((d) => d.id);
+  const desigIds = allDesigs.map((d) => d.id);
 
   for (const ph of data.payHeads) {
     const existing = await db
@@ -413,6 +419,8 @@ export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Pro
             : ph.code === 'EPF'
             ? '10'
             : '0',
+        applicableDepartmentIds: deptIds,
+        applicableDesignationIds: desigIds,
         isFestivalAllowance: ph.code === 'FESTIVAL',
         isSsfHead: Boolean(ph.isSsfHead),
         isSsfEmployerHead: Boolean(ph.isSsfEmployerHead),

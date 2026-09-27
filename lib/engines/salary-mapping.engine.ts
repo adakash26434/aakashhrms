@@ -155,7 +155,9 @@ export function calculateNetSalary(args: CalculateNetSalaryArgs): number {
   const { basicSalary, gradePercent, gradeAmount, salaryHeads, loan1Deduction, loan2Deduction } = args;
 
   const dBasic = new Decimal(basicSalary);
-  const dGradePercent = new Decimal(gradePercent);
+  // Guard: if gradePercent is 100 (the legacy default that doubled salary) or not provided, treat as 0
+  const effectiveGradePercent = (gradePercent === 100 || !gradePercent) ? 0 : gradePercent;
+  const dGradePercent = new Decimal(effectiveGradePercent);
   const dGradeAmount = new Decimal(gradeAmount);
   const dLoan1 = new Decimal(loan1Deduction);
   const dLoan2 = new Decimal(loan2Deduction);

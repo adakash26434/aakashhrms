@@ -52,7 +52,7 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
     confirmationDate: row.employees.confirmationDate ? new Date(row.employees.confirmationDate) : null,
     status: (row.employees.status === "Terminated" ? "Inactive" : row.employees.status) as EmployeeStatus,
     basicSalary: Number(row.employees.basicSalary) || 0,
-    gradePercent: row.employees.gradePercent || 0,
+    gradePercent: (row.employees.gradePercent === 100) ? 0 : (row.employees.gradePercent || 0),
     gradeCount: row.employees.gradeCount ?? 0,
     gradeAmount: Number(row.employees.gradeAmount) || 0,
 

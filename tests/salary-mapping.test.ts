@@ -169,6 +169,30 @@ describe('Salary Mapping Module', () => {
       // 35,100 basic + 30,000 allowance = 65,100 (matches screenshot exact net_amount!)
       assert.equal(net, 65100);
     });
+
+    it('should correctly calculate net salary when grade progression and SSF allowances/deductions are present', () => {
+      const basicSalary = 50000;
+      const gradeAmount = 3333.33; // 2 grades
+      const ssfEmployerAllowance = Math.round(basicSalary * 0.20); // 10,000
+      const ssfTotalDeduction = Math.round(basicSalary * 0.31);    // 15,500
+      const customAllowance = 5000;
+
+      const net = calculateNetSalary({
+        basicSalary,
+        gradePercent: 0,
+        gradeAmount,
+        salaryHeads: [
+          { payHeadType: 'allowance', amount: ssfEmployerAllowance },
+          { payHeadType: 'allowance', amount: customAllowance },
+          { payHeadType: 'deduction', amount: ssfTotalDeduction },
+        ],
+        loan1Deduction: 0,
+        loan2Deduction: 0,
+      });
+
+      // 50,000 + 3,333.33 + 10,000 + 5,000 - 15,500 = 52,833.33 -> rounded to 52833
+      assert.equal(net, 52833);
+    });
   });
 
   describe('Fiscal Year UUID Integrity', () => {

@@ -145,6 +145,7 @@ export interface SalaryMappingData {
     branchId: string;
     branchName: string;
     designationName: string;
+    basicSalary?: number;
     gradePercent: number;
     gradeCount?: number;
     gradeAmount: number;
