@@ -69,7 +69,7 @@ function DashboardContent({
             isSidebarCollapsed={!isPinned}
           />
         </div>
-        <main className="flex-1 overflow-y-auto bg-payroll-cream p-6 print:p-0 print:bg-white print:overflow-visible print:block">
+        <main className="flex-1 overflow-y-auto bg-white p-6 print:p-0 print:bg-white print:overflow-visible print:block">
           {children}
         </main>
       </div>
