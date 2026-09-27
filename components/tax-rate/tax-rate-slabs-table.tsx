@@ -1,7 +1,6 @@
 "use client";
 
 import { Pencil, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   formatNPRAmount,
@@ -26,12 +25,6 @@ const LOCKED_TOOLTIP =
 
 /**
  * Read-only table of slabs for a single (fiscal year, category) pair.
- *
- * Renders the columns exactly as in the screenshot:
- *   S.N. | AMOUNT FROM (NPR) | AMOUNT TO (NPR) | TAX RATE | FIXED DEDUCTION | ACTIONS
- *
- * The "AMOUNT TO" column renders the literal string "Above" when the
- * `amountTo` is `null` (open-ended top bracket).
  */
 export function TaxRateSlabsTable({
   slabs,
@@ -42,9 +35,9 @@ export function TaxRateSlabsTable({
 }: TaxRateSlabsTableProps) {
   if (slabs.length === 0) {
     return (
-      <div className="px-5 py-10 text-center text-sm text-gray-500">
+      <div className="px-5 py-10 text-center text-xs text-slate-500">
         No slabs configured for this category. Click{" "}
-        <span className="font-medium text-[#1b3a1f]">New Slab</span> to add one.
+        <span className="font-medium text-emerald-800">Add tax slab</span> to add one.
       </div>
     );
   }
@@ -52,70 +45,70 @@ export function TaxRateSlabsTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-200 text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60 text-[11px] uppercase tracking-wider text-gray-500">
-            <th scope="col" className="px-5 py-3 font-semibold">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
+            <th scope="col" className="px-4 py-3 font-semibold">
               S.N.
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
-              Amount From (NPR)
+            <th scope="col" className="px-4 py-3 font-semibold">
+              Amount from (NPR)
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
-              Amount To (NPR)
+            <th scope="col" className="px-4 py-3 font-semibold">
+              Amount to (NPR)
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
-              Tax Rate
+            <th scope="col" className="px-4 py-3 font-semibold">
+              Tax rate
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
-              Fixed Deduction
+            <th scope="col" className="px-4 py-3 font-semibold">
+              Fixed deduction (NPR)
             </th>
             <th
               scope="col"
-              className="px-5 py-3 text-right font-semibold"
+              className="px-4 py-3 text-right font-semibold"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {slabs.map((slab, i) => {
             const rowNumber = getRowNumber ? getRowNumber(i) : i + 1;
             return (
               <tr
                 key={slab.id}
-                className="border-b border-[#d7e8d0]/60 last:border-b-0 transition-colors hover:bg-[#f6faf6]/40"
+                className="border-b border-zinc-100 last:border-b-0 transition-colors hover:bg-zinc-50/60"
               >
                 {/* S.N. */}
-                <td className="px-5 py-4 align-middle text-[#1b3a1f] tabular-nums">
+                <td className="px-4 py-4 align-middle text-zinc-400 tabular-nums text-xs">
                   {rowNumber}
                 </td>
 
                 {/* Amount From */}
-                <td className="px-5 py-4 align-middle font-mono text-[13px] tabular-nums text-[#1b3a1f]">
+                <td className="px-4 py-4 align-middle font-mono text-xs tabular-nums text-zinc-900 font-medium">
                   {formatNPRAmount(slab.amountFrom)}
                 </td>
 
                 {/* Amount To — renders "Above" for the open-ended bracket */}
-                <td className="px-5 py-4 align-middle font-mono text-[13px] tabular-nums text-[#1b3a1f]">
+                <td className="px-4 py-4 align-middle font-mono text-xs tabular-nums text-zinc-900 font-medium">
                   {slab.amountTo === null ? (
-                    <span className="italic text-gray-500">Above</span>
+                    <span className="italic text-zinc-400 font-sans">Above</span>
                   ) : (
                     formatNPRAmount(slab.amountTo)
                   )}
                 </td>
 
-                {/* Tax Rate (badge pill) */}
-                <td className="px-5 py-4 align-middle">
+                {/* Tax Rate */}
+                <td className="px-4 py-4 align-middle">
                   <RatePill rate={slab.ratePercent} />
                 </td>
 
                 {/* Fixed Deduction */}
-                <td className="px-5 py-4 align-middle font-mono text-[13px] tabular-nums text-[#1b3a1f]">
-                  NPR {formatNPRAmount(slab.fixedDeduction)}
+                <td className="px-4 py-4 align-middle font-mono text-xs tabular-nums text-zinc-600">
+                  {formatNPRAmount(slab.fixedDeduction)}
                 </td>
 
                 {/* Actions */}
-                <td className="px-5 py-4 align-middle">
+                <td className="px-4 py-4 align-middle">
                   <div className="flex items-center justify-end gap-1">
                     <ActionButton
                       label={`Edit slab ${rowNumber}`}
@@ -146,17 +139,13 @@ export function TaxRateSlabsTable({
 }
 
 /**
- * Small blue pill that renders a tax rate as a percent string.
- * Reuses the project's `Badge` primitive for consistent styling.
+ * Small pill that renders a tax rate as a percent string.
  */
 function RatePill({ rate }: { rate: number }) {
   return (
-    <Badge
-      variant="default"
-      className="bg-green-50 text-green-700 hover:bg-green-50"
-    >
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-50/70 text-emerald-800 border border-emerald-200/50">
       {formatRateLabel(rate)}
-    </Badge>
+    </span>
   );
 }
 
@@ -185,12 +174,12 @@ function ActionButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+        "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer",
         disabled
-          ? "cursor-not-allowed text-gray-300"
+          ? "cursor-not-allowed text-zinc-300"
           : danger
-            ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
-            : "text-gray-500 hover:bg-[#d7e8d0]/60 hover:text-[#2e7d32]",
+            ? "text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
+            : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >
       {children}
@@ -198,6 +187,4 @@ function ActionButton({
   );
 }
 
-// Re-export the type so the parent file can `import { TaxRateSlabsTable }` plus
-// the `TaxCategory` type from this module's barrel if needed.
 export type { TaxCategory };

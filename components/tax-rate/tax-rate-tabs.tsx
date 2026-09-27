@@ -10,27 +10,20 @@ interface TaxRateTabsProps {
   /** Called when the user picks a different tab. */
   onChange: (next: TaxCategory) => void;
   /**
-   * Optional: a map of category → "configured" indicator. When provided,
-   * a small dot is drawn next to configured categories. Matches the
-   * screenshot's small visual hint (e.g. a "configured" mark).
+   * Optional: a map of category → "configured" indicator.
    */
   configuredMap?: Partial<Record<TaxCategory, boolean>>;
 }
 
 /**
  * 3-tab category selector: Normal Single / Married / Handicapped.
- *
- * The active tab is filled with the brand blue (`bg-[#2e7d32] text-white`)
- * to match the screenshot. Inactive tabs are text-only and gain a subtle
- * hover background. A small green dot is shown when a category has at
- * least one slab for the active fiscal year.
  */
 export function TaxRateTabs({ active, onChange, configuredMap }: TaxRateTabsProps) {
   return (
     <div
       role="tablist"
       aria-label="Tax category"
-      className="inline-flex w-full gap-1 rounded-lg border border-payroll-light/80 bg-white p-1 sm:w-auto"
+      className="inline-flex w-full gap-1 rounded-lg border border-slate-200/80 bg-slate-100/70 p-1 sm:w-auto"
     >
       {TAX_CATEGORIES.map((category) => {
         const isActive = category === active;
@@ -43,18 +36,21 @@ export function TaxRateTabs({ active, onChange, configuredMap }: TaxRateTabsProp
             aria-selected={isActive}
             onClick={() => onChange(category)}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+              "inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-1.5 text-xs transition-all cursor-pointer select-none",
               isActive
-                ? "bg-payroll-primary text-white shadow-sm"
-                : "text-payroll-navy hover:bg-payroll-cream",
+                ? "bg-white text-slate-900 font-semibold shadow-xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium",
             )}
           >
             <span>{category}</span>
-            {isConfigured && !isActive && (
+            {isConfigured && (
               <span
                 aria-hidden
-                title="This category has at least one slab configured"
-                className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                title="This category has configured slabs"
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  isActive ? "bg-emerald-800" : "bg-emerald-600",
+                )}
               />
             )}
           </button>

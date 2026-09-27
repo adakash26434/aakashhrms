@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import {
   Banknote,
   CircleDollarSign,
@@ -14,118 +13,110 @@ interface LoanKPICardsProps {
 }
 
 export function LoanKPICards({ kpis }: LoanKPICardsProps) {
-  const topRow = [
+  const topMetrics = [
     {
-      label: "Total Outstanding",
-      value: kpis.totalRemaining.toLocaleString(),
-      sub: `${kpis.totalActive} active loans`,
+      label: "Total outstanding principal",
+      value: `NPR ${kpis.totalRemaining.toLocaleString()}`,
+      subtext: `${kpis.totalActive} active loan facilities`,
       icon: Banknote,
-      iconBg: "bg-red-50",
-      iconColor: "text-red-500",
-      borderColor: "border-l-red-500",
+      iconColor: "text-rose-600",
     },
     {
-      label: "Total Disbursed",
-      value: kpis.totalDisbursed.toLocaleString(),
-      sub: `All-time across ${kpis.totalActive + kpis.totalClosed} loans`,
+      label: "Total disbursed principal",
+      value: `NPR ${kpis.totalDisbursed.toLocaleString()}`,
+      subtext: `Cumulative across ${kpis.totalActive + kpis.totalClosed} loans`,
       icon: CircleDollarSign,
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
-      borderColor: "border-l-emerald-500",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Monthly Recovery",
-      value: kpis.monthlyEMI.toLocaleString(),
-      sub: "Expected EMI per month",
+      label: "Monthly EMI recovery",
+      value: `NPR ${kpis.monthlyEMI.toLocaleString()}`,
+      subtext: "Scheduled monthly deduction",
       icon: Wallet,
-      iconBg: "bg-green-50",
-      iconColor: "text-[#2e7d32]",
-      borderColor: "border-l-[#2e7d32]",
+      iconColor: "text-zinc-600",
     },
   ];
 
-  const bottomRow = [
+  const bottomMetrics = [
     {
-      label: "Total Recovered",
-      value: kpis.totalRecovered.toLocaleString(),
+      label: "Total recovered principal",
+      value: `NPR ${kpis.totalRecovered.toLocaleString()}`,
+      subtext: "Reimbursed to date",
       icon: CheckCircle2,
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
-      borderColor: "border-l-emerald-500",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Recovery Progress",
+      label: "Recovery progress",
       value: `${kpis.recoveryProgress}%`,
+      subtext: "Repayment fulfillment rate",
       icon: TrendingUp,
-      iconBg: "bg-green-50",
-      iconColor: "text-[#2e7d32]",
-      borderColor: "border-l-[#2e7d32]",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Active Loans",
+      label: "Active loan accounts",
       value: kpis.totalActive.toString(),
-      sub: kpis.totalClosed > 0 ? `${kpis.totalClosed} closed` : undefined,
+      subtext: kpis.totalClosed > 0 ? `${kpis.totalClosed} closed loans` : "No closed loans",
       icon: FileText,
-      iconBg: "bg-green-50",
-      iconColor: "text-[#2e7d32]",
-      borderColor: "border-l-[#2e7d32]",
+      iconColor: "text-zinc-400",
     },
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Top row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {topRow.map((m) => (
-          <Card
-            key={m.label}
-            className={`overflow-hidden border-l-4 ${m.borderColor}`}
-          >
-            <div className="flex items-center gap-3.5 p-4">
-              <div className={`shrink-0 rounded-xl p-2.5 ${m.iconBg} ${m.iconColor}`}>
-                <m.icon className="h-5 w-5" />
+    <div className="space-y-4 py-2">
+      {/* Primary Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 pb-3 border-b border-zinc-300/60">
+        {topMetrics.map((m) => {
+          const Icon = m.icon;
+          return (
+            <div
+              key={m.label}
+              className="group flex flex-col justify-between py-2 px-4 sm:first:pl-0 sm:last:pr-0"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                  <Icon className={`h-4 w-4 ${m.iconColor}`} />
+                </div>
+                <div className="mt-2.5">
+                  <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {m.value}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  {m.label}
-                </p>
-                <p className="text-xl font-bold tabular-nums text-[#1b3a1f]">
-                  {m.value}
-                </p>
-                {m.sub && (
-                  <p className="text-[11px] text-gray-400">{m.sub}</p>
-                )}
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                {m.subtext}
               </div>
             </div>
-          </Card>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Bottom row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {bottomRow.map((m) => (
-          <Card
-            key={m.label}
-            className={`overflow-hidden border-l-4 ${m.borderColor}`}
-          >
-            <div className="flex items-center gap-3.5 p-4">
-              <div className={`shrink-0 rounded-xl p-2.5 ${m.iconBg} ${m.iconColor}`}>
-                <m.icon className="h-5 w-5" />
+      {/* Secondary Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200">
+        {bottomMetrics.map((m) => {
+          const Icon = m.icon;
+          return (
+            <div
+              key={m.label}
+              className="group flex flex-col justify-between py-2 px-4 sm:first:pl-0 sm:last:pr-0"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                  <Icon className={`h-4 w-4 ${m.iconColor}`} />
+                </div>
+                <div className="mt-2.5">
+                  <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {m.value}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  {m.label}
-                </p>
-                <p className="text-xl font-bold tabular-nums text-[#1b3a1f]">
-                  {m.value}
-                </p>
-                {m.sub && (
-                  <p className="text-[11px] text-gray-400">{m.sub}</p>
-                )}
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                {m.subtext}
               </div>
             </div>
-          </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

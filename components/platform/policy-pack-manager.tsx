@@ -331,84 +331,92 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
         </Card>
       )}
 
-      {/* ── Compliance Status Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
-          <CardContent className="p-4">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              Active Policy Pack
-            </span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl font-extrabold text-payroll-navy">
+      {/* ── Compliance Status Metrics ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">
+                Active policy pack
+              </span>
+              <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                Nepal Labour Act
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 font-sans">
                 v{pack.version}.0
               </span>
-              <Badge variant="info" size="sm" className="font-bold">
-                Nepal Labour Act
-              </Badge>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1 truncate">
-              {pack.name}
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400 truncate">
+            {pack.name}
+          </div>
+        </div>
 
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
-          <CardContent className="p-4">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              Statutory Rules Count
-            </span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl font-extrabold text-payroll-navy">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">
+                Statutory rules count
+              </span>
+              <span className="inline-flex rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                Complete set
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                 {(pack.leaveRules?.length || 0) +
                   (pack.otRules?.length || 0) +
                   (pack.statutoryDeductions?.length || 0) +
                   (pack.statutoryBenefits?.length || 0)}
               </span>
-              <Badge variant="success" size="sm" className="font-bold">
-                Complete Set
-              </Badge>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Leaves, OT, SSF, Bonus
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Leaves, OT, SSF & statutory heads
+          </div>
+        </div>
 
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
-          <CardContent className="p-4">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              Active Tenants Governed
-            </span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl font-extrabold text-payroll-navy">
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">
+                Governed tenant workspaces
+              </span>
+              <span className="inline-flex rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                Live databases
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                 {activeTenantsCount}
               </span>
-              <Badge variant="neutral" size="sm" className="font-bold">
-                Live Databases
-              </Badge>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Directly synchronized
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Synchronized with compliance pack
+          </div>
+        </div>
 
-        <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
-          <CardContent className="p-4">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              Platform Protection
-            </span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl font-extrabold text-payroll-primary">
-                100% LOCKED
+        <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">
+                Platform protection
               </span>
-              <Lock className="w-4.5 h-4.5 text-payroll-primary" />
+              <Lock className="w-4 h-4 text-emerald-700" />
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Immutable by tenant admins
-            </p>
-          </CardContent>
-        </Card>
+            <div className="mt-2.5">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-emerald-800 font-sans">
+                Locked
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+            Immutable by tenant administrators
+          </div>
+        </div>
       </div>
 
       {/* ── Category Navigation Tabs ── */}

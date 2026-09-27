@@ -53,11 +53,11 @@ function SortHeader({
   onClick: () => void;
 }) {
   return (
-    <th scope="col" className="px-4 py-3 font-semibold">
+    <th scope="col" className="px-4 py-4 font-semibold">
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-gray-500 transition-colors hover:text-[#1b3a1f]"
+        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-950"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -105,16 +105,16 @@ export function LeaveApprovalTable({
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir("asc");
+      setSortDir("desc");
     }
   }
 
   if (applications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#d7e8d0] bg-white py-16">
-        <CheckCircle className="h-10 w-10 text-emerald-400 mb-3" />
-        <p className="text-sm font-medium text-gray-500">All caught up!</p>
-        <p className="mt-1 text-xs text-gray-400">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <CheckCircle className="h-10 w-10 text-emerald-600/40 mb-3" />
+        <p className="text-sm font-medium text-zinc-600">All caught up!</p>
+        <p className="mt-1 text-xs text-zinc-400">
           No pending leave applications awaiting your review.
         </p>
       </div>
@@ -122,19 +122,19 @@ export function LeaveApprovalTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#d7e8d0]/80 bg-white shadow-sm">
+    <div className="overflow-x-auto w-full">
       <table className="w-full min-w-180 text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500">
             <SortHeader label="Employee" onClick={() => toggleSort("employeeName")} />
             <SortHeader label="Leave Type" onClick={() => toggleSort("leaveTypeId")} />
-            <th scope="col" className="px-4 py-3 font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-gray-500">From &rarr; To</span>
+            <th scope="col" className="px-4 py-4 font-semibold">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-500">From &rarr; To</span>
             </th>
             <SortHeader label="Days" onClick={() => toggleSort("noOfDays")} />
             <SortHeader label="Applied" onClick={() => toggleSort("appliedDate")} />
-            <th scope="col" className="px-4 py-3 text-right font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-gray-500">Actions</span>
+            <th scope="col" className="px-4 py-4 text-right font-semibold">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-500">Actions</span>
             </th>
           </tr>
         </thead>
@@ -145,47 +145,47 @@ export function LeaveApprovalTable({
             return (
               <tr
                 key={app.id}
-                className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-[#f6faf6]/50 cursor-pointer"
+                className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60 cursor-pointer"
                 onClick={() => onView(app)}
               >
-                <td className="px-4 py-3 align-middle">
+                <td className="px-4 py-4 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d7e8d0] text-[11px] font-bold text-[#1b3a1f]">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-[11px] font-medium text-white shadow-2xs">
                       {getInitials(app.employeeName)}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium text-[#1b3a1f]">{app.employeeName}</div>
+                      <div className="font-medium text-zinc-950">{app.employeeName}</div>
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 align-middle">
+                <td className="px-4 py-4 align-middle">
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                    <span className="text-gray-600">{leaveTypeName}</span>
+                    <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                    <span className="text-zinc-700">{leaveTypeName}</span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <Clock className="h-3 w-3 text-gray-400" />
-                    <span className="text-[11px] text-gray-400">
+                    <Clock className="h-3 w-3 text-zinc-400" />
+                    <span className="text-[11px] text-zinc-400">
                       {app.duration === "Half Day" ? "½ Day" : "Full Day"}
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 align-middle">
-                  <div className="text-gray-600">{formatDate(app.effectiveFrom)}</div>
-                  <div className="text-[11px] text-gray-400">&rarr; {formatDate(app.effectiveTo)}</div>
+                <td className="px-4 py-4 align-middle">
+                  <div className="text-zinc-600">{formatDate(app.effectiveFrom)}</div>
+                  <div className="text-[11px] text-zinc-400">&rarr; {formatDate(app.effectiveTo)}</div>
                 </td>
-                <td className="px-4 py-3 align-middle">
-                  <span className="font-semibold text-[#1b3a1f]">{app.noOfDays}</span>
+                <td className="px-4 py-4 align-middle">
+                  <span className="font-semibold text-zinc-950 tabular-nums">{app.noOfDays}</span>
                 </td>
-                <td className="px-4 py-3 align-middle text-gray-600">
+                <td className="px-4 py-4 align-middle text-zinc-600">
                   {formatDate(app.appliedDate)}
                 </td>
-                <td className="px-4 py-3 text-right align-middle">
+                <td className="px-4 py-4 text-right align-middle">
                   <div className="flex items-center justify-end gap-1.5">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onView(app); }}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/50 hover:text-[#2e7d32]"
+                      className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                       title="View details"
                     >
                       <Eye className="h-4 w-4" />
@@ -193,7 +193,7 @@ export function LeaveApprovalTable({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onApprove(app); }}
-                      className="rounded-md px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 transition-colors hover:bg-emerald-100 hover:text-emerald-800"
+                      className="rounded border border-emerald-200/50 bg-emerald-50/70 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
                       title="Approve"
                     >
                       <CheckCircle className="h-3.5 w-3.5 inline mr-1" />
@@ -202,7 +202,7 @@ export function LeaveApprovalTable({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onReject(app); }}
-                      className="rounded-md px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 transition-colors hover:bg-red-100 hover:text-red-800"
+                      className="rounded border border-rose-200/50 bg-rose-50/70 px-2.5 py-1 text-xs font-medium text-rose-800 transition-colors hover:bg-rose-100"
                       title="Reject"
                     >
                       <XCircle className="h-3.5 w-3.5 inline mr-1" />

@@ -56,29 +56,45 @@ export function LeaveApprovalActionModal({
       title={isApprove ? "Approve Leave Application" : "Reject Leave Application"}
       description={
         isApprove
-          ? "Confirm approval of this leave request."
-          : "Provide a reason for rejecting this leave request."
+          ? "Confirm administrative approval for this employee absence."
+          : "Provide an explanatory reason for declining this request."
       }
-      size="md"
+      size="lg"
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={handleClose} disabled={saving}>
-            Cancel
-          </Button>
-          <DataSaveButton
-            onClick={handleConfirm}
-            isSaving={saving}
-            label={isApprove ? "Approve" : "Reject"}
-          />
-        </>
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            {target ? `${target.employeeName} (${target.noOfDays} days)` : "Action confirmation"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={saving}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <DataSaveButton
+              onClick={handleConfirm}
+              isSaving={saving}
+              label={isApprove ? "Approve Application" : "Reject Application"}
+              className={
+                isApprove
+                  ? "rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+                  : "rounded-md bg-rose-700 hover:bg-rose-800 text-white font-medium shadow-none cursor-pointer"
+              }
+            />
+          </div>
+        </div>
       }
     >
       {target && (
         <div className="space-y-4">
-          {/* Summary */}
-          <div className="rounded-lg border border-[#d7e8d0]/80 bg-[#f6faf6]/50 p-4">
+          {/* Summary Card */}
+          <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#d7e8d0] text-sm font-bold text-[#1b3a1f]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 border border-emerald-200/60 text-xs font-bold text-emerald-950">
                 {target.employeeName
                   .split(" ")
                   .map((n) => n[0])
@@ -87,13 +103,16 @@ export function LeaveApprovalActionModal({
                   .slice(0, 2)}
               </div>
               <div>
-                <p className="font-medium text-[#1b3a1f]">{target.employeeName}</p>
-                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                <p className="text-sm font-semibold text-zinc-900">{target.employeeName}</p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                  <span className="flex items-center gap-1 font-medium text-zinc-700">
+                    <Calendar className="h-3.5 w-3.5 text-zinc-400" />
                     {target.leaveTypeName}
                   </span>
-                  <span>&middot; {target.noOfDays} day(s) &middot; {target.duration}</span>
+                  <span>•</span>
+                  <span>{target.noOfDays} day(s)</span>
+                  <span>•</span>
+                  <span>{target.duration}</span>
                 </div>
               </div>
             </div>
@@ -101,20 +120,19 @@ export function LeaveApprovalActionModal({
 
           {/* Remarks */}
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-[#1b3a1f]">
-              Review Remarks
-              {!isApprove && <span className="text-red-500">*</span>}
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+              Review Remarks {!isApprove && <span className="text-red-500">*</span>}
             </label>
             <textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               rows={3}
               required={!isApprove}
-              className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
               placeholder={
                 isApprove
-                  ? "Optional: add approval remarks..."
-                  : "Reason for rejection (required)..."
+                  ? "Optional: add supervisor notes or instructions..."
+                  : "Reason for rejection (mandatory)..."
               }
             />
           </div>

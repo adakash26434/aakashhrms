@@ -38,7 +38,7 @@ function SortHeader({
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-gray-500 transition-colors hover:text-[#1b3a1f]"
+        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-900"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -98,11 +98,11 @@ export function LeaveRulesTable({ rules, onEdit, onDelete }: LeaveRulesTableProp
 
   if (rules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#d7e8d0] bg-white py-16">
-        <p className="text-sm font-medium text-gray-500">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 py-16 text-center">
+        <p className="text-sm font-medium text-zinc-600">
           No leave rules configured
         </p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-zinc-400">
           Please run statutory seeds or create a custom leave rule.
         </p>
       </div>
@@ -110,10 +110,10 @@ export function LeaveRulesTable({ rules, onEdit, onDelete }: LeaveRulesTableProp
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#d7e8d0]/80 bg-white shadow-sm">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-220 text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             <SortHeader label="Rule Name" onClick={() => toggleSort("ruleName")} />
             <SortHeader label="Leave Policy" onClick={() => toggleSort("leaveTypeName")} />
             <SortHeader label="Category" onClick={() => toggleSort("ruleCategory")} />
@@ -122,25 +122,25 @@ export function LeaveRulesTable({ rules, onEdit, onDelete }: LeaveRulesTableProp
             <SortHeader label="Encashment Rate" onClick={() => toggleSort("encashmentRate")} />
             <SortHeader label="Status" onClick={() => toggleSort("isActive")} />
             <th scope="col" className="px-4 py-3 text-right font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-gray-500">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-500">
                 Actions
               </span>
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {sortedRules.map((r) => (
             <tr
               key={r.id}
-              className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-[#f6faf6]/50"
+              className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60"
             >
-              <td className="px-4 py-3 align-middle font-medium text-[#1b3a1f]">
+              <td className="px-4 py-4 align-middle font-medium text-zinc-900">
                 {r.ruleName}
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <Badge variant="neutral">{r.leaveTypeName}</Badge>
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="px-4 py-4 align-middle">
                 {r.ruleCategory === "STATUTORY" ? (
                   <Badge variant="success" className="gap-1">
                     <Lock className="h-3 w-3" />
@@ -150,33 +150,37 @@ export function LeaveRulesTable({ rules, onEdit, onDelete }: LeaveRulesTableProp
                   <Badge variant="neutral">Company</Badge>
                 )}
               </td>
-              <td className="px-4 py-3 align-middle text-gray-600">
+              <td className="px-4 py-4 align-middle text-zinc-600">
                 {formatAccrualMethod(r.accrualMethod)}
               </td>
-              <td className="px-4 py-3 align-middle font-semibold text-gray-700">
+              <td className="px-4 py-4 align-middle font-medium text-zinc-800">
                 {formatAccrualValue(r.accrualValue, r.accrualMethod)}
               </td>
-              <td className="px-4 py-3 align-middle text-gray-600">
+              <td className="px-4 py-4 align-middle text-zinc-600">
                 {formatEncashmentRate(r.encashmentRate, r.encashmentFixedAmount)}
               </td>
-              <td className="px-4 py-3 align-middle">
-                <div className="flex items-center gap-1.5">
+              <td className="px-4 py-4 align-middle">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium border ${
+                    r.isActive
+                      ? "border-emerald-200/50 bg-emerald-50/70 text-emerald-800"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                  }`}
+                >
                   <Circle
-                    className={`h-2.5 w-2.5 ${r.isActive ? "fill-emerald-500 text-emerald-500" : "fill-gray-300 text-gray-300"}`}
+                    className={`h-1.5 w-1.5 ${
+                      r.isActive ? "fill-emerald-600 text-emerald-600" : "fill-zinc-400 text-zinc-400"
+                    }`}
                   />
-                  <span
-                    className={`text-xs ${r.isActive ? "text-emerald-700" : "text-gray-400"}`}
-                  >
-                    {r.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
+                  {r.isActive ? "Active" : "Inactive"}
+                </span>
               </td>
-              <td className="px-4 py-3 text-right align-middle">
+              <td className="px-4 py-4 text-right align-middle">
                 <div className="flex items-center justify-end gap-1">
                   <button
                     type="button"
                     onClick={() => onEdit(r)}
-                    className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/50 hover:text-[#2e7d32]"
+                    className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                     title="Edit leave rule"
                   >
                     <Pencil className="h-4 w-4" />
@@ -185,7 +189,7 @@ export function LeaveRulesTable({ rules, onEdit, onDelete }: LeaveRulesTableProp
                     <button
                       type="button"
                       onClick={() => onDelete(r)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                      className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
                       title="Delete leave rule"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -194,7 +198,7 @@ export function LeaveRulesTable({ rules, onEdit, onDelete }: LeaveRulesTableProp
                     <button
                       type="button"
                       disabled
-                      className="rounded-md p-1.5 text-gray-300 cursor-not-allowed"
+                      className="rounded p-1.5 text-zinc-300 cursor-not-allowed"
                       title="Statutory rules cannot be deleted"
                     >
                       <Trash2 className="h-4 w-4 opacity-40" />

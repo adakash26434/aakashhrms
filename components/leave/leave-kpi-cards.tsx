@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { CalendarCheck, Clock, XCircle, CheckCircle, CalendarX } from "lucide-react";
 import type { LeaveKPIs } from "@/lib/types/leave";
 
@@ -11,59 +10,69 @@ interface LeaveKPIGridProps {
 export function LeaveKPIGrid({ kpis }: LeaveKPIGridProps) {
   const metrics = [
     {
-      label: "Total Applications",
+      label: "Total applications",
       value: kpis.total,
+      subtext: "Logged leave requests",
       icon: CalendarCheck,
-      tone: "bg-payroll-cream text-payroll-primary border border-payroll-light/80",
+      iconColor: "text-zinc-400",
     },
     {
-      label: "Pending",
+      label: "Pending review",
       value: kpis.pending,
+      subtext: "Awaiting supervisor sign-off",
       icon: Clock,
-      tone: "bg-amber-50 text-amber-700 border border-amber-200/60",
+      iconColor: "text-amber-500",
     },
     {
-      label: "Approved",
+      label: "Approved leaves",
       value: kpis.approved,
+      subtext: "Authorized and scheduled",
       icon: CheckCircle,
-      tone: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Rejected",
+      label: "Rejected requests",
       value: kpis.rejected,
+      subtext: "Declined applications",
       icon: XCircle,
-      tone: "bg-rose-50 text-rose-700 border border-rose-200/60",
+      iconColor: "text-rose-500",
     },
     {
-      label: "Cancelled",
+      label: "Cancelled requests",
       value: kpis.cancelled,
+      subtext: "Withdrawn by employee",
       icon: CalendarX,
-      tone: "bg-gray-50 text-gray-700 border border-gray-200/60",
+      iconColor: "text-zinc-400",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {metrics.map((m) => (
-        <Card
-          key={m.label}
-          className="p-3.5 shadow-payroll-xs hover:shadow-payroll-sm transition-all hover:-translate-y-0.5"
-        >
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 truncate">
-                {m.label}
-              </p>
-              <p className="text-xl sm:text-2xl font-bold tabular-nums text-payroll-navy">
-                {m.value}
-              </p>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
+        return (
+          <div
+            key={m.label}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
+              </div>
             </div>
-            <div className={`rounded-xl p-2.5 ${m.tone}`}>
-              <m.icon className="h-4.5 w-4.5" />
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
             </div>
           </div>
-        </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

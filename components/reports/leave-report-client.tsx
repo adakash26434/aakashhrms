@@ -256,109 +256,129 @@ export function LeaveReportClient({
   }, [activeReportData, leaveMode]);
 
   return (
-    <PageFrame size="wide" spacing="default">
-      {/* Canonical Standard Page Header */}
-      <PageHeader
-        title="Leave Ledger & Balances"
-        description="Annual leave balances ledger, taken days, carried forward, encashable counts, and 5-mode application views."
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Statutory Leave Ledger</span>
-          </span>
-        </div>
-      </PageHeader>
+    <PageFrame size="wide" spacing="default" className="print:space-y-0">
+      {/* Canonical Standard Page Header — screen only */}
+      <div className="print:hidden">
+        <PageHeader
+          title="Leave Ledger & Balances"
+          description="Annual leave balances ledger, taken days, carried forward, encashable counts, and 5-mode application views."
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Statutory leave ledger</span>
+            </span>
+          </div>
+        </PageHeader>
+      </div>
 
-      {/* Filter Bar with Leave Type and Designation Enabled */}
-      <ReportFilterBar
-        lookupData={initialLookups}
-        showFYSelector={true}
-        showBranchFilter={true}
-        showDepartmentFilter={true}
-        showDesignationFilter={true}
-        showLeaveTypeFilter={true}
-        showEmployeeFilter={true}
-        showSearchFilter={true}
-        onFilterChange={(newFilters: ReportFilterState) => {
-          const nextFilter: LeaveReportFilter = {
-            fiscalYearId: newFilters.fiscalYearId || filter.fiscalYearId,
-            leaveTypeId: newFilters.leaveTypeId || "",
-            branchId: newFilters.branchId || "",
-            departmentId: newFilters.departmentId || "",
-            employeeSearch: newFilters.search || "",
-          };
-          setFilter(nextFilter);
-          setSelectedEmployeeId(newFilters.employeeId || "");
-          setSingleEmployeeRow(null);
-          handleApplyFilter(nextFilter);
-        }}
-        isLoading={isPending}
-      />
+      {/* Filter Bar — screen only */}
+      <div className="print:hidden">
+        <ReportFilterBar
+          lookupData={initialLookups}
+          showFYSelector={true}
+          showBranchFilter={true}
+          showDepartmentFilter={true}
+          showDesignationFilter={true}
+          showLeaveTypeFilter={true}
+          showEmployeeFilter={true}
+          showSearchFilter={true}
+          onFilterChange={(newFilters: ReportFilterState) => {
+            const nextFilter: LeaveReportFilter = {
+              fiscalYearId: newFilters.fiscalYearId || filter.fiscalYearId,
+              leaveTypeId: newFilters.leaveTypeId || "",
+              branchId: newFilters.branchId || "",
+              departmentId: newFilters.departmentId || "",
+              employeeSearch: newFilters.search || "",
+            };
+            setFilter(nextFilter);
+            setSelectedEmployeeId(newFilters.employeeId || "");
+            setSingleEmployeeRow(null);
+            handleApplyFilter(nextFilter);
+          }}
+          isLoading={isPending}
+        />
+      </div>
 
-      {/* Error Message */}
+      {/* Error Message — screen only */}
       {errorMessage && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3.5 text-xs font-medium text-rose-700 print:hidden">
           {errorMessage}
         </div>
       )}
 
-      {/* Executive KPI Summary Widgets */}
+      {/* Executive KPI Summary Metrics — screen only, never printed */}
       {activeReportData && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-payroll-primary/10 p-2.5 text-payroll-primary">
-                <Users className="h-5 w-5" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2 print:hidden">
+          {/* Employees Covered */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Employees covered</p>
+                <Users className="h-4 w-4 text-zinc-400" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Employees Covered</p>
-                <p className="text-lg font-bold text-payroll-navy">
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {activeReportData.totalEmployees}
-                </p>
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Assigned to leave cycle
             </div>
           </div>
 
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700">
-                <Calendar className="h-5 w-5" />
+          {/* Total Allotted Days */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total allotted days</p>
+                <Calendar className="h-4 w-4 text-zinc-400" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Total Allotted Days</p>
-                <p className="text-lg font-bold text-emerald-800">
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {activeReportData.totalDaysAllotted}
-                </p>
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Entitled annual pool
             </div>
           </div>
 
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-purple-100 p-2.5 text-purple-700">
-                <CalendarCheck className="h-5 w-5" />
+          {/* Total Days Taken */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total days taken</p>
+                <CalendarCheck className="h-4 w-4 text-zinc-600" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Total Days Taken</p>
-                <p className="text-lg font-bold text-purple-800">
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {activeReportData.totalDaysTaken}
-                </p>
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Utilized by workforce
             </div>
           </div>
 
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-amber-100 p-2.5 text-amber-700">
-                <CheckSquare className="h-5 w-5" />
+          {/* Encashable Balance */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Encashable balance</p>
+                <CheckSquare className="h-4 w-4 text-emerald-700" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Encashable Balance</p>
-                <p className="text-lg font-bold text-amber-800">
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {activeReportData.totalEncashableBalance}
-                </p>
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Available for settlement
             </div>
           </div>
         </div>
@@ -379,25 +399,25 @@ export function LeaveReportClient({
             hasData={Boolean(activeReportData)}
             meta={
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                   FY: {selectedFyLabel}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                   Staff: {activeReportData.totalEmployees}
                 </span>
               </div>
             }
           >
             {/* 5-Mode Sub-Tab Switcher */}
-            <div className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-payroll-light bg-payroll-cream p-1 shadow-payroll-xs">
+            <div className="inline-flex flex-wrap items-center gap-0.5 rounded-md border border-zinc-200 bg-zinc-100/70 p-0.5">
               <button
                 type="button"
                 onClick={() => setLeaveMode("BALANCES")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   leaveMode === "BALANCES"
-                    ? "bg-payroll-primary text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
                 Balances ({activeReportData.balanceRows.length})
@@ -406,10 +426,10 @@ export function LeaveReportClient({
                 type="button"
                 onClick={() => setLeaveMode("TAKEN")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   leaveMode === "TAKEN"
-                    ? "bg-purple-600 text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
                 Taken ({modeFilteredBalances.length})
@@ -418,22 +438,22 @@ export function LeaveReportClient({
                 type="button"
                 onClick={() => setLeaveMode("APPLICATIONS")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   leaveMode === "APPLICATIONS"
-                    ? "bg-payroll-navy text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
-                All Apps ({activeReportData.applicationRows.length})
+                All apps ({activeReportData.applicationRows.length})
               </button>
               <button
                 type="button"
                 onClick={() => setLeaveMode("APPROVED")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   leaveMode === "APPROVED"
-                    ? "bg-emerald-600 text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
                 Approved (
@@ -448,10 +468,10 @@ export function LeaveReportClient({
                 type="button"
                 onClick={() => setLeaveMode("REJECTED")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   leaveMode === "REJECTED"
-                    ? "bg-red-600 text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
                 Rejected (

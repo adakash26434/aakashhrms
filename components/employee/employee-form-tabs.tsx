@@ -68,7 +68,9 @@ interface EmployeeFormTabsProps {
 }
 
 /**
- * Modern un-boxed form section with clean typography and hairline separator
+ * Modern editorial asymmetric split-grid section:
+ * Left pane (4 cols): Title, descriptive guidance, and contextual actions/badges
+ * Right pane (8 cols): Raw input elements on flat workspace separated by structural whitespace
  */
 function FormSection({
   title,
@@ -84,21 +86,23 @@ function FormSection({
   isFirst?: boolean;
 }) {
   return (
-    <div className={cn("space-y-4", !isFirst && "pt-7 mt-7 border-t border-slate-100")}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className={cn("space-y-3.5", !isFirst && "pt-6 border-t border-zinc-200")}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
         <div>
-          <h3 className="text-sm sm:text-base font-semibold text-slate-900 tracking-tight">
+          <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
             {title}
           </h3>
           {description && (
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">
               {description}
             </p>
           )}
         </div>
-        {badge}
+        {badge && <div className="shrink-0">{badge}</div>}
       </div>
-      <div>{children}</div>
+      <div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -321,17 +325,17 @@ export function EmployeeFormTabs({
     }
   };
 
-  // Modern input styles: h-10, rounded-lg, subtle border matching reference form
+  // Editorial sharp input styles: h-10, rounded-md, crisp zinc-200 border, brand emerald focus
   const inputClass =
-    "h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-xs sm:text-sm text-slate-900 shadow-2xs transition-colors placeholder:text-slate-400 hover:border-slate-400 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]";
+    "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 transition-colors placeholder:text-zinc-400 hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700";
 
   const selectClass =
-    "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs sm:text-sm text-slate-800 shadow-2xs transition-colors hover:border-slate-400 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47] cursor-pointer";
+    "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer";
 
   const labelClass = (hasError: boolean) =>
     cn(
-      "block text-[11px] font-semibold uppercase tracking-wider transition-colors mb-1.5",
-      hasError ? "text-red-600 font-semibold" : "text-slate-600",
+      "block text-xs font-semibold text-zinc-700 transition-colors mb-1.5",
+      hasError ? "text-red-600 font-semibold" : "text-zinc-700",
     );
 
   const fieldInputClass = (hasError: boolean) =>
@@ -420,7 +424,11 @@ export function EmployeeFormTabs({
     return (
       <div className="space-y-6 animate-[fadeIn_150ms_ease-out]">
         {/* Section 1: Identification */}
-        <FormSection title="Identification" isFirst>
+        <FormSection
+          title="Identification"
+          description="System identifiers for biometric attendance tracking and payroll records."
+          isFirst
+        >
           <div className={gridClass}>
             {/* Employee Code */}
             <div className="space-y-1">
@@ -431,7 +439,7 @@ export function EmployeeFormTabs({
                 <button
                   type="button"
                   onClick={handleAutoGenerateEmp}
-                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-payroll-primary hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 hover:underline cursor-pointer"
                   title="Generate next sequential code"
                 >
                   <Sparkles className="h-2.5 w-2.5" />
@@ -440,12 +448,12 @@ export function EmployeeFormTabs({
               </div>
               <div
                 className={cn(
-                  "flex h-10 w-full rounded-lg border border-slate-200 bg-white shadow-2xs transition-colors overflow-hidden hover:border-slate-300 focus-within:border-[#1e7e47] focus-within:ring-1 focus-within:ring-[#1e7e47]",
+                  "flex h-10 w-full rounded-md border border-zinc-200 bg-white transition-colors overflow-hidden hover:border-zinc-300 focus-within:border-emerald-700 focus-within:ring-1 focus-within:ring-emerald-700",
                   (!!errors?.employeeCode || !!duplicateEmp) &&
                     "border-red-500 bg-red-50/20 focus-within:border-red-500 focus-within:ring-red-500",
                 )}
               >
-                <span className="flex items-center px-3 bg-slate-50 border-r border-slate-200 text-xs sm:text-sm font-mono font-semibold text-slate-500 select-none shrink-0">
+                <span className="flex items-center px-3 bg-zinc-50 border-r border-zinc-200 text-xs sm:text-sm font-mono font-semibold text-zinc-500 select-none shrink-0">
                   EMP-
                 </span>
                 <input
@@ -454,7 +462,7 @@ export function EmployeeFormTabs({
                   pattern="[0-9]*"
                   value={empDigits}
                   onChange={handleEmpDigitsChange}
-                  className="h-full w-full bg-transparent px-3 text-xs sm:text-sm text-slate-900 font-mono placeholder:text-slate-400 focus:outline-none"
+                  className="h-full w-full bg-transparent px-3 text-xs sm:text-sm text-zinc-900 font-mono placeholder:text-zinc-400 focus:outline-none"
                   placeholder="001"
                 />
               </div>
@@ -480,17 +488,17 @@ export function EmployeeFormTabs({
                   <button
                     type="button"
                     onClick={handleMatchEmpCode}
-                    className="inline-flex items-center gap-0.5 text-[10px] font-medium text-gray-500 hover:text-payroll-primary cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-[10px] font-medium text-zinc-500 hover:text-emerald-700 cursor-pointer"
                     title="Copy number from Employee Code"
                   >
                     <LinkIcon className="h-2.5 w-2.5" />
                     <span>Copy</span>
                   </button>
-                  <span className="text-gray-300">|</span>
+                  <span className="text-zinc-300">|</span>
                   <button
                     type="button"
                     onClick={handleAutoGenerateAtd}
-                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-payroll-primary hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 hover:underline cursor-pointer"
                     title="Next Attendance Code"
                   >
                     <Sparkles className="h-2.5 w-2.5" />
@@ -500,12 +508,12 @@ export function EmployeeFormTabs({
               </div>
               <div
                 className={cn(
-                  "flex h-10 w-full rounded-lg border border-slate-200 bg-white shadow-2xs transition-colors overflow-hidden hover:border-slate-300 focus-within:border-[#1e7e47] focus-within:ring-1 focus-within:ring-[#1e7e47]",
+                  "flex h-10 w-full rounded-md border border-zinc-200 bg-white transition-colors overflow-hidden hover:border-zinc-300 focus-within:border-emerald-700 focus-within:ring-1 focus-within:ring-emerald-700",
                   (!!errors?.attendanceCode || !!duplicateAtd) &&
                     "border-red-500 bg-red-50/20 focus-within:border-red-500 focus-within:ring-red-500",
                 )}
               >
-                <span className="flex items-center px-3 bg-slate-50 border-r border-slate-200 text-xs sm:text-sm font-mono font-semibold text-slate-500 select-none shrink-0">
+                <span className="flex items-center px-3 bg-zinc-50 border-r border-zinc-200 text-xs sm:text-sm font-mono font-semibold text-zinc-500 select-none shrink-0">
                   ATD-
                 </span>
                 <input
@@ -514,7 +522,7 @@ export function EmployeeFormTabs({
                   pattern="[0-9]*"
                   value={atdDigits}
                   onChange={handleAtdDigitsChange}
-                  className="h-full w-full bg-transparent px-3 text-xs sm:text-sm text-slate-900 font-mono placeholder:text-slate-400 focus:outline-none"
+                  className="h-full w-full bg-transparent px-3 text-xs sm:text-sm text-zinc-900 font-mono placeholder:text-zinc-400 focus:outline-none"
                   placeholder="001"
                 />
               </div>
@@ -533,7 +541,10 @@ export function EmployeeFormTabs({
         </FormSection>
 
         {/* Section 2: Name & Personal */}
-        <FormSection title="Name & Personal">
+        <FormSection
+          title="Personal Details"
+          description="Full legal name, date of birth, gender, and tax residency status."
+        >
           <div className={gridClass}>
             {/* Full Name */}
             <div className="space-y-1">
@@ -615,14 +626,14 @@ export function EmployeeFormTabs({
               <div className="h-10 flex items-center">
                 <label
                   htmlFor="disabled-emp"
-                  className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-slate-700 hover:text-slate-900"
+                  className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-700 hover:text-zinc-900"
                 >
                   <input
                     type="checkbox"
                     id="disabled-emp"
                     checked={formData.isDisabled}
                     onChange={(e) => update("isDisabled", e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-[#1e7e47] focus:ring-[#1e7e47] cursor-pointer"
+                    className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
                   />
                   <span>Physical Disability Tax Exemption</span>
                 </label>
@@ -641,8 +652,11 @@ export function EmployeeFormTabs({
     return (
       <div className="space-y-6 animate-[fadeIn_150ms_ease-out]">
         {/* Section 1: Organizational Placement */}
-        {/* Section 1: Organizational Placement */}
-        <FormSection title="Organizational Placement" isFirst>
+        <FormSection
+          title="Organizational Placement"
+          description="Department assignment, job designation, branch office, and employment category."
+          isFirst
+        >
           <div className={gridClass}>
             {/* Department */}
             <div className="space-y-1">
@@ -807,18 +821,21 @@ export function EmployeeFormTabs({
         </FormSection>
 
         {/* Section 2: Hierarchy & Authorization */}
-        <FormSection title="Hierarchy & Authorization">
+        <FormSection
+          title="Reporting & Hierarchy"
+          description="Supervisor assignment and supervisory administrative role flags."
+        >
           <div className="flex items-center">
             <label
               htmlFor="isSupervisorCheckbox"
-              className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-slate-700 hover:text-slate-900"
+              className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-700 hover:text-zinc-900"
             >
               <input
                 type="checkbox"
                 id="isSupervisorCheckbox"
                 checked={formData.isSupervisor}
                 onChange={(e) => update("isSupervisor", e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-[#1e7e47] focus:ring-[#1e7e47] cursor-pointer"
+                className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
               />
               <span>Mark as Supervisor / Line Manager</span>
             </label>
@@ -826,7 +843,10 @@ export function EmployeeFormTabs({
         </FormSection>
 
         {/* Section 3: Tenure, Status & Compensation */}
-        <FormSection title="Tenure & Compensation">
+        <FormSection
+          title="Tenure & Compensation"
+          description="Joining schedule, monthly base salary scale, and Shreni grade increment policies."
+        >
           <div className={gridClass}>
             {/* Joining Date */}
             <div className="space-y-1">
@@ -983,14 +1003,14 @@ export function EmployeeFormTabs({
           </div>
 
           {/* Grade Increment & Base Pay Summary Card */}
-          <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-linear-to-b from-emerald-50/25 via-slate-50/40 to-white p-4 sm:p-5 shadow-xs transition-all">
+          <div className="mt-5 rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 sm:p-5 transition-all">
             {/* Header with Title, Policy Pill & Manual Toggle */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200/70">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-zinc-300/70">
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-2xs">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-700 text-white shadow-2xs">
                   <Calculator className="h-4 w-4" />
                 </div>
-                <span className="text-xs font-bold text-slate-800 tracking-tight">
+                <span className="text-xs font-bold text-zinc-900 tracking-tight">
                   Grade Increment Breakdown
                 </span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
@@ -999,12 +1019,12 @@ export function EmployeeFormTabs({
               </div>
 
               {/* Styled Manual Override Toggle */}
-              <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-700 hover:text-zinc-900 transition-colors">
                 <input
                   type="checkbox"
                   checked={isManualGradeOverride}
                   onChange={(e) => handleToggleManualOverride(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600 cursor-pointer"
+                  className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
                 />
                 <span>Manual Override</span>
               </label>
@@ -1013,18 +1033,18 @@ export function EmployeeFormTabs({
             {/* 3 Metric Blocks */}
             <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Metric 1: Shreni Level & Scale */}
-              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="rounded-md border border-zinc-200 bg-white p-3.5">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                   Selected Level &amp; Scale
                 </div>
-                <div className="mt-1 text-xs font-semibold text-slate-900 truncate" title={levelDisplayName || "No level selected"}>
+                <div className="mt-1 text-xs font-semibold text-zinc-900 truncate" title={levelDisplayName || "No level selected"}>
                   {formData.shreni ? (
                     levelDisplayName
                   ) : (
-                    <span className="text-slate-400 italic">No level selected</span>
+                    <span className="text-zinc-400 italic">No level selected</span>
                   )}
                 </div>
-                <div className="mt-1 text-[11px] font-mono text-slate-500">
+                <div className="mt-1 text-[11px] font-mono text-zinc-500">
                   {levelStartingScale > 0
                     ? `Starting Scale: NPR ${levelStartingScale.toLocaleString()}`
                     : "No starting scale configured"}
@@ -1032,27 +1052,27 @@ export function EmployeeFormTabs({
               </div>
 
               {/* Metric 2: Per Grade Rate */}
-              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="rounded-md border border-zinc-200 bg-white p-3.5">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                   1 Grade Rate
                 </div>
-                <div className="mt-1 text-xs font-semibold font-mono text-slate-900">
+                <div className="mt-1 text-xs font-semibold font-mono text-zinc-900">
                   {gradeRate > 0 ? (
                     <>
                       <span>NPR {gradeRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      <span className="text-[10px] text-slate-400 font-normal"> / mo</span>
+                      <span className="text-[10px] text-zinc-400 font-normal"> / mo</span>
                     </>
                   ) : (
-                    <span className="text-slate-400">NPR 0.00</span>
+                    <span className="text-zinc-400">NPR 0.00</span>
                   )}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1 text-[11px] text-zinc-500">
                   {policyMethodDisplay.formula}
                 </div>
               </div>
 
               {/* Metric 3: Total Monthly Base & Grade */}
-              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-3.5 shadow-2xs">
+              <div className="rounded-md border border-emerald-200/80 bg-emerald-50/50 p-3.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
                   Total Monthly Base Pay
                 </div>
@@ -1072,7 +1092,7 @@ export function EmployeeFormTabs({
             </div>
 
             {effectiveBasicSalary === 0 && (
-              <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg bg-amber-50/90 border border-amber-200 text-xs text-amber-800">
+              <div className="mt-3 flex items-center gap-2 p-2.5 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
                 <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
                 <span>
                   Please select a Shreni level with a starting scale or specify an employee Basic Salary above to enable automatic Grade calculations.
@@ -1115,19 +1135,19 @@ export function EmployeeFormTabs({
     return (
       <div className="space-y-6 animate-[fadeIn_150ms_ease-out]">
         {/* Section 1: Statutory Identity Documents & Districts */}
-        {/* Section 1: Statutory Identity Documents & Districts */}
         <FormSection
-          title="National Identity & Statutory IDs"
+          title="National Identity Documents"
+          description="Statutory identification: Citizenship, National ID (NID), Passport, PAN, and Voter ID records with district provenance."
           isFirst
           badge={
             <button
               type="button"
               onClick={handleSyncDistricts}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-payroll-primary hover:bg-slate-50 transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-zinc-50 transition-colors cursor-pointer"
               title="Copy Citizenship district to all document district fields"
             >
               {allDistrictsSame ? (
-                <Check className="h-3 w-3 text-emerald-600" />
+                <Check className="h-3 w-3 text-emerald-700" />
               ) : (
                 <Sparkles className="h-3 w-3" />
               )}
@@ -1310,7 +1330,10 @@ export function EmployeeFormTabs({
         </FormSection>
 
         {/* Section 2: Contact Information */}
-        <FormSection title="Contact & Email">
+        <FormSection
+          title="Contact Information"
+          description="Official company email address and direct phone lines for communication."
+        >
           <div className="space-y-4">
             {/* Row 1: Email Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 max-w-3xl">
@@ -1404,7 +1427,10 @@ export function EmployeeFormTabs({
         </FormSection>
 
         {/* Section 3: Structured Nepal Addresses */}
-        <FormSection title="Residential Addresses">
+        <FormSection
+          title="Residential Addresses"
+          description="Permanent legal domicile and local current residence address details."
+        >
           <NepalAddressPicker
             permanentAddress={
               formData.permanentAddress || formData.address1 || ""
@@ -1435,7 +1461,11 @@ export function EmployeeFormTabs({
 
     return (
       <div className="space-y-6 animate-[fadeIn_150ms_ease-out]">
-        <FormSection title="Family Information" isFirst>
+        <FormSection
+          title="Family & Kinship"
+          description="Family members and emergency next-of-kin documentation for employee records."
+          isFirst
+        >
           <div className={gridClass}>
             {/* Father's Name */}
             <div className="space-y-1">
@@ -1498,7 +1528,7 @@ export function EmployeeFormTabs({
                 {isMarried ? (
                   <span className="text-red-500">* (Required for Married)</span>
                 ) : (
-                  <span className="text-gray-400 font-normal">
+                  <span className="text-zinc-400 font-normal">
                     (Optional if single)
                   </span>
                 )}
@@ -1530,7 +1560,11 @@ export function EmployeeFormTabs({
     return (
       <div className="space-y-6 animate-[fadeIn_150ms_ease-out]">
         {/* Section 1: Bank Account Details */}
-        <FormSection title="Bank Account Details" isFirst>
+        <FormSection
+          title="Bank Account Details"
+          description="Designated direct-deposit banking institution and account number."
+          isFirst
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4">
             {/* Bank Name */}
             <div className="space-y-1">
@@ -1591,6 +1625,7 @@ export function EmployeeFormTabs({
         {/* Section 2: Termination / Separation Information */}
         <FormSection
           title="Separation & Exit (Optional)"
+          description="Voluntary resignation, contract end, retirement, or termination details."
           badge={
             isTerminated && (
               <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-800">

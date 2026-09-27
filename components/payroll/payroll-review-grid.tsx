@@ -257,20 +257,20 @@ export function PayrollReviewGrid({
         toolbar={
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search staff name or employee ID..."
-                className="w-full rounded-lg border border-payroll-light bg-white pl-9 pr-3 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
+                className="w-full rounded-md border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-emerald-700 transition-colors"
               />
             </div>
             {departments.length > 0 && (
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="rounded-lg border border-payroll-light bg-white px-3 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
+                className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 outline-none focus:border-emerald-700 transition-colors cursor-pointer"
               >
                 <option value="all">All Departments</option>
                 {departments.map((d) => (
@@ -284,77 +284,77 @@ export function PayrollReviewGrid({
         }
       >
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                <th className="px-6 py-3.5">Employee</th>
-                <th className="px-6 py-3.5">Department / Role</th>
-                <th className="px-6 py-3.5">Bank Details</th>
-                <th className="px-6 py-3.5 text-right font-medium">Basic</th>
-                <th className="px-6 py-3.5 text-right font-medium">Grade</th>
-                <th className="px-6 py-3.5 text-right font-medium">OT</th>
-                <th className="px-6 py-3.5 text-right font-medium">Gross</th>
-                <th className="px-6 py-3.5 text-right font-medium">Deductions</th>
-                <th className="px-6 py-3.5 text-right font-medium">Loan</th>
-                <th className="px-6 py-3.5 text-right font-medium">TDS (Tax)</th>
-                <th className="px-6 py-3.5 text-right font-bold">Net Salary</th>
-                <th className="px-6 py-3.5 text-right">Actions</th>
+          <table className="w-full border-collapse text-xs">
+            <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+              <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <th className="px-5 py-3">Employee</th>
+                <th className="px-5 py-3">Department / Role</th>
+                <th className="px-5 py-3">Bank Details</th>
+                <th className="px-5 py-3 text-right">Basic</th>
+                <th className="px-5 py-3 text-right">Grade</th>
+                <th className="px-5 py-3 text-right">OT</th>
+                <th className="px-5 py-3 text-right font-medium text-emerald-800">Gross</th>
+                <th className="px-5 py-3 text-right">Deductions</th>
+                <th className="px-5 py-3 text-right">Loan</th>
+                <th className="px-5 py-3 text-right">TDS (Tax)</th>
+                <th className="px-5 py-3 text-right font-medium text-zinc-900">Net Salary</th>
+                <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-200">
               {filteredSlips.map((slip) => (
                 <tr
                   key={slip.id}
-                  className="border-b border-payroll-light/60 transition-colors hover:bg-payroll-cream/30 text-xs"
+                  className="hover:bg-zinc-50/60 transition-colors text-xs"
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-5 py-3.5">
                     <div>
-                      <span className="font-semibold text-payroll-navy">{slip.employeeName}</span>
-                      <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 tabular-nums">
+                      <span className="font-medium text-zinc-900">{slip.employeeName}</span>
+                      <span className="ml-2 rounded border border-zinc-200/70 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 tabular-nums">
                         {slip.employeeCode}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-500">
+                  <td className="px-5 py-3.5 text-zinc-600">
                     {slip.departmentName} <br />
-                    <span className="text-[10px] text-gray-400">{slip.designationName}</span>
+                    <span className="text-[11px] text-zinc-400">{slip.designationName}</span>
                   </td>
-                  <td className="px-6 py-4 text-gray-500 text-[11px]">
-                    <span className="font-semibold text-gray-700">{slip.bankName}</span> <br />
-                    <span className="text-gray-400 font-medium tabular-nums">{slip.bankAccountNumber}</span>
+                  <td className="px-5 py-3.5 text-zinc-600 text-[11px]">
+                    <span className="font-medium text-zinc-800">{slip.bankName}</span> <br />
+                    <span className="text-zinc-400 font-mono tabular-nums">{slip.bankAccountNumber}</span>
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-gray-700">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-zinc-700">
                     Rs. {Number(slip.basicSalary).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-gray-700">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-zinc-700">
                     Rs. {Number(slip.gradeAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-emerald-600 font-medium">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-emerald-800 font-medium">
                     Rs. {Number(slip.otAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-emerald-600 font-bold">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-emerald-800 font-medium">
                     Rs. {Number(slip.grossEarnings).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-red-500">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-rose-700">
                     Rs. {Number(slip.totalDeductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-red-500 font-semibold">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-rose-700">
                     Rs. {Number(slip.loanDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right tabular-nums text-red-500">
+                  <td className="px-5 py-3.5 text-right font-mono tabular-nums text-rose-700">
                     Rs. {Number(slip.tdsThisMonth).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right font-bold tabular-nums text-payroll-navy">
+                  <td className="px-5 py-3.5 text-right font-medium tabular-nums text-zinc-900 font-mono">
                     Rs. {Number(slip.netPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                  <td className="px-5 py-3.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => handleOpenDetail(slip)}
-                        className="inline-flex items-center gap-1 text-xs text-payroll-primary font-bold hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs text-zinc-700 font-medium hover:text-zinc-950 p-1 rounded hover:bg-zinc-100 transition-colors cursor-pointer"
                       >
-                        <Eye className="h-3.5 w-3.5" />
-                        {isDraft ? "Override" : "View Breakdown"}
+                        <Eye className="h-3.5 w-3.5 text-zinc-500" />
+                        {isDraft ? "Override" : "View"}
                       </button>
 
                       {isDraft && (
@@ -364,16 +364,16 @@ export function PayrollReviewGrid({
                             onClick={() => handleRecalculateSlip(slip.id)}
                             disabled={recalculatingSlipId === slip.id}
                             title="Recalculate from master data (salary mapping, new pay heads, attendance)"
-                            className="rounded p-1 text-gray-500 hover:bg-payroll-cream hover:text-payroll-primary transition-all disabled:opacity-50 cursor-pointer"
+                            className="rounded p-1 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors disabled:opacity-50 cursor-pointer"
                           >
-                            <RefreshCw className={`h-3.5 w-3.5 ${recalculatingSlipId === slip.id ? "animate-spin text-payroll-primary" : ""}`} />
+                            <RefreshCw className={`h-3.5 w-3.5 ${recalculatingSlipId === slip.id ? "animate-spin text-zinc-800" : ""}`} />
                           </button>
 
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteSlip(slip)}
                             title="Remove employee from draft batch"
-                            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
+                            className="rounded p-1 text-zinc-400 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -390,14 +390,14 @@ export function PayrollReviewGrid({
 
       {/* Locked Audit Notice */}
       {isLocked && (
-        <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50/60 p-4 text-xs text-green-900 shadow-payroll-xs">
+        <div className="flex items-center justify-between rounded-lg border border-emerald-200/60 bg-emerald-50/50 p-4 text-xs text-emerald-950">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-100/70 text-emerald-800 border border-emerald-200/50">
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-bold text-green-900">Finalized & Locked Payroll Batch</p>
-              <p className="text-[11px] text-green-800">
+              <p className="font-semibold text-emerald-950">Finalized & Locked Payroll Batch</p>
+              <p className="text-[11px] text-emerald-800/80 mt-0.5">
                 This batch is locked for audit integrity. Payslip line-items cannot be altered. Bank transfers and statutory ledgers can be exported from the top header.
               </p>
             </div>
@@ -407,26 +407,26 @@ export function PayrollReviewGrid({
 
       {/* RBAC Verification Panel */}
       {!isLocked && (
-        <div className="rounded-xl border border-payroll-light bg-payroll-cream p-6 space-y-4">
-          <h3 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">Payroll Control Actions</h3>
+        <div className="border-t border-zinc-200/80 pt-6 space-y-4">
+          <h3 className="text-xs font-semibold text-zinc-900 uppercase tracking-wider">Payroll Control Actions</h3>
           
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add transition notes (e.g. reviewed by, reason for revert, auditors checklist...)"
-            className="w-full rounded-lg border border-payroll-light bg-white p-3 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
+            className="w-full rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-900 outline-none focus:border-emerald-700 transition-colors"
             rows={2}
           />
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2.5">
             {/* HR / Admin submits draft to auditor */}
             {isDraft && isHR && (
               <button
                 onClick={() => handleStatusTransition("UNDER_REVIEW")}
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-payroll-navy disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors cursor-pointer"
               >
-                <ClipboardList className="h-4 w-4" />
+                <ClipboardList className="h-3.5 w-3.5" />
                 Submit for Review
               </button>
             )}
@@ -437,36 +437,36 @@ export function PayrollReviewGrid({
                 <button
                   onClick={() => handleStatusTransition("APPROVED")}
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-800 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-900 disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  <CheckSquare className="h-4 w-4" />
+                  <CheckSquare className="h-3.5 w-3.5" />
                   Approve Calculations
                 </button>
                 <button
                   onClick={() => handleStatusTransition("DRAFT")}
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-medium text-rose-800 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Reject & Revert to Draft
                 </button>
               </>
             )}
 
-            {/* CFO / CEO performs final locking (separation of duties enforced by service) */}
+            {/* CFO / CEO performs final locking */}
             {isApproved && isCEO && (
               <>
                 <button
                   onClick={() => handleStatusTransition("LOCKED")}
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-800 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-900 disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-3.5 w-3.5" />
                   Lock & Disburse Payroll
                 </button>
                 <button
                   onClick={() => handleStatusTransition("DRAFT")}
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-medium text-rose-800 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Reject & Revert to Draft
                 </button>
@@ -479,10 +479,10 @@ export function PayrollReviewGrid({
                 type="button"
                 onClick={() => setConfirmDeleteBatch(true)}
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-red-700 shadow-sm hover:bg-red-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-medium text-rose-800 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer"
               >
-                <Trash2 className="h-4 w-4" />
-                Discard Entire Batch (Fallback)
+                <Trash2 className="h-3.5 w-3.5" />
+                Discard Entire Batch
               </button>
             )}
           </div>

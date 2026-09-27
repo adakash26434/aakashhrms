@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Building2, Clock, FileBadge2 } from "lucide-react";
+import { Building2, Clock, FileBadge2, Save, Loader2 } from "lucide-react";
 import { PageFrame } from "@/components/layout/page-frame";
 import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
 import { ManualAttendanceCard } from "./manual-attendance-card";
 import { StatutoryDeductionLimitsCard } from "./statutory-deduction-limits-card";
 import { InsuranceDiscountsCard } from "./insurance-discounts-card";
@@ -12,7 +13,6 @@ import { GradePolicyCard } from "./grade-policy-card";
 import { Banner, type BannerTone } from "@/components/ui/banner";
 import type { SystemControlData } from "@/lib/types/system-control";
 import { saveSystemControlAction } from "@/app/actions/system-control.actions";
-import { DataSaveButton } from "../ui/data-save-button";
 import { useToast } from "@/components/ui/toast";
 
 interface SystemControlClientProps {
@@ -71,8 +71,29 @@ export function SystemControlClient({
     }
   }
 
+  const saveButton = (
+    <Button
+      type="button"
+      onClick={handleSave}
+      disabled={isSaving || !hasChanges}
+      className="bg-emerald-800 hover:bg-emerald-900 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg transition-colors inline-flex items-center gap-1.5"
+    >
+      {isSaving ? (
+        <>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>Saving...</span>
+        </>
+      ) : (
+        <>
+          <Save className="h-3.5 w-3.5" />
+          <span>Save changes</span>
+        </>
+      )}
+    </Button>
+  );
+
   const content = (
-    <>
+    <div className="space-y-8 animate-[fadeIn_150ms_ease-out]">
       <Banner
         visible={banner.visible}
         message={banner.message}
@@ -81,112 +102,102 @@ export function SystemControlClient({
       />
 
       {embedded ? (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-payroll-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pb-5 border-b border-slate-200/80">
           <div>
-            <h3 className="text-base font-semibold text-payroll-navy">Rules &amp; Defaults</h3>
-            <p className="text-xs text-payroll-slate">
-              Global statutory deduction limits, insurance rebate thresholds, and manual attendance controls.
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-slate-900 tracking-tight">
+                Rules &amp; statutory defaults
+              </h2>
+              {hasChanges && (
+                <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Global statutory deduction ceilings, insurance rebate thresholds, grade increment policies, and manual attendance controls.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {hasChanges && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 border border-amber-200 shadow-xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                Unsaved Changes
-              </span>
-            )}
-            <DataSaveButton onClick={handleSave} isSaving={isSaving} />
-          </div>
+          <div className="shrink-0">{saveButton}</div>
         </div>
       ) : (
         <PageHeader
-          title="System Control"
+          title="System control"
           description="Configure global statutory deduction limits, insurance rebate thresholds, and manual attendance controls across the payroll system."
         >
           <div className="flex items-center gap-3">
             {hasChanges && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 border border-amber-200 shadow-xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                Unsaved Changes
+              <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200">
+                Unsaved changes
               </span>
             )}
-            <DataSaveButton onClick={handleSave} isSaving={isSaving} />
+            {saveButton}
           </div>
         </PageHeader>
       )}
 
-      {/* Consolidated Company Setup Reference Card */}
-      <div className="rounded-xl border border-payroll-border bg-linear-to-r from-payroll-light/70 via-white to-payroll-light/30 p-4 shadow-payroll-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-payroll-primary text-white shadow-xs">
-              <Building2 className="h-5 w-5" />
+      {/* Standalone cross-reference bar (only rendered on standalone page) */}
+      {!embedded && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/60 mt-0.5">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-slate-900">
+                  Organization timing &amp; classifications master
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Weekly operating schedule, office shift hours, winter timing, and statutory employment classifications are unified in Company Setup.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-payroll-navy">
-                Organization Timing &amp; Classifications Master
-              </h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Weekly operating schedule, office shift hours, winter timing, and statutory employment classifications (SSF, PF, Festival Bonus) are unified in Company Setup.
-              </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/setup/company-setup?tab=work_schedule"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-xs hover:bg-slate-50 transition-colors"
+              >
+                <Clock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Work schedule</span>
+              </Link>
+              <Link
+                href="/setup/company-setup?tab=employment_types"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-emerald-900 transition-colors"
+              >
+                <FileBadge2 className="h-3.5 w-3.5" />
+                <span>Employment types</span>
+              </Link>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/setup/company-setup?tab=work_schedule"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-payroll-border bg-white px-3 py-1.5 text-xs font-semibold text-payroll-navy shadow-xs hover:bg-payroll-light transition-colors"
-            >
-              <Clock className="h-3.5 w-3.5 text-payroll-primary" />
-              <span>Work Timing</span>
-            </Link>
-            <Link
-              href="/setup/company-setup?tab=employment_types"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-payroll-primary/90 transition-colors"
-            >
-              <FileBadge2 className="h-3.5 w-3.5" />
-              <span>Employment Types</span>
-            </Link>
-          </div>
         </div>
-      </div>
+      )}
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Statutory &amp; Tax Deductions
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Global limits and exemption thresholds for retirement funds and medical insurance
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <StatutoryDeductionLimitsCard
-            value={data.statutoryDeductionLimits}
-            onChange={(statutoryDeductionLimits) => {
-              setData((d) => ({ ...d, statutoryDeductionLimits }));
-              setHasChanges(true);
-            }}
-          />
-          <InsuranceDiscountsCard
-            value={data.insuranceDiscounts}
-            isSuperAdmin={isSuperAdmin}
-            onChange={(insuranceDiscounts) => {
-              setData((d) => ({ ...d, insuranceDiscounts }));
-              setHasChanges(true);
-            }}
-          />
-        </div>
-      </div>
+      {/* Section 1: Statutory Deduction Limits */}
+      <section className="space-y-4">
+        <StatutoryDeductionLimitsCard
+          value={data.statutoryDeductionLimits}
+          onChange={(statutoryDeductionLimits) => {
+            setData((d) => ({ ...d, statutoryDeductionLimits }));
+            setHasChanges(true);
+          }}
+        />
+      </section>
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Grade &amp; Promotion Policy (ग्रेड तथा पदोन्नति व्यवस्था)
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Configure statutory grade calculation methodology, basic salary multiplier, and promotion pay protection
-          </p>
-        </div>
+      {/* Section 2: Insurance Deductions & Tax Rebates */}
+      <section className="space-y-4">
+        <InsuranceDiscountsCard
+          value={data.insuranceDiscounts}
+          isSuperAdmin={isSuperAdmin}
+          onChange={(insuranceDiscounts) => {
+            setData((d) => ({ ...d, insuranceDiscounts }));
+            setHasChanges(true);
+          }}
+        />
+      </section>
+
+      {/* Section 3: Grade Calculation & Promotion Policy */}
+      <section className="space-y-4">
         <GradePolicyCard
           value={data.gradePolicy}
           onChange={(gradePolicy) => {
@@ -194,36 +205,28 @@ export function SystemControlClient({
             setHasChanges(true);
           }}
         />
-      </div>
+      </section>
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Attendance &amp; Payroll Operations
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Fallback calculations when regular daily attendance is unposted
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ManualAttendanceCard
-            value={data.manualAttendance}
-            onChange={(manualAttendance) => {
-              setData((d) => ({ ...d, manualAttendance }));
-              setHasChanges(true);
-            }}
-          />
-        </div>
+      {/* Section 4: Manual Attendance Fallback */}
+      <section className="space-y-4">
+        <ManualAttendanceCard
+          value={data.manualAttendance}
+          onChange={(manualAttendance) => {
+            setData((d) => ({ ...d, manualAttendance }));
+            setHasChanges(true);
+          }}
+        />
+      </section>
+
+      {/* Bottom Save Action */}
+      <div className="flex items-center justify-end pt-4 border-t border-slate-200/80">
+        {saveButton}
       </div>
-      
-      <div className="flex shrink-0 items-center justify-end pt-2">
-        <DataSaveButton onClick={handleSave} isSaving={isSaving} />
-      </div>
-    </>
+    </div>
   );
 
   if (embedded) {
-    return <div className="space-y-6">{content}</div>;
+    return content;
   }
 
   return (

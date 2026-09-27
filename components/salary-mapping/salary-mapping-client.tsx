@@ -485,9 +485,9 @@ function UnmappedEmployeesTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+      <table className="w-full border-collapse text-xs">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             <th className="px-4 py-3">Employee</th>
             <th className="px-4 py-3">Department</th>
             <th className="px-4 py-3">Branch</th>
@@ -495,30 +495,30 @@ function UnmappedEmployeesTable({
             <th className="px-4 py-3 text-center">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {employees.map((emp) => (
             <tr
               key={emp.id}
-              className="border-b border-payroll-light/60 transition-colors hover:bg-amber-50/30"
+              className="hover:bg-zinc-50/60 transition-colors"
             >
-              <td className="px-4 py-3">
+              <td className="px-4 py-3.5">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-payroll-navy">
+                  <span className="font-medium text-zinc-900">
                     {emp.fullName}
                   </span>
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] font-mono text-zinc-400">
                     {emp.employeeCode}
                   </span>
                 </div>
               </td>
-              <td className="px-4 py-3 text-gray-600">{emp.departmentName}</td>
-              <td className="px-4 py-3 text-gray-600">{emp.branchName}</td>
-              <td className="px-4 py-3 text-gray-600">{emp.designationName}</td>
-              <td className="px-4 py-3 text-center">
+              <td className="px-4 py-3.5 text-zinc-600">{emp.departmentName}</td>
+              <td className="px-4 py-3.5 text-zinc-600">{emp.branchName}</td>
+              <td className="px-4 py-3.5 text-zinc-600">{emp.designationName}</td>
+              <td className="px-4 py-3.5 text-center">
                 <button
                   type="button"
                   onClick={() => onAddMapping(emp.id)}
-                  className="inline-flex items-center gap-1 rounded-md bg-payroll-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-payroll-navy"
+                  className="inline-flex items-center gap-1 rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-800 cursor-pointer"
                 >
                   <Plus className="h-3 w-3" />
                   Add Mapping

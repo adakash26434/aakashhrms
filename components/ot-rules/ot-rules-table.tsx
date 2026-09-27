@@ -31,7 +31,7 @@ function SortHeader({
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-gray-500 transition-colors hover:text-[#1b3a1f]"
+        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-900"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -87,11 +87,11 @@ export function OtRulesTable({ rules, onEdit, onDelete }: OtRulesTableProps) {
 
   if (rules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#d7e8d0] bg-white py-16">
-        <p className="text-sm font-medium text-gray-500">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 py-16 text-center">
+        <p className="text-sm font-medium text-zinc-600">
           No overtime rules yet
         </p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-zinc-400">
           Create your first OT rule to get started.
         </p>
       </div>
@@ -99,10 +99,10 @@ export function OtRulesTable({ rules, onEdit, onDelete }: OtRulesTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#d7e8d0]/80 bg-white shadow-sm my-8">
-      <table className="w-full min-w-150 text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-160 text-left text-sm">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             <SortHeader
               label="Rule Name"
               onClick={() => toggleSort("ruleName")}
@@ -117,38 +117,67 @@ export function OtRulesTable({ rules, onEdit, onDelete }: OtRulesTableProps) {
               onClick={() => toggleSort("rateOffDay")}
             />
             <SortHeader label="Status" onClick={() => toggleSort("isActive")} />
+            <th scope="col" className="px-4 py-3 text-right font-semibold">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-500">
+                Actions
+              </span>
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {sortedRules.map((rule) => (
             <tr
               key={rule.id}
-              className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-[#f6faf6]/50"
+              className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60"
             >
-              <td className="px-4 py-3 align-middle">
-                <div className="font-medium text-[#1b3a1f]">
+              <td className="px-4 py-4 align-middle">
+                <div className="font-medium text-zinc-900">
                   {rule.ruleName}
                 </div>
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <Badge variant="neutral">{formatRuleType(rule.ruleType)}</Badge>
               </td>
-              <td className="px-4 py-3 align-middle font-medium text-gray-700">
+              <td className="px-4 py-4 align-middle font-medium text-zinc-800">
                 {formatOtRate(rule.rateOfficeDay, rule.ruleType)}
               </td>
-              <td className="px-4 py-3 align-middle font-medium text-gray-700">
+              <td className="px-4 py-4 align-middle font-medium text-zinc-800">
                 {formatOtRate(rule.rateOffDay, rule.ruleType)}
               </td>
-              <td className="px-4 py-3 align-middle">
-                <div className="flex items-center gap-1.5">
+              <td className="px-4 py-4 align-middle">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium border ${
+                    rule.isActive
+                      ? "border-emerald-200/50 bg-emerald-50/70 text-emerald-800"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                  }`}
+                >
                   <Circle
-                    className={`h-2.5 w-2.5 ${rule.isActive ? "fill-emerald-500 text-emerald-500" : "fill-gray-300 text-gray-300"}`}
+                    className={`h-1.5 w-1.5 ${
+                      rule.isActive ? "fill-emerald-600 text-emerald-600" : "fill-zinc-400 text-zinc-400"
+                    }`}
                   />
-                  <span
-                    className={`text-xs ${rule.isActive ? "text-emerald-700" : "text-gray-400"}`}
+                  {rule.isActive ? "Active" : "Inactive"}
+                </span>
+              </td>
+              <td className="px-4 py-4 text-right align-middle">
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(rule)}
+                    className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                    title="Edit rule"
                   >
-                    {rule.isActive ? "Active" : "Inactive"}
-                  </span>
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(rule)}
+                    className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    title="Delete rule"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </td>
             </tr>

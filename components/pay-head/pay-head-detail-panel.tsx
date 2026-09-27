@@ -156,34 +156,28 @@ function ApplicabilityGroup({
   label,
   ids,
   nameById,
-  totalCount,
-  emptyLabel,
 }: {
   label: string;
   ids: string[];
   nameById: Map<string, string>;
-  totalCount: number;
-  emptyLabel: string;
+  totalCount?: number;
+  emptyLabel?: string;
 }) {
-  // We ONLY show the generic "All" label if the array is genuinely empty (legacy fallback).
-  // If there are specific IDs (even if it's all of them), we will list them out!
-  const isLegacyAll = ids.length === 0;
-  const visibleNames = isLegacyAll ? [] : ids.map((id) => nameById.get(id) ?? id);
+  // Always list all applicable department/designation names clearly as individual chips.
+  // If ids contains specific IDs, resolve them to real names.
+  // If ids is empty (meaning all departments/designations apply), resolve to all available real names.
+  const visibleNames =
+    ids && ids.length > 0
+      ? ids.map((id) => nameById.get(id) ?? id)
+      : Array.from(nameById.values());
 
   return (
     <div>
       <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-500">
         {label}
       </p>
-      {isLegacyAll ? (
-        <div className="flex items-center gap-1.5">
-          <span className="rounded-md border border-[#2e7d32]/20 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-            {emptyLabel}
-          </span>
-          <span className="rounded bg-[#d7e8d0]/60 px-1.5 py-0.5 text-[10px] font-semibold text-[#1b3a1f] tabular-nums">
-            +{totalCount}
-          </span>
-        </div>
+      {visibleNames.length === 0 ? (
+        <span className="text-xs text-slate-400 italic">None assigned</span>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {visibleNames.map((name, idx) => (

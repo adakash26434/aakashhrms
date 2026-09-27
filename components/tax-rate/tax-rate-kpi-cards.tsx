@@ -2,28 +2,12 @@ import { Layers, TrendingUp, ListChecks } from "lucide-react";
 import { formatRateLabel, type TaxSlab } from "@/lib/types/tax-rate";
 
 interface TaxRateKpiCardsProps {
-  /** All slabs for the currently selected FY (across categories). */
   slabs: TaxSlab[];
-  /** Highest marginal rate for the selected FY (pre-computed via engine). */
   highestRate: number;
-  /** Number of categories with at least one slab (pre-computed via engine). */
   configuredCount: number;
-  /** Total possible categories. Defaults to 4 (TAX_CATEGORIES.length). */
   totalCategories: number;
 }
 
-/**
- * Three KPI cards at the bottom of the Tax Rate Setup page:
- *   1. Active Slabs         — `slabs.length`
- *   2. Highest Rate         — `formatRateLabel(highestRate)`
- *   3. Categories Configured — `${configuredCount} of ${totalCategories}`
- *
- * The first metric is computed inline (a `.length` is trivial). The
- * latter two are pre-computed by the parent using the **engine** —
- * this keeps the engine as the single source of truth for the
- * computation rules and lets the same numbers be reused elsewhere
- * (e.g. an analytics dashboard) without re-implementing the logic.
- */
 export function TaxRateKpiCards({
   slabs,
   highestRate,
@@ -33,60 +17,57 @@ export function TaxRateKpiCards({
   const activeSlabs = slabs.length;
   const hasSlabs = activeSlabs > 0;
 
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <KpiCard
-        icon={<Layers className="h-5 w-5 text-[#2e7d32]" />}
-        label="Active Slabs"
-        value={`${activeSlabs} ${activeSlabs === 1 ? "slab" : "slabs"}`}
-        tone="blue"
-      />
-      <KpiCard
-        icon={<TrendingUp className="h-5 w-5 text-emerald-600" />}
-        label="Highest Rate"
-        value={hasSlabs ? formatRateLabel(highestRate) : "—"}
-        tone="emerald"
-      />
-      <KpiCard
-        icon={<ListChecks className="h-5 w-5 text-violet-600" />}
-        label="Categories Configured"
-        value={`${configuredCount} of ${totalCategories}`}
-        tone="violet"
-      />
-    </div>
-  );
-}
-
-interface KpiCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  /** Tints the icon background. Purely decorative. */
-  tone: "blue" | "emerald" | "violet";
-}
-
-function KpiCard({ icon, label, value, tone }: KpiCardProps) {
-  const toneBg: Record<KpiCardProps["tone"], string> = {
-    blue: "bg-green-50",
-    emerald: "bg-emerald-50",
-    violet: "bg-violet-50",
-  };
+  const metrics = [
+    {
+      label: "Active tax slabs",
+      value: `${activeSlabs} ${activeSlabs === 1 ? "slab" : "slabs"}`,
+      subtext: "Configured brackets for fiscal year",
+      icon: Layers,
+      iconColor: "text-zinc-400",
+    },
+    {
+      label: "Highest marginal rate",
+      value: hasSlabs ? formatRateLabel(highestRate) : "—",
+      subtext: "Top progressive statutory bracket",
+      icon: TrendingUp,
+      iconColor: "text-emerald-700",
+    },
+    {
+      label: "Configured categories",
+      value: `${configuredCount} of ${totalCategories}`,
+      subtext: "Marital & resident tax classifications",
+      icon: ListChecks,
+      iconColor: "text-zinc-600",
+    },
+  ];
 
   return (
-    <div className="rounded-xl border border-[#d7e8d0]/80 bg-white p-5">
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${toneBg[tone]}`}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-            {label}
-          </p>
-          <p className="mt-0.5 text-xl font-semibold text-[#1b3a1f]">{value}</p>
-        </div>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
+        return (
+          <div
+            key={m.label}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

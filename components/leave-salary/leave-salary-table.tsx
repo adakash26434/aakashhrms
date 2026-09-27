@@ -78,9 +78,9 @@ export function LeaveSalaryTable({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DRAFT":
-        return <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-700"><Clock className="h-3 w-3" />Draft</span>;
+        return <span className="inline-flex items-center gap-1 rounded border border-amber-200/50 bg-amber-50/70 px-2 py-0.5 text-xs font-medium text-amber-800"><Clock className="h-3 w-3" />Draft</span>;
       case "PAID":
-        return <span className="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CheckCircle className="h-3 w-3" />Paid</span>;
+        return <span className="inline-flex items-center gap-1 rounded border border-emerald-200/50 bg-emerald-50/70 px-2 py-0.5 text-xs font-medium text-emerald-800"><CheckCircle className="h-3 w-3" />Paid</span>;
       default:
         return null;
     }
@@ -88,12 +88,12 @@ export function LeaveSalaryTable({
 
   const getEncashmentTypeBadge = (type: EncashmentType) => {
     const colors: Record<EncashmentType, string> = {
-      VOLUNTARY: "bg-green-50 text-green-700 border-green-200",
-      ANNUAL_EXCESS: "bg-amber-50 text-amber-700 border-amber-200",
-      TERMINATION: "bg-purple-50 text-purple-700 border-purple-200",
+      VOLUNTARY: "border-emerald-200/50 bg-emerald-50/70 text-emerald-800",
+      ANNUAL_EXCESS: "border-amber-200/50 bg-amber-50/70 text-amber-800",
+      TERMINATION: "border-purple-200/50 bg-purple-50/70 text-purple-800",
     };
     return (
-      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-semibold ${colors[type]}`}>
+      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${colors[type]}`}>
         {ENCASHMENT_TYPE_LABELS[type] || type}
       </span>
     );
@@ -101,12 +101,12 @@ export function LeaveSalaryTable({
 
   const getPaymentMethodBadge = (method: PaymentMethod) => {
     const styles: Record<PaymentMethod, string> = {
-      BANK_TRANSFER: "bg-sky-50 text-sky-700 border-sky-200",
-      CHEQUE: "bg-green-50 text-green-700 border-green-200",
-      CASH: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      BANK_TRANSFER: "border-sky-200/50 bg-sky-50/70 text-sky-800",
+      CHEQUE: "border-zinc-200/60 bg-zinc-50 text-zinc-700",
+      CASH: "border-emerald-200/50 bg-emerald-50/70 text-emerald-800",
     };
     return (
-      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-medium ${styles[method] || "bg-gray-50 text-gray-700"}`}>
+      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${styles[method] || "border-zinc-200/60 bg-zinc-50 text-zinc-700"}`}>
         {PAYMENT_METHOD_LABELS[method] || method}
       </span>
     );
@@ -164,24 +164,24 @@ export function LeaveSalaryTable({
 
   return (
     <>
-      <div className="overflow-x-auto rounded-lg border border-[#d7e8d0] bg-white shadow-sm">
+      <div className="overflow-x-auto w-full">
         <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6] text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              <th className="px-4 py-3.5">Employee</th>
-              <th className="px-4 py-3.5">Leave Type</th>
-              <th className="px-4 py-3.5">Type</th>
-              <th className="px-4 py-3.5 text-center">Days</th>
-              <th className="px-4 py-3.5 text-right font-medium">Per Day Rate</th>
-              <th className="px-4 py-3.5 text-right font-bold">Total Amount</th>
-              <th className="px-4 py-3.5">Payment Method</th>
-              <th className="px-4 py-3.5">Period</th>
-              <th className="px-4 py-3.5">Approved By</th>
-              <th className="px-4 py-3.5">Status</th>
-              <th className="px-4 py-3.5 text-right">Actions</th>
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <th className="px-4 py-4">Employee</th>
+              <th className="px-4 py-4">Leave Type</th>
+              <th className="px-4 py-4">Type</th>
+              <th className="px-4 py-4 text-center">Days</th>
+              <th className="px-4 py-4 text-right font-medium">Per Day Rate</th>
+              <th className="px-4 py-4 text-right font-semibold">Total Amount</th>
+              <th className="px-4 py-4">Payment Method</th>
+              <th className="px-4 py-4">Period</th>
+              <th className="px-4 py-4">Approved By</th>
+              <th className="px-4 py-4">Status</th>
+              <th className="px-4 py-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-zinc-200">
             {runs.map((run) => {
               const empName = employees.find((e) => e.id === run.employeeId)?.name || "Unknown";
               const ltName = leaveTypes.find((t) => t.id === run.leaveTypeId)?.name || "Unknown";
@@ -190,51 +190,51 @@ export function LeaveSalaryTable({
               return (
                 <tr
                   key={run.id}
-                  className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-[#f6faf6]/30"
+                  className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60"
                 >
-                  <td className="px-4 py-3.5 font-semibold text-[#1b3a1f]">
+                  <td className="px-4 py-4 font-medium text-zinc-950">
                     {empName}
                   </td>
-                  <td className="px-4 py-3.5 text-xs text-gray-500">
+                  <td className="px-4 py-4 text-xs text-zinc-500">
                     {ltName}
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-4">
                     {getEncashmentTypeBadge(run.encashmentType)}
                   </td>
-                  <td className="px-4 py-3.5 text-center tabular-nums font-semibold text-[#1b3a1f]">
+                  <td className="px-4 py-4 text-center tabular-nums font-medium text-zinc-950">
                     {run.leaveDays}
                   </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums text-gray-600">
+                  <td className="px-4 py-4 text-right tabular-nums text-zinc-600">
                     Rs. {Number(run.perDayRate).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-4 py-3.5 text-right font-bold tabular-nums text-emerald-600">
+                  <td className="px-4 py-4 text-right font-semibold tabular-nums text-emerald-800">
                     Rs. {Number(run.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-4">
                     {getPaymentMethodBadge(run.paymentMethod)}
                   </td>
-                  <td className="px-4 py-3.5 text-xs font-medium text-gray-600">
+                  <td className="px-4 py-4 text-xs font-medium text-zinc-600">
                     {run.paymentPeriod}
                   </td>
-                  <td className="px-4 py-3.5 text-xs text-gray-500">
+                  <td className="px-4 py-4 text-xs text-zinc-500">
                     {run.status === "PAID" ? (
-                      <span className="inline-flex items-center gap-1 font-medium text-gray-700">
+                      <span className="inline-flex items-center gap-1 font-medium text-zinc-700">
                         {approver}
                       </span>
                     ) : (
-                      <span className="text-gray-400 italic">Pending Approval</span>
+                      <span className="text-zinc-400 italic">Pending Approval</span>
                     )}
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-4">
                     {getStatusBadge(run.status)}
                   </td>
-                  <td className="px-4 py-3.5 text-right">
+                  <td className="px-4 py-4 text-right">
                     {run.status === "DRAFT" ? (
                       <div className="flex items-center justify-end gap-1.5">
                         {permissions.canApprove && (
                           <button
                             onClick={() => onPay(run.id)}
-                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                            className="inline-flex items-center gap-1 rounded border border-emerald-200/50 bg-emerald-50/70 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100 transition-colors"
                             title="Approve & Pay"
                           >
                             <CreditCard className="h-3.5 w-3.5" />
@@ -244,7 +244,7 @@ export function LeaveSalaryTable({
                         {permissions.canEdit && onEdit && (
                           <button
                             onClick={() => openEditModal(run)}
-                            className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors"
+                            className="inline-flex items-center gap-1 rounded border border-zinc-200/60 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors"
                             title="Edit draft record"
                           >
                             <Edit className="h-3.5 w-3.5" />
@@ -253,7 +253,7 @@ export function LeaveSalaryTable({
                         {permissions.canDelete && (
                           <button
                             onClick={() => setDeleteConfirmId(run.id)}
-                            className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                            className="inline-flex items-center gap-1 rounded border border-rose-200/50 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
                             title="Delete draft record"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -264,10 +264,10 @@ export function LeaveSalaryTable({
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setViewingRun(run)}
-                          className="inline-flex items-center gap-1 rounded-md border border-[#d7e8d0] bg-white px-2.5 py-1 text-xs font-semibold text-[#1b3a1f] hover:bg-[#f6faf6] hover:border-[#2e7d32] transition-all shadow-sm"
+                          className="inline-flex items-center gap-1 rounded border border-zinc-200/60 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors"
                           title="View Record Details"
                         >
-                          <Eye className="h-3.5 w-3.5 text-[#2e7d32]" />
+                          <Eye className="h-3.5 w-3.5" />
                           View
                         </button>
                       </div>

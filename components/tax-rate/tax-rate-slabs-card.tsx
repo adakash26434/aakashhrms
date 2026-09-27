@@ -31,7 +31,7 @@ export function TaxRateSlabsCard({
 }: TaxRateSlabsCardProps) {
   return (
     <TableShell
-      title={`${category} — Tax Slabs (${fiscalYearLabel})`}
+      title={`${category} tax brackets (${fiscalYearLabel})`}
       totalCount={slabs.length}
       actions={
         <Button
@@ -40,15 +40,15 @@ export function TaxRateSlabsCard({
           size="sm"
           disabled={isLocked}
           title={isLocked ? LOCKED_NEW_SLAB_TOOLTIP : undefined}
-          className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+          className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
         >
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          <span>New Slab</span>
+          <Plus className="h-3.5 w-3.5" />
+          <span>Add tax slab</span>
         </Button>
       }
       isEmpty={slabs.length === 0}
       emptyTitle={`No tax slabs for ${category}`}
-      emptyDescription={`No slabs configured for ${fiscalYearLabel}. Click 'New Slab' to add the first progressive bracket.`}
+      emptyDescription={`No slabs configured for ${fiscalYearLabel}. Click 'Add tax slab' to configure the first progressive rate bracket.`}
     >
       <TaxRateSlabsTable
         slabs={slabs}

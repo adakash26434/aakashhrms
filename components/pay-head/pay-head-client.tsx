@@ -249,39 +249,67 @@ export function PayHeadClient({ initialData, embedded = false }: PayHeadClientPr
       />
 
       {embedded ? (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-payroll-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pb-5 border-b border-slate-200/80">
           <div>
-            <h3 className="text-base font-semibold text-payroll-navy">Pay Heads Configuration</h3>
-            <p className="text-xs text-payroll-slate">Allowance and deduction heads with calculation rules, tax effects, and compliance flags.</p>
+            <h2 className="text-lg font-semibold text-slate-900 tracking-tight">
+              Salary pay heads
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Allowance and deduction components with calculation rules, taxable status, and statutory compliance flags.
+            </p>
           </div>
           <Button
             type="button"
             onClick={handleOpenCreate}
-            size="md"
-            className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+            size="sm"
+            className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0"
           >
-            <Plus className="h-4 w-4 mr-1.5" />
-            <span>New Pay Head</span>
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add pay head</span>
           </Button>
         </div>
       ) : (
         <PageHeader
-          title="Pay Heads Master"
+          title="Salary pay heads master"
           description="Configure salary allowance and deduction heads with calculation rules, tax effects, statutory compliance flags, and organizational applicability."
         >
           <Button
             type="button"
             onClick={handleOpenCreate}
-            size="md"
-            className="bg-payroll-primary text-white hover:bg-payroll-navy font-semibold shadow-xs"
+            size="sm"
+            className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
           >
-            <Plus className="h-4 w-4 mr-1.5" />
-            <span>New Pay Head</span>
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add pay head</span>
           </Button>
         </PageHeader>
       )}
 
-      <KpiStrip metrics={kpiMetrics} columns={4} />
+      {embedded ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600 bg-slate-50/80 px-4 py-2.5 rounded-lg border border-slate-200/80">
+          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+            <span className="text-slate-400">Total heads:</span>
+            <span className="font-semibold text-slate-900">{counts.total}</span>
+          </div>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <div>
+            <span className="text-slate-400">Allowances:</span>{" "}
+            <strong className="text-slate-900 font-semibold">{counts.allowances}</strong>
+          </div>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <div>
+            <span className="text-slate-400">Deductions:</span>{" "}
+            <strong className="text-slate-900 font-semibold">{counts.deductions}</strong>
+          </div>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <div>
+            <span className="text-slate-400">Statutory mandatory:</span>{" "}
+            <strong className="text-slate-900 font-semibold">{counts.statutory}</strong>
+          </div>
+        </div>
+      ) : (
+        <KpiStrip metrics={kpiMetrics} columns={4} />
+      )}
 
       <PayHeadSearchAndTabs
         search={search}
@@ -301,7 +329,7 @@ export function PayHeadClient({ initialData, embedded = false }: PayHeadClientPr
         onDelete={handleOpenDelete}
       />
 
-      <HowPayHeadsWork />
+      {!embedded && <HowPayHeadsWork />}
 
       <PayHeadDetailPanel
         open={Boolean(viewingHead)}

@@ -1,4 +1,3 @@
-import { TableShell } from "@/components/ui/table-shell";
 import type { PayHead } from "@/lib/types/pay-head";
 import { PayHeadsTable } from "./pay-heads-table";
 
@@ -20,13 +19,7 @@ export function PayHeadsCard({
   onDelete,
 }: PayHeadsCardProps) {
   return (
-    <TableShell
-      title="Salary & Pay Heads Registry"
-      totalCount={heads.length}
-      isEmpty={heads.length === 0}
-      emptyTitle="No pay heads found"
-      emptyDescription="Try adjusting your search query or type filter."
-    >
+    <div className="rounded-xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
       <PayHeadsTable
         heads={heads}
         departmentNameById={departmentNameById}
@@ -35,6 +28,6 @@ export function PayHeadsCard({
         onEdit={onEdit}
         onDelete={onDelete}
       />
-    </TableShell>
+    </div>
   );
 }

@@ -227,120 +227,128 @@ export function LoanReportClient({
   }, [singleEmployeeRow, reportData, activeReportData]);
 
   return (
-    <PageFrame size="wide" spacing="default">
-      {/* Canonical Standard Page Header */}
-      <PageHeader
-        title="Loan & Repayment Statements"
-        description="Employee loan disbursement summaries, outstanding principal balances, and transaction recovery ledgers."
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Staff Credit Recovery</span>
-          </span>
-        </div>
-      </PageHeader>
+    <PageFrame size="wide" spacing="default" className="print:space-y-0">
+      {/* Canonical Standard Page Header — screen only */}
+      <div className="print:hidden">
+        <PageHeader
+          title="Loan & Repayment Statements"
+          description="Employee loan disbursement summaries, outstanding principal balances, and transaction recovery ledgers."
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Staff credit recovery</span>
+            </span>
+          </div>
+        </PageHeader>
+      </div>
 
-      {/* Filter Bar with Loan Type and Designation Enabled */}
-      <ReportFilterBar
-        lookupData={initialLookups}
-        showBranchFilter={true}
-        showDepartmentFilter={true}
-        showDesignationFilter={true}
-        showLoanTypeFilter={true}
-        showEmployeeFilter={true}
-        showSearchFilter={true}
-        onFilterChange={(newFilters: ReportFilterState) => {
-          const nextFilter: LoanReportFilter = {
-            status: "ALL",
-            branchId: newFilters.branchId || "",
-            departmentId: newFilters.departmentId || "",
-            loanTypeId: newFilters.loanTypeId || "",
-            employeeSearch: newFilters.search || "",
-          };
-          setFilter(nextFilter);
-          setSelectedEmployeeId(newFilters.employeeId || "");
-          setSingleEmployeeRow(null);
-          handleApplyFilter(nextFilter);
-        }}
-        isLoading={isPending}
-      />
+      {/* Filter Bar — screen only */}
+      <div className="print:hidden">
+        <ReportFilterBar
+          lookupData={initialLookups}
+          showBranchFilter={true}
+          showDepartmentFilter={true}
+          showDesignationFilter={true}
+          showLoanTypeFilter={true}
+          showEmployeeFilter={true}
+          showSearchFilter={true}
+          onFilterChange={(newFilters: ReportFilterState) => {
+            const nextFilter: LoanReportFilter = {
+              status: "ALL",
+              branchId: newFilters.branchId || "",
+              departmentId: newFilters.departmentId || "",
+              loanTypeId: newFilters.loanTypeId || "",
+              employeeSearch: newFilters.search || "",
+            };
+            setFilter(nextFilter);
+            setSelectedEmployeeId(newFilters.employeeId || "");
+            setSingleEmployeeRow(null);
+            handleApplyFilter(nextFilter);
+          }}
+          isLoading={isPending}
+        />
+      </div>
 
-      {/* Error Message */}
+      {/* Error Message — screen only */}
       {errorMessage && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3.5 text-xs font-medium text-rose-700 print:hidden">
           {errorMessage}
         </div>
       )}
 
-      {/* Executive KPI Summary Widgets */}
+      {/* Executive KPI Summary Metrics — screen only, never printed */}
       {activeReportData && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-payroll-primary/10 p-2.5 text-payroll-primary">
-                <CreditCard className="h-5 w-5" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2 print:hidden">
+          {/* Total Loans Count */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total loans count</p>
+                <CreditCard className="h-4 w-4 text-zinc-400" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Total Loans Count</p>
-                <p className="text-lg font-bold text-payroll-navy">
-                  {activeReportData.totalLoansCount}{" "}
-                  <span className="text-xs font-medium text-gray-400">
-                    ({activeReportData.activeLoansCount} active)
-                  </span>
-                </p>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {activeReportData.totalLoansCount}
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {activeReportData.activeLoansCount} active facilities
             </div>
           </div>
 
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-green-100 p-2.5 text-green-700">
-                <Banknote className="h-5 w-5" />
+          {/* Total Disbursed Principal */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total disbursed principal</p>
+                <Banknote className="h-4 w-4 text-emerald-700" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Total Disbursed Principal</p>
-                <p className="text-lg font-bold font-mono text-green-700">
-                  NPR{" "}
-                  {Number(activeReportData.totalDisbursedAmount).toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  NPR {Number(activeReportData.totalDisbursedAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Cumulative disbursed across scope
             </div>
           </div>
 
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700">
-                <DollarSign className="h-5 w-5" />
+          {/* Total Recovered */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total recovered</p>
+                <DollarSign className="h-4 w-4 text-zinc-600" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Total Recovered</p>
-                <p className="text-lg font-bold font-mono text-emerald-800">
-                  NPR{" "}
-                  {Number(activeReportData.totalReturnedAmount).toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  NPR {Number(activeReportData.totalReturnedAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Reimbursed to date
             </div>
           </div>
 
-          <div className="rounded-2xl border border-payroll-light/80 bg-white p-4 shadow-payroll-xs">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-rose-100 p-2.5 text-rose-700">
-                <TrendingDown className="h-5 w-5" />
+          {/* Outstanding Balance */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Outstanding balance</p>
+                <TrendingDown className="h-4 w-4 text-zinc-600" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-500">Outstanding Principal</p>
-                <p className="text-lg font-bold font-mono text-rose-800">
-                  NPR{" "}
-                  {Number(activeReportData.totalRemainingBalance).toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  NPR {Number(activeReportData.totalRemainingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Principal recovery pending
             </div>
           </div>
         </div>
@@ -361,25 +369,25 @@ export function LoanReportClient({
             hasData={Boolean(activeReportData)}
             meta={
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
-                  Total Loans: {activeReportData.totalLoansCount}
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                  Total loans: {activeReportData.totalLoansCount}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
                   Active: {activeReportData.activeLoansCount}
                 </span>
               </div>
             }
           >
             {/* Sub-Tab Selector */}
-            <div className="inline-flex rounded-xl border border-payroll-light bg-payroll-cream p-1 shadow-payroll-xs">
+            <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100/70 p-0.5">
               <button
                 type="button"
                 onClick={() => setLoanTab("DISBURSEMENTS")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   loanTab === "DISBURSEMENTS"
-                    ? "bg-payroll-primary text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
                 Disbursements ({activeReportData.summaryRows.length})
@@ -388,10 +396,10 @@ export function LoanReportClient({
                 type="button"
                 onClick={() => setLoanTab("REPAYMENTS")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   loanTab === "REPAYMENTS"
-                    ? "bg-emerald-600 text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
                 Repayments ({activeReportData.repaymentRows.length})
@@ -400,13 +408,13 @@ export function LoanReportClient({
                 type="button"
                 onClick={() => setLoanTab("SUMMARY")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                  "rounded px-2.5 py-1 text-xs font-medium transition-all",
                   loanTab === "SUMMARY"
-                    ? "bg-payroll-navy text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:text-payroll-navy"
+                    ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                    : "text-zinc-600 hover:text-zinc-900"
                 )}
               >
-                Summary Ledger ({activeReportData.summaryRows.length})
+                Summary ledger ({activeReportData.summaryRows.length})
               </button>
             </div>
           </ReportActionToolbar>

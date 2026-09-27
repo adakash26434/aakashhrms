@@ -309,8 +309,8 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
           </p>
           <div className="mt-5">
             <a
-              href="/setup/payroll-rules?tab=fiscal-year"
-              className="inline-flex items-center justify-center rounded-lg bg-payroll-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-payroll-navy"
+              href="/setup/company-setup?section=fiscal_year"
+              className="inline-flex items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-emerald-800"
             >
               Set Up Fiscal Years
             </a>
@@ -330,20 +330,22 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
       />
 
       {embedded ? (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pb-5 border-b border-slate-200/80">
           <div>
-            <h2 className="text-base font-bold text-payroll-navy">Progressive Tax Slabs</h2>
-            <p className="text-xs text-muted-foreground">
-              Configure slab-based TDS rates for {selectedFY?.label ?? "the selected fiscal year"} across Normal Single, Married, and Handicapped categories.
+            <h2 className="text-lg font-semibold text-slate-900 tracking-tight">
+              Progressive tax brackets
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Progressive slab-based TDS thresholds for {selectedFY?.label ?? "the selected cycle"} across Individual Single, Married, and Handicapped categories.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
             <DropdownMenu<string>
               value={selectedFYId}
               onChange={setSelectedFYId}
               options={fyDropdownOptions}
               ariaLabel="Select fiscal year"
-              minWidth={240}
+              minWidth={220}
               renderTrigger={({ open, selected, triggerRef, toggle }) => (
                 <button
                   ref={triggerRef}
@@ -351,16 +353,14 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
                   onClick={toggle}
                   aria-haspopup="listbox"
                   aria-expanded={open}
-                  className="inline-flex items-center gap-2 rounded-lg border border-payroll-light bg-white px-3 py-2 text-xs font-medium text-payroll-navy shadow-xs transition-colors hover:bg-payroll-cream focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
+                  className="h-9 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 shadow-xs transition-colors hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-800 cursor-pointer"
                 >
-                  <Percent className="h-4 w-4 text-payroll-primary" />
-                  <span className="text-gray-500">FY</span>
-                  <span className="text-xs font-bold text-payroll-navy">
+                  <span className="text-slate-400">Fiscal year:</span>
+                  <span className="font-semibold text-slate-900">
                     {selected?.label ?? "Select year"}
                   </span>
-                  {selected?.adornment}
                   <ChevronDown
-                    className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+                    className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
                       open ? "rotate-180" : ""
                     }`}
                   />
@@ -371,7 +371,7 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
         </div>
       ) : (
         <PageHeader
-          title="Tax Rates & Slabs Setup"
+          title="Tax brackets &amp; TDS setup"
           description={`Configure progressive TDS slabs, marginal thresholds, and deduction rates for ${selectedFY?.label ?? "the selected fiscal year"}.`}
         >
           <DropdownMenu<string>
@@ -379,7 +379,7 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
             onChange={setSelectedFYId}
             options={fyDropdownOptions}
             ariaLabel="Select fiscal year"
-            minWidth={260}
+            minWidth={220}
             renderTrigger={({ open, selected, triggerRef, toggle }) => (
               <button
                 ref={triggerRef}
@@ -387,16 +387,14 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
                 onClick={toggle}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                className="inline-flex items-center gap-2 rounded-lg border border-payroll-light bg-white px-3 py-2 text-xs font-medium text-payroll-navy shadow-xs transition-colors hover:bg-payroll-cream focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
+                className="h-9 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 shadow-xs transition-colors hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-800 cursor-pointer"
               >
-                <Percent className="h-4 w-4 text-payroll-primary" />
-                <span className="text-gray-500">FY</span>
-                <span className="text-xs font-bold text-payroll-navy">
+                <span className="text-slate-400">Fiscal year:</span>
+                <span className="font-semibold text-slate-900">
                   {selected?.label ?? "Select year"}
                 </span>
-                {selected?.adornment}
                 <ChevronDown
-                  className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+                  className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
                     open ? "rotate-180" : ""
                   }`}
                 />
@@ -406,7 +404,40 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
         </PageHeader>
       )}
 
-      <KpiStrip metrics={kpiMetrics} columns={4} />
+      {embedded ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600 bg-slate-50/80 px-4 py-2.5 rounded-lg border border-slate-200/80">
+          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+            <span className="text-slate-400">Active period:</span>
+            <span className="font-semibold text-slate-900">{selectedFY?.label ?? "None selected"}</span>
+            {isLocked ? (
+              <span className="rounded bg-amber-50 px-1.5 py-0.2 text-[10px] font-mono font-medium text-amber-800 border border-amber-200">
+                Locked
+              </span>
+            ) : (
+              <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-mono font-medium text-emerald-800 border border-emerald-200/60">
+                Editable
+              </span>
+            )}
+          </div>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <div>
+            <span className="text-slate-400">Configured slabs:</span>{" "}
+            <strong className="text-slate-900 font-semibold">{slabsForKpi.length}</strong>
+          </div>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <div>
+            <span className="text-slate-400">Categories defined:</span>{" "}
+            <strong className="text-slate-900 font-semibold">{configuredCount} of {TAX_CATEGORIES.length}</strong>
+          </div>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <div>
+            <span className="text-slate-400">Top rate:</span>{" "}
+            <strong className="text-emerald-900 font-semibold">{highestRate > 0 ? formatRateLabel(highestRate) : "—"}</strong>
+          </div>
+        </div>
+      ) : (
+        <KpiStrip metrics={kpiMetrics} columns={4} />
+      )}
 
       <TaxRateTabs
         active={activeCategory}

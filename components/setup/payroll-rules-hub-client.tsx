@@ -79,6 +79,8 @@ interface PayrollRulesHubClientProps {
   payHeadData?: PayHeadData | null;
   systemControlData?: SystemControlData | null;
   isSuperAdmin?: boolean;
+  embedded?: boolean;
+  onSubTabChange?: (tab: PayrollRuleTab) => void;
 }
 
 export function PayrollRulesHubClient({
@@ -89,6 +91,8 @@ export function PayrollRulesHubClient({
   payHeadData,
   systemControlData,
   isSuperAdmin = false,
+  embedded = false,
+  onSubTabChange,
 }: PayrollRulesHubClientProps) {
   const searchParams = useSearchParams();
 
@@ -105,7 +109,9 @@ export function PayrollRulesHubClient({
 
   const handleTabChange = (nextTab: PayrollRuleTab) => {
     setActiveTab(nextTab);
-    if (typeof window !== "undefined") {
+    if (onSubTabChange) {
+      onSubTabChange(nextTab);
+    } else if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("tab", nextTab);
       window.history.replaceState({}, "", url.toString());
@@ -115,8 +121,8 @@ export function PayrollRulesHubClient({
   const tabs: TabMeta[] = [
     {
       id: "fiscal-year",
-      label: "Fiscal Year",
-      sublabel: "B.S. Periods & Active Calendar",
+      label: "Fiscal year",
+      sublabel: "B.S. calendar periods",
       icon: CalendarDays,
       count: fiscalYearData?.fiscalYears?.length
         ? `${fiscalYearData.fiscalYears.length} FY`
@@ -124,8 +130,8 @@ export function PayrollRulesHubClient({
     },
     {
       id: "tax-rates",
-      label: "Tax Rates",
-      sublabel: "Nepal TDS Slabs & Rebates",
+      label: "Tax brackets",
+      sublabel: "Progressive TDS slabs & rebates",
       icon: Percent,
       count: taxRateData?.slabs?.length
         ? `${taxRateData.slabs.length} Slabs`
@@ -133,8 +139,8 @@ export function PayrollRulesHubClient({
     },
     {
       id: "pay-heads",
-      label: "Pay Heads",
-      sublabel: "Earnings & Deductions Master",
+      label: "Pay heads",
+      sublabel: "Earnings & deductions master",
       icon: FileText,
       count: payHeadData?.payHeads?.length
         ? `${payHeadData.payHeads.length} Heads`
@@ -142,8 +148,8 @@ export function PayrollRulesHubClient({
     },
     {
       id: "rules-defaults",
-      label: "Rules & Defaults",
-      sublabel: "Statutory Limits & Operations",
+      label: "Rules & statutory defaults",
+      sublabel: "Deduction limits & operations",
       icon: Sliders,
       count: null,
     },
@@ -151,27 +157,15 @@ export function PayrollRulesHubClient({
 
   const visibleTabs = tabs.filter((t) => allowedTabs.includes(t.id));
 
-  return (
-    <PageFrame size="wide" spacing="default">
-      <PageHeader
-        title="Payroll Rules &amp; Statutory Controls"
-        description="Unified configuration for Bikram Sambat fiscal periods, progressive tax slabs, salary pay head components, and organizational payroll policies."
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-cream px-3 py-1 text-xs font-bold text-payroll-primary border border-payroll-primary/20 shadow-xs">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Nepal Payroll &amp; Tax Compliant</span>
-          </span>
-        </div>
-      </PageHeader>
-
-      {/* Navigation Tab Bar */}
+  const bodyContent = (
+    <div className="space-y-6">
+      {/* Navigation Sub-Tab Bar */}
       {visibleTabs.length > 1 && (
         <div className="overflow-x-auto pb-1">
           <div
             role="tablist"
-            aria-label="Payroll Rules Configuration Tabs"
-            className="inline-flex min-w-full sm:min-w-0 rounded-xl border border-payroll-light bg-white p-1 shadow-2xs gap-1"
+            aria-label="Payroll rules configuration tabs"
+            className="inline-flex min-w-full sm:min-w-0 rounded-lg border border-slate-200/80 bg-slate-100/70 p-1 shadow-xs gap-1"
           >
             {visibleTabs.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -186,21 +180,26 @@ export function PayrollRulesHubClient({
                   aria-controls={`payroll-rules-panel-${tab.id}`}
                   onClick={() => handleTabChange(tab.id)}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold cursor-pointer transition-all whitespace-nowrap select-none",
+                    "inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer transition-all whitespace-nowrap select-none",
                     isActive
-                      ? "bg-payroll-primary text-white shadow-xs"
-                      : "text-gray-600 hover:bg-payroll-cream/50 hover:text-payroll-navy"
+                      ? "bg-white text-slate-900 font-semibold shadow-xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/50",
                   )}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0",
+                      isActive ? "text-emerald-800" : "text-slate-400",
+                    )}
+                  />
                   <span>{tab.label}</span>
                   {tab.count !== null && (
                     <span
                       className={cn(
-                        "rounded-md px-1.5 py-0.2 text-[10px] font-mono font-bold",
+                        "rounded px-1.5 py-0.2 text-[10px] font-mono",
                         isActive
-                          ? "bg-white/20 text-white"
-                          : "bg-payroll-cream text-payroll-navy border border-payroll-light/70"
+                          ? "bg-emerald-50 text-emerald-800 font-medium"
+                          : "bg-slate-200/70 text-slate-600",
                       )}
                     >
                       {tab.count}
@@ -214,7 +213,7 @@ export function PayrollRulesHubClient({
       )}
 
       {/* Tab Panels */}
-      <div className="space-y-6">
+      <div>
         {activeTab === "fiscal-year" && fiscalYearData && (
           <div
             id="payroll-rules-panel-fiscal-year"
@@ -259,6 +258,35 @@ export function PayrollRulesHubClient({
           </div>
         )}
       </div>
+    </div>
+  );
+
+  if (embedded) {
+    return bodyContent;
+  }
+
+  return (
+    <PageFrame size="wide" spacing="default">
+      <header className="pb-6 border-b border-slate-200/80 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                Payroll rules &amp; statutory controls
+              </h1>
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 border border-emerald-200/60">
+                <ShieldCheck className="h-3 w-3" />
+                <span>Nepal statutory compliant</span>
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Unified configuration for Bikram Sambat fiscal periods, progressive tax brackets, salary pay head components, and organizational payroll policies.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {bodyContent}
     </PageFrame>
   );
 }

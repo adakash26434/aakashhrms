@@ -3,7 +3,6 @@
 import React from "react";
 import { DrawerShell } from "@/components/ui/drawer-shell";
 import { CheckCircle2, XCircle, Info, ShieldCheck, Calendar, ArrowUpRight } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { EmployeeLeaveSummary } from "./employee-leave-balance-summary-table";
 
@@ -88,91 +87,109 @@ export function EmployeeLeaveBalanceDetailDrawer({
       }
     >
       <div className="space-y-6 pt-2 pb-6">
-        {/* KPI Strip */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {/* Top Summary Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
           {/* Card 1: Allotted */}
-          <Card className="p-3.5 border-payroll-light/70 bg-payroll-cream/30">
-            <div className="space-y-1">
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <span className="text-xs font-medium text-zinc-500">
                   Allotted
                 </span>
-                <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                <Calendar className="h-4 w-4 text-zinc-400" />
               </div>
-              <p className="text-xl font-bold tabular-nums font-mono text-payroll-navy">
-                {summary.totalAllotted.toFixed(1)}
-              </p>
-              <p className="text-[10px] text-gray-400 truncate">Total FY Entitlement</p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {summary.totalAllotted.toFixed(1)}
+                </span>
+              </div>
             </div>
-          </Card>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400 truncate">
+              Total FY entitlement
+            </div>
+          </div>
 
           {/* Card 2: Taken */}
-          <Card className="p-3.5 border-payroll-light/70 bg-payroll-cream/30">
-            <div className="space-y-1">
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <span className="text-xs font-medium text-zinc-500">
                   Taken
                 </span>
-                <span className="text-[10px] font-semibold text-amber-700">
+                <span className="text-xs font-medium text-amber-700">
                   {overallUsedPercent}% used
                 </span>
               </div>
-              <p className="text-xl font-bold tabular-nums font-mono text-amber-700">
-                {summary.totalTaken.toFixed(1)}
-              </p>
-              <p className="text-[10px] text-gray-400 truncate">Consumed to date</p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-amber-800 tabular-nums font-sans">
+                  {summary.totalTaken.toFixed(1)}
+                </span>
+              </div>
             </div>
-          </Card>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400 truncate">
+              Consumed to date
+            </div>
+          </div>
 
           {/* Card 3: Carried Forward */}
-          <Card className="p-3.5 border-payroll-light/70 bg-payroll-cream/30">
-            <div className="space-y-1">
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                  Carried Fwd
+                <span className="text-xs font-medium text-zinc-500">
+                  Carried forward
                 </span>
-                <ArrowUpRight className="h-3.5 w-3.5 text-gray-400" />
+                <ArrowUpRight className="h-4 w-4 text-zinc-400" />
               </div>
-              <p className="text-xl font-bold tabular-nums font-mono text-gray-700">
-                {summary.totalCarriedForward.toFixed(1)}
-              </p>
-              <p className="text-[10px] text-gray-400 truncate">From previous FY</p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {summary.totalCarriedForward.toFixed(1)}
+                </span>
+              </div>
             </div>
-          </Card>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400 truncate">
+              From previous cycle
+            </div>
+          </div>
 
           {/* Card 4: Total Balance */}
-          <Card className="p-3.5 border-emerald-200/80 bg-emerald-50/50 shadow-payroll-xs">
-            <div className="space-y-1">
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                  Available Balance
+                <span className="text-xs font-medium text-zinc-500">
+                  Available balance
                 </span>
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
               </div>
-              <p className="text-xl font-bold tabular-nums font-mono text-payroll-primary">
-                {summary.totalBalance.toFixed(1)}
-              </p>
-              <p className="text-[10px] text-emerald-700/80 font-medium truncate">Remaining Days</p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-emerald-800 tabular-nums font-sans">
+                  {summary.totalBalance.toFixed(1)}
+                </span>
+              </div>
             </div>
-          </Card>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400 truncate">
+              Remaining days
+            </div>
+          </div>
 
           {/* Card 5: Encashable */}
-          <Card className="p-3.5 border-payroll-light/70 bg-payroll-cream/30">
-            <div className="space-y-1">
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <span className="text-xs font-medium text-zinc-500">
                   Encashable
                 </span>
-                <ShieldCheck className="h-3.5 w-3.5 text-payroll-primary" />
+                <ShieldCheck className="h-4 w-4 text-emerald-700" />
               </div>
-              <p className="text-xl font-bold tabular-nums font-mono text-payroll-navy">
-                {summary.encashableCount} <span className="text-xs font-normal text-gray-500">policies</span>
-              </p>
-              <p className="text-[10px] text-emerald-700 font-semibold truncate">
-                {totalEncashableDays.toFixed(1)} days eligible
-              </p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {summary.encashableCount} <span className="text-xs font-normal text-zinc-400">policies</span>
+                </span>
+              </div>
             </div>
-          </Card>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400 truncate">
+              {totalEncashableDays.toFixed(1)} days eligible
+            </div>
+          </div>
         </div>
 
         {/* Per-Policy Breakdown Section */}
@@ -192,127 +209,125 @@ export function EmployeeLeaveBalanceDetailDrawer({
           </div>
 
           {/* Table Container with guaranteed horizontal scroll & min-width */}
-          <div className="overflow-hidden rounded-xl border border-payroll-light/80 bg-white shadow-payroll-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[660px] text-left text-xs">
-                <thead>
-                  <tr className="border-b border-payroll-light/80 bg-payroll-cream/80 text-[10px] font-bold uppercase tracking-wider text-gray-600">
-                    <th className="px-4 py-3 min-w-[200px]">Leave Category</th>
-                    <th className="px-3 py-3 text-center w-24">Type</th>
-                    <th className="px-3 py-3 text-right w-20">Allotted</th>
-                    <th className="px-3 py-3 text-right w-20">Taken</th>
-                    <th className="px-3 py-3 text-right w-20">Carried</th>
-                    <th className="px-4 py-3 text-right w-24 font-bold text-payroll-primary">Balance</th>
-                    <th className="px-4 py-3 text-center min-w-[120px]">Encashable</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-payroll-light/60">
-                  {summary.items.map((item, idx) => {
-                    const allotted = parseFloat(item.allotted) || 0;
-                    const taken = parseFloat(item.taken) || 0;
-                    const balance = parseFloat(item.balance) || 0;
-                    const carried = parseFloat(item.carriedForward) || 0;
-                    const percentUsed =
-                      allotted > 0 ? Math.min(100, Math.round((taken / allotted) * 100)) : 0;
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-165 text-left text-xs border-collapse">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+                <tr className="border-b border-zinc-300 bg-zinc-50 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-3 min-w-50">Leave Category</th>
+                  <th className="px-3 py-3 text-center w-24">Type</th>
+                  <th className="px-3 py-3 text-right w-20">Allotted</th>
+                  <th className="px-3 py-3 text-right w-20">Taken</th>
+                  <th className="px-3 py-3 text-right w-20">Carried</th>
+                  <th className="px-4 py-3 text-right w-24 font-semibold text-emerald-800">Balance</th>
+                  <th className="px-4 py-3 text-center min-w-30">Encashable</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {summary.items.map((item, idx) => {
+                  const allotted = parseFloat(item.allotted) || 0;
+                  const taken = parseFloat(item.taken) || 0;
+                  const balance = parseFloat(item.balance) || 0;
+                  const carried = parseFloat(item.carriedForward) || 0;
+                  const percentUsed =
+                    allotted > 0 ? Math.min(100, Math.round((taken / allotted) * 100)) : 0;
 
-                    return (
-                      <tr
-                        key={`${item.leaveTypeCode}-${idx}`}
-                        className="transition-colors hover:bg-payroll-cream/40"
-                      >
-                        {/* Leave Category */}
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className="font-bold text-payroll-navy leading-snug">
-                              {item.leaveTypeName}
-                            </div>
-                            <div className="mt-1 flex items-center gap-2">
-                              <span className="rounded bg-payroll-light/70 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-payroll-navy">
-                                {item.leaveTypeCode}
-                              </span>
-                              {allotted > 0 ? (
-                                <div className="flex items-center gap-1.5">
-                                  <div
-                                    className="h-1.5 w-16 rounded-full bg-gray-100 overflow-hidden"
-                                    title={`${percentUsed}% utilized`}
-                                  >
-                                    <div
-                                      className={`h-full rounded-full ${
-                                        percentUsed > 80
-                                          ? "bg-rose-500"
-                                          : percentUsed > 40
-                                          ? "bg-amber-500"
-                                          : "bg-payroll-primary"
-                                      }`}
-                                      style={{ width: `${percentUsed}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[10px] text-gray-400 font-mono">
-                                    {percentUsed}%
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-[10px] text-gray-400">On-demand</span>
-                              )}
-                            </div>
+                  return (
+                    <tr
+                      key={`${item.leaveTypeCode}-${idx}`}
+                      className="hover:bg-zinc-50/60 transition-colors"
+                    >
+                      {/* Leave Category */}
+                      <td className="px-4 py-3.5">
+                        <div>
+                          <div className="font-medium text-zinc-900 leading-snug">
+                            {item.leaveTypeName}
                           </div>
-                        </td>
-
-                        {/* Statutory / Custom Badge */}
-                        <td className="px-3 py-3 text-center">
-                          {item.isStatutory ? (
-                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200/60">
-                              Statutory
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="rounded border border-zinc-200/70 bg-zinc-50 px-1.5 py-0.5 text-[9px] font-mono text-zinc-600">
+                              {item.leaveTypeCode}
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
-                              Custom
-                            </span>
-                          )}
-                        </td>
+                            {allotted > 0 ? (
+                              <div className="flex items-center gap-1.5">
+                                <div
+                                  className="h-1.5 w-16 rounded-full bg-zinc-100 overflow-hidden"
+                                  title={`${percentUsed}% utilized`}
+                                >
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      percentUsed > 80
+                                        ? "bg-rose-500"
+                                        : percentUsed > 40
+                                        ? "bg-amber-500"
+                                        : "bg-emerald-600"
+                                    }`}
+                                    style={{ width: `${percentUsed}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-zinc-400 font-mono">
+                                  {percentUsed}%
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-zinc-400">On-demand</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
 
-                        {/* Allotted */}
-                        <td className="px-3 py-3 text-right font-mono tabular-nums text-gray-700 font-medium">
-                          {allotted.toFixed(1)}
-                        </td>
-
-                        {/* Taken */}
-                        <td className="px-3 py-3 text-right font-mono tabular-nums font-medium">
-                          <span className={taken > 0 ? "text-amber-700 font-bold" : "text-gray-400"}>
-                            {taken.toFixed(1)}
+                      {/* Statutory / Custom Badge */}
+                      <td className="px-3 py-3.5 text-center">
+                        {item.isStatutory ? (
+                          <span className="inline-flex items-center rounded-md bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800 border border-emerald-200/50">
+                            Statutory
                           </span>
-                        </td>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-600 border border-zinc-200">
+                            Custom
+                          </span>
+                        )}
+                      </td>
 
-                        {/* Carried Forward */}
-                        <td className="px-3 py-3 text-right font-mono tabular-nums text-gray-600">
-                          {carried.toFixed(1)}
-                        </td>
+                      {/* Allotted */}
+                      <td className="px-3 py-3.5 text-right font-mono tabular-nums text-zinc-700">
+                        {allotted.toFixed(1)}
+                      </td>
 
-                        {/* Balance */}
-                        <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-payroll-primary text-[13px]">
-                          {balance.toFixed(1)}
-                        </td>
+                      {/* Taken */}
+                      <td className="px-3 py-3.5 text-right font-mono tabular-nums">
+                        <span className={taken > 0 ? "text-amber-700 font-medium" : "text-zinc-400"}>
+                          {taken.toFixed(1)}
+                        </span>
+                      </td>
 
-                        {/* Encashable */}
-                        <td className="px-4 py-3 text-center">
-                          {item.isEncashable ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/60">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                              Encashable
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
-                              <XCircle className="h-3 w-3 text-gray-300" />
-                              Lapses
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      {/* Carried Forward */}
+                      <td className="px-3 py-3.5 text-right font-mono tabular-nums text-zinc-500">
+                        {carried.toFixed(1)}
+                      </td>
+
+                      {/* Balance */}
+                      <td className="px-4 py-3.5 text-right font-mono tabular-nums font-semibold text-emerald-800 text-xs">
+                        {balance.toFixed(1)}
+                      </td>
+
+                      {/* Encashable */}
+                      <td className="px-4 py-3.5 text-center">
+                        {item.isEncashable ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800 border border-emerald-200/50">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                            Encashable
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+                            <XCircle className="h-3 w-3 text-zinc-300" />
+                            Lapses
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 

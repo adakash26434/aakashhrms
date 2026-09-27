@@ -27,12 +27,12 @@ const iconMap = {
 } as const;
 
 const iconStyles = {
-  check: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
-  calendar: "bg-blue-50 text-blue-700 border border-blue-200/60",
-  alert: "bg-amber-50 text-amber-700 border border-amber-200/60",
-  lock: "bg-gray-100 text-gray-700 border border-gray-200/60",
-  mail: "bg-purple-50 text-purple-700 border border-purple-200/60",
-  wallet: "bg-payroll-primary-light text-payroll-primary border border-payroll-primary-border",
+  check: "bg-emerald-50 text-emerald-800 border border-emerald-200/60",
+  calendar: "bg-blue-50 text-blue-800 border border-blue-200/60",
+  alert: "bg-amber-50 text-amber-800 border border-amber-200/60",
+  lock: "bg-zinc-100 text-zinc-700 border border-zinc-200/60",
+  mail: "bg-purple-50 text-purple-800 border border-purple-200/60",
+  wallet: "bg-emerald-50 text-emerald-800 border border-emerald-200/60",
 } as const;
 
 const filters: { id: ActivityCategory; label: string }[] = [
@@ -51,15 +51,15 @@ export function RecentActivity({ items }: RecentActivityProps) {
       : items.filter((item) => item.category === activeFilter);
 
   return (
-    <Card className="h-full flex flex-col justify-start bg-white border-payroll-border shadow-payroll-xs">
+    <Card className="h-full flex flex-col justify-start bg-white">
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-gray-950">
-              Recent activity
+            <h3 className="text-sm sm:text-base font-semibold text-zinc-950">
+              Recent Activity
             </h3>
-            <p className="text-xs text-gray-500">
-              Forensic audit trail · system operations
+            <p className="text-xs text-zinc-500">
+              System operations and audit log
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -69,10 +69,10 @@ export function RecentActivity({ items }: RecentActivityProps) {
                 type="button"
                 onClick={() => setActiveFilter(filter.id)}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
                   activeFilter === filter.id
-                    ? "bg-payroll-primary text-white shadow-2xs font-semibold"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200/80 hover:text-gray-900",
+                    ? "bg-payroll-primary text-white shadow-2xs font-medium"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200/80 hover:text-zinc-900",
                 )}
               >
                 {filter.label}
@@ -90,11 +90,11 @@ export function RecentActivity({ items }: RecentActivityProps) {
             return (
               <div key={item.id} className="relative flex gap-3 pb-4">
                 {!isLast && (
-                  <div className="absolute left-3.5 top-7 h-[calc(100%-10px)] w-px bg-gray-200" />
+                  <div className="absolute left-3.5 top-7 h-[calc(100%-10px)] w-px bg-zinc-200" />
                 )}
                 <div
                   className={cn(
-                    "relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full shadow-2xs",
+                    "relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-md shadow-2xs",
                     iconStyles[item.icon] || iconStyles.check,
                   )}
                 >
@@ -102,18 +102,18 @@ export function RecentActivity({ items }: RecentActivityProps) {
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs sm:text-[13px] font-semibold text-gray-900 truncate">
+                    <p className="text-xs sm:text-[13px] font-semibold text-zinc-900 truncate">
                       <span>{item.actor}</span>
-                      <span className="text-gray-400 font-normal"> · {item.role}</span>
+                      <span className="text-zinc-400 font-normal"> · {item.role}</span>
                     </p>
-                    <span className="text-[11px] text-gray-400 font-mono shrink-0">
+                    <span className="text-[11px] text-zinc-400 font-mono shrink-0">
                       {item.timestamp}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-600 leading-relaxed">
+                  <p className="mt-0.5 text-xs text-zinc-600 leading-relaxed">
                     {item.description}{" "}
                     {item.highlight && (
-                      <span className="font-semibold text-payroll-primary">
+                      <span className="font-semibold text-emerald-800">
                         {item.highlight}
                       </span>
                     )}

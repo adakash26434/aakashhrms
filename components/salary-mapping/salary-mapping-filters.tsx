@@ -10,7 +10,7 @@ interface SalaryMappingFiltersProps {
 }
 
 const inputClass =
-  "h-9 rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]";
+  "h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors cursor-pointer";
 
 export function SalaryMappingFilters({
   filter,

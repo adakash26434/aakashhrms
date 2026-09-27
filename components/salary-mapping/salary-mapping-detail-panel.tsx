@@ -108,7 +108,9 @@ export function SalaryMappingDetailPanel({
           </h3>
           <div className="space-y-2 rounded-xl border border-payroll-light/80 bg-white p-3.5 shadow-payroll-xs">
             <Row label="Basic Salary" value={formatNPR(mapping.basicSalary)} />
-            <Row label={`Grade (${mapping.gradePercent}%)`} value={formatNPR(Math.round(mapping.basicSalary * mapping.gradePercent / 100))} />
+            {mapping.gradePercent > 0 && mapping.gradePercent !== 100 && (
+              <Row label={`Grade (${mapping.gradePercent}%)`} value={formatNPR(Math.round(mapping.basicSalary * mapping.gradePercent / 100))} />
+            )}
             <Row label="Grade Amount" value={formatNPR(mapping.gradeAmount)} />
           </div>
         </section>
@@ -116,22 +118,17 @@ export function SalaryMappingDetailPanel({
         {/* Pay Heads */}
         {mapping.salaryHeads.length > 0 && (
           <section>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            <h3 className="mb-2 text-xs font-semibold text-zinc-900 tracking-tight">
               Pay Heads ({mapping.salaryHeads.length})
             </h3>
-            <div className="space-y-1.5">
+            <div className="space-y-0.5 divide-y divide-zinc-200 border-t border-b border-zinc-100">
               {mapping.salaryHeads.map((head) => (
                 <div
                   key={head.id}
-                  className={cn(
-                    "flex items-center justify-between rounded-xl border px-3.5 py-2 text-xs",
-                    head.payHeadType === "allowance"
-                      ? "border-emerald-100 bg-emerald-50/40 text-emerald-900"
-                      : "border-red-100 bg-red-50/40 text-red-900",
-                  )}
+                  className="flex items-center justify-between py-2 text-xs"
                 >
-                  <span className="font-medium">{head.payHeadName}</span>
-                  <span className="font-mono font-semibold">
+                  <span className="font-medium text-zinc-800">{head.payHeadName}</span>
+                  <span className="font-mono font-semibold text-zinc-900">
                     {head.payHeadType === "deduction" ? "-" : "+"}
                     {formatNPR(head.amount)}
                   </span>

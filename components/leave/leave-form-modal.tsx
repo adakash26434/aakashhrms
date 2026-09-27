@@ -2,16 +2,13 @@
 
 import { useState, useEffect } from "react";
 import {
-  User,
-  Calendar,
-  Clock,
-  MessageSquare,
   AlertTriangle,
   FileText,
 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DataSaveButton } from "@/components/ui/data-save-button";
+import { cn } from "@/lib/utils";
 import type { LeaveApplicationFormData, LeaveDuration } from "@/lib/types/leave";
 
 interface LeaveFormModalProps {
@@ -188,220 +185,274 @@ export function LeaveFormModal({
       title={editingId ? "Edit Leave Application" : "New Leave Application"}
       description={
         editingId
-          ? "Update the leave application details."
-          : "Fill in the details below to submit a new leave request."
+          ? "Update the leave application schedule and reason."
+          : "Submit an employee leave request for supervisor review."
       }
-      size="xl"
+      size="2xl"
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <DataSaveButton
-            onClick={() => handleValidateAndSubmit()}
-            isSaving={saving}
-            label={editingId ? "Update Application" : "Submit Application"}
-          />
-        </>
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            {formData.noOfDays > 0
+              ? `${formData.noOfDays} day(s) requested`
+              : "Select dates to calculate balance impact"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={saving}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <DataSaveButton
+              onClick={() => handleValidateAndSubmit()}
+              isSaving={saving}
+              label={editingId ? "Update Application" : "Submit Request"}
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+            />
+          </div>
+        </div>
       }
     >
-      <form onSubmit={handleValidateAndSubmit} className="space-y-5">
-        {/* Row 1: Employee + Leave Type */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Employee" icon={User} required>
-            <select
-              value={formData.employeeId}
-              onChange={(e) => handleChange("employeeId", e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-            >
-              <option value="">Select employee</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} ({emp.code}) — {emp.gender}
-                </option>
-              ))}
-            </select>
-            {localErrors.employeeId && (
-              <p className="mt-1 text-xs text-red-500">{localErrors.employeeId}</p>
-            )}
-          </FormField>
+      <form onSubmit={handleValidateAndSubmit} className="space-y-6">
+        {/* Section 1: Employee & Entitlement */}
+        <FormSection
+          title="Staff & Entitlement"
+          description="Designate the applicant and the specific leave scheme requested."
+          isFirst
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Staff Member <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.employeeId}
+                  onChange={(e) => handleChange("employeeId", e.target.value)}
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                >
+                  <option value="">Select employee...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.code}) — {emp.gender}
+                    </option>
+                  ))}
+                </select>
+                {localErrors.employeeId && (
+                  <p className="mt-1 text-xs text-red-600">{localErrors.employeeId}</p>
+                )}
+              </div>
 
-          <FormField label="Leave Type" icon={Calendar} required>
-            <select
-              value={formData.leaveTypeId}
-              onChange={(e) => handleChange("leaveTypeId", e.target.value)}
-              required
-              disabled={!formData.employeeId}
-              className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32] disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              <option value="">
-                {!formData.employeeId ? "Please select employee first" : "Select leave type"}
-              </option>
-              {filteredLeaveTypes.map((lt) => (
-                <option key={lt.id} value={lt.id}>
-                  {lt.name} ({lt.code})
-                  {lt.noOfDays > 0 ? ` - ${lt.noOfDays} days/yr` : ""}
-                </option>
-              ))}
-            </select>
-            {localErrors.leaveTypeId && (
-              <p className="mt-1 text-xs text-red-500">{localErrors.leaveTypeId}</p>
-            )}
-            {balance !== null && (
-              <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-gray-500">
-                  Remaining balance: <strong>{balance}</strong> days
-                </span>
-                {selectedLeaveType?.accumulationCap && (
-                  <span className="text-gray-400 font-mono text-[10px]">
-                    Cap: {selectedLeaveType.accumulationCap} days
-                  </span>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Leave Policy <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.leaveTypeId}
+                  onChange={(e) => handleChange("leaveTypeId", e.target.value)}
+                  disabled={!formData.employeeId}
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                >
+                  <option value="">
+                    {!formData.employeeId ? "Select employee first" : "Select leave policy..."}
+                  </option>
+                  {filteredLeaveTypes.map((lt) => (
+                    <option key={lt.id} value={lt.id}>
+                      {lt.name} ({lt.code})
+                      {lt.noOfDays > 0 ? ` - ${lt.noOfDays} days/yr` : ""}
+                    </option>
+                  ))}
+                </select>
+                {localErrors.leaveTypeId && (
+                  <p className="mt-1 text-xs text-red-600">{localErrors.leaveTypeId}</p>
+                )}
+                {balance !== null && (
+                  <div className="mt-1.5 flex items-center justify-between text-xs">
+                    <span className="text-zinc-500">
+                      Remaining balance: <strong className="text-emerald-950 font-semibold">{balance}</strong> days
+                    </span>
+                    {selectedLeaveType?.accumulationCap && (
+                      <span className="text-zinc-400 font-mono text-[10px]">
+                        Cap: {selectedLeaveType.accumulationCap} days
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Warnings and notices */}
+            {(showBalanceWarning || showDocumentWarning) && (
+              <div className="space-y-2 pt-1">
+                {showBalanceWarning && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900 flex items-start gap-2.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <strong className="block font-semibold">Insufficient Balance Warning</strong>
+                      Requested days ({formData.noOfDays}) exceed the remaining balance ({balance}). This application will require management review or may convert to Leave Without Pay (LWOP).
+                    </div>
+                  </div>
+                )}
+                {showDocumentWarning && (
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-950 flex items-start gap-2.5">
+                    <FileText className="h-4 w-4 shrink-0 text-emerald-700 mt-0.5" />
+                    <div>
+                      <strong className="block font-semibold">Verification Document Required</strong>
+                      Requesting <strong>{formData.noOfDays}</strong> or more consecutive days under this policy mandates submitting supporting certificates or medical documentation to HR.
+                    </div>
+                  </div>
                 )}
               </div>
             )}
-          </FormField>
-        </div>
-
-        {/* Warnings and notices */}
-        {(showBalanceWarning || showDocumentWarning) && (
-          <div className="space-y-2">
-            {showBalanceWarning && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2.5 shadow-sm">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                <div>
-                  <strong className="block text-amber-900 font-semibold">Insufficient Balance Warning</strong>
-                  Requested days ({formData.noOfDays}) exceed the employee's remaining balance ({balance}). This application will need special review or may be treated as Leave Without Pay (LWOP).
-                </div>
-              </div>
-            )}
-            {showDocumentWarning && (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-800 flex items-start gap-2.5 shadow-sm">
-                <FileText className="h-4 w-4 shrink-0 text-green-600 mt-0.5" />
-                <div>
-                  <strong className="block text-green-900 font-semibold">Document Required Policy</strong>
-                  As per policy, requesting <strong>{formData.noOfDays}</strong> or more consecutive days of this leave requires uploading/submitting official documents (e.g. medical report or certificate) to HR.
-                </div>
-              </div>
-            )}
           </div>
-        )}
+        </FormSection>
 
-        {/* Row 2: Duration + Days */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Duration" icon={Clock}>
-            <select
-              value={formData.duration}
-              onChange={(e) =>
-                handleChange("duration", e.target.value as LeaveDuration)
-              }
-              className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-            >
-              <option value="Full Day">Full Day</option>
-              <option value="Half Day">Half Day</option>
-            </select>
-          </FormField>
+        {/* Section 2: Schedule & Duration */}
+        <FormSection
+          title="Schedule & Duration"
+          description="Define the date window and specify full day or half day duration."
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Duration Configuration
+                </label>
+                <select
+                  value={formData.duration}
+                  onChange={(e) =>
+                    handleChange("duration", e.target.value as LeaveDuration)
+                  }
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                >
+                  <option value="Full Day">Full Day</option>
+                  <option value="Half Day">Half Day</option>
+                </select>
+              </div>
 
-          <FormField label="Number of Days" required>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="number"
-                value={formData.noOfDays}
-                onChange={(e) =>
-                  handleChange("noOfDays", parseFloat(e.target.value) || 0)
-                }
-                min={0.5}
-                step={0.5}
-                required
-                className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-              />
-              <span className="shrink-0 text-xs text-gray-500">
-                (Auto-calculated)
-              </span>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Total Working Days <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={formData.noOfDays}
+                    onChange={(e) =>
+                      handleChange("noOfDays", parseFloat(e.target.value) || 0)
+                    }
+                    min={0.5}
+                    step={0.5}
+                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  />
+                  <span className="shrink-0 text-[11px] text-zinc-400 font-mono">
+                    (Auto-calc)
+                  </span>
+                </div>
+                {localErrors.noOfDays && (
+                  <p className="mt-1 text-xs text-red-600">{localErrors.noOfDays}</p>
+                )}
+              </div>
             </div>
-            {localErrors.noOfDays && (
-              <p className="mt-1 text-xs text-red-500">{localErrors.noOfDays}</p>
-            )}
-          </FormField>
-        </div>
 
-        {/* Row 3: Date Range */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="From" required>
-            <input
-              type="date"
-              value={formData.effectiveFrom}
-              onChange={(e) => handleChange("effectiveFrom", e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-            />
-            {localErrors.effectiveFrom && (
-              <p className="mt-1 text-xs text-red-500">{localErrors.effectiveFrom}</p>
-            )}
-          </FormField>
-          <FormField label="To" required>
-            <input
-              type="date"
-              value={formData.effectiveTo}
-              onChange={(e) => handleChange("effectiveTo", e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-            />
-            {localErrors.effectiveTo && (
-              <p className="mt-1 text-xs text-red-500">{localErrors.effectiveTo}</p>
-            )}
-          </FormField>
-        </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Effective From <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.effectiveFrom}
+                  onChange={(e) => handleChange("effectiveFrom", e.target.value)}
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                />
+                {localErrors.effectiveFrom && (
+                  <p className="mt-1 text-xs text-red-600">{localErrors.effectiveFrom}</p>
+                )}
+              </div>
 
-        {/* Reason */}
-        <FormField label="Reason" icon={MessageSquare} required>
-          <textarea
-            value={formData.reason}
-            onChange={(e) => handleChange("reason", e.target.value)}
-            required
-            rows={3}
-            className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-            placeholder="Reason for leave..."
-          />
-          {localErrors.reason && (
-            <p className="mt-1 text-xs text-red-500">{localErrors.reason}</p>
-          )}
-        </FormField>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  Effective To <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.effectiveTo}
+                  onChange={(e) => handleChange("effectiveTo", e.target.value)}
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                />
+                {localErrors.effectiveTo && (
+                  <p className="mt-1 text-xs text-red-600">{localErrors.effectiveTo}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </FormSection>
 
-        {/* Remarks */}
-        <FormField label="Remarks">
-          <textarea
-            value={formData.remarks}
-            onChange={(e) => handleChange("remarks", e.target.value)}
-            rows={2}
-            className="mt-1 w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
-            placeholder="Additional notes (optional)..."
-          />
-        </FormField>
+        {/* Section 3: Justification & Notes */}
+        <FormSection
+          title="Justification & Notes"
+          description="Provide context for absence and optional handover remarks."
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Reason for Leave <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={formData.reason}
+                onChange={(e) => handleChange("reason", e.target.value)}
+                rows={3}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+                placeholder="Detail reason for requesting absence..."
+              />
+              {localErrors.reason && (
+                <p className="mt-1 text-xs text-red-600">{localErrors.reason}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Additional Remarks
+              </label>
+              <textarea
+                value={formData.remarks}
+                onChange={(e) => handleChange("remarks", e.target.value)}
+                rows={2}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+                placeholder="Delegation notes or handover remarks (optional)..."
+              />
+            </div>
+          </div>
+        </FormSection>
       </form>
     </Dialog>
   );
 }
 
-function FormField({
-  label,
-  icon: Icon,
-  required,
+function FormSection({
+  title,
+  description,
   children,
+  isFirst = false,
 }: {
-  label: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  required?: boolean;
+  title: string;
+  description?: string;
   children: React.ReactNode;
+  isFirst?: boolean;
 }) {
   return (
-    <div>
-      <label className="flex items-center gap-1.5 text-sm font-medium text-[#1b3a1f]">
-        {Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </label>
-      {children}
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
     </div>
   );
 }

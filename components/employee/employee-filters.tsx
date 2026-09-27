@@ -72,13 +72,13 @@ export function EmployeeFilters({
       {/* Left controls: Search + Dropdowns */}
       <div className="flex flex-1 flex-wrap items-center gap-2.5">
         <div className="relative min-w-55 max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
           <input
             type="search"
             placeholder="Search name, code, email, PAN..."
             value={filters.search}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="h-9 w-full rounded-lg border border-payroll-border bg-white py-1.5 pl-9 pr-3 text-xs text-payroll-ink placeholder-gray-400 shadow-2xs transition-colors focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+            className="h-9 w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 shadow-2xs transition-colors focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
           />
         </div>
 
@@ -115,10 +115,10 @@ export function EmployeeFilters({
           <button
             type="button"
             onClick={handleClearFilters}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-red-600 hover:border-red-200 transition-all shadow-2xs cursor-pointer animate-[fadeIn_100ms_ease-out]"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-zinc-200 bg-white text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-rose-600 hover:border-rose-200 transition-all shadow-2xs cursor-pointer animate-[fadeIn_100ms_ease-out]"
             title="Clear all active filters"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+            <RotateCcw className="h-3.5 w-3.5 text-zinc-400" />
             <span>Clear Filters</span>
           </button>
         )}
@@ -126,7 +126,7 @@ export function EmployeeFilters({
 
       {/* Right count */}
       {typeof count === "number" && (
-        <div className="text-right text-xs font-medium text-gray-400 shrink-0">
+        <div className="text-right text-xs font-medium text-zinc-400 shrink-0">
           {count} {count === 1 ? "employee" : "employees"}
         </div>
       )}
@@ -221,18 +221,18 @@ function FilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 items-center gap-2 rounded-lg border border-payroll-border bg-white px-3 text-xs font-normal text-gray-700 shadow-2xs transition-colors hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
+        className="flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 shadow-2xs transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer"
       >
         <span className="truncate max-w-36">{selected?.label ?? label}</span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 text-gray-400 transition-transform duration-200",
-            open && "rotate-180 text-payroll-primary"
+            "h-3 w-3 text-zinc-400 transition-transform duration-200",
+            open && "rotate-180 text-zinc-900"
           )}
         />
       </button>
       {open && (
-        <div className="absolute left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-payroll-border bg-white shadow-payroll-md animate-[dialogIn_150ms_ease-out]">
+        <div className="absolute left-0 z-50 mt-1 w-52 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg animate-[dialogIn_150ms_ease-out]">
           <div className="max-h-56 overflow-y-auto p-1">
             {options.map((opt, idx) => {
               const isSelected = opt.value === value;
@@ -253,14 +253,14 @@ function FilterDropdown({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer select-none",
                     isHighlighted
-                      ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                      ? "bg-zinc-100 text-zinc-900 font-medium"
                       : isSelected
-                      ? "bg-payroll-primary-light text-payroll-primary font-semibold"
-                      : "text-gray-700 hover:bg-gray-50"
+                      ? "bg-zinc-100 text-zinc-900 font-semibold"
+                      : "text-zinc-700 hover:bg-zinc-50"
                   )}
                 >
                   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {isSelected && <Check className="h-3 w-3 text-payroll-primary" />}
+                    {isSelected && <Check className="h-3 w-3 text-emerald-800" />}
                   </span>
                   <span className="truncate">{opt.label}</span>
                 </button>

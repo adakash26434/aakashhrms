@@ -59,29 +59,29 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
     switch (status) {
       case "DRAFT":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-semibold text-gray-700 border border-gray-200/70">
-            <Clock className="h-3 w-3 text-gray-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600 border border-zinc-200">
+            <Clock className="h-3 w-3 text-zinc-400" />
             Draft
           </span>
         );
       case "UNDER_REVIEW":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200/80">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50/70 px-2 py-0.5 text-xs font-medium text-amber-800 border border-amber-200/50">
             <Clock className="h-3 w-3 text-amber-600" />
             Under Review
           </span>
         );
       case "APPROVED":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200/80">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50/70 px-2 py-0.5 text-xs font-medium text-emerald-800 border border-emerald-200/50">
             <CheckCircle2 className="h-3 w-3 text-emerald-600" />
             Approved
           </span>
         );
       case "LOCKED":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-100/70 px-2.5 py-0.5 text-[10px] font-semibold text-green-900 border border-green-300/80">
-            <Lock className="h-3 w-3 text-green-700" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100/70 px-2 py-0.5 text-xs font-medium text-zinc-700 border border-zinc-200/70">
+            <Lock className="h-3 w-3 text-zinc-500" />
             Locked
           </span>
         );
@@ -111,27 +111,27 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Search Box */}
             <div className="relative min-w-56 flex-1 max-w-sm">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
               <input
                 type="text"
                 placeholder="Search by BS month, year, date range..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-xs text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+                className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
               />
             </div>
 
             {/* Status Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-1 rounded-xl border border-payroll-light/80 bg-payroll-cream/50 p-1 shadow-payroll-xs">
+            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50/50 p-1">
               {(["ALL", "DRAFT", "UNDER_REVIEW", "APPROVED", "LOCKED"] as const).map((st) => (
                 <button
                   key={st}
                   type="button"
                   onClick={() => setStatusFilter(st)}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
                     statusFilter === st
-                      ? "bg-payroll-primary text-white shadow-payroll-xs"
-                      : "text-gray-600 hover:text-payroll-navy hover:bg-white/60"
+                      ? "bg-zinc-900 text-white shadow-xs"
+                      : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
                   }`}
                 >
                   {st === "ALL" ? "All Runs" : st.replace("_", " ")}
@@ -143,11 +143,11 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
       >
         {filteredRuns.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-payroll-cream text-payroll-primary">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">
               <FileText className="h-6 w-6" />
             </div>
-            <p className="text-sm font-bold text-payroll-navy">No Payroll Batches Found</p>
-            <p className="mt-1 text-xs text-gray-500 max-w-sm">
+            <p className="text-sm font-medium text-zinc-900">No Payroll Batches Found</p>
+            <p className="mt-1 text-xs text-zinc-500 max-w-sm">
               {search || statusFilter !== "ALL"
                 ? "No payroll batches match your current search or status criteria."
                 : "No monthly payroll batches have been generated yet. Switch to the 'Generate Draft' tab to calculate your first run."}
@@ -156,19 +156,19 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b border-payroll-light/80 bg-payroll-cream/80 text-[10px] font-bold uppercase tracking-wider text-gray-600">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+                <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                   <th className="px-4 py-3 min-w-36">BS Period</th>
                   <th className="px-4 py-3 min-w-44">AD Date Range</th>
                   <th className="px-4 py-3 text-center w-24">Employees</th>
                   <th className="px-4 py-3 text-right min-w-28">Total Gross</th>
-                  <th className="px-4 py-3 text-right min-w-28 font-bold text-payroll-primary">Total Net Salary</th>
+                  <th className="px-4 py-3 text-right min-w-28 font-medium text-zinc-900">Total Net Salary</th>
                   <th className="px-4 py-3 text-right min-w-24">Total TDS</th>
                   <th className="px-4 py-3 text-center min-w-28">Status</th>
                   <th className="px-4 py-3 text-center print:hidden min-w-36">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-payroll-light/60">
+              <tbody className="divide-y divide-zinc-200">
                 {filteredRuns.map((run) => {
                   const isSelected = run.id === selectedRunId;
 
@@ -176,21 +176,21 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                     <tr
                       key={run.id}
                       onClick={() => onSelect(run)}
-                      className={`transition-colors hover:bg-payroll-cream/50 cursor-pointer ${
-                        isSelected ? "bg-payroll-primary/5 font-semibold ring-1 ring-payroll-primary/20 shadow-2xs" : ""
+                      className={`border-b border-zinc-100 transition-colors hover:bg-zinc-50/60 cursor-pointer ${
+                        isSelected ? "bg-zinc-50 font-medium" : ""
                       }`}
                     >
                       {/* BS Period */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-payroll-primary/10 text-payroll-primary">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-zinc-700">
                             <Calendar className="h-3.5 w-3.5" />
                           </div>
                           <div>
-                            <span className="font-bold text-payroll-navy text-[13px]">
+                            <span className="font-medium text-zinc-900 text-xs">
                               {getBSMonthName(run.payPeriodMonth)} {run.payPeriodYear}
                             </span>
-                            <p className="text-[10px] text-gray-400 font-mono">
+                            <p className="text-[10px] text-zinc-400 font-mono">
                               Month {run.payPeriodMonth}
                             </p>
                           </div>
@@ -198,47 +198,47 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                       </td>
 
                       {/* AD Date Range */}
-                      <td className="px-4 py-3.5 text-gray-600 font-mono text-[11px] tabular-nums">
+                      <td className="px-4 py-4 text-zinc-600 font-mono text-[11px] tabular-nums">
                         {run.payPeriodStartDate} → {run.payPeriodEndDate}
                       </td>
 
                       {/* Employees Count */}
-                      <td className="px-4 py-3.5 text-center">
-                        <span className="inline-flex items-center rounded-full bg-payroll-light/60 px-2 py-0.5 font-bold font-mono text-payroll-navy">
+                      <td className="px-4 py-4 text-center">
+                        <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 font-medium font-mono text-zinc-800">
                           {run.employeeCount}
                         </span>
                       </td>
 
                       {/* Total Gross */}
-                      <td className="px-4 py-3.5 text-right font-mono tabular-nums text-gray-700 font-medium">
+                      <td className="px-4 py-4 text-right font-mono tabular-nums text-zinc-700">
                         Rs. {Number(run.totalGross).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Total Net Salary */}
-                      <td className="px-4 py-3.5 text-right font-mono tabular-nums font-bold text-payroll-primary text-[13px]">
+                      <td className="px-4 py-4 text-right font-mono tabular-nums font-semibold text-zinc-900">
                         Rs. {Number(run.totalNetPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Total TDS */}
-                      <td className="px-4 py-3.5 text-right font-mono tabular-nums text-rose-700 font-medium">
+                      <td className="px-4 py-4 text-right font-mono tabular-nums text-zinc-700">
                         Rs. {Number(run.totalTds).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-4 py-4 text-center">
                         {getStatusBadge(run.status)}
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-center print:hidden">
+                      <td className="px-4 py-4 text-center print:hidden">
                         <div className="flex items-center justify-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onSelect(run)}
-                            className="h-7 text-xs border-payroll-light/80 hover:bg-payroll-primary hover:text-white text-payroll-navy font-semibold px-2.5 cursor-pointer shadow-payroll-xs"
+                            className="h-7 text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-medium px-2.5 cursor-pointer shadow-none"
                           >
-                            <Eye className="h-3.5 w-3.5 mr-1 text-payroll-primary" />
+                            <Eye className="h-3.5 w-3.5 mr-1 text-zinc-500" />
                             {run.status === "DRAFT" ? "Review & Audit" : "View Ledger"}
                           </Button>
 
@@ -247,7 +247,7 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                               type="button"
                               onClick={() => setConfirmDeleteRun(run)}
                               title="Cancel run and fallback to initial state"
-                              className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-all cursor-pointer"
+                              className="rounded p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

@@ -91,20 +91,20 @@ export function EmployeeLoansTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Search */}
         <div className="relative min-w-[260px] max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by employee, code, loan type…"
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+            className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
           />
         </div>
 
         {/* Loan count */}
-        <p className="whitespace-nowrap text-xs tabular-nums text-gray-400">
-          <span className="font-semibold text-[#1b3a1f]">{filteredLoans.length}</span> of{" "}
-          <span className="font-semibold text-[#1b3a1f]">{loans.length}</span> loans
+        <p className="whitespace-nowrap text-xs tabular-nums text-zinc-400">
+          <span className="font-semibold text-zinc-900">{filteredLoans.length}</span> of{" "}
+          <span className="font-semibold text-zinc-900">{loans.length}</span> loans
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export function EmployeeLoansTable({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {/* Status Pills */}
         <div className="flex items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
             Status:
           </span>
           {statusOptions.map((opt) => (
@@ -121,8 +121,8 @@ export function EmployeeLoansTable({
               onClick={() => setStatusFilter(opt.value)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
                 statusFilter === opt.value
-                  ? "bg-[#1b3a1f] text-white shadow-sm"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  ? "bg-zinc-900 text-white shadow-xs"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
               }`}
             >
               {opt.label}
@@ -132,15 +132,15 @@ export function EmployeeLoansTable({
 
         {/* Type Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
             Type:
           </span>
           <button
             onClick={() => setTypeFilter("ALL")}
             className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-all ${
               typeFilter === "ALL"
-                ? "bg-[#2e7d32] text-white shadow-sm"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                ? "bg-zinc-900 text-white shadow-xs"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
             }`}
           >
             All
@@ -151,8 +151,8 @@ export function EmployeeLoansTable({
               onClick={() => setTypeFilter(name)}
               className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-all ${
                 typeFilter === name
-                  ? "bg-[#2e7d32] text-white shadow-sm"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  ? "bg-zinc-900 text-white shadow-xs"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
               }`}
             >
               {name}
@@ -162,37 +162,37 @@ export function EmployeeLoansTable({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50/80">
-            <tr>
-              <th className="w-8 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <th className="w-8 px-4 py-3 text-center">
                 SN
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3">
                 Employee
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3">
                 Loan Details
               </th>
-              <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right">
                 Outstanding
               </th>
-              <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right">
                 EMI
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3">
                 Progress
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3">
                 Status
               </th>
-              <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-center">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-zinc-200">
             {filteredLoans.map((loan, index) => {
               const progress = calculateLoanProgress(loan);
               const paidInstallments =
@@ -204,25 +204,23 @@ export function EmployeeLoansTable({
               return (
                 <tr
                   key={loan.id}
-                  className="transition-colors hover:bg-gray-50/50"
+                  className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60"
                 >
-                  <td className="whitespace-nowrap px-4 py-3.5 text-center text-xs tabular-nums text-gray-400">
+                  <td className="whitespace-nowrap px-4 py-4 text-center text-xs tabular-nums text-zinc-400">
                     {index + 1}
                   </td>
 
                   {/* Employee with avatar */}
-                  <td className="whitespace-nowrap px-4 py-3.5">
+                  <td className="whitespace-nowrap px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColor(loan.employeeName)}`}
-                      >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-emerald-200/50 bg-emerald-50/70 font-semibold text-emerald-800 text-[10px]">
                         {getInitial(loan.employeeName)}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-[#1b3a1f]">
+                        <p className="text-xs font-medium text-zinc-900">
                           {loan.employeeName}
                         </p>
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[10px] text-zinc-400 font-mono">
                           {loan.employeeCode}
                         </p>
                       </div>
@@ -230,52 +228,46 @@ export function EmployeeLoansTable({
                   </td>
 
                   {/* Loan Details — type + subtitle */}
-                  <td className="px-4 py-3.5">
-                    <p className="text-sm font-medium text-[#1b3a1f]">
+                  <td className="px-4 py-4">
+                    <p className="text-xs font-medium text-zinc-900">
                       {loan.loanTypeName}
                     </p>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[10px] text-zinc-400 font-mono">
                       Principal {loan.loanAmount.toLocaleString()} · {loan.noOfInstallments}mo
                     </p>
                   </td>
 
                   {/* Outstanding */}
-                  <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                    <p className="text-sm font-semibold tabular-nums text-[#1b3a1f]">
+                  <td className="whitespace-nowrap px-4 py-4 text-right">
+                    <p className="text-xs font-semibold tabular-nums text-zinc-900">
                       {loan.remainingAmount.toLocaleString()}
                     </p>
                   </td>
 
                   {/* EMI */}
-                  <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                    <p className="text-sm font-semibold tabular-nums text-[#1b3a1f]">
+                  <td className="whitespace-nowrap px-4 py-4 text-right">
+                    <p className="text-xs font-medium tabular-nums text-zinc-900">
                       {loan.installmentAmount.toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-gray-400">/month</p>
+                    <p className="text-[10px] text-zinc-400">/month</p>
                   </td>
 
                   {/* Progress */}
-                  <td className="whitespace-nowrap px-4 py-3.5">
+                  <td className="whitespace-nowrap px-4 py-4">
                     <div className="flex items-center gap-2.5">
-                      <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            progress >= 100
-                              ? "bg-emerald-500"
-                              : progress >= 50
-                                ? "bg-[#2e7d32]"
-                                : "bg-[#2e7d32]"
-                          }`}
+                          className="h-full rounded-full transition-all duration-500 bg-emerald-600"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
                       <div>
-                        <span className="text-xs font-medium tabular-nums text-[#1b3a1f]">
+                        <span className="text-xs font-medium tabular-nums text-zinc-900">
                           {paidInstallments}/{loan.noOfInstallments}
                         </span>
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-[10px] text-zinc-400">
                           {remainingMonths > 0
-                            ? `${remainingMonths} months remaining`
+                            ? `${remainingMonths}mo left`
                             : "Complete"}
                         </p>
                       </div>
@@ -283,21 +275,21 @@ export function EmployeeLoansTable({
                   </td>
 
                   {/* Status */}
-                  <td className="whitespace-nowrap px-4 py-3.5">
+                  <td className="whitespace-nowrap px-4 py-4">
                     <Badge variant={loan.status === "ACTIVE" ? "success" : "neutral"}>
                       {loan.status === "ACTIVE" ? "Active" : "Closed"}
                     </Badge>
                   </td>
 
                   {/* Actions */}
-                  <td className="whitespace-nowrap px-4 py-3.5">
+                  <td className="whitespace-nowrap px-4 py-4 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectLoan(loan);
                         }}
-                        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-[#2e7d32]"
+                        className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                         title="View Details"
                       >
                         <Eye className="h-4 w-4" />
@@ -308,7 +300,7 @@ export function EmployeeLoansTable({
                             e.stopPropagation();
                             onRecordPayment(loan);
                           }}
-                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+                          className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
                           title="Record Payment"
                         >
                           <Banknote className="h-4 w-4" />
@@ -321,7 +313,7 @@ export function EmployeeLoansTable({
             })}
             {filteredLoans.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-12 text-center text-xs text-zinc-400">
                   {loans.length === 0
                     ? "No loans have been disbursed yet."
                     : "No loans match your search or filters."}

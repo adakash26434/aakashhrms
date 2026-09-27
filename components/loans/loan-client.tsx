@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Plus, CreditCard, Settings } from "lucide-react";
+import { Plus, CreditCard, Settings, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
@@ -286,41 +286,58 @@ export function LoanClient({
 
       {activeTab === "types" && (
         <>
-          {/* Simple KPI row for loan types */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between p-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Types</p>
-                  <p className="text-2xl font-semibold tabular-nums text-[#1b3a1f]">{loanTypeKPIs.total}</p>
+          {/* Top Summary Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Total loan types</p>
+                  <Settings className="h-4 w-4 text-zinc-400" />
                 </div>
-                <div className="rounded-lg bg-green-50 p-2.5 text-[#2e7d32]">
-                  <Settings className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between p-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Active</p>
-                  <p className="text-2xl font-semibold tabular-nums text-[#1b3a1f]">{loanTypeKPIs.active}</p>
-                </div>
-                <div className="rounded-lg bg-emerald-50 p-2.5 text-emerald-600">
-                  <Settings className="h-5 w-5" />
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {loanTypeKPIs.total}
+                  </span>
                 </div>
               </div>
-            </Card>
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between p-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Inactive</p>
-                  <p className="text-2xl font-semibold tabular-nums text-[#1b3a1f]">{loanTypeKPIs.inactive}</p>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Configured loan categories
+              </div>
+            </div>
+
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Active policies</p>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                 </div>
-                <div className="rounded-lg bg-red-50 p-2.5 text-red-500">
-                  <Settings className="h-5 w-5" />
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {loanTypeKPIs.active}
+                  </span>
                 </div>
               </div>
-            </Card>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Available for staff disbursement
+              </div>
+            </div>
+
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Inactive policies</p>
+                  <Settings className="h-4 w-4 text-zinc-400" />
+                </div>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {loanTypeKPIs.inactive}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Decommissioned or drafted
+              </div>
+            </div>
           </div>
           <LoanTypesTable
             loanTypes={loanTypes}

@@ -49,13 +49,13 @@ export function SalaryMappingTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-payroll-light/80 bg-payroll-cream text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             <th className="px-4 py-3">Employee</th>
             <th className="px-4 py-3">Department</th>
             <th className="px-4 py-3">Branch</th>
             <th className="px-4 py-3 text-right">Basic Salary</th>
-            <th className="px-4 py-3 text-right">Grade %</th>
+            <th className="px-4 py-3 text-right">Grade Amount</th>
             <th className="px-4 py-3 text-right">Allowances</th>
             <th className="px-4 py-3 text-right">Deductions</th>
             <th className="px-4 py-3 text-right">Loan Ded.</th>
@@ -63,7 +63,7 @@ export function SalaryMappingTable({
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {mappings.map((mapping) => {
             const emp = employeeMap.get(mapping.employeeId);
             const totalAllowances = mapping.salaryHeads
@@ -77,50 +77,50 @@ export function SalaryMappingTable({
             return (
               <tr
                 key={mapping.id}
-                className="border-b border-payroll-light/60 transition-colors hover:bg-payroll-cream/50"
+                className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60"
               >
-                <td className="px-4 py-3">
+                <td className="px-4 py-4">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-payroll-navy">
+                    <span className="font-medium text-zinc-900">
                       {emp
                         ? emp.fullName
                         : "Unknown"}
                     </span>
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-zinc-400 font-mono">
                       {emp?.employeeCode ?? ""}
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className="px-4 py-4 text-zinc-600">
                   {emp?.departmentName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className="px-4 py-4 text-zinc-600">
                   {emp?.branchName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-payroll-navy">
+                <td className="px-4 py-4 text-right tabular-nums text-zinc-900 font-medium">
                   {formatNPR(mapping.basicSalary)}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-gray-600">
-                  {mapping.gradePercent}%
+                <td className="px-4 py-4 text-right tabular-nums text-zinc-600">
+                  {mapping.gradeAmount > 0 ? formatNPR(mapping.gradeAmount) : (mapping.gradePercent > 0 && mapping.gradePercent !== 100 ? `${mapping.gradePercent}%` : "—")}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-emerald-600">
+                <td className="px-4 py-4 text-right tabular-nums text-emerald-700 font-medium">
                   {formatNPR(totalAllowances)}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-red-600">
+                <td className="px-4 py-4 text-right tabular-nums text-rose-700 font-medium">
                   {formatNPR(totalDeductions)}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-amber-600">
+                <td className="px-4 py-4 text-right tabular-nums text-amber-700">
                   {totalLoan > 0 ? formatNPR(totalLoan) : "—"}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums font-semibold text-payroll-navy">
+                <td className="px-4 py-4 text-right tabular-nums font-semibold text-zinc-900">
                   {formatNPR(mapping.netAmount)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-4 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <button
                       type="button"
                       onClick={() => onSelect(mapping.id)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-payroll-light/40 hover:text-payroll-primary"
+                      className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                       title="View mapping details"
                     >
                       <Eye className="h-3.5 w-3.5" />
@@ -128,7 +128,7 @@ export function SalaryMappingTable({
                     <button
                       type="button"
                       onClick={() => onEdit(mapping.id)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-payroll-light/40 hover:text-payroll-primary"
+                      className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                       title="Edit mapping"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -136,7 +136,7 @@ export function SalaryMappingTable({
                     <button
                       type="button"
                       onClick={() => onDelete(mapping.id)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
                       title="Delete mapping"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

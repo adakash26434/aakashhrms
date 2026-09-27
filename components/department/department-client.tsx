@@ -365,38 +365,56 @@ export function DepartmentClient({ initialData, initialTab = "branches" }: Depar
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60">
-                  <Briefcase className="h-5 w-5" />
+          {/* Top Summary Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Total designations</p>
+                  <Briefcase className="h-4 w-4 text-zinc-400" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Designations</p>
-                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{desigCounts.total}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Active</p>
-                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{desigCounts.active}</p>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {desigCounts.total}
+                  </span>
                 </div>
               </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Defined organization roles
+              </div>
             </div>
-            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-payroll-cream text-payroll-navy border border-payroll-light/80">
-                  <Users className="h-5 w-5 text-payroll-primary" />
+
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Active positions</p>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Employees</p>
-                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{desigCounts.totalEmployees}</p>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {desigCounts.active}
+                  </span>
                 </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Available for employee assignment
+              </div>
+            </div>
+
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Assigned personnel</p>
+                  <Users className="h-4 w-4 text-zinc-600" />
+                </div>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {desigCounts.totalEmployees}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Staff holding designations
               </div>
             </div>
           </div>
@@ -442,38 +460,56 @@ export function DepartmentClient({ initialData, initialTab = "branches" }: Depar
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-payroll-cream text-payroll-primary border border-payroll-light/80">
-                  <Building2 className="h-5 w-5" />
+          {/* Top Summary Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Total branches</p>
+                  <Building2 className="h-4 w-4 text-zinc-400" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Branches</p>
-                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{branchCounts.total}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Active</p>
-                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{branchCounts.active}</p>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {branchCounts.total}
+                  </span>
                 </div>
               </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Configured operating locations
+              </div>
             </div>
-            <div className="rounded-xl border border-payroll-light/80 bg-white p-5 shadow-payroll-xs">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
-                  <Building2 className="h-5 w-5" />
+
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Active branches</p>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Inactive</p>
-                  <p className="mt-0.5 text-xl font-bold text-payroll-navy tabular-nums">{branchCounts.inactive}</p>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {branchCounts.active}
+                  </span>
                 </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Operational offices
+              </div>
+            </div>
+
+            <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-500">Inactive branches</p>
+                  <Building2 className="h-4 w-4 text-zinc-400" />
+                </div>
+                <div className="mt-2.5">
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                    {branchCounts.inactive}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+                Decommissioned or pending setup
               </div>
             </div>
           </div>
@@ -541,7 +577,7 @@ export function DepartmentClient({ initialData, initialTab = "branches" }: Depar
         </div>
       )}
 
-      {showDepartmentsTab && <HowDepartmentsWork />}
+      {showDepartmentsTab }
 
       {/* Department modals */}
       <DepartmentDetailPanel open={Boolean(viewingDepartment)} department={viewingDepartment}

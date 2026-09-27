@@ -12,56 +12,60 @@ function formatNPR(value: number): string {
 }
 
 export function SalaryMappingKPIsGrid({ kpis }: SalaryMappingKPIsGridProps) {
-  const cards = [
+  const metrics = [
     {
-      label: "Total Mappings",
+      label: "Total mappings",
       value: kpis.totalMappings.toString(),
+      subtext: "Configured salary structures",
       icon: Users,
-      tone: "bg-green-50 text-[#2e7d32]",
+      iconColor: "text-zinc-400",
     },
     {
-      label: "Average Basic",
+      label: "Average basic",
       value: formatNPR(kpis.averageBasic),
+      subtext: "Base rate per mapped employee",
       icon: Banknote,
-      tone: "bg-emerald-50 text-emerald-600",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Total Payroll",
+      label: "Total payroll commitment",
       value: formatNPR(kpis.totalPayroll),
+      subtext: "Estimated monthly liability",
       icon: DollarSign,
-      tone: "bg-violet-50 text-violet-600",
+      iconColor: "text-zinc-600",
     },
     {
-      label: "Unmapped Employees",
+      label: "Unmapped employees",
       value: kpis.unmappedCount.toString(),
+      subtext: "Awaiting salary profile assignment",
       icon: UserMinus,
-      tone: "bg-amber-50 text-amber-600",
+      iconColor: kpis.unmappedCount > 0 ? "text-amber-500" : "text-zinc-400",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => {
-        const Icon = card.icon;
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
         return (
           <div
-            key={card.label}
-            className="rounded-xl border border-[#d7e8d0]/80 bg-white p-5"
+            key={m.label}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.tone}`}
-              >
-                <Icon className="h-5 w-5" />
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                  {card.label}
-                </p>
-                <p className="mt-0.5 text-xl font-semibold text-[#1b3a1f] tabular-nums">
-                  {card.value}
-                </p>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
               </div>
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
             </div>
           </div>
         );

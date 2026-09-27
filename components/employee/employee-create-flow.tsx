@@ -83,7 +83,7 @@ const EMPTY_FORM: EmployeeFormData = {
   confirmationDate: "",
   status: "Active",
   basicSalary: 0,
-  gradePercent: 100,
+  gradePercent: 0,
   gradeCount: 0,
   gradeAmount: 0,
   citizenshipNo: "",
@@ -483,13 +483,13 @@ export function EmployeeCreateFlow({
         <div className="flex items-center gap-2 text-xs sm:text-sm">
           <Link
             href="/workforce/employees"
-            className="inline-flex items-center gap-1.5 font-medium text-slate-500 hover:text-slate-900 transition-colors"
+            className="inline-flex items-center gap-1.5 font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Employee Directory</span>
           </Link>
-          <span className="text-slate-300">/</span>
-          <span className="font-semibold text-slate-900">
+          <span className="text-zinc-300">/</span>
+          <span className="font-semibold text-zinc-900">
             {editingId ? `Edit Employee: ${formData.fullName || "Record"}` : "Add Employee"}
           </span>
           {totalMissingRequired === 0 ? (
@@ -512,7 +512,7 @@ export function EmployeeCreateFlow({
               variant="outline"
               size="sm"
               onClick={handleDiscardDraft}
-              className="h-9 gap-1.5 rounded-lg border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 shadow-2xs"
+              className="h-9 gap-1.5 rounded-md border-zinc-200 bg-white text-xs font-medium text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 shadow-none cursor-pointer"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>Discard Draft</span>
@@ -531,7 +531,7 @@ export function EmployeeCreateFlow({
                   toast.success("Draft saved successfully");
                 }
               }}
-              className="h-9 gap-1.5 rounded-lg border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
+              className="h-9 gap-1.5 rounded-md border-zinc-200 bg-white text-xs font-medium text-zinc-700 hover:bg-zinc-50 shadow-none cursor-pointer"
             >
               <Save className="h-3.5 w-3.5" />
               <span>Save as Draft</span>
@@ -543,7 +543,7 @@ export function EmployeeCreateFlow({
             variant="outline"
             size="sm"
             onClick={() => router.push("/workforce/employees")}
-            className="h-9 rounded-lg border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
+            className="h-9 rounded-md border-zinc-200 bg-white text-xs font-medium text-zinc-700 hover:bg-zinc-50 shadow-none cursor-pointer"
           >
             Cancel
           </Button>
@@ -556,33 +556,33 @@ export function EmployeeCreateFlow({
         <div className="lg:col-span-4 xl:col-span-3">
           <div className="sticky top-20 space-y-4">
             {/* Stepper Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="rounded-xl border border-zinc-200/80 bg-white p-5">
               {/* Profile Avatar & Header */}
               <div className="flex items-center gap-3 pb-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 border border-emerald-100 text-[#1e7e47]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-emerald-50 border border-emerald-200/60 text-emerald-800">
                   <User className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900 truncate">
+                  <h3 className="text-sm font-semibold text-zinc-900 truncate">
                     {editingId ? "Edit Profile" : "New Employee"}
                   </h3>
-                  <p className="text-[11px] text-slate-500 truncate">
+                  <p className="text-[11px] text-zinc-500 truncate">
                     Complete all 5 sections
                   </p>
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="pb-4 pt-1 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">
+              <div className="pb-4 pt-1 border-t border-zinc-200">
+                <div className="flex items-center justify-between text-[10px] font-bold tracking-wider text-zinc-400 uppercase mb-1.5">
                   <span>Progress</span>
                   <span className="text-emerald-700 font-mono text-[11px]">
                     {Math.round(((activeStep + 1) / STEPS.length) * 100)}%
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#1e7e47] rounded-full transition-all duration-300"
+                    className="h-full bg-emerald-700 rounded-full transition-all duration-300"
                     style={{ width: `${Math.round(((activeStep + 1) / STEPS.length) * 100)}%` }}
                   />
                 </div>
@@ -605,23 +605,23 @@ export function EmployeeCreateFlow({
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className={cn(
-                        "flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer select-none",
+                        "flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-left transition-all cursor-pointer select-none",
                         isActive
-                          ? "bg-[#eef8f2] border border-emerald-200/80 text-emerald-950 font-semibold shadow-2xs"
-                          : "bg-white hover:bg-slate-50 border border-transparent text-slate-600",
+                          ? "bg-emerald-50 border border-emerald-200/80 text-emerald-950 font-semibold shadow-none"
+                          : "bg-white hover:bg-zinc-50 border border-transparent text-zinc-600",
                       )}
                     >
                       {/* Step Number Circle */}
                       <div
                         className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                           isActive
-                            ? "bg-[#1e7e47] text-white shadow-2xs"
+                            ? "bg-emerald-700 text-white shadow-none"
                             : isCompleted && !hasErrors
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "bg-emerald-100 text-emerald-800"
                             : hasErrors
                             ? "bg-red-100 text-red-700"
-                            : "bg-slate-100 text-slate-400",
+                            : "bg-zinc-100 text-zinc-400",
                         )}
                       >
                         {isCompleted && !hasErrors ? (
@@ -640,10 +640,10 @@ export function EmployeeCreateFlow({
                             className={cn(
                               "text-xs truncate",
                               isActive
-                                ? "font-bold text-[#165a3d]"
+                                ? "font-semibold text-emerald-950"
                                 : isCompleted
-                                ? "font-medium text-slate-800"
-                                : "text-slate-500",
+                                ? "font-medium text-zinc-800"
+                                : "text-zinc-500",
                             )}
                           >
                             {step.title}
@@ -662,40 +662,40 @@ export function EmployeeCreateFlow({
             </div>
 
             {/* Key Parameters Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="rounded-xl border border-zinc-200/80 bg-white p-5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                 Assigned Identifiers
               </span>
               <div className="mt-3 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Employee Code:</span>
-                  <span className="font-mono font-bold text-slate-800">
+                  <span className="text-zinc-500">Employee Code:</span>
+                  <span className="font-mono font-semibold text-zinc-900">
                     {formData.employeeCode || "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Attendance Code:</span>
-                  <span className="font-mono font-bold text-slate-800">
+                  <span className="text-zinc-500">Attendance Code:</span>
+                  <span className="font-mono font-semibold text-zinc-900">
                     {formData.attendanceCode || "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Status:</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 text-[11px] border border-emerald-100">
+                  <span className="text-zinc-500">Status:</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800 text-[11px] border border-emerald-200/60">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                     {formData.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Category:</span>
-                  <span className="font-semibold text-slate-700">
+                  <span className="text-zinc-500">Category:</span>
+                  <span className="font-semibold text-zinc-700">
                     {formData.category || "—"}
                   </span>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="mt-3 pt-3 border-t border-zinc-200 flex items-center justify-between text-[11px] text-zinc-400">
                 <span>Quick save:</span>
-                <kbd className="rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                <kbd className="rounded bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600">
                   Ctrl+S
                 </kbd>
               </div>
@@ -705,22 +705,22 @@ export function EmployeeCreateFlow({
 
         {/* Right Active Form Step Workspace */}
         <div className="lg:col-span-8 xl:col-span-9">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-xs">
+          <div className="rounded-xl border border-zinc-200/80 bg-white p-6 sm:p-8">
             {/* Active Step Header inside Canvas */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-5 mb-7">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-5 mb-7">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 text-[#1e7e47]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 border border-emerald-200/60 text-emerald-800">
                   {React.createElement(currentStepDef.icon, { className: "h-5 w-5" })}
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-lg font-semibold tracking-tight text-slate-900">
+                  <h2 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900">
                     {currentStepDef.title}
                   </h2>
                 </div>
               </div>
 
               <div className="shrink-0">
-                <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200/60 px-3 py-1 text-xs font-semibold text-slate-600">
+                <span className="inline-flex items-center rounded-md bg-zinc-100 border border-zinc-200/60 px-3 py-1 text-xs font-semibold text-zinc-600">
                   Step {activeStep + 1} / {STEPS.length}
                 </span>
               </div>
@@ -747,44 +747,44 @@ export function EmployeeCreateFlow({
             {/* In-Step Review Card on Step 4 (Bank & Review) */}
             {activeStep === 4 && (
               <div className="mt-8 rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-5">
-                <div className="flex items-center gap-2 text-[#1e7e47] font-semibold text-sm mb-4">
-                  <FileCheck2 className="h-4 w-4" />
+                <div className="flex items-center gap-2 text-emerald-950 font-semibold text-sm mb-4">
+                  <FileCheck2 className="h-4 w-4 text-emerald-700" />
                   <span>Profile Readiness Summary</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="rounded-lg bg-white p-3 border border-slate-200">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Full Name</span>
-                    <div className="font-semibold text-slate-900 truncate mt-0.5">
+                  <div className="rounded-md bg-white p-3 border border-zinc-200">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Full Name</span>
+                    <div className="font-semibold text-zinc-900 truncate mt-0.5">
                       {formData.fullName || "—"}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-white p-3 border border-slate-200">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Contact</span>
-                    <div className="font-mono text-slate-900 truncate mt-0.5">
+                  <div className="rounded-md bg-white p-3 border border-zinc-200">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Contact</span>
+                    <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.mobileNo || "—"}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-white p-3 border border-slate-200">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">PAN Number</span>
-                    <div className="font-mono text-slate-900 truncate mt-0.5">
+                  <div className="rounded-md bg-white p-3 border border-zinc-200">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">PAN Number</span>
+                    <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.panNumber || "—"}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-white p-3 border border-slate-200">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Citizenship</span>
-                    <div className="font-mono text-slate-900 truncate mt-0.5">
+                  <div className="rounded-md bg-white p-3 border border-zinc-200">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Citizenship</span>
+                    <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.citizenshipNo || "—"}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-white p-3 border border-slate-200">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Bank</span>
-                    <div className="text-slate-900 truncate mt-0.5">
+                  <div className="rounded-md bg-white p-3 border border-zinc-200">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Bank</span>
+                    <div className="text-zinc-900 truncate mt-0.5">
                       {formData.bankName || "—"}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-white p-3 border border-slate-200">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Account No</span>
-                    <div className="font-mono text-slate-900 truncate mt-0.5">
+                  <div className="rounded-md bg-white p-3 border border-zinc-200">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Account No</span>
+                    <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.bankAccountNumber || "—"}
                     </div>
                   </div>
@@ -793,14 +793,14 @@ export function EmployeeCreateFlow({
             )}
 
             {/* Bottom Action Bar inside Canvas */}
-            <div className="border-t border-slate-100 pt-6 mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="border-t border-zinc-200 pt-6 mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handlePrevStep}
                 disabled={activeStep === 0}
-                className="h-10 px-4 gap-1.5 rounded-lg border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 shadow-2xs"
+                className="h-10 px-4 gap-1.5 rounded-md border-zinc-200 bg-white text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 shadow-none cursor-pointer"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Back</span>
@@ -815,10 +815,10 @@ export function EmployeeCreateFlow({
                     className={cn(
                       "h-2 rounded-full transition-all cursor-pointer",
                       s.index === activeStep
-                        ? "w-6 bg-[#1e7e47]"
+                        ? "w-6 bg-emerald-700"
                         : s.index < activeStep
                         ? "w-2 bg-emerald-400"
-                        : "w-2 bg-slate-200",
+                        : "w-2 bg-zinc-200",
                     )}
                     aria-label={`Go to ${s.title}`}
                   />
@@ -831,7 +831,7 @@ export function EmployeeCreateFlow({
                     type="button"
                     size="sm"
                     onClick={handleNextStep}
-                    className="h-10 px-5 gap-1.5 rounded-lg bg-[#1e7e47] hover:bg-[#165a3d] text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                    className="h-10 px-5 gap-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold text-white shadow-none transition-colors cursor-pointer"
                   >
                     <span>Save & Continue</span>
                     <ChevronRight className="h-3.5 w-3.5" />
@@ -842,7 +842,7 @@ export function EmployeeCreateFlow({
                     size="sm"
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="h-10 px-6 gap-1.5 rounded-lg bg-[#1e7e47] hover:bg-[#165a3d] text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                    className="h-10 px-6 gap-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold text-white shadow-none transition-colors cursor-pointer"
                   >
                     <Save className="h-3.5 w-3.5" />
                     <span>{isSaving ? "Saving..." : editingId ? "Save Changes" : "Submit & Register Employee"}</span>

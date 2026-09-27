@@ -62,7 +62,7 @@ const EMPTY_FORM: EmployeeFormData = {
   confirmationDate: "",
   status: "Active",
   basicSalary: 0,
-  gradePercent: 100,
+  gradePercent: 0,
   gradeCount: 0,
   gradeAmount: 0,
   citizenshipNo: "",
@@ -444,32 +444,46 @@ export function EmployeeFormModal({
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-payroll-primary font-semibold tracking-wide">
+            <span className="text-xs text-zinc-500 font-medium tracking-wide">
               Section {activeTab + 1} of {TABS.length} · {TABS[activeTab].label}
             </span>
             {!editingId && hasDraft && (
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="text-[11px] text-gray-400 hover:text-red-600 underline transition-colors cursor-pointer"
+                className="text-xs text-zinc-400 hover:text-red-600 underline transition-colors cursor-pointer"
               >
                 Reset Draft
               </button>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
               Cancel
             </Button>
             
             {activeTab > 0 && (
-              <Button type="button" variant="outline" onClick={handleBack}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+                className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+              >
                 Back
               </Button>
             )}
 
             {activeTab < TABS.length - 1 && (
-              <Button type="button" variant="outline" onClick={handleNext}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleNext}
+                className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+              >
                 Next Section
               </Button>
             )}
@@ -478,31 +492,32 @@ export function EmployeeFormModal({
               onClick={handleSave}
               isSaving={isSaving}
               label={editingId ? "Save Changes" : "Add Employee"}
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
             />
           </div>
         </div>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* Section Completion Status Pill & Progress Bar */}
-        <div className="space-y-1.5">
+        <div className="space-y-2 pb-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500 font-medium">Form Completion</span>
-            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[11px]">
+            <span className="text-zinc-500 font-medium">Form Completion</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80 text-[11px]">
               <span>{completedCount} of {TABS.length} sections complete</span>
               <span>({progressPercent}%)</span>
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-zinc-100 overflow-hidden">
             <div
-              className="h-full rounded-full bg-linear-to-r from-emerald-500 to-green-600 transition-all duration-300 ease-out"
+              className="h-full rounded-full bg-emerald-700 transition-all duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
         {/* Tab Navigation with Error & Completion Badges */}
-        <div className="flex gap-0 border-b border-payroll-light overflow-x-auto scrollbar-none">
+        <div className="flex gap-1 border-b border-zinc-300/80 overflow-x-auto scrollbar-none">
           {TABS.map((tab, idx) => {
             const Icon = tab.icon;
             const isActive = activeTab === idx;
@@ -514,10 +529,10 @@ export function EmployeeFormModal({
                 type="button"
                 onClick={() => handleTabClick(idx)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] font-medium transition-all whitespace-nowrap cursor-pointer relative",
+                  "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-medium transition-all whitespace-nowrap cursor-pointer relative rounded-t-md",
                   isActive
-                    ? "border-payroll-primary text-payroll-primary font-semibold bg-emerald-50/40"
-                    : "border-transparent text-gray-500 hover:text-payroll-navy hover:bg-gray-50"
+                    ? "border-emerald-700 text-emerald-950 font-semibold bg-emerald-50/50"
+                    : "border-transparent text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -525,14 +540,14 @@ export function EmployeeFormModal({
 
                 {/* Persistent Error Badge */}
                 {status.hasError && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 shadow-sm animate-pulse">
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 shadow-xs animate-pulse">
                     {status.errCount}
                   </span>
                 )}
 
                 {/* Section Complete Checkmark */}
                 {!status.hasError && status.isComplete && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                     ✓
                   </span>
                 )}

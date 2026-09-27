@@ -216,12 +216,12 @@ export function EmployeeTable({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-payroll-border bg-white shadow-payroll-xs">
+    <div className="relative w-full overflow-hidden">
       {/* Floating Bulk Action Bar if items selected */}
       {selectedIds.size > 0 && (
-        <div className="sticky top-2 z-30 m-3 flex items-center justify-between rounded-lg bg-payroll-ink px-4 py-2 text-white shadow-payroll-md animate-[slideInUp_150ms_ease-out]">
+        <div className="sticky top-2 z-30 m-3 flex items-center justify-between rounded-lg bg-zinc-950 px-4 py-2 text-white shadow-md animate-[slideInUp_150ms_ease-out]">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-payroll-primary text-xs font-semibold text-white">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-700 text-xs font-semibold text-white">
               {selectedIds.size}
             </span>
             <span className="text-xs font-medium">
@@ -235,14 +235,14 @@ export function EmployeeTable({
             <button
               type="button"
               onClick={handleExportSelected}
-              className="inline-flex items-center gap-1 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover px-2.5 py-1 text-xs font-semibold text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 rounded bg-emerald-800 hover:bg-emerald-900 px-2.5 py-1 text-xs font-medium text-white transition-colors cursor-pointer"
             >
               Export CSV
             </button>
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
-              className="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-xs text-white transition-colors cursor-pointer"
+              className="rounded bg-white/10 hover:bg-white/20 px-2 py-1 text-xs text-white transition-colors cursor-pointer"
             >
               Clear
             </button>
@@ -251,8 +251,8 @@ export function EmployeeTable({
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-gray-700">
-          <thead className="bg-gray-50/80 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-payroll-border select-none">
+        <table className="w-full text-left text-xs text-zinc-700">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold tracking-wider text-zinc-900 uppercase select-none">
             <tr>
               <SortHeader
                 label="ATT. CODE"
@@ -278,7 +278,7 @@ export function EmployeeTable({
                 label="BRANCH"
                 onClick={() => toggleSort("branchId")}
               />
-              <th scope="col" className="px-4 py-3.5">
+              <th scope="col" className="px-4 py-4 font-semibold text-zinc-500">
                 CONTACT
               </th>
               <SortHeader
@@ -291,13 +291,13 @@ export function EmployeeTable({
               />
               <th
                 scope="col"
-                className="px-4 py-3.5 text-right w-24"
+                className="px-4 py-4 text-right w-24 font-semibold text-zinc-500"
               >
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-payroll-border/60 bg-white">
+          <tbody className="divide-y divide-zinc-200 bg-transparent">
             {paginatedEmployees.map((emp) => {
               const departmentName = resolveDepartmentName(
                 emp.departmentId,
@@ -320,30 +320,30 @@ export function EmployeeTable({
                 <tr
                   key={emp.id}
                   onClick={() => onSelect(emp.id)}
-                  className="group transition-colors hover:bg-gray-50/70 cursor-pointer select-none"
+                  className="group transition-colors hover:bg-zinc-50/60 cursor-pointer select-none"
                 >
                   {/* ATT. CODE */}
-                  <td className="px-4 py-3.5 font-mono text-xs font-semibold text-payroll-ink align-middle whitespace-nowrap">
+                  <td className="px-4 py-4 font-mono text-xs font-semibold text-zinc-950 align-middle whitespace-nowrap">
                     {emp.attendanceCode}
                   </td>
 
                   {/* EMP. CODE */}
-                  <td className="px-4 py-3.5 font-mono text-xs text-gray-500 align-middle whitespace-nowrap">
+                  <td className="px-4 py-4 font-mono text-xs text-zinc-500 align-middle whitespace-nowrap">
                     {emp.employeeCode}
                   </td>
 
                   {/* EMPLOYEE (Avatar + Name) */}
-                  <td className="px-4 py-3.5 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#165a3d] text-[11px] font-semibold text-white shadow-2xs">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-[11px] font-semibold text-white shadow-2xs">
                         {initials}
                       </div>
                       <div className="min-w-0 max-w-50">
-                        <div className="font-semibold text-sm text-payroll-ink truncate">
+                        <div className="font-medium text-sm text-zinc-950 truncate">
                           {emp.fullName}
                         </div>
                         {emp.isSupervisor && (
-                          <span className="inline-block mt-0.5 rounded bg-blue-50 px-1.5 py-0.2 text-[9px] font-semibold text-blue-700 border border-blue-200">
+                          <span className="inline-block mt-0.5 rounded bg-sky-50 px-1.5 py-0.2 text-[10px] font-medium text-sky-800 border border-sky-200/50">
                             Supervisor
                           </span>
                         )}
@@ -352,61 +352,61 @@ export function EmployeeTable({
                   </td>
 
                   {/* DEPARTMENT */}
-                  <td className="px-4 py-3.5 align-middle text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-4 align-middle text-zinc-700 whitespace-nowrap">
                     {departmentName || "—"}
                   </td>
 
-                  {/* DESIGNATION (Separated right after Department) */}
-                  <td className="px-4 py-3.5 align-middle text-gray-600 whitespace-nowrap">
+                  {/* DESIGNATION */}
+                  <td className="px-4 py-4 align-middle text-zinc-600 whitespace-nowrap">
                     {designationName || "—"}
                   </td>
 
                   {/* BRANCH */}
-                  <td className="px-4 py-3.5 align-middle text-gray-600 whitespace-nowrap">
+                  <td className="px-4 py-4 align-middle text-zinc-600 whitespace-nowrap">
                     {branchName || "—"}
                   </td>
 
-                  {/* CONTACT (Email + Phone Stack) */}
-                  <td className="px-4 py-3.5 align-middle">
+                  {/* CONTACT */}
+                  <td className="px-4 py-4 align-middle">
                     <div className="min-w-0 max-w-55">
-                      <div className="text-xs text-gray-700 truncate font-normal">
+                      <div className="text-xs text-zinc-700 truncate font-normal">
                         {emp.companyEmail || emp.email || "—"}
                       </div>
-                      <div className="text-xs text-gray-400 font-mono mt-0.5">
+                      <div className="text-xs text-zinc-400 font-mono mt-0.5">
                         {emp.mobileNo || "—"}
                       </div>
                     </div>
                   </td>
 
-                  {/* TYPE (Soft outline pill) */}
-                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
-                    <span className="inline-flex items-center rounded-md border border-blue-200/80 bg-blue-50/60 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                  {/* TYPE */}
+                  <td className="px-4 py-4 align-middle whitespace-nowrap">
+                    <span className="inline-flex items-center rounded border border-zinc-200/60 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                       {emp.category || "Full Time"}
                     </span>
                   </td>
 
-                  {/* STATUS (Pill with dot) */}
-                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
+                  {/* STATUS */}
+                  <td className="px-4 py-4 align-middle whitespace-nowrap">
                     {isLeave ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                      <span className="inline-flex items-center gap-1.5 rounded border border-amber-200/50 bg-amber-50/70 px-2 py-0.5 text-xs font-medium text-amber-800">
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                         On Leave
                       </span>
                     ) : isActive ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                      <span className="inline-flex items-center gap-1.5 rounded border border-emerald-200/50 bg-emerald-50/70 px-2 py-0.5 text-xs font-medium text-emerald-800">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                         Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                      <span className="inline-flex items-center gap-1.5 rounded border border-zinc-200/60 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
                         {emp.status}
                       </span>
                     )}
                   </td>
 
-                  {/* ACTIONS (Quiet View Eye, Edit Pencil, Delete Trash) */}
-                  <td className="px-4 py-3.5 align-middle text-right whitespace-nowrap">
+                  {/* ACTIONS */}
+                  <td className="px-4 py-4 align-middle text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                       <ActionButton
                         label={`View ${emp.fullName}`}
@@ -462,11 +462,11 @@ function SortHeader({
   onClick: () => void;
 }) {
   return (
-    <th scope="col" className="px-4 py-3.5">
+    <th scope="col" className="px-4 py-4 font-semibold text-zinc-500">
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1 transition-colors hover:text-payroll-ink cursor-pointer select-none"
+        className="inline-flex items-center gap-1 transition-colors hover:text-zinc-950 cursor-pointer select-none"
       >
         <span>{label}</span>
         <ArrowUpDown className="h-3 w-3 opacity-50" />

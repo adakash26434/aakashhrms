@@ -107,19 +107,21 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
     "Selected Run";
 
   return (
-    <PageFrame size="wide" spacing="default">
-      {/* Canonical Standard Page Header */}
-      <PageHeader
-        title="Employee Payslips & Confidential Print"
-        description="Generate and print official confidential salary slips for employee distribution."
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
-            <ShieldCheck className="h-4 w-4" />
-            <span>A4 Confidential Format</span>
-          </span>
-        </div>
-      </PageHeader>
+    <PageFrame size="wide" spacing="default" className="print:space-y-0">
+      {/* Canonical Standard Page Header — hidden during print */}
+      <div className="print:hidden">
+        <PageHeader
+          title="Employee Payslips & Confidential Print"
+          description="Generate and print official confidential salary slips for employee distribution."
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+              <span>A4 confidential format</span>
+            </span>
+          </div>
+        </PageHeader>
+      </div>
 
       {/* Filter Bar */}
       <div className="print:hidden">
@@ -138,15 +140,15 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
 
       {/* Error Banner */}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-xs font-medium text-red-700 border border-red-200 print:hidden">
+        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-3.5 text-xs font-medium text-rose-700 border border-rose-200 print:hidden">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Report Result Section */}
-      <div className="space-y-4">
-        {/* Standard Action Toolbar */}
+      <div>
+        {/* Standard Action Toolbar — hidden during print */}
         <ReportActionToolbar
           onPrint={handlePrint}
           onExport={handleExportCsv}
@@ -155,32 +157,30 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
           meta={
             activePayslips.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                   Period: {selectedRunLabel}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
-                  Slips Count: {activePayslips.length}
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                  Slips count: {activePayslips.length}
                 </span>
               </div>
             ) : undefined
           }
         >
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-payroll-primary/10 text-payroll-primary">
-              <Printer className="h-4 w-4" />
+            <div className="p-1 rounded-md bg-zinc-100 text-zinc-700">
+              <Printer className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
-              Printable Salary Slips
+            <span className="text-xs font-semibold text-zinc-900">
+              Printable salary slips
             </span>
           </div>
         </ReportActionToolbar>
 
-        {/* Printable Payslips Container inside Report Shell */}
-        <div className={isPreviewOpen ? "print:hidden" : ""}>
+        {/* Printable Payslips — occupies full print viewport from top */}
+        <div className={isPreviewOpen ? "print:hidden" : "mt-4 print:mt-0"}>
           {activePayslips.length > 0 ? (
-            <div className="space-y-4">
-              <PayslipPrintable data={activePayslips} company={lookupData.company} />
-            </div>
+            <PayslipPrintable data={activePayslips} company={lookupData.company} />
           ) : (
             <ReportDataTableShell
               isEmpty={true}

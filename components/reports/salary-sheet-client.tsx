@@ -54,11 +54,32 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
 
   const toast = useToast();
 
-  const handlePrintSummary = () => {
-    setIsIndividualSlipsView(false);
+  /** Injects a temporary @page landscape override for wide tabular prints,
+   *  then removes it after printing via the afterprint event.
+   *  NOTE: @page must be at the stylesheet root — NOT inside @media print. */
+  const printLandscape = (delayMs = 50) => {
+    const styleEl = document.createElement("style");
+    styleEl.id = "__salary-landscape-override";
+    // Bare @page rule (root level) — this is the correct spec. @page inside @media print is invalid.
+    styleEl.textContent = "@page { size: A4 landscape; margin: 8mm 6mm; }";
+    document.head.appendChild(styleEl);
+    document.body.classList.add("print-landscape");
     setTimeout(() => {
       window.print();
-    }, 50);
+    }, delayMs);
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.getElementById("__salary-landscape-override")?.remove();
+        document.body.classList.remove("print-landscape");
+      },
+      { once: true }
+    );
+  };
+
+  const handlePrintSummary = () => {
+    setIsIndividualSlipsView(false);
+    printLandscape(50);
   };
 
   const handlePrintIndividualSlips = () => {
@@ -223,7 +244,11 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (activeTab === "SALARY_SHEET") {
+      printLandscape(50);
+    } else {
+      window.print();
+    }
   };
 
   const selectedRunLabel =
@@ -248,36 +273,40 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
   }, [singleEmployeeRow, sheetData, activeSheetData]);
 
   return (
-    <PageFrame size="wide" spacing="default">
-      {/* Canonical Standard Page Header */}
-      <PageHeader
-        title="Salary Sheet Report"
-        description="View earnings, dynamic allowances, deductions, and net payable breakdown for locked monthly payroll runs."
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Locked Run Data Enforced</span>
-          </span>
-        </div>
-      </PageHeader>
+    <PageFrame size="wide" spacing="default" className="print:space-y-0">
+      {/* Canonical Standard Page Header — screen only */}
+      <div className="print:hidden">
+        <PageHeader
+          title="Salary Sheet Report"
+          description="View earnings, dynamic allowances, deductions, and net payable breakdown for locked monthly payroll runs."
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Locked run data enforced</span>
+            </span>
+          </div>
+        </PageHeader>
+      </div>
 
-      {/* Filter Bar */}
-      <ReportFilterBar
-        lookupData={lookupData}
-        showRunSelector={true}
-        showBranchFilter={true}
-        showDepartmentFilter={true}
-        showDesignationFilter={true}
-        showEmployeeFilter={true}
-        showSearchFilter={activeTab === "SALARY_SHEET"}
-        onFilterChange={handleFilterChange}
-        isLoading={isLoading}
-      />
+      {/* Filter Bar — screen only */}
+      <div className="print:hidden">
+        <ReportFilterBar
+          lookupData={lookupData}
+          showRunSelector={true}
+          showBranchFilter={true}
+          showDepartmentFilter={true}
+          showDesignationFilter={true}
+          showEmployeeFilter={true}
+          showSearchFilter={activeTab === "SALARY_SHEET"}
+          onFilterChange={handleFilterChange}
+          isLoading={isLoading}
+        />
+      </div>
 
-      {/* Error Alert */}
+      {/* Error Alert — screen only */}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-xs font-medium text-red-700 border border-red-200">
+        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-3.5 text-xs font-medium text-rose-700 border border-rose-200 print:hidden">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -298,10 +327,10 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
           meta={
             activeSheetData ? (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                   Period: {selectedRunLabel}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                   Staff: {activeSheetData.summary.totalEmployees}
                 </span>
               </div>
@@ -309,32 +338,32 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
           }
         >
           {/* Sub-tab Switcher: Salary Sheet vs Pay Head Summary */}
-          <div className="inline-flex rounded-lg border border-payroll-light bg-payroll-cream p-1 shadow-payroll-xs">
+          <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100/70 p-0.5">
             <button
               type="button"
               onClick={() => handleTabChange("SALARY_SHEET")}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all",
                 activeTab === "SALARY_SHEET"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:text-payroll-navy"
+                  ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                  : "text-zinc-600 hover:text-zinc-900"
               )}
             >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>Salary Sheet</span>
+              <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-500" />
+              <span>Salary sheet</span>
             </button>
             <button
               type="button"
               onClick={() => handleTabChange("HEAD_SUMMARY")}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all",
                 activeTab === "HEAD_SUMMARY"
-                  ? "bg-payroll-primary text-white shadow-payroll-xs"
-                  : "text-gray-600 hover:text-payroll-navy"
+                  ? "bg-white text-zinc-950 font-semibold shadow-2xs"
+                  : "text-zinc-600 hover:text-zinc-900"
               )}
             >
-              <Layers className="h-3.5 w-3.5" />
-              <span>Pay Head Summary</span>
+              <Layers className="h-3.5 w-3.5 text-zinc-500" />
+              <span>Pay head summary</span>
             </button>
           </div>
         </ReportActionToolbar>
@@ -357,9 +386,9 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
                 emptyAction={
                   <a
                     href="/payroll/review"
-                    className="font-semibold text-payroll-primary hover:underline text-xs inline-flex items-center gap-1"
+                    className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline text-xs inline-flex items-center gap-1"
                   >
-                    Lock a payroll run in Review section →
+                    Lock a payroll run in Review section
                   </a>
                 }
               >

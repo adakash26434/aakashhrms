@@ -36,7 +36,7 @@ export function ReportActionToolbar({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-4 border-b border-payroll-light/80 pb-4 print:hidden",
+        "flex flex-wrap items-center justify-between gap-4 border-b border-zinc-300/80 pb-4 print:hidden",
         className
       )}
     >
@@ -50,19 +50,19 @@ export function ReportActionToolbar({
               {(title || badge) && (
                 <div className="flex items-center gap-2">
                   {title && (
-                    <h3 className="text-sm font-bold text-payroll-navy tracking-tight">
+                    <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
                       {title}
                     </h3>
                   )}
                   {badge && (
-                    <span className="rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-payroll-primary">
+                    <span className="rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
                       {badge}
                     </span>
                   )}
                 </div>
               )}
               {subtitle && (
-                <p className="text-xs text-gray-500">{subtitle}</p>
+                <p className="text-xs text-zinc-500">{subtitle}</p>
               )}
               {meta && (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -77,17 +77,17 @@ export function ReportActionToolbar({
       )}
 
       {/* Right side: Unified Action Buttons */}
-      <div className="flex flex-wrap items-center gap-2.5 ml-auto">
+      <div className="flex flex-wrap items-center gap-2 ml-auto">
         {/* Preview Button */}
         <button
           type="button"
           onClick={onPreview}
           disabled={!hasData}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-payroll-primary bg-white px-3.5 py-2 text-xs font-bold text-payroll-primary shadow-payroll-xs transition-all hover:bg-payroll-primary hover:text-white active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 shadow-2xs transition-colors hover:bg-zinc-50 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
           title="Preview report document layout"
           aria-label="Preview report layout"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-3.5 w-3.5 text-zinc-500" />
           <span>Preview</span>
         </button>
 
@@ -96,15 +96,15 @@ export function ReportActionToolbar({
           type="button"
           onClick={onExport}
           disabled={!hasData || isExporting}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-payroll-light bg-white px-3.5 py-2 text-xs font-bold text-payroll-navy shadow-payroll-xs transition-all hover:bg-payroll-light/40 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 shadow-2xs transition-colors hover:bg-zinc-50 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
           title="Export report to CSV"
           aria-label="Export report to CSV"
           aria-busy={isExporting}
         >
           {isExporting ? (
-            <Loader2 className="h-4 w-4 text-payroll-primary animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 text-zinc-500 animate-spin" />
           ) : (
-            <Download className="h-4 w-4 text-payroll-primary" />
+            <Download className="h-3.5 w-3.5 text-zinc-500" />
           )}
           <span>{isExporting ? "Exporting..." : "Export CSV"}</span>
         </button>
@@ -114,11 +114,11 @@ export function ReportActionToolbar({
           type="button"
           onClick={onPrint}
           disabled={!hasData}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary px-4 py-2 text-xs font-bold text-white shadow-payroll-sm transition-all hover:bg-payroll-primary-hover active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-1.5 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover px-3.5 py-1.5 text-xs font-medium text-white shadow-sm shadow-payroll-primary/10 transition-colors active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
           title="Print official report"
           aria-label="Print report"
         >
-          <Printer className="h-4 w-4" />
+          <Printer className="h-3.5 w-3.5" />
           <span>Print</span>
         </button>
       </div>

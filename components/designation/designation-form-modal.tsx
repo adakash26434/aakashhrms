@@ -131,29 +131,44 @@ export function DesignationFormModal({
       description={description}
       size="2xl"
       footer={
-        <>
-          <span className="mr-auto text-xs text-gray-500">
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
             {isEdit
-              ? `Designation: ${editingDesignation!.name}`
+              ? `Editing: ${editingDesignation!.name}`
               : "New designation"}
           </span>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="designation-form">
-            {submitLabel}
-          </Button>
-        </>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="designation-form"
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+            >
+              {submitLabel}
+            </Button>
+          </div>
+        </div>
       }
     >
       <form
         id="designation-form"
         onSubmit={handleSubmit}
-        className="space-y-5"
+        className="space-y-6"
         noValidate
       >
         {/* === 1. Basic Information ============================== */}
-        <FormSection number={1} title="Basic Information">
+        <FormSection
+          title="Basic Information"
+          description="Official job title and designation title."
+          isFirst
+        >
           <Field id="desig-name" label="Designation Name *" error={errors.name}>
             <input
               id="desig-name"
@@ -161,18 +176,16 @@ export function DesignationFormModal({
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Senior Engineer"
-              className={cn(
-                "h-9 w-full rounded-lg border bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1",
-                errors.name
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                  : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
-              )}
+              className={inputClass(errors.name)}
             />
           </Field>
         </FormSection>
 
         {/* === 2. Organisational Placement ====================== */}
-        <FormSection number={2} title="Organisational Placement">
+        <FormSection
+          title="Organizational Placement"
+          description="Designate the operational department this role belongs to."
+        >
           <Field
             id="desig-department"
             label="Department *"
@@ -192,18 +205,16 @@ export function DesignationFormModal({
                   aria-haspopup="listbox"
                   aria-expanded={open}
                   className={cn(
-                    "h-9 w-full rounded-lg border bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1 flex items-center justify-between",
-                    errors.departmentId
-                      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                      : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
+                    inputClass(errors.departmentId),
+                    "flex items-center justify-between cursor-pointer"
                   )}
                 >
                   <span className="flex-1 truncate text-left">
                     {selectedDepartment?.label ?? "Select department"}
                   </span>
-                  <span className="ml-2 inline-flex items-center gap-1.5 text-gray-500">
+                  <span className="ml-2 inline-flex items-center gap-1.5 text-zinc-400">
                     {selectedDepartment && (
-                      <Building2 className="h-3.5 w-3.5 text-payroll-primary" />
+                      <Building2 className="h-3.5 w-3.5 text-emerald-700" />
                     )}
                     <span aria-hidden>▾</span>
                   </span>
@@ -215,7 +226,10 @@ export function DesignationFormModal({
         </FormSection>
 
         {/* === 3. Description ==================================== */}
-        <FormSection number={3} title="Description">
+        <FormSection
+          title="Role Overview"
+          description="Key duties, reporting line, and core responsibilities."
+        >
           <textarea
             id="desig-description"
             value={form.description}
@@ -225,10 +239,10 @@ export function DesignationFormModal({
             placeholder="Brief description of the role's responsibilities and reporting line..."
             rows={4}
             className={cn(
-              "w-full rounded-lg border bg-white px-3 py-2 text-sm text-payroll-navy focus:outline-none focus:ring-1",
+              "w-full rounded-md border bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
               errors.description
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
+                : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
             )}
           />
           {errors.description && (
@@ -239,11 +253,14 @@ export function DesignationFormModal({
         </FormSection>
 
         {/* === 4. Status ========================================= */}
-        <FormSection number={4} title="Status">
+        <FormSection
+          title="Operational Status"
+          description="Designate whether this designation is active or archived."
+        >
           <div
             role="radiogroup"
             aria-label="Designation status"
-            className="inline-flex rounded-lg border border-payroll-light/80 bg-white p-1"
+            className="inline-flex rounded-md border border-zinc-200 bg-white p-1"
           >
             {DESIGNATION_STATUSES.map((s) => {
               const isActive = s === form.status;
@@ -255,12 +272,12 @@ export function DesignationFormModal({
                   aria-checked={isActive}
                   onClick={() => setForm((f) => ({ ...f, status: s }))}
                   className={cn(
-                    "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+                    "rounded-md px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
                     isActive
                       ? s === "active"
-                        ? "bg-payroll-primary text-white shadow-sm"
-                        : "bg-gray-700 text-white shadow-sm"
-                      : "text-payroll-navy hover:bg-payroll-light",
+                        ? "bg-emerald-700 text-white shadow-none"
+                        : "bg-zinc-800 text-white shadow-none"
+                      : "text-zinc-700 hover:bg-zinc-50",
                   )}
                 >
                   {formatDesignationStatus(s)}
@@ -274,27 +291,36 @@ export function DesignationFormModal({
   );
 }
 
+function inputClass(error?: string): string {
+  return cn(
+    "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
+    error
+      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+  );
+}
+
 function FormSection({
-  number,
   title,
+  description,
   children,
+  isFirst = false,
 }: {
-  number: number;
   title: string;
+  description?: string;
   children: React.ReactNode;
+  isFirst?: boolean;
 }) {
   return (
-    <section>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-payroll-light/60 text-[10px] font-semibold text-payroll-navy">
-          {number}
-        </span>
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-          {title}
-        </h3>
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
       </div>
-      {children}
-    </section>
+      <div>{children}</div>
+    </div>
   );
 }
 
@@ -313,7 +339,7 @@ function Field({
     <div>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-xs font-medium text-gray-600"
+        className="mb-1.5 block text-xs font-semibold text-zinc-700"
       >
         {label}
       </label>

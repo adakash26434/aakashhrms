@@ -12,41 +12,43 @@ interface LoanTypesTableProps {
 
 export function LoanTypesTable({ loanTypes, onEdit, onDelete }: LoanTypesTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50/80">
-          <tr>
-            <th className="px-6 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Name</th>
-            <th className="px-6 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Max Amount</th>
-            <th className="px-6 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Max Installments</th>
-            <th className="px-6 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Interest Rate</th>
-            <th className="px-6 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
-            <th className="px-6 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500">Actions</th>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <th className="px-4 py-3">Name</th>
+            <th className="px-4 py-3">Max Amount</th>
+            <th className="px-4 py-3">Max Installments</th>
+            <th className="px-4 py-3">Interest Rate</th>
+            <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-zinc-200">
           {loanTypes.map((lt) => (
-            <tr key={lt.id} className="transition-colors hover:bg-gray-50/50">
-              <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#1b3a1f]">{lt.name}</td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-gray-700">Rs. {lt.maxAmount.toLocaleString()}</td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-gray-700">{lt.maxInstallments}</td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm tabular-nums text-gray-700">{lt.interestRate}%</td>
-              <td className="whitespace-nowrap px-6 py-4">
+            <tr key={lt.id} className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60">
+              <td className="whitespace-nowrap px-4 py-4 font-medium text-zinc-900">{lt.name}</td>
+              <td className="whitespace-nowrap px-4 py-4 tabular-nums text-zinc-700">Rs. {lt.maxAmount.toLocaleString()}</td>
+              <td className="whitespace-nowrap px-4 py-4 tabular-nums text-zinc-700">{lt.maxInstallments}</td>
+              <td className="whitespace-nowrap px-4 py-4 tabular-nums text-zinc-700">{lt.interestRate}%</td>
+              <td className="whitespace-nowrap px-4 py-4">
                 <Badge variant={lt.isActive ? "success" : "neutral"}>
                   {lt.isActive ? "Active" : "Inactive"}
                 </Badge>
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-2">
+              <td className="whitespace-nowrap px-4 py-4 text-right">
+                <div className="flex items-center justify-end gap-1">
                   <button
                     onClick={() => onEdit(lt)}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-[#2e7d32]"
+                    className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                    title="Edit"
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => onDelete(lt)}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -56,7 +58,7 @@ export function LoanTypesTable({ loanTypes, onEdit, onDelete }: LoanTypesTablePr
           ))}
           {loanTypes.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+              <td colSpan={6} className="px-4 py-12 text-center text-xs text-zinc-400">
                 No loan types configured yet.
               </td>
             </tr>

@@ -192,38 +192,42 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
   }, [singleEmployeeRow, reportData, activeReportData]);
 
   return (
-    <PageFrame size="wide" spacing="default">
-      {/* Canonical Standard Page Header */}
-      <PageHeader
-        title="Attendance & OT Report"
-        description="Device punch details, manual status matrix (P/A/L/HD), and statutory monthly working days, absent deductions, and OT earned summary."
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-payroll-primary/10 border border-payroll-primary/20 px-3 py-1 text-xs font-bold text-payroll-primary">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Nepal Labour Act Standards</span>
-          </span>
-        </div>
-      </PageHeader>
+    <PageFrame size="wide" spacing="default" className="print:space-y-0">
+      {/* Canonical Standard Page Header — screen only */}
+      <div className="print:hidden">
+        <PageHeader
+          title="Attendance & Overtime Ledger"
+          description="Daily punch logs, presence matrix, monthly working days, and statutory overtime breakdown."
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Nepal Labour Act standards</span>
+            </span>
+          </div>
+        </PageHeader>
+      </div>
 
-      {/* Filter Bar */}
-      <ReportFilterBar
-        lookupData={lookupData}
-        showFYSelector={true}
-        showMonthSelector={true}
-        showReportFormatToggle={true}
-        showBranchFilter={true}
-        showDepartmentFilter={true}
-        showDesignationFilter={true}
-        showEmployeeFilter={true}
-        showSearchFilter={false}
-        onFilterChange={handleFilterChange}
-        isLoading={isLoading}
-      />
+      {/* Filter Bar — screen only */}
+      <div className="print:hidden">
+        <ReportFilterBar
+          lookupData={lookupData}
+          showFYSelector={true}
+          showMonthSelector={true}
+          showReportFormatToggle={true}
+          showBranchFilter={true}
+          showDepartmentFilter={true}
+          showDesignationFilter={true}
+          showEmployeeFilter={true}
+          showSearchFilter={false}
+          onFilterChange={handleFilterChange}
+          isLoading={isLoading}
+        />
+      </div>
 
-      {/* Error Alert */}
+      {/* Error Alert — screen only */}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-xs font-medium text-red-700 border border-red-200">
+        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-3.5 text-xs font-medium text-rose-700 border border-rose-200 print:hidden">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -244,28 +248,28 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
           meta={
             activeReportData ? (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-payroll-light bg-payroll-cream px-2.5 py-0.5 text-xs font-semibold text-payroll-navy">
+                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
                   Period: {reportData?.monthLabel || ""} ({fyLabel})
                 </span>
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${
                     reportData?.isLocked
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-amber-200 bg-amber-50 text-amber-800"
+                      ? "border-emerald-200/80 bg-emerald-50 text-emerald-800"
+                      : "border-amber-200/80 bg-amber-50 text-amber-800"
                   }`}
                 >
-                  {reportData?.isLocked ? "Locked Payroll Data" : "Draft Pre-Payroll Data"}
+                  {reportData?.isLocked ? "Locked payroll data" : "Draft pre-payroll data"}
                 </span>
               </div>
             ) : undefined
           }
         >
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-payroll-primary/10 text-payroll-primary">
-              <CalendarCheck className="h-4 w-4" />
+            <div className="p-1 rounded-md bg-zinc-100 text-zinc-700">
+              <CalendarCheck className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
-              Attendance Matrix
+            <span className="text-xs font-semibold text-zinc-900">
+              Attendance matrix
             </span>
           </div>
         </ReportActionToolbar>

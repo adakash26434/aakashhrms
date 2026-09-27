@@ -180,27 +180,42 @@ export function HolidayFormModal({
       description={description}
       size="2xl"
       footer={
-        <>
-          <span className="mr-auto text-xs text-gray-500">
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
             {isEdit ? `Editing: ${editingHoliday!.name}` : "New holiday"}
           </span>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="holiday-form">
-            {submitLabel}
-          </Button>
-        </>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="holiday-form"
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+            >
+              {submitLabel}
+            </Button>
+          </div>
+        </div>
       }
     >
       <form
         id="holiday-form"
         onSubmit={handleSubmit}
-        className="space-y-5"
+        className="space-y-6"
         noValidate
       >
         {/* === Basic Information ============================== */}
-        <FormSection title="Basic Information">
+        <FormSection
+          title="Basic Information"
+          description="Holiday public name and legislative holiday category."
+          isFirst
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               id="hol-name"
@@ -215,12 +230,7 @@ export function HolidayFormModal({
                   setForm((f) => ({ ...f, name: e.target.value }))
                 }
                 placeholder="e.g. Dashain"
-                className={cn(
-                  "h-9 w-full rounded-lg border bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1",
-                  errors.name
-                    ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                    : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
-                )}
+                className={inputClass(errors.name)}
               />
             </Field>
 
@@ -238,18 +248,21 @@ export function HolidayFormModal({
                     onClick={toggle}
                     aria-haspopup="listbox"
                     aria-expanded={open}
-                    className="h-9 w-full rounded-lg border border-payroll-light bg-white px-3 text-sm text-payroll-navy focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary flex items-center justify-between"
+                    className={cn(
+                      inputClass(),
+                      "flex items-center justify-between cursor-pointer"
+                    )}
                   >
                     <span className="flex-1 text-left">
                       {selected?.label ?? "Select category"}
                     </span>
-                    <span className="text-gray-400">▾</span>
+                    <span className="text-zinc-400">▾</span>
                   </button>
                 )}
               />
             </Field>
           </div>
-          <p className="mt-2 text-[11px] text-gray-500">
+          <p className="mt-2 text-xs text-zinc-500">
             {HOLIDAY_CATEGORY_META[form.category].description}
           </p>
         </FormSection>
@@ -298,28 +311,54 @@ export function HolidayFormModal({
         {/* === Applicable Branches ============================== */}
         <FormSection
           title="Applicable Branches"
-          description="Leave empty (no branches selected) to apply to all branches."
+          description="Designate specific branches or leave all selected to apply organization-wide."
         >
-          <p className="mb-1.5 text-xs font-medium text-gray-600">
-            Apply For: Branch{" "}
-            <span className="text-gray-500">
-              ({selectedBranchCount} selected)
-            </span>
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {branches.map((b) => {
-              const checked =
-                allBranchesChecked || form.branchIds.includes(b.id);
-              return (
-                <CheckboxPill
-                  key={b.id}
-                  id={`hol-branch-${b.id}`}
-                  label={b.name}
-                  checked={checked}
-                  onChange={() => toggleBranch(b.id)}
-                />
-              );
-            })}
+          <div className="rounded-md border border-zinc-200 bg-zinc-50/50 p-4">
+            <div className="flex items-center justify-between pb-2 mb-3 border-b border-zinc-300/60">
+              <span className="text-xs font-semibold text-zinc-900">
+                Apply For: Branch{" "}
+                <span className="text-zinc-500 font-normal">
+                  ({selectedBranchCount} of {branches.length} selected)
+                </span>
+              </span>
+              <div className="flex items-center gap-2 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, branchIds: [] }))}
+                  className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                >
+                  All
+                </button>
+                <span className="text-zinc-300">|</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      branchIds: branches.map((b) => b.id).slice(0, 1),
+                    }))
+                  }
+                  className="font-medium text-zinc-500 hover:text-zinc-700 hover:underline cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
+              {branches.map((b) => {
+                const checked =
+                  allBranchesChecked || form.branchIds.includes(b.id);
+                return (
+                  <CheckboxPill
+                    key={b.id}
+                    id={`hol-branch-${b.id}`}
+                    label={b.name}
+                    checked={checked}
+                    onChange={() => toggleBranch(b.id)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </FormSection>
       </form>
@@ -327,27 +366,36 @@ export function HolidayFormModal({
   );
 }
 
+function inputClass(error?: string): string {
+  return cn(
+    "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
+    error
+      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+  );
+}
+
 function FormSection({
   title,
   description,
   children,
+  isFirst = false,
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
+  isFirst?: boolean;
 }) {
   return (
-    <section>
-      <div className="mb-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-          {title}
-        </h3>
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
         {description && (
-          <p className="mt-0.5 text-[11px] text-gray-500">{description}</p>
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
         )}
       </div>
-      {children}
-    </section>
+      <div>{children}</div>
+    </div>
   );
 }
 
@@ -366,7 +414,7 @@ function Field({
     <div>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-xs font-medium text-gray-600"
+        className="mb-1.5 block text-xs font-semibold text-zinc-700"
       >
         {label}
       </label>
@@ -395,23 +443,23 @@ function CheckboxPill({
     <label
       htmlFor={id}
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors min-w-0",
+        "flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-xs transition-colors min-w-0 select-none",
         checked
-          ? "border-payroll-primary/40 bg-green-50/60 text-payroll-navy"
-          : "border-payroll-light bg-white text-payroll-navy hover:bg-payroll-cream",
+          ? "border-emerald-600/50 bg-emerald-50/70 text-zinc-900"
+          : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300",
       )}
     >
       <span
         className={cn(
-          "relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-          checked ? "border-payroll-primary bg-payroll-primary" : "border-gray-300 bg-white",
+          "relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+          checked ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white",
         )}
         aria-hidden
       >
         {checked && (
           <svg
             viewBox="0 0 16 16"
-            className="h-2 w-2 text-white"
+            className="h-2.5 w-2.5 text-white"
             fill="currentColor"
           >
             <path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" />
@@ -425,7 +473,7 @@ function CheckboxPill({
         onChange={onChange}
         className="sr-only"
       />
-      <span className="whitespace-nowrap">{label}</span>
+      <span className="truncate font-medium text-zinc-900">{label}</span>
     </label>
   );
 }

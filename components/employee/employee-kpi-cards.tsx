@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import { Users, CheckCircle2, CalendarDays, AlertCircle } from "lucide-react";
 import type { EmployeeKPIs } from "@/lib/types/employee";
 
@@ -18,61 +17,61 @@ export function EmployeeKPIsGrid({ kpis, incompleteCount }: EmployeeKPIsGridProp
   const items = [
     {
       value: kpis.total,
-      label: "Total Employees",
-      subtext: "across all branches",
+      label: "Total employees",
+      subtext: "Across all branches",
       icon: Users,
-      iconColor: "text-gray-400 group-hover:text-payroll-primary",
+      iconColor: "text-zinc-400 group-hover:text-zinc-600",
     },
     {
       value: kpis.active,
-      label: "Active",
-      subtext: "currently working",
+      label: "Active personnel",
+      subtext: "Currently operational",
       icon: CheckCircle2,
-      iconColor: "text-emerald-500",
+      iconColor: "text-emerald-700",
     },
     {
       value: kpis.onLeave ?? 0,
-      label: "On Leave",
-      subtext: "approved leaves",
+      label: "On leave",
+      subtext: "Approved leave requests",
       icon: CalendarDays,
-      iconColor: "text-amber-500",
+      iconColor: "text-amber-600",
     },
     {
       value: incompleteValue,
-      label: "Incomplete Profiles",
-      subtext: "need attention",
+      label: "Incomplete profiles",
+      subtext: "Action required",
       icon: AlertCircle,
-      iconColor: "text-rose-400",
+      iconColor: "text-rose-500",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <Card
+          <div
             key={item.label}
-            className="group relative flex flex-col justify-between p-4.5 bg-white border-payroll-border hover:border-payroll-border/80 transition-all rounded-xl shadow-payroll-xs"
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
           >
             <div>
-              <div className="flex items-start justify-between">
-                <p className="text-[13px] font-medium text-gray-500">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">
                   {item.label}
                 </p>
                 <Icon className={`h-4 w-4 transition-colors ${item.iconColor}`} />
               </div>
               <div className="mt-2.5">
-                <span className="text-2xl sm:text-[28px] font-semibold tracking-tight text-gray-950 font-sans">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {item.value}
                 </span>
               </div>
             </div>
 
-            <div className="mt-2.5 pt-2 border-t border-gray-100 text-[11px] text-gray-400">
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
               {item.subtext}
             </div>
-          </Card>
+          </div>
         );
       })}
     </div>

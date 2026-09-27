@@ -1,7 +1,5 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { RadioGroup } from "@/components/ui/radio-group";
 import type {
   ManualAttendanceDefault,
@@ -26,38 +24,35 @@ export function ManualAttendanceCard({
   onChange,
 }: ManualAttendanceCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-payroll-light/70">
-            <CalendarDays className="h-5 w-5 text-payroll-primary" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-payroll-navy">
-              Manual Attendance
-            </h2>
-            <p className="mt-0.5 text-sm text-gray-500">
-              Default behavior when manual attendance is not posted
-            </p>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-5">
-        <div className="space-y-2">
-          <p className="text-sm text-gray-600">
-            If manual attendance is not posted, default calculate as:
+    <div className="rounded-xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200/80">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            Attendance payroll fallback
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Default calculation behavior when monthly attendance is not yet posted prior to running payroll.
           </p>
-          <RadioGroup
-            name="manual-attendance-default"
-            value={value.defaultWhenNotPosted}
-            onChange={(next) =>
-              onChange({ ...value, defaultWhenNotPosted: next })
-            }
-            options={RADIO_OPTIONS}
-          />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="rounded-lg border border-slate-200/80 bg-slate-50/70 p-4 space-y-3">
+        <p className="text-xs font-medium text-slate-700">
+          When attendance record is unposted during payroll generation, assume employee status as:
+        </p>
+        <RadioGroup
+          name="manual-attendance-default"
+          value={value.defaultWhenNotPosted}
+          onChange={(next) =>
+            onChange({ ...value, defaultWhenNotPosted: next })
+          }
+          options={RADIO_OPTIONS}
+        />
+        <p className="text-[11px] text-slate-500">
+          Choosing &quot;Present&quot; treats unposted records as full attendance with standard work hours. &quot;Absent&quot; flags unposted records for manual HR review.
+        </p>
+      </div>
+    </div>
   );
 }

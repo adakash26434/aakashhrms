@@ -25,6 +25,7 @@ interface SalaryMappingFormModalProps {
     fullName: string;
     departmentName: string;
     designationName: string;
+    basicSalary?: number;
     gradePercent: number;
     gradeCount?: number;
     gradeAmount: number;
@@ -79,7 +80,7 @@ function buildInitialForm(defaultFyId?: string): FormState {
     fiscalYearId: defaultFyId || "",
     effectiveFrom: today,
     basicSalary: "",
-    gradePercent: "100",
+    gradePercent: "0",
     gradeAmount: "",
     allowanceHeadIds: [],
     allowanceAmounts: [],
@@ -111,7 +112,7 @@ function buildFormFromMapping(
     fiscalYearId: fyId,
     effectiveFrom: mapping.effectiveFrom,
     basicSalary: String(mapping.basicSalary),
-    gradePercent: String(mapping.gradePercent),
+    gradePercent: "0",
     gradeAmount: String(mapping.gradeAmount),
     allowanceHeadIds: allowances.map((a) => a.payHeadId),
     allowanceAmounts: allowances.map((a) => String(a.amount)),
@@ -141,7 +142,7 @@ function toPayload(state: FormState): SalaryMappingFormData {
     fiscalYearId: state.fiscalYearId,
     effectiveFrom: state.effectiveFrom,
     basicSalary: Number(state.basicSalary),
-    gradePercent: Number(state.gradePercent),
+    gradePercent: 0,
     gradeAmount: Number(state.gradeAmount),
     salaryHeads: [...allowanceHeads, ...deductionHeads],
     loan1Deduction: Number(state.loan1Deduction),
@@ -197,7 +198,6 @@ export function SalaryMappingFormModal({
   // Computed net salary preview
   const computedNet = useMemo(() => {
     const basic = Number(form.basicSalary) || 0;
-    const gp = Number(form.gradePercent) || 0;
     const ga = Number(form.gradeAmount) || 0;
     const totalAllowances = form.allowanceAmounts.reduce(
       (s, a) => s + (Number(a) || 0),
@@ -209,11 +209,10 @@ export function SalaryMappingFormModal({
     );
     const l1 = Number(form.loan1Deduction) || 0;
     const l2 = Number(form.loan2Deduction) || 0;
-    const gradeValue = basic * (gp / 100);
     return Math.max(
       0,
       Math.round(
-        basic + gradeValue + ga + totalAllowances - totalDeductions - l1 - l2,
+        basic + ga + totalAllowances - totalDeductions - l1 - l2,
       ),
     );
   }, [form]);
@@ -310,17 +309,39 @@ export function SalaryMappingFormModal({
 
   function handleEmployeeSelect(id: string) {
     const emp = employees.find((e) => e.id === id);
+    const empBasic = emp?.basicSalary ? Number(emp.basicSalary) : 0;
+    const basicToUse = empBasic > 0 ? empBasic : (Number(form.basicSalary) || 0);
+    const gradeCountToUse = emp?.gradeCount ?? 0;
+
     let gradeAmt = emp ? emp.gradeAmount : 0;
-    const basicNum = Number(form.basicSalary) || 0;
-    if (emp && emp.gradeCount !== undefined && emp.gradeCount > 0 && basicNum > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
-      gradeAmt = calculateTotalGradeAmount(basicNum, emp.gradeCount, activeGradePolicy);
+    if (gradeCountToUse > 0 && basicToUse > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
+      gradeAmt = calculateTotalGradeAmount(basicToUse, gradeCountToUse, activeGradePolicy);
     }
-    setForm((f) => ({
-      ...f,
-      employeeId: id,
-      gradePercent: emp ? String(emp.gradePercent) : "100",
-      gradeAmount: String(gradeAmt),
-    }));
+
+    setForm((f) => {
+      const next = {
+        ...f,
+        employeeId: id,
+        basicSalary: empBasic > 0 ? String(empBasic) : f.basicSalary,
+        gradePercent: "0",
+        gradeAmount: String(gradeAmt),
+      };
+
+      if (isSsfEnrolled && basicToUse > 0) {
+        const ssfErAmt = Math.round(basicToUse * 0.20);
+        const ssfTotalAmt = Math.round(basicToUse * 0.31);
+        if (ssfAllowanceHead) {
+          const idx = next.allowanceHeadIds.indexOf(ssfAllowanceHead.id);
+          if (idx >= 0) next.allowanceAmounts[idx] = String(ssfErAmt);
+        }
+        if (ssfDeductionHead) {
+          const idx = next.deductionHeadIds.indexOf(ssfDeductionHead.id);
+          if (idx >= 0) next.deductionAmounts[idx] = String(ssfTotalAmt);
+        }
+      }
+
+      return next;
+    });
   }
 
   function addAllowance() {
@@ -373,10 +394,10 @@ export function SalaryMappingFormModal({
 
   const inputClass = (hasError: boolean) =>
     cn(
-      "h-9 w-full rounded-lg border bg-white px-3 text-sm text-[#1b3a1f] focus:outline-none focus:ring-1",
+      "h-9.5 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 transition-colors",
       hasError
-        ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-        : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-[#2e7d32]",
+        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500"
+        : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
     );
 
   return (
@@ -386,216 +407,248 @@ export function SalaryMappingFormModal({
       title={isEdit ? `Edit Salary Mapping` : "New Salary Mapping"}
       description={
         isEdit && selectedEmployee
-          ? `Editing ${selectedEmployee.fullName}`
-          : "Define employee salary structure including allowances, deductions, and loan deductions."
+          ? `Editing official payroll mapping for ${selectedEmployee.fullName}`
+          : "Define employee salary structure including allowances, deductions, and statutory funds."
       }
-      size="2xl"
+      size="3xl"
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>
+        <div className="flex items-center justify-end gap-3 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-medium px-4 py-2 text-sm"
+          >
             Cancel
           </Button>
-          <Button type="submit" form="salary-mapping-form">
+          <Button
+            type="submit"
+            form="salary-mapping-form"
+            className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-5 py-2 text-sm transition-colors cursor-pointer"
+          >
             {isEdit ? "Save Changes" : "Create Mapping"}
           </Button>
-        </>
+        </div>
       }
     >
       <form
         id="salary-mapping-form"
         onSubmit={handleSubmit}
-        className="space-y-5"
+        className="divide-y divide-zinc-200/60"
         noValidate
       >
-        {/* Employee Selector */}
-        <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Employee
-          </h3>
-          <div className="space-y-1">
+        {/* 1. Employee Target */}
+        <div className="space-y-3 pb-6">
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+              Employee Target
+            </h3>
+            <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+              Select the registered personnel profile to define or update recurring salary heads.
+            </p>
+          </div>
+          <div className="space-y-2">
             {isEdit && selectedEmployee ? (
-              <div className="rounded-lg border border-payroll-light/80 bg-payroll-cream px-3 py-2.5">
-                <p className="text-sm font-medium text-payroll-navy">
+              <div className="rounded-md border border-zinc-200 bg-zinc-50/70 p-3.5">
+                <p className="text-sm font-semibold text-zinc-900">
                   {selectedEmployee.fullName}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {selectedEmployee.employeeCode} ·{" "}
-                  {selectedEmployee.departmentName} ·{" "}
-                  {selectedEmployee.designationName}
+                <p className="text-xs text-zinc-600 font-medium mt-0.5">
+                  {selectedEmployee.employeeCode} · {selectedEmployee.departmentName} · {selectedEmployee.designationName}
                 </p>
               </div>
             ) : (
-              <select
-                value={form.employeeId}
-                onChange={(e) => handleEmployeeSelect(e.target.value)}
-                className={inputClass(Boolean(errors.employeeId))}
-              >
-                <option value="">-- Select Employee --</option>
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.fullName} ({e.employeeCode})
-                  </option>
-                ))}
-              </select>
-            )}
-            {errors.employeeId && (
-              <p className="text-xs text-red-600">{errors.employeeId}</p>
-            )}
-          </div>
-        </section>
-
-        {/* Salary Details */}
-        <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Salary Details
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">
-                Basic Salary *
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  value={form.basicSalary}
-                  onChange={(e) => update("basicSalary", e.target.value)}
-                  className={inputClass(Boolean(errors.basicSalary))}
-                  placeholder="e.g. 50000"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-gray-400">
-                  NPR
-                </span>
-              </div>
-              {errors.basicSalary && (
-                <p className="text-xs text-red-600">{errors.basicSalary}</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">
-                Grade %
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={200}
-                  value={form.gradePercent}
-                  onChange={(e) => update("gradePercent", e.target.value)}
-                  className={inputClass(Boolean(errors.gradePercent))}
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-gray-400">
-                  %
-                </span>
-              </div>
-              {errors.gradePercent && (
-                <p className="text-xs text-red-600">{errors.gradePercent}</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-gray-600">
-                  Grade Amount
-                </label>
-                {selectedEmployee?.gradeCount !== undefined && selectedEmployee.gradeCount > 0 && (
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                    {selectedEmployee.gradeCount} Grade(s) • Basic/30
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                min={0}
-                value={form.gradeAmount}
-                onChange={(e) => update("gradeAmount", e.target.value)}
-                className={inputClass(Boolean(errors.gradeAmount))}
-                placeholder="e.g. 72000"
-              />
-              {errors.gradeAmount && (
-                <p className="text-xs text-red-600">{errors.gradeAmount}</p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Social Security Fund (SSF) Facility */}
-        <section className="rounded-lg border border-payroll-primary/25 bg-payroll-cream/60 p-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-payroll-primary/10 text-payroll-primary">
-                <Shield className="h-4 w-4" />
-              </div>
               <div>
-                <p className="text-xs font-semibold text-payroll-navy">
-                  Social Security Fund (SSF) Facility
-                </p>
-                <p className="text-[11px] text-gray-500">
-                  Adds 20% company contribution to earnings and deducts 31% total SSF (11% employee + 20% company).
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isSsfEnrolled}
-              onClick={() => handleToggleSsf(!isSsfEnrolled)}
-              className={cn(
-                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-payroll-primary/20",
-                isSsfEnrolled ? "bg-payroll-primary" : "bg-gray-200"
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-xs ring-0 transition-transform",
-                  isSsfEnrolled ? "translate-x-4" : "translate-x-0"
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Select Employee *
+                </label>
+                <select
+                  value={form.employeeId}
+                  onChange={(e) => handleEmployeeSelect(e.target.value)}
+                  className={inputClass(Boolean(errors.employeeId))}
+                >
+                  <option value="">-- Choose employee --</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.fullName} ({e.employeeCode}) — {e.designationName}
+                    </option>
+                  ))}
+                </select>
+                {errors.employeeId && (
+                  <p className="mt-1 text-xs font-medium text-rose-600">{errors.employeeId}</p>
                 )}
-              />
-            </button>
+              </div>
+            )}
           </div>
+        </div>
 
-          {isSsfEnrolled && (
-            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-payroll-light/60 pt-2.5 text-center">
-              <div className="rounded bg-white p-2 border border-gray-100 shadow-xs">
-                <span className="block text-[10px] text-gray-400 uppercase font-medium">Company Addition</span>
-                <span className="text-xs font-semibold text-emerald-700">+20% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.20).toLocaleString("en-IN")})</span>
+        {/* 2. Base Compensation & Progression */}
+        <div className="space-y-3 py-6 border-t border-zinc-200">
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+              Base Compensation
+            </h3>
+            <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+              Core monthly basic salary and Nepal Labour Act grade progression adjustments.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Basic Salary (NPR) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.basicSalary}
+                    onChange={(e) => update("basicSalary", e.target.value)}
+                    className={inputClass(Boolean(errors.basicSalary))}
+                    placeholder="e.g. 50000"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-zinc-400">
+                    NPR
+                  </span>
+                </div>
+                {errors.basicSalary && (
+                  <p className="mt-1 text-xs font-medium text-rose-600">{errors.basicSalary}</p>
+                )}
               </div>
-              <div className="rounded bg-white p-2 border border-gray-100 shadow-xs">
-                <span className="block text-[10px] text-gray-400 uppercase font-medium">Total SSF Deduction</span>
-                <span className="text-xs font-semibold text-rose-700">-31% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.31).toLocaleString("en-IN")})</span>
-              </div>
-              <div className="rounded bg-white p-2 border border-gray-100 shadow-xs">
-                <span className="block text-[10px] text-gray-400 uppercase font-medium">Net Take-Home Impact</span>
-                <span className="text-xs font-semibold text-amber-700">-11% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.11).toLocaleString("en-IN")})</span>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Grade Amount (NPR)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.gradeAmount}
+                    onChange={(e) => update("gradeAmount", e.target.value)}
+                    className={inputClass(Boolean(errors.gradeAmount))}
+                    placeholder="e.g. 2500"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-zinc-400">
+                    NPR
+                  </span>
+                </div>
+                {errors.gradeAmount && (
+                  <p className="mt-1 text-xs font-medium text-rose-600">{errors.gradeAmount}</p>
+                )}
               </div>
             </div>
-          )}
-        </section>
 
-        {/* Allowances */}
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              Allowances
-            </h3>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                Grade Progression Status
+              </label>
+              <div className="flex h-9.5 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-medium text-zinc-700">
+                {selectedEmployee?.gradeCount !== undefined && selectedEmployee.gradeCount > 0 ? (
+                  <span className="text-emerald-800 font-semibold">
+                    {selectedEmployee.gradeCount} Grade Step(s) active · Basic / 30 rule
+                  </span>
+                ) : (
+                  <span className="text-zinc-500">0 Steps (Initial baseline scale)</span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-500 font-medium mt-1">Automatically linked to employee master career record</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Social Security Fund (SSF) Facility */}
+        <div className="space-y-3 py-6 border-t border-zinc-200">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-4 w-4 text-emerald-700" />
+              <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+                Social Security Fund
+              </h3>
+            </div>
+            <p className="text-xs text-zinc-500 font-medium leading-relaxed mt-0.5">
+              Government statutory facility. Adds 20% employer addition and deducts 31% total contribution.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-md border border-zinc-200 bg-zinc-50/60 p-3.5">
+              <div>
+                <p className="text-xs font-semibold text-zinc-900">
+                  Enroll in Government SSF
+                </p>
+                <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+                  Automatic computation of 11% employee deduction + 20% employer contribution.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isSsfEnrolled}
+                onClick={() => handleToggleSsf(!isSsfEnrolled)}
+                className={cn(
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-700/20",
+                  isSsfEnrolled ? "bg-emerald-700" : "bg-zinc-300"
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-xs ring-0 transition-transform",
+                    isSsfEnrolled ? "translate-x-4" : "translate-x-0"
+                  )}
+                />
+              </button>
+            </div>
+
+            {isSsfEnrolled && (
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <div className="rounded-md bg-white p-2.5 border border-zinc-200">
+                  <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Employer Addition</span>
+                  <span className="text-xs font-semibold text-emerald-800 font-mono mt-0.5 block">+20% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.20).toLocaleString("en-IN")})</span>
+                </div>
+                <div className="rounded-md bg-white p-2.5 border border-zinc-200">
+                  <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Total SSF Deduction</span>
+                  <span className="text-xs font-semibold text-rose-700 font-mono mt-0.5 block">-31% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.31).toLocaleString("en-IN")})</span>
+                </div>
+                <div className="rounded-md bg-white p-2.5 border border-zinc-200">
+                  <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Net Employee Impact</span>
+                  <span className="text-xs font-semibold text-amber-700 font-mono mt-0.5 block">-11% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.11).toLocaleString("en-IN")})</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 4. Recurring Allowances */}
+        <div className="space-y-3 py-6 border-t border-zinc-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+                Recurring Allowances
+              </h3>
+              <p className="text-xs text-zinc-500 font-medium leading-relaxed mt-0.5">
+                Fixed monthly earnings added directly to gross compensation.
+              </p>
+            </div>
             <button
               type="button"
               onClick={addAllowance}
-              className="text-xs font-medium text-payroll-primary hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer"
             >
-              + Add Allowance
+              + Add Allowance Head
             </button>
           </div>
-          {form.allowanceHeadIds.length === 0 ? (
-            <p className="text-xs text-gray-400">No allowances added yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {form.allowanceHeadIds.map((headId, i) => {
-                const head = allowanceHeads.find((h) => h.id === headId);
-                return (
+          <div className="space-y-2.5">
+            {form.allowanceHeadIds.length === 0 ? (
+              <div className="rounded-md border border-dashed border-zinc-200 bg-zinc-50/50 p-4 text-center text-xs text-zinc-500 font-medium">
+                No recurring allowances configured. Click &ldquo;+ Add Allowance Head&rdquo; to add.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {form.allowanceHeadIds.map((headId, i) => (
                   <div
                     key={headId}
-                    className="flex items-center gap-2 rounded-md border border-payroll-light/60 bg-payroll-cream/30 p-2"
+                    className="flex items-center gap-2 rounded-md border border-zinc-200 bg-white p-2"
                   >
                     <select
                       value={headId}
@@ -604,7 +657,7 @@ export function SalaryMappingFormModal({
                         newIds[i] = e.target.value;
                         update("allowanceHeadIds", newIds);
                       }}
-                      className="h-8 flex-1 rounded border border-payroll-light bg-white px-2 text-xs"
+                      className="h-8.5 flex-1 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-700"
                     >
                       {allowanceHeads.map((h) => (
                         <option
@@ -619,56 +672,64 @@ export function SalaryMappingFormModal({
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.allowanceAmounts[i]}
-                      onChange={(e) => {
-                        const newAmounts = [...form.allowanceAmounts];
-                        newAmounts[i] = e.target.value;
-                        update("allowanceAmounts", newAmounts);
-                      }}
-                      className="h-8 w-28 rounded border border-payroll-light bg-white px-2 text-xs text-right"
-                      placeholder="Amount"
-                    />
+                    <div className="relative w-32">
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.allowanceAmounts[i]}
+                        onChange={(e) => {
+                          const newAmounts = [...form.allowanceAmounts];
+                          newAmounts[i] = e.target.value;
+                          update("allowanceAmounts", newAmounts);
+                        }}
+                        className="h-8.5 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-mono text-right focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        placeholder="Amount"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeAllowance(i)}
-                      className="text-xs text-red-500 hover:underline"
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 px-2 py-1 transition-colors cursor-pointer"
                     >
                       Remove
                     </button>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-        {/* Deductions */}
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              Deductions
-            </h3>
+        {/* 5. Deductions */}
+        <div className="space-y-3 py-6 border-t border-zinc-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+                Salary Deductions
+              </h3>
+              <p className="text-xs text-zinc-500 font-medium leading-relaxed mt-0.5">
+                Operational or voluntary monthly withholdings (CIT, Provident Fund, Welfare).
+              </p>
+            </div>
             <button
               type="button"
               onClick={addDeduction}
-              className="text-xs font-medium text-payroll-primary hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer"
             >
-              + Add Deduction
+              + Add Deduction Head
             </button>
           </div>
-          {form.deductionHeadIds.length === 0 ? (
-            <p className="text-xs text-gray-400">No deductions added yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {form.deductionHeadIds.map((headId, i) => {
-                const head = deductionHeads.find((h) => h.id === headId);
-                return (
+          <div className="space-y-2.5">
+            {form.deductionHeadIds.length === 0 ? (
+              <div className="rounded-md border border-dashed border-zinc-200 bg-zinc-50/50 p-4 text-center text-xs text-zinc-500 font-medium">
+                No custom deductions configured. Click &ldquo;+ Add Deduction Head&rdquo; to add.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {form.deductionHeadIds.map((headId, i) => (
                   <div
                     key={headId}
-                    className="flex items-center gap-2 rounded-md border border-payroll-light/60 bg-payroll-cream/30 p-2"
+                    className="flex items-center gap-2 rounded-md border border-zinc-200 bg-white p-2"
                   >
                     <select
                       value={headId}
@@ -677,7 +738,7 @@ export function SalaryMappingFormModal({
                         newIds[i] = e.target.value;
                         update("deductionHeadIds", newIds);
                       }}
-                      className="h-8 flex-1 rounded border border-payroll-light bg-white px-2 text-xs"
+                      className="h-8.5 flex-1 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-700"
                     >
                       {deductionHeads.map((h) => (
                         <option
@@ -692,135 +753,138 @@ export function SalaryMappingFormModal({
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.deductionAmounts[i]}
-                      onChange={(e) => {
-                        const newAmounts = [...form.deductionAmounts];
-                        newAmounts[i] = e.target.value;
-                        update("deductionAmounts", newAmounts);
-                      }}
-                      className="h-8 w-28 rounded border border-payroll-light bg-white px-2 text-xs text-right"
-                      placeholder="Amount"
-                    />
+                    <div className="relative w-32">
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.deductionAmounts[i]}
+                        onChange={(e) => {
+                          const newAmounts = [...form.deductionAmounts];
+                          newAmounts[i] = e.target.value;
+                          update("deductionAmounts", newAmounts);
+                        }}
+                        className="h-8.5 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-mono text-right focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        placeholder="Amount"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeDeduction(i)}
-                      className="text-xs text-red-500 hover:underline"
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 px-2 py-1 transition-colors cursor-pointer"
                     >
                       Remove
                     </button>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-        {/* Loan Deductions */}
-        <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Loan Deductions
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">
-                Loan 1 Deduction
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={form.loan1Deduction}
-                onChange={(e) => update("loan1Deduction", e.target.value)}
-                className={inputClass(false)}
-              />
+        {/* 6. Loan Recoveries */}
+        <div className="space-y-3 py-6 border-t border-zinc-200">
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+              Loan Recoveries
+            </h3>
+            <p className="text-xs text-zinc-500 font-medium leading-relaxed mt-0.5">
+              Monthly installment deductions applied towards active company advance facilities.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Loan 1 Deduction (NPR)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.loan1Deduction}
+                  onChange={(e) => update("loan1Deduction", e.target.value)}
+                  className={inputClass(false)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Loan 2 Deduction (NPR)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.loan2Deduction}
+                  onChange={(e) => update("loan2Deduction", e.target.value)}
+                  className={inputClass(false)}
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">
-                Loan 2 Deduction
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={form.loan2Deduction}
-                onChange={(e) => update("loan2Deduction", e.target.value)}
-                className={inputClass(false)}
-              />
+            <p className="text-[11px] text-zinc-500 font-medium">
+              Standard recurring amortizations synced from employee loan contracts.
+            </p>
+          </div>
+        </div>
+
+        {/* 7. Net Compensation Summary */}
+        <div className="space-y-3 pt-6 border-t border-zinc-200">
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900 tracking-tight">
+              Compensation Summary
+            </h3>
+            <p className="text-xs text-zinc-500 font-medium leading-relaxed mt-0.5">
+              Real-time calculation of gross compensation, deductions, and projected net payable.
+            </p>
+          </div>
+          <div>
+            <div className="rounded-md border border-zinc-200 bg-zinc-50/70 p-4 space-y-2 text-xs">
+              <div className="flex justify-between text-zinc-600 font-medium">
+                <span>Basic Salary</span>
+                <span className="tabular-nums font-mono text-zinc-900 font-semibold">
+                  NPR {(Number(form.basicSalary) || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between text-zinc-600 font-medium">
+                <span>Grade Amount</span>
+                <span className="tabular-nums font-mono text-zinc-900 font-semibold">
+                  NPR {(Number(form.gradeAmount) || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between text-zinc-600 font-medium">
+                <span>Total Allowances</span>
+                <span className="tabular-nums font-mono text-emerald-800 font-semibold">
+                  + NPR{" "}
+                  {form.allowanceAmounts
+                    .reduce((s, a) => s + (Number(a) || 0), 0)
+                    .toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between text-zinc-600 font-medium">
+                <span>Total Deductions</span>
+                <span className="tabular-nums font-mono text-rose-700 font-semibold">
+                  - NPR{" "}
+                  {form.deductionAmounts
+                    .reduce((s, a) => s + (Number(a) || 0), 0)
+                    .toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between text-zinc-600 font-medium">
+                <span>Loan Deductions</span>
+                <span className="tabular-nums font-mono text-amber-700 font-semibold">
+                  - NPR{" "}
+                  {(
+                    (Number(form.loan1Deduction) || 0) +
+                    (Number(form.loan2Deduction) || 0)
+                  ).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="mt-3 flex justify-between border-t border-zinc-200 pt-3 text-sm font-semibold">
+                <span className="text-zinc-900">Projected Net Monthly</span>
+                <span className="tabular-nums font-mono text-emerald-800 font-bold text-base">
+                  NPR {computedNet.toLocaleString("en-IN")}
+                </span>
+              </div>
             </div>
           </div>
-          <p className="mt-1 text-[11px] text-gray-400 italic">
-            Loan amounts are placeholders. Full loan integration is pending.
-          </p>
-        </section>
-
-        {/* Net Summary */}
-        <section className="rounded-lg border border-payroll-light/80 bg-payroll-cream p-4">
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Net Summary
-          </h3>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Basic Salary</span>
-              <span className="tabular-nums">
-                NPR {(Number(form.basicSalary) || 0).toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">
-                Grade ({form.gradePercent || 0}%)
-              </span>
-              <span className="tabular-nums">
-                NPR{" "}
-                {Math.round(
-                  ((Number(form.basicSalary) || 0) *
-                    (Number(form.gradePercent) || 0)) /
-                    100,
-                ).toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Grade Amount</span>
-              <span className="tabular-nums">
-                NPR {(Number(form.gradeAmount) || 0).toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total Allowances</span>
-              <span className="tabular-nums text-emerald-600">
-                + NPR{" "}
-                {form.allowanceAmounts
-                  .reduce((s, a) => s + (Number(a) || 0), 0)
-                  .toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total Deductions</span>
-              <span className="tabular-nums text-red-600">
-                - NPR{" "}
-                {form.deductionAmounts
-                  .reduce((s, a) => s + (Number(a) || 0), 0)
-                  .toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Loan Deductions</span>
-              <span className="tabular-nums text-amber-600">
-                - NPR{" "}
-                {(
-                  (Number(form.loan1Deduction) || 0) +
-                  (Number(form.loan2Deduction) || 0)
-                ).toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="mt-2 flex justify-between border-t border-payroll-light pt-2 font-semibold">
-              <span className="text-payroll-navy">Net Amount</span>
-              <span className="tabular-nums text-payroll-navy">
-                NPR {computedNet.toLocaleString("en-IN")}
-              </span>
-            </div>
-          </div>
-        </section>
+        </div>
       </form>
     </Dialog>
   );

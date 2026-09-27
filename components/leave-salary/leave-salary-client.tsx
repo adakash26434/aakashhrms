@@ -242,70 +242,78 @@ export default function LeaveSalaryClient({
         </div>
       </div>
 
-      {/* KPI Summary Cards (FEAT-4 / E1) - Shown only on Records List tab */}
+      {/* Top Summary Metrics - Shown only on Records List tab */}
       {activeTab === "list" && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="rounded-xl border border-[#d7e8d0] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2e7d32]/10">
-                <FileText className="h-4 w-4 text-[#2e7d32]" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+          {/* Total Records */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total encashment records</p>
+                <FileText className="h-4 w-4 text-zinc-400" />
               </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Total Records
-                </p>
-                <p className="text-lg font-bold text-[#1b3a1f]">
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {kpis.totalRecords}
-                </p>
+                </span>
               </div>
             </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Historical & active encashments
+            </div>
           </div>
-          <div className="rounded-xl border border-[#d7e8d0] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50">
+
+          {/* Draft Pending */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Draft pending</p>
                 <Clock className="h-4 w-4 text-amber-600" />
               </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Draft Pending
-                </p>
-                <p className="text-lg font-bold text-amber-600">
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {kpis.draftRecords}
-                </p>
+                </span>
               </div>
             </div>
-          </div>
-          <div className="rounded-xl border border-[#d7e8d0] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50">
-                <DollarSign className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Total Paid
-                </p>
-                <p className="text-lg font-bold text-emerald-600">
-                  Rs.{" "}
-                  {kpis.totalPaid.toLocaleString("en-IN", {
-                    minimumFractionDigits: 0,
-                  })}
-                </p>
-              </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Awaiting payout authorization
             </div>
           </div>
-          <div className="rounded-xl border border-[#d7e8d0] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                <CalendarDays className="h-4 w-4 text-purple-600" />
+
+          {/* Total Paid */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Total disbursed</p>
+                <DollarSign className="h-4 w-4 text-emerald-700" />
               </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Days Encashed
-                </p>
-                <p className="text-lg font-bold text-purple-600">
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  NPR {kpis.totalPaid.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Paid to employees
+            </div>
+          </div>
+
+          {/* Days Encashed */}
+          <div className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">Days encashed</p>
+                <CalendarDays className="h-4 w-4 text-zinc-600" />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
                   {kpis.totalDaysEncashed}
-                </p>
+                </span>
               </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              Settled leave days
             </div>
           </div>
         </div>

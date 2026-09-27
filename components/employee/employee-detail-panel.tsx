@@ -103,17 +103,17 @@ export function EmployeeDetailPanel({
       size="2xl"
       header={
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-payroll-navy">
+          <h2 className="text-base font-semibold text-zinc-900">
             Employee Details
           </h2>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-xs text-zinc-500">
             Complete employee record and official details
           </p>
         </div>
       }
       footer={
         <>
-          <div className="mr-auto text-xs text-gray-500">
+          <div className="mr-auto text-xs text-zinc-500">
             {employee ? (
               <>
                 Joined <BSDateDisplay date={new Date(employee.joiningDate)} />
@@ -136,15 +136,15 @@ export function EmployeeDetailPanel({
     >
       {employee && (
         <div className="space-y-6">
-          <div className="flex items-center gap-3.5 rounded-xl border border-payroll-border bg-[#F6F8F5]/80 p-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#165a3d] text-base font-semibold text-white shadow-2xs">
+          <div className="flex items-center gap-3.5 rounded-md border border-zinc-200 bg-zinc-50/60 p-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-zinc-950 text-base font-semibold text-white shadow-2xs">
               {employee.fullName ? employee.fullName.slice(0, 2).toUpperCase() : "EM"}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-base font-semibold text-payroll-ink">
+              <h3 className="text-base font-semibold text-zinc-900">
                 {employee.fullName}
               </h3>
-              <p className="font-mono text-xs text-gray-500">
+              <p className="font-mono text-xs text-zinc-500">
                 {employee.employeeCode}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -202,12 +202,24 @@ export function EmployeeDetailPanel({
                 }
               />
               <Field
+                label="Basic Salary"
+                value={
+                  employee.basicSalary
+                    ? `NPR ${Number(employee.basicSalary).toLocaleString("en-IN")}`
+                    : "NPR 0"
+                }
+              />
+              <Field
                 label="Grade Progression"
                 value={`${employee.gradeCount ?? 0} Grade(s)`}
               />
               <Field
                 label="Grade Amount"
                 value={employee.gradeAmount ? `NPR ${Number(employee.gradeAmount).toLocaleString("en-IN")}` : "NPR 0"}
+              />
+              <Field
+                label="Total Base Remuneration"
+                value={`NPR ${(Number(employee.basicSalary || 0) + Number(employee.gradeAmount || 0)).toLocaleString("en-IN")}`}
               />
             </FieldGrid>
           </DetailSection>
@@ -309,9 +321,9 @@ function DetailSection({
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-2 border-b border-payroll-border pb-2">
-        <Icon className="h-4 w-4 text-payroll-primary" />
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+      <div className="flex items-center gap-2 border-b border-zinc-300 pb-2">
+        <Icon className="h-4 w-4 text-emerald-800" />
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
           {title}
         </h3>
       </div>
@@ -337,10 +349,10 @@ function Field({
 }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
         {label}
       </p>
-      <div className="text-sm font-semibold text-payroll-ink">{value}</div>
+      <div className="text-sm font-medium text-zinc-900">{value}</div>
     </div>
   );
 }

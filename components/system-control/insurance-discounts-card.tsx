@@ -1,7 +1,6 @@
 "use client";
 
-import { HeartPulse, Lock } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Lock } from "lucide-react";
 import type { InsuranceDiscountsSettings } from "@/lib/types/system-control";
 import { NumberInput } from "@/components/ui/number-input";
 
@@ -9,16 +8,6 @@ interface InsuranceDiscountsCardProps {
   value: InsuranceDiscountsSettings;
   onChange: (next: InsuranceDiscountsSettings) => void;
   isSuperAdmin?: boolean;
-}
-
-function inputClassName(hasPrefix: boolean, hasSuffix: boolean, disabled?: boolean): string {
-  const base = disabled
-    ? "w-full rounded-lg border border-gray-200 bg-gray-100 py-2 text-sm text-gray-500 cursor-not-allowed select-none"
-    : "w-full rounded-lg border border-payroll-light bg-white py-2 text-sm text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary";
-  if (hasPrefix && hasSuffix) return `${base} pl-12 pr-12`;
-  if (hasPrefix) return `${base} pl-12 pr-3`;
-  if (hasSuffix) return `${base} pl-3 pr-12`;
-  return `${base} px-3`;
 }
 
 interface FieldProps {
@@ -35,29 +24,39 @@ interface FieldProps {
   isLocked?: boolean;
 }
 
-function Field({ id, label, value, onChange, prefix, suffix, min, max, disabled, helperText, isLocked }: FieldProps) {
+function Field({
+  id,
+  label,
+  value,
+  onChange,
+  prefix,
+  suffix,
+  min,
+  max,
+  disabled,
+  helperText,
+  isLocked,
+}: FieldProps) {
   return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <label
-          htmlFor={id}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-600"
-        >
-          <span>{label}</span>
-          {isLocked && (
-            <span
-              title="Only Super Admins can modify this setting"
-              className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-0.2 text-[10px] font-medium text-amber-700 border border-amber-200"
-            >
-              <Lock className="h-2.5 w-2.5" />
-              Locked
-            </span>
-          )}
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <label htmlFor={id} className="block text-xs font-medium text-slate-700">
+          {label}
         </label>
+        {isLocked && (
+          <span
+            title="Controlled by tax slab configuration"
+            className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-600"
+          >
+            <Lock className="h-2.5 w-2.5 text-slate-400" />
+            Locked
+          </span>
+        )}
       </div>
+
       <div className="relative">
         {prefix && (
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs text-gray-400">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-medium text-slate-400">
             {prefix}
           </span>
         )}
@@ -68,18 +67,21 @@ function Field({ id, label, value, onChange, prefix, suffix, min, max, disabled,
           value={value}
           disabled={disabled}
           onChange={onChange}
-          className={inputClassName(Boolean(prefix), Boolean(suffix), disabled)}
+          className={`h-9 w-full rounded-lg border text-xs transition-colors ${
+            disabled
+              ? "border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed select-none"
+              : "border-slate-300 bg-white text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+          } ${prefix ? "pl-11 pr-3 font-mono" : suffix ? "pl-3 pr-8 font-mono" : "px-3 font-mono"}`}
         />
         {suffix && (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-gray-400">
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400">
             {suffix}
           </span>
         )}
       </div>
+
       {helperText && (
-        <p className="mt-1 text-[11px] leading-tight text-gray-500">
-          {helperText}
-        </p>
+        <p className="text-[11px] text-slate-500 leading-normal">{helperText}</p>
       )}
     </div>
   );
@@ -90,80 +92,85 @@ export function InsuranceDiscountsCard({
   onChange,
 }: InsuranceDiscountsCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-payroll-light/70">
-            <HeartPulse className="h-5 w-5 text-payroll-primary" />
+    <div className="rounded-xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-5">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Insurance exemptions &amp; tax rebates
+            </h3>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-600">
+              Income Tax Act 2058
+            </span>
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-payroll-navy">
-              Insurance & Discounts
-            </h2>
-            <p className="mt-0.5 text-sm text-gray-500">
-              Medical, life, disability, women discount and insurance limits
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Allowable annual premium exemptions and statutory TDS rebates on taxable payroll.
+          </p>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            id="medical-insurance"
-            label="Medical Insurance Deduction"
-            value={value.medicalInsuranceNpr}
-            onChange={(n) => onChange({ ...value, medicalInsuranceNpr: n })}
-            prefix="NPR"
-            min={0}
-          />
-          <Field
-            id="house-insurance"
-            label="House Insurance Deduction"
-            value={value.houseInsuranceNpr}
-            onChange={(n) => onChange({ ...value, houseInsuranceNpr: n })}
-            prefix="NPR"
-            min={0}
-          />
-          <Field
-            id="life-insurance"
-            label="Life Insurance"
-            value={value.lifeInsuranceNpr}
-            onChange={(n) => onChange({ ...value, lifeInsuranceNpr: n })}
-            prefix="NPR"
-            min={0}
-          />
-          <Field
-            id="remote-allowance"
-            label="Remote Allowance"
-            value={value.remoteAllowanceNpr}
-            onChange={(n) => onChange({ ...value, remoteAllowanceNpr: n })}
-            prefix="NPR"
-            min={0}
-          />
-          <Field
-            id="women-discount"
-            label="Women Tax Discount"
-            value={value.womenDiscountPercent}
-            onChange={(n) => onChange({ ...value, womenDiscountPercent: n })}
-            suffix="%"
-            min={0}
-            max={100}
-          />
-          <Field
-            id="handicapped-discount"
-            label="Disability / Handicapped Discount"
-            value={0}
-            onChange={() => {}}
-            suffix="%"
-            min={0}
-            max={100}
-            disabled={true}
-            isLocked={true}
-            helperText="Calculated via Handicapped Tax Slabs in Setup → Tax Rates. Locked at 0% to prevent double-discounting."
-          />
-        </div>
-      </CardContent>
-    </Card>
+      {/* Input Fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Field
+          id="medical-insurance"
+          label="Medical insurance deduction"
+          value={value.medicalInsuranceNpr}
+          onChange={(n) => onChange({ ...value, medicalInsuranceNpr: n })}
+          prefix="NPR"
+          min={0}
+          helperText="Section 12B ceiling (Max NPR 20,000)"
+        />
+        <Field
+          id="life-insurance"
+          label="Life insurance deduction"
+          value={value.lifeInsuranceNpr}
+          onChange={(n) => onChange({ ...value, lifeInsuranceNpr: n })}
+          prefix="NPR"
+          min={0}
+          helperText="Section 12A ceiling (Max NPR 40,000)"
+        />
+        <Field
+          id="house-insurance"
+          label="House insurance deduction"
+          value={value.houseInsuranceNpr}
+          onChange={(n) => onChange({ ...value, houseInsuranceNpr: n })}
+          prefix="NPR"
+          min={0}
+          helperText="Private residential insurance ceiling"
+        />
+        <Field
+          id="remote-allowance"
+          label="Remote area allowance"
+          value={value.remoteAllowanceNpr}
+          onChange={(n) => onChange({ ...value, remoteAllowanceNpr: n })}
+          prefix="NPR"
+          min={0}
+          helperText="Class A-E regional statutory exemption"
+        />
+        <Field
+          id="women-discount"
+          label="Women tax rebate"
+          value={value.womenDiscountPercent}
+          onChange={(n) => onChange({ ...value, womenDiscountPercent: n })}
+          suffix="%"
+          min={0}
+          max={100}
+          helperText="Standard 10% statutory TDS rebate for female employees"
+        />
+        <Field
+          id="handicapped-discount"
+          label="Disability / handicapped rebate"
+          value={0}
+          onChange={() => {}}
+          suffix="%"
+          min={0}
+          max={100}
+          disabled={true}
+          isLocked={true}
+          helperText="Managed via separate Handicapped tax slabs in Tax rates."
+        />
+      </div>
+    </div>
   );
 }

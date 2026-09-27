@@ -65,11 +65,11 @@ function SortHeader({
   onClick: () => void;
 }) {
   return (
-    <th scope="col" className="px-4 py-3 font-semibold">
+    <th scope="col" className="px-4 py-4 font-semibold">
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-gray-500 transition-colors hover:text-[#1b3a1f]"
+        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-950"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -86,7 +86,7 @@ function LeaveExpandableRow({
   leaveTypeName: string;
 }) {
   return (
-    <div className="border-b border-[#d7e8d0] bg-[#f6faf6]/70 px-4 py-3">
+    <div className="border-b border-zinc-100 bg-zinc-50/40 px-4 py-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <DetailCard title="Leave Details">
           <div className="space-y-1.5">
@@ -101,9 +101,9 @@ function LeaveExpandableRow({
         </DetailCard>
 
         <DetailCard title="Reason">
-          <p className="text-xs text-[#1b3a1f]">{application.reason}</p>
+          <p className="text-xs text-zinc-900">{application.reason}</p>
           {application.remarks && (
-            <p className="mt-1 text-[11px] text-gray-500">
+            <p className="mt-1 text-[11px] text-zinc-500">
               Note: {application.remarks}
             </p>
           )}
@@ -111,7 +111,7 @@ function LeaveExpandableRow({
 
         <DetailCard title="Review">
           {application.status === "Pending" ? (
-            <p className="text-xs text-gray-500">Awaiting review</p>
+            <p className="text-xs text-zinc-500">Awaiting review</p>
           ) : (
             <div className="space-y-1.5">
               <DetailRow
@@ -147,9 +147,9 @@ function DetailCard({
 }) {
   return (
     <div
-      className={`rounded-lg border border-[#d7e8d0]/80 bg-white p-3 shadow-sm ${className ?? ""}`}
+      className={`rounded border border-zinc-200/60 bg-white p-3 shadow-xs ${className ?? ""}`}
     >
-      <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+      <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
         {title}
       </h4>
       {children}
@@ -160,8 +160,8 @@ function DetailCard({
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-2 text-xs">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className="text-right font-medium text-[#1b3a1f]">{value}</span>
+      <span className="text-zinc-500 shrink-0">{label}</span>
+      <span className="text-right font-medium text-zinc-900">{value}</span>
     </div>
   );
 }
@@ -223,9 +223,9 @@ export function LeaveApplicationsTable({
 
   if (applications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#d7e8d0] bg-white py-16">
-        <p className="text-sm text-gray-500">No leave applications found</p>
-        <p className="mt-1 text-xs text-gray-400">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-sm font-medium text-zinc-500">No leave applications found</p>
+        <p className="mt-1 text-xs text-zinc-400">
           Try adjusting your filters or create a new application.
         </p>
       </div>
@@ -233,19 +233,19 @@ export function LeaveApplicationsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#d7e8d0]/80 bg-white shadow-sm">
+    <div className="overflow-x-auto w-full">
       <table className="w-full min-w-200 text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#d7e8d0]/80 bg-[#f6faf6]/60">
-            <th scope="col" className="w-10 px-4 py-3" />
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500">
+            <th scope="col" className="w-10 px-4 py-4" />
             <SortHeader label="Employee" onClick={() => toggleSort("employeeName")} />
             <SortHeader label="Leave Type" onClick={() => toggleSort("leaveTypeId")} />
             <SortHeader label="From" onClick={() => toggleSort("effectiveFrom")} />
             <SortHeader label="To" onClick={() => toggleSort("effectiveTo")} />
             <SortHeader label="Days" onClick={() => toggleSort("noOfDays")} />
             <SortHeader label="Status" onClick={() => toggleSort("status")} />
-            <th scope="col" className="px-4 py-3 text-right font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-gray-500">
+            <th scope="col" className="px-4 py-4 text-right font-semibold">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-500">
                 Actions
               </span>
             </th>
@@ -258,15 +258,15 @@ export function LeaveApplicationsTable({
 
             return (
               <React.Fragment key={app.id}>
-                <tr className="border-b border-[#d7e8d0]/60 transition-colors hover:bg-[#f6faf6]/50">
-                  <td className="px-4 py-3 align-middle">
+                <tr className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60">
+                  <td className="px-4 py-4 align-middle">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setExpandedId(isExpanded ? null : app.id);
                       }}
-                      className="rounded p-1 text-gray-400 transition-colors hover:bg-[#d7e8d0]/60 hover:text-[#1b3a1f]"
+                      className="rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                       aria-label={isExpanded ? "Collapse row" : "Expand row"}
                     >
                       {isExpanded ? (
@@ -276,58 +276,58 @@ export function LeaveApplicationsTable({
                       )}
                     </button>
                   </td>
-                  <td className="px-4 py-3 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d7e8d0] text-[11px] font-bold text-[#1b3a1f]">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-[11px] font-medium text-white shadow-2xs">
                         {getInitials(app.employeeName)}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium text-[#1b3a1f]">
+                        <div className="font-medium text-zinc-950">
                           {app.employeeName}
                         </div>
-                        <div className="text-[11px] text-gray-400">
+                        <div className="text-[11px] text-zinc-400">
                           {formatDate(app.appliedDate)}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     <div className="flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                      <span className="text-gray-600">{leaveTypeName}</span>
+                      <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                      <span className="text-zinc-700">{leaveTypeName}</span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <Clock className="h-3 w-3 text-gray-400" />
-                      <span className="text-[11px] text-gray-400">
+                      <Clock className="h-3 w-3 text-zinc-400" />
+                      <span className="text-[11px] text-zinc-400">
                         {app.duration === "Half Day" ? "½ Day" : "Full Day"}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 align-middle text-gray-600">
+                  <td className="px-4 py-4 align-middle text-zinc-600">
                     {formatDate(app.effectiveFrom)}
                   </td>
-                  <td className="px-4 py-3 align-middle text-gray-600">
+                  <td className="px-4 py-4 align-middle text-zinc-600">
                     {formatDate(app.effectiveTo)}
                   </td>
-                  <td className="px-4 py-3 align-middle">
-                    <span className="font-semibold text-[#1b3a1f]">
+                  <td className="px-4 py-4 align-middle">
+                    <span className="font-semibold text-zinc-950 tabular-nums">
                       {app.noOfDays}
                     </span>
                   </td>
-                  <td className="px-4 py-3 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     <Badge variant={getStatusBadgeVariant(app.status)}>
                       {app.status}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-right align-middle">
+                  <td className="px-4 py-4 text-right align-middle">
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
                         onClick={() => onView(app)}
-                        className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/50 hover:text-[#2e7d32]"
+                        className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                         title="View details"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3.5 w-3.5" />
                       </button>
                       {app.status === "Pending" && (
                         <>
@@ -337,10 +337,10 @@ export function LeaveApplicationsTable({
                               e.stopPropagation();
                               onEdit(app);
                             }}
-                            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#d7e8d0]/50 hover:text-[#2e7d32]"
+                            className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                             title="Edit"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
@@ -348,24 +348,24 @@ export function LeaveApplicationsTable({
                               e.stopPropagation();
                               onDelete(app.id);
                             }}
-                            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                            className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                             title="Delete"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </>
                       )}
                       {app.status !== "Pending" && (
                         <button
                           type="button"
-                          className="rounded-md p-1.5 text-gray-400 cursor-default"
+                          className="rounded p-1.5 text-zinc-400 cursor-default"
                           disabled
                           title={app.status}
                         >
                           {app.status === "Approved" ? (
-                            <CheckCircle className="h-4 w-4 text-emerald-500" />
+                            <CheckCircle className="h-4 w-4 text-emerald-600" />
                           ) : (
-                            <XCircle className="h-4 w-4 text-red-400" />
+                            <XCircle className="h-4 w-4 text-rose-500" />
                           )}
                         </button>
                       )}

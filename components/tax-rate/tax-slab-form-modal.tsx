@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import type { TaxCategory, TaxSlab, TaxSlabFormData } from "@/lib/types/tax-rate";
 
 /**
@@ -195,111 +196,148 @@ export function TaxSlabFormModal({
       onClose={onClose}
       title={title}
       description={description}
-      size="lg"
+      size="2xl"
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="tax-slab-form">
-            {submitLabel}
-          </Button>
-        </>
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            {isEdit ? `Editing slab tier` : `Tax rule: progressive bracket`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="tax-slab-form"
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+            >
+              {submitLabel}
+            </Button>
+          </div>
+        </div>
       }
     >
       <form
         id="tax-slab-form"
         onSubmit={handleSubmit}
-        className="space-y-4"
+        className="space-y-6"
         noValidate
       >
-        {/* Category + FY */}
-        <div className="rounded-lg border border-[#d7e8d0] bg-[#f6faf6] px-3 py-2 text-xs text-gray-600">
-          <span className="font-medium text-[#1b3a1f]">{category}</span> · FY{" "}
-          <span className="font-medium text-[#1b3a1f]">{fiscalYearLabel}</span> ·{" "}
-          {firstSlab
-            ? "Adding first slab of ladder"
-            : isEdit
-              ? "Editing existing slab"
-              : "Appending to end of ladder"}
+        {/* Category + FY Context Badge */}
+        <div className="rounded-md border border-emerald-200/60 bg-emerald-50/50 px-4 py-3 text-xs text-zinc-700 flex items-center justify-between">
+          <div>
+            <span className="font-semibold text-emerald-950">{category}</span>
+            <span className="text-zinc-400 mx-2">·</span>
+            <span>Fiscal Year <strong className="font-semibold text-zinc-900">{fiscalYearLabel}</strong></span>
+          </div>
+          <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded">
+            {firstSlab
+              ? "Base tier (Slab 1)"
+              : isEdit
+                ? "Editing existing tier"
+                : "Sequential tier"}
+          </span>
         </div>
 
-        {/* Amount From + Amount To */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field id={fieldId.amountFrom} label="Amount From (NPR)" error={errors.amountFrom}>
-            <input
-              id={fieldId.amountFrom}
-              type="number"
-              min={0}
-              step={1}
-              value={form.amountFromText}
-              onChange={(e) => setForm((f) => ({ ...f, amountFromText: e.target.value }))}
-              disabled={firstSlab || (!isEdit && newDefaults !== null)} // Always disable AmountFrom on create, it's auto-calculated!
-              className={inputClass(Boolean(errors.amountFrom), firstSlab || (!isEdit && newDefaults !== null))}
-            />
-            {firstSlab && <p className="mt-1 text-[11px] text-gray-500">The first slab always starts at 0.</p>}
-            {!firstSlab && !isEdit && newDefaults && (
-              <p className="mt-1 text-[11px] text-gray-500">Pre-filled from the previous slabs Amount To + 1.</p>
-            )}
-          </Field>
-
-          <Field id={fieldId.amountTo} label="Amount To (NPR)" error={errors.amountTo}>
-            <input
-              id={fieldId.amountTo}
-              type="number"
-              min={0}
-              step={1}
-              value={form.amountToText}
-              onChange={(e) => setForm((f) => ({ ...f, amountToText: e.target.value }))}
-              disabled={form.openEnded}
-              placeholder={form.openEnded ? "Above (no upper limit)" : ""}
-              className={inputClass(Boolean(errors.amountTo), form.openEnded)}
-            />
-            <label htmlFor={fieldId.openEnded} className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+        {/* Section 1: Slab Thresholds */}
+        <FormSection
+          title="Slab Thresholds"
+          description="Define the lower and upper taxable income bracket limits for this tier."
+          isFirst
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field id={fieldId.amountFrom} label="Amount From (NPR)" error={errors.amountFrom}>
               <input
-                id={fieldId.openEnded}
-                type="checkbox"
-                checked={form.openEnded}
-                onChange={(e) => setForm((f) => ({ ...f, openEnded: e.target.checked }))}
-                className="h-3.5 w-3.5 rounded border-[#d7e8d0] text-[#2e7d32] focus:ring-[#2e7d32]"
+                id={fieldId.amountFrom}
+                type="number"
+                min={0}
+                step={1}
+                value={form.amountFromText}
+                onChange={(e) => setForm((f) => ({ ...f, amountFromText: e.target.value }))}
+                disabled={firstSlab || (!isEdit && newDefaults !== null)} // Always disable AmountFrom on create, it's auto-calculated!
+                className={inputClass(Boolean(errors.amountFrom), firstSlab || (!isEdit && newDefaults !== null))}
               />
-              Open-ended (Above) — this slab has no upper limit
-            </label>
-          </Field>
-        </div>
+              {firstSlab && <p className="mt-1.5 text-[11px] text-zinc-500">The first slab always starts at 0.</p>}
+              {!firstSlab && !isEdit && newDefaults && (
+                <p className="mt-1.5 text-[11px] text-zinc-500">Auto-filled from previous slab Amount To + 1.</p>
+              )}
+            </Field>
 
-        {/* Tax Rate + Fixed Deduction */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field id={fieldId.rate} label="Tax Rate (%)" error={errors.ratePercent}>
-            <input
-              id={fieldId.rate}
-              type="number"
-              min={0}
-              max={100}
-              step={0.1}
-              value={form.ratePercentText}
-              onChange={(e) => setForm((f) => ({ ...f, ratePercentText: e.target.value }))}
-              placeholder="e.g., 10"
-              className={inputClass(Boolean(errors.ratePercent), false)}
-            />
-          </Field>
+            <Field id={fieldId.amountTo} label="Amount To (NPR)" error={errors.amountTo}>
+              <input
+                id={fieldId.amountTo}
+                type="number"
+                min={0}
+                step={1}
+                value={form.amountToText}
+                onChange={(e) => setForm((f) => ({ ...f, amountToText: e.target.value }))}
+                disabled={form.openEnded}
+                placeholder={form.openEnded ? "Above (no upper limit)" : "e.g. 500000"}
+                className={inputClass(Boolean(errors.amountTo), form.openEnded)}
+              />
+              <label htmlFor={fieldId.openEnded} className="mt-2.5 flex items-center gap-2 text-xs text-zinc-700 cursor-pointer select-none">
+                <input
+                  id={fieldId.openEnded}
+                  type="checkbox"
+                  checked={form.openEnded}
+                  onChange={(e) => setForm((f) => ({ ...f, openEnded: e.target.checked }))}
+                  className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                />
+                <span className="font-medium">Open-ended (Above)</span>
+                <span className="text-zinc-500">— no upper limit</span>
+              </label>
+            </Field>
+          </div>
+        </FormSection>
 
-          <Field id={fieldId.fixed} label="Fixed Deduction (NPR)" error={errors.fixedDeduction || errors.deductionRule}>
-            <input
-              id={fieldId.fixed}
-              type="number"
-              min={0}
-              step={1}
-              value={form.fixedDeductionText}
-              onChange={(e) => setForm((f) => ({ ...f, fixedDeductionText: e.target.value }))}
-              disabled={firstSlab}
-              className={inputClass(Boolean(errors.fixedDeduction || errors.deductionRule), firstSlab)}
-            />
-            {firstSlab && (
-              <p className="mt-1 text-[11px] text-gray-500">Slab 1 always has a fixed deduction of 0.</p>
-            )}
-          </Field>
-        </div>
+        {/* Section 2: Tax Computation */}
+        <FormSection
+          title="Tax Computation"
+          description="Specify the bracket tax percentage and fixed cumulative deduction."
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field id={fieldId.rate} label="Tax Rate (%)" error={errors.ratePercent}>
+              <div className="relative">
+                <input
+                  id={fieldId.rate}
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  value={form.ratePercentText}
+                  onChange={(e) => setForm((f) => ({ ...f, ratePercentText: e.target.value }))}
+                  placeholder="e.g. 10"
+                  className={inputClass(Boolean(errors.ratePercent), false)}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-zinc-500 font-medium">%</span>
+              </div>
+            </Field>
+
+            <Field id={fieldId.fixed} label="Fixed Deduction (NPR)" error={errors.fixedDeduction || errors.deductionRule}>
+              <input
+                id={fieldId.fixed}
+                type="number"
+                min={0}
+                step={1}
+                value={form.fixedDeductionText}
+                onChange={(e) => setForm((f) => ({ ...f, fixedDeductionText: e.target.value }))}
+                disabled={firstSlab}
+                placeholder="e.g. 0"
+                className={inputClass(Boolean(errors.fixedDeduction || errors.deductionRule), firstSlab)}
+              />
+              {firstSlab ? (
+                <p className="mt-1.5 text-[11px] text-zinc-500">Slab 1 always has a fixed deduction of 0.</p>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-zinc-500">Cumulative tax deducted from preceding slabs.</p>
+              )}
+            </Field>
+          </div>
+        </FormSection>
       </form>
     </Dialog>
   );
@@ -307,14 +345,38 @@ export function TaxSlabFormModal({
 
 // -- Internal helpers --------------------------------------------------------
 
+function FormSection({
+  title,
+  description,
+  children,
+  isFirst = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  isFirst?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
 function inputClass(hasError: boolean, isDisabled: boolean) {
   return [
-    "h-9 w-full rounded-lg border bg-white px-3 text-sm text-[#1b3a1f] focus:outline-none focus:ring-1",
+    "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
     isDisabled
-      ? "cursor-not-allowed border-[#d7e8d0]/60 bg-[#f6faf6] text-gray-500"
+      ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
       : hasError
         ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-        : "border-[#d7e8d0] focus:border-[#2e7d32] focus:ring-[#2e7d32]",
+        : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
   ].join(" ");
 }
 
@@ -330,7 +392,7 @@ function Field({ id, label, error, children }: FieldProps) {
     <div>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-xs font-medium text-gray-600"
+        className="mb-1.5 block text-xs font-semibold text-zinc-700"
       >
         {label}
       </label>

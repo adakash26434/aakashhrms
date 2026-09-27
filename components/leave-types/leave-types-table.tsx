@@ -46,7 +46,7 @@ function SortHeader({
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-gray-500 transition-colors hover:text-payroll-navy"
+        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-900"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -114,11 +114,11 @@ export function LeaveTypesTable({
 
   if (types.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-payroll-light bg-white py-16">
-        <p className="text-sm font-medium text-gray-500">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 py-16 text-center">
+        <p className="text-sm font-medium text-zinc-600">
           No leave types found
         </p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-zinc-400">
           Statutory leave types will be seeded upon script run.
         </p>
       </div>
@@ -126,10 +126,10 @@ export function LeaveTypesTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-payroll-light/80 bg-white shadow-sm">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-240 text-left text-sm">
-        <thead>
-          <tr className="border-b border-payroll-light/80 bg-payroll-light/60">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             <SortHeader label="Leave Name" onClick={() => toggleSort("name")} />
             <SortHeader label="Code" onClick={() => toggleSort("code")} />
             <SortHeader
@@ -155,28 +155,28 @@ export function LeaveTypesTable({
             />
             <SortHeader label="Status" onClick={() => toggleSort("isActive")} />
             <th scope="col" className="px-4 py-3 text-right font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-gray-500">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-500">
                 Actions
               </span>
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {sortedTypes.map((t) => (
             <tr
               key={t.id}
-              className="border-b border-payroll-light/60 transition-colors hover:bg-payroll-light/50"
+              className="border-b border-zinc-100 transition-colors hover:bg-zinc-50/60"
             >
-              <td className="px-4 py-3 align-middle font-medium text-payroll-navy">
+              <td className="px-4 py-4 align-middle font-medium text-zinc-900">
                 {t.name}
               </td>
-              <td className="px-4 py-3 align-middle font-mono text-xs text-gray-600">
+              <td className="px-4 py-4 align-middle font-mono text-xs text-zinc-600">
                 {t.code}
               </td>
-              <td className="px-4 py-3 align-middle font-semibold text-payroll-navy">
+              <td className="px-4 py-4 align-middle font-medium text-zinc-900">
                 {t.noOfDays}
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <Badge
                   variant={
                     t.leaveType === "Pay"
@@ -189,22 +189,22 @@ export function LeaveTypesTable({
                   {t.leaveType}
                 </Badge>
               </td>
-              <td className="px-4 py-3 align-middle text-center">
+              <td className="px-4 py-4 align-middle text-center">
                 {t.carryForward ? (
-                  <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+                  <Check className="h-4 w-4 text-emerald-600 mx-auto" />
                 ) : (
-                  <X className="h-4 w-4 text-red-400 mx-auto" />
+                  <X className="h-4 w-4 text-zinc-400 mx-auto" />
                 )}
               </td>
-              <td className="px-4 py-3 align-middle text-gray-600">
+              <td className="px-4 py-4 align-middle text-zinc-600">
                 {t.accumulationCap !== null ? `${t.accumulationCap} days` : "—"}
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="px-4 py-4 align-middle">
                 <Badge variant={getGenderBadgeVariant(t.genderApplicable)}>
                   {formatGenderApplicable(t.genderApplicable)}
                 </Badge>
               </td>
-              <td className="px-4 py-3 align-middle">
+              <td className="px-4 py-4 align-middle">
                 {t.isStatutory ? (
                   <Badge variant="success" className="gap-1">
                     <Lock className="h-3 w-3" />
@@ -214,24 +214,28 @@ export function LeaveTypesTable({
                   <Badge variant="neutral">Custom</Badge>
                 )}
               </td>
-              <td className="px-4 py-3 align-middle">
-                <div className="flex items-center gap-1.5">
+              <td className="px-4 py-4 align-middle">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium border ${
+                    t.isActive
+                      ? "border-emerald-200/50 bg-emerald-50/70 text-emerald-800"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                  }`}
+                >
                   <Circle
-                    className={`h-2.5 w-2.5 ${t.isActive ? "fill-emerald-500 text-emerald-500" : "fill-gray-300 text-gray-300"}`}
+                    className={`h-1.5 w-1.5 ${
+                      t.isActive ? "fill-emerald-600 text-emerald-600" : "fill-zinc-400 text-zinc-400"
+                    }`}
                   />
-                  <span
-                    className={`text-xs ${t.isActive ? "text-emerald-700" : "text-gray-400"}`}
-                  >
-                    {t.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
+                  {t.isActive ? "Active" : "Inactive"}
+                </span>
               </td>
-              <td className="px-4 py-3 text-right align-middle">
+              <td className="px-4 py-4 text-right align-middle">
                 <div className="flex items-center justify-end gap-1">
                   <button
                     type="button"
                     onClick={() => onEdit(t)}
-                    className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-payroll-light/50 hover:text-payroll-primary"
+                    className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                     title="Edit leave type"
                   >
                     <Pencil className="h-4 w-4" />
@@ -240,7 +244,7 @@ export function LeaveTypesTable({
                     <button
                       type="button"
                       onClick={() => onDelete(t)}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                      className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
                       title="Delete leave type"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -249,7 +253,7 @@ export function LeaveTypesTable({
                     <button
                       type="button"
                       disabled
-                      className="rounded-md p-1.5 text-gray-300 cursor-not-allowed"
+                      className="rounded p-1.5 text-zinc-300 cursor-not-allowed"
                       title="Statutory types cannot be deleted"
                     >
                       <Trash2 className="h-4 w-4 opacity-40" />

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DataSaveButton } from "@/components/ui/data-save-button";
+import { cn } from "@/lib/utils";
 import type {
   OtRule,
   OtRuleFormData,
@@ -73,153 +74,263 @@ export function OtRuleFormModal({
   return (
     <Dialog
       open={open}
-      onClose={() => { resetForm(); onClose(); }}
-      title={rule ? "Edit OT Rule" : "New OT Rule"}
-      description={rule ? "Update the overtime rule details below." : "Create a new overtime rule for the organization."}
-      size="lg"
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={() => { resetForm(); onClose(); }}>
-            Cancel
-          </Button>
-          <DataSaveButton
-            onClick={handleSave}
-            isSaving={saving}
-            label={rule ? "Update Rule" : "Create Rule"}
-          />
-        </>
+      onClose={() => {
+        resetForm();
+        onClose();
+      }}
+      title={rule ? "Edit Overtime Rule" : "New Overtime Rule"}
+      description={
+        rule
+          ? "Update overtime multiplier benchmarks and applicability."
+          : "Define an overtime policy with hourly or daily computation rates."
       }
-    >
-      <div className="space-y-5">
-        {/* Rule Name */}
-        <div>
-          <label
-            htmlFor="ot-rule-name"
-            className="mb-1.5 block text-sm font-medium text-[#1b3a1f]"
-          >
-            Rule Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="ot-rule-name"
-            type="text"
-            value={ruleName}
-            onChange={(e) => setRuleName(e.target.value)}
-            className="block w-full rounded-lg border border-[#d7e8d0] px-3 py-2 text-sm text-[#1b3a1f] placeholder-gray-400 outline-none transition-colors focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]/20"
-            placeholder="e.g. Normal Overtime"
-          />
-          {errors.ruleName && (
-            <p className="mt-1 text-xs text-red-500">{errors.ruleName}</p>
-          )}
-        </div>
-
-        {/* Rule Type */}
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1b3a1f]">
-            Rule Type <span className="text-red-500">*</span>
-          </label>
-          <div className="flex gap-3">
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#d7e8d0] px-4 py-2.5 transition-colors hover:bg-[#f6faf6] has-checked:border-[#2e7d32] has-checked:bg-[#f6faf6]">
-              <input
-                type="radio"
-                name="ot-rule-type"
-                value="Hourly"
-                checked={ruleType === "Hourly"}
-                onChange={() => setRuleType("Hourly")}
-                className="text-[#2e7d32] focus:ring-[#2e7d32]/20"
-              />
-              <span className="text-sm text-gray-700">Hourly Rate</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#d7e8d0] px-4 py-2.5 transition-colors hover:bg-[#f6faf6] has-checked:border-[#2e7d32] has-checked:bg-[#f6faf6]">
-              <input
-                type="radio"
-                name="ot-rule-type"
-                value="Fixed"
-                checked={ruleType === "Fixed"}
-                onChange={() => setRuleType("Fixed")}
-                className="text-[#2e7d32] focus:ring-[#2e7d32]/20"
-              />
-              <span className="text-sm text-gray-700">Fixed Amount</span>
-            </label>
+      size="2xl"
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            {rule ? `Editing: ${ruleName || "OT Rule"}` : "New overtime policy"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                resetForm();
+                onClose();
+              }}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <DataSaveButton
+              onClick={handleSave}
+              isSaving={saving}
+              label={rule ? "Update Rule" : "Create Rule"}
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+            />
           </div>
         </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Section 1: Rule Identification */}
+        <FormSection
+          title="Rule Identification"
+          description="Name this policy and designate whether compensation is based on hourly units or flat daily sums."
+          isFirst
+        >
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="ot-rule-name"
+                className="mb-1.5 block text-xs font-semibold text-zinc-700"
+              >
+                Rule Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="ot-rule-name"
+                type="text"
+                value={ruleName}
+                onChange={(e) => setRuleName(e.target.value)}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                placeholder="e.g. Standard Overtime"
+              />
+              {errors.ruleName && (
+                <p className="mt-1 text-xs text-red-600">{errors.ruleName}</p>
+              )}
+            </div>
 
-        {/* Office Day Rate */}
-        <div>
-          <label
-            htmlFor="ot-rate-office"
-            className="mb-1.5 block text-sm font-medium text-[#1b3a1f]"
-          >
-            {rateLabel} — Office Day <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="ot-rate-office"
-            type="number"
-            min={0}
-            step={ruleType === "Hourly" ? 0.5 : 1}
-            value={rateOfficeDay}
-            onChange={(e) => setRateOfficeDay(e.target.value)}
-            className="block w-full rounded-lg border border-[#d7e8d0] px-3 py-2 text-sm text-[#1b3a1f] outline-none transition-colors focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]/20"
-            placeholder={ruleType === "Hourly" ? "e.g. 1.5" : "e.g. 500"}
-          />
-          {errors.rateOfficeDay && (
-            <p className="mt-1 text-xs text-red-500">{errors.rateOfficeDay}</p>
-          )}
-        </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Computation Basis <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                    ruleType === "Hourly"
+                      ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="ot-rule-type"
+                    value="Hourly"
+                    checked={ruleType === "Hourly"}
+                    onChange={() => setRuleType("Hourly")}
+                    className="sr-only"
+                  />
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      ruleType === "Hourly" ? "bg-emerald-600" : "bg-zinc-300"
+                    )}
+                  />
+                  Hourly Rate (NPR / hr)
+                </label>
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                    ruleType === "Fixed"
+                      ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="ot-rule-type"
+                    value="Fixed"
+                    checked={ruleType === "Fixed"}
+                    onChange={() => setRuleType("Fixed")}
+                    className="sr-only"
+                  />
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      ruleType === "Fixed" ? "bg-emerald-600" : "bg-zinc-300"
+                    )}
+                  />
+                  Fixed Daily Amount (NPR / day)
+                </label>
+              </div>
+            </div>
+          </div>
+        </FormSection>
 
-        {/* Off Day Rate */}
-        <div>
-          <label
-            htmlFor="ot-rate-off"
-            className="mb-1.5 block text-sm font-medium text-[#1b3a1f]"
-          >
-            {rateLabel} — Off Day <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="ot-rate-off"
-            type="number"
-            min={0}
-            step={ruleType === "Hourly" ? 0.5 : 1}
-            value={rateOffDay}
-            onChange={(e) => setRateOffDay(e.target.value)}
-            className="block w-full rounded-lg border border-[#d7e8d0] px-3 py-2 text-sm text-[#1b3a1f] outline-none transition-colors focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]/20"
-            placeholder={ruleType === "Hourly" ? "e.g. 2.0" : "e.g. 800"}
-          />
-          {errors.rateOffDay && (
-            <p className="mt-1 text-xs text-red-500">{errors.rateOffDay}</p>
-          )}
-        </div>
+        {/* Section 2: Rate Multipliers */}
+        <FormSection
+          title="Rate Multipliers"
+          description="Set the remuneration values for standard business working days versus weekends and holidays."
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="ot-rate-office"
+                className="mb-1.5 block text-xs font-semibold text-zinc-700"
+              >
+                {rateLabel} — Office Day <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="ot-rate-office"
+                type="number"
+                min={0}
+                step={ruleType === "Hourly" ? 0.5 : 1}
+                value={rateOfficeDay}
+                onChange={(e) => setRateOfficeDay(e.target.value)}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                placeholder={ruleType === "Hourly" ? "e.g. 1.5" : "e.g. 500"}
+              />
+              {errors.rateOfficeDay && (
+                <p className="mt-1 text-xs text-red-600">{errors.rateOfficeDay}</p>
+              )}
+            </div>
 
-        {/* Status */}
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1b3a1f]">
-            Status
-          </label>
-          <div className="flex gap-3">
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#d7e8d0] px-4 py-2.5 transition-colors hover:bg-[#f6faf6] has-checked:border-[#2e7d32] has-checked:bg-[#f6faf6]">
+            <div>
+              <label
+                htmlFor="ot-rate-off"
+                className="mb-1.5 block text-xs font-semibold text-zinc-700"
+              >
+                {rateLabel} — Weekend / Holiday <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="ot-rate-off"
+                type="number"
+                min={0}
+                step={ruleType === "Hourly" ? 0.5 : 1}
+                value={rateOffDay}
+                onChange={(e) => setRateOffDay(e.target.value)}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                placeholder={ruleType === "Hourly" ? "e.g. 2.0" : "e.g. 800"}
+              />
+              {errors.rateOffDay && (
+                <p className="mt-1 text-xs text-red-600">{errors.rateOffDay}</p>
+              )}
+            </div>
+          </div>
+        </FormSection>
+
+        {/* Section 3: Operational Status */}
+        <FormSection
+          title="Operational Status"
+          description="Control whether this overtime computation policy is actively applied during payroll runs."
+        >
+          <div className="flex items-center gap-3">
+            <label
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                isActive
+                  ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+              )}
+            >
               <input
                 type="radio"
                 name="ot-rule-status"
                 value="active"
                 checked={isActive === true}
                 onChange={() => setIsActive(true)}
-                className="text-[#2e7d32] focus:ring-[#2e7d32]/20"
+                className="sr-only"
               />
-              <span className="text-sm text-emerald-700 font-medium">Active</span>
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  isActive ? "bg-emerald-600" : "bg-zinc-300"
+                )}
+              />
+              Active Rule
             </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#d7e8d0] px-4 py-2.5 transition-colors hover:bg-[#f6faf6] has-checked:border-[#2e7d32] has-checked:bg-[#f6faf6]">
+            <label
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
+                !isActive
+                  ? "border-zinc-800 bg-zinc-50 text-zinc-900"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
+              )}
+            >
               <input
                 type="radio"
                 name="ot-rule-status"
                 value="inactive"
                 checked={isActive === false}
                 onChange={() => setIsActive(false)}
-                className="text-[#2e7d32] focus:ring-[#2e7d32]/20"
+                className="sr-only"
               />
-              <span className="text-sm text-gray-500 font-medium">Inactive</span>
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  !isActive ? "bg-zinc-700" : "bg-zinc-300"
+                )}
+              />
+              Inactive
             </label>
           </div>
-        </div>
+        </FormSection>
       </div>
     </Dialog>
+  );
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+  isFirst = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  isFirst?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
+    </div>
   );
 }

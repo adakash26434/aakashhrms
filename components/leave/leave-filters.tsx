@@ -19,8 +19,6 @@ const STATUS_TABS: Array<{ value: LeaveStatus | "all"; label: string }> = [
   { value: "Cancelled", label: "Cancelled" },
 ];
 
-const LEAVE_TYPE_OPTIONS_PREFIX = { value: "all", label: "All Leave Types" };
-
 export function LeaveFilters({
   filter,
   leaveTypeOptions,
@@ -39,17 +37,17 @@ export function LeaveFilters({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+    <div className="space-y-3.5">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2e7d32]/50" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="search"
             placeholder="Search by employee name or reason..."
             value={filter.search}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="h-10 w-full rounded-lg border border-[#d7e8d0] bg-white py-2 pl-10 pr-4 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+            className="h-9 w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-9 pr-4 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
           />
         </div>
 
@@ -65,14 +63,14 @@ export function LeaveFilters({
             type="date"
             value={filter.dateFrom}
             onChange={(e) => updateFilter("dateFrom", e.target.value)}
-            className="h-10 rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] cursor-pointer outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs cursor-pointer outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 transition-colors"
           />
           {/* Date to */}
           <input
             type="date"
             value={filter.dateTo}
             onChange={(e) => updateFilter("dateTo", e.target.value)}
-            className="h-10 rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] cursor-pointer outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs cursor-pointer outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 transition-colors"
           />
         </div>
       </div>
@@ -81,7 +79,7 @@ export function LeaveFilters({
       <div
         role="tablist"
         aria-label="Filter by status"
-        className="inline-flex gap-1 rounded-lg border border-[#d7e8d0]/80 bg-white p-1"
+        className="inline-flex gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100 p-0.5 shadow-2xs"
       >
         {STATUS_TABS.map((tab) => {
           const isActive = filter.status === tab.value;
@@ -93,10 +91,10 @@ export function LeaveFilters({
               aria-selected={isActive}
               onClick={() => updateFilter("status", tab.value)}
               className={cn(
-                "rounded-md px-4 py-1.5 cursor-pointer text-sm font-medium transition-colors",
+                "rounded-md px-3.5 py-1 text-xs font-medium transition-all cursor-pointer select-none",
                 isActive
-                  ? "bg-[#2e7d32] text-white hover:bg-payroll-primary-hover shadow-sm"
-                  : "text-gray-500 hover:bg-[#f6faf6]/60 hover:text-[#1b3a1f]",
+                  ? "bg-white text-zinc-900 shadow-2xs font-semibold"
+                  : "text-zinc-600 hover:text-zinc-900",
               )}
             >
               {tab.label}
@@ -144,18 +142,18 @@ function FilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 items-center gap-2 cursor-pointer rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] hover:bg-[#f6faf6]"
+        className="flex h-9 items-center gap-2 cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs hover:bg-zinc-50 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
       >
         <span className="truncate max-w-36">{selected?.label ?? label}</span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-gray-400 transition-transform",
+            "h-3.5 w-3.5 text-zinc-400 transition-transform",
             open && "rotate-180",
           )}
         />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-[#d7e8d0] bg-white shadow-lg">
+        <div className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg animate-[dialogIn_150ms_ease-out]">
           {options.map((opt) => {
             const isSelected = opt.value === value;
             return (
@@ -167,15 +165,15 @@ function FilterDropdown({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center cursor-pointer gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[#f6faf6]",
+                  "flex w-full items-center cursor-pointer gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-zinc-50",
                   isSelected
-                    ? "bg-[#d7e8d0]/40 text-[#1b3a1f] font-medium"
-                    : "text-gray-700 hover:bg-[#f6faf6]",
+                    ? "bg-zinc-100 text-zinc-900 font-semibold"
+                    : "text-zinc-700",
                 )}
               >
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                   {isSelected && (
-                    <Check className="h-3.5 w-3.5 text-[#2e7d32]" />
+                    <Check className="h-3.5 w-3.5 text-emerald-800" />
                   )}
                 </span>
                 {opt.label}

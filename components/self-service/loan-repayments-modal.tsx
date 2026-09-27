@@ -66,7 +66,7 @@ export function LoanRepaymentsModal({
           <Button
             size="sm"
             onClick={onClose}
-            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs shadow-payroll-xs"
+            className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-none"
           >
             Close Schedule
           </Button>
@@ -74,47 +74,47 @@ export function LoanRepaymentsModal({
       }
     >
       {loading ? (
-        <div className="py-16 text-center text-xs text-gray-500">
-          <Loader2 className="w-6 h-6 animate-spin text-payroll-primary mx-auto mb-2" />
+        <div className="py-16 text-center text-xs text-zinc-500">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-700 mx-auto mb-2" />
           <span>Retrieving repayment installment records...</span>
         </div>
       ) : error ? (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-md flex items-center gap-2 font-medium">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
       ) : repayments.length === 0 ? (
-        <div className="py-12 text-center text-xs text-gray-500 space-y-1">
-          <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="font-bold text-payroll-navy">No installments recorded yet</p>
-          <p className="text-[11px] text-gray-400">
+        <div className="py-12 text-center text-xs text-zinc-500 space-y-1 rounded-md border border-dashed border-zinc-200 bg-zinc-50/50">
+          <Calendar className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+          <p className="font-semibold text-zinc-900">No installments recorded yet</p>
+          <p className="text-[11px] text-zinc-400">
             Deductions will be automatically registered during monthly payroll processing.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto py-1">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-payroll-cream/70 text-payroll-navy font-bold uppercase tracking-wider border-b border-payroll-light text-[11px]">
-              <tr>
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+              <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                 <th className="px-4 py-3">Repayment Date</th>
                 <th className="px-4 py-3 text-right">Amount Deducted</th>
                 <th className="px-4 py-3 text-right">Remaining Balance</th>
                 <th className="px-4 py-3 text-center">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-payroll-light/50 bg-white font-mono">
+            <tbody className="divide-y divide-zinc-200 font-mono">
               {repayments.map((rep) => (
-                <tr key={rep.id} className="hover:bg-payroll-cream/40 transition-colors">
-                  <td className="px-4 py-3 text-gray-700 font-sans">
+                <tr key={rep.id} className="hover:bg-zinc-50/60 transition-colors">
+                  <td className="px-4 py-3.5 text-zinc-700 font-sans">
                     {rep.repaymentDate}
                   </td>
-                  <td className="px-4 py-3 text-right font-bold text-payroll-navy">
+                  <td className="px-4 py-3.5 text-right font-medium text-emerald-800">
                     NPR {Number(rep.amount).toLocaleString("en-NP")}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-600">
+                  <td className="px-4 py-3.5 text-right text-zinc-600">
                     NPR {Number(rep.remainingAmount || 0).toLocaleString("en-NP")}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3.5 text-center">
                     <Badge variant="success" size="sm" className="text-[10px]">
                       DEDUCTED
                     </Badge>

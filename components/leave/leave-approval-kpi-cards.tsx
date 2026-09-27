@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { Clock, CheckCircle, XCircle, Users } from "lucide-react";
 
 interface ApprovalKPIs {
@@ -17,53 +16,62 @@ interface LeaveApprovalKPIGridProps {
 export function LeaveApprovalKPIGrid({ kpis }: LeaveApprovalKPIGridProps) {
   const metrics = [
     {
-      label: "Pending Approvals",
+      label: "Pending approvals",
       value: kpis.totalPending,
+      subtext: "Across all teams",
       icon: Clock,
-      tone: "bg-amber-50 text-amber-700 border border-amber-200/60",
+      iconColor: "text-amber-500",
     },
     {
-      label: "Approved Today",
+      label: "Approved today",
       value: kpis.approvedToday,
+      subtext: "Resolved requests",
       icon: CheckCircle,
-      tone: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Rejected Today",
+      label: "Rejected today",
       value: kpis.rejectedToday,
+      subtext: "Declined requests",
       icon: XCircle,
-      tone: "bg-rose-50 text-rose-700 border border-rose-200/60",
+      iconColor: "text-rose-500",
     },
     {
-      label: "Awaiting My Review",
+      label: "Awaiting my review",
       value: kpis.awaitingMyReview,
+      subtext: "Assigned to your queue",
       icon: Users,
-      tone: "bg-payroll-cream text-payroll-primary border border-payroll-light/80",
+      iconColor: "text-zinc-600",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {metrics.map((m) => (
-        <Card
-          key={m.label}
-          className="p-3.5 shadow-payroll-xs hover:shadow-payroll-sm transition-all hover:-translate-y-0.5"
-        >
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                {m.label}
-              </p>
-              <p className="text-xl sm:text-2xl font-bold tabular-nums text-payroll-navy">
-                {m.value}
-              </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
+        return (
+          <div
+            key={m.label}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
+              </div>
             </div>
-            <div className={`rounded-xl p-2.5 ${m.tone}`}>
-              <m.icon className="h-4.5 w-4.5" />
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
             </div>
           </div>
-        </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

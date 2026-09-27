@@ -1,7 +1,6 @@
 "use client";
 
 import { DollarSign, Percent, PiggyBank, Users } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import type { PayrollRun } from "@/lib/types/payroll";
 
 interface PayrollSummaryCardProps {
@@ -9,59 +8,64 @@ interface PayrollSummaryCardProps {
 }
 
 export function PayrollSummaryCard({ run }: PayrollSummaryCardProps) {
-  const cards = [
+  const metrics = [
     {
-      title: "Net Payable",
-      value: `Rs. ${Number(run.totalNetPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      title: "Net payable",
+      value: `NPR ${Number(run.totalNetPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      subtext: "Total disbursed take-home",
       icon: DollarSign,
-      color: "text-emerald-700",
-      bgColor: "bg-emerald-50 border border-emerald-200/60",
+      iconColor: "text-emerald-700",
     },
     {
-      title: "Total Gross",
-      value: `Rs. ${Number(run.totalGross).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      title: "Total gross earnings",
+      value: `NPR ${Number(run.totalGross).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      subtext: "Pre-deduction payroll commitment",
       icon: PiggyBank,
-      color: "text-payroll-primary",
-      bgColor: "bg-payroll-cream border border-payroll-light/80",
+      iconColor: "text-zinc-600",
     },
     {
-      title: "Total TDS (Tax)",
-      value: `Rs. ${Number(run.totalTds).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      title: "Withholding TDS (tax)",
+      value: `NPR ${Number(run.totalTds).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      subtext: "Statutory tax withheld",
       icon: Percent,
-      color: "text-rose-700",
-      bgColor: "bg-rose-50 border border-rose-200/60",
+      iconColor: "text-rose-500",
     },
     {
-      title: "Employee Count",
-      value: `${run.employeeCount} Staff`,
+      title: "Audited employee count",
+      value: `${run.employeeCount} staff`,
+      subtext: "Processed in current cycle",
       icon: Users,
-      color: "text-amber-700",
-      bgColor: "bg-amber-50 border border-amber-200/60",
+      iconColor: "text-zinc-400",
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card, idx) => (
-        <Card
-          key={idx}
-          className="flex items-center gap-3.5 p-4 shadow-payroll-xs hover:shadow-payroll-sm transition-all hover:-translate-y-0.5"
-        >
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
+        return (
           <div
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.bgColor} ${card.color}`}
+            key={m.title}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
           >
-            <card.icon className="h-5 w-5" />
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.title}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 truncate">
-              {card.title}
-            </p>
-            <p className="mt-0.5 text-base sm:text-lg font-bold text-payroll-navy tabular-nums truncate">
-              {card.value}
-            </p>
-          </div>
-        </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

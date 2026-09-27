@@ -51,7 +51,7 @@ export function SalaryMappingBulkActions({
     branchId: "",
     selectedEmployeeIds: [],
     basicSalary: "",
-    gradePercent: "100",
+    gradePercent: "0",
     gradeAmount: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);

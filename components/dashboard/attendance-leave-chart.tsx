@@ -21,20 +21,20 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
   const ready = useClientReady();
 
   return (
-    <Card className="h-full flex flex-col justify-between bg-white border-payroll-border shadow-payroll-xs">
+    <Card className="h-full flex flex-col justify-between bg-white">
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-gray-950">
-              Attendance & leave pulse
+            <h3 className="text-sm sm:text-base font-semibold text-zinc-950">
+              Attendance & Leave Pulse
             </h3>
-            <p className="text-xs text-gray-500">
-              Weekly verified presence · biometric + manual
+            <p className="text-xs text-zinc-500">
+              Weekly verified presence (biometric and manual)
             </p>
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-3 text-xs text-zinc-500">
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2 w-2 rounded-full bg-payroll-primary" />
+              <span className="h-2 w-2 rounded-full bg-emerald-800" />
               Present
             </span>
             <span className="flex items-center gap-1.5 font-medium">
@@ -42,7 +42,7 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
               Leave
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2 w-2 rounded-full bg-red-400" />
+              <span className="h-2 w-2 rounded-full bg-rose-500" />
               Absent
             </span>
           </div>
@@ -58,17 +58,17 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#E4E7E4"
+                  stroke="#f4f4f5"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="day"
-                  tick={{ fontSize: 11, fill: "#6B7280" }}
+                  tick={{ fontSize: 11, fill: "#71717a" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#6B7280" }}
+                  tick={{ fontSize: 11, fill: "#71717a" }}
                   axisLine={false}
                   tickLine={false}
                   domain={[0, "auto"]}
@@ -76,29 +76,29 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
                 <Tooltip
                   contentStyle={{
                     fontSize: 12,
-                    borderRadius: 8,
-                    border: "1px solid #E4E7E4",
+                    borderRadius: 6,
+                    border: "1px solid #e4e4e7",
                     backgroundColor: "#FFFFFF",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+                    boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.05)",
                   }}
                 />
                 <Bar
                   dataKey="present"
                   stackId="a"
-                  fill="#1B6B54"
+                  fill="#065f46"
                   radius={[0, 0, 0, 0]}
                 />
-                <Bar dataKey="leave" stackId="a" fill="#F59E0B" />
+                <Bar dataKey="leave" stackId="a" fill="#f59e0b" />
                 <Bar
                   dataKey="absent"
                   stackId="a"
-                  fill="#EF4444"
+                  fill="#f43f5e"
                   radius={[3, 3, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full w-full animate-pulse rounded-lg bg-gray-100" />
+            <div className="h-full w-full animate-pulse rounded-md bg-zinc-100" />
           )}
         </div>
       </CardContent>

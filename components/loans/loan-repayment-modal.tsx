@@ -9,6 +9,7 @@ import type {
 import { getActiveLoansByEmployeeAction } from "@/app/actions/loan.actions";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface LoanRepaymentModalProps {
   open: boolean;
@@ -68,117 +69,191 @@ export function LoanRepaymentModal({
       open={open} 
       onClose={onClose}
       title="Record Cash Repayment"
-      size="lg"
+      description="Log a manual employee loan installment or lump-sum settlement."
+      size="2xl"
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="repayment-form" disabled={saving || !form.loanId}>
-            {saving ? "Recording..." : "Record Payment"}
-          </Button>
-        </>
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            {form.amountPaid > 0
+              ? `Recording payment: NPR ${form.amountPaid.toLocaleString()}`
+              : "Select active facility to settle"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="repayment-form"
+              disabled={saving || !form.loanId}
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+            >
+              {saving ? "Recording..." : "Record Payment"}
+            </Button>
+          </div>
+        </div>
       }
     >
-      <form id="repayment-form" onSubmit={handleSubmit} className="space-y-4 pt-2">
-          {/* Employee */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Employee *</label>
-            <select
-              value={selectedEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
-            >
-              <option value="">-- Select Employee --</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} ({emp.code})
-                </option>
-              ))}
-            </select>
-          </div>
+      <form id="repayment-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Account & Active Facility */}
+        <FormSection
+          title="Account & Active Facility"
+          description="Choose the staff member and specify which active lending account to credit."
+          isFirst
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Staff Member <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedEmployeeId}
+                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+              >
+                <option value="">-- Select Employee --</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} ({emp.code})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Loan Selection */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Select Loan *</label>
-            <select
-              value={form.loanId}
-              onChange={(e) => setForm({ ...form, loanId: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
-              disabled={!selectedEmployeeId}
-            >
-              <option value="">-- Select Loan --</option>
-              {employeeLoans.map((loan) => (
-                <option key={loan.id} value={loan.id}>
-                  {loan.loanTypeName} — Rs. {loan.loanAmount.toLocaleString()} (Given: {loan.givenDate})
-                </option>
-              ))}
-            </select>
-            {validationErrors?.loanId && (
-              <p className="mt-1 text-xs text-red-500">{validationErrors.loanId}</p>
-            )}
-            {selectedEmployeeId && employeeLoans.length === 0 && (
-              <p className="mt-1 text-xs text-gray-400">No active loans found for this employee.</p>
-            )}
-          </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Target Loan Facility <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={form.loanId}
+                onChange={(e) => setForm({ ...form, loanId: e.target.value })}
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                disabled={!selectedEmployeeId}
+              >
+                <option value="">-- Select Loan --</option>
+                {employeeLoans.map((loan) => (
+                  <option key={loan.id} value={loan.id}>
+                    {loan.loanTypeName} — NPR {loan.loanAmount.toLocaleString()} (Issued: {loan.givenDate})
+                  </option>
+                ))}
+              </select>
+              {validationErrors?.loanId && (
+                <p className="mt-1 text-xs text-red-600">{validationErrors.loanId}</p>
+              )}
+              {selectedEmployeeId && employeeLoans.length === 0 && (
+                <p className="mt-1 text-xs text-zinc-400">No active loans found for this employee.</p>
+              )}
+            </div>
 
-          {/* Loan Details (Read-Only) */}
-          {selectedLoan && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <p className="text-[11px] text-gray-500">Loan Taken</p>
-                  <p className="text-sm font-semibold tabular-nums text-[#1b3a1f]">
-                    Rs. {selectedLoan.loanAmount.toLocaleString()}
-                  </p>
+            {/* Loan Details (Read-Only Snapshot) */}
+            {selectedLoan && (
+              <div className="rounded-md border border-zinc-200/80 bg-zinc-50/50 p-4">
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-300/60">
+                  <span className="text-xs font-semibold text-zinc-900">
+                    Facility Ledger Snapshot
+                  </span>
+                  <span className="text-[11px] text-zinc-500 font-mono">
+                    Disbursed: {selectedLoan.givenDate}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-[11px] text-gray-500">Returned Till</p>
-                  <p className="text-sm font-semibold tabular-nums text-emerald-600">
-                    Rs. {selectedLoan.totalReturned.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-gray-500">Remaining Loan</p>
-                  <p className="text-sm font-semibold tabular-nums text-red-500">
-                    Rs. {selectedLoan.remainingAmount.toLocaleString()}
-                  </p>
+                <div className="grid grid-cols-3 gap-4 pt-3 text-center">
+                  <div>
+                    <p className="text-[11px] font-medium text-zinc-500">Disbursed Principal</p>
+                    <p className="text-sm font-semibold tabular-nums text-zinc-900 font-mono">
+                      NPR {selectedLoan.loanAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-zinc-500">Total Cleared</p>
+                    <p className="text-sm font-semibold tabular-nums text-emerald-800 font-mono">
+                      NPR {selectedLoan.totalReturned.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-zinc-500">Outstanding Balance</p>
+                    <p className="text-sm font-semibold tabular-nums text-amber-900 font-mono">
+                      NPR {selectedLoan.remainingAmount.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
+        </FormSection>
+
+        {/* Section 2: Payment Particulars */}
+        <FormSection
+          title="Payment Particulars"
+          description="Enter the amount deposited and the settlement execution date."
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Amount Paid (NPR) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={form.amountPaid || ""}
+                onChange={(e) =>
+                  setForm({ ...form, amountPaid: parseFloat(e.target.value) || 0 })
+                }
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                placeholder="20000"
+              />
+              {validationErrors?.amountPaid && (
+                <p className="mt-1 text-xs text-red-600">{validationErrors.amountPaid}</p>
+              )}
             </div>
-          )}
 
-          {/* Cash Paid */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Cash Paid (Rs.) *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.amountPaid || ""}
-              onChange={(e) => setForm({ ...form, amountPaid: parseFloat(e.target.value) || 0 })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
-              placeholder="20000"
-            />
-            {validationErrors?.amountPaid && (
-              <p className="mt-1 text-xs text-red-500">{validationErrors.amountPaid}</p>
-            )}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                Payment Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={form.repaymentDate}
+                onChange={(e) =>
+                  setForm({ ...form, repaymentDate: e.target.value })
+                }
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+              />
+              {validationErrors?.repaymentDate && (
+                <p className="mt-1 text-xs text-red-600">{validationErrors.repaymentDate}</p>
+              )}
+            </div>
           </div>
-
-          {/* Returned Date */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Returned Date *</label>
-            <input
-              type="date"
-              value={form.repaymentDate}
-              onChange={(e) => setForm({ ...form, repaymentDate: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
-            />
-            {validationErrors?.repaymentDate && (
-              <p className="mt-1 text-xs text-red-500">{validationErrors.repaymentDate}</p>
-            )}
-          </div>
-
-        </form>
+        </FormSection>
+      </form>
     </Dialog>
+  );
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+  isFirst = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  isFirst?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
+    </div>
   );
 }

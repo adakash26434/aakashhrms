@@ -22,7 +22,7 @@ interface PayHeadFormModalProps {
   open: boolean;
   editingHead: PayHead | null;
   departments: { id: string; name: string }[];
-  designations: { id: string; name: string }[];
+  designations: { id: string; name: string; departmentId?: string }[];
   onClose: () => void;
   onSubmit: (data: PayHeadFormData) => void;
 }
@@ -37,7 +37,7 @@ interface FormState {
   calcParameter: CalcParameter;
   calcPercentText: string;
   applicableDepartmentIds: string[];
-  applicableDesignationIds: string[];
+  applicableDesignationIds: string[]; 
   flags: Partial<Record<StatutoryFlag, boolean>>;
 }
 
@@ -160,27 +160,165 @@ export function PayHeadFormModal({
     : "Configure a new pay head — name, calculation rules, applicability, and statutory flags.";
   const submitLabel = isEdit ? "Save Changes" : "Create Pay Head";
 
-  // -- Helpers --
+  // -- Department / Designation Relationship Helpers --
+  function getDeptIdForDesig(desig: { id: string; name: string; departmentId?: string }): string | undefined {
+    if (desig.departmentId && departments.some((d) => d.id === desig.departmentId)) {
+      return desig.departmentId;
+    }
+    const dName = desig.name.toLowerCase();
+    if (
+      dName.includes("software") ||
+      dName.includes("engineer") ||
+      dName.includes("developer") ||
+      dName.includes("it ") ||
+      dName.includes("technology")
+    ) {
+      const dept = departments.find((d) => {
+        const n = d.name.toLowerCase();
+        return n.includes("technology") || n.includes("it") || n.includes("engineering");
+      });
+      if (dept) return dept.id;
+    }
+    if (
+      dName.includes("hr") ||
+      dName.includes("human resources") ||
+      dName.includes("people") ||
+      dName.includes("talent")
+    ) {
+      const dept = departments.find((d) => {
+        const n = d.name.toLowerCase();
+        return n.includes("human resources") || n.includes("hr");
+      });
+      if (dept) return dept.id;
+    }
+    if (
+      dName.includes("accountant") ||
+      dName.includes("finance") ||
+      dName.includes("accounts") ||
+      dName.includes("audit") ||
+      dName.includes("billing")
+    ) {
+      const dept = departments.find((d) => {
+        const n = d.name.toLowerCase();
+        return n.includes("finance") || n.includes("account");
+      });
+      if (dept) return dept.id;
+    }
+    if (
+      dName.includes("marketing") ||
+      dName.includes("sales") ||
+      dName.includes("growth") ||
+      dName.includes("business dev")
+    ) {
+      const dept = departments.find((d) => {
+        const n = d.name.toLowerCase();
+        return n.includes("marketing") || n.includes("sales");
+      });
+      if (dept) return dept.id;
+    }
+    if (
+      dName.includes("admin") ||
+      dName.includes("operations") ||
+      dName.includes("officer") ||
+      dName.includes("assistant") ||
+      dName.includes("executive") ||
+      dName.includes("director") ||
+      dName.includes("ceo") ||
+      dName.includes("manager")
+    ) {
+      const dept = departments.find((d) => {
+        const n = d.name.toLowerCase();
+        return n.includes("administration") || n.includes("operations") || n.includes("admin");
+      });
+      if (dept) return dept.id;
+    }
+    return undefined;
+  }
+
+  // When a department is unselected, automatically unselect its related designations!
   function toggleDepartment(id: string) {
     setForm((f) => {
-      const has = f.applicableDepartmentIds.includes(id);
+      const isCurrentlySelected = f.applicableDepartmentIds.includes(id);
+      const nextDeptIds = isCurrentlySelected
+        ? f.applicableDepartmentIds.filter((d) => d !== id)
+        : [...f.applicableDepartmentIds, id];
+
+      // Find all designations that belong to this department
+      const relatedDesigIds = designations
+        .filter((desig) => getDeptIdForDesig(desig) === id)
+        .map((desig) => desig.id);
+
+      let nextDesigIds = f.applicableDesignationIds;
+      if (isCurrentlySelected) {
+        // Department UNCHECKED: remove all its designations automatically
+        nextDesigIds = nextDesigIds.filter((dId) => !relatedDesigIds.includes(dId));
+      } else {
+        // Department CHECKED: auto-select all its designations
+        nextDesigIds = Array.from(new Set([...nextDesigIds, ...relatedDesigIds]));
+      }
+
       return {
         ...f,
-        applicableDepartmentIds: has
-          ? f.applicableDepartmentIds.filter((d) => d !== id)
-          : [...f.applicableDepartmentIds, id],
+        applicableDepartmentIds: nextDeptIds,
+        applicableDesignationIds: nextDesigIds,
       };
     });
   }
 
+  function selectAllDepartments() {
+    setForm((f) => ({
+      ...f,
+      applicableDepartmentIds: departments.map((d) => d.id),
+      applicableDesignationIds: designations.map((d) => d.id),
+    }));
+  }
+
+  function deselectAllDepartments() {
+    setForm((f) => ({
+      ...f,
+      applicableDepartmentIds: [],
+      applicableDesignationIds: [],
+    }));
+  }
+
+  function selectAllDesignations() {
+    setForm((f) => ({
+      ...f,
+      applicableDesignationIds: designations.map((d) => d.id),
+    }));
+  }
+
+  function deselectAllDesignations() {
+    setForm((f) => ({
+      ...f,
+      applicableDesignationIds: [],
+    }));
+  }
+
   function toggleDesignation(id: string) {
     setForm((f) => {
-      const has = f.applicableDesignationIds.includes(id);
+      const isCurrentlySelected = f.applicableDesignationIds.includes(id);
+      const nextDesigIds = isCurrentlySelected
+        ? f.applicableDesignationIds.filter((d) => d !== id)
+        : [...f.applicableDesignationIds, id];
+
+      // If user checks a designation whose parent department is unselected,
+      // auto-select that parent department so applicability is consistent
+      let nextDeptIds = f.applicableDepartmentIds;
+      if (!isCurrentlySelected) {
+        const desig = designations.find((d) => d.id === id);
+        if (desig) {
+          const deptId = getDeptIdForDesig(desig);
+          if (deptId && !nextDeptIds.includes(deptId)) {
+            nextDeptIds = [...nextDeptIds, deptId];
+          }
+        }
+      }
+
       return {
         ...f,
-        applicableDesignationIds: has
-          ? f.applicableDesignationIds.filter((d) => d !== id)
-          : [...f.applicableDesignationIds, id],
+        applicableDesignationIds: nextDesigIds,
+        applicableDepartmentIds: nextDeptIds,
       };
     });
   }
@@ -218,24 +356,39 @@ export function PayHeadFormModal({
       onClose={onClose}
       title={title}
       description={description}
-      size="2xl"
+      size="3xl"
       footer={
-        <>
-          <span className="mr-auto text-xs text-gray-500">
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
             {isEdit ? `Editing: ${editingHead!.code}` : "New pay head"}
           </span>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="pay-head-form">
-            {submitLabel}
-          </Button>
-        </>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="pay-head-form"
+              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+            >
+              {submitLabel}
+            </Button>
+          </div>
+        </div>
       }
     >
-      <form id="pay-head-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form id="pay-head-form" onSubmit={handleSubmit} className="space-y-6" noValidate>
         {/* === Basic Information === */}
-        <FormSection title="Basic Information">
+        <FormSection
+          title="Basic Information"
+          description="Configure pay head name, type classification, and income tax applicability."
+          isFirst
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field id={fieldId.name} label="Pay Head Name *" error={errors.name}>
               <input
@@ -273,7 +426,7 @@ export function PayHeadFormModal({
           </div>
 
           <div className="mt-4">
-            <p className="mb-1.5 text-xs font-medium text-gray-600">Effect on Tax *</p>
+            <p className="mb-1.5 text-xs font-semibold text-zinc-700">Effect on Tax *</p>
             <div className="flex gap-2">
               <YesNoPill label="Yes" active={form.effectOnTax === true} onClick={() => setForm((f) => ({ ...f, effectOnTax: true }))} />
               <YesNoPill label="No" active={form.effectOnTax === false} onClick={() => setForm((f) => ({ ...f, effectOnTax: false }))} />
@@ -282,7 +435,10 @@ export function PayHeadFormModal({
         </FormSection>
 
         {/* === Calculation Rules === */}
-        <FormSection title="Calculation Rules">
+        <FormSection
+          title="Calculation Rules"
+          description="Specify whether this pay head computes as a percentage of salary or a fixed rate."
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field id={fieldId.calcBasis} label="Calculate On">
               <DropdownMenu<CalcBasis>
@@ -358,47 +514,116 @@ export function PayHeadFormModal({
         </FormSection>
 
         {/* === Applicability === */}
-        <FormSection title="Applicability">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-gray-600">
-                Apply For: Department <span className="text-gray-500">({form.applicableDepartmentIds.length} selected)</span>
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {departments.map((d) => (
-                  <CheckboxPill
-                    key={d.id}
-                    id={`${fieldId.name}-dept-${d.id}`}
-                    label={d.name}
-                    checked={form.applicableDepartmentIds.includes(d.id)}
-                    onChange={() => toggleDepartment(d.id)}
-                  />
-                ))}
+        <FormSection
+          title="Applicability Matrix"
+          description="Target specific organizational departments and job designations."
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-md border border-zinc-200 bg-zinc-50/50 p-4">
+            {/* Departments Column */}
+            <div className="space-y-2.5 min-w-0">
+              <div className="flex items-center justify-between pb-1.5 border-b border-zinc-300/60">
+                <span className="text-xs font-semibold text-zinc-900">
+                  Apply For: Department{" "}
+                  <span className="text-zinc-500 font-normal">
+                    ({form.applicableDepartmentIds.length} of {departments.length} selected)
+                  </span>
+                </span>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={selectAllDepartments}
+                    className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  >
+                    All
+                  </button>
+                  <span className="text-zinc-300">|</span>
+                  <button
+                    type="button"
+                    onClick={deselectAllDepartments}
+                    className="font-medium text-zinc-500 hover:text-zinc-700 hover:underline cursor-pointer"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto pr-1">
+                {departments.map((d) => {
+                  const isChecked = form.applicableDepartmentIds.includes(d.id);
+                  const desigCount = designations.filter(
+                    (desig) => getDeptIdForDesig(desig) === d.id
+                  ).length;
+                  return (
+                    <CheckboxPill
+                      key={d.id}
+                      id={`${fieldId.name}-dept-${d.id}`}
+                      label={d.name}
+                      badge={desigCount > 0 ? `${desigCount} roles` : undefined}
+                      checked={isChecked}
+                      onChange={() => toggleDepartment(d.id)}
+                    />
+                  );
+                })}
               </div>
             </div>
 
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-gray-600">
-                Apply For: Position <span className="text-gray-500">({form.applicableDesignationIds.length} selected)</span>
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {designations.map((d) => (
-                  <CheckboxPill
-                    key={d.id}
-                    id={`${fieldId.name}-desig-${d.id}`}
-                    label={d.name}
-                    checked={form.applicableDesignationIds.includes(d.id)}
-                    onChange={() => toggleDesignation(d.id)}
-                  />
-                ))}
+            {/* Positions Column */}
+            <div className="space-y-2.5 min-w-0">
+              <div className="flex items-center justify-between pb-1.5 border-b border-zinc-300/60">
+                <span className="text-xs font-semibold text-zinc-900">
+                  Apply For: Position{" "}
+                  <span className="text-zinc-500 font-normal">
+                    ({form.applicableDesignationIds.length} of {designations.length} selected)
+                  </span>
+                </span>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={selectAllDesignations}
+                    className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  >
+                    All
+                  </button>
+                  <span className="text-zinc-300">|</span>
+                  <button
+                    type="button"
+                    onClick={deselectAllDesignations}
+                    className="font-medium text-zinc-500 hover:text-zinc-700 hover:underline cursor-pointer"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto pr-1">
+                {designations.map((d) => {
+                  const isChecked = form.applicableDesignationIds.includes(d.id);
+                  const deptId = getDeptIdForDesig(d);
+                  const dept = departments.find((dept) => dept.id === deptId);
+                  const isDeptActive = deptId ? form.applicableDepartmentIds.includes(deptId) : true;
+                  return (
+                    <CheckboxPill
+                      key={d.id}
+                      id={`${fieldId.name}-desig-${d.id}`}
+                      label={d.name}
+                      badge={dept?.name}
+                      dimmed={!isDeptActive}
+                      checked={isChecked}
+                      onChange={() => toggleDesignation(d.id)}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
         </FormSection>
 
         {/* === Statutory & Calculation Flags === */}
-        <FormSection title="Statutory & Calculation Flags" description="Toggle flags that define how this pay head behaves during payroll">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <FormSection
+          title="Statutory Flags"
+          description="Tag this head for statutory social security, tax deductions, or legal allowances."
+        >
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {STATUTORY_FLAGS.map((flag) => {
               const meta = STATUTORY_FLAG_META[flag];
               const Icon = meta.icon;
@@ -409,19 +634,36 @@ export function PayHeadFormModal({
                   type="button"
                   onClick={() => toggleFlag(flag)}
                   className={cn(
-                    "flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors",
-                    active ? "border-payroll-primary/40 bg-green-50/40" : "border-payroll-light/60 bg-white hover:bg-payroll-cream/60"
+                    "flex items-start gap-2.5 rounded-md border p-3 text-left transition-colors cursor-pointer",
+                    active
+                      ? "border-emerald-700/60 bg-emerald-50/50 ring-1 ring-emerald-700/20"
+                      : "border-zinc-200 bg-white hover:bg-zinc-50"
                   )}
                 >
-                  <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md", active ? "bg-payroll-primary text-white" : "bg-payroll-light/60 text-payroll-navy")}>
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
+                      active ? "bg-emerald-700 text-white" : "bg-zinc-100 text-zinc-600"
+                    )}
+                  >
                     <Icon className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-payroll-navy">{meta.label}</p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">{meta.description}</p>
+                    <p className="text-xs font-semibold text-zinc-900">{meta.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{meta.description}</p>
                   </div>
-                  <span className={cn("mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors", active ? "border-payroll-primary bg-payroll-primary text-white" : "border-gray-300 bg-white")} aria-hidden>
-                    {active && <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="currentColor"><path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" /></svg>}
+                  <span
+                    className={cn(
+                      "mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                      active ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white"
+                    )}
+                    aria-hidden
+                  >
+                    {active && (
+                      <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="currentColor">
+                        <path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" />
+                      </svg>
+                    )}
                   </span>
                 </button>
               );
@@ -437,22 +679,34 @@ export function PayHeadFormModal({
 
 // ----- Internal helpers -----
 
-function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function FormSection({
+  title,
+  description,
+  children,
+  isFirst = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  isFirst?: boolean;
+}) {
   return (
-    <section>
-      <div className="mb-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{title}</h3>
-        {description && <p className="mt-0.5 text-[11px] text-gray-500">{description}</p>}
+    <div className={cn("space-y-3.5", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
       </div>
-      {children}
-    </section>
+      <div>{children}</div>
+    </div>
   );
 }
 
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-gray-600">{label}</label>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold text-zinc-700">{label}</label>
       {children}
       {error && <p className="mt-1 text-xs text-red-600" role="alert">{error}</p>}
     </div>
@@ -461,8 +715,12 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
 
 function inputClass(hasError: boolean, isDisabled: boolean) {
   return [
-    "h-9 w-full rounded-lg border bg-white px-3 text-sm text-payroll-navy focus:outline-none focus:ring-1 flex items-center justify-between",
-    isDisabled ? "cursor-not-allowed border-payroll-light/60 bg-payroll-cream text-gray-500" : hasError ? "border-red-300 focus:border-red-500 focus:ring-red-500" : "border-payroll-light focus:border-payroll-primary focus:ring-payroll-primary",
+    "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 flex items-center justify-between transition-colors",
+    isDisabled
+      ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
+      : hasError
+      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
   ].join(" ");
 }
 
@@ -472,24 +730,88 @@ function YesNoPill({ label, active, onClick }: { label: string; active: boolean;
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={cn("h-9 min-w-20 rounded-lg px-4 text-sm font-medium transition-colors", active ? "bg-payroll-primary text-white shadow-sm" : "border border-payroll-light bg-white text-payroll-navy hover:bg-payroll-cream")}
+      className={cn(
+        "h-9 min-w-20 rounded-md px-4 text-xs font-semibold transition-colors cursor-pointer",
+        active
+          ? "bg-emerald-700 text-white shadow-none"
+          : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+      )}
     >
       {label}
     </button>
   );
 }
 
-function CheckboxPill({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: () => void }) {
+function CheckboxPill({
+  id,
+  label,
+  badge,
+  checked,
+  dimmed,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  badge?: string;
+  checked: boolean;
+  dimmed?: boolean;
+  onChange: () => void;
+}) {
   return (
     <label
       htmlFor={id}
-      className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors min-w-0", checked ? "border-payroll-primary/40 bg-green-50/60 text-payroll-navy" : "border-payroll-light bg-white text-payroll-navy hover:bg-payroll-cream")}
+      title={badge ? `${label} (${badge})` : label}
+      className={cn(
+        "flex items-center justify-between gap-2.5 rounded-md border px-3 py-2 text-xs transition-colors cursor-pointer select-none min-w-0 w-full",
+        checked
+          ? "border-emerald-600/50 bg-emerald-50/70 text-zinc-900"
+          : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300",
+        dimmed && !checked && "opacity-60 bg-zinc-50/50"
+      )}
     >
-      <span className={cn("relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border-2 transition-colors", checked ? "border-payroll-primary bg-payroll-primary" : "border-gray-300 bg-white")} aria-hidden>
-        {checked && <svg viewBox="0 0 16 16" className="h-2 w-2 text-white" fill="currentColor"><path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" /></svg>}
-      </span>
-      <input id={id} type="checkbox" checked={checked} onChange={onChange} className="sr-only" />
-      <span className="whitespace-nowrap">{label}</span>
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <span
+          className={cn(
+            "relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+            checked
+              ? "border-emerald-700 bg-emerald-700 text-white"
+              : "border-zinc-300 bg-white"
+          )}
+          aria-hidden
+        >
+          {checked && (
+            <svg
+              viewBox="0 0 16 16"
+              className="h-2.5 w-2.5 text-white"
+              fill="currentColor"
+            >
+              <path d="M13.5 4.5L6 12L2.5 8.5L3.91 7.09L6 9.17L12.09 3.09L13.5 4.5Z" />
+            </svg>
+          )}
+        </span>
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          className="sr-only"
+        />
+        <span className="truncate font-medium text-zinc-900 text-xs">
+          {label}
+        </span>
+      </div>
+      {badge && (
+        <span
+          className={cn(
+            "rounded-md px-2 py-0.5 text-[10px] font-medium shrink-0 max-w-[130px] truncate border",
+            checked
+              ? "bg-emerald-100/70 text-emerald-800 border-emerald-200/80"
+              : "bg-zinc-100 text-zinc-600 border-zinc-200"
+          )}
+        >
+          {badge}
+        </span>
+      )}
     </label>
   );
 }

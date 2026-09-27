@@ -57,48 +57,48 @@ export function FiscalYearTable({
 
   return (
     <TableShell
-      title="Fiscal Year Records"
+      title="Fiscal year records"
       totalCount={fiscalYears.length}
       isEmpty={fiscalYears.length === 0}
       emptyTitle="No fiscal years configured yet"
-      emptyDescription="Click 'New Fiscal Year' above to configure an accounting cycle."
+      emptyDescription="Click 'Add fiscal year' above to configure an accounting cycle."
     >
       <table className="w-full min-w-215 text-left text-sm">
-        <thead>
-          <tr className="border-b border-payroll-light/80 bg-payroll-cream/40 text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
-            <th scope="col" className="px-5 py-3 font-semibold">
-              FY
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
+            <th scope="col" className="px-4 py-3 font-semibold">
+              Fiscal year
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
-              {isAD ? "From Month (A.D.)" : "From Month"}
+            <th scope="col" className="px-4 py-3 font-semibold">
+              {isAD ? "From month (A.D.)" : "From month"}
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
-              {isAD ? "To Month (A.D.)" : "To Month"}
+            <th scope="col" className="px-4 py-3 font-semibold">
+              {isAD ? "To month (A.D.)" : "To month"}
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
+            <th scope="col" className="px-4 py-3 font-semibold">
               {dateRangeColumnHeader(isAD, isLong)}
             </th>
-            <th scope="col" className="px-5 py-3 font-semibold">
+            <th scope="col" className="px-4 py-3 font-semibold">
               Status
             </th>
             <th
               scope="col"
-              className="px-5 py-3 text-right font-semibold"
+              className="px-4 py-3 text-right font-semibold"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-zinc-200">
           {fiscalYears.length === 0 ? (
             <tr>
               <td
                 colSpan={6}
-                className="px-5 py-10 text-center text-sm text-gray-500"
+                className="px-4 py-10 text-center text-xs text-zinc-500"
               >
                 No fiscal years configured yet. Click{" "}
-                <span className="font-medium text-payroll-navy">
-                  New Fiscal Year
+                <span className="font-medium text-zinc-900">
+                  Add fiscal year
                 </span>{" "}
                 to add one.
               </td>
@@ -117,58 +117,49 @@ export function FiscalYearTable({
               return (
                 <tr
                   key={fy.id}
-                  className="border-b border-payroll-light/60 last:border-b-0 transition-colors hover:bg-payroll-cream/40"
+                  className="border-b border-zinc-100 last:border-b-0 transition-colors hover:bg-zinc-50/60"
                 >
                   {/* FY (label + slug) */}
-                  <td className="px-5 py-4 align-middle">
-                    <div className="font-semibold text-payroll-navy">
+                  <td className="px-4 py-4 align-middle">
+                    <div className="font-medium text-zinc-900 text-xs">
                       {fy.label}
                     </div>
-                    <div className="mt-0.5 text-xs text-gray-500">
+                    <div className="mt-0.5 text-xs text-zinc-400 font-mono">
                       {fy.slug}
                     </div>
                   </td>
 
                   {/* From month */}
-                  <td className="px-5 py-4 align-middle text-payroll-navy">
+                  <td className="px-4 py-4 align-middle text-zinc-600 text-xs">
                     {fromName}
                   </td>
 
                   {/* To month */}
-                  <td className="px-5 py-4 align-middle text-payroll-navy">
+                  <td className="px-4 py-4 align-middle text-zinc-600 text-xs">
                     {toName}
                   </td>
 
-                  {/* Date Range — format-aware via BSDateDisplay.
-                      Long variant: regular text, two lines if narrow.
-                      Compact variants: tabular-nums mono on one line. */}
-                  <td className="px-5 py-4 align-middle">
+                  {/* Date Range */}
+                  <td className="px-4 py-4 align-middle">
                     {isLong ? (
-                      <div className="flex flex-col gap-0.5 text-[13px] text-payroll-navy">
+                      <div className="flex flex-col gap-0.5 text-xs text-zinc-800">
                         <BSDateDisplay
                           date={fy.startDateAD}
                           format={activeFormat}
                         />
-                        <span
-                          className="text-[11px] text-gray-400"
-                          aria-hidden="true"
-                        >
-                          ↓
-                        </span>
+                        <span className="text-[11px] text-zinc-400">to</span>
                         <BSDateDisplay
                           date={fy.endDateAD}
                           format={activeFormat}
                         />
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 font-mono text-[13px] tabular-nums text-payroll-navy">
+                      <div className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-zinc-800">
                         <BSDateDisplay
                           date={fy.startDateAD}
                           format={activeFormat}
                         />
-                        <span className="text-gray-400" aria-hidden="true">
-                          →
-                        </span>
+                        <span className="text-zinc-400">–</span>
                         <BSDateDisplay
                           date={fy.endDateAD}
                           format={activeFormat}
@@ -178,18 +169,18 @@ export function FiscalYearTable({
                   </td>
 
                   {/* Status */}
-                  <td className="px-5 py-4 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     {isLocked ? (
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                          <Lock className="h-3 w-3 text-amber-600" />
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50/70 text-amber-800 border border-amber-200/50">
+                          <Lock className="h-3 w-3 text-amber-700" />
                           Locked
                         </span>
                         {onUnlock && (
                           <button
                             type="button"
                             onClick={() => onUnlock(fy)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/50 rounded-md transition-colors cursor-pointer"
                           >
                             <LockOpen className="w-3 h-3" />
                             Unlock
@@ -197,20 +188,20 @@ export function FiscalYearTable({
                         )}
                       </div>
                     ) : isActive ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50/70 text-emerald-800 border border-emerald-200/50">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                         Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-50 text-zinc-600 border border-zinc-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
                         Inactive
                       </span>
                     )}
                   </td>
 
                   {/* Actions */}
-                  <td className="px-5 py-4 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     <div className="flex items-center justify-end gap-1.5">
                       {isLocked && onUnlock && (
                         <ActionButton
@@ -229,7 +220,7 @@ export function FiscalYearTable({
                             tooltip="Set status as Inactive"
                             onClick={() => onToggleStatus(fy, "Inactive")}
                           >
-                            <PowerOff className="h-3.5 w-3.5 text-gray-400 hover:text-amber-600" />
+                            <PowerOff className="h-3.5 w-3.5 text-zinc-400 hover:text-amber-600" />
                           </ActionButton>
                         ) : (
                           <ActionButton
@@ -299,10 +290,10 @@ function ActionButton({
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
         disabled
-          ? "cursor-not-allowed text-gray-300"
+          ? "cursor-not-allowed text-zinc-300"
           : danger
-            ? "text-gray-500 hover:bg-red-50 hover:text-red-600"
-            : "text-gray-500 hover:bg-payroll-primary/10 hover:text-payroll-primary",
+            ? "text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
+            : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >
       {children}

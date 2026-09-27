@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { Plus, HelpCircle, Calendar, ShieldCheck, UserCheck, Scale } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { useToast } from "@/components/ui/toast";
@@ -38,50 +37,62 @@ interface LeaveTypesClientProps {
 function LeaveTypeKPICards({ kpis }: { kpis: LeaveTypeKPIs }) {
   const metrics = [
     {
-      label: "Total Leave Types",
+      label: "Total leave categories",
       value: kpis.total,
+      subtext: "Defined system categories",
       icon: Calendar,
-      tone: "bg-green-50 text-[#2e7d32]",
+      iconColor: "text-zinc-400",
     },
     {
-      label: "Statutory (Mandatory)",
+      label: "Statutory mandatory",
       value: kpis.statutory,
+      subtext: "Nepal Labour Act mandated",
       icon: ShieldCheck,
-      tone: "bg-emerald-50 text-emerald-600",
+      iconColor: "text-emerald-700",
     },
     {
-      label: "Company Custom",
+      label: "Company specific",
       value: kpis.company,
+      subtext: "Internal entity allowances",
       icon: UserCheck,
-      tone: "bg-purple-50 text-purple-600",
+      iconColor: "text-zinc-600",
     },
     {
-      label: "Active Policies",
+      label: "Active policies",
       value: kpis.active,
+      subtext: "Enabled for enrollment",
       icon: Scale,
-      tone: "bg-amber-50 text-amber-600",
+      iconColor: "text-emerald-700",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-      {metrics.map((m) => (
-        <Card key={m.label} className="overflow-hidden border-payroll-light/60 shadow-sm">
-          <div className="flex items-center justify-between p-4">
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {m.label}
-              </p>
-              <p className="text-2xl font-semibold tabular-nums text-payroll-navy">
-                {m.value}
-              </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2">
+      {metrics.map((m) => {
+        const Icon = m.icon;
+        return (
+          <div
+            key={m.label}
+            className="group flex flex-col justify-between py-3 px-4 sm:first:pl-0 sm:last:pr-0"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
+                <Icon className={`h-4 w-4 ${m.iconColor}`} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">
+                  {m.value}
+                </span>
+              </div>
             </div>
-            <div className={`rounded-lg p-2.5 ${m.tone}`}>
-              <m.icon className="h-5 w-5" />
+
+            <div className="mt-3 pt-2 border-t border-zinc-200 text-xs text-zinc-400">
+              {m.subtext}
             </div>
           </div>
-        </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

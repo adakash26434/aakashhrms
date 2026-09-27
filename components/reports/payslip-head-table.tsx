@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { PayslipHeadSummaryRow } from "@/lib/types/report";
 import { Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PayslipHeadTableProps {
   rows: PayslipHeadSummaryRow[];
@@ -15,7 +16,7 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-payroll-light bg-payroll-cream p-8 text-center text-xs text-gray-500">
+      <div className="border-b border-zinc-100 py-12 text-center text-xs text-zinc-500 font-medium">
         No pay head summary data available for this run.
       </div>
     );
@@ -34,12 +35,12 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
   return (
     <div className="space-y-6">
       {/* Top Banner & Sub-Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-payroll-light bg-white p-4 shadow-payroll-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-300/80">
         <div>
-          <h2 className="text-sm font-bold text-payroll-navy uppercase tracking-wider">
-            Pay Head Summary Breakdown {runLabel ? `— ${runLabel}` : ""}
+          <h2 className="text-sm font-semibold text-zinc-900">
+            Pay head summary breakdown {runLabel ? `— ${runLabel}` : ""}
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-zinc-500 mt-0.5">
             Aggregated totals, employee coverage count, average amounts, and manual override tracking per pay head.
           </p>
         </div>
@@ -52,37 +53,40 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search pay head..."
-              className="h-8 w-44 rounded-lg border border-payroll-light bg-white pl-7 pr-2.5 text-xs text-payroll-navy focus:border-payroll-primary focus:outline-none"
+              className="h-8 w-44 rounded-md border border-zinc-200 bg-white pl-8 pr-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-700 focus:outline-none transition-colors"
             />
-            <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
           </div>
 
           {/* Type Toggle Pills */}
-          <div className="inline-flex rounded-lg border border-payroll-light bg-payroll-cream p-1 text-xs font-semibold">
+          <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100/70 p-0.5 text-xs font-medium">
             <button
               type="button"
               onClick={() => setHeadTypeFilter("ALL")}
-              className={`rounded-md px-2.5 py-1 transition-all ${
-                headTypeFilter === "ALL" ? "bg-payroll-primary text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
-              }`}
+              className={cn(
+                "rounded px-2.5 py-1 transition-colors",
+                headTypeFilter === "ALL" ? "bg-white text-zinc-950 font-semibold shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
+              )}
             >
-              All Heads
+              All heads
             </button>
             <button
               type="button"
               onClick={() => setHeadTypeFilter("ALLOWANCE")}
-              className={`rounded-md px-2.5 py-1 transition-all ${
-                headTypeFilter === "ALLOWANCE" ? "bg-emerald-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
-              }`}
+              className={cn(
+                "rounded px-2.5 py-1 transition-colors",
+                headTypeFilter === "ALLOWANCE" ? "bg-white text-zinc-950 font-semibold shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
+              )}
             >
-              Allowances
+              Earnings & allowances
             </button>
             <button
               type="button"
               onClick={() => setHeadTypeFilter("DEDUCTION")}
-              className={`rounded-md px-2.5 py-1 transition-all ${
-                headTypeFilter === "DEDUCTION" ? "bg-red-600 text-white shadow-payroll-sm" : "text-gray-600 hover:text-payroll-navy"
-              }`}
+              className={cn(
+                "rounded px-2.5 py-1 transition-colors",
+                headTypeFilter === "DEDUCTION" ? "bg-white text-zinc-950 font-semibold shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
+              )}
             >
               Deductions
             </button>
@@ -90,99 +94,103 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
         {/* Allowances Table */}
-        <div className="rounded-xl border border-payroll-light bg-white shadow-sm overflow-hidden">
-          <div className="bg-emerald-50 border-b border-payroll-light px-4 py-3">
-            <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-              Earnings & Allowances ({allowances.length})
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-300">
+            <h3 className="text-xs font-semibold text-zinc-900">
+              Earnings & allowances <span className="text-zinc-400 font-normal">({allowances.length})</span>
             </h3>
           </div>
-          <table className="w-full text-left text-xs text-payroll-navy">
-            <thead className="bg-payroll-cream border-b border-payroll-light text-[10px] uppercase font-bold text-gray-600">
-              <tr>
-                <th className="px-3 py-2">Pay Head</th>
-                <th className="px-3 py-2 text-right">Total Amount</th>
-                <th className="px-3 py-2 text-center">Employees</th>
-                <th className="px-3 py-2 text-right">Avg / Person</th>
-                <th className="px-3 py-2 text-center">Overrides</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-payroll-light/60">
-              {allowances.map((r, idx) => (
-                <tr key={idx} className="hover:bg-payroll-cream/60">
-                  <td className="px-3 py-2.5 font-semibold text-payroll-navy">
-                    {r.payHeadName}
-                  </td>
-                  <td className="px-3 py-2.5 tabular-nums text-right font-mono font-bold text-emerald-700">
-                    NPR {Number(r.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-3 py-2.5 text-center text-gray-600 font-medium">
-                    {r.employeeCount}
-                  </td>
-                  <td className="px-3 py-2.5 tabular-nums text-right font-mono text-gray-600">
-                    {Number(r.averageAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    {r.overrideCount > 0 ? (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                        {r.overrideCount}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+                <tr>
+                  <th className="px-2 py-2.5">Pay head</th>
+                  <th className="px-2 py-2.5 text-right">Total amount</th>
+                  <th className="px-2 py-2.5 text-center">Employees</th>
+                  <th className="px-2 py-2.5 text-right">Avg / person</th>
+                  <th className="px-2 py-2.5 text-center">Overrides</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {allowances.map((r, idx) => (
+                  <tr key={idx} className="hover:bg-zinc-50/60 transition-colors border-b border-zinc-100">
+                    <td className="px-2 py-3.5 font-medium text-zinc-900">
+                      {r.payHeadName}
+                    </td>
+                    <td className="px-2 py-3.5 tabular-nums text-right font-mono font-semibold text-zinc-900">
+                      NPR {Number(r.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-2 py-3.5 text-center text-zinc-600 font-normal">
+                      {r.employeeCount}
+                    </td>
+                    <td className="px-2 py-3.5 tabular-nums text-right font-mono text-zinc-600 font-normal">
+                      {Number(r.averageAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-2 py-3.5 text-center">
+                      {r.overrideCount > 0 ? (
+                        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-normal text-zinc-700">
+                          {r.overrideCount}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 font-normal">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Deductions Table */}
-        <div className="rounded-xl border border-payroll-light bg-white shadow-sm overflow-hidden">
-          <div className="bg-red-50 border-b border-payroll-light px-4 py-3">
-            <h3 className="text-xs font-bold text-red-800 uppercase tracking-wider">
-              Deductions ({deductions.length})
+        <div className="space-y-3 lg:border-l lg:border-zinc-200/80 lg:pl-12 pt-6 lg:pt-0">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-300">
+            <h3 className="text-xs font-semibold text-zinc-900">
+              Deductions <span className="text-zinc-400 font-normal">({deductions.length})</span>
             </h3>
           </div>
-          <table className="w-full text-left text-xs text-payroll-navy">
-            <thead className="bg-payroll-cream border-b border-payroll-light text-[10px] uppercase font-bold text-gray-600">
-              <tr>
-                <th className="px-3 py-2">Pay Head</th>
-                <th className="px-3 py-2 text-right">Total Amount</th>
-                <th className="px-3 py-2 text-center">Employees</th>
-                <th className="px-3 py-2 text-right">Avg / Person</th>
-                <th className="px-3 py-2 text-center">Overrides</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-payroll-light/60">
-              {deductions.map((r, idx) => (
-                <tr key={idx} className="hover:bg-payroll-cream/60">
-                  <td className="px-3 py-2.5 font-semibold text-payroll-navy">
-                    {r.payHeadName}
-                  </td>
-                  <td className="px-3 py-2.5 tabular-nums text-right font-mono font-bold text-red-700">
-                    NPR {Number(r.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-3 py-2.5 text-center text-gray-600 font-medium">
-                    {r.employeeCount}
-                  </td>
-                  <td className="px-3 py-2.5 tabular-nums text-right font-mono text-gray-600">
-                    {Number(r.averageAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    {r.overrideCount > 0 ? (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                        {r.overrideCount}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+                <tr>
+                  <th className="px-2 py-2.5">Pay head</th>
+                  <th className="px-2 py-2.5 text-right">Total amount</th>
+                  <th className="px-2 py-2.5 text-center">Employees</th>
+                  <th className="px-2 py-2.5 text-right">Avg / person</th>
+                  <th className="px-2 py-2.5 text-center">Overrides</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {deductions.map((r, idx) => (
+                  <tr key={idx} className="hover:bg-zinc-50/60 transition-colors border-b border-zinc-100">
+                    <td className="px-2 py-3.5 font-medium text-zinc-900">
+                      {r.payHeadName}
+                    </td>
+                    <td className="px-2 py-3.5 tabular-nums text-right font-mono font-semibold text-zinc-900">
+                      NPR {Number(r.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-2 py-3.5 text-center text-zinc-600 font-normal">
+                      {r.employeeCount}
+                    </td>
+                    <td className="px-2 py-3.5 tabular-nums text-right font-mono text-zinc-600 font-normal">
+                      {Number(r.averageAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-2 py-3.5 text-center">
+                      {r.overrideCount > 0 ? (
+                        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-normal text-zinc-700">
+                          {r.overrideCount}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 font-normal">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

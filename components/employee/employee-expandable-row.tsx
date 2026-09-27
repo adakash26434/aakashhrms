@@ -23,9 +23,9 @@ function DetailCard({
 }) {
   return (
     <div
-      className={`rounded-lg border border-payroll-light/80 bg-white p-3 shadow-sm ${className ?? ""}`}
+      className={`rounded-md border border-zinc-200/80 bg-white p-3 shadow-2xs ${className ?? ""}`}
     >
-      <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+      <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
         {title}
       </h4>
       {children}
@@ -36,8 +36,8 @@ function DetailCard({
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-2 text-xs">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className="text-right font-medium text-payroll-navy">{value}</span>
+      <span className="text-zinc-500 shrink-0">{label}</span>
+      <span className="text-right font-medium text-zinc-900">{value}</span>
     </div>
   );
 }
@@ -57,7 +57,7 @@ export function EmployeeExpandableRow({
   );
 
   return (
-    <div className="border-b border-payroll-light bg-payroll-cream/70 px-4 py-3">
+    <div className="border-b border-zinc-300 bg-zinc-50/60 px-4 py-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <DetailCard title="Identity">
           <div className="space-y-1.5">

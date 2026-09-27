@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from "react";
 import {
-  X,
   Calendar,
   CreditCard,
   Wallet,
   Clock,
   CheckCircle2,
 } from "lucide-react";
+import { Dialog } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { Loan, LoanRepayment } from "@/lib/types/loan";
 import { calculateLoanProgress } from "@/lib/engines/loan.engine";
 import { getLoanRepaymentsAction } from "@/app/actions/loan.actions";
@@ -18,25 +20,6 @@ interface LoanDetailsModalProps {
   open: boolean;
   onClose: () => void;
   loan: Loan | null;
-}
-
-/** Generate a deterministic color from a name string. */
-function getAvatarColor(name: string): string {
-  const colors = [
-    "bg-[#2e7d32] text-white",
-    "bg-emerald-600 text-white",
-    "bg-amber-600 text-white",
-    "bg-rose-600 text-white",
-    "bg-violet-600 text-white",
-    "bg-cyan-600 text-white",
-    "bg-green-600 text-white",
-    "bg-teal-600 text-white",
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
 }
 
 function getInitial(name: string): string {
@@ -56,10 +39,18 @@ function formatMethod(method: string): string {
     case "SALARY_DEDUCTION":
       return "Salary Deduction";
     case "CASH":
-      return "Cash";
+      return "Cash Direct";
     default:
       return method;
   }
+}
+
+/** Returns "1st installment", "2nd installment", etc. */
+function ordinalInstallment(n: number): string {
+  const suffix = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  const s = suffix[(v - 20) % 10] || suffix[v] || suffix[0];
+  return `${n}${s} installment`;
 }
 
 export function LoanDetailsModal({
@@ -85,24 +76,7 @@ export function LoanDetailsModal({
     });
   }, [open, loan]);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-
-  if (!open || !loan) return null;
+  if (!loan) return null;
 
   const progress = calculateLoanProgress(loan);
   const paidInstallments =
@@ -111,317 +85,214 @@ export function LoanDetailsModal({
       : 0;
   const totalPayable = loan.remainingAmount + loan.totalReturned;
   const endDate = addMonths(loan.givenDate, loan.noOfInstallments);
-
-  // Most recent repayment
   const lastRepayment = repayments.length > 0 ? repayments[0] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-[fadeIn_150ms_ease-out]"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Panel */}
-      <div
-        className="relative z-10 flex w-full max-w-2xl max-h-[90vh] flex-col rounded-xl border border-[#d7e8d0] bg-white shadow-xl outline-none animate-[dialogIn_180ms_ease-out]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d7e8d0]/60 px-6 pt-5 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-green-50 p-2.5 text-[#2e7d32]">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-[#1b3a1f]">
-                  Loan Details
-                </h2>
-              </div>
-              <div className="mt-0.5 flex items-center gap-2">
-                <Badge
-                  variant={loan.status === "ACTIVE" ? "success" : "neutral"}
-                >
-                  {loan.status === "ACTIVE" ? "Active" : "Closed"}
-                </Badge>
-                <span className="text-xs text-gray-400">
-                  {loan.loanTypeName}
-                </span>
-              </div>
-            </div>
-          </div>
-          <button
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Loan Account Details"
+      description={`Lending ledger and repayment audit for ${loan.employeeName} (${loan.employeeCode}).`}
+      size="3xl"
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <span className="text-xs text-zinc-500 font-medium">
+            Facility ID: {loan.id.slice(0, 8)} • Status: {loan.status === "ACTIVE" ? "Active Facility" : "Settled"}
+          </span>
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="shrink-0 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-[#f6faf6] hover:text-[#ee3c4b]"
-            aria-label="Close dialog"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Scrollable Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Employee & Loan Type Info Cards */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {/* Employee Card */}
-            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${getAvatarColor(loan.employeeName)}`}
-              >
-                {getInitial(loan.employeeName)}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#1b3a1f]">
-                  {loan.employeeName}
-                </p>
-                <p className="text-xs text-gray-400">{loan.employeeCode}</p>
-              </div>
-            </div>
-
-            {/* Loan Type Card */}
-            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-[#2e7d32]">
-                <Wallet className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#1b3a1f]">
-                  {loan.loanTypeName}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {loan.noOfInstallments} month tenure
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Financial Summary */}
-          <div className="rounded-xl border border-gray-200 p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-[#1b3a1f]">
-              Financial Summary
-            </h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Principal
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1b3a1f]">
-                  {loan.loanAmount.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  Total Repayable
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1b3a1f]">
-                  {totalPayable.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  EMI / Month
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1b3a1f]">
-                  {loan.installmentAmount.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
-                  Outstanding
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums text-red-500">
-                  {loan.remainingAmount.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500">
-                  Repayment Progress
-                </p>
-                <p className="text-xs font-semibold tabular-nums text-[#1b3a1f]">
-                  {progress}%
-                </p>
-              </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className={`h-full rounded-full transition-all duration-700 ${
-                    progress >= 100
-                      ? "bg-emerald-500"
-                      : "bg-linear-to-r from-[#2e7d32] to-[#3fa832]"
-                  }`}
-                  style={{ width: `${Math.min(progress, 100)}%` }}
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
-                <span>
-                  <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                  Paid: {loan.totalReturned.toLocaleString()}
-                </span>
-                <span>
-                  <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-gray-300" />
-                  Remaining: {loan.remainingAmount.toLocaleString()}
-                </span>
-                <span className="tabular-nums">
-                  {paidInstallments} / {loan.noOfInstallments} months
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-3 gap-4 rounded-xl border border-gray-200 p-4">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                Disbursed
-              </p>
-              <p className="mt-1 text-sm font-medium tabular-nums text-[#1b3a1f]">
-                {loan.givenDate}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                Started
-              </p>
-              <p className="mt-1 text-sm font-medium tabular-nums text-[#1b3a1f]">
-                {loan.givenDate}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                End Date
-              </p>
-              <p className="mt-1 text-sm font-medium tabular-nums text-[#1b3a1f]">
-                {endDate}
-              </p>
-            </div>
-          </div>
-
-          {/* Last Payment Info */}
-          {lastRepayment && (
-            <div className="flex items-center gap-4 rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                Last payment{" "}
-                <span className="font-semibold text-[#1b3a1f]">
-                  {lastRepayment.repaymentDate}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                Rs. {lastRepayment.amountPaid.toLocaleString()} via{" "}
-                {formatMethod(lastRepayment.paymentMethod)}
-              </div>
-            </div>
-          )}
-
-          {/* Repayment History */}
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <h3 className="text-sm font-semibold text-[#1b3a1f]">
-                Repayment History
-                {repayments.length > 0 && (
-                  <span className="ml-1 text-xs font-normal text-gray-400">
-                    ({repayments.length} entries)
-                  </span>
-                )}
-              </h3>
-            </div>
-
-            {loadingRepayments ? (
-              <div className="space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-10 animate-pulse rounded-lg bg-gray-100"
-                  />
-                ))}
-              </div>
-            ) : repayments.length > 0 ? (
-              <div className="overflow-hidden rounded-xl border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50/80">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                        Date
-                      </th>
-                      <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                        Amount
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                        Method
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                        Notes
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {repayments
-                      .slice()
-                      .sort(
-                        (a, b) =>
-                          new Date(a.repaymentDate).getTime() -
-                          new Date(b.repaymentDate).getTime()
-                      )
-                      .map((rep, idx) => (
-                        <tr
-                          key={rep.id}
-                          className="transition-colors hover:bg-gray-50/50"
-                        >
-                          <td className="whitespace-nowrap px-4 py-2.5 text-sm tabular-nums text-[#1b3a1f]">
-                            {rep.repaymentDate}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold tabular-nums text-emerald-600">
-                            {rep.amountPaid.toLocaleString()}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-2.5">
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                              <Wallet className="h-3.5 w-3.5" />
-                              {formatMethod(rep.paymentMethod)}
-                            </div>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-400">
-                            {ordinalInstallment(idx + 1)}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-400">
-                No repayments recorded yet.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#d7e8d0]/60 bg-[#f6faf6]/50 px-6 py-3 rounded-b-xl">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg bg-[#2e7d32] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1b3a1f]"
+            className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
           >
             Close
-          </button>
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Beneficiary & Scheme Info */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Employee Card */}
+          <div className="flex items-center gap-3 rounded-md border border-zinc-200/80 bg-zinc-50/50 p-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 border border-emerald-200/60 text-xs font-bold text-emerald-950">
+              {getInitial(loan.employeeName)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zinc-900 truncate">
+                {loan.employeeName}
+              </p>
+              <p className="text-xs text-zinc-500 font-mono">{loan.employeeCode}</p>
+            </div>
+          </div>
+
+          {/* Scheme Card */}
+          <div className="flex items-center gap-3 rounded-md border border-zinc-200/80 bg-zinc-50/50 p-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-700">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-zinc-900 truncate">
+                  {loan.loanTypeName}
+                </p>
+                <Badge variant={loan.status === "ACTIVE" ? "success" : "neutral"}>
+                  {loan.status === "ACTIVE" ? "Active" : "Closed"}
+                </Badge>
+              </div>
+              <p className="text-xs text-zinc-500">
+                {loan.noOfInstallments} months tenure
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Summary */}
+        <div className="rounded-md border border-zinc-200/80 p-4 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+            <h4 className="text-xs font-semibold text-zinc-900 uppercase tracking-wider">
+              Financial Facility Overview
+            </h4>
+            <span className="text-[11px] font-mono text-zinc-500">
+              Disbursed: {loan.givenDate} • Target End: {endDate}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-center">
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500">
+                Principal Sum
+              </p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-zinc-900 font-mono">
+                NPR {loan.loanAmount.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500">
+                Total Repayable
+              </p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-zinc-900 font-mono">
+                NPR {totalPayable.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500">
+                Monthly EMI
+              </p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-emerald-950 font-mono">
+                NPR {loan.installmentAmount.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-zinc-500">
+                Outstanding Balance
+              </p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-amber-900 font-mono">
+                NPR {loan.remainingAmount.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="pt-2">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="text-zinc-600 font-medium">Repayment Progress</span>
+              <span className="font-semibold tabular-nums text-zinc-900 font-mono">
+                {progress}%
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+              <div
+                className="h-full rounded-full bg-emerald-700 transition-all duration-700"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+              <span>Paid: NPR {loan.totalReturned.toLocaleString()}</span>
+              <span>Remaining: NPR {loan.remainingAmount.toLocaleString()}</span>
+              <span>{paidInstallments} / {loan.noOfInstallments} cycles</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Last Payment Indicator */}
+        {lastRepayment && (
+          <div className="flex items-center justify-between rounded-md border border-emerald-200/60 bg-emerald-50/40 px-4 py-2.5 text-xs">
+            <div className="flex items-center gap-1.5 text-emerald-950 font-medium">
+              <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+              Latest Payment on <span className="font-mono font-semibold">{lastRepayment.repaymentDate}</span>
+            </div>
+            <span className="font-mono font-semibold text-emerald-950">
+              NPR {lastRepayment.amountPaid.toLocaleString()} via {formatMethod(lastRepayment.paymentMethod)}
+            </span>
+          </div>
+        )}
+
+        {/* Repayment History Table */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-zinc-400" />
+              <h4 className="text-xs font-semibold text-zinc-900 uppercase tracking-wider">
+                Repayment Audit History
+              </h4>
+            </div>
+            <span className="text-[11px] text-zinc-500 font-mono">
+              {repayments.length} transaction(s) recorded
+            </span>
+          </div>
+
+          {loadingRepayments ? (
+            <div className="space-y-2 py-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-8 animate-pulse rounded bg-zinc-100" />
+              ))}
+            </div>
+          ) : repayments.length > 0 ? (
+            <div className="rounded-md border border-zinc-200/80 overflow-hidden">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-zinc-200 border-b border-zinc-300 text-[11px] font-semibold text-zinc-900 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left">Date</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+                    <th className="px-4 py-2.5 text-left">Method</th>
+                    <th className="px-4 py-2.5 text-left">Cycle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 bg-white">
+                  {repayments
+                    .slice()
+                    .sort(
+                      (a, b) =>
+                        new Date(b.repaymentDate).getTime() -
+                        new Date(a.repaymentDate).getTime()
+                    )
+                    .map((rep, idx) => (
+                      <tr key={rep.id} className="hover:bg-zinc-50/70 transition-colors">
+                        <td className="whitespace-nowrap px-4 py-2.5 font-mono text-zinc-800">
+                          {rep.repaymentDate}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono font-semibold text-emerald-950">
+                          NPR {rep.amountPaid.toLocaleString()}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-zinc-600">
+                          {formatMethod(rep.paymentMethod)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-zinc-400 font-mono text-[11px]">
+                          {ordinalInstallment(repayments.length - idx)}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-zinc-200 px-4 py-6 text-center text-xs text-zinc-400">
+              No repayment transactions logged for this facility.
+            </p>
+          )}
         </div>
       </div>
-    </div>
+    </Dialog>
   );
-}
-
-/** Returns "1st installment", "2nd installment", etc. */
-function ordinalInstallment(n: number): string {
-  const suffix = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  const s = suffix[(v - 20) % 10] || suffix[v] || suffix[0];
-  return `${n}${s} installment`;
 }

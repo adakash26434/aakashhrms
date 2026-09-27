@@ -223,6 +223,39 @@ export interface EditCompanyModalProps {
   buttonClassName?: string;
 }
 
+function FormSection({
+  title,
+  description,
+  children,
+  isFirst = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  isFirst?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-3.5", !isFirst && "pt-5 border-t border-zinc-200")}>
+      <div>
+        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
+        {description && (
+          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+const EDIT_TABS = [
+  { id: "profile", label: "1. Profile & Admin", icon: Building },
+  { id: "branch", label: "2. Head Office", icon: GitBranch },
+  { id: "fiscal-year", label: "3. Fiscal Year", icon: Calendar },
+  { id: "leaves", label: "4. Leaves & OT", icon: Palmtree },
+  { id: "pay-heads", label: "5. Pay Heads", icon: Coins },
+  { id: "tax-slabs", label: "6. Tax Slabs", icon: Percent },
+] as const;
+
 export function EditCompanyModal({
   company,
   initialTab = "profile",
@@ -695,112 +728,55 @@ export function EditCompanyModal({
         variant={buttonVariant as any}
         size={buttonSize === "default" ? "md" : buttonSize}
         onClick={handleOpen}
-        className={buttonClassName || "text-xs font-bold shadow-payroll-xs"}
+        className={
+          buttonClassName ||
+          "text-xs font-medium rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50 shadow-none"
+        }
       >
-        <Edit3 className="w-3.5 h-3.5 mr-1.5 text-payroll-primary" />
+        <Edit3 className="w-3.5 h-3.5 mr-1.5 text-emerald-700" />
         <span>{buttonLabel || "Edit Company Configuration"}</span>
       </Button>
 
       <Dialog
         open={isOpen}
         onClose={handleClose}
-        title="Super Admin Company Configuration Editor"
-        description={`Full control plane editor for ${company.displayName} (${company.companyCode}). All changes sync to the tenant database.`}
-        size="4xl"
+        title="Company Configuration Editor"
+        description={`Full control plane editor for ${company.displayName} (${company.companyCode}). All changes synchronize live to the tenant database.`}
+        size="3xl"
         headerBottom={
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-            <button
-              type="button"
-              onClick={() => setActiveTab("profile")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                activeTab === "profile"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
-              )}
-            >
-              <Building className="w-3.5 h-3.5" />
-              <span>1. Profile & Admin</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("branch")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                activeTab === "branch"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
-              )}
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>2. Head Office Branch</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("fiscal-year")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                activeTab === "fiscal-year"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
-              )}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>3. Fiscal Year</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("leaves")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                activeTab === "leaves"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
-              )}
-            >
-              <Palmtree className="w-3.5 h-3.5" />
-              <span>4. Leaves & OT</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("pay-heads")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                activeTab === "pay-heads"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
-              )}
-            >
-              <Coins className="w-3.5 h-3.5" />
-              <span>5. Pay Heads</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("tax-slabs")}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
-                activeTab === "tax-slabs"
-                  ? "bg-payroll-primary text-white shadow-2xs"
-                  : "text-payroll-navy/80 hover:text-payroll-navy bg-white/70 hover:bg-white border border-payroll-light/70",
-              )}
-            >
-              <Percent className="w-3.5 h-3.5" />
-              <span>6. Tax Slabs</span>
-            </button>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 border-t border-zinc-200/60 mt-3 pt-3">
+            {EDIT_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as EditModalTab)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer",
+                    isActive
+                      ? "bg-emerald-900 text-white shadow-none"
+                      : "text-zinc-600 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200/80",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "w-3.5 h-3.5",
+                      isActive ? "text-emerald-300" : "text-zinc-500",
+                    )}
+                  />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         }
         footer={
           <div className="flex items-center justify-between gap-3 w-full">
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
-              <Shield className="w-3.5 h-3.5 text-emerald-600" />
-              <span>
-                Super Admin Master Authority • Live Tenant DB Synchronization
-              </span>
+            <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium">
+              <Shield className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Super Admin Authority • Live Tenant DB Sync</span>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -808,6 +784,7 @@ export function EditCompanyModal({
                 size="sm"
                 onClick={handleClose}
                 disabled={isSaving}
+                className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-medium shadow-none"
               >
                 Cancel
               </Button>
@@ -816,7 +793,7 @@ export function EditCompanyModal({
                 onClick={handleSubmit}
                 isLoading={isSaving}
                 disabled={isSaving}
-                className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs shadow-payroll-sm"
+                className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-none cursor-pointer"
               >
                 Save All Configurations
               </Button>
@@ -824,120 +801,124 @@ export function EditCompanyModal({
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-semibold">
+            <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
               <span>{error}</span>
             </div>
           )}
-            {/* ════════════════════════════════════════════════════════════════════
-                TAB 1: LEGAL PROFILE & ADMIN CONTACT
-            ════════════════════════════════════════════════════════════════════ */}
-            {activeTab === "profile" && (
-              <div className="space-y-4">
-                {/* Admin Email */}
+
+          {/* TAB 1: PROFILE & ADMIN */}
+          {activeTab === "profile" && (
+            <div className="space-y-6">
+              <FormSection
+                title="Super Administrator"
+                description="Primary administrative authority and access email for this tenant."
+                isFirst
+              >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Company Admin Email{" "}
-                      <span className="text-rose-500">*</span>
+                    <label className="text-xs font-semibold text-zinc-700">
+                      Company Admin Email <span className="text-rose-500">*</span>
                     </label>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       <Shield className="w-2.5 h-2.5" /> Super Admin Authority
                     </span>
                   </div>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                    <Mail className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                     <input
                       type="email"
                       required
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                       placeholder="admin@company.com"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy font-medium shadow-payroll-xs"
+                      className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none font-medium"
                     />
                   </div>
-                  <p className="text-[11px] text-gray-500">
-                    Changing this email updates both the Platform Registry and
-                    the tenant&apos;s primary Administrator user account.
+                  <p className="text-[11px] text-zinc-500">
+                    Changing this email updates both the Platform Registry and the tenant&apos;s primary Administrator account.
                   </p>
                 </div>
+              </FormSection>
 
-                {/* Company Code & Display Name */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Company Code (Public ID){" "}
-                      <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Hash className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+              <FormSection
+                title="Corporate Identity"
+                description="Public organization identifier and formal legal entity names."
+              >
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700">
+                        Company Code (Public ID) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Hash className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          required
+                          value={companyCode}
+                          onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
+                          placeholder="CMP-123456"
+                          className="w-full pl-9 pr-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700">
+                        Display Brand Name <span className="text-rose-500">*</span>
+                      </label>
                       <input
                         type="text"
                         required
-                        value={companyCode}
-                        onChange={(e) =>
-                          setCompanyCode(e.target.value.toUpperCase())
-                        }
-                        placeholder="CMP-123456"
-                        className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Acme Corp"
+                        className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Display Brand Name{" "}
-                      <span className="text-rose-500">*</span>
+                    <label className="text-xs font-semibold text-zinc-700">
+                      Legal Entity Name <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Acme Corp"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      value={legalName}
+                      onChange={(e) => setLegalName(e.target.value)}
+                      placeholder="Acme Corporation Pvt. Ltd."
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
                     />
                   </div>
                 </div>
+              </FormSection>
 
-                {/* Legal Name */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                    Legal Entity Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={legalName}
-                    onChange={(e) => setLegalName(e.target.value)}
-                    placeholder="Acme Corporation Pvt. Ltd."
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
-                  />
-                </div>
-
-                {/* PAN / VAT & Registration Number */}
+              <FormSection
+                title="Statutory Registrations"
+                description="Inland Revenue Department (IRD) and Office of Company Registrar official records."
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                    <label className="text-xs font-semibold text-zinc-700">
                       PAN / VAT Number
                     </label>
                     <input
                       type="text"
                       value={panVatNumber}
                       onChange={(e) =>
-                        setPanVatNumber(
-                          e.target.value.replace(/\D/g, "").slice(0, 9),
-                        )
+                        setPanVatNumber(e.target.value.replace(/\D/g, "").slice(0, 9))
                       }
                       placeholder="e.g. 601234567"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs font-mono"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                    <label className="text-xs font-semibold text-zinc-700">
                       Company Registration No.
                     </label>
                     <input
@@ -945,29 +926,33 @@ export function EditCompanyModal({
                       value={registrationNumber}
                       onChange={(e) => setRegistrationNumber(e.target.value)}
                       placeholder="e.g. 123456/080/081"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
                     />
                   </div>
                 </div>
+              </FormSection>
 
-                {/* Head Office Address & Contact Phone */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <FormSection
+                title="Headquarters Location"
+                description="Registered physical location and official contact telephone."
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Company Head Office Address
+                    <label className="text-xs font-semibold text-zinc-700">
+                      Head Office Address
                     </label>
                     <input
                       type="text"
                       value={headOfficeAddress}
                       onChange={(e) => setHeadOfficeAddress(e.target.value)}
                       placeholder="e.g. Putalisadak, Kathmandu"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
+                      <label className="text-xs font-semibold text-zinc-700">
                         Contact Phone
                       </label>
                       {!phoneError && contactPhone && (
@@ -989,16 +974,20 @@ export function EditCompanyModal({
                     )}
                   </div>
                 </div>
+              </FormSection>
 
-                {/* Organization Industry Sector & Internal Notes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <FormSection
+                title="Industry & Governance"
+                description="Industry classification and confidential platform administration notes."
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                        Organization Industry Sector (संस्थाको क्षेत्र)
+                      <label className="text-xs font-semibold text-zinc-700">
+                        Industry Sector (संस्थाको क्षेत्र)
                       </label>
-                      <span className="text-[10px] text-payroll-primary font-semibold">
-                        Super Admin Exclusive
+                      <span className="text-[10px] text-emerald-700 font-semibold">
+                        Super Admin
                       </span>
                     </div>
                     <select
@@ -1006,7 +995,7 @@ export function EditCompanyModal({
                       onChange={(e) =>
                         setIndustryType(e.target.value as IndustrySectorKey)
                       }
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
                     >
                       {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map(
                         (key) => {
@@ -1022,240 +1011,244 @@ export function EditCompanyModal({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Super Admin Notes (Internal)
+                    <label className="text-xs font-semibold text-zinc-700">
+                      Administrative Notes
                     </label>
                     <textarea
                       rows={2}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Optional internal notes about this company..."
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy resize-none shadow-payroll-xs"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none resize-none"
                     />
                   </div>
                 </div>
-              </div>
-            )}
+              </FormSection>
+            </div>
+          )}
 
-            {/* ════════════════════════════════════════════════════════════════════
-                TAB 2: HEAD OFFICE BRANCH SETUP
-            ════════════════════════════════════════════════════════════════════ */}
-            {activeTab === "branch" && (
-              <div className="space-y-4">
-                <div className="p-3 bg-payroll-cream/40 rounded-xl border border-payroll-light text-xs text-gray-600">
-                  <p className="font-semibold text-payroll-navy">
-                    Primary Corporate Branch Management
-                  </p>
-                  <p className="text-[11px] mt-0.5">
-                    The head office branch carries the organization brand name
-                    and is differentiated by branch code and physical address.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Branch Code <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={headOfficeBranchCode}
-                      onChange={(e) =>
-                        setHeadOfficeBranchCode(e.target.value.toUpperCase())
-                      }
-                      placeholder="HO-01"
-                      className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
-                    />
-                    <p className="text-[10px] text-gray-500">
-                      Unique corporate code for this branch
+          {/* TAB 2: HEAD OFFICE BRANCH */}
+          {activeTab === "branch" && (
+            <div className="space-y-6">
+              <FormSection
+                title="Primary Corporate Branch"
+                description="The head office branch carries the organization brand identity and is differentiated by branch code and address."
+                isFirst
+              >
+                <div className="space-y-4">
+                  <div className="p-3 bg-zinc-50/80 rounded-md border border-zinc-200/80 text-xs text-zinc-600">
+                    <p className="font-semibold text-zinc-800">
+                      Primary Corporate Facility
                     </p>
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                        Branch Address / Location{" "}
-                        <span className="text-rose-500">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setHeadOfficeBranchAddress(headOfficeAddress)
-                        }
-                        className="text-[11px] font-semibold text-payroll-primary hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>Sync from Head Office Address</span>
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <MapPin className="w-4 h-4 text-payroll-primary absolute left-3 top-2.5" />
-                      <input
-                        type="text"
-                        required
-                        value={headOfficeBranchAddress}
-                        onChange={(e) =>
-                          setHeadOfficeBranchAddress(e.target.value)
-                        }
-                        placeholder="Putalisadak, Kathmandu"
-                        className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary text-payroll-navy shadow-payroll-xs"
-                      />
-                    </div>
-                    <p className="text-[10px] text-gray-500">
-                      Syncs to the tenant&apos;s primary record in the{" "}
-                      <code className="font-mono text-payroll-primary">
+                    <p className="text-[11px] mt-0.5 text-zinc-500">
+                      Syncs automatically to the tenant&apos;s primary record in the{" "}
+                      <code className="font-mono text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200/60">
                         branches
                       </code>{" "}
                       table.
                     </p>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* ════════════════════════════════════════════════════════════════════
-                TAB 3: ACTIVE FISCAL YEAR
-            ════════════════════════════════════════════════════════════════════ */}
-            {activeTab === "fiscal-year" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Active Operating Fiscal Year
-                    </h4>
-                    <p className="text-[11px] text-gray-500">
-                      Super Admin establishes or updates the active cycle for this company
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => {
-                        setFyModalMode("add");
-                        setIsFYModalOpen(true);
-                      }}
-                      className="border-payroll-light text-payroll-navy hover:bg-payroll-cream text-xs h-7.5 px-2.5 font-medium flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-payroll-primary" />
-                      <span>Add Fiscal Year</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="xs"
-                      onClick={() => {
-                        setFyModalMode("edit");
-                        setIsFYModalOpen(true);
-                      }}
-                      className="bg-payroll-primary hover:bg-payroll-primary/90 text-white text-xs h-7.5 px-2.5 font-semibold flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <Pencil className="w-3 h-3" />
-                      <span>Edit Fiscal Year</span>
-                    </Button>
-                  </div>
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700">
+                        Branch Code <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={headOfficeBranchCode}
+                        onChange={(e) =>
+                          setHeadOfficeBranchCode(e.target.value.toUpperCase())
+                        }
+                        placeholder="HO-01"
+                        className="w-full px-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                      />
+                      <p className="text-[10px] text-zinc-500">
+                        Unique corporate code
+                      </p>
+                    </div>
 
-                {/* Active Fiscal Year Primary Display Card */}
-                <div className="p-5 rounded-2xl border border-payroll-primary/30 bg-linear-to-br from-payroll-primary/5 via-white to-payroll-cream/30 shadow-payroll-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-payroll-light/60">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-payroll-primary/10 border border-payroll-primary/20 flex items-center justify-center text-payroll-primary shrink-0">
-                        <CalendarDays className="w-5 h-5" />
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-zinc-700">
+                          Branch Address / Location <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHeadOfficeBranchAddress(headOfficeAddress)
+                          }
+                          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Sync from Head Office Address</span>
+                        </button>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-bold text-payroll-navy">
-                            {fyLabel}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            {fyStatus === "Active" ? "Active Operating Cycle" : "Configured Cycle"}
-                          </span>
+                      <div className="relative">
+                        <MapPin className="w-4 h-4 text-emerald-700 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          required
+                          value={headOfficeBranchAddress}
+                          onChange={(e) =>
+                            setHeadOfficeBranchAddress(e.target.value)
+                          }
+                          placeholder="Putalisadak, Kathmandu"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </FormSection>
+            </div>
+          )}
+
+          {/* TAB 3: FISCAL YEAR */}
+          {activeTab === "fiscal-year" && (
+            <div className="space-y-6">
+              <FormSection
+                title="Operating Fiscal Year"
+                description="Bikram Sambat and Gregorian annual operating cycles used for statutory reporting, salary generation, and tax filing."
+                isFirst
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-zinc-700">
+                      Configured Cycle Settings
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={() => {
+                          setFyModalMode("add");
+                          setIsFYModalOpen(true);
+                        }}
+                        className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-xs h-7 px-2.5 font-medium flex items-center gap-1.5 shadow-none"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-zinc-600" />
+                        <span>Add Fiscal Year</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="xs"
+                        onClick={() => {
+                          setFyModalMode("edit");
+                          setIsFYModalOpen(true);
+                        }}
+                        className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-7 px-2.5 font-medium flex items-center gap-1.5 shadow-none"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Edit Fiscal Year</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Active Fiscal Year Primary Display Card */}
+                  <div className="p-4 rounded-md border border-zinc-200/80 bg-zinc-50/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-300/60">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-md bg-emerald-100/70 border border-emerald-200/60 flex items-center justify-center text-emerald-800 shrink-0">
+                          <CalendarDays className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                          Database Slug: <span className="text-payroll-primary font-semibold">{fySlug}</span>
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-zinc-900">
+                              {fyLabel}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                              {fyStatus === "Active" ? "Active Operating Cycle" : "Configured Cycle"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                            Database Slug: <span className="text-emerald-800 font-semibold">{fySlug}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3 Detail Blocks */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3">
+                      <div className="p-3 bg-white rounded-md border border-zinc-200/70">
+                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                          Bikram Sambat (BS) Range
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-zinc-900 mt-1 block">
+                          {fyStartDateBS} ~ {fyEndDateBS}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
+                          Bikram Sambat calendar
+                        </span>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-md border border-zinc-200/70">
+                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                          Gregorian (AD) Equivalent
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-zinc-900 mt-1 block">
+                          {formatADDate(fyStartDateAD, "short")} to {formatADDate(fyEndDateAD, "short")}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
+                          Stored in tenant DB as AD timestamp
+                        </span>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-md border border-zinc-200/70">
+                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                          Operational Month Range
+                        </span>
+                        <span className="text-xs font-semibold text-zinc-900 mt-1 block">
+                          {BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
+                          Month {fyFromMonth} through Month {fyToMonth} (12 Mo.)
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* 3 Detail Blocks */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
-                    <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                        Bikram Sambat (BS) Range
-                      </span>
-                      <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
-                        {fyStartDateBS} ~ {fyEndDateBS}
-                      </span>
-                      <span className="text-[10px] text-gray-400 mt-0.5 block">
-                        Bikram Sambat calendar
-                      </span>
-                    </div>
-
-                    <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                        Gregorian (AD) Equivalent
-                      </span>
-                      <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
-                        {formatADDate(fyStartDateAD, "short")} to {formatADDate(fyEndDateAD, "short")}
-                      </span>
-                      <span className="text-[10px] text-gray-400 mt-0.5 block">
-                        Stored in tenant DB as AD timestamp
-                      </span>
-                    </div>
-
-                    <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                        Operational Month Range
-                      </span>
-                      <span className="text-xs font-bold text-payroll-navy mt-1 block">
-                        {BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]}
-                      </span>
-                      <span className="text-[10px] text-gray-400 mt-0.5 block">
-                        Month {fyFromMonth} through Month {fyToMonth} (12 Mo.)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-payroll-cream/50 rounded-xl border border-payroll-light/70 text-xs text-payroll-navy flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-payroll-primary shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="font-semibold text-payroll-navy">
-                      Active Cycle: <strong>{fyLabel}</strong> ({BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]})
-                    </p>
-                    <p className="text-[11px] text-gray-600">
-                      Changes made here synchronize with the tenant&apos;s <code>fiscal_years</code> table using canonical Bikram Sambat date mappings.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════════
-                TAB 4: STATUTORY LEAVES & OVERTIME
-            ════════════════════════════════════════════════════════════════════ */}
-            {activeTab === "leaves" && (
-              <div className="space-y-4">
-                {/* Overtime Multiplier */}
-                <div className="p-3.5 bg-payroll-cream/40 rounded-xl border border-payroll-light flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-payroll-primary" />
-                    <div>
-                      <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                        Statutory Overtime Multiplier Rate
-                      </h4>
-                      <p className="text-[11px] text-gray-500">
-                        Nepal Labour Act Section 31 standard multiplier (default
-                        1.5x basic hourly wage)
+                  <div className="p-3 bg-emerald-50/50 rounded-md border border-emerald-200/60 text-xs text-zinc-700 flex items-start gap-2.5">
+                    <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-semibold text-zinc-900">
+                        Active Cycle: <strong>{fyLabel}</strong> ({BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]})
+                      </p>
+                      <p className="text-[11px] text-zinc-600">
+                        Changes made here synchronize with the tenant&apos;s <code>fiscal_years</code> table using canonical Bikram Sambat date mappings.
                       </p>
                     </div>
                   </div>
-                  <div className="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-payroll-light shadow-2xs">
-                    <span className="text-xs font-bold text-gray-600">
+                </div>
+              </FormSection>
+            </div>
+          )}
+
+          {/* TAB 4: STATUTORY LEAVES & OVERTIME */}
+          {activeTab === "leaves" && (
+            <div className="space-y-6">
+              <FormSection
+                title="Overtime Rate"
+                description="Nepal Labour Act Section 31 statutory overtime rate multiplier."
+                isFirst
+              >
+                <div className="p-3.5 bg-zinc-50/80 rounded-md border border-zinc-200/80 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-emerald-700" />
+                    <div>
+                      <h4 className="text-xs font-semibold text-zinc-800">
+                        Statutory Overtime Multiplier Rate
+                      </h4>
+                      <p className="text-[11px] text-zinc-500">
+                        Nepal Labour Act Section 31 standard multiplier (default 1.5x basic hourly wage)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-zinc-200 shadow-none">
+                    <span className="text-xs font-medium text-zinc-600">
                       Rate:
                     </span>
                     <input
@@ -1267,435 +1260,420 @@ export function EditCompanyModal({
                       onChange={(e) =>
                         setOtHourlyMultiplier(parseFloat(e.target.value) || 1.5)
                       }
-                      className="w-16 px-2 py-0.5 text-xs text-center font-mono font-bold bg-payroll-cream/50 border border-payroll-light rounded-lg text-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
+                      className="w-16 px-2 py-0.5 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
                     />
-                    <span className="text-xs font-bold text-gray-600">x</span>
+                    <span className="text-xs font-medium text-zinc-600">x</span>
                   </div>
                 </div>
+              </FormSection>
 
-                {/* Statutory Leave Types */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Statutory Leave Policies ({leaveTypes.length})
-                    </h4>
-                    <span className="text-[11px] text-gray-500">
-                      Directly editable days, encashability, and accumulation
-                      caps
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {leaveTypes.map((lt, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 bg-white rounded-xl border border-payroll-light shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-payroll-navy">
-                              {lt.name}
-                            </span>
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-payroll-cream text-payroll-primary border border-payroll-light rounded">
-                              {lt.code}
-                            </span>
-                            <span className="text-[10px] text-gray-500">
-                              • {lt.category}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-600">
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={lt.isPaid}
-                                onChange={() => handleToggleLeavePaid(idx)}
-                                className="rounded text-payroll-primary focus:ring-payroll-primary"
-                              />
-                              <span>Paid Leave</span>
-                            </label>
-
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(lt.isEncashable)}
-                                onChange={() =>
-                                  handleToggleLeaveEncashable(idx)
-                                }
-                                className="rounded text-payroll-primary focus:ring-payroll-primary"
-                              />
-                              <span>Encashable</span>
-                            </label>
-
-                            {lt.isEncashable && (
-                              <div className="inline-flex items-center gap-1 text-[11px]">
-                                <span>Cap:</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="300"
-                                  value={lt.maxAccumulation || 0}
-                                  onChange={(e) =>
-                                    handleUpdateLeaveMaxAccumulation(
-                                      idx,
-                                      parseInt(e.target.value) || 0,
-                                    )
-                                  }
-                                  className="w-14 px-1.5 py-0.5 text-xs text-center font-mono font-bold bg-payroll-cream/50 border border-payroll-light rounded"
-                                />
-                                <span>d</span>
-                              </div>
-                            )}
-                          </div>
+              <FormSection
+                title="Statutory Leave Policies"
+                description={`Directly configure days, encashability, and accumulation caps across ${leaveTypes.length} statutory policies.`}
+              >
+                <div className="space-y-2.5">
+                  {leaveTypes.map((lt, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 bg-white rounded-md border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-zinc-900">
+                            {lt.name}
+                          </span>
+                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 bg-zinc-100 text-zinc-700 border border-zinc-200/60 rounded">
+                            {lt.code}
+                          </span>
+                          <span className="text-[10px] text-zinc-500">
+                            • {lt.category}
+                          </span>
                         </div>
 
-                        <div className="inline-flex items-center gap-2 shrink-0">
-                          <span className="text-xs font-bold text-payroll-navy">
-                            Days / Year:
-                          </span>
+                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-600">
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={lt.isPaid}
+                              onChange={() => handleToggleLeavePaid(idx)}
+                              className="rounded text-emerald-700 focus:ring-emerald-700 accent-emerald-700"
+                            />
+                            <span>Paid Leave</span>
+                          </label>
+
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(lt.isEncashable)}
+                              onChange={() =>
+                                handleToggleLeaveEncashable(idx)
+                              }
+                              className="rounded text-emerald-700 focus:ring-emerald-700 accent-emerald-700"
+                            />
+                            <span>Encashable</span>
+                          </label>
+
+                          {lt.isEncashable && (
+                            <div className="inline-flex items-center gap-1 text-[11px]">
+                              <span>Cap:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                max="300"
+                                value={lt.maxAccumulation || 0}
+                                onChange={(e) =>
+                                  handleUpdateLeaveMaxAccumulation(
+                                    idx,
+                                    parseInt(e.target.value) || 0,
+                                  )
+                                }
+                                className="w-14 px-1.5 py-0.5 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md"
+                              />
+                              <span>d</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="inline-flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-medium text-zinc-700">
+                          Days / Year:
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="365"
+                          value={lt.daysPerYear}
+                          onChange={(e) =>
+                            handleUpdateLeaveDays(
+                              idx,
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          className="w-16 px-2 py-1 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </FormSection>
+            </div>
+          )}
+
+          {/* TAB 5: PAY HEADS */}
+          {activeTab === "pay-heads" && (
+            <div className="space-y-6">
+              <FormSection
+                title="Salary Components"
+                description="Configure earnings, statutory deductions, taxability flags, and company pay heads."
+                isFirst
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-zinc-700">
+                      Active Pay Heads ({payHeads.length})
+                    </span>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      onClick={() => setShowAddPayHead(!showAddPayHead)}
+                      className="text-xs font-medium text-emerald-800 border-zinc-200 rounded-md hover:bg-zinc-50"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      <span>Add Pay Head</span>
+                    </Button>
+                  </div>
+
+                  {/* Inline Add Pay Head Form */}
+                  {showAddPayHead && (
+                    <div className="p-3.5 bg-zinc-50/80 rounded-md border border-zinc-200 space-y-3">
+                      <h5 className="text-xs font-semibold text-zinc-900">
+                        New Pay Head Component
+                      </h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] font-semibold text-zinc-600 block mb-1">
+                            Head Name
+                          </label>
                           <input
-                            type="number"
-                            min="0"
-                            max="365"
-                            value={lt.daysPerYear}
-                            onChange={(e) =>
-                              handleUpdateLeaveDays(
-                                idx,
-                                parseInt(e.target.value) || 0,
-                              )
-                            }
-                            className="w-16 px-2 py-1 text-xs text-center font-mono font-bold bg-payroll-cream/50 border border-payroll-light rounded-lg text-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-2xs"
+                            type="text"
+                            value={newPayHeadName}
+                            onChange={(e) => setNewPayHeadName(e.target.value)}
+                            placeholder="e.g. Communication Allowance"
+                            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
                           />
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* ════════════════════════════════════════════════════════════════════
-                TAB 5: STANDARD PAY HEADS
-            ════════════════════════════════════════════════════════════════════ */}
-            {activeTab === "pay-heads" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Standard Pay Heads & Deductions ({payHeads.length})
-                    </h4>
-                    <p className="text-[11px] text-gray-500">
-                      Configure earnings, statutory deductions, and tax effects
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    onClick={() => setShowAddPayHead(!showAddPayHead)}
-                    className="text-xs font-bold text-payroll-primary"
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" />
-                    <span>Add Pay Head</span>
-                  </Button>
-                </div>
-
-                {/* Inline Add Pay Head Form */}
-                {showAddPayHead && (
-                  <div className="p-3.5 bg-payroll-cream/40 rounded-xl border border-payroll-light space-y-3">
-                    <h5 className="text-xs font-bold text-payroll-navy uppercase">
-                      New Pay Head Component
-                    </h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-bold text-gray-600 block mb-1">
-                          Head Name
-                        </label>
-                        <input
-                          type="text"
-                          value={newPayHeadName}
-                          onChange={(e) => setNewPayHeadName(e.target.value)}
-                          placeholder="e.g. Communication Allowance"
-                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-payroll-light bg-white text-payroll-navy"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-600 block mb-1">
-                          Code
-                        </label>
-                        <input
-                          type="text"
-                          value={newPayHeadCode}
-                          onChange={(e) =>
-                            setNewPayHeadCode(e.target.value.toUpperCase())
-                          }
-                          placeholder="COMM"
-                          className="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-payroll-light bg-white text-payroll-navy"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-600 block mb-1">
-                          Type
-                        </label>
-                        <select
-                          value={newPayHeadType}
-                          onChange={(e) =>
-                            setNewPayHeadType(e.target.value as any)
-                          }
-                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-payroll-light bg-white text-payroll-navy"
-                        >
-                          <option value="EARNING">Earning</option>
-                          <option value="DEDUCTION">Deduction</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="inline-flex items-center gap-1.5 text-xs font-medium text-payroll-navy cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newPayHeadTaxable}
-                          onChange={(e) =>
-                            setNewPayHeadTaxable(e.target.checked)
-                          }
-                          className="rounded text-payroll-primary focus:ring-payroll-primary"
-                        />
-                        <span>Taxable / Affects Income Tax</span>
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => setShowAddPayHead(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          onClick={handleAddPayHead}
-                          className="bg-payroll-primary text-white font-bold"
-                        >
-                          Add to Pay Heads
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* List of Pay Heads */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {payHeads.map((ph) => {
-                    const isEarning = ph.type === "EARNING";
-                    return (
-                      <div
-                        key={ph.code}
-                        className="p-3 bg-white rounded-xl border border-payroll-light shadow-2xs flex items-center justify-between gap-2"
-                      >
                         <div>
-                          <div className="flex items-center gap-1.5">
-                            {isEarning ? (
-                              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <ArrowDownRight className="w-3.5 h-3.5 text-amber-600" />
-                            )}
-                            <span className="text-xs font-bold text-payroll-navy">
-                              {ph.name}
-                            </span>
+                          <label className="text-[10px] font-semibold text-zinc-600 block mb-1">
+                            Code
+                          </label>
+                          <input
+                            type="text"
+                            value={newPayHeadCode}
+                            onChange={(e) =>
+                              setNewPayHeadCode(e.target.value.toUpperCase())
+                            }
+                            placeholder="COMM"
+                            className="w-full px-2.5 py-1.5 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-semibold text-zinc-600 block mb-1">
+                            Type
+                          </label>
+                          <select
+                            value={newPayHeadType}
+                            onChange={(e) =>
+                              setNewPayHeadType(e.target.value as any)
+                            }
+                            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                          >
+                            <option value="EARNING">Earning</option>
+                            <option value="DEDUCTION">Deduction</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newPayHeadTaxable}
+                            onChange={(e) =>
+                              setNewPayHeadTaxable(e.target.checked)
+                            }
+                            className="rounded text-emerald-700 focus:ring-emerald-700 accent-emerald-700"
+                          />
+                          <span>Taxable / Affects Income Tax</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => setShowAddPayHead(false)}
+                            className="rounded-md text-zinc-600"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            onClick={handleAddPayHead}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium rounded-md shadow-none"
+                          >
+                            Add to Pay Heads
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* List of Pay Heads */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {payHeads.map((ph) => {
+                      const isEarning = ph.type === "EARNING";
+                      return (
+                        <div
+                          key={ph.code}
+                          className="p-3 bg-white rounded-md border border-zinc-200/80 flex items-center justify-between gap-2"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              {isEarning ? (
+                                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <ArrowDownRight className="w-3.5 h-3.5 text-amber-600" />
+                              )}
+                              <span className="text-xs font-semibold text-zinc-900">
+                                {ph.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-mono font-semibold text-zinc-500">
+                                {ph.code}
+                              </span>
+                              <span className="text-[10px] text-zinc-300">•</span>
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
+                                  isEarning
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : "bg-amber-50 text-amber-700"
+                                }`}
+                              >
+                                {isEarning ? "Earning" : "Deduction"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-mono font-bold text-gray-500">
-                              {ph.code}
-                            </span>
-                            <span className="text-[10px] text-gray-400">•</span>
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                isEarning
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-amber-50 text-amber-700"
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePayHeadTaxable(ph.code)}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border cursor-pointer transition-all ${
+                                ph.isTaxable
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                  : "bg-zinc-50 border-zinc-200 text-zinc-500"
                               }`}
                             >
-                              {isEarning ? "Earning" : "Deduction"}
-                            </span>
+                              {ph.isTaxable ? "Taxable" : "Tax-Exempt"}
+                            </button>
+
+                            {!ph.isSsfHead &&
+                              !ph.isSsfEmployerHead &&
+                              !ph.isPfHead &&
+                              !ph.isCitHead &&
+                              !ph.isTdsHead &&
+                              ph.code !== "BASIC" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePayHead(ph.code)}
+                                  className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                                  title="Delete Pay Head"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePayHeadTaxable(ph.code)}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border cursor-pointer transition-all ${
-                              ph.isTaxable
-                                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                : "bg-gray-50 border-gray-200 text-gray-500"
-                            }`}
-                          >
-                            {ph.isTaxable ? "Taxable" : "Tax-Exempt"}
-                          </button>
-
-                          {/* Allow removing custom pay heads */}
-                          {!ph.isSsfHead &&
-                            !ph.isSsfEmployerHead &&
-                            !ph.isPfHead &&
-                            !ph.isCitHead &&
-                            !ph.isTdsHead &&
-                            ph.code !== "BASIC" && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePayHead(ph.code)}
-                                className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                                title="Delete Pay Head"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════════
-                TAB 6: NEPAL IRD PROGRESSIVE TAX SLABS
-            ════════════════════════════════════════════════════════════════════ */}
-            {activeTab === "tax-slabs" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
-                      Progressive Income Tax Slabs ({fyLabel})
-                    </h4>
-                    <p className="text-[11px] text-gray-500">
-                      Nepal Income Tax Act 2058 / Finance Act progressive tax
-                      brackets
-                    </p>
+                      );
+                    })}
                   </div>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    onClick={handleResetTaxSlabs}
-                    className="text-[11px] font-semibold text-payroll-primary"
-                  >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    <span>Reset to Standard</span>
-                  </Button>
                 </div>
+              </FormSection>
+            </div>
+          )}
 
-                {/* Category Selector */}
-                <div className="flex items-center gap-1.5 bg-payroll-cream/50 p-1 rounded-xl border border-payroll-light">
-                  {["Normal Single", "Married", "Handicapped"].map(
-                    (cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setSelectedTaxCategory(cat)}
-                        className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                          selectedTaxCategory === cat
-                            ? "bg-white text-payroll-navy shadow-2xs border border-payroll-light"
-                            : "text-gray-500 hover:text-payroll-navy"
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ),
-                  )}
-                </div>
+          {/* TAB 6: NEPAL IRD PROGRESSIVE TAX SLABS */}
+          {activeTab === "tax-slabs" && (
+            <div className="space-y-6">
+              <FormSection
+                title="Tax Brackets"
+                description={`Nepal Income Tax Act 2058 progressive tax brackets for fiscal year ${fyLabel}.`}
+                isFirst
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    {/* Category Selector */}
+                    <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-md border border-zinc-200/80">
+                      {["Normal Single", "Married", "Handicapped"].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setSelectedTaxCategory(cat)}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+                            selectedTaxCategory === cat
+                              ? "bg-white text-zinc-900 shadow-2xs border border-zinc-200/60"
+                              : "text-zinc-600 hover:text-zinc-900"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
 
-                {/* Table of Brackets for the selected category */}
-                <div className="bg-white rounded-xl border border-payroll-light overflow-hidden shadow-2xs">
-                  <div className="grid grid-cols-12 gap-2 bg-payroll-cream/40 p-2.5 text-[10px] font-bold text-payroll-navy uppercase tracking-wider border-b border-payroll-light">
-                    <span className="col-span-4">Income Bracket (NPR)</span>
-                    <span className="col-span-3">
-                      Upper Limit (Empty = Above)
-                    </span>
-                    <span className="col-span-2 text-center">Rate (%)</span>
-                    <span className="col-span-3 text-right">
-                      Fixed Deduction (NPR)
-                    </span>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      onClick={handleResetTaxSlabs}
+                      className="text-[11px] font-medium text-emerald-800 border-zinc-200 rounded-md hover:bg-zinc-50"
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      <span>Reset to Standard</span>
+                    </Button>
                   </div>
 
-                  <div className="divide-y divide-payroll-light/60 p-1">
-                    {filteredTaxSlabs.map((slab, idx) => (
-                      <div
-                        key={idx}
-                        className="grid grid-cols-12 gap-2 items-center p-2 text-xs"
-                      >
-                        <div className="col-span-4">
-                          <input
-                            type="number"
-                            value={slab.amountFrom}
-                            onChange={(e) =>
-                              handleUpdateTaxSlab(
-                                idx,
-                                "amountFrom",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full px-2 py-1 text-xs font-mono rounded border border-payroll-light bg-payroll-cream/20 text-payroll-navy"
-                          />
-                        </div>
+                  {/* Table of Brackets for the selected category */}
+                  <div className="bg-white rounded-md border border-zinc-200/80 overflow-hidden shadow-none">
+                    <div className="grid grid-cols-12 gap-2 bg-zinc-50/80 p-2.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider border-b border-zinc-300/80">
+                      <span className="col-span-4">Income Bracket (NPR)</span>
+                      <span className="col-span-3">Upper Limit (Empty = Above)</span>
+                      <span className="col-span-2 text-center">Rate (%)</span>
+                      <span className="col-span-3 text-right">Fixed Deduction (NPR)</span>
+                    </div>
 
-                        <div className="col-span-3">
-                          <input
-                            type="number"
-                            value={slab.amountTo || ""}
-                            onChange={(e) =>
-                              handleUpdateTaxSlab(
-                                idx,
-                                "amountTo",
-                                e.target.value ? e.target.value : null,
-                              )
-                            }
-                            placeholder="And above"
-                            className="w-full px-2 py-1 text-xs font-mono rounded border border-payroll-light bg-payroll-cream/20 text-payroll-navy"
-                          />
-                        </div>
-
-                        <div className="col-span-2 text-center">
-                          <div className="inline-flex items-center gap-1 justify-center">
+                    <div className="divide-y divide-zinc-200 p-1">
+                      {filteredTaxSlabs.map((slab, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-12 gap-2 items-center p-2 text-xs"
+                        >
+                          <div className="col-span-4">
                             <input
                               type="number"
-                              step="0.01"
-                              value={slab.ratePercent}
+                              value={slab.amountFrom}
                               onChange={(e) =>
                                 handleUpdateTaxSlab(
                                   idx,
-                                  "ratePercent",
+                                  "amountFrom",
                                   e.target.value,
                                 )
                               }
-                              className="w-14 px-1.5 py-1 text-xs text-center font-mono font-bold rounded border border-payroll-light bg-payroll-cream/20 text-payroll-primary"
+                              className="w-full px-2 py-1 text-xs font-mono rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
                             />
-                            <span className="text-[10px] text-gray-500">%</span>
+                          </div>
+
+                          <div className="col-span-3">
+                            <input
+                              type="number"
+                              value={slab.amountTo || ""}
+                              onChange={(e) =>
+                                handleUpdateTaxSlab(
+                                  idx,
+                                  "amountTo",
+                                  e.target.value ? e.target.value : null,
+                                )
+                              }
+                              placeholder="And above"
+                              className="w-full px-2 py-1 text-xs font-mono rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                            />
+                          </div>
+
+                          <div className="col-span-2 text-center">
+                            <div className="inline-flex items-center gap-1 justify-center">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={slab.ratePercent}
+                                onChange={(e) =>
+                                  handleUpdateTaxSlab(
+                                    idx,
+                                    "ratePercent",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-14 px-1.5 py-1 text-xs text-center font-mono font-semibold rounded-md border border-zinc-200 bg-zinc-50/30 text-emerald-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                              />
+                              <span className="text-[10px] text-zinc-500">%</span>
+                            </div>
+                          </div>
+
+                          <div className="col-span-3 text-right">
+                            <input
+                              type="number"
+                              value={slab.fixedDeduction || "0"}
+                              onChange={(e) =>
+                                handleUpdateTaxSlab(
+                                  idx,
+                                  "fixedDeduction",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full px-2 py-1 text-xs font-mono text-right rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                            />
                           </div>
                         </div>
-
-                        <div className="col-span-3 text-right">
-                          <input
-                            type="number"
-                            value={slab.fixedDeduction || "0"}
-                            onChange={(e) =>
-                              handleUpdateTaxSlab(
-                                idx,
-                                "fixedDeduction",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full px-2 py-1 text-xs font-mono text-right rounded border border-payroll-light bg-payroll-cream/20 text-payroll-navy"
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              </FormSection>
+            </div>
+          )}
         </div>
       </Dialog>
 

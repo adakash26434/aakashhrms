@@ -45,13 +45,13 @@ export function DepartmentSearch({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       {/* Search input */}
       <div className="relative w-full sm:max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2e7d32]/50" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
           type="search"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search departments..."
-          className="h-9 w-full rounded-lg border border-[#d7e8d0] bg-white py-2 pl-10 pr-3 text-sm text-[#1b3a1f] placeholder:text-gray-400 focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+          className="h-9 w-full rounded-lg border border-zinc-200 bg-white py-2 pl-10 pr-3 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
         />
       </div>
 
@@ -70,21 +70,21 @@ export function DepartmentSearch({
               onClick={toggle}
               aria-haspopup="listbox"
               aria-expanded={open}
-              className="inline-flex h-9 items-center justify-between gap-2 rounded-lg border border-[#d7e8d0] bg-white px-3 text-sm text-[#1b3a1f] hover:bg-[#f6faf6] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32] min-w-45"
+              className="inline-flex h-9 items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 hover:bg-zinc-50 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-2xs min-w-45 transition-colors cursor-pointer"
             >
               <span className="truncate">
                 {selected?.label ?? selectedLabel}
               </span>
-              <span className="text-gray-400">▾</span>
+              <span className="text-zinc-400">▾</span>
             </button>
           )}
         />
-        <p className="hidden text-xs text-gray-500 sm:block tabular-nums">
+        <p className="hidden text-xs text-zinc-500 sm:block tabular-nums">
           Showing{" "}
-          <span className="font-semibold text-[#1b3a1f]">
+          <span className="font-semibold text-zinc-900">
             {filteredCount}
           </span>{" "}
-          of <span className="font-semibold text-[#1b3a1f]">{totalCount}</span>{" "}
+          of <span className="font-semibold text-zinc-900">{totalCount}</span>{" "}
           departments
         </p>
       </div>
