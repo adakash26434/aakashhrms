@@ -403,13 +403,13 @@ export function NepaliDatePicker({
       {/* Input Group with Attached Eraser Button */}
       <div
         className={cn(
-          "relative flex items-center h-10 rounded-lg border border-slate-200 bg-white shadow-2xs transition-colors text-slate-900",
+          "relative flex items-center h-10 rounded-md border border-zinc-200 bg-white transition-colors text-zinc-900",
           isOpen
-            ? "border-[#1e7e47] ring-1 ring-[#1e7e47]"
+            ? "border-emerald-700 ring-1 ring-emerald-700"
             : error
               ? "border-red-500 bg-red-50/20 focus-within:ring-1 focus-within:ring-red-500"
-              : "hover:border-slate-300 focus-within:border-[#1e7e47] focus-within:ring-1 focus-within:ring-[#1e7e47]",
-          disabled && "cursor-not-allowed bg-gray-50 opacity-70",
+              : "hover:border-zinc-300 focus-within:border-emerald-700 focus-within:ring-1 focus-within:ring-emerald-700",
+          disabled && "cursor-not-allowed bg-zinc-50 opacity-70",
         )}
       >
         <input
@@ -420,7 +420,7 @@ export function NepaliDatePicker({
           onClick={() => !disabled && setIsOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="h-full w-full bg-transparent pl-3.5 pr-10 text-xs sm:text-sm font-mono font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
+          className="h-full w-full bg-transparent pl-3 pr-10 text-xs sm:text-sm font-mono font-medium text-zinc-900 placeholder:text-zinc-400 focus:outline-none"
         />
 
         {/* Attached Eraser Button */}
@@ -430,7 +430,7 @@ export function NepaliDatePicker({
           disabled={disabled}
           onClick={handleClear}
           title="Clear date"
-          className="absolute right-0 top-0 bottom-0 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-r-lg flex items-center justify-center transition-colors border-l border-slate-200 cursor-pointer"
+          className="absolute right-0 top-0 bottom-0 px-2.5 bg-zinc-50 hover:bg-zinc-100 text-zinc-500 rounded-r-md flex items-center justify-center transition-colors border-l border-zinc-200 cursor-pointer"
         >
           <Eraser className="w-3.5 h-3.5" />
         </button>

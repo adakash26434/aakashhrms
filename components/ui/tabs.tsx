@@ -48,7 +48,7 @@ export const TabsList = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-lg bg-[#f6faf6] p-1 text-[#2e7d32]",
+      "inline-flex h-10 items-center justify-center rounded-lg bg-zinc-100 p-1 text-zinc-600",
       className
     )}
     {...props}
@@ -73,10 +73,10 @@ export const TabsTrigger = React.forwardRef<
       aria-selected={isSelected}
       onClick={() => context.onValueChange(value)}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e7d32] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         isSelected
-          ? "bg-[#2e7d32] text-white shadow-sm"
-          : "hover:bg-[#d7e8d0]/50 hover:text-[#1b3a1f]",
+          ? "bg-payroll-primary/80 text-white font-semibold shadow-sm"
+          : "text-zinc-500 hover:bg-payroll-primary-light hover:text-payroll-primary",
         className
       )}
       {...props}
@@ -99,7 +99,7 @@ export const TabsContent = React.forwardRef<
       ref={ref}
       role="tabpanel"
       className={cn(
-        "mt-2 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e7d32] focus-visible:ring-offset-2",
+        "mt-2 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2",
         className
       )}
       {...props}

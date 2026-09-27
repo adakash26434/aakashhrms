@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string = string>({
 }: SegmentedControlProps<T>) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-xl bg-[#f6faf6] p-1 border border-[#d7e8d0] ${className}`}
+      className={`inline-flex items-center gap-1 rounded-xl bg-slate-100/80 p-1 border border-slate-200/80 ${className}`}
       role="tablist"
     >
       {options.map((opt) => {
@@ -37,12 +37,12 @@ export function SegmentedControl<T extends string = string>({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(opt.id)}
-            className={`flex items-center gap-1.5 rounded-lg transition-all text-xs font-bold px-3 ${
+            className={`flex items-center gap-1.5 rounded-lg transition-all text-xs font-semibold px-3 cursor-pointer ${
               size === "sm" ? "py-1 text-[11px]" : "py-1.5"
             } ${
               isActive
-                ? "bg-white text-[#1b3a1f] shadow-payroll-sm border border-[#d7e8d0]"
-                : "text-gray-500 hover:text-[#1b3a1f] border border-transparent"
+                ? "bg-emerald-700 text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
             }`}
           >
             <span>{opt.label}</span>
@@ -50,8 +50,8 @@ export function SegmentedControl<T extends string = string>({
               <span
                 className={`rounded-full px-1.5 py-0.2 text-[10px] tabular-nums font-semibold ${
                   isActive
-                    ? "bg-[#2e7d32]/10 text-[#2e7d32]"
-                    : "bg-gray-200 text-gray-600"
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-200 text-slate-700"
                 }`}
               >
                 {opt.count}

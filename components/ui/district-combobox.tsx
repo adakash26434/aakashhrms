@@ -184,9 +184,9 @@ export function DistrictCombobox({
           placeholder={placeholder}
           autoComplete="off"
           className={cn(
-            "h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]",
+            "h-10 w-full rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700",
             hasError && "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-red-500",
-            disabled && "cursor-not-allowed bg-gray-50 text-gray-400"
+            disabled && "cursor-not-allowed bg-zinc-50 text-zinc-400"
           )}
         />
         <div className="absolute right-2 flex items-center gap-1">
@@ -194,7 +194,7 @@ export function DistrictCombobox({
             <button
               type="button"
               onClick={handleClear}
-              className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
               title="Clear selection"
             >
               <X className="h-3.5 w-3.5" />
@@ -204,7 +204,7 @@ export function DistrictCombobox({
             type="button"
             onClick={() => !disabled && setOpen(!open)}
             disabled={disabled}
-            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
           >
             <ChevronsUpDown className="h-3.5 w-3.5" />
           </button>
@@ -212,9 +212,9 @@ export function DistrictCombobox({
       </div>
 
       {open && (
-        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg scrollbar-thin">
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg scrollbar-thin">
           {groupedByProvince.length === 0 ? (
-            <div className="p-3 text-center text-xs text-gray-500">
+            <div className="p-3 text-center text-xs text-zinc-500">
               No districts found matching &ldquo;{searchQuery}&rdquo;
             </div>
           ) : (
@@ -222,7 +222,7 @@ export function DistrictCombobox({
               let runningIdx = -1;
               return groupedByProvince.map((group) => (
                 <div key={group.provinceName} className="mb-2 last:mb-0">
-                  <div className="sticky top-0 bg-gray-50/95 px-2.5 py-1 text-[11px] font-semibold text-[#1e7e47] backdrop-blur-xs">
+                  <div className="sticky top-0 bg-zinc-50/95 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 backdrop-blur-xs">
                     {group.provinceName}
                   </div>
                   <div className="mt-0.5 space-y-0.5">
@@ -244,14 +244,14 @@ export function DistrictCombobox({
                           className={cn(
                             "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer",
                             isHighlighted
-                              ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                              ? "bg-emerald-50 text-emerald-800 font-semibold"
                               : isSelected
-                              ? "bg-emerald-50 font-medium text-payroll-navy"
-                              : "text-gray-700 hover:bg-gray-50 hover:text-payroll-navy"
+                              ? "bg-emerald-50/60 font-medium text-emerald-950"
+                              : "text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900"
                           )}
                         >
                           <span className="font-medium">{d.name}</span>
-                          {isSelected && <Check className="h-4 w-4 text-[#1e7e47]" />}
+                          {isSelected && <Check className="h-4 w-4 text-emerald-700" />}
                         </button>
                       );
                     })}

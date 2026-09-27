@@ -10,9 +10,9 @@ export function Card({ children, className, interactive = false, ...props }: Car
   return (
     <div
       className={cn(
-        "rounded-xl border border-payroll-border bg-white shadow-payroll-xs transition-all duration-200",
+        "rounded-lg border border-zinc-200/80 bg-white transition-all duration-150",
         interactive &&
-          "hover:-translate-y-0.5 hover:shadow-payroll-sm hover:border-payroll-primary/30 cursor-pointer",
+          "hover:border-zinc-300 hover:shadow-2xs cursor-pointer",
         className,
       )}
       {...props}
@@ -52,7 +52,7 @@ export function CardTitle({
   return (
     <h3
       className={cn(
-        "text-base sm:text-lg font-bold text-payroll-navy leading-snug tracking-tight",
+        "text-base font-semibold text-zinc-900 leading-snug tracking-tight",
         className,
       )}
     >
@@ -69,7 +69,7 @@ export function CardDescription({
   className?: string;
 }) {
   return (
-    <p className={cn("mt-1 text-xs text-gray-500 leading-relaxed", className)}>
+    <p className={cn("mt-1 text-xs text-zinc-500 leading-relaxed", className)}>
       {children}
     </p>
   );
@@ -85,7 +85,7 @@ export function CardFooter({
   return (
     <div
       className={cn(
-        "flex items-center px-5 py-4 border-t border-payroll-light/40 bg-payroll-cream/30 rounded-b-2xl",
+        "flex items-center px-5 py-3 border-t border-zinc-200 bg-zinc-50/50 rounded-b-lg",
         className,
       )}
     >

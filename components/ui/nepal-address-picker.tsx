@@ -153,30 +153,30 @@ function SearchableAddressSelect({
           }
         }}
         className={cn(
-          "w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs sm:text-sm flex items-center justify-between shadow-2xs transition-colors cursor-pointer select-none hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]",
+          "w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm flex items-center justify-between transition-colors cursor-pointer select-none hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700",
           hasError
             ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/20"
             : "",
-          open && "border-[#1e7e47] ring-1 ring-[#1e7e47]",
-          disabled && "bg-gray-50 text-gray-400 cursor-not-allowed border-slate-200"
+          open && "border-emerald-700 ring-1 ring-emerald-700",
+          disabled && "bg-zinc-50 text-zinc-400 cursor-not-allowed border-zinc-200"
         )}
       >
         <div className="truncate flex-1 pr-2">
           {selectedOption ? (
-            <span className="text-slate-800 font-medium">
+            <span className="text-zinc-800 font-medium">
               {selectedOption.label}
             </span>
           ) : (
-            <span className="text-gray-400 text-xs">{placeholder}</span>
+            <span className="text-zinc-400 text-xs">{placeholder}</span>
           )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0 text-gray-400">
+        <div className="flex items-center gap-1 shrink-0 text-zinc-400">
           {value && !disabled && (
             <button
               type="button"
               onClick={handleClear}
-              className="p-0.5 hover:text-gray-600 rounded cursor-pointer"
+              className="p-0.5 hover:text-zinc-600 rounded cursor-pointer"
               title="Clear selection"
             >
               <X className="w-3.5 h-3.5" />
@@ -187,9 +187,9 @@ function SearchableAddressSelect({
       </div>
 
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden animate-[fadeIn_100ms_ease-out]">
-          <div className="p-2 border-b border-slate-100 bg-slate-50/80 flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-zinc-200 bg-white shadow-lg overflow-hidden animate-[fadeIn_100ms_ease-out]">
+          <div className="p-2 border-b border-zinc-100 bg-zinc-50/80 flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <input
               ref={inputRef}
               type="text"
@@ -197,22 +197,22 @@ function SearchableAddressSelect({
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type to filter..."
-              className="w-full bg-transparent text-xs text-slate-800 placeholder-gray-400 focus:outline-none"
+              className="w-full bg-transparent text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-600 p-0.5 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
             )}
           </div>
 
-          <div className="max-h-56 overflow-y-auto p-1 divide-y divide-slate-100/50 scrollbar-thin">
+          <div className="max-h-56 overflow-y-auto p-1 divide-y divide-zinc-200/50 scrollbar-thin">
             {filteredOptions.length === 0 ? (
-              <div className="p-3 text-center text-xs text-gray-400">
+              <div className="p-3 text-center text-xs text-zinc-400">
                 {emptyMessage}
               </div>
             ) : (
@@ -228,18 +228,18 @@ function SearchableAddressSelect({
                     onClick={() => handleSelect(opt.value)}
                     onMouseEnter={() => setHighlightedIndex(idx)}
                     className={cn(
-                      "px-3 py-2 text-xs rounded-lg flex items-center justify-between cursor-pointer transition-colors",
+                      "px-3 py-2 text-xs rounded-md flex items-center justify-between cursor-pointer transition-colors",
                       isHighlighted
-                        ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                        ? "bg-emerald-50 text-emerald-800 font-semibold"
                         : isSelected
-                        ? "bg-emerald-50 text-slate-900 font-semibold"
-                        : "text-slate-700 hover:bg-slate-50"
+                        ? "bg-emerald-50/60 text-zinc-900 font-semibold"
+                        : "text-zinc-700 hover:bg-zinc-50"
                     )}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>{opt.label}</span>
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#1e7e47] shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
                   </div>
                 );
               })

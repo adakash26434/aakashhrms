@@ -161,7 +161,7 @@ export function BankCombobox({
           disabled={disabled}
           autoComplete="off"
           className={cn(
-            "w-full h-10 rounded-lg border border-slate-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47] disabled:opacity-50",
+            "w-full h-10 rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 disabled:opacity-50",
             hasError && "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20"
           )}
         />
@@ -170,7 +170,7 @@ export function BankCombobox({
             <button
               type="button"
               onClick={handleClear}
-              className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
               title="Clear selection"
             >
               <X className="h-3.5 w-3.5" />
@@ -179,7 +179,7 @@ export function BankCombobox({
           <button
             type="button"
             onClick={() => !disabled && setOpen(!open)}
-            className="p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 transition-colors"
             tabIndex={-1}
           >
             <ChevronsUpDown className="h-3.5 w-3.5" />
@@ -189,17 +189,17 @@ export function BankCombobox({
 
       {/* Dropdown Menu */}
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg animate-[fadeIn_100ms_ease-out]">
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white py-1 shadow-lg animate-[fadeIn_100ms_ease-out]">
           {/* Header search info */}
-          <div className="px-3 py-1.5 border-b border-gray-100 bg-[#f6faf6] flex items-center justify-between text-[11px] text-gray-500 font-medium">
+          <div className="px-3 py-1.5 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between text-[11px] text-zinc-500 font-medium">
             <span>Official Nepal Banks ({filteredBanks.length})</span>
-            <span className="text-[10px] text-gray-400">Class A, B, C & NRB</span>
+            <span className="text-[10px] text-zinc-400">Class A, B, C & NRB</span>
           </div>
 
           {Object.keys(groupedBanks).length === 0 ? (
-            <div className="p-3 text-center text-xs text-gray-500">
-              <p className="font-medium text-[#1b3a1f]">No matching bank found</p>
-              <p className="mt-0.5 text-[11px] text-gray-400">
+            <div className="p-3 text-center text-xs text-zinc-500">
+              <p className="font-medium text-zinc-900">No matching bank found</p>
+              <p className="mt-0.5 text-[11px] text-zinc-400">
                 Press Enter to keep &quot;{searchQuery}&quot; as custom bank name.
               </p>
             </div>
@@ -208,7 +208,7 @@ export function BankCombobox({
               let runningIdx = -1;
               return Object.entries(groupedBanks).map(([category, list]) => (
                 <div key={category} className="py-1">
-                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#2e7d32] bg-green-50/50">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50/50">
                     {category}
                   </div>
                   {list.map((bank) => {

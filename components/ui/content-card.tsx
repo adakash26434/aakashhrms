@@ -39,7 +39,7 @@ export function ContentCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-payroll-light/80 bg-white shadow-payroll-xs overflow-hidden",
+        "rounded-lg border border-zinc-200/80 bg-white overflow-hidden",
         className,
       )}
       {...props}
@@ -47,18 +47,18 @@ export function ContentCard({
       {hasHeader && (
         <div
           className={cn(
-            "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-payroll-light/60 px-5 py-3.5",
+            "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 px-5 py-3.5",
             headerClassName,
           )}
         >
           <div className="min-w-0">
             {title && (
-              <div className="text-sm font-bold text-payroll-navy tracking-tight truncate">
+              <div className="text-sm font-semibold text-zinc-900 tracking-tight truncate">
                 {title}
               </div>
             )}
             {subtitle && (
-              <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
+              <p className="mt-0.5 text-xs text-zinc-500 leading-relaxed">
                 {subtitle}
               </p>
             )}
@@ -78,7 +78,7 @@ export function ContentCard({
       {footer && (
         <div
           className={cn(
-            "border-t border-payroll-light/60 bg-gray-50/50 px-5 py-3 text-xs text-gray-500",
+            "border-t border-zinc-200 bg-zinc-50/50 px-5 py-3 text-xs text-zinc-500",
             footerClassName,
           )}
         >
