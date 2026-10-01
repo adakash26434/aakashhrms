@@ -117,7 +117,7 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                 placeholder="Search by BS month, year, date range..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
 

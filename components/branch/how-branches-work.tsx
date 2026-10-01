@@ -9,13 +9,13 @@ import { Info } from "lucide-react";
  */
 export function HowBranchesWork() {
   return (
-    <div className="rounded-xl border border-[#d7e8d0]/80 bg-white p-5">
+    <div className="rounded-xl border border-payroll-border bg-white p-5">
       <div className="flex gap-3">
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-50">
-          <Info className="h-3.5 w-3.5 text-[#2e7d32]" />
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-payroll-primary-light-2">
+          <Info className="h-3.5 w-3.5 text-payroll-primary" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-[#1b3a1f]">
+          <h3 className="text-sm font-semibold text-payroll-navy">
             How branches work
           </h3>
           <p className="mt-1.5 text-sm leading-relaxed text-gray-500">

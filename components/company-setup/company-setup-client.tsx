@@ -544,7 +544,7 @@ export function CompanySetupClient({
                     placeholder="Search branches..."
                     value={branchSearch}
                     onChange={(e) => setBranchSearch(e.target.value)}
-                    className="h-9 w-56 rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                    className="h-9 w-56 rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                   />
                 </div>
                 <button
@@ -553,7 +553,7 @@ export function CompanySetupClient({
                     setEditingBranch(null);
                     setIsBranchFormOpen(true);
                   }}
-                  className="h-9 px-3.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-medium cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                  className="h-9 px-3.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs font-medium cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-colors"
                 >
                   <span>Add branch</span>
                 </button>
@@ -591,7 +591,7 @@ export function CompanySetupClient({
                     placeholder="Search departments..."
                     value={deptSearch}
                     onChange={(e) => setDeptSearch(e.target.value)}
-                    className="h-9 w-56 rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                    className="h-9 w-56 rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                   />
                 </div>
                 <button
@@ -600,7 +600,7 @@ export function CompanySetupClient({
                     setEditingDept(null);
                     setIsDeptFormOpen(true);
                   }}
-                  className="h-9 px-3.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-medium cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                  className="h-9 px-3.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs font-medium cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-colors"
                 >
                   <span>Add department</span>
                 </button>
@@ -639,7 +639,7 @@ export function CompanySetupClient({
                     placeholder="Search designations..."
                     value={desigSearch}
                     onChange={(e) => setDesigSearch(e.target.value)}
-                    className="h-9 w-56 rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                    className="h-9 w-56 rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                   />
                 </div>
                 <button
@@ -648,7 +648,7 @@ export function CompanySetupClient({
                     setEditingDesig(null);
                     setIsDesigFormOpen(true);
                   }}
-                  className="h-9 px-3.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-medium cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                  className="h-9 px-3.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs font-medium cursor-pointer shadow-xs inline-flex items-center gap-1.5 transition-colors"
                 >
                   <span>Add designation</span>
                 </button>

@@ -214,7 +214,7 @@ export function TaxSlabFormModal({
             <Button
               type="submit"
               form="tax-slab-form"
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             >
               {submitLabel}
             </Button>
@@ -286,7 +286,7 @@ export function TaxSlabFormModal({
                   type="checkbox"
                   checked={form.openEnded}
                   onChange={(e) => setForm((f) => ({ ...f, openEnded: e.target.checked }))}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                  className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                 />
                 <span className="font-medium">Open-ended (Above)</span>
                 <span className="text-zinc-500">— no upper limit</span>
@@ -376,7 +376,7 @@ function inputClass(hasError: boolean, isDisabled: boolean) {
       ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
       : hasError
         ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-        : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+        : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
   ].join(" ");
 }
 

@@ -58,8 +58,8 @@ export function AttendanceToday({
             </span>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 text-xs font-medium text-emerald-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-700" />
+          <div className="inline-flex items-center gap-1.5 rounded-md bg-payroll-primary-light border border-payroll-border px-2.5 py-1 text-xs font-medium text-payroll-navy">
+            <span className="h-1.5 w-1.5 rounded-full bg-payroll-primary" />
             <span>{presentPercent}% present</span>
           </div>
         </div>
@@ -72,7 +72,7 @@ export function AttendanceToday({
         {/* Segmented Progress Bar */}
         <div className="mt-3 h-2 w-full rounded-full bg-zinc-100 flex overflow-hidden">
           <div
-            className="h-full bg-emerald-800 transition-all duration-300"
+            className="h-full bg-payroll-primary transition-all duration-300"
             style={{ width: `${presentPercent}%` }}
             title={`Present: ${present} (${presentPercent}%)`}
           />
@@ -92,7 +92,7 @@ export function AttendanceToday({
         <div className="mt-4 grid grid-cols-3 gap-3 border-t border-zinc-200 pt-3">
           <div>
             <div className="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
-              <span className="h-2 w-2 rounded-full bg-emerald-800" />
+              <span className="h-2 w-2 rounded-full bg-payroll-primary" />
               <span>Present</span>
             </div>
             <p className="mt-0.5 text-lg sm:text-xl font-semibold text-zinc-950 font-mono">

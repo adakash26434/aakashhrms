@@ -79,7 +79,7 @@ export function Dialog({
       aria-modal="true"
       aria-labelledby="dialog-title"
       aria-describedby={description ? "dialog-description" : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
     >
       {/* Backdrop */}
       <div
@@ -93,7 +93,7 @@ export function Dialog({
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex w-full max-h-[92dvh] flex-col rounded-xl border border-zinc-200/80 bg-white shadow-2xl outline-none overflow-hidden",
+          "relative z-10 flex w-full max-h-[94dvh] flex-col rounded-t-2xl border border-b-0 border-zinc-200/80 bg-white shadow-2xl outline-none overflow-hidden sm:max-h-[92dvh] sm:rounded-xl sm:border-b",
           sizeClasses[size],
           className,
         )}
@@ -101,7 +101,7 @@ export function Dialog({
       >
         {/* Header */}
         <div className="flex shrink-0 flex-col border-b border-zinc-300/80 bg-white">
-          <div className="flex items-start justify-between gap-3 px-6 py-4.5">
+          <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-6 sm:py-4.5">
             <div className="min-w-0 flex-1">
               <h2
                 id="dialog-title"
@@ -137,7 +137,7 @@ export function Dialog({
         {/* Body (Single unified scroll container) */}
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-6 sm:px-8 py-6",
+            "min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6",
             bodyClassName,
           )}
         >
@@ -146,7 +146,7 @@ export function Dialog({
 
         {/* Footer: Pinned cleanly with zero shadow bleed */}
         {footer && (
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-zinc-200/80 bg-white px-6 py-4 sticky bottom-0 z-10">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-zinc-200/80 bg-white px-4 py-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] sticky bottom-0 z-10 sm:px-6 sm:py-4 sm:pb-4">
             {footer}
           </div>
         )}

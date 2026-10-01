@@ -93,7 +93,7 @@ export function TablePagination({
             <select
               value={pageSize}
               onChange={handlePageSizeSelect}
-              className="h-7 rounded-md border border-payroll-border bg-white px-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47] cursor-pointer"
+              className="h-7 rounded-md border border-payroll-border bg-white px-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -169,7 +169,7 @@ export function TablePagination({
                 className={cn(
                   "h-7 min-w-7 px-2 rounded flex items-center justify-center text-xs font-semibold transition-colors cursor-pointer select-none",
                   isActive
-                    ? "bg-[#1e7e47] text-white shadow-2xs"
+                    ? "bg-payroll-primary text-white shadow-2xs"
                     : "border border-payroll-border text-gray-700 hover:bg-gray-50 hover:text-slate-900"
                 )}
                 aria-current={isActive ? "page" : undefined}

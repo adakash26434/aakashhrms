@@ -114,7 +114,7 @@ export function DateFormatMenu({
     >
       <div
         className={cn(
-          "inline-flex items-center overflow-hidden rounded-md border border-[#d7e8d0] bg-white",
+          "inline-flex items-center overflow-hidden rounded-md border border-payroll-border bg-white",
         )}
         role="group"
         aria-label="Date format"
@@ -144,7 +144,7 @@ export function DateFormatMenu({
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            "flex items-center justify-center border-l border-[#d7e8d0] text-gray-500 transition-colors hover:bg-[#f6faf6] hover:text-[#1b3a1f]",
+            "flex items-center justify-center border-l border-payroll-border text-gray-500 transition-colors hover:bg-payroll-cream hover:text-payroll-navy",
             heightClass,
             pxClass,
           )}
@@ -175,7 +175,7 @@ export function DateFormatMenu({
                 minWidth: pos.width,
                 zIndex: 9999,
               }}
-              className="overflow-hidden rounded-md border border-[#d7e8d0] bg-white shadow-lg animate-[dialogIn_180ms_ease-out]"
+              className="overflow-hidden rounded-md border border-payroll-border bg-white shadow-lg animate-[dialogIn_180ms_ease-out]"
             >
               {FORMAT_OPTIONS.map((opt) => {
                 const selected = opt.value === format;
@@ -192,8 +192,8 @@ export function DateFormatMenu({
                     className={cn(
                       "flex w-full items-start gap-2 px-3 py-2 text-left transition-colors",
                       selected
-                        ? "bg-[#d7e8d0]/40 text-[#1b3a1f]"
-                        : "text-gray-700 hover:bg-[#f6faf6]",
+                        ? "bg-payroll-primary-light-2 text-payroll-primary font-medium"
+                        : "text-gray-700 hover:bg-payroll-cream",
                     )}
                   >
                     <span
@@ -202,7 +202,7 @@ export function DateFormatMenu({
                       )}
                     >
                       {selected && (
-                        <Check className="h-3.5 w-3.5 text-[#2e7d32]" />
+                        <Check className="h-3.5 w-3.5 text-payroll-primary" />
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -240,8 +240,8 @@ function SegButton({ active, onClick, className, children }: SegButtonProps) {
       className={cn(
         "font-medium uppercase tracking-wide transition-colors",
         active
-          ? "bg-[#2e7d32] text-white"
-          : "text-gray-500 hover:bg-[#f6faf6] hover:text-[#1b3a1f]",
+          ? "bg-payroll-primary text-white"
+          : "text-gray-500 hover:bg-payroll-cream hover:text-payroll-navy",
         className,
       )}
     >

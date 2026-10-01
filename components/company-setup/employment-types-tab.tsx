@@ -164,7 +164,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
         <Button
           type="button"
           onClick={handleOpenCreate}
-          className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-center"
+          className="gap-2 bg-payroll-primary hover:bg-payroll-primary-hover text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-center"
         >
           <Plus className="h-4 w-4" />
           <span>Add Classification</span>
@@ -287,7 +287,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                 placeholder="e.g. Permanent, Contract"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 required
               />
             </div>
@@ -300,7 +300,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                 placeholder="e.g. PERM, CONT"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 uppercase focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 uppercase focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
           </div>
@@ -314,7 +314,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
               placeholder="e.g. Regular Permanent Staff"
               value={formData.nameNepali || ""}
               onChange={(e) => setFormData({ ...formData, nameNepali: e.target.value })}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -328,7 +328,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                   type="checkbox"
                   checked={formData.isSsfEligible}
                   onChange={(e) => setFormData({ ...formData, isSsfEligible: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-600"
+                  className="h-4 w-4 rounded border-slate-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                 />
                 <span className="font-medium text-slate-800">SSF Eligible</span>
               </label>
@@ -338,7 +338,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                   type="checkbox"
                   checked={formData.isPfEligible}
                   onChange={(e) => setFormData({ ...formData, isPfEligible: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-600"
+                  className="h-4 w-4 rounded border-slate-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                 />
                 <span className="font-medium text-slate-800">PF Eligible</span>
               </label>
@@ -348,7 +348,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                   type="checkbox"
                   checked={formData.isFestivalEligible}
                   onChange={(e) => setFormData({ ...formData, isFestivalEligible: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-600"
+                  className="h-4 w-4 rounded border-slate-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                 />
                 <span className="font-medium text-slate-800">Festival Bonus</span>
               </label>
@@ -358,7 +358,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                   type="checkbox"
                   checked={formData.isLeaveEligible}
                   onChange={(e) => setFormData({ ...formData, isLeaveEligible: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-600"
+                  className="h-4 w-4 rounded border-slate-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                 />
                 <span className="font-medium text-slate-800">Paid Leave</span>
               </label>
@@ -376,7 +376,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                 max={180}
                 value={formData.noticePeriodDays}
                 onChange={(e) => setFormData({ ...formData, noticePeriodDays: Number(e.target.value) || 0 })}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
             <div>
@@ -389,7 +389,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                 max={24}
                 value={formData.probationMonths}
                 onChange={(e) => setFormData({ ...formData, probationMonths: Number(e.target.value) || 0 })}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
           </div>
@@ -407,7 +407,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-sm"
+              className="bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs font-semibold shadow-sm cursor-pointer"
             >
               {isSubmitting ? "Saving..." : editingType ? "Update Category" : "Create Category"}
             </Button>

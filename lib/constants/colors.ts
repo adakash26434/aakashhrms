@@ -1,8 +1,12 @@
 export const PAYROLL_COLORS = {
-  cream: "#f6faf6",
-  light: "#d7e8d0",
-  primary: "#2e7d32",
-  navy: "#1b3a1f",
+  cream: "#F6F8F5",
+  light: "#E4E7E4",
+  primary: "#1B6B54",
+  primaryHover: "#155743",
+  primaryLight: "#EBF4F0",
+  navy: "#111827",
+  border: "#E4E7E4",
+  borderTable: "#D1D5DB",
 } as const;
 
 export const CHART_COLORS = {
@@ -41,11 +45,12 @@ export const SEMANTIC_COLORS = {
   },
   info: {
     bg: "#EFF6FF",
-    text: "#2e7d32",
-    border: "#d7e8d0",
+    text: "#1B6B54",
+    border: "#DDECE3",
   },
 } as const;
 
 export const FILTER_CHIP_CLASS =
-  "bg-[#d7e8d0]/60 text-[#1b3a1f] border border-[#d7e8d0] text-xs font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 transition-all";
+  "bg-payroll-primary-light text-payroll-primary border border-payroll-primary-border text-xs font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 transition-all";
+
 

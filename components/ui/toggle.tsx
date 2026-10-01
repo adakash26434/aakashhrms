@@ -36,8 +36,8 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e7d32]/40 focus-visible:ring-offset-1",
-          checked ? "bg-[#2e7d32]" : "bg-gray-300",
+          "relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary/40 focus-visible:ring-offset-1",
+          checked ? "bg-payroll-primary" : "bg-gray-300",
           disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
         )}
       >
@@ -50,7 +50,7 @@ export function Toggle({
         />
       </button>
       {label && (
-        <span className="ml-3 text-sm text-[#1b3a1f]">{label}</span>
+        <span className="ml-3 text-sm text-payroll-navy">{label}</span>
       )}
     </span>
   );

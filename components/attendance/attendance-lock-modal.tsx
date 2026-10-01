@@ -70,7 +70,7 @@ export function AttendanceLockModal({
               Select B.S. Pay Month <span className="text-red-500">*</span>
             </label>
             <select
-              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               value={bsMonth}
               onChange={(e) => setBsMonth(Number(e.target.value))}
             >
@@ -95,7 +95,7 @@ export function AttendanceLockModal({
             </label>
             <input
               type="month"
-              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               value={datePrefix}
               onChange={(e) => setDatePrefix(e.target.value)}
             />

@@ -167,7 +167,7 @@ export function DropdownMenu<TValue extends string>({
                 zIndex: 9999,
               }}
               className={cn(
-                "overflow-hidden rounded-md border border-[#d7e8d0] bg-white shadow-lg animate-[dialogIn_180ms_ease-out]",
+                "overflow-hidden rounded-md border border-payroll-border bg-white shadow-lg animate-[dialogIn_180ms_ease-out]",
                 panelClassName,
               )}
             >
@@ -190,10 +190,10 @@ export function DropdownMenu<TValue extends string>({
                     className={cn(
                       "flex w-full items-start gap-2 px-3 py-2 text-left transition-colors",
                       isDisabled
-                        ? "cursor-not-allowed bg-[#f6faf6] text-gray-400"
+                        ? "cursor-not-allowed bg-payroll-cream text-gray-400"
                         : isSelected
-                          ? "bg-[#d7e8d0]/40 text-[#1b3a1f]"
-                          : "text-gray-700 hover:bg-[#f6faf6]",
+                          ? "bg-payroll-primary-light-2 text-payroll-primary font-medium"
+                          : "text-gray-700 hover:bg-payroll-cream",
                     )}
                   >
                     <span
@@ -202,7 +202,7 @@ export function DropdownMenu<TValue extends string>({
                       )}
                     >
                       {isSelected && (
-                        <Check className="h-3.5 w-3.5 text-[#2e7d32]" />
+                        <Check className="h-3.5 w-3.5 text-payroll-primary" />
                       )}
                     </span>
                     {opt.adornment && (

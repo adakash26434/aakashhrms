@@ -305,7 +305,7 @@ export function EmployeeClient({
             type="button"
             size="sm"
             onClick={() => router.push("/workforce/employees/new")}
-            className="h-9 gap-1.5 rounded-lg bg-[#1e7e47] hover:bg-[#165a3d] text-xs font-semibold text-white shadow-2xs transition-colors"
+            className="h-9 gap-1.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Add Employee</span>

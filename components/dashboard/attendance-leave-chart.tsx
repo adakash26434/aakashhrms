@@ -34,7 +34,7 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
           </div>
           <div className="flex items-center gap-3 text-xs text-zinc-500">
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2 w-2 rounded-full bg-emerald-800" />
+              <span className="h-2 w-2 rounded-full bg-payroll-primary" />
               Present
             </span>
             <span className="flex items-center gap-1.5 font-medium">

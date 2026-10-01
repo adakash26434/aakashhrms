@@ -15,7 +15,7 @@ interface EmployeeLoansTableProps {
 /** Generate a deterministic color from a name string. */
 function getAvatarColor(name: string): string {
   const colors = [
-    "bg-[#2e7d32] text-white",
+    "bg-payroll-primary text-white",
     "bg-emerald-600 text-white",
     "bg-amber-600 text-white",
     "bg-rose-600 text-white",
@@ -90,14 +90,14 @@ export function EmployeeLoansTable({
       {/* Search & Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Search */}
-        <div className="relative min-w-[260px] max-w-sm flex-1">
+        <div className="relative min-w-65 max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by employee, code, loan type…"
-            className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+            className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
           />
         </div>
 
@@ -213,7 +213,7 @@ export function EmployeeLoansTable({
                   {/* Employee with avatar */}
                   <td className="whitespace-nowrap px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-emerald-200/50 bg-emerald-50/70 font-semibold text-emerald-800 text-[10px]">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-payroll-border bg-payroll-cream font-semibold text-payroll-navy text-[10px]">
                         {getInitial(loan.employeeName)}
                       </div>
                       <div>
@@ -257,7 +257,7 @@ export function EmployeeLoansTable({
                     <div className="flex items-center gap-2.5">
                       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
                         <div
-                          className="h-full rounded-full transition-all duration-500 bg-emerald-600"
+                          className="h-full rounded-full transition-all duration-500 bg-payroll-primary"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -300,7 +300,7 @@ export function EmployeeLoansTable({
                             e.stopPropagation();
                             onRecordPayment(loan);
                           }}
-                          className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+                          className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-payroll-primary-light hover:text-payroll-primary"
                           title="Record Payment"
                         >
                           <Banknote className="h-4 w-4" />

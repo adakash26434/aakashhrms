@@ -56,14 +56,14 @@ export function HolidayDetailPanel({
       header={
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-base font-semibold text-[#1b3a1f]">
+            <h2 className="truncate text-base font-semibold text-payroll-navy">
               {holiday?.name ?? ""}
             </h2>
             <button
               type="button"
               onClick={() => holiday && onEdit(holiday)}
               disabled={!holiday}
-              className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-[#f6faf6] hover:text-[#2e7d32] disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-payroll-cream hover:text-payroll-primary disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Edit holiday"
               title="Edit holiday"
             >
@@ -185,7 +185,7 @@ function OverviewRow({
   return (
     <div
       className={cn(
-        "rounded-lg border border-[#d7e8d0]/60 bg-white p-2.5",
+        "rounded-lg border border-payroll-border bg-white p-2.5",
         className,
       )}
     >
@@ -226,13 +226,13 @@ function DateRangeBlock({
   const endADStr = endAD ? formatADDate(endAD, "long") : null;
 
   return (
-    <div className="rounded-lg border border-[#d7e8d0]/60 bg-white p-2.5">
+    <div className="rounded-lg border border-payroll-border bg-white p-2.5">
       <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
         Date Range
       </p>
       <div className="mt-1.5 space-y-1">
         {/* Primary: BS */}
-        <p className="text-xs font-semibold text-[#1b3a1f] tabular-nums">
+        <p className="text-xs font-semibold text-payroll-navy tabular-nums">
           {formatDateRange(bsStart, bsEnd)}
         </p>
         {/* Secondary: BS pretty */}
@@ -243,8 +243,8 @@ function DateRangeBlock({
         )}
         {/* Tertiary: AD */}
         {startADStr && endADStr && (
-          <div className="mt-1 flex items-center gap-1.5 border-t border-[#d7e8d0]/60 pt-1.5 text-[11px] text-gray-500 tabular-nums">
-            <span className="rounded bg-[#f6faf6] px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+          <div className="mt-1 flex items-center gap-1.5 border-t border-payroll-border pt-1.5 text-[11px] text-gray-500 tabular-nums">
+            <span className="rounded bg-payroll-cream px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
               AD
             </span>
             <span>
@@ -277,10 +277,10 @@ function BranchGroup({
       </p>
       {isAll ? (
         <div className="flex items-center gap-1.5">
-          <span className="rounded-md border border-[#2e7d32]/20 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+          <span className="rounded-md border border-payroll-primary/20 bg-payroll-primary-light-2 px-2 py-0.5 text-xs font-medium text-payroll-primary">
             All Branches
           </span>
-          <span className="rounded bg-[#d7e8d0]/60 px-1.5 py-0.5 text-[10px] font-semibold text-[#1b3a1f] tabular-nums">
+          <span className="rounded bg-payroll-primary-light-2 px-1.5 py-0.5 text-[10px] font-semibold text-payroll-navy tabular-nums">
             +{totalCount}
           </span>
         </div>
@@ -289,7 +289,7 @@ function BranchGroup({
           {visible.map((name) => (
             <span
               key={name}
-              className="rounded-md border border-[#d7e8d0] bg-[#f6faf6] px-2 py-0.5 text-xs text-[#1b3a1f]"
+              className="rounded-md border border-payroll-border bg-payroll-cream px-2 py-0.5 text-xs text-payroll-navy"
             >
               {name}
             </span>

@@ -27,6 +27,7 @@ import {
   MapPin,
   ShieldCheck,
   RefreshCw,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitDemoRequestAction } from "@/app/actions/contact.actions";
@@ -191,7 +192,7 @@ export function HomePageClient({
     userScope === "SELF" ? "Go to Self-Service" : "Open Workspace Dashboard";
 
   return (
-    <div className="min-h-screen bg-[#fcfdfc] text-payroll-navy font-sans selection:bg-emerald-200 selection:text-payroll-navy">
+    <div className="min-h-screen bg-white text-payroll-navy font-sans selection:bg-emerald-200 selection:text-payroll-navy">
       {/* 1. Header Navigation */}
       <header className="sticky top-0 z-50 border-b border-payroll-light/80 bg-white/85 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -271,27 +272,20 @@ export function HomePageClient({
       </header>
 
       {/* 2. Hero Section: Light Minimal Backdrop with Soft Green Glow */}
-      <section className="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-32 bg-linear-to-b from-[#eef7f1] via-[#f7faf8] to-[#fbfdfb]">
-        {/* Soft Ambient Radial Aura */}
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(195,237,208,0.55),rgba(240,249,243,0.3)_45%,transparent_80%)]" />
-
-        {/* Soft Ambient Glows */}
-        <div className="pointer-events-none absolute -top-48 left-1/2 -z-10 h-140 w-240 -translate-x-1/2 rounded-full bg-linear-to-b from-emerald-200/50 via-teal-100/35 to-transparent blur-3xl" />
-        <div className="pointer-events-none absolute top-16 -right-10 -z-10 h-112 w-md rounded-full bg-emerald-100/40 blur-3xl" />
-        <div className="pointer-events-none absolute top-28 -left-10 -z-10 h-104 w-104 rounded-full bg-teal-100/35 blur-3xl" />
+      <section className="relative overflow-hidden border-b border-payroll-light bg-white pt-16 pb-20 md:pt-24 md:pb-32">
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
           {/* Top Pill Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/90 px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs">
-            <span className="h-2 w-2 rounded-full bg-[#1e7e47]" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-payroll-border bg-white/90 px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs">
+            <span className="h-2 w-2 rounded-full bg-payroll-primary" />
             <span>Nepal-compliant payroll & workforce management</span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="mt-8 text-4xl sm:text-5xl md:text-[62px] font-bold tracking-[-0.035em] text-[#111827] max-w-4xl mx-auto leading-[1.12]">
+          <h1 className="mt-8 text-4xl sm:text-5xl md:text-[62px] font-bold tracking-[-0.035em] text-payroll-navy max-w-4xl mx-auto leading-[1.12]">
             Payroll, people & compliance —{" "}
-            <span className="text-[#1e6f42]">in</span>
-            <span className="block text-[#1e6f42]">one calm place</span>
+            <span className="text-payroll-primary">in</span>
+            <span className="block text-payroll-primary">one calm place</span>
           </h1>
 
           {/* Subtitle */}
@@ -305,7 +299,7 @@ export function HomePageClient({
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <a
               href="#demo"
-              className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-[#1e7e47] px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#166534] transition-all active:scale-[0.98]"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-payroll-primary px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-payroll-primary-hover transition-all active:scale-[0.98]"
             >
               Request a demo
             </a>
@@ -318,16 +312,16 @@ export function HomePageClient({
           </div>
 
           {/* Feature Highlight Pills */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-xs font-medium text-slate-600">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3.5 py-1 backdrop-blur-xs shadow-xs">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
               <Check className="h-3.5 w-3.5 text-emerald-600" />
               Bikram Sambat aware
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3.5 py-1 backdrop-blur-xs shadow-xs">
+            <span className="inline-flex items-center gap-1.5">
               <Check className="h-3.5 w-3.5 text-emerald-600" />
               PF · SSF · CIT · TDS
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3.5 py-1 backdrop-blur-xs shadow-xs">
+            <span className="inline-flex items-center gap-1.5">
               <Check className="h-3.5 w-3.5 text-emerald-600" />
               IRD-ready reports
             </span>
@@ -352,14 +346,14 @@ export function HomePageClient({
             </div>
 
             {/* Dashboard Workspace */}
-            <div className="flex bg-[#fcfdfc]">
+            <div className="flex bg-white">
               {/* Left Slim Sidebar */}
               <div className="w-14 shrink-0 border-r border-slate-100 bg-white p-3 flex flex-col items-center gap-5">
-                <div className="h-9 w-9 rounded-xl bg-[#1e7e47] flex items-center justify-center text-white shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-payroll-primary flex items-center justify-center text-white shadow-xs">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col items-center gap-3 text-slate-400">
-                  <div className="p-2 rounded-lg bg-emerald-50 text-[#1e7e47]">
+                  <div className="p-2 rounded-lg bg-payroll-primary-light text-payroll-primary">
                     <Activity className="h-4 w-4" />
                   </div>
                   <div className="p-2 rounded-lg hover:bg-slate-50 hover:text-slate-600">
@@ -381,78 +375,82 @@ export function HomePageClient({
               </div>
 
               {/* Main Content Area */}
-              <div className="flex-1 p-5 sm:p-7 space-y-6">
+              <div className="flex-1 p-4 sm:p-6 space-y-5 bg-white">
                 {/* Dashboard Header Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-                      Dashboard
+                    <h2 className="text-lg font-semibold text-slate-950 tracking-tight">
+                      Payroll & Workforce Overview
                     </h2>
                     <p className="text-xs text-slate-500 font-medium">
-                      Mangsir 2081 · Nov 16 - Dec 15
+                      Mangsir 2081 · Operations, compliance, and payroll cycle status
                     </p>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs">
-                      <span>▾ This month</span>
+                      <span>▾ Mangsir 2081</span>
                     </div>
-                    <button className="flex items-center gap-1 rounded-lg bg-[#1e7e47] hover:bg-[#166534] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors">
-                      <span>+ Generate payslip</span>
+                    <button className="flex items-center gap-1 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors">
+                      <span>Review payroll</span>
                     </button>
                   </div>
                 </div>
 
                 {/* 4 Stat Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="grid grid-cols-2 divide-x divide-zinc-200 border-y border-zinc-200 py-2 lg:grid-cols-4">
                   {/* Card 1 */}
-                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
-                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      TOTAL EMPLOYEES
+                  <div className="p-3 text-left">
+                    <p className="text-[10px] font-medium text-zinc-500">
+                      Active workforce
                     </p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
+                    <p className="mt-2 text-2xl font-semibold text-slate-950 tracking-tight font-mono">
                       1,284
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                      <span>↑ +18 this month</span>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-800">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>Active registered personnel</span>
                     </div>
                   </div>
 
                   {/* Card 2 */}
-                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
-                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      PAYROLL LIABILITY
+                  <div className="p-3 text-left">
+                    <p className="text-[10px] font-medium text-zinc-500">
+                      Present today
                     </p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
-                      NPR 8.42 Cr
+                    <p className="mt-2 text-2xl font-semibold text-slate-950 tracking-tight font-mono">
+                      1,238
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                      <span>↑ +2.1% vs Kartik</span>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-800">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>96.4% attendance rate</span>
                     </div>
                   </div>
 
                   {/* Card 3 */}
-                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
-                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      COMPLIANCE HEALTH
+                  <div className="p-3 text-left">
+                    <p className="text-[10px] font-medium text-zinc-500">
+                      Pending approvals
                     </p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
-                      96.4%
+                    <p className="mt-2 text-2xl font-semibold text-slate-950 tracking-tight font-mono">
+                      09
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                      <span>↑ +1.2 pts MoM</span>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-amber-700">
+                      <Activity className="h-3 w-3" />
+                      <span>Leave & loan requests</span>
                     </div>
                   </div>
 
                   {/* Card 4 */}
-                  <div className="rounded-xl border border-slate-200/80 bg-white p-4 text-center">
-                    <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      PENDING APPROVALS
+                  <div className="p-3 text-left">
+                    <p className="text-[10px] font-medium text-zinc-500">
+                      Monthly payroll
                     </p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 tracking-tight">
-                      27
+                    <p className="mt-2 text-2xl font-semibold text-slate-950 tracking-tight font-mono">
+                      NPR 8.42 Cr
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                      <span>↑ 9 high priority</span>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-800">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>Active cycle gross</span>
                     </div>
                   </div>
                 </div>
@@ -499,12 +497,12 @@ export function HomePageClient({
                           >
                             <stop
                               offset="0%"
-                              stopColor="#2e7d32"
+                              stopColor="#1B6B54"
                               stopOpacity="0.25"
                             />
                             <stop
                               offset="100%"
-                              stopColor="#2e7d32"
+                              stopColor="#1B6B54"
                               stopOpacity="0.01"
                             />
                           </linearGradient>
@@ -572,11 +570,11 @@ export function HomePageClient({
                           d="M 35,58 C 110,56 180,54 260,50 C 330,48 370,44 410,42 L 410,115 L 35,115 Z"
                           fill="url(#grossGradient)"
                         />
-                        {/* Gross Line (Dark Green) */}
+                        {/* Gross Line (Primary Green) */}
                         <path
                           d="M 35,58 C 110,56 180,54 260,50 C 330,48 370,44 410,42"
                           fill="none"
-                          stroke="#1b5e20"
+                          stroke="#1B6B54"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                         />
@@ -633,7 +631,7 @@ export function HomePageClient({
                             cy="18"
                             r="14"
                             fill="none"
-                            stroke="#1e7e47"
+                            stroke="#1B6B54"
                             strokeWidth="4"
                             strokeDasharray="31 88"
                             strokeDashoffset="0"
@@ -686,7 +684,7 @@ export function HomePageClient({
                       <div className="space-y-2 text-xs">
                         <div className="flex items-center justify-between gap-4">
                           <span className="flex items-center gap-1.5 text-slate-600 font-medium">
-                            <span className="h-2 w-2 rounded-full bg-[#1e7e47]" />
+                            <span className="h-2 w-2 rounded-full bg-payroll-primary" />
                             Engineering
                           </span>
                           <span className="font-bold text-slate-800">312</span>
@@ -721,10 +719,10 @@ export function HomePageClient({
                 <div className="rounded-xl border border-slate-200/80 bg-white p-5">
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Payroll approval pipeline
+                      Payroll Operations
                     </h3>
                     <span className="text-xs text-slate-500 font-medium">
-                      Mangsir cycle · In review
+                      Mangsir payroll · In progress
                     </span>
                   </div>
 
@@ -736,7 +734,7 @@ export function HomePageClient({
                         <Check className="h-3.5 w-3.5" />
                       </div>
                       <span className="text-[11px] font-medium text-slate-700">
-                        Draft
+                        Attendance locked
                       </span>
                     </div>
                     {/* Connecting Line 1-2 */}
@@ -748,7 +746,7 @@ export function HomePageClient({
                         <Check className="h-3.5 w-3.5" />
                       </div>
                       <span className="text-[11px] font-medium text-slate-700">
-                        Validation
+                        Payroll calculated
                       </span>
                     </div>
                     {/* Connecting Line 2-3 */}
@@ -760,7 +758,7 @@ export function HomePageClient({
                         <Check className="h-3.5 w-3.5" />
                       </div>
                       <span className="text-[11px] font-medium text-slate-700">
-                        HR Review
+                        Review &amp; approve
                       </span>
                     </div>
                     {/* Connecting Line 3-4 */}
@@ -772,7 +770,7 @@ export function HomePageClient({
                         4
                       </div>
                       <span className="text-[11px] font-bold text-payroll-primary-hover">
-                        Finance
+                        Payment
                       </span>
                     </div>
                     {/* Connecting Line 4-5 */}
@@ -784,7 +782,7 @@ export function HomePageClient({
                         5
                       </div>
                       <span className="text-[11px] font-medium text-slate-400">
-                        Locked
+                        Disbursed
                       </span>
                     </div>
                   </div>
@@ -814,9 +812,9 @@ export function HomePageClient({
             </p>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="mt-14 grid grid-cols-1 gap-x-12 lg:grid-cols-2">
             {/* Card 1 */}
-            <div className="group rounded-2xl border border-payroll-light bg-payroll-cream/50 p-6 hover:bg-white hover:border-payroll-primary/30 hover:shadow-lg transition-all">
+            <div className="group border-b border-payroll-light bg-transparent py-7 first:pt-0 transition-colors hover:bg-payroll-cream/40 lg:even:border-l lg:even:pl-10">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary group-hover:bg-payroll-primary group-hover:text-white transition-colors">
                 <Calculator className="h-5 w-5" />
               </div>
@@ -844,7 +842,7 @@ export function HomePageClient({
             </div>
 
             {/* Card 2 */}
-            <div className="group rounded-2xl border border-payroll-light bg-payroll-cream/50 p-6 hover:bg-white hover:border-payroll-primary/30 hover:shadow-lg transition-all">
+            <div className="group border-b border-payroll-light bg-transparent py-7 transition-colors hover:bg-payroll-cream/40 lg:odd:pr-10">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                 <CalendarRange className="h-5 w-5" />
               </div>
@@ -873,7 +871,7 @@ export function HomePageClient({
             </div>
 
             {/* Card 3 */}
-            <div className="group rounded-2xl border border-payroll-light bg-payroll-cream/50 p-6 hover:bg-white hover:border-payroll-primary/30 hover:shadow-lg transition-all">
+            <div className="group border-b border-payroll-light bg-transparent py-7 transition-colors hover:bg-payroll-cream/40 lg:even:border-l lg:even:pl-10">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                 <Wallet className="h-5 w-5" />
               </div>
@@ -901,7 +899,7 @@ export function HomePageClient({
             </div>
 
             {/* Card 4 */}
-            <div className="group rounded-2xl border border-payroll-light bg-payroll-cream/50 p-6 hover:bg-white hover:border-payroll-primary/30 hover:shadow-lg transition-all">
+            <div className="group border-b border-payroll-light bg-transparent py-7 transition-colors hover:bg-payroll-cream/40 lg:odd:pr-10">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
                 <Lock className="h-5 w-5" />
               </div>
@@ -953,8 +951,8 @@ export function HomePageClient({
                 out-of-the-box.
               </p>
 
-              <div className="space-y-3 pt-2">
-                <div className="flex items-start gap-3 rounded-xl border border-payroll-light bg-white p-3.5">
+              <div className="pt-2">
+                <div className="flex items-start gap-3 border-b border-payroll-light py-4 first:pt-0">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs">
                     IRD
                   </div>
@@ -969,7 +967,7 @@ export function HomePageClient({
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-xl border border-payroll-light bg-white p-3.5">
+                <div className="flex items-start gap-3 border-b border-payroll-light py-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-800 font-bold text-xs">
                     SSF
                   </div>
@@ -984,7 +982,7 @@ export function HomePageClient({
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 rounded-xl border border-payroll-light bg-white p-3.5">
+                <div className="flex items-start gap-3 py-4 last:pb-0">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-800 font-bold text-xs">
                     CIT
                   </div>
@@ -1081,8 +1079,8 @@ export function HomePageClient({
             </p>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="relative rounded-2xl border border-payroll-light bg-payroll-cream/40 p-6 flex flex-col justify-between">
+          <div className="mt-14 grid grid-cols-1 border-y border-payroll-light md:grid-cols-4">
+            <div className="relative flex flex-col justify-between border-b border-payroll-light bg-transparent p-6 md:border-b-0 md:border-r">
               <div>
                 <span className="text-xs font-extrabold text-payroll-primary">
                   STEP 01
@@ -1101,7 +1099,7 @@ export function HomePageClient({
               </div>
             </div>
 
-            <div className="relative rounded-2xl border border-payroll-light bg-payroll-cream/40 p-6 flex flex-col justify-between">
+            <div className="relative flex flex-col justify-between border-b border-payroll-light bg-transparent p-6 md:border-b-0 md:border-r">
               <div>
                 <span className="text-xs font-extrabold text-blue-600">
                   STEP 02
@@ -1120,7 +1118,7 @@ export function HomePageClient({
               </div>
             </div>
 
-            <div className="relative rounded-2xl border border-payroll-light bg-payroll-cream/40 p-6 flex flex-col justify-between">
+            <div className="relative flex flex-col justify-between border-b border-payroll-light bg-transparent p-6 md:border-b-0 md:border-r">
               <div>
                 <span className="text-xs font-extrabold text-emerald-600">
                   STEP 03
@@ -1139,7 +1137,7 @@ export function HomePageClient({
               </div>
             </div>
 
-            <div className="relative rounded-2xl border border-payroll-light bg-payroll-cream/40 p-6 flex flex-col justify-between">
+            <div className="relative flex flex-col justify-between bg-transparent p-6">
               <div>
                 <span className="text-xs font-extrabold text-purple-600">
                   STEP 04
@@ -1170,7 +1168,7 @@ export function HomePageClient({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
             {/* Left Column: Heading & Value Props */}
             <div className="lg:col-span-5 space-y-5">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#1e7e47]">
+              <span className="text-xs font-bold uppercase tracking-wider text-payroll-primary">
                 GET STARTED
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -1323,7 +1321,7 @@ export function HomePageClient({
                           <div className="pt-2 max-w-md mx-auto">
                             <a
                               href={demoResponse.mailtoUrl}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1e7e47] hover:bg-[#166534] px-5 py-3 text-xs font-semibold text-white shadow-xs transition-colors w-full"
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover px-5 py-3 text-xs font-semibold text-white shadow-xs transition-colors w-full"
                             >
                               <Mail className="h-4 w-4" />
                               <span>
@@ -1382,7 +1380,7 @@ export function HomePageClient({
                             "w-full rounded-lg border px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
                             formErrors.fullName
                               ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
-                              : "border-slate-200 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                              : "border-slate-200 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary",
                           )}
                         />
                         {formErrors.fullName && (
@@ -1409,7 +1407,7 @@ export function HomePageClient({
                             "w-full rounded-lg border px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
                             formErrors.email
                               ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
-                              : "border-slate-200 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                              : "border-slate-200 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary",
                           )}
                         />
                         {formErrors.email && (
@@ -1441,7 +1439,7 @@ export function HomePageClient({
                           "w-full rounded-lg border px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
                           formErrors.companyName
                             ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
-                            : "border-slate-200 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                            : "border-slate-200 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary",
                         )}
                       />
                       {formErrors.companyName && (
@@ -1464,7 +1462,7 @@ export function HomePageClient({
                               teamSize: e.target.value,
                             })
                           }
-                          className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47] focus:outline-none transition-all cursor-pointer"
+                          className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-all cursor-pointer"
                         >
                           <option value="">Select size</option>
                           <option value="1-20">1 – 20 employees</option>
@@ -1487,8 +1485,8 @@ export function HomePageClient({
                           }}
                           hasError={!!formErrors.phone}
                           placeholder="98XXXXXXXX"
-                          className="h-10 rounded-lg border-slate-200 bg-white text-xs text-slate-900 focus:ring-1 focus:ring-[#1e7e47] focus:border-[#1e7e47]"
-                          selectClassName="h-10 rounded-lg border-slate-200 bg-white text-xs font-medium text-slate-800 focus:ring-1 focus:ring-[#1e7e47] focus:border-[#1e7e47]"
+                          className="h-10 rounded-lg border-slate-200 bg-white text-xs text-slate-900 focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
+                          selectClassName="h-10 rounded-lg border-slate-200 bg-white text-xs font-medium text-slate-800 focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                         />
                         {formErrors.phone && (
                           <p className="mt-1 text-[11px] font-medium text-rose-600">
@@ -1509,7 +1507,7 @@ export function HomePageClient({
                         onChange={(e) =>
                           setDemoForm({ ...demoForm, message: e.target.value })
                         }
-                        className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47] focus:outline-none transition-all resize-none"
+                        className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-all resize-none"
                       />
                     </div>
 
@@ -1517,7 +1515,7 @@ export function HomePageClient({
                     <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3.5 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                          <ShieldCheck className="h-4 w-4 text-[#1e7e47]" />
+                          <ShieldCheck className="h-4 w-4 text-payroll-primary" />
                           <span>Security Check</span>
                           <span className="text-[10px] font-normal text-slate-500">
                             (Anti-bot verification)
@@ -1526,7 +1524,7 @@ export function HomePageClient({
                         <button
                           type="button"
                           onClick={generateCaptcha}
-                          className="text-[11px] text-slate-500 hover:text-[#1e7e47] flex items-center gap-1 transition-colors cursor-pointer"
+                          className="text-[11px] text-slate-500 hover:text-payroll-primary flex items-center gap-1 transition-colors cursor-pointer"
                           title="Generate new question"
                         >
                           <RefreshCw className="h-3 w-3" />
@@ -1557,7 +1555,7 @@ export function HomePageClient({
                               "w-full rounded-lg border px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all",
                               formErrors.captchaAnswer
                                 ? "border-rose-400 bg-rose-50/20 focus:ring-1 focus:ring-rose-400"
-                                : "border-slate-200 bg-white focus:border-[#1e7e47] focus:ring-1 focus:ring-[#1e7e47]",
+                                : "border-slate-200 bg-white focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary",
                             )}
                           />
                         </div>
@@ -1589,7 +1587,7 @@ export function HomePageClient({
                     <button
                       type="submit"
                       disabled={isSubmittingDemo}
-                      className="w-full rounded-xl bg-[#1e7e47] hover:bg-[#166534] disabled:opacity-60 text-white py-3.5 text-sm font-semibold shadow-sm transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full rounded-xl bg-payroll-primary hover:bg-payroll-primary-hover disabled:opacity-60 text-white py-3.5 text-sm font-semibold shadow-sm transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                     >
                       {isSubmittingDemo ? (
                         <span>Sending request to {CONTACT_EMAIL}...</span>
@@ -1758,7 +1756,7 @@ export function HomePageClient({
           {/* Bottom Divider and Copyright Bar */}
           <div className="mt-8 border-t border-emerald-900/60 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-emerald-100/60 text-[11px]">
             <p>© 2026 Aakash HRMS. All rights reserved.</p>
-            <p className="font-medium text-emerald-100/80">Made in Nepal 🇳🇵</p>
+            <p className="font-medium text-emerald-100/80">Powered by Aakash Digital Pvt Ltd</p>
           </div>
         </div>
       </footer>

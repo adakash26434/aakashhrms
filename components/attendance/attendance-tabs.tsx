@@ -22,7 +22,7 @@ export function AttendanceTabs({ active, allCount, presentCount, absentCount, la
   ];
 
   return (
-    <div className="flex items-center gap-2 border-b border-[#d7e8d0] pb-2 overflow-x-auto">
+    <div className="flex items-center gap-2 border-b border-payroll-border pb-2 overflow-x-auto">
       {tabs.map((t) => {
         const isSelected = active === t.id;
         return (
@@ -30,7 +30,7 @@ export function AttendanceTabs({ active, allCount, presentCount, absentCount, la
             key={t.id}
             onClick={() => onChange(t.id)}
             className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              isSelected ? "bg-[#2e7d32] text-white shadow-sm" : "bg-[#f6faf6] text-gray-600 hover:bg-[#d7e8d0]/50"
+              isSelected ? "bg-payroll-primary text-white shadow-sm" : "bg-payroll-cream text-gray-600 hover:bg-payroll-primary-light-2"
             }`}
           >
             <span>{t.label}</span>

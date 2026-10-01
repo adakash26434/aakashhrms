@@ -144,7 +144,7 @@ export function UserDelegationDialog({
 
         {/* Proxy User Dropdown */}
         <div>
-          <label className="block text-xs font-semibold text-[#1b3a1f] uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-semibold text-payroll-navy uppercase tracking-wider mb-1.5">
             Delegate Proxy User
           </label>
           <div className="relative">
@@ -152,7 +152,7 @@ export function UserDelegationDialog({
             <select
               value={delegatedToUserId}
               onChange={(e) => setDelegatedToUserId(e.target.value)}
-              className="w-full rounded-lg border border-[#d7e8d0] pl-9 pr-3 py-2 text-sm outline-none bg-white focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+              className="w-full rounded-lg border border-payroll-border pl-9 pr-3 py-2 text-sm outline-none bg-white focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             >
               <option value="">-- Select Proxy User (No Delegation) --</option>
               {availableProxyUsers.map((u) => (
@@ -169,7 +169,7 @@ export function UserDelegationDialog({
 
         {/* Expiration Date */}
         <div>
-          <label className="block text-xs font-semibold text-[#1b3a1f] uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-semibold text-payroll-navy uppercase tracking-wider mb-1.5">
             Delegation Expiration Date (Until)
           </label>
           <div className="relative">
@@ -179,7 +179,7 @@ export function UserDelegationDialog({
               value={delegatedUntil}
               onChange={(e) => setDelegatedUntil(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
-              className="w-full rounded-lg border border-[#d7e8d0] pl-9 pr-3 py-2 text-sm outline-none bg-white focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+              className="w-full rounded-lg border border-payroll-border pl-9 pr-3 py-2 text-sm outline-none bg-white focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
           <p className="mt-1 text-[11px] text-gray-500">

@@ -75,7 +75,7 @@ export function UserResendInvitationDialog({
             <Button
               onClick={handleIssueInvitation}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              className="bg-payroll-primary hover:bg-payroll-primary-hover text-white gap-1.5"
             >
               {loading ? (
                 <>
@@ -110,7 +110,7 @@ export function UserResendInvitationDialog({
             <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-400">User Account:</span>
-                <span className="font-semibold text-[#1b3a1f]">{user.name || "—"}</span>
+                <span className="font-semibold text-payroll-navy">{user.name || "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Login Email:</span>

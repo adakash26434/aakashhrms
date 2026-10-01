@@ -203,7 +203,7 @@ export function LoanClient({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1b3a1f]">Loan Management</h1>
+          <h1 className="text-2xl font-bold text-payroll-navy">Loan Management</h1>
           <p className="mt-1 text-sm text-gray-500">
             Staff loan disbursement, EMI scheduling, repayment tracking, and running balance across all branches.
           </p>
@@ -252,7 +252,7 @@ export function LoanClient({
           onClick={() => setActiveTab("loans")}
           className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
             activeTab === "loans"
-              ? "bg-white text-[#1b3a1f] shadow-sm"
+              ? "bg-white text-payroll-navy shadow-sm"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -263,7 +263,7 @@ export function LoanClient({
           onClick={() => setActiveTab("types")}
           className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
             activeTab === "types"
-              ? "bg-white text-[#1b3a1f] shadow-sm"
+              ? "bg-white text-payroll-navy shadow-sm"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -309,7 +309,7 @@ export function LoanClient({
               <div>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-zinc-500">Active policies</p>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                  <CheckCircle2 className="h-4 w-4 text-payroll-primary" />
                 </div>
                 <div className="mt-2.5">
                   <span className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950 tabular-nums font-sans">

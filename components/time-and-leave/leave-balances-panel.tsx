@@ -217,14 +217,14 @@ export function LeaveBalancesPanel({
                 placeholder="Search employee, code, department..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
+                className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-colors"
               />
             </div>
             {departments.length > 0 && (
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer"
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 shadow-2xs focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
               >
                 <option value="all">All Departments</option>
                 {departments.map((d) => (
@@ -238,7 +238,7 @@ export function LeaveBalancesPanel({
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer"
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 shadow-2xs focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer"
               >
                 <option value="all">All Leave Types</option>
                 {leaveTypes.map((t) => (

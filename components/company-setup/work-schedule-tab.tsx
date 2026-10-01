@@ -85,7 +85,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
           type="button"
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
-          className="bg-emerald-800 hover:bg-emerald-900 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-auto shrink-0 transition-colors"
+          className="bg-payroll-primary hover:bg-payroll-primary-hover text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-auto shrink-0 transition-colors"
         >
           <Save className="h-3.5 w-3.5 mr-1.5" />
           <span>{isSaving ? "Saving..." : "Save changes"}</span>
@@ -120,7 +120,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 className={cn(
                   "flex flex-col items-start justify-between p-3 rounded-lg border text-left transition-colors cursor-pointer select-none",
                   isOff
-                    ? "border-emerald-800 bg-emerald-50/60 text-emerald-950 font-semibold"
+                    ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-semibold"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                 )}
               >
@@ -130,7 +130,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                     className={cn(
                       "flex h-4 w-4 items-center justify-center rounded border",
                       isOff
-                        ? "bg-emerald-800 border-emerald-800 text-white"
+                        ? "bg-payroll-primary border-payroll-primary text-white"
                         : "border-slate-300 bg-white"
                     )}
                   >
@@ -172,7 +172,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 setFormData({ ...formData, coreStartTime: e.target.value });
                 setHasChanges(true);
               }}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -187,7 +187,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 setFormData({ ...formData, coreEndTime: e.target.value });
                 setHasChanges(true);
               }}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -202,7 +202,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 setFormData({ ...formData, winterStartTime: e.target.value });
                 setHasChanges(true);
               }}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -217,7 +217,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 setFormData({ ...formData, winterEndTime: e.target.value });
                 setHasChanges(true);
               }}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
         </div>
@@ -251,7 +251,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 setFormData({ ...formData, gracePeriodMinutes: Number(e.target.value) || 0 });
                 setHasChanges(true);
               }}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
             <p className="text-[11px] text-slate-400">
               Check-in delays within this window do not record a penalty.
@@ -271,7 +271,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                 setFormData({ ...formData, halfDayThresholdHours: Number(e.target.value) || 4 });
                 setHasChanges(true);
               }}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
             <p className="text-[11px] text-slate-400">
               Minimum working hours required to record half-day attendance.

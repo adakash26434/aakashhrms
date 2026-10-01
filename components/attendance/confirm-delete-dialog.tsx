@@ -42,7 +42,7 @@ export function ConfirmDeleteDialog({
           <AlertTriangle className="h-6 w-6 text-red-500" />
         </div>
         <div>
-          <p className="text-sm font-bold text-[#1b3a1f]">{title}</p>
+          <p className="text-sm font-bold text-payroll-navy">{title}</p>
           <p className="mt-2 text-xs text-gray-500 leading-relaxed">{description}</p>
         </div>
       </div>

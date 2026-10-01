@@ -152,7 +152,7 @@ export function PayslipDetailModal({
           <Button
             size="sm"
             onClick={onClose}
-            className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-none"
+            className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs shadow-none cursor-pointer"
           >
             Close Statement
           </Button>
@@ -161,7 +161,7 @@ export function PayslipDetailModal({
     >
       {loading ? (
         <div className="py-16 text-center text-xs text-zinc-500">
-          <Loader2 className="w-6 h-6 animate-spin text-emerald-700 mx-auto mb-2" />
+          <Loader2 className="w-6 h-6 animate-spin text-payroll-primary mx-auto mb-2" />
           <span>Generating salary breakdown...</span>
         </div>
       ) : error ? (

@@ -53,7 +53,7 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search pay head..."
-              className="h-8 w-44 rounded-md border border-zinc-200 bg-white pl-8 pr-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-700 focus:outline-none transition-colors"
+              className="h-8 w-44 rounded-md border border-zinc-200 bg-white pl-8 pr-2.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors"
             />
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
           </div>

@@ -405,10 +405,10 @@ export function NepaliDatePicker({
         className={cn(
           "relative flex items-center h-10 rounded-md border border-zinc-200 bg-white transition-colors text-zinc-900",
           isOpen
-            ? "border-emerald-700 ring-1 ring-emerald-700"
+            ? "border-payroll-primary ring-1 ring-payroll-primary"
             : error
               ? "border-red-500 bg-red-50/20 focus-within:ring-1 focus-within:ring-red-500"
-              : "hover:border-zinc-300 focus-within:border-emerald-700 focus-within:ring-1 focus-within:ring-emerald-700",
+              : "hover:border-zinc-300 focus-within:border-payroll-primary focus-within:ring-1 focus-within:ring-payroll-primary",
           disabled && "cursor-not-allowed bg-zinc-50 opacity-70",
         )}
       >
@@ -447,7 +447,7 @@ export function NepaliDatePicker({
                   return `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)} (${BS_MONTHS_EN[bs.month] || bs.monthName})`;
                 })()}`}
           </span>
-          <span className="text-[10px] uppercase font-bold text-[#1e7e47] tracking-wider">
+          <span className="text-[10px] uppercase font-bold text-payroll-primary tracking-wider">
             {isBS ? "B.S. Calendar" : "A.D. Calendar"}
           </span>
         </div>
@@ -468,7 +468,7 @@ export function NepaliDatePicker({
           style={{ minWidth: "272px" }}
         >
           {/* Header Bar */}
-          <div className="rounded-md bg-[#1e7e47] px-2.5 py-1.5 flex items-center justify-between text-white shadow-xs">
+          <div className="rounded-md bg-payroll-primary px-2.5 py-1.5 flex items-center justify-between text-white shadow-xs">
             {/* Previous Month Arrow Button */}
             <button
               type="button"
@@ -554,9 +554,9 @@ export function NepaliDatePicker({
                   className={cn(
                     "h-7 w-full flex items-center justify-center rounded-sm text-xs font-medium transition-all cursor-pointer select-none",
                     selected
-                      ? "bg-[#1e7e47] text-white font-bold shadow-xs z-10"
+                      ? "bg-payroll-primary text-white font-bold shadow-xs z-10"
                       : "hover:bg-slate-100 text-slate-800",
-                    isToday && !selected && "ring-1.5 ring-[#1e7e47] font-bold text-[#1e7e47]",
+                    isToday && !selected && "ring-1.5 ring-payroll-primary font-bold text-payroll-primary",
                   )}
                 >
                   {day}

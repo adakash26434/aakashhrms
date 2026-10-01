@@ -51,7 +51,7 @@ export function DepartmentSearch({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search departments..."
-          className="h-9 w-full rounded-lg border border-zinc-200 bg-white py-2 pl-10 pr-3 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
+          className="h-9 w-full rounded-lg border border-zinc-200 bg-white py-2 pl-10 pr-3 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-colors"
         />
       </div>
 
@@ -70,7 +70,7 @@ export function DepartmentSearch({
               onClick={toggle}
               aria-haspopup="listbox"
               aria-expanded={open}
-              className="inline-flex h-9 items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 hover:bg-zinc-50 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-2xs min-w-45 transition-colors cursor-pointer"
+              className="inline-flex h-9 items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 hover:bg-zinc-50 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-2xs min-w-45 transition-colors cursor-pointer"
             >
               <span className="truncate">
                 {selected?.label ?? selectedLabel}

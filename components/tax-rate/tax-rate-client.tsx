@@ -310,7 +310,7 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
           <div className="mt-5">
             <a
               href="/setup/company-setup?section=fiscal_year"
-              className="inline-flex items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-emerald-800"
+              className="inline-flex items-center justify-center rounded-lg bg-payroll-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-payroll-primary-hover cursor-pointer"
             >
               Set Up Fiscal Years
             </a>
@@ -353,7 +353,7 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
                   onClick={toggle}
                   aria-haspopup="listbox"
                   aria-expanded={open}
-                  className="h-9 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 shadow-xs transition-colors hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-800 cursor-pointer"
+                  className="h-9 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 shadow-xs transition-colors hover:bg-slate-50 focus:outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary cursor-pointer"
                 >
                   <span className="text-slate-400">Fiscal year:</span>
                   <span className="font-semibold text-slate-900">
@@ -387,7 +387,7 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
                 onClick={toggle}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                className="h-9 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 shadow-xs transition-colors hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-800 cursor-pointer"
+                className="h-9 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 shadow-xs transition-colors hover:bg-slate-50 focus:outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary cursor-pointer"
               >
                 <span className="text-slate-400">Fiscal year:</span>
                 <span className="font-semibold text-slate-900">

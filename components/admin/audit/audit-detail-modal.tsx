@@ -29,15 +29,15 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
       size="xl"
       className="p-0 overflow-hidden"
     >
-      <div className="p-6 space-y-5 text-xs text-[#1b3a1f]">
+      <div className="p-6 space-y-5 text-xs text-payroll-navy">
         {/* Top Header Information Grid (Matches Image 3) */}
-        <div className="grid grid-cols-2 gap-y-4 gap-x-6 border-b border-[#d7e8d0]/60 pb-5">
+        <div className="grid grid-cols-2 gap-y-4 gap-x-6 border-b border-payroll-border pb-5">
           {/* USER & TIMESTAMP */}
           <div>
             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
               USER
             </span>
-            <div className="font-bold text-sm text-[#1b3a1f]">
+            <div className="font-bold text-sm text-payroll-navy">
               {log.userName || log.userEmail?.split("@")[0] || "System Administrator"}
             </div>
             <div className="text-xs text-gray-500">
@@ -59,7 +59,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
               ACTION
             </span>
-            <span className="inline-flex items-center rounded-full bg-green-50 text-[#2e7d32] px-2.5 py-0.5 text-xs font-semibold uppercase">
+            <span className="inline-flex items-center rounded-full bg-payroll-primary-light-2 text-payroll-primary px-2.5 py-0.5 text-xs font-semibold uppercase">
               {log.action}
             </span>
           </div>
@@ -79,14 +79,14 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">
                 MODULE
               </span>
-              <span className="font-medium text-sm text-[#1b3a1f]">{log.module}</span>
+              <span className="font-medium text-sm text-payroll-navy">{log.module}</span>
             </div>
 
             <div>
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">
                 RECORD
               </span>
-              <span className="font-medium text-sm text-[#1b3a1f]">{recordDisplay}</span>
+              <span className="font-medium text-sm text-payroll-navy">{recordDisplay}</span>
             </div>
           </div>
         </div>
@@ -111,7 +111,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
 
           {/* NEW VALUES (Soft Blue Card) */}
           <div>
-            <span className="text-xs font-bold text-[#2e7d32] uppercase tracking-wider block mb-1.5">
+            <span className="text-xs font-bold text-payroll-primary uppercase tracking-wider block mb-1.5">
               NEW VALUES
             </span>
             <div className="rounded-xl border border-green-100 bg-green-50/60 p-4 text-green-950 font-mono text-xs leading-relaxed">
@@ -127,11 +127,11 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
         </div>
 
         {/* IP ADDRESS Footer */}
-        <div className="pt-2 border-t border-[#d7e8d0]/60">
+        <div className="pt-2 border-t border-payroll-border">
           <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
             IP ADDRESS
           </span>
-          <span className="font-mono text-xs font-bold text-[#1b3a1f]">
+          <span className="font-mono text-xs font-bold text-payroll-navy">
             {log.ipAddress || "103.90.84.12"}
           </span>
         </div>

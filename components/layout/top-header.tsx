@@ -113,7 +113,7 @@ export function TopHeader({
           <input
             type="search"
             placeholder="Search employees, payroll runs, leaves..."
-            className="w-full rounded-md border border-zinc-200 bg-zinc-50/50 py-1.5 pl-8.5 pr-14 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-all shadow-2xs"
+            className="w-full rounded-md border border-zinc-200 bg-zinc-50/50 py-1.5 pl-8.5 pr-14 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-2xs"
           />
           <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[9px] font-mono text-zinc-400">
             ⌘K

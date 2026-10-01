@@ -78,7 +78,7 @@ export function EmployeeFilters({
             placeholder="Search name, code, email, PAN..."
             value={filters.search}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="h-9 w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 shadow-2xs transition-colors focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
+            className="h-9 w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-9 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 shadow-2xs transition-colors focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
           />
         </div>
 
@@ -221,7 +221,7 @@ function FilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 shadow-2xs transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer"
+        className="flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 shadow-2xs transition-colors hover:bg-zinc-50 focus:outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary cursor-pointer"
       >
         <span className="truncate max-w-36">{selected?.label ?? label}</span>
         <ChevronDown
@@ -260,7 +260,7 @@ function FilterDropdown({
                   )}
                 >
                   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {isSelected && <Check className="h-3 w-3 text-emerald-800" />}
+                    {isSelected && <Check className="h-3 w-3 text-payroll-primary" />}
                   </span>
                   <span className="truncate">{opt.label}</span>
                 </button>

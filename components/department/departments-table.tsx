@@ -64,7 +64,7 @@ export function DepartmentsTable({
       <div className="px-5 py-12 text-center text-sm text-gray-500">
         No departments match the current filter. Adjust the search or
         branch filter, or click{" "}
-        <span className="font-medium text-[#1b3a1f]">Add Department</span>{" "}
+        <span className="font-medium text-payroll-navy">Add Department</span>{" "}
         to create one.
       </div>
     );

@@ -36,7 +36,7 @@ export function PayHeadSearchAndTabs({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search by name or code..."
-          className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-800 focus:ring-1 focus:ring-emerald-800 focus:outline-none shadow-xs"
+          className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none shadow-xs"
         />
       </div>
 

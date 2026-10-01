@@ -269,7 +269,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
           type="button"
           onClick={handleSaveTier2}
           disabled={isSaving || !hasChanges}
-          className="bg-emerald-800 hover:bg-emerald-900 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-auto shrink-0 transition-colors"
+          className="bg-payroll-primary hover:bg-payroll-primary-hover text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg self-start sm:self-auto shrink-0 transition-colors"
         >
           <Save className="h-3.5 w-3.5 mr-1.5" />
           <span>{isSaving ? "Saving..." : "Save changes"}</span>
@@ -414,7 +414,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 setHasChanges(true);
               }}
               placeholder="e.g. Acme Tech Solutions"
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -430,7 +430,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 setHasChanges(true);
               }}
               placeholder="info@company.com"
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -446,7 +446,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 setHasChanges(true);
               }}
               placeholder="+977-1-4XXXXXX"
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -462,7 +462,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 setHasChanges(true);
               }}
               placeholder="https://example.com/logo.png"
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
         </div>
@@ -501,7 +501,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                   setFormData({ ...formData, signatory1Name: e.target.value });
                   setHasChanges(true);
                 }}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
 
@@ -517,14 +517,14 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                   setFormData({ ...formData, signatory1Title: e.target.value });
                   setHasChanges(true);
                 }}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
           </div>
 
           <div className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
-              <CheckCircle2 className="h-4 w-4 text-emerald-800" />
+              <CheckCircle2 className="h-4 w-4 text-payroll-primary" />
               <span>Secondary signatory (Authorized / Approved by)</span>
             </div>
 
@@ -540,7 +540,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                   setFormData({ ...formData, signatory2Name: e.target.value });
                   setHasChanges(true);
                 }}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
 
@@ -556,7 +556,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                   setFormData({ ...formData, signatory2Title: e.target.value });
                   setHasChanges(true);
                 }}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
             </div>
           </div>
@@ -586,7 +586,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
               size="sm"
               onClick={() => handleSubmitRequest()}
               disabled={isSubmittingRequest}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs shadow-none cursor-pointer"
             >
               {isSubmittingRequest ? "Submitting..." : "Submit Request"}
             </Button>
@@ -609,7 +609,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 setProposedValues({ ...proposedValues, legalName: e.target.value })
               }
               required
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none"
             />
           </div>
 
@@ -624,7 +624,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 onChange={(e) =>
                   setProposedValues({ ...proposedValues, panVatNumber: e.target.value })
                 }
-                className="w-full rounded-md border border-zinc-200 bg-white font-mono px-3 py-2 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none"
+                className="w-full rounded-md border border-zinc-200 bg-white font-mono px-3 py-2 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none"
               />
             </div>
 
@@ -638,7 +638,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                 onChange={(e) =>
                   setProposedValues({ ...proposedValues, registrationNumber: e.target.value })
                 }
-                className="w-full rounded-md border border-zinc-200 bg-white font-mono px-3 py-2 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none"
+                className="w-full rounded-md border border-zinc-200 bg-white font-mono px-3 py-2 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none"
               />
             </div>
           </div>
@@ -652,7 +652,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
               onChange={(e) =>
                 setProposedValues({ ...proposedValues, industryType: e.target.value })
               }
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none"
             >
               {Object.keys(INDUSTRY_SECTORS).map((key) => {
                 const sec = INDUSTRY_SECTORS[key as IndustrySectorKey];
@@ -675,7 +675,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
               onChange={(e) =>
                 setProposedValues({ ...proposedValues, headOfficeAddress: e.target.value })
               }
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none"
             />
           </div>
 
@@ -689,7 +689,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
               onChange={(e) => setRequestReason(e.target.value)}
               placeholder="Explain why this statutory information is changing (e.g. Legal renaming approved by Company Registrar, PAN address transfer)."
               required
-              className="w-full rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none resize-none"
+              className="w-full rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none resize-none"
             />
           </div>
 
@@ -702,7 +702,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
               value={documentReference}
               onChange={(e) => setDocumentReference(e.target.value)}
               placeholder="e.g. OCR Certificate Dispatch No. 2081/82-014"
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 shadow-none"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-none"
             />
           </div>
         </div>

@@ -32,7 +32,7 @@ export function BranchesTable({
     return (
       <div className="px-5 py-12 text-center text-sm text-gray-500">
         No branches found. Click{" "}
-        <span className="font-medium text-[#1b3a1f]">Add Branch</span>{" "}
+        <span className="font-medium text-payroll-navy">Add Branch</span>{" "}
         to create one.
       </div>
     );

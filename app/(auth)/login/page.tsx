@@ -75,7 +75,7 @@ export default async function LoginPage() {
                 <span className="text-lg font-extrabold tracking-tight text-slate-900">
                   Aakash
                 </span>
-                <span className="text-lg font-extrabold tracking-tight text-[#1e7e47]">
+                <span className="text-lg font-extrabold tracking-tight text-payroll-primary">
                   HRMS
                 </span>
               </div>
@@ -87,7 +87,7 @@ export default async function LoginPage() {
 
           {/* Statutory Pill Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/90 bg-white/95 px-3.5 py-1 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs">
-            <span className="h-2 w-2 rounded-full bg-[#1e7e47] animate-pulse" />
+            <span className="h-2 w-2 rounded-full bg-payroll-primary animate-pulse" />
             <span>Nepal Labour Act 2074 & IRD Compliant</span>
           </div>
 
@@ -95,7 +95,7 @@ export default async function LoginPage() {
           <h1 className="text-3xl sm:text-4xl lg:text-[42px] xl:text-[44px] font-extrabold tracking-tight text-slate-900 leading-[1.12]">
             Workforce<br />
             Management<br />
-            <span className="text-[#1e7e47]">
+            <span className="text-payroll-primary">
               Simplified.
             </span>
           </h1>
@@ -117,7 +117,7 @@ export default async function LoginPage() {
                 key={idx}
                 className="flex items-center gap-2.5 text-xs sm:text-sm text-slate-700 font-medium"
               >
-                <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-100/90 text-[#1e7e47] border border-emerald-300/70 shadow-2xs shrink-0">
+                <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-payroll-primary-light text-payroll-primary border border-payroll-border shadow-2xs shrink-0">
                   <Check className="h-3 w-3" strokeWidth={2.5} />
                 </span>
                 <span>{item}</span>

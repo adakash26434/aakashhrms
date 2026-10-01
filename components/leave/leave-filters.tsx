@@ -47,7 +47,7 @@ export function LeaveFilters({
             placeholder="Search by employee name or reason..."
             value={filter.search}
             onChange={(e) => updateFilter("search", e.target.value)}
-            className="h-9 w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-9 pr-4 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
+            className="h-9 w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-9 pr-4 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-colors"
           />
         </div>
 
@@ -63,14 +63,14 @@ export function LeaveFilters({
             type="date"
             value={filter.dateFrom}
             onChange={(e) => updateFilter("dateFrom", e.target.value)}
-            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs cursor-pointer outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 transition-colors"
+            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs cursor-pointer outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors"
           />
           {/* Date to */}
           <input
             type="date"
             value={filter.dateTo}
             onChange={(e) => updateFilter("dateTo", e.target.value)}
-            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs cursor-pointer outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 transition-colors"
+            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs cursor-pointer outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors"
           />
         </div>
       </div>
@@ -142,7 +142,7 @@ function FilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 items-center gap-2 cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs hover:bg-zinc-50 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 transition-colors"
+        className="flex h-9 items-center gap-2 cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 shadow-2xs hover:bg-zinc-50 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-colors"
       >
         <span className="truncate max-w-36">{selected?.label ?? label}</span>
         <ChevronDown
@@ -173,7 +173,7 @@ function FilterDropdown({
               >
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                   {isSelected && (
-                    <Check className="h-3.5 w-3.5 text-emerald-800" />
+                    <Check className="h-3.5 w-3.5 text-payroll-primary" />
                   )}
                 </span>
                 {opt.label}

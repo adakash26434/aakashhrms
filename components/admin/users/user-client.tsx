@@ -302,19 +302,19 @@ export function UserClient({
       </div>
 
       {/* Filters & Actions Header */}
-      <Card className="p-4 overflow-visible">
+      <div className="rounded-xl border border-zinc-200/80 bg-white p-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Filters Bar */}
           <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
             {/* Search Input */}
             <div className="relative flex-1 min-w-50">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
               <input
                 type="text"
                 placeholder="Search user by name, email, code..."
                 value={search}
                 onChange={(e) => handleFilterChange(e.target.value, roleIdFilter, statusFilter)}
-                className="w-full rounded-lg border border-[#d7e8d0] bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+                className="w-full rounded-md border border-zinc-200 bg-white pl-9 pr-3 py-2 text-xs outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 placeholder:text-zinc-400"
               />
             </div>
 
@@ -322,7 +322,7 @@ export function UserClient({
             <select
               value={roleIdFilter}
               onChange={(e) => handleFilterChange(search, e.target.value, statusFilter)}
-              className="rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+              className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-800 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
             >
               <option value="all">All System Roles</option>
               {roles.map((r) => (
@@ -336,7 +336,7 @@ export function UserClient({
             <select
               value={statusFilter}
               onChange={(e) => handleFilterChange(search, roleIdFilter, e.target.value as UserStatus | "all")}
-              className="rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+              className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-800 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active Only</option>
@@ -345,14 +345,14 @@ export function UserClient({
           </div>
 
           {/* Add User Button */}
-          <Button onClick={handleCreateOpen} className="shrink-0 gap-2">
-            <UserPlus className="h-4 w-4" />
+          <Button onClick={handleCreateOpen} className="shrink-0 gap-1.5 bg-emerald-900 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-2 rounded-lg shadow-xs">
+            <UserPlus className="h-3.5 w-3.5" />
             <span>Add User</span>
           </Button>
         </div>
 
         {/* Table Container */}
-        <div className="mt-4 border-t border-[#d7e8d0]/60 pt-4">
+        <div className="mt-4 border-t border-zinc-100 pt-4">
           <UserTable
             users={users}
             onEdit={handleEditOpen}
@@ -364,7 +364,7 @@ export function UserClient({
             onViewAudit={handleViewAuditOpen}
           />
         </div>
-      </Card>
+      </div>
 
       {/* Modals */}
       <UserFormModal

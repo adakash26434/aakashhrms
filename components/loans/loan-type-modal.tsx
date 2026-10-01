@@ -77,7 +77,7 @@ export function LoanTypeModal({
               type="submit"
               form="loan-type-form"
               disabled={saving}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
             >
               {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Scheme"}
             </Button>
@@ -101,7 +101,7 @@ export function LoanTypeModal({
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder="e.g., Staff Vehicle Loan"
               />
               {validationErrors?.name && (
@@ -118,7 +118,7 @@ export function LoanTypeModal({
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
                     form.isActive
-                      ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                      ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy"
                       : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
                   )}
                 >
@@ -132,7 +132,7 @@ export function LoanTypeModal({
                   <span
                     className={cn(
                       "h-1.5 w-1.5 rounded-full",
-                      form.isActive ? "bg-emerald-600" : "bg-zinc-300"
+                      form.isActive ? "bg-payroll-primary" : "bg-zinc-300"
                     )}
                   />
                   Active Scheme
@@ -182,7 +182,7 @@ export function LoanTypeModal({
                 onChange={(e) =>
                   setForm({ ...form, maxAmount: parseFloat(e.target.value) || 0 })
                 }
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder="500000"
               />
               {validationErrors?.maxAmount && (
@@ -203,7 +203,7 @@ export function LoanTypeModal({
                     maxInstallments: parseInt(e.target.value) || 0,
                   })
                 }
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder="24"
               />
               {validationErrors?.maxInstallments && (
@@ -227,7 +227,7 @@ export function LoanTypeModal({
                     interestRate: parseFloat(e.target.value) || 0,
                   })
                 }
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder="5.0"
               />
               {validationErrors?.interestRate && (

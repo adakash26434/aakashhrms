@@ -265,7 +265,7 @@ export default function PlatformCompaniesPage() {
                         handleReconcileAction("REPROVISION_MISSING_DB", orphan.companyId)
                       }
                       disabled={reconcileActionId === orphan.companyId}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                      className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs"
                     >
                       <Wrench className="w-3.5 h-3.5 mr-1" />
                       <span>Re-provision DB</span>

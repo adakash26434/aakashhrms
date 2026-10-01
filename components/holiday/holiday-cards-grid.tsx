@@ -30,11 +30,11 @@ export function HolidayCardsGrid({
 }: HolidayCardsGridProps) {
   if (holidays.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-[#d7e8d0] bg-white p-10 text-center">
+      <div className="rounded-xl border border-dashed border-payroll-border bg-white p-10 text-center">
         <p className="text-sm text-gray-500">
           No holidays match the current search. Adjust the search or
           click{" "}
-          <span className="font-medium text-[#1b3a1f]">New Holiday</span>{" "}
+          <span className="font-medium text-payroll-navy">New Holiday</span>{" "}
           to create one.
         </p>
       </div>

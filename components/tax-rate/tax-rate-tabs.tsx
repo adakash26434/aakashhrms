@@ -49,7 +49,7 @@ export function TaxRateTabs({ active, onChange, configuredMap }: TaxRateTabsProp
                 title="This category has configured slabs"
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  isActive ? "bg-emerald-800" : "bg-emerald-600",
+                  isActive ? "bg-payroll-primary" : "bg-payroll-primary/70",
                 )}
               />
             )}

@@ -107,7 +107,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
             <Button
               type="button"
               onClick={handlePost}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
             >
               Post Bulk Attendance ({employees.length} Records)
             </Button>
@@ -122,7 +122,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
             <span className="text-xs font-semibold text-zinc-700">Target Date:</span>
             <input
               type="date"
-              className="rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+              className="rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
@@ -133,7 +133,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
             <button
               type="button"
               onClick={() => setAllStatus("Present")}
-              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50/60 px-2.5 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-100/60 transition-colors"
+              className="inline-flex items-center gap-1 rounded-md border border-payroll-border bg-payroll-primary-light px-2.5 py-1 text-xs font-medium text-payroll-navy hover:bg-payroll-primary-light/80 transition-colors"
             >
               <Check className="h-3 w-3" /> All Present
             </button>
@@ -187,7 +187,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                         className={cn(
                           "rounded-md border px-2 py-1 text-xs font-medium outline-none transition-colors",
                           item.status === "Present"
-                            ? "bg-emerald-50/70 text-emerald-900 border-emerald-200 focus:border-emerald-700"
+                            ? "bg-payroll-primary-light text-payroll-navy border-payroll-border focus:border-payroll-primary"
                             : item.status === "Absent" || item.status === "LWOP"
                             ? "bg-rose-50/70 text-rose-900 border-rose-200 focus:border-rose-700"
                             : "bg-amber-50/70 text-amber-900 border-amber-200 focus:border-amber-700"
@@ -214,7 +214,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                       <input
                         type="number"
                         step="0.5"
-                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center font-mono text-zinc-800 text-xs outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center font-mono text-zinc-800 text-xs outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                         value={item.workHours}
                         onChange={(ev) => updateEmp(e.id, { workHours: Number(ev.target.value) })}
                       />
@@ -223,7 +223,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                       <input
                         type="number"
                         step="0.5"
-                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center font-mono text-zinc-800 text-xs outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center font-mono text-zinc-800 text-xs outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                         value={item.otHours}
                         onChange={(ev) => updateEmp(e.id, { otHours: Number(ev.target.value) })}
                       />

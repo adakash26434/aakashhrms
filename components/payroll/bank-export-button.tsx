@@ -44,7 +44,7 @@ export function BankExportButton({ runId, filename }: BankExportButtonProps) {
     <button
       onClick={handleExport}
       disabled={isLoading}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-[#d7e8d0] bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#1b3a1f] shadow-sm transition-all hover:bg-[#d7e8d0]/20 hover:text-[#2e7d32] disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-payroll-border bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-payroll-navy shadow-sm transition-all hover:bg-payroll-primary-light-2 hover:text-payroll-primary disabled:opacity-50"
     >
       {isLoading ? (
         <RefreshCw className="h-3.5 w-3.5 animate-spin" />

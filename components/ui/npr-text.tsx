@@ -21,7 +21,7 @@ export function NprText({
       ? "text-emerald-700 font-semibold"
       : type === "negative"
       ? "text-red-700 font-semibold"
-      : "text-[#1b3a1f]";
+      : "text-payroll-navy";
 
   return (
     <span className={`font-mono tabular-nums ${colorClass} ${className}`}>

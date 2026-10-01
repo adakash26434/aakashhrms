@@ -262,7 +262,7 @@ export function PayHeadClient({ initialData, embedded = false }: PayHeadClientPr
             type="button"
             onClick={handleOpenCreate}
             size="sm"
-            className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0"
+            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors self-start sm:self-auto shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Add pay head</span>
@@ -277,7 +277,7 @@ export function PayHeadClient({ initialData, embedded = false }: PayHeadClientPr
             type="button"
             onClick={handleOpenCreate}
             size="sm"
-            className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Add pay head</span>

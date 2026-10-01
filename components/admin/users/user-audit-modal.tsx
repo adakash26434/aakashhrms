@@ -92,7 +92,7 @@ export function UserAuditModal({
               return (
                 <div
                   key={log.id}
-                  className="rounded-lg border border-[#d7e8d0]/80 bg-white p-3 text-xs shadow-2xs hover:border-[#2e7d32]/40 transition-colors"
+                  className="rounded-lg border border-payroll-border bg-white p-3 text-xs shadow-2xs hover:border-payroll-primary/40 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -119,14 +119,14 @@ export function UserAuditModal({
 
                   <div className="mt-2 flex items-center justify-between text-gray-600">
                     <div>
-                      <span>Record: <strong className="text-[#1b3a1f]">{recordDisplay}</strong></span>
+                      <span>Record: <strong className="text-payroll-navy">{recordDisplay}</strong></span>
                       {log.ipAddress && <span className="ml-3 text-gray-400">IP: {log.ipAddress}</span>}
                     </div>
 
                     {(oldDiff || newDiff) && (
                       <button
                         onClick={() => toggleExpand(log.id)}
-                        className="inline-flex items-center gap-1 text-[#2e7d32] font-medium hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1 text-payroll-primary font-medium hover:underline cursor-pointer"
                       >
                         <span>{isExpanded ? "Hide Details" : "View Values Diff"}</span>
                         {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -135,7 +135,7 @@ export function UserAuditModal({
                   </div>
 
                   {isExpanded && (oldDiff || newDiff) && (
-                    <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 border-t border-[#d7e8d0]/60 pt-2 bg-[#f6faf6] p-2.5 rounded">
+                    <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 border-t border-payroll-border pt-2 bg-payroll-cream p-2.5 rounded">
                       <div>
                         <p className="font-semibold text-red-600 mb-1 text-[10px] uppercase">Previous Values</p>
                         <div className="font-mono text-[10px] bg-red-50/60 p-2 rounded border border-red-100 overflow-x-auto text-red-950">
@@ -143,7 +143,7 @@ export function UserAuditModal({
                         </div>
                       </div>
                       <div>
-                        <p className="font-semibold text-[#2e7d32] mb-1 text-[10px] uppercase">New Values</p>
+                        <p className="font-semibold text-payroll-primary mb-1 text-[10px] uppercase">New Values</p>
                         <div className="font-mono text-[10px] bg-green-50/60 p-2 rounded border border-green-100 overflow-x-auto text-green-950">
                           {newDiff ? JSON.stringify(newDiff, null, 2) : "(None)"}
                         </div>

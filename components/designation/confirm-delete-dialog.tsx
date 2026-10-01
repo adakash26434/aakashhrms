@@ -59,11 +59,11 @@ export function ConfirmDeleteDialog({
             <Briefcase className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-[#1b3a1f]">
+            <p className="truncate font-semibold text-payroll-navy">
               {designation ? designation.name : "—"}
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="rounded bg-[#d7e8d0]/60 px-1.5 py-0.5 font-medium text-[#1b3a1f]">
+              <span className="rounded bg-payroll-primary-light-2 px-1.5 py-0.5 font-medium text-payroll-navy">
                 Designation
               </span>
               <span className="text-gray-500">·</span>

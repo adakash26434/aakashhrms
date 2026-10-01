@@ -397,7 +397,7 @@ export function SalaryMappingFormModal({
       "h-9.5 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 transition-colors",
       hasError
         ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500"
-        : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+        : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
     );
 
   return (
@@ -424,7 +424,7 @@ export function SalaryMappingFormModal({
           <Button
             type="submit"
             form="salary-mapping-form"
-            className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-5 py-2 text-sm transition-colors cursor-pointer"
+            className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium px-5 py-2 text-sm transition-colors cursor-pointer"
           >
             {isEdit ? "Save Changes" : "Create Mapping"}
           </Button>
@@ -586,8 +586,8 @@ export function SalaryMappingFormModal({
                 aria-checked={isSsfEnrolled}
                 onClick={() => handleToggleSsf(!isSsfEnrolled)}
                 className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-700/20",
-                  isSsfEnrolled ? "bg-emerald-700" : "bg-zinc-300"
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-payroll-primary/20",
+                  isSsfEnrolled ? "bg-payroll-primary" : "bg-zinc-300"
                 )}
               >
                 <span
@@ -657,7 +657,7 @@ export function SalaryMappingFormModal({
                         newIds[i] = e.target.value;
                         update("allowanceHeadIds", newIds);
                       }}
-                      className="h-8.5 flex-1 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                      className="h-8.5 flex-1 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-medium focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                     >
                       {allowanceHeads.map((h) => (
                         <option
@@ -682,7 +682,7 @@ export function SalaryMappingFormModal({
                           newAmounts[i] = e.target.value;
                           update("allowanceAmounts", newAmounts);
                         }}
-                        className="h-8.5 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-mono text-right focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        className="h-8.5 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-mono text-right focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                         placeholder="Amount"
                       />
                     </div>
@@ -738,7 +738,7 @@ export function SalaryMappingFormModal({
                         newIds[i] = e.target.value;
                         update("deductionHeadIds", newIds);
                       }}
-                      className="h-8.5 flex-1 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                      className="h-8.5 flex-1 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-medium focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                     >
                       {deductionHeads.map((h) => (
                         <option
@@ -763,7 +763,7 @@ export function SalaryMappingFormModal({
                           newAmounts[i] = e.target.value;
                           update("deductionAmounts", newAmounts);
                         }}
-                        className="h-8.5 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-mono text-right focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        className="h-8.5 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-900 font-mono text-right focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                         placeholder="Amount"
                       />
                     </div>

@@ -161,7 +161,7 @@ export function BankCombobox({
           disabled={disabled}
           autoComplete="off"
           className={cn(
-            "w-full h-10 rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 disabled:opacity-50",
+            "w-full h-10 rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary disabled:opacity-50",
             hasError && "border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20"
           )}
         />
@@ -208,7 +208,7 @@ export function BankCombobox({
               let runningIdx = -1;
               return Object.entries(groupedBanks).map(([category, list]) => (
                 <div key={category} className="py-1">
-                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50/50">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-payroll-navy bg-payroll-cream">
                     {category}
                   </div>
                   {list.map((bank) => {
@@ -229,9 +229,9 @@ export function BankCombobox({
                         className={cn(
                           "w-full px-3 py-2 text-left text-xs flex items-center justify-between transition-colors cursor-pointer",
                           isHighlighted
-                            ? "bg-[#eef8f2] text-[#1e7e47] font-semibold"
+                            ? "bg-payroll-primary-light-2 text-payroll-primary font-semibold"
                             : isSelected
-                            ? "bg-green-50/80 font-semibold text-[#2e7d32]"
+                            ? "bg-payroll-primary-light font-semibold text-payroll-primary"
                             : "hover:bg-slate-50 text-slate-800"
                         )}
                       >
@@ -246,7 +246,7 @@ export function BankCombobox({
                             )}
                           </div>
                         </div>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-[#2e7d32] shrink-0" />}
+                        {isSelected && <Check className="h-3.5 w-3.5 text-payroll-primary shrink-0" />}
                       </button>
                     );
                   })}

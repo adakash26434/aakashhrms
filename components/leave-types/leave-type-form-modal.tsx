@@ -147,7 +147,7 @@ export function LeaveTypeFormModal({
               onClick={handleSave}
               isSaving={saving}
               label={typeRecord ? "Update Policy" : "Create Policy"}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             />
           </div>
         </div>
@@ -170,7 +170,7 @@ export function LeaveTypeFormModal({
                 value={formData.name}
                 disabled={isStatutory}
                 onChange={(e) => handleChange("name", e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 placeholder="e.g. Study Leave"
               />
               {errors.name && (
@@ -187,7 +187,7 @@ export function LeaveTypeFormModal({
                 value={formData.code}
                 disabled={isStatutory || Boolean(typeRecord)}
                 onChange={(e) => handleChange("code", e.target.value.toUpperCase())}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 placeholder="e.g. STUDY_LEAVE"
               />
               {errors.code && (
@@ -211,7 +211,7 @@ export function LeaveTypeFormModal({
                 value={formData.leaveType}
                 disabled={isStatutory}
                 onChange={(e) => handleChange("leaveType", e.target.value as LeavePayType)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
               >
                 <option value="Pay">Paid Leave</option>
                 <option value="Non-Pay">Unpaid Leave (LWOP)</option>
@@ -229,7 +229,7 @@ export function LeaveTypeFormModal({
                 step={0.5}
                 value={formData.noOfDays}
                 onChange={(e) => handleChange("noOfDays", parseFloat(e.target.value) || 0)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               />
               {errors.noOfDays && (
                 <p className="mt-1 text-xs text-red-600">{errors.noOfDays}</p>
@@ -244,7 +244,7 @@ export function LeaveTypeFormModal({
                 value={formData.genderApplicable}
                 disabled={isStatutory}
                 onChange={(e) => handleChange("genderApplicable", e.target.value as GenderApplicable)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
               >
                 <option value="All">All Genders</option>
                 <option value="Male">Male Only (Paternity)</option>
@@ -276,7 +276,7 @@ export function LeaveTypeFormModal({
                       e.target.value === "" ? null : parseFloat(e.target.value)
                     )
                   }
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 />
                 {errors.accumulationCap && (
                   <p className="mt-1 text-xs text-red-600">{errors.accumulationCap}</p>
@@ -299,7 +299,7 @@ export function LeaveTypeFormModal({
                       e.target.value === "" ? null : parseFloat(e.target.value)
                     )
                   }
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 />
                 {errors.maxPaidDays && (
                   <p className="mt-1 text-xs text-red-600">{errors.maxPaidDays}</p>
@@ -315,7 +315,7 @@ export function LeaveTypeFormModal({
                     checked={formData.carryForward}
                     disabled={isStatutory}
                     onChange={(e) => handleChange("carryForward", e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                   />
                   <span className="text-xs font-medium text-zinc-800">
                     Carry Forward to next Fiscal Year
@@ -328,7 +328,7 @@ export function LeaveTypeFormModal({
                     checked={formData.proRataForNewJoinees}
                     disabled={isStatutory}
                     onChange={(e) => handleChange("proRataForNewJoinees", e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                   />
                   <span className="text-xs font-medium text-zinc-800">
                     Calculate Pro-Rata for Mid-Year Joinings
@@ -343,7 +343,7 @@ export function LeaveTypeFormModal({
                     checked={formData.isEncashable}
                     disabled={isStatutory && (formData.code !== "HOME" && formData.code !== "SICK")}
                     onChange={(e) => handleChange("isEncashable", e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary cursor-pointer"
                   />
                   <span className="text-xs font-medium text-zinc-800">
                     Enable Encashment of Excess Leave
@@ -359,7 +359,7 @@ export function LeaveTypeFormModal({
                       value={formData.encashmentBasis || "BasicSalary"}
                       disabled={isStatutory}
                       onChange={(e) => handleChange("encashmentBasis", e.target.value)}
-                      className="block w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 outline-none focus:border-emerald-700"
+                      className="block w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                     >
                       <option value="BasicSalary">Basic Salary only (Nepal Labour Act standard)</option>
                       <option value="BasicPlusGrade">Basic + Grade Amount</option>
@@ -382,7 +382,7 @@ export function LeaveTypeFormModal({
                 type="checkbox"
                 checked={formData.requiresDocument}
                 onChange={(e) => handleChange("requiresDocument", e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary accent-payroll-primary cursor-pointer"
               />
               <span className="text-xs font-medium text-zinc-800">
                 Requires Official Document / Certificate
@@ -404,7 +404,7 @@ export function LeaveTypeFormModal({
                       e.target.value === "" ? null : parseInt(e.target.value)
                     )
                   }
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   placeholder="e.g. 3 (Medical cert for >3 days)"
                 />
                 {errors.documentThresholdDays && (
@@ -427,7 +427,7 @@ export function LeaveTypeFormModal({
               className={cn(
                 "rounded-md px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
                 formData.isActive === true
-                  ? "bg-emerald-700 text-white shadow-none"
+                  ? "bg-payroll-primary text-white shadow-none"
                   : "text-zinc-700 hover:bg-zinc-50"
               )}
             >

@@ -686,7 +686,7 @@ export default function PlatformChangeRequestsPage() {
                     size="sm"
                     disabled={isReviewing}
                     onClick={() => handleApprove(selectedRequest.id)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold gap-1.5 shadow-xs"
+                    className="bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs font-semibold gap-1.5 shadow-xs"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>{isReviewing ? "Applying Changes..." : "Approve & Sync Databases"}</span>

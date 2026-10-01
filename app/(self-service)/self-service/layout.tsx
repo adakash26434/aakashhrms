@@ -24,12 +24,14 @@ export default async function SelfServiceLayout({
 
   return (
     <div className="min-h-screen bg-payroll-cream text-payroll-navy font-sans antialiased flex flex-col">
-      {/* Self-Service Navigation Header */}
+      {/* Self-Service Navigation Header & Sidebar */}
       <SelfServiceNav userEmail={userEmail} scopeType={scopeType} />
 
       {/* Page Content */}
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
-        {children}
+      <main className="flex-1 w-full sm:pl-64">
+        <div className="mx-auto max-w-6xl px-4 py-5 pb-24 sm:px-6 sm:py-8 sm:pb-8">
+          {children}
+        </div>
       </main>
     </div>
   );

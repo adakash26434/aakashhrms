@@ -2,6 +2,7 @@ import {
   resolveBranchName,
   resolveDepartmentName,
   resolveEmployeeName,
+  resolveShreniName,
   type EmployeeLookups,
 } from "@/lib/constants/employee-lookups";
 import { Employee } from "@/lib/types/employee";
@@ -72,7 +73,7 @@ export function EmployeeExpandableRow({
         <DetailCard title="Employment">
           <div className="space-y-1.5">
             <DetailRow label="Category" value={employee.category} />
-            <DetailRow label="Level / Shreni" value={employee.shreni} />
+            <DetailRow label="Level / Shreni" value={resolveShreniName(employee.shreni, lookups.shreniNameByCode)} />
             <DetailRow label="Grade" value={`${employee.gradeCount ?? 0} Grade(s)`} />
             <DetailRow label="Supervisor" value={supervisorName} />
             <DetailRow

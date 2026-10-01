@@ -91,7 +91,7 @@ export function LoanDisbursementModal({
               type="submit"
               form="disburse-form"
               disabled={saving}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm flex items-center gap-1.5"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm flex items-center gap-1.5"
             >
               <CheckCircle className="h-4 w-4" />
               {saving ? "Disbursing..." : "Disburse Loan"}
@@ -115,7 +115,7 @@ export function LoanDisbursementModal({
               <select
                 value={form.employeeId}
                 onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               >
                 <option value="">Select an employee...</option>
                 {lookupData?.employees.map((emp) => (
@@ -136,7 +136,7 @@ export function LoanDisbursementModal({
               <select
                 value={form.loanTypeId}
                 onChange={(e) => setForm({ ...form, loanTypeId: e.target.value })}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               >
                 <option value="">Select loan scheme...</option>
                 {lookupData?.loanTypes.map((lt) => (
@@ -170,7 +170,7 @@ export function LoanDisbursementModal({
                   onChange={(e) =>
                     setForm({ ...form, loanAmount: parseFloat(e.target.value) || 0 })
                   }
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   placeholder="0"
                 />
                 {validationErrors?.loanAmount && (
@@ -215,7 +215,7 @@ export function LoanDisbursementModal({
                     }
                     setForm({ ...form, noOfInstallments: val });
                   }}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   placeholder="0"
                 />
                 {validationErrors?.noOfInstallments && (
@@ -234,7 +234,7 @@ export function LoanDisbursementModal({
                 type="date"
                 value={form.givenDate}
                 onChange={(e) => setForm({ ...form, givenDate: e.target.value })}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               />
               {validationErrors?.givenDate && (
                 <p className="mt-1 text-xs text-red-600">{validationErrors.givenDate}</p>
@@ -243,12 +243,12 @@ export function LoanDisbursementModal({
 
             {/* Dynamic Calculator Display */}
             {computed.installment > 0 && (
-              <div className="rounded-md border border-emerald-200/80 bg-emerald-50/40 p-4">
-                <div className="flex items-center justify-between pb-3 border-b border-emerald-100">
-                  <p className="text-xs font-semibold text-emerald-950 uppercase tracking-wider">
+              <div className="rounded-md border border-payroll-border bg-payroll-primary-light/40 p-4">
+                <div className="flex items-center justify-between pb-3 border-b border-payroll-border">
+                  <p className="text-xs font-semibold text-payroll-navy uppercase tracking-wider">
                     Installment Calculation Preview
                   </p>
-                  <span className="text-[11px] text-emerald-800 font-mono">
+                  <span className="text-[11px] text-payroll-primary font-mono">
                     {form.noOfInstallments} monthly cycle(s)
                   </span>
                 </div>

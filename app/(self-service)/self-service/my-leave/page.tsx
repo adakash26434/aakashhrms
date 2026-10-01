@@ -160,7 +160,49 @@ export default async function MyLeavePage() {
             <p className="text-zinc-500 text-[11px] mt-0.5">Your submitted leave applications and approval reviews will be displayed here.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-2 sm:hidden">
+            {applications.map((app) => (
+              <div key={app.id} className="rounded-xl border border-payroll-border bg-white p-4 shadow-payroll-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-payroll-navy">{app.leaveTypeName}</p>
+                    <p className="mt-1 font-mono text-[11px] text-gray-500">{app.effectiveFrom} → {app.effectiveTo}</p>
+                  </div>
+                  <Badge
+                    variant={
+                      app.status === "Approved"
+                        ? "success"
+                        : app.status === "Pending"
+                        ? "warning"
+                        : app.status === "Rejected"
+                        ? "danger"
+                        : "neutral"
+                    }
+                    size="sm"
+                  >
+                    {app.status}
+                  </Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 border-t border-payroll-border-light pt-3 text-xs">
+                  <div>
+                    <span className="block text-[10px] font-medium uppercase tracking-wider text-gray-400">Duration</span>
+                    <span className="mt-1 block font-mono font-semibold text-payroll-navy">{app.noOfDays} day(s)</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-medium uppercase tracking-wider text-gray-400">Reason</span>
+                    <span className="mt-1 block truncate text-gray-600">{app.reason || "—"}</span>
+                  </div>
+                </div>
+                {app.reviewRemarks && (
+                  <p className="mt-3 border-t border-payroll-border-light pt-3 text-xs leading-relaxed text-gray-600">
+                    <span className="font-semibold text-payroll-navy">Reviewer: </span>{app.reviewRemarks}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
@@ -186,7 +228,7 @@ export default async function MyLeavePage() {
                         {app.noOfDays} day(s)
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-zinc-600 max-w-[200px] truncate" title={app.reason}>
+                    <td className="px-4 py-3.5 text-zinc-600 max-w-50 truncate" title={app.reason}>
                       {app.reason || "—"}
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -205,7 +247,7 @@ export default async function MyLeavePage() {
                         {app.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3.5 text-zinc-500 max-w-[200px] truncate text-[11px]" title={app.reviewRemarks || ""}>
+                    <td className="px-4 py-3.5 text-zinc-500 max-w-50 truncate text-[11px]" title={app.reviewRemarks || ""}>
                       {app.reviewRemarks || "—"}
                     </td>
                   </tr>
@@ -213,6 +255,7 @@ export default async function MyLeavePage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>

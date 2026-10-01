@@ -199,7 +199,7 @@ export function FiscalYearFormModal({
             <Button
               type="submit"
               form="fiscal-year-form"
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             >
               {submitLabel}
             </Button>
@@ -351,7 +351,7 @@ export function FiscalYearFormModal({
               className={cn(
                 "p-3 rounded-md border text-left transition-all cursor-pointer",
                 form.status === "Active"
-                  ? "border-emerald-700/60 bg-emerald-50/50 ring-1 ring-emerald-700/20"
+                  ? "border-payroll-primary/60 bg-payroll-primary-light/50 ring-1 ring-payroll-primary/20"
                   : "border-zinc-200 hover:bg-zinc-50 bg-white"
               )}
             >
@@ -361,7 +361,7 @@ export function FiscalYearFormModal({
                   <p className="text-[11px] text-zinc-500">Current operating cycle</p>
                 </div>
                 {form.status === "Active" && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-payroll-primary shrink-0" />
                 )}
               </div>
             </button>
@@ -397,7 +397,7 @@ function inputClass(hasError: boolean) {
     "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
     hasError
       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+      : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
   ].join(" ");
 }
 

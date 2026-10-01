@@ -126,7 +126,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
     <>
       <Button
         onClick={handleOpen}
-        className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-none cursor-pointer flex items-center gap-1.5"
+        className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs shadow-none cursor-pointer flex items-center gap-1.5"
       >
         <Plus className="w-3.5 h-3.5" />
         <span>Apply for Leave</span>
@@ -156,7 +156,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                 onClick={handleSubmit}
                 isLoading={isPending}
                 disabled={isPending || isBalanceExceeded || calculatedDays === 0}
-                className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+                className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
               >
                 Submit Application
               </Button>
@@ -186,7 +186,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                 <select
                   value={leaveTypeId}
                   onChange={(e) => setLeaveTypeId(e.target.value)}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 >
                   {balances.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -223,7 +223,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                     required
                     value={effectiveFrom}
                     onChange={(e) => setEffectiveFrom(e.target.value)}
-                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   />
                 </div>
 
@@ -237,7 +237,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                     value={effectiveTo}
                     min={effectiveFrom}
                     onChange={(e) => setEffectiveTo(e.target.value)}
-                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   />
                 </div>
               </div>
@@ -253,7 +253,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                     className={cn(
                       "flex-1 py-2 px-3 text-xs font-medium rounded-md border transition-colors cursor-pointer",
                       duration === "Full Day"
-                        ? "border-emerald-700 bg-emerald-50/50 text-emerald-950 font-semibold"
+                        ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-semibold"
                         : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                     )}
                   >
@@ -265,7 +265,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                     className={cn(
                       "flex-1 py-2 px-3 text-xs font-medium rounded-md border transition-colors cursor-pointer",
                       duration === "Half Day"
-                        ? "border-emerald-700 bg-emerald-50/50 text-emerald-950 font-semibold"
+                        ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-semibold"
                         : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                     )}
                   >
@@ -314,7 +314,7 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Please provide details for your leave request..."
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary resize-y"
               />
             </div>
           </FormSection>

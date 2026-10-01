@@ -153,13 +153,13 @@ export function LeaveSalarySetupForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 rounded-xl border border-[#d7e8d0] bg-white p-6 shadow-sm"
+      className="space-y-6 rounded-xl border border-payroll-border bg-white p-6 shadow-2xs"
     >
-      <div className="border-b border-[#d7e8d0] pb-4">
-        <h2 className="text-base font-bold text-[#1b3a1f]">
+      <div className="border-b border-payroll-border pb-4">
+        <h2 className="text-base font-bold text-payroll-navy">
           Encash Leave / Generate Leave Salary
         </h2>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-payroll-text-muted mt-0.5">
           Select target employee, leave type, days to encash, payment period,
           and payment method to generate record.
         </p>
@@ -181,7 +181,7 @@ export function LeaveSalarySetupForm({
           <select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value)}
-            className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2.5 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+            className="w-full rounded-lg border border-payroll-border bg-white px-3.5 py-2.5 text-sm text-payroll-navy shadow-2xs outline-none transition-all focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
           >
             <option value="">Select Employee</option>
             {employees.map((emp: { id: string; name: string }) => (
@@ -200,7 +200,7 @@ export function LeaveSalarySetupForm({
           <select
             value={leaveTypeId}
             onChange={(e) => setLeaveTypeId(e.target.value)}
-            className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2.5 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+            className="w-full rounded-lg border border-payroll-border bg-white px-3.5 py-2.5 text-sm text-payroll-navy shadow-2xs outline-none transition-all focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
           >
             <option value="">Select Leave Type</option>
             {leaveTypes.map((t: { id: string; name: string }) => (
@@ -214,29 +214,29 @@ export function LeaveSalarySetupForm({
 
       {/* Balance Preview Widget */}
       {(loadingBalance || balancePreview) && (
-        <div className="rounded-lg border border-green-100 bg-green-50/50 px-4 py-3 transition-all animate-in fade-in duration-200">
+        <div className="rounded-lg border border-payroll-border bg-payroll-primary-light/40 px-4 py-3 transition-all animate-in fade-in duration-200">
           <div className="flex items-center gap-2 mb-2">
-            <Info className="h-3.5 w-3.5 text-green-600" />
-            <span className="text-[11px] font-bold text-[#1b3a1f] uppercase tracking-wider">
+            <Info className="h-3.5 w-3.5 text-payroll-primary" />
+            <span className="text-[11px] font-bold text-payroll-navy uppercase tracking-wider">
               Leave Balance Preview
             </span>
           </div>
           {loadingBalance ? (
-            <div className="flex items-center gap-2 text-xs text-green-600 py-0.5">
+            <div className="flex items-center gap-2 text-xs text-payroll-primary py-0.5">
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               Loading balance...
             </div>
           ) : balancePreview ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-              <div className="rounded-md bg-white p-2 text-center border border-green-100 shadow-2xs">
+              <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                   Allotted
                 </p>
-                <p className="text-sm font-bold text-[#1b3a1f] mt-0.5">
+                <p className="text-sm font-bold text-payroll-navy mt-0.5">
                   {balancePreview.allotted}
                 </p>
               </div>
-              <div className="rounded-md bg-white p-2 text-center border border-green-100 shadow-2xs">
+              <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                   Taken
                 </p>
@@ -244,19 +244,19 @@ export function LeaveSalarySetupForm({
                   {balancePreview.taken}
                 </p>
               </div>
-              <div className="rounded-md bg-white p-2 text-center border border-green-100 shadow-2xs">
+              <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                   Available
                 </p>
-                <p className="text-sm font-bold text-emerald-600 mt-0.5">
+                <p className="text-sm font-bold text-payroll-primary mt-0.5">
                   {balancePreview.balance}
                 </p>
               </div>
-              <div className="rounded-md bg-white p-2 text-center border border-green-100 shadow-2xs">
+              <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
                   Max Encashable
                 </p>
-                <p className="text-sm font-bold text-[#2e7d32] mt-0.5">
+                <p className="text-sm font-bold text-payroll-primary mt-0.5">
                   {maxEncashable !== null
                     ? maxEncashable
                     : balancePreview.balance}
@@ -278,7 +278,7 @@ export function LeaveSalarySetupForm({
             value={leaveDays || ""}
             onChange={(e) => setLeaveDays(Number(e.target.value))}
             max={maxEncashable ?? undefined}
-            className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+            className="w-full rounded-lg border border-payroll-border bg-white px-3.5 py-2 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary"
             placeholder="e.g. 10"
           />
           {balancePreview &&
@@ -310,7 +310,7 @@ export function LeaveSalarySetupForm({
             <select
               value={selectedFYLabel}
               onChange={(e) => setSelectedFYLabel(e.target.value)}
-              className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+              className="w-full rounded-lg border border-payroll-border bg-white px-3 py-2 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary"
             >
               {fiscalYears.length > 0 ? (
                 fiscalYears.map((fy) => (
@@ -326,7 +326,7 @@ export function LeaveSalarySetupForm({
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] shadow-sm outline-none transition-all focus:border-[#2e7d32]"
+              className="w-full rounded-lg border border-payroll-border bg-white px-3 py-2 text-sm text-payroll-navy shadow-sm outline-none transition-all focus:border-payroll-primary"
             >
               {BS_MONTHS.map((m) => (
                 <option key={m} value={m}>
@@ -337,7 +337,7 @@ export function LeaveSalarySetupForm({
           </div>
           <p className="mt-1 text-[10px] text-gray-400">
             Selected period:{" "}
-            <span className="font-semibold text-[#1b3a1f]">
+            <span className="font-semibold text-payroll-navy">
               {selectedMonth} ({selectedFYLabel})
             </span>
           </p>
@@ -360,8 +360,8 @@ export function LeaveSalarySetupForm({
                 key={pm.value}
                 className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs transition-all ${
                   paymentMethod === pm.value
-                    ? "border-[#2e7d32] bg-[#2e7d32]/5 ring-1 ring-[#2e7d32]/20"
-                    : "border-[#d7e8d0] bg-white hover:border-gray-300"
+                    ? "border-payroll-primary bg-payroll-primary-light-2 ring-1 ring-payroll-primary/20"
+                    : "border-payroll-border bg-white hover:border-gray-300"
                 }`}
               >
                 <input
@@ -377,15 +377,15 @@ export function LeaveSalarySetupForm({
                 <div
                   className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
                     paymentMethod === pm.value
-                      ? "border-[#2e7d32]"
+                      ? "border-payroll-primary"
                       : "border-gray-300"
                   }`}
                 >
                   {paymentMethod === pm.value && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-[#2e7d32]" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-payroll-primary" />
                   )}
                 </div>
-                <span className="font-semibold text-[#1b3a1f] text-xs truncate">
+                <span className="font-semibold text-payroll-navy text-xs truncate">
                   {pm.label}
                 </span>
               </label>
@@ -411,8 +411,8 @@ export function LeaveSalarySetupForm({
                 key={opt.value}
                 className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs transition-all ${
                   encashmentType === opt.value
-                    ? "border-[#2e7d32] bg-[#2e7d32]/5 ring-1 ring-[#2e7d32]/20"
-                    : "border-[#d7e8d0] bg-white hover:border-gray-300"
+                    ? "border-payroll-primary bg-payroll-primary-light-2 ring-1 ring-payroll-primary/20"
+                    : "border-payroll-border bg-white hover:border-gray-300"
                 }`}
               >
                 <input
@@ -428,15 +428,15 @@ export function LeaveSalarySetupForm({
                 <div
                   className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
                     encashmentType === opt.value
-                      ? "border-[#2e7d32]"
+                      ? "border-payroll-primary"
                       : "border-gray-300"
                   }`}
                 >
                   {encashmentType === opt.value && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-[#2e7d32]" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-payroll-primary" />
                   )}
                 </div>
-                <span className="font-semibold text-[#1b3a1f] text-xs truncate">
+                <span className="font-semibold text-payroll-navy text-xs truncate">
                   {opt.label}
                 </span>
               </label>
@@ -445,11 +445,11 @@ export function LeaveSalarySetupForm({
         </div>
       </div>
 
-      <div className="flex justify-end pt-3 border-t border-[#d7e8d0]/60">
+      <div className="flex justify-end pt-3 border-t border-payroll-border">
         <button
           type="submit"
           disabled={isLoading}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#2e7d32] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-[#1b3a1f] disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-payroll-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-payroll-primary-hover disabled:opacity-50"
         >
           {isLoading ? (
             <>

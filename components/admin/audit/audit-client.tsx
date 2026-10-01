@@ -211,10 +211,10 @@ export function AuditClient({
       {/* ── Main System Activity Log Table ── */}
       <Card className="p-4 overflow-visible">
         {/* Header & Export */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#d7e8d0]/60 pb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-payroll-border pb-4">
           <div className="flex items-center gap-2">
-            <ScrollText className="h-5 w-5 text-[#2e7d32]" />
-            <h3 className="text-base font-bold text-[#1b3a1f]">
+            <ScrollText className="h-5 w-5 text-payroll-primary" />
+            <h3 className="text-base font-bold text-payroll-navy">
               System Change Logs ({totalCount})
             </h3>
           </div>
@@ -242,7 +242,7 @@ export function AuditClient({
               onChange={(e) =>
                 handleFilterChange(e.target.value, actionFilter, resultFilter)
               }
-              className="w-full rounded-lg border border-[#d7e8d0] bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-[#2e7d32] focus:ring-1 focus:ring-[#2e7d32]"
+              className="w-full rounded-lg border border-payroll-border bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -256,7 +256,7 @@ export function AuditClient({
                 resultFilter,
               )
             }
-            className="rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+            className="rounded-lg border border-payroll-border bg-white px-3 py-2 text-sm text-payroll-navy outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
           >
             <option value="all">All Actions</option>
             <option value="VIEW">VIEW</option>
@@ -273,7 +273,7 @@ export function AuditClient({
             onChange={(e) =>
               handleFilterChange(search, actionFilter, e.target.value)
             }
-            className="rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+            className="rounded-lg border border-payroll-border bg-white px-3 py-2 text-sm text-payroll-navy outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
           >
             <option value="all">All Results</option>
             <option value="SUCCESS">SUCCESS</option>

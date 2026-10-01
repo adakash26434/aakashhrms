@@ -76,7 +76,7 @@ export function SystemControlClient({
       type="button"
       onClick={handleSave}
       disabled={isSaving || !hasChanges}
-      className="bg-emerald-800 hover:bg-emerald-900 text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg transition-colors inline-flex items-center gap-1.5"
+      className="bg-payroll-primary hover:bg-payroll-primary-hover text-white cursor-pointer shadow-xs text-xs font-medium h-9 px-4 rounded-lg transition-colors inline-flex items-center gap-1.5"
     >
       {isSaving ? (
         <>
@@ -163,7 +163,7 @@ export function SystemControlClient({
               </Link>
               <Link
                 href="/setup/company-setup?tab=employment_types"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-emerald-900 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-payroll-primary px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-payroll-primary-hover transition-colors"
               >
                 <FileBadge2 className="h-3.5 w-3.5" />
                 <span>Employment types</span>

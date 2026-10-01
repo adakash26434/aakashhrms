@@ -263,14 +263,14 @@ export function PayrollReviewGrid({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search staff name or employee ID..."
-                className="w-full rounded-md border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-emerald-700 transition-colors"
+                className="w-full rounded-md border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors"
               />
             </div>
             {departments.length > 0 && (
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 outline-none focus:border-emerald-700 transition-colors cursor-pointer"
+                className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors cursor-pointer"
               >
                 <option value="all">All Departments</option>
                 {departments.map((d) => (
@@ -414,7 +414,7 @@ export function PayrollReviewGrid({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add transition notes (e.g. reviewed by, reason for revert, auditors checklist...)"
-            className="w-full rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-900 outline-none focus:border-emerald-700 transition-colors"
+            className="w-full rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors"
             rows={2}
           />
 
@@ -437,7 +437,7 @@ export function PayrollReviewGrid({
                 <button
                   onClick={() => handleStatusTransition("APPROVED")}
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-800 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-900 disabled:opacity-50 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-payroll-primary px-4 py-2 text-xs font-medium text-white hover:bg-payroll-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   <CheckSquare className="h-3.5 w-3.5" />
                   Approve Calculations
@@ -458,7 +458,7 @@ export function PayrollReviewGrid({
                 <button
                   onClick={() => handleStatusTransition("LOCKED")}
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-800 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-900 disabled:opacity-50 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-payroll-primary px-4 py-2 text-xs font-medium text-white hover:bg-payroll-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Lock & Disburse Payroll

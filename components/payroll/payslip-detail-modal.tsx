@@ -299,7 +299,7 @@ export function PayslipDetailModal({
           <div className="grid gap-6 md:grid-cols-2">
             {/* Allowances Column */}
             <div>
-              <h3 className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-md uppercase tracking-wider mb-3">Allowances & Earnings</h3>
+              <h3 className="text-xs font-bold text-payroll-primary bg-payroll-primary-light-2 px-3 py-1.5 rounded-md uppercase tracking-wider mb-3">Allowances & Earnings</h3>
               <div className="space-y-3.5">
                 {/* Basic Salary */}
                 <div className="border-b border-gray-100 pb-3">

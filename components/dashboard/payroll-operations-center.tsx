@@ -39,7 +39,7 @@ function StepCircle({
   }
   if (status === "in-review") {
     return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-800 text-white font-medium text-[11px] ring-2 ring-emerald-100">
+      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-payroll-primary text-white font-medium text-[11px] ring-2 ring-payroll-primary-light">
         <span>{stepNumber}</span>
       </div>
     );
@@ -173,7 +173,7 @@ export function PayrollOperationsCenter({
             {/* Connector Lines */}
             <div className="absolute left-4 right-4 top-2.5 -translate-y-1/2 h-0.5 bg-zinc-200 z-0">
               <div
-                className="h-full bg-emerald-800 transition-all duration-300"
+                className="h-full bg-payroll-primary transition-all duration-300"
                 style={{
                   width: isLocked ? "100%" : "66%",
                 }}

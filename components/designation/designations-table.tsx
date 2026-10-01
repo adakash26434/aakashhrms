@@ -36,7 +36,7 @@ export function DesignationsTable({
       <div className="px-5 py-12 text-center text-sm text-gray-500">
         No designations match the current filter. Adjust the search or
         department filter, or click{" "}
-        <span className="font-medium text-[#1b3a1f]">Add Designation</span>{" "}
+        <span className="font-medium text-payroll-navy">Add Designation</span>{" "}
         to create one.
       </div>
     );

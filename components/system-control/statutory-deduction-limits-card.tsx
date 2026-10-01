@@ -50,7 +50,7 @@ function NumberField({
           max={max}
           value={value}
           onChange={onChange}
-          className={`h-9 w-full rounded-lg border border-slate-300 bg-white text-xs text-slate-900 transition-colors focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800 ${
+          className={`h-9 w-full rounded-lg border border-slate-300 bg-white text-xs text-slate-900 transition-colors focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary ${
             prefix ? "pl-11 pr-3 font-mono" : suffix ? "pl-3 pr-8 font-mono" : "px-3 font-mono"
           }`}
         />

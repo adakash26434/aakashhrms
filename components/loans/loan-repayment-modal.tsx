@@ -91,7 +91,7 @@ export function LoanRepaymentModal({
               type="submit"
               form="repayment-form"
               disabled={saving || !form.loanId}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
             >
               {saving ? "Recording..." : "Record Payment"}
             </Button>
@@ -114,7 +114,7 @@ export function LoanRepaymentModal({
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               >
                 <option value="">-- Select Employee --</option>
                 {employees.map((emp) => (
@@ -132,7 +132,7 @@ export function LoanRepaymentModal({
               <select
                 value={form.loanId}
                 onChange={(e) => setForm({ ...form, loanId: e.target.value })}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 disabled={!selectedEmployeeId}
               >
                 <option value="">-- Select Loan --</option>
@@ -170,7 +170,7 @@ export function LoanRepaymentModal({
                   </div>
                   <div>
                     <p className="text-[11px] font-medium text-zinc-500">Total Cleared</p>
-                    <p className="text-sm font-semibold tabular-nums text-emerald-800 font-mono">
+                    <p className="text-sm font-semibold tabular-nums text-payroll-primary font-mono">
                       NPR {selectedLoan.totalReturned.toLocaleString()}
                     </p>
                   </div>
@@ -203,7 +203,7 @@ export function LoanRepaymentModal({
                 onChange={(e) =>
                   setForm({ ...form, amountPaid: parseFloat(e.target.value) || 0 })
                 }
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder="20000"
               />
               {validationErrors?.amountPaid && (
@@ -221,7 +221,7 @@ export function LoanRepaymentModal({
                 onChange={(e) =>
                   setForm({ ...form, repaymentDate: e.target.value })
                 }
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
               />
               {validationErrors?.repaymentDate && (
                 <p className="mt-1 text-xs text-red-600">{validationErrors.repaymentDate}</p>

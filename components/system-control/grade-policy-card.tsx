@@ -168,7 +168,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                   max={31}
                   value={policy.daysInMonthForDailyRate}
                   onChange={(n) => update("daysInMonthForDailyRate", n || 30)}
-                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 pr-12 text-xs font-mono text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 pr-12 text-xs font-mono text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
                   days
@@ -189,7 +189,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                   max={100}
                   value={policy.fixedGradePercent}
                   onChange={(n) => update("fixedGradePercent", n)}
-                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 pr-8 text-xs font-mono text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 pr-8 text-xs font-mono text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
                   %
@@ -208,7 +208,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                   min={0}
                   value={policy.fixedAmountPerGrade}
                   onChange={(n) => update("fixedAmountPerGrade", n)}
-                  className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-11 pr-3 text-xs font-mono text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                  className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-11 pr-3 text-xs font-mono text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
                 />
                 <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs text-slate-400">
                   NPR
@@ -227,7 +227,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                 max={30}
                 value={policy.maxGradesAllowedPerLevel}
                 onChange={(n) => update("maxGradesAllowedPerLevel", n)}
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 pr-14 text-xs font-mono text-slate-900 focus:border-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-800"
+                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 pr-14 text-xs font-mono text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
               />
               <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
                 grades
@@ -334,7 +334,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                       "RESET_TO_ZERO_WITH_STEPPING",
                     )
                   }
-                  className="text-emerald-800 focus:ring-emerald-800"
+                  className="text-payroll-primary focus:ring-payroll-primary"
                 />
                 <span>Compensatory stepping</span>
               </label>
@@ -353,7 +353,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                       "DIRECT_BASIC_ADJUSTMENT",
                     )
                   }
-                  className="text-emerald-800 focus:ring-emerald-800"
+                  className="text-payroll-primary focus:ring-payroll-primary"
                 />
                 <span>Direct basic pay</span>
               </label>

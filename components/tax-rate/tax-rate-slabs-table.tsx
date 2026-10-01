@@ -143,7 +143,7 @@ export function TaxRateSlabsTable({
  */
 function RatePill({ rate }: { rate: number }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-50/70 text-emerald-800 border border-emerald-200/50">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-payroll-primary-light-2 text-payroll-primary border border-payroll-primary/20">
       {formatRateLabel(rate)}
     </span>
   );

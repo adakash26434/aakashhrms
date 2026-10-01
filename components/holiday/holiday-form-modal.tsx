@@ -196,7 +196,7 @@ export function HolidayFormModal({
             <Button
               type="submit"
               form="holiday-form"
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             >
               {submitLabel}
             </Button>
@@ -344,7 +344,7 @@ export function HolidayFormModal({
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-55 overflow-y-auto pr-1">
               {branches.map((b) => {
                 const checked =
                   allBranchesChecked || form.branchIds.includes(b.id);
@@ -371,7 +371,7 @@ function inputClass(error?: string): string {
     "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
     error
       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+      : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
   );
 }
 
@@ -445,14 +445,14 @@ function CheckboxPill({
       className={cn(
         "flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-xs transition-colors min-w-0 select-none",
         checked
-          ? "border-emerald-600/50 bg-emerald-50/70 text-zinc-900"
+          ? "border-payroll-primary/40 bg-payroll-primary-light text-zinc-900"
           : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300",
       )}
     >
       <span
         className={cn(
           "relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-          checked ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white",
+          checked ? "border-payroll-primary bg-payroll-primary text-white" : "border-zinc-300 bg-white",
         )}
         aria-hidden
       >

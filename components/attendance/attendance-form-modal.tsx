@@ -137,7 +137,7 @@ export function AttendanceFormModal({
             <Button
               type="button"
               onClick={handleSave}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
             >
               Save Punch
             </Button>
@@ -159,7 +159,7 @@ export function AttendanceFormModal({
               </label>
               <select
                 disabled={!!initialData}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
               >
@@ -178,7 +178,7 @@ export function AttendanceFormModal({
                 </label>
                 <input
                   type="date"
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
@@ -189,7 +189,7 @@ export function AttendanceFormModal({
                   Attendance Status <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={status}
                   onChange={(e) => {
                     const s = e.target.value as AttendanceStatus;
@@ -224,7 +224,7 @@ export function AttendanceFormModal({
                 <input
                   type="text"
                   placeholder="09:00 AM"
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={inTime}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -240,7 +240,7 @@ export function AttendanceFormModal({
                 <input
                   type="text"
                   placeholder="05:00 PM"
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={outTime}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -259,7 +259,7 @@ export function AttendanceFormModal({
                 <input
                   type="number"
                   step="0.5"
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={workHours}
                   onChange={(e) => setWorkHours(Number(e.target.value))}
                 />
@@ -271,7 +271,7 @@ export function AttendanceFormModal({
                 <input
                   type="number"
                   step="0.5"
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={otOffice}
                   onChange={(e) => setOtOffice(Number(e.target.value))}
                 />
@@ -283,7 +283,7 @@ export function AttendanceFormModal({
                 <input
                   type="number"
                   step="0.5"
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   value={otOff}
                   onChange={(e) => setOtOff(Number(e.target.value))}
                 />
@@ -320,7 +320,7 @@ export function AttendanceFormModal({
           <div>
             <textarea
               rows={2}
-              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary resize-y"
               placeholder="Reason for manual override or log correction..."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}

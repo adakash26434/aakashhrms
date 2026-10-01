@@ -48,12 +48,12 @@ export function PayHeadDetailPanel({
       header={
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-base font-semibold text-[#1b3a1f]">{head?.name ?? ""}</h2>
+            <h2 className="truncate text-base font-semibold text-payroll-navy">{head?.name ?? ""}</h2>
             <button
               type="button"
               onClick={() => head && onEdit(head)}
               disabled={!head}
-              className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-[#f6faf6] hover:text-[#2e7d32] disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-payroll-cream hover:text-payroll-primary disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Edit pay head"
               title="Edit pay head"
             >
@@ -143,7 +143,7 @@ const toneClasses: Record<Tone, string> = {
 
 function OverviewRow({ label, value, tone, className }: { label: string; value: string; tone: Tone; className?: string }) {
   return (
-    <div className={cn("rounded-lg border border-[#d7e8d0]/60 bg-white p-2.5", className)}>
+    <div className={cn("rounded-lg border border-payroll-border bg-white p-2.5", className)}>
       <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{label}</p>
       <div className="mt-1">
         <span className={cn("inline-flex rounded-md px-2 py-0.5 text-xs font-medium", toneClasses[tone])}>{value}</span>
@@ -183,7 +183,7 @@ function ApplicabilityGroup({
           {visibleNames.map((name, idx) => (
             <span
               key={`${name}-${idx}`}
-              className="rounded-md border border-[#d7e8d0] bg-[#f6faf6] px-2 py-0.5 text-xs text-[#1b3a1f]"
+              className="rounded-md border border-payroll-border bg-payroll-cream px-2 py-0.5 text-xs text-payroll-navy"
             >
               {name}
             </span>
@@ -198,15 +198,15 @@ function FlagRow({ flag, active }: { flag: StatutoryFlag; active: boolean }) {
   const meta = STATUTORY_FLAG_META[flag];
   const Icon = meta.icon;
   return (
-    <label className={cn("flex items-start gap-2.5 rounded-lg border p-2.5", active ? "border-[#2e7d32]/30 bg-green-50/40" : "border-[#d7e8d0]/60 bg-white opacity-60")}>
-      <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md", active ? "bg-[#2e7d32]/15 text-[#2e7d32]" : "bg-gray-100 text-gray-500")}>
+    <label className={cn("flex items-start gap-2.5 rounded-lg border p-2.5", active ? "border-payroll-primary/30 bg-payroll-primary-light-2" : "border-payroll-border bg-white opacity-60")}>
+      <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md", active ? "bg-payroll-primary/15 text-payroll-primary" : "bg-gray-100 text-gray-500")}>
         <Icon className="h-3.5 w-3.5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-[#1b3a1f]">{meta.label}</p>
+        <p className="text-xs font-semibold text-payroll-navy">{meta.label}</p>
         <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">{meta.description}</p>
       </div>
-      <Badge variant="default" className={cn("shrink-0 text-[10px]", active ? "bg-[#2e7d32] text-white hover:bg-[#2e7d32]" : "bg-gray-100 text-gray-500 hover:bg-gray-100")}>
+      <Badge variant="default" className={cn("shrink-0 text-[10px]", active ? "bg-payroll-primary text-white hover:bg-payroll-primary" : "bg-gray-100 text-gray-500 hover:bg-gray-100")}>
         {active ? "Active" : "Inactive"}
       </Badge>
     </label>

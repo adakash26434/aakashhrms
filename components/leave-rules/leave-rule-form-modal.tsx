@@ -133,7 +133,7 @@ export function LeaveRuleFormModal({
               onClick={handleSave}
               isSaving={saving}
               label={ruleRecord ? "Save Settings" : "Create Rule"}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             />
           </div>
         </div>
@@ -155,7 +155,7 @@ export function LeaveRuleFormModal({
                 value={formData.leaveTypeId}
                 disabled={isStatutory || Boolean(ruleRecord)}
                 onChange={(e) => handleChange("leaveTypeId", e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
               >
                 <option value="">Select policy type</option>
                 {leaveTypes.map((t) => (
@@ -178,7 +178,7 @@ export function LeaveRuleFormModal({
                 value={formData.ruleName}
                 disabled={isStatutory}
                 onChange={(e) => handleChange("ruleName", e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 placeholder="e.g. Home Leave Accrual"
               />
               {errors.ruleName && (
@@ -202,7 +202,7 @@ export function LeaveRuleFormModal({
                 value={formData.accrualMethod}
                 disabled={isStatutory}
                 onChange={(e) => handleChange("accrualMethod", e.target.value as AccrualMethod)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
               >
                 <option value="FIXED_ANNUAL">Fixed Annual Allotment</option>
                 <option value="DAYS_WORKED">Accrual per Days Worked</option>
@@ -224,7 +224,7 @@ export function LeaveRuleFormModal({
                 disabled={isStatutory}
                 value={formData.accrualValue}
                 onChange={(e) => handleChange("accrualValue", parseFloat(e.target.value) || 0)}
-                className="block w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 placeholder={
                   formData.accrualMethod === "DAYS_WORKED"
                     ? "e.g. 20 (1 day per 20 days worked)"
@@ -252,7 +252,7 @@ export function LeaveRuleFormModal({
                 value={formData.encashmentRate}
                 disabled={isStatutory}
                 onChange={(e) => handleChange("encashmentRate", e.target.value as EncashmentRate)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
               >
                 <option value="BASIC_DAILY">Basic Salary / 30 (Nepal Standard)</option>
                 <option value="FIXED_AMOUNT">Fixed Rate (NPR per day)</option>
@@ -270,7 +270,7 @@ export function LeaveRuleFormModal({
                   disabled={isStatutory}
                   value={formData.encashmentFixedAmount}
                   onChange={(e) => handleChange("encashmentFixedAmount", parseFloat(e.target.value) || 0)}
-                  className="block w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                  className="block w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 />
                 {errors.encashmentFixedAmount && (
                   <p className="mt-1 text-xs text-red-600">{errors.encashmentFixedAmount}</p>
@@ -296,7 +296,7 @@ export function LeaveRuleFormModal({
                 disabled={isStatutory}
                 value={formData.minServiceDaysForEligibility}
                 onChange={(e) => handleChange("minServiceDaysForEligibility", parseInt(e.target.value) || 0)}
-                className="block w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="block w-full rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 placeholder="e.g. 180"
               />
             </div>
@@ -312,7 +312,7 @@ export function LeaveRuleFormModal({
                   className={cn(
                     "rounded-md px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
                     formData.isActive === true
-                      ? "bg-emerald-700 text-white shadow-none"
+                      ? "bg-payroll-primary text-white shadow-none"
                       : "text-zinc-700 hover:bg-zinc-50"
                   )}
                 >

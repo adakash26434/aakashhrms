@@ -101,7 +101,7 @@ export function CompanySetupInnerNav({
         },
         {
           id: "tax_rates",
-          label: "Tax brackets",
+          label: "Tax Rates",
           sublabel: "Individual & couple slabs",
           icon: Percent,
           badge: null,

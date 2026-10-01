@@ -44,10 +44,10 @@ export function ConfirmDeleteDialog({
           <AlertTriangle className="h-6 w-6 text-red-500" />
         </div>
         <div>
-          <p className="text-sm font-medium text-[#1b3a1f]">
+          <p className="text-sm font-medium text-payroll-navy">
             Delete salary mapping for
           </p>
-          <p className="mt-1 text-sm font-bold text-[#1b3a1f]">{employeeName}?</p>
+          <p className="mt-1 text-sm font-bold text-payroll-navy">{employeeName}?</p>
           <p className="mt-2 text-xs text-gray-500">
             This will permanently remove this salary mapping. The employee will
             need a new mapping for future payroll runs.

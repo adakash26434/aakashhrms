@@ -42,7 +42,7 @@ export function ConfirmUnlockDialog({
           </Button>
           <Button
             type="button"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-colors"
+            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-sm transition-colors cursor-pointer"
             onClick={() => onConfirm(targetStatus)}
             disabled={!fiscalYear}
           >

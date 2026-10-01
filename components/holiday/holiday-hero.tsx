@@ -48,12 +48,12 @@ export function HolidayHero({ fiscalYears, selectedFYId, onChangeFY, onNew }: Ho
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-[#1b3a1f]">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-payroll-navy">
           Holiday Setup
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-gray-500">
           Define festival holidays and date ranges for{" "}
-          <span className="font-medium text-[#1b3a1f]">
+          <span className="font-medium text-payroll-navy">
             {selectedFY?.label ?? "the selected fiscal year"}
           </span>
           . All branches or specific branches can be assigned.
@@ -74,11 +74,11 @@ export function HolidayHero({ fiscalYears, selectedFYId, onChangeFY, onNew }: Ho
               onClick={toggle}
               aria-haspopup="listbox"
               aria-expanded={open}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm font-medium text-[#1b3a1f] shadow-sm transition-colors hover:bg-[#f6faf6] focus:border-[#2e7d32] focus:outline-none focus:ring-1 focus:ring-[#2e7d32]"
+              className="inline-flex items-center gap-2 rounded-lg border border-payroll-border bg-white px-3 py-2 text-sm font-medium text-payroll-navy shadow-sm transition-colors hover:bg-payroll-cream focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             >
-              <CalendarDays className="h-4 w-4 text-[#2e7d32]" />
+              <CalendarDays className="h-4 w-4 text-payroll-primary" />
               <span className="text-gray-500">FY</span>
-              <span className="text-sm font-semibold text-[#1b3a1f]">
+              <span className="text-sm font-semibold text-payroll-navy">
                 {selected?.label ?? "Select year"}
               </span>
               {selected?.adornment}

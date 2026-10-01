@@ -174,7 +174,7 @@ export function OtRulesClient({
       <div className="flex items-center justify-between">
         <div>
           {!embedded && (
-            <h1 className="text-xl font-semibold text-[#1b3a1f]">
+            <h1 className="text-xl font-semibold text-payroll-navy">
               ⏱️ Overtime Rules
             </h1>
           )}
@@ -188,7 +188,7 @@ export function OtRulesClient({
         <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 text-sm text-green-800 flex items-start gap-3 shadow-sm">
           <Clock className="h-5 w-5 shrink-0 mt-0.5 text-green-600" />
           <div className="space-y-1">
-            <strong className="block text-[#1b3a1f] font-bold">
+            <strong className="block text-payroll-navy font-bold">
               Statutory Global Overtime Standard Active
             </strong>
             <p className="text-sm text-green-700 leading-relaxed font-semibold">

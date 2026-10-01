@@ -44,14 +44,14 @@ export function DesignationDetailPanel({
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-[#1b3a1f]">
+              <h2 className="truncate text-base font-semibold text-payroll-navy">
                 {designation?.name ?? ""}
               </h2>
               <button
                 type="button"
                 onClick={() => designation && onEdit(designation)}
                 disabled={!designation}
-                className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-[#f6faf6] hover:text-[#2e7d32] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-payroll-cream hover:text-payroll-primary disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Edit designation"
                 title="Edit designation"
               >
@@ -112,7 +112,7 @@ export function DesignationDetailPanel({
 
           {/* Employees */}
           <Section title="Employees">
-            <div className="rounded-lg border border-[#d7e8d0]/60 bg-white p-3">
+            <div className="rounded-lg border border-payroll-border bg-white p-3">
               <div className="flex items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50">
                   <Users className="h-4 w-4 text-violet-600" />
@@ -121,7 +121,7 @@ export function DesignationDetailPanel({
                   <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
                     Employees
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#1b3a1f] tabular-nums">
+                  <p className="mt-0.5 text-sm font-semibold text-payroll-navy tabular-nums">
                     {formatEmployeeCount(designation.employeeCount)}
                   </p>
                 </div>
@@ -132,11 +132,11 @@ export function DesignationDetailPanel({
           {/* Description */}
           <Section title="Description">
             {designation.description ? (
-              <p className="rounded-lg border border-[#d7e8d0]/60 bg-white p-3 text-sm leading-relaxed text-[#1b3a1f]">
+              <p className="rounded-lg border border-payroll-border bg-white p-3 text-sm leading-relaxed text-payroll-navy">
                 {designation.description}
               </p>
             ) : (
-              <p className="rounded-lg border border-dashed border-[#d7e8d0] bg-[#f6faf6]/50 p-3 text-sm italic text-gray-500">
+              <p className="rounded-lg border border-dashed border-payroll-border bg-payroll-cream/50 p-3 text-sm italic text-gray-500">
                 No description has been provided for this designation.
               </p>
             )}
@@ -206,7 +206,7 @@ function OverviewRow({
   description?: string;
 }) {
   return (
-    <div className="rounded-lg border border-[#d7e8d0]/60 bg-white p-2.5">
+    <div className="rounded-lg border border-payroll-border bg-white p-2.5">
       <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
         {label}
       </p>

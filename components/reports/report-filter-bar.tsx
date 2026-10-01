@@ -229,7 +229,7 @@ export function ReportFilterBar({
             <select
               value={payrollRunId}
               onChange={(e) => setPayrollRunId(e.target.value)}
-              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors"
+              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors"
             >
               {lookupData.lockedPayrollRuns.length === 0 ? (
                 <option value="">No locked runs available</option>
@@ -253,7 +253,7 @@ export function ReportFilterBar({
             <select
               value={fiscalYearId}
               onChange={(e) => setFiscalYearId(e.target.value)}
-              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors"
+              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors"
             >
               {lookupData.fiscalYears.map((fy) => (
                 <option key={fy.id} value={fy.id}>
@@ -273,7 +273,7 @@ export function ReportFilterBar({
             <select
               value={bsMonth}
               onChange={(e) => setBsMonth(Number(e.target.value))}
-              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors"
+              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors"
             >
               {BS_MONTHS_LIST.map((m, idx) => (
                 <option key={idx + 1} value={idx + 1}>
@@ -294,8 +294,8 @@ export function ReportFilterBar({
               value={branchId}
               onChange={(e) => setBranchId(e.target.value)}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                branchId ? "border-emerald-600 bg-emerald-50/20 text-zinc-900" : "border-zinc-200 bg-white"
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                branchId ? "border-payroll-primary bg-payroll-primary-light text-zinc-900" : "border-zinc-200 bg-white"
               )}
             >
               <option value="">All branches</option>
@@ -321,7 +321,7 @@ export function ReportFilterBar({
                   e.target.value as "DEVICE_PUNCH" | "STATUS_MATRIX" | "STATUTORY_SUMMARY"
                 )
               }
-              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors"
+              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors"
             >
               <option value="STATUTORY_SUMMARY">
                 Monthly Summary Ledger (Nepal Labour Act &amp; OT)
@@ -346,8 +346,8 @@ export function ReportFilterBar({
               value={payHeadType}
               onChange={(e) => setPayHeadType(e.target.value as "ALL" | "ALLOWANCE" | "DEDUCTION")}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                payHeadType !== "ALL" ? "border-emerald-600 bg-emerald-50/20 text-zinc-900" : "border-zinc-200 bg-white"
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                payHeadType !== "ALL" ? "border-payroll-primary bg-payroll-primary-light text-zinc-900" : "border-zinc-200 bg-white"
               )}
             >
               <option value="ALL">All pay heads</option>
@@ -367,8 +367,8 @@ export function ReportFilterBar({
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                departmentId ? "border-emerald-600 bg-emerald-50/20 text-zinc-900" : "border-zinc-200 bg-white"
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                departmentId ? "border-payroll-primary bg-payroll-primary-light text-zinc-900" : "border-zinc-200 bg-white"
               )}
             >
               <option value="">All departments</option>
@@ -391,8 +391,8 @@ export function ReportFilterBar({
               value={designationId}
               onChange={(e) => setDesignationId(e.target.value)}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                designationId ? "border-emerald-600 bg-emerald-50/20 text-zinc-900" : "border-zinc-200 bg-white"
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                designationId ? "border-payroll-primary bg-payroll-primary-light text-zinc-900" : "border-zinc-200 bg-white"
               )}
             >
               <option value="">All positions / designations</option>
@@ -415,8 +415,8 @@ export function ReportFilterBar({
               value={leaveTypeId}
               onChange={(e) => setLeaveTypeId(e.target.value)}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                leaveTypeId ? "border-emerald-600 bg-emerald-50/20 text-zinc-900" : "border-zinc-200 bg-white"
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                leaveTypeId ? "border-payroll-primary bg-payroll-primary-light text-zinc-900" : "border-zinc-200 bg-white"
               )}
             >
               <option value="">All leave types</option>
@@ -439,8 +439,8 @@ export function ReportFilterBar({
               value={loanTypeId}
               onChange={(e) => setLoanTypeId(e.target.value)}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                loanTypeId ? "border-emerald-600 bg-emerald-50/20 text-zinc-900" : "border-zinc-200 bg-white"
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                loanTypeId ? "border-payroll-primary bg-payroll-primary-light text-zinc-900" : "border-zinc-200 bg-white"
               )}
             >
               <option value="">All loan types</option>
@@ -463,7 +463,7 @@ export function ReportFilterBar({
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
               className={cn(
-                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
+                "h-9 w-full rounded-md border px-2.5 text-xs font-medium text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
                 employeeId ? "border-zinc-400 bg-zinc-50 font-semibold text-zinc-950" : "border-zinc-200 bg-white"
               )}
             >
@@ -490,8 +490,8 @@ export function ReportFilterBar({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Name or code..."
                 className={cn(
-                  "h-9 w-full rounded-md border pl-8 pr-2.5 text-xs text-zinc-900 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors",
-                  search ? "border-emerald-600 bg-emerald-50/20" : "border-zinc-200 bg-white"
+                  "h-9 w-full rounded-md border pl-8 pr-2.5 text-xs text-zinc-900 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors",
+                  search ? "border-payroll-primary bg-payroll-primary-light" : "border-zinc-200 bg-white"
                 )}
               />
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
@@ -506,7 +506,7 @@ export function ReportFilterBar({
           type="button"
           onClick={() => handleApply()}
           disabled={isLoading}
-          className="inline-flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-sm px-6 shadow-sm shadow-payroll-primary/10 transition-colors disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
+          className="inline-flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-sm px-6 shadow-sm shadow-payroll-primary/10 transition-colors disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-payroll-primary focus-visible:ring-offset-2"
         >
           {isLoading ? (
             <>

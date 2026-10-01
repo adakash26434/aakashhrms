@@ -283,10 +283,10 @@ export function LeaveSalaryTable({
       {/* View Record Details Modal */}
       {viewingRun && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl border border-[#d7e8d0] bg-white p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-[#d7e8d0] pb-3">
+          <div className="w-full max-w-lg rounded-xl border border-payroll-border bg-white p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-payroll-border pb-3">
               <div>
-                <h3 className="text-base font-bold text-[#1b3a1f]">Leave Salary Encashment Details</h3>
+                <h3 className="text-base font-bold text-payroll-navy">Leave Salary Encashment Details</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Read-only view of paid leave salary encashment record</p>
               </div>
               <button
@@ -298,38 +298,38 @@ export function LeaveSalaryTable({
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Employee</p>
-                <p className="font-bold text-[#1b3a1f] text-sm mt-0.5">
+                <p className="font-bold text-payroll-navy text-sm mt-0.5">
                   {employees.find(e => e.id === viewingRun.employeeId)?.name || 'Unknown'}
                 </p>
               </div>
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Leave Type</p>
-                <p className="font-bold text-[#1b3a1f] text-sm mt-0.5">
+                <p className="font-bold text-payroll-navy text-sm mt-0.5">
                   {leaveTypes.find(t => t.id === viewingRun.leaveTypeId)?.name || 'Unknown'}
                 </p>
               </div>
 
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Encashment Type</p>
                 <div className="mt-1">{getEncashmentTypeBadge(viewingRun.encashmentType)}</div>
               </div>
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Payment Method</p>
                 <div className="mt-1">{getPaymentMethodBadge(viewingRun.paymentMethod)}</div>
               </div>
 
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Days Encashed</p>
-                <p className="font-bold text-[#1b3a1f] text-sm mt-0.5">{viewingRun.leaveDays} days</p>
+                <p className="font-bold text-payroll-navy text-sm mt-0.5">{viewingRun.leaveDays} days</p>
               </div>
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Payment Period</p>
-                <p className="font-bold text-[#1b3a1f] text-sm mt-0.5">{viewingRun.paymentPeriod}</p>
+                <p className="font-bold text-payroll-navy text-sm mt-0.5">{viewingRun.paymentPeriod}</p>
               </div>
 
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Daily Base Rate</p>
                 <p className="font-bold text-gray-700 text-sm mt-0.5">
                   Rs. {Number(viewingRun.perDayRate).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
@@ -342,18 +342,18 @@ export function LeaveSalaryTable({
                 </p>
               </div>
 
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Status</p>
                 <div className="mt-1">{getStatusBadge(viewingRun.status)}</div>
               </div>
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Approved / Paid By</p>
                 <p className="font-semibold text-gray-700 text-xs mt-0.5">
                   {viewingRun.approvedByName || (viewingRun.status === "PAID" ? "System Administrator" : "Pending Approval")}
                 </p>
               </div>
 
-              <div className="rounded-lg bg-[#f6faf6] p-3 border border-[#d7e8d0]/60 col-span-2">
+              <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border col-span-2">
                 <p className="text-[10px] font-semibold uppercase text-gray-400">Approved Date</p>
                 <p className="font-semibold text-gray-700 text-xs mt-0.5">
                   {viewingRun.status === "PAID"
@@ -369,10 +369,10 @@ export function LeaveSalaryTable({
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#d7e8d0]">
+            <div className="flex justify-end pt-2 border-t border-payroll-border">
               <button
                 onClick={() => setViewingRun(null)}
-                className="rounded-lg bg-[#2e7d32] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b3a1f] transition-colors"
+                className="rounded-lg bg-payroll-primary px-4 py-2 text-xs font-bold text-white hover:bg-payroll-primary-hover transition-colors"
               >
                 Close Details
               </button>
@@ -384,9 +384,9 @@ export function LeaveSalaryTable({
       {/* Edit Draft Modal */}
       {editingRun && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-[#d7e8d0] bg-white p-6 shadow-2xl space-y-4">
-            <div className="border-b border-[#d7e8d0] pb-3">
-              <h3 className="text-base font-bold text-[#1b3a1f]">Edit Draft Encashment Record</h3>
+          <div className="w-full max-w-md rounded-xl border border-payroll-border bg-white p-6 shadow-2xl space-y-4">
+            <div className="border-b border-payroll-border pb-3">
+              <h3 className="text-base font-bold text-payroll-navy">Edit Draft Encashment Record</h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 Update parameters for {employees.find(e => e.id === editingRun.employeeId)?.name || 'Employee'}.
               </p>
@@ -406,7 +406,7 @@ export function LeaveSalaryTable({
                   type="number"
                   value={editDays}
                   onChange={(e) => setEditDays(Number(e.target.value))}
-                  className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-sm text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+                  className="w-full rounded-lg border border-payroll-border bg-white px-3 py-2 text-sm text-payroll-navy outline-none focus:border-payroll-primary"
                 />
               </div>
 
@@ -416,7 +416,7 @@ export function LeaveSalaryTable({
                   <select
                     value={editFY}
                     onChange={(e) => setEditFY(e.target.value)}
-                    className="w-full rounded-lg border border-[#d7e8d0] bg-white px-2.5 py-2 text-xs text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+                    className="w-full rounded-lg border border-payroll-border bg-white px-2.5 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
                   >
                     {fiscalYears.length > 0 ? (
                       fiscalYears.map(f => (
@@ -430,7 +430,7 @@ export function LeaveSalaryTable({
                   <select
                     value={editMonth}
                     onChange={(e) => setEditMonth(e.target.value)}
-                    className="w-full rounded-lg border border-[#d7e8d0] bg-white px-2.5 py-2 text-xs text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+                    className="w-full rounded-lg border border-payroll-border bg-white px-2.5 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
                   >
                     {BS_MONTHS.map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -444,7 +444,7 @@ export function LeaveSalaryTable({
                 <select
                   value={editMethod}
                   onChange={(e) => setEditMethod(e.target.value as PaymentMethod)}
-                  className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-xs text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+                  className="w-full rounded-lg border border-payroll-border bg-white px-3 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
                 >
                   <option value="BANK_TRANSFER">Bank Transfer</option>
                   <option value="CHEQUE">Cheque</option>
@@ -457,7 +457,7 @@ export function LeaveSalaryTable({
                 <select
                   value={editType}
                   onChange={(e) => setEditType(e.target.value as EncashmentType)}
-                  className="w-full rounded-lg border border-[#d7e8d0] bg-white px-3 py-2 text-xs text-[#1b3a1f] outline-none focus:border-[#2e7d32]"
+                  className="w-full rounded-lg border border-payroll-border bg-white px-3 py-2 text-xs text-payroll-navy outline-none focus:border-payroll-primary"
                 >
                   <option value="VOLUNTARY">Voluntary</option>
                   <option value="ANNUAL_EXCESS">Annual Excess</option>
@@ -466,12 +466,12 @@ export function LeaveSalaryTable({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#d7e8d0]">
+            <div className="flex justify-end gap-2 pt-2 border-t border-payroll-border">
               <button
                 type="button"
                 onClick={() => setEditingRun(null)}
                 disabled={savingEdit}
-                className="rounded-lg border border-[#d7e8d0] px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="rounded-lg border border-payroll-border px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -479,7 +479,7 @@ export function LeaveSalaryTable({
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={savingEdit}
-                className="rounded-lg bg-[#2e7d32] px-4 py-2 text-xs font-bold text-white hover:bg-[#1b3a1f] transition-colors disabled:opacity-50"
+                className="rounded-lg bg-payroll-primary px-4 py-2 text-xs font-bold text-white hover:bg-payroll-primary-hover transition-colors disabled:opacity-50"
               >
                 {savingEdit ? "Saving..." : "Save Changes"}
               </button>
@@ -491,13 +491,13 @@ export function LeaveSalaryTable({
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-sm rounded-xl border border-[#d7e8d0] bg-white p-6 shadow-2xl">
+          <div className="mx-4 w-full max-w-sm rounded-xl border border-payroll-border bg-white p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                 <AlertTriangle className="h-5 w-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#1b3a1f]">Delete Draft Record</h3>
+                <h3 className="text-sm font-bold text-payroll-navy">Delete Draft Record</h3>
                 <p className="text-xs text-gray-500 mt-0.5">This action cannot be undone.</p>
               </div>
             </div>
@@ -508,7 +508,7 @@ export function LeaveSalaryTable({
               <button
                 onClick={() => setDeleteConfirmId(null)}
                 disabled={deleting}
-                className="rounded-lg border border-[#d7e8d0] px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="rounded-lg border border-payroll-border px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

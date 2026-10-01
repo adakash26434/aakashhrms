@@ -83,7 +83,7 @@ export function LeaveDetailPanel({
       size="xl"
       header={
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-[#1b3a1f]">
+          <h2 className="text-base font-semibold text-payroll-navy">
             Leave Application
           </h2>
           <p className="mt-0.5 text-sm text-gray-500">
@@ -128,12 +128,12 @@ export function LeaveDetailPanel({
       {application && (
         <div className="space-y-6">
           {/* Employee Info Header */}
-          <div className="flex items-center gap-3 rounded-xl border border-[#d7e8d0]/80 bg-[#f6faf6]/50 p-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2e7d32] text-base font-bold text-white">
+          <div className="flex items-center gap-3 rounded-xl border border-payroll-border bg-payroll-cream/50 p-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-payroll-primary text-base font-bold text-white">
               {getInitials(application.employeeName)}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-semibold text-[#1b3a1f]">
+              <h3 className="text-lg font-semibold text-payroll-navy">
                 {application.employeeName}
               </h3>
               <p className="text-xs text-gray-500">Employee</p>
@@ -164,13 +164,13 @@ export function LeaveDetailPanel({
           {/* Reason */}
           <DetailSection title="Reason & Remarks" icon={MessageSquare}>
             <div className="px-4 py-3">
-              <p className="text-sm text-[#1b3a1f]">{application.reason}</p>
+              <p className="text-sm text-payroll-navy">{application.reason}</p>
               {application.remarks && (
-                <div className="mt-3 rounded-lg bg-[#f6faf6] p-3">
+                <div className="mt-3 rounded-lg bg-payroll-cream p-3">
                   <p className="text-xs font-medium text-gray-500">
                     Additional Remarks:
                   </p>
-                  <p className="mt-1 text-sm text-[#1b3a1f]">
+                  <p className="mt-1 text-sm text-payroll-navy">
                     {application.remarks}
                   </p>
                 </div>
@@ -186,13 +186,13 @@ export function LeaveDetailPanel({
             >
               <div className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d7e8d0] text-[11px] font-bold text-[#1b3a1f]">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-payroll-primary-light-2 text-[11px] font-bold text-payroll-navy">
                     {application.reviewerName
                       ? getInitials(application.reviewerName)
                       : "?"}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#1b3a1f]">
+                    <p className="text-sm font-medium text-payroll-navy">
                       {application.reviewerName || "Unknown"}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -202,9 +202,9 @@ export function LeaveDetailPanel({
                   </div>
                 </div>
                 {application.reviewRemarks && (
-                  <div className="mt-3 rounded-lg bg-[#f6faf6] p-3">
+                  <div className="mt-3 rounded-lg bg-payroll-cream p-3">
                     <p className="text-xs font-medium text-gray-500">Review Remarks:</p>
-                    <p className="mt-1 text-sm text-[#1b3a1f]">
+                    <p className="mt-1 text-sm text-payroll-navy">
                       &ldquo;{application.reviewRemarks}&rdquo;
                     </p>
                   </div>
@@ -228,9 +228,9 @@ function DetailSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-[#d7e8d0]/80">
-      <div className="flex items-center gap-2 border-b border-[#d7e8d0]/60 bg-[#f6faf6]/40 px-4 py-2.5">
-        <Icon className="h-4 w-4 text-[#2e7d32]" />
+    <div className="rounded-xl border border-payroll-border">
+      <div className="flex items-center gap-2 border-b border-payroll-border bg-payroll-cream/40 px-4 py-2.5">
+        <Icon className="h-4 w-4 text-payroll-primary" />
         <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
           {title}
         </h4>
@@ -248,7 +248,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className="mt-0.5 text-sm font-medium text-[#1b3a1f]">{value}</p>
+      <p className="mt-0.5 text-sm font-medium text-payroll-navy">{value}</p>
     </div>
   );
 }

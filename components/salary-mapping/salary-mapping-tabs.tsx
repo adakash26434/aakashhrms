@@ -60,7 +60,7 @@ export function SalaryMappingTabs({
     <div
       role="tablist"
       aria-label="Salary mapping views"
-      className="inline-flex w-full max-w-3xl rounded-xl border border-[#d7e8d0]/80 bg-white p-1"
+      className="inline-flex w-full max-w-3xl rounded-xl border border-payroll-border bg-white p-1"
     >
       {tabs.map((t) => {
         const isActive = t.id === active;
@@ -75,8 +75,8 @@ export function SalaryMappingTabs({
             className={cn(
               "inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium cursor-pointer transition-colors",
               isActive
-                ? "bg-[#2e7d32] text-white shadow-sm"
-                : "text-[#1b3a1f] hover:bg-[#f6faf6]",
+                ? "bg-payroll-primary text-white shadow-sm"
+                : "text-payroll-navy hover:bg-payroll-cream",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -86,7 +86,7 @@ export function SalaryMappingTabs({
                 "rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
                 isActive
                   ? "bg-white/20 text-white"
-                  : "bg-[#d7e8d0]/60 text-[#1b3a1f]",
+                  : "bg-payroll-primary-light-2 text-payroll-primary",
               )}
             >
               {t.count}

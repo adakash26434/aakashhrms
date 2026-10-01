@@ -31,11 +31,11 @@ export function LeavePermissionsCard({
     <Card>
       <CardHeader>
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#d7e8d0]/70">
-            <Users className="h-5 w-5 text-[#2e7d32]" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-payroll-primary-light-2">
+            <Users className="h-5 w-5 text-payroll-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-[#1b3a1f]">
+            <h2 className="text-base font-semibold text-payroll-navy">
               Leave Permissions by Employee Category
             </h2>
             <p className="mt-0.5 text-sm text-gray-500">
@@ -57,17 +57,17 @@ export function LeavePermissionsCard({
                 aria-checked={enabled}
                 onClick={() => handleToggle(category, !enabled)}
                 className={cn(
-                  "inline-flex cursor-pointer items-center gap-2.5 rounded-full border bg-white px-3 py-1.5 text-sm font-medium transition-all duration-150 ease-in-out hover:bg-[#f6faf6]",
+                  "inline-flex cursor-pointer items-center gap-2.5 rounded-full border bg-white px-3 py-1.5 text-sm font-medium transition-all duration-150 ease-in-out hover:bg-payroll-cream",
                   enabled
-                    ? "border-[#2e7d32] text-[#1b3a1f]"
-                    : "border-[#d7e8d0] text-[#1b3a1f]",
+                    ? "border-payroll-primary text-payroll-navy"
+                    : "border-payroll-border text-payroll-navy",
                 )}
               >
                 <span
                   aria-hidden
                   className={cn(
                     "relative inline-block h-4 w-7 rounded-full transition-colors duration-150",
-                    enabled ? "bg-[#2e7d32]" : "bg-gray-300",
+                    enabled ? "bg-payroll-primary" : "bg-gray-300",
                   )}
                 >
                   <span

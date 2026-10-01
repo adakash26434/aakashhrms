@@ -40,7 +40,7 @@ export function TaxRateSlabsCard({
           size="sm"
           disabled={isLocked}
           title={isLocked ? LOCKED_NEW_SLAB_TOOLTIP : undefined}
-          className="bg-emerald-800 hover:bg-emerald-900 text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+          className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs h-9 px-3.5 rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Add tax slab</span>

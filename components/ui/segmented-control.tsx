@@ -41,7 +41,7 @@ export function SegmentedControl<T extends string = string>({
               size === "sm" ? "py-1 text-[11px]" : "py-1.5"
             } ${
               isActive
-                ? "bg-emerald-700 text-white shadow-xs"
+                ? "bg-payroll-primary text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
             }`}
           >

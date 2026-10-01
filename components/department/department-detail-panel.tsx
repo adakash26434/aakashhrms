@@ -70,19 +70,19 @@ export function DepartmentDetailPanel({
       size="md"
       header={
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#2e7d32]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-payroll-primary-light-2 text-payroll-primary">
             <Icon className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-[#1b3a1f]">
+              <h2 className="truncate text-base font-semibold text-payroll-navy">
                 {department?.name ?? ""}
               </h2>
               <button
                 type="button"
                 onClick={() => department && onEdit(department)}
                 disabled={!department}
-                className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-[#f6faf6] hover:text-[#2e7d32] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-payroll-cream hover:text-payroll-primary disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Edit department"
                 title="Edit department"
               >
@@ -165,11 +165,11 @@ export function DepartmentDetailPanel({
           {/* Description */}
           <Section title="Description">
             {department.description ? (
-              <p className="rounded-lg border border-[#d7e8d0]/60 bg-white p-3 text-sm leading-relaxed text-[#1b3a1f]">
+              <p className="rounded-lg border border-payroll-border bg-white p-3 text-sm leading-relaxed text-payroll-navy">
                 {department.description}
               </p>
             ) : (
-              <p className="rounded-lg border border-dashed border-[#d7e8d0] bg-[#f6faf6]/50 p-3 text-sm italic text-gray-500">
+              <p className="rounded-lg border border-dashed border-payroll-border bg-payroll-cream/50 p-3 text-sm italic text-gray-500">
                 No description has been provided for this department.
               </p>
             )}
@@ -256,7 +256,7 @@ function OverviewRow({
   description?: string;
 }) {
   return (
-    <div className="rounded-lg border border-[#d7e8d0]/60 bg-white p-2.5">
+    <div className="rounded-lg border border-payroll-border bg-white p-2.5">
       <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
         {label}
       </p>
@@ -289,7 +289,7 @@ function HeadcountTile({
   tone: Tone;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-[#d7e8d0]/60 bg-white p-3">
+    <div className="flex items-center gap-3 rounded-lg border border-payroll-border bg-white p-3">
       <span
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
@@ -302,7 +302,7 @@ function HeadcountTile({
         <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-semibold text-[#1b3a1f] tabular-nums">
+        <p className="mt-0.5 text-sm font-semibold text-payroll-navy tabular-nums">
           {value}
         </p>
       </div>

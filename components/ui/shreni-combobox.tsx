@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   STANDARD_SHRENI_LEVELS,
-  ShreniLevelItem,
+  type ShreniLevelItem,
 } from "@/lib/constants/industry-types";
 import {
   Layers,
@@ -22,8 +22,8 @@ interface ShreniComboboxProps {
   hasError?: boolean;
   className?: string;
   id?: string;
-  industryType?: string; // Kept for backwards-compatible component interface
-  levels?: ShreniLevelItem[]; // Optional tenant-customized levels
+  industryType?: string; // Kept for backwards-compatible component interface (informational only)
+  levels?: ShreniLevelItem[]; // Dynamic organization Shreni levels (S1–S15 + any custom levels)
 }
 
 export function ShreniCombobox({
@@ -41,8 +41,10 @@ export function ShreniCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Available levels: uses tenant's configured levels from DB or canonical 15 general levels
   const availableLevels = useMemo(() => {
-    return levels && levels.length > 0 ? levels : STANDARD_SHRENI_LEVELS;
+    const src = levels && levels.length > 0 ? levels : STANDARD_SHRENI_LEVELS;
+    return [...src].sort((a, b) => a.levelNumber - b.levelNumber);
   }, [levels]);
 
   // Sync displayed query when external value changes
@@ -58,7 +60,8 @@ export function ShreniCombobox({
         l.name.toLowerCase() === value.toLowerCase()
     );
     if (matched) {
-      setSearchQuery(`${matched.code} — Level ${matched.levelNumber}`);
+      const nepaliText = matched.labelNepali ? ` • ${matched.labelNepali}` : "";
+      setSearchQuery(`${matched.code} — ${matched.name}${nepaliText}`);
     } else {
       setSearchQuery(value);
     }
@@ -74,7 +77,12 @@ export function ShreniCombobox({
               l.code.toLowerCase() === value.toLowerCase() ||
               l.id.toLowerCase() === value.toLowerCase()
           );
-          setSearchQuery(matched ? `${matched.code} — Level ${matched.levelNumber}` : value);
+          if (matched) {
+            const nepaliText = matched.labelNepali ? ` • ${matched.labelNepali}` : "";
+            setSearchQuery(`${matched.code} — ${matched.name}${nepaliText}`);
+          } else {
+            setSearchQuery(value);
+          }
         } else {
           setSearchQuery("");
         }
@@ -94,7 +102,7 @@ export function ShreniCombobox({
       (lvl) =>
         lvl.code.toLowerCase().includes(q) ||
         lvl.name.toLowerCase().includes(q) ||
-        lvl.labelNepali.toLowerCase().includes(q) ||
+        (lvl.labelNepali && lvl.labelNepali.toLowerCase().includes(q)) ||
         String(lvl.levelNumber) === q ||
         (lvl.description && lvl.description.toLowerCase().includes(q))
     );
@@ -102,7 +110,8 @@ export function ShreniCombobox({
 
   const handleSelect = (level: ShreniLevelItem) => {
     onChange(level.code);
-    setSearchQuery(`${level.code} — Level ${level.levelNumber}`);
+    const nepaliText = level.labelNepali ? ` • ${level.labelNepali}` : "";
+    setSearchQuery(`${level.code} — ${level.name}${nepaliText}`);
     setOpen(false);
   };
 
@@ -178,7 +187,7 @@ export function ShreniCombobox({
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
       <div className="relative flex items-center">
-        <Layers className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-emerald-700" />
+        <Layers className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-emerald-800" />
         <input
           id={id}
           ref={inputRef}
@@ -196,7 +205,7 @@ export function ShreniCombobox({
           disabled={disabled}
           autoComplete="off"
           className={cn(
-            "h-10 w-full rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700",
+            "h-10 w-full rounded-md border border-zinc-200 bg-white pl-9 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700",
             hasError && "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-red-500",
             disabled && "bg-zinc-50 text-zinc-400 cursor-not-allowed border-zinc-200"
           )}
@@ -225,16 +234,16 @@ export function ShreniCombobox({
       </div>
 
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-lg animate-[fadeIn_100ms_ease-out]">
+        <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg animate-[fadeIn_100ms_ease-out]">
           {/* Quick-Select Level Pills Header */}
-          <div className="bg-slate-50 p-2.5 border-b border-slate-200 space-y-1.5 select-none">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-              <span className="flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-emerald-600" />
-                <span>Quick Select Level:</span>
+          <div className="bg-zinc-50 p-2.5 border-b border-zinc-200 space-y-1.5 select-none">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-600">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-emerald-800" />
+                <span>Quick Select Grade Level:</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {availableLevels[0]?.code} – {availableLevels[availableLevels.length - 1]?.code}
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {availableLevels[0]?.code} &ndash; {availableLevels[availableLevels.length - 1]?.code}
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -249,8 +258,8 @@ export function ShreniCombobox({
                     className={cn(
                       "px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer",
                       isSelected
-                        ? "bg-emerald-700 text-white shadow-2xs"
-                        : "bg-white border border-zinc-200 text-zinc-700 hover:border-emerald-600 hover:text-emerald-700"
+                        ? "bg-emerald-900 text-white shadow-2xs"
+                        : "bg-white border border-zinc-200 text-zinc-700 hover:border-emerald-700 hover:text-emerald-900"
                     )}
                   >
                     {lvl.code}
@@ -277,11 +286,11 @@ export function ShreniCombobox({
                   onClick={() => handleSelect(lvl)}
                   onMouseEnter={() => setHighlightedIndex(idx)}
                   className={cn(
-                    "flex items-center justify-between p-2 rounded-md text-xs cursor-pointer transition-colors",
+                    "flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors",
                     isHighlighted
-                      ? "bg-emerald-50 text-emerald-800 font-semibold"
+                      ? "bg-emerald-50 text-emerald-950 font-semibold"
                       : isSelected
-                      ? "bg-emerald-50/60 text-emerald-800 font-semibold"
+                      ? "bg-emerald-50/70 text-emerald-950 font-semibold"
                       : "text-zinc-800 hover:bg-zinc-50"
                   )}
                 >
@@ -290,7 +299,7 @@ export function ShreniCombobox({
                       className={cn(
                         "flex h-7 w-8 items-center justify-center rounded-md font-mono text-xs font-bold shrink-0",
                         isSelected
-                          ? "bg-emerald-700 text-white"
+                          ? "bg-emerald-900 text-white"
                           : "bg-zinc-100 text-zinc-700 border border-zinc-200"
                       )}
                     >
@@ -298,7 +307,7 @@ export function ShreniCombobox({
                     </span>
                     <div className="min-w-0">
                       <p className="font-semibold text-zinc-900 truncate">
-                        Level {lvl.levelNumber} &bull; {lvl.name}
+                        {lvl.name} {lvl.labelNepali ? `\u2022 ${lvl.labelNepali}` : ""}
                       </p>
                       {lvl.description && (
                         <p className="text-[11px] text-zinc-500 truncate">
@@ -308,15 +317,22 @@ export function ShreniCombobox({
                     </div>
                   </div>
 
-                  {isSelected && (
-                    <Check className="h-4 w-4 text-emerald-700 shrink-0 ml-2" />
-                  )}
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {lvl.minSalary && lvl.minSalary > 0 ? (
+                      <span className="font-mono text-[11px] text-emerald-900 bg-emerald-50/60 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                        NPR {lvl.minSalary.toLocaleString()}
+                      </span>
+                    ) : null}
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-emerald-800 shrink-0" />
+                    )}
+                  </div>
                 </div>
               );
             })}
 
             {filteredLevels.length === 0 && (
-              <div className="p-4 text-center text-xs text-slate-500 space-y-2">
+              <div className="p-4 text-center text-xs text-zinc-500 space-y-2">
                 <p>No predefined level matching &quot;{searchQuery}&quot;</p>
                 {searchQuery.trim() && (
                   <button
@@ -338,4 +354,3 @@ export function ShreniCombobox({
     </div>
   );
 }
-

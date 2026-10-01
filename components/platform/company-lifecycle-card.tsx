@@ -190,7 +190,7 @@ export function CompanyLifecycleCard({
               className={cn(
                 "w-full text-xs font-bold shadow-payroll-xs",
                 currentStatus === "SUSPENDED"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  ? "bg-payroll-primary hover:bg-payroll-primary-hover text-white"
                   : "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300",
               )}
             >

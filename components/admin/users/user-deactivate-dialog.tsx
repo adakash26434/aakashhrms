@@ -78,11 +78,11 @@ export function UserDeactivateDialog({
           </div>
         )}
 
-        <div className="rounded-lg bg-[#f6faf6] border border-[#d7e8d0]/60 p-3 text-xs space-y-1 text-gray-700">
-          <div><strong className="text-[#1b3a1f]">User Email:</strong> {user.email}</div>
-          <div><strong className="text-[#1b3a1f]">Role:</strong> {user.roleName || "No Role"}</div>
+        <div className="rounded-lg bg-payroll-cream border border-payroll-border p-3 text-xs space-y-1 text-gray-700">
+          <div><strong className="text-payroll-navy">User Email:</strong> {user.email}</div>
+          <div><strong className="text-payroll-navy">Role:</strong> {user.roleName || "No Role"}</div>
           {user.employeeName && (
-            <div><strong className="text-[#1b3a1f]">Linked Employee:</strong> {user.employeeName} ({user.employeeCode})</div>
+            <div><strong className="text-payroll-navy">Linked Employee:</strong> {user.employeeName} ({user.employeeCode})</div>
           )}
         </div>
       </div>

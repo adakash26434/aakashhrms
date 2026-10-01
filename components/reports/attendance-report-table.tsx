@@ -179,7 +179,7 @@ export function AttendanceReportTable({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search staff..."
-              className="h-7 w-full rounded-md border border-zinc-200 bg-white pl-7 pr-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-700 focus:outline-none"
+              className="h-7 w-full rounded-md border border-zinc-200 bg-white pl-7 pr-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none"
             />
             <Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-zinc-400" />
           </div>

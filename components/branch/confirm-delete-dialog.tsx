@@ -31,13 +31,13 @@ export function ConfirmDeleteDialog({ open, branch, onClose, onConfirm }: Confir
     >
       <div className="space-y-4">
         <div className="flex items-center gap-3 rounded-lg border border-red-100 bg-red-50/60 p-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#2e7d32]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-payroll-primary">
             <Building2 className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-[#1b3a1f]">{branch ? branch.name : "—"}</p>
+            <p className="truncate font-semibold text-payroll-navy">{branch ? branch.name : "—"}</p>
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="rounded bg-[#d7e8d0]/60 px-1.5 py-0.5 font-medium text-[#1b3a1f]">Branch</span>
+              <span className="rounded bg-payroll-primary-light-2 px-1.5 py-0.5 font-medium text-payroll-navy">Branch</span>
               <span className="text-gray-500">·</span>
               <span className="text-gray-700">{branch?.code ?? ""}</span>
             </div>

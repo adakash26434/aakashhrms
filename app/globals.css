@@ -49,10 +49,20 @@
   --color-payroll-navy: #111827;
   --color-payroll-primary-hover: #155743;
   --color-payroll-primary-light: #EBF4F0;
+  --color-payroll-primary-light-2: #F3F8F5;
+  --color-payroll-primary-border: #DDECE3;
   --color-payroll-border: #E4E7E4;
+  --color-payroll-border-light: #F0F1F0;
   --color-payroll-border-table: #D1D5DB;
   --color-payroll-border-row: #E4E7E4;
+  --color-payroll-divider: #ECEFED;
   --color-payroll-workspace: #F6F8F5;
+  --color-payroll-surface: #FFFFFF;
+  --color-payroll-surface-soft: #FBFCFB;
+  --color-payroll-ink: #111827;
+  --color-payroll-text: #2C2C2C;
+  --color-payroll-text-muted: #6B7280;
+  --color-payroll-text-caption: #9CA3AF;
   --font-sans: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }

@@ -153,11 +153,11 @@ function SearchableAddressSelect({
           }
         }}
         className={cn(
-          "w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm flex items-center justify-between transition-colors cursor-pointer select-none hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700",
+          "w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm flex items-center justify-between transition-colors cursor-pointer select-none hover:border-zinc-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary",
           hasError
             ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/20"
             : "",
-          open && "border-emerald-700 ring-1 ring-emerald-700",
+          open && "border-payroll-primary ring-1 ring-payroll-primary",
           disabled && "bg-zinc-50 text-zinc-400 cursor-not-allowed border-zinc-200"
         )}
       >
@@ -230,9 +230,9 @@ function SearchableAddressSelect({
                     className={cn(
                       "px-3 py-2 text-xs rounded-md flex items-center justify-between cursor-pointer transition-colors",
                       isHighlighted
-                        ? "bg-emerald-50 text-emerald-800 font-semibold"
+                        ? "bg-payroll-primary-light text-payroll-navy font-semibold"
                         : isSelected
-                        ? "bg-emerald-50/60 text-zinc-900 font-semibold"
+                        ? "bg-payroll-primary-light-2 text-payroll-primary font-semibold"
                         : "text-zinc-700 hover:bg-zinc-50"
                     )}
                   >
@@ -331,7 +331,7 @@ export function NepalAddressPicker({
   };
 
   const inputClass =
-    "w-full h-10 rounded-lg border border-slate-200 bg-white px-3.5 text-xs sm:text-sm text-slate-900 shadow-2xs transition-colors hover:border-slate-300 focus:border-[#1e7e47] focus:outline-none focus:ring-1 focus:ring-[#1e7e47]";
+    "w-full h-10 rounded-lg border border-slate-200 bg-white px-3.5 text-xs sm:text-sm text-slate-900 shadow-2xs transition-colors hover:border-slate-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary";
 
   // Format options for SearchableAddressSelect
   const permDistrictOptions: OptionItem[] = useMemo(
@@ -359,7 +359,7 @@ export function NepalAddressPicker({
       {/* 1. PERMANENT ADDRESS */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-4 shadow-2xs">
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-[#1e7e47]">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-payroll-primary-light text-payroll-primary">
             <MapPin className="h-3.5 w-3.5" />
           </div>
           <div>
@@ -487,7 +487,7 @@ export function NepalAddressPicker({
               </>
             ) : (
               <>
-                <Copy className="h-3.5 w-3.5 text-[#1e7e47]" />
+                <Copy className="h-3.5 w-3.5 text-payroll-primary" />
                 <span>Copy from Permanent</span>
               </>
             )}

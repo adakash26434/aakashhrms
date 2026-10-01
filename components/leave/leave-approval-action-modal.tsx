@@ -81,7 +81,7 @@ export function LeaveApprovalActionModal({
               label={isApprove ? "Approve Application" : "Reject Application"}
               className={
                 isApprove
-                  ? "rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+                  ? "rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
                   : "rounded-md bg-rose-700 hover:bg-rose-800 text-white font-medium shadow-none cursor-pointer"
               }
             />
@@ -128,7 +128,7 @@ export function LeaveApprovalActionModal({
               onChange={(e) => setRemarks(e.target.value)}
               rows={3}
               required={!isApprove}
-              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+              className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary resize-y"
               placeholder={
                 isApprove
                   ? "Optional: add supervisor notes or instructions..."

@@ -36,7 +36,7 @@ export function RadioGroup<T extends string>({
             key={opt.value}
             htmlFor={id}
             className={cn(
-              "inline-flex cursor-pointer items-center gap-2 text-sm text-[#1b3a1f]",
+              "inline-flex cursor-pointer items-center gap-2 text-sm text-payroll-navy",
               disabled && "cursor-not-allowed opacity-60",
               optionClassName,
             )}
@@ -57,16 +57,16 @@ export function RadioGroup<T extends string>({
                 className={cn(
                   "block h-4 w-4 rounded-full border-2 transition-colors duration-150",
                   checked
-                    ? "border-[#2e7d32]"
-                    : "border-gray-300 hover:border-gray-400",
+                    ? "border-payroll-primary"
+                    : "border-payroll-border hover:border-payroll-primary/60",
                   !disabled &&
-                    "peer-focus-visible:ring-2 peer-focus-visible:ring-[#2e7d32]/40 peer-focus-visible:ring-offset-1",
+                    "peer-focus-visible:ring-2 peer-focus-visible:ring-payroll-primary/40 peer-focus-visible:ring-offset-1",
                 )}
               />
               {checked && (
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute h-2 w-2 rounded-full bg-[#2e7d32]"
+                  className="pointer-events-none absolute h-2 w-2 rounded-full bg-payroll-primary"
                 />
               )}
             </span>

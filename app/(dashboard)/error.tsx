@@ -38,7 +38,7 @@ export default function DashboardError({
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1b3a1f] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#2a5a2f] transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-payroll-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-payroll-primary-hover transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Return to Dashboard
@@ -74,7 +74,7 @@ export default function DashboardError({
         </button>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#1b3a1f] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#2a5a2f] transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-payroll-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-payroll-primary-hover transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Return to Dashboard

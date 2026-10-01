@@ -149,7 +149,7 @@ export function DesignationFormModal({
             <Button
               type="submit"
               form="designation-form"
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             >
               {submitLabel}
             </Button>
@@ -242,7 +242,7 @@ export function DesignationFormModal({
               "w-full rounded-md border bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
               errors.description
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+                : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
             )}
           />
           {errors.description && (
@@ -275,7 +275,7 @@ export function DesignationFormModal({
                     "rounded-md px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
                     isActive
                       ? s === "active"
-                        ? "bg-emerald-700 text-white shadow-none"
+                        ? "bg-payroll-primary text-white shadow-none"
                         : "bg-zinc-800 text-white shadow-none"
                       : "text-zinc-700 hover:bg-zinc-50",
                   )}
@@ -296,7 +296,7 @@ function inputClass(error?: string): string {
     "h-9 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:ring-1 transition-colors",
     error
       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+      : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
   );
 }
 

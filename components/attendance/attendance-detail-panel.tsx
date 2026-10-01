@@ -16,30 +16,30 @@ export function AttendanceDetailPanel({ open, record, onClose }: AttendanceDetai
   return (
     <SidePanel open={open} onClose={onClose} header="Attendance Punch Audit">
       <div className="space-y-6 text-sm">
-        <div className="rounded-xl bg-[#d7e8d0]/30 p-4 border border-[#d7e8d0]">
+        <div className="rounded-xl bg-payroll-primary-light-2 p-4 border border-payroll-border">
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-[#2e7d32] p-3 text-white font-bold">
+            <div className="rounded-full bg-payroll-primary p-3 text-white font-bold">
               <User className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-[#1b3a1f] text-base">{record.employeeName}</h3>
+              <h3 className="font-bold text-payroll-navy text-base">{record.employeeName}</h3>
               <p className="font-mono text-xs text-gray-600">{record.attendanceCode} • {record.departmentName}</p>
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          <h4 className="font-semibold text-[#1b3a1f] flex items-center gap-1.5 border-b pb-1">
-            <Clock className="h-4 w-4 text-[#2e7d32]" /> Punch Timestamps & Hours
+          <h4 className="font-semibold text-payroll-navy flex items-center gap-1.5 border-b pb-1">
+            <Clock className="h-4 w-4 text-payroll-primary" /> Punch Timestamps & Hours
           </h4>
           <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg border">
             <div>
               <span className="text-xs text-gray-500 block">Check-In Time:</span>
-              <span className="font-mono font-bold text-[#1b3a1f]">{record.inTime || "Not Punched"}</span>
+              <span className="font-mono font-bold text-payroll-navy">{record.inTime || "Not Punched"}</span>
             </div>
             <div>
               <span className="text-xs text-gray-500 block">Check-Out Time:</span>
-              <span className="font-mono font-bold text-[#1b3a1f]">{record.outTime || "Not Punched"}</span>
+              <span className="font-mono font-bold text-payroll-navy">{record.outTime || "Not Punched"}</span>
             </div>
             <div>
               <span className="text-xs text-gray-500 block">Total Work Hours:</span>
@@ -47,14 +47,14 @@ export function AttendanceDetailPanel({ open, record, onClose }: AttendanceDetai
             </div>
             <div>
               <span className="text-xs text-gray-500 block">Total OT Earned:</span>
-              <span className="font-bold text-[#2e7d32]">+{record.otHoursOfficeDay + record.otHoursOffDay} hrs</span>
+              <span className="font-bold text-payroll-primary">+{record.otHoursOfficeDay + record.otHoursOffDay} hrs</span>
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          <h4 className="font-semibold text-[#1b3a1f] flex items-center gap-1.5 border-b pb-1">
-            <ShieldCheck className="h-4 w-4 text-[#2e7d32]" /> Statutory Compliance Flags
+          <h4 className="font-semibold text-payroll-navy flex items-center gap-1.5 border-b pb-1">
+            <ShieldCheck className="h-4 w-4 text-payroll-primary" /> Statutory Compliance Flags
           </h4>
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between p-2.5 rounded-lg border bg-white">
@@ -93,7 +93,7 @@ export function AttendanceDetailPanel({ open, record, onClose }: AttendanceDetai
 
         {record.remarks && (
           <div className="space-y-1">
-            <h4 className="font-semibold text-[#1b3a1f] text-xs flex items-center gap-1">
+            <h4 className="font-semibold text-payroll-navy text-xs flex items-center gap-1">
               <FileText className="h-3.5 w-3.5 text-gray-400" /> Override Remarks / Audit Note:
             </h4>
             <div className="p-3 rounded-lg bg-gray-50 border text-xs text-gray-700 italic">

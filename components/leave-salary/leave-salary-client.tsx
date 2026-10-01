@@ -197,18 +197,18 @@ export default function LeaveSalaryClient({
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between border-b border-[#d7e8d0] pb-4">
+      <div className="flex items-center justify-between border-b border-payroll-border pb-4">
         <div>
-          <h1 className="text-xl font-bold text-[#1b3a1f] tracking-tight">
+          <h1 className="text-xl font-bold text-payroll-navy tracking-tight">
             Leave Salary Encashment
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-payroll-text-muted mt-0.5">
             Encash unutilized accumulated leave balance using base daily rate
             calculations.
           </p>
         </div>
 
-        <div className="flex rounded-lg border border-[#d7e8d0] bg-white p-0.5 shadow-sm">
+        <div className="flex rounded-lg border border-payroll-border bg-white p-0.5 shadow-2xs">
           <button
             onClick={() => {
               setActiveTab("list");
@@ -216,8 +216,8 @@ export default function LeaveSalaryClient({
             }}
             className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold transition-all ${
               activeTab === "list"
-                ? "bg-[#2e7d32] text-white shadow-sm"
-                : "text-gray-600 hover:bg-[#d7e8d0]/20"
+                ? "bg-payroll-primary text-white shadow-2xs"
+                : "text-payroll-navy/70 hover:bg-payroll-cream hover:text-payroll-navy"
             }`}
           >
             <List className="h-4 w-4" />
@@ -231,8 +231,8 @@ export default function LeaveSalaryClient({
               }}
               className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold transition-all ${
                 activeTab === "generate"
-                  ? "bg-[#2e7d32] text-white shadow-sm"
-                  : "text-gray-600 hover:bg-[#d7e8d0]/20"
+                  ? "bg-payroll-primary text-white shadow-2xs"
+                  : "text-payroll-navy/70 hover:bg-payroll-cream hover:text-payroll-navy"
               }`}
             >
               <Plus className="h-4 w-4" />
@@ -337,7 +337,7 @@ export default function LeaveSalaryClient({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by employee name..."
-                className="w-full rounded-lg border border-[#d7e8d0] bg-white pl-9 pr-3.5 py-2 text-sm text-[#1b3a1f] outline-none transition-all focus:border-[#2e7d32] placeholder:text-gray-400"
+                className="w-full rounded-lg border border-payroll-border bg-white pl-9 pr-3.5 py-2 text-sm text-payroll-navy outline-none transition-all focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary placeholder:text-gray-400"
               />
             </div>
             <select
@@ -345,7 +345,7 @@ export default function LeaveSalaryClient({
               onChange={(e) =>
                 setStatusFilter(e.target.value as "all" | "DRAFT" | "PAID")
               }
-              className="rounded-lg border border-[#d7e8d0] bg-white px-3.5 py-2 text-sm text-[#1b3a1f] outline-none transition-all focus:border-[#2e7d32]"
+              className="rounded-lg border border-payroll-border bg-white px-3.5 py-2 text-sm text-payroll-navy outline-none transition-all focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             >
               <option value="all">All Statuses</option>
               <option value="DRAFT">Draft Only</option>

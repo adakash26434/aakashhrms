@@ -25,17 +25,17 @@ export function BranchDetailPanel({ open, branch, onClose, onEdit }: BranchDetai
       size="md"
       header={
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#2e7d32]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-payroll-primary-light-2 text-payroll-primary">
             <Building2 className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-[#1b3a1f]">{branch?.name ?? ""}</h2>
+              <h2 className="truncate text-base font-semibold text-payroll-navy">{branch?.name ?? ""}</h2>
               <button
                 type="button"
                 onClick={() => branch && onEdit(branch)}
                 disabled={!branch}
-                className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-[#f6faf6] hover:text-[#2e7d32] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-md p-1 text-gray-500 transition-colors hover:bg-payroll-cream hover:text-payroll-primary disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Edit branch" title="Edit branch"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -74,19 +74,19 @@ export function BranchDetailPanel({ open, branch, onClose, onEdit }: BranchDetai
 
           <Section title="Location & Contact">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 rounded-lg border border-[#d7e8d0]/60 bg-white p-3">
-                <MapPin className="h-4 w-4 text-[#2e7d32]" />
-                <span className="text-sm text-[#1b3a1f]">{branch.location}</span>
+              <div className="flex items-center gap-2 rounded-lg border border-payroll-border bg-white p-3">
+                <MapPin className="h-4 w-4 text-payroll-primary" />
+                <span className="text-sm text-payroll-navy">{branch.location}</span>
               </div>
               {branch.phone && (
-                <div className="flex items-center gap-2 rounded-lg border border-[#d7e8d0]/60 bg-white p-3">
-                  <Phone className="h-4 w-4 text-[#2e7d32]" />
-                  <span className="text-sm text-[#1b3a1f]">{branch.phone}</span>
+                <div className="flex items-center gap-2 rounded-lg border border-payroll-border bg-white p-3">
+                  <Phone className="h-4 w-4 text-payroll-primary" />
+                  <span className="text-sm text-payroll-navy">{branch.phone}</span>
                 </div>
               )}
               {branch.email && (
-                <div className="rounded-lg border border-[#d7e8d0]/60 bg-white p-3">
-                  <p className="text-sm text-[#1b3a1f]">{branch.email}</p>
+                <div className="rounded-lg border border-payroll-border bg-white p-3">
+                  <p className="text-sm text-payroll-navy">{branch.email}</p>
                 </div>
               )}
             </div>
@@ -124,7 +124,7 @@ const toneClasses: Record<Tone, string> = {
 
 function OverviewRow({ label, value, tone, description }: { label: string; value: string; tone: Tone; description?: string }) {
   return (
-    <div className="rounded-lg border border-[#d7e8d0]/60 bg-white p-2.5">
+    <div className="rounded-lg border border-payroll-border bg-white p-2.5">
       <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{label}</p>
       <div className="mt-1">
         <span className={cn("inline-flex rounded-md px-2 py-0.5 text-xs font-medium", toneClasses[tone])}>{value}</span>

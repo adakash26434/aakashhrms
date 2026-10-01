@@ -184,7 +184,7 @@ export function DistrictCombobox({
           placeholder={placeholder}
           autoComplete="off"
           className={cn(
-            "h-10 w-full rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700",
+            "h-10 w-full rounded-md border border-zinc-200 bg-white pl-8 pr-12 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors hover:border-zinc-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary",
             hasError && "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-red-500",
             disabled && "cursor-not-allowed bg-zinc-50 text-zinc-400"
           )}

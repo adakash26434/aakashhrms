@@ -210,7 +210,7 @@ export function LeaveFormModal({
               onClick={() => handleValidateAndSubmit()}
               isSaving={saving}
               label={editingId ? "Update Application" : "Submit Request"}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             />
           </div>
         </div>
@@ -232,7 +232,7 @@ export function LeaveFormModal({
                 <select
                   value={formData.employeeId}
                   onChange={(e) => handleChange("employeeId", e.target.value)}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 >
                   <option value="">Select employee...</option>
                   {employees.map((emp) => (
@@ -254,7 +254,7 @@ export function LeaveFormModal({
                   value={formData.leaveTypeId}
                   onChange={(e) => handleChange("leaveTypeId", e.target.value)}
                   disabled={!formData.employeeId}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary disabled:bg-zinc-100 disabled:text-zinc-400"
                 >
                   <option value="">
                     {!formData.employeeId ? "Select employee first" : "Select leave policy..."}
@@ -298,7 +298,7 @@ export function LeaveFormModal({
                 )}
                 {showDocumentWarning && (
                   <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-950 flex items-start gap-2.5">
-                    <FileText className="h-4 w-4 shrink-0 text-emerald-700 mt-0.5" />
+                    <FileText className="h-4 w-4 shrink-0 text-payroll-primary mt-0.5" />
                     <div>
                       <strong className="block font-semibold">Verification Document Required</strong>
                       Requesting <strong>{formData.noOfDays}</strong> or more consecutive days under this policy mandates submitting supporting certificates or medical documentation to HR.
@@ -326,7 +326,7 @@ export function LeaveFormModal({
                   onChange={(e) =>
                     handleChange("duration", e.target.value as LeaveDuration)
                   }
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 >
                   <option value="Full Day">Full Day</option>
                   <option value="Half Day">Half Day</option>
@@ -346,7 +346,7 @@ export function LeaveFormModal({
                     }
                     min={0.5}
                     step={0.5}
-                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   />
                   <span className="shrink-0 text-[11px] text-zinc-400 font-mono">
                     (Auto-calc)
@@ -367,7 +367,7 @@ export function LeaveFormModal({
                   type="date"
                   value={formData.effectiveFrom}
                   onChange={(e) => handleChange("effectiveFrom", e.target.value)}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 />
                 {localErrors.effectiveFrom && (
                   <p className="mt-1 text-xs text-red-600">{localErrors.effectiveFrom}</p>
@@ -382,7 +382,7 @@ export function LeaveFormModal({
                   type="date"
                   value={formData.effectiveTo}
                   onChange={(e) => handleChange("effectiveTo", e.target.value)}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 />
                 {localErrors.effectiveTo && (
                   <p className="mt-1 text-xs text-red-600">{localErrors.effectiveTo}</p>
@@ -406,7 +406,7 @@ export function LeaveFormModal({
                 value={formData.reason}
                 onChange={(e) => handleChange("reason", e.target.value)}
                 rows={3}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary resize-y"
                 placeholder="Detail reason for requesting absence..."
               />
               {localErrors.reason && (
@@ -422,7 +422,7 @@ export function LeaveFormModal({
                 value={formData.remarks}
                 onChange={(e) => handleChange("remarks", e.target.value)}
                 rows={2}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 resize-y"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary resize-y"
                 placeholder="Delegation notes or handover remarks (optional)..."
               />
             </div>

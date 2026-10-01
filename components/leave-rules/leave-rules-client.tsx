@@ -198,7 +198,7 @@ export function LeaveRulesClient({
       <div className="flex items-center justify-between">
         <div>
           {!embedded && (
-            <h1 className="text-xl font-bold text-[#1b3a1f] flex items-center gap-2">
+            <h1 className="text-xl font-bold text-payroll-navy flex items-center gap-2">
               ⚖️ Leave Rules
             </h1>
           )}
@@ -215,7 +215,7 @@ export function LeaveRulesClient({
       <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 text-sm text-green-800 flex items-start gap-3 shadow-sm">
         <HelpCircle className="h-5 w-5 shrink-0 mt-0.5 text-green-600" />
         <div className="space-y-1">
-          <strong className="block text-[#1b3a1f] font-bold">
+          <strong className="block text-payroll-navy font-bold">
             Leave Accrual & Encashment Rules
           </strong>
           <p className="text-sm text-green-700 leading-relaxed font-semibold">
@@ -228,7 +228,7 @@ export function LeaveRulesClient({
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-[#1b3a1f]">
+          <h2 className="text-base font-semibold text-payroll-navy">
             Rule Matrix
           </h2>
         </div>

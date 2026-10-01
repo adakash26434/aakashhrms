@@ -106,7 +106,7 @@ export function PayrollEmployeeSelectionTable({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, code..."
-              className="w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+              className="w-full rounded-lg border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
 
@@ -115,7 +115,7 @@ export function PayrollEmployeeSelectionTable({
             <select
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
-              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 outline-none focus:border-emerald-700"
+              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             >
               <option value="all">All Departments</option>
               {availableDepts.map((d) => (
@@ -166,7 +166,7 @@ export function PayrollEmployeeSelectionTable({
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={handleSelectAll}
-                  className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-700 h-3.5 w-3.5 cursor-pointer"
+                  className="rounded border-zinc-300 text-zinc-900 focus:ring-payroll-primary accent-payroll-primary h-3.5 w-3.5 cursor-pointer"
                   title="Select / deselect all visible"
                 />
               </th>
@@ -212,7 +212,7 @@ export function PayrollEmployeeSelectionTable({
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => onToggleEmployee(emp.id)}
-                        className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-700 h-3.5 w-3.5 cursor-pointer"
+                        className="rounded border-zinc-300 text-zinc-900 focus:ring-payroll-primary accent-payroll-primary h-3.5 w-3.5 cursor-pointer"
                       />
                     </td>
 

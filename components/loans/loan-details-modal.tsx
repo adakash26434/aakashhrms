@@ -203,7 +203,7 @@ export function LoanDetailsModal({
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
               <div
-                className="h-full rounded-full bg-emerald-700 transition-all duration-700"
+                className="h-full rounded-full bg-payroll-primary transition-all duration-700"
                 style={{ width: `${Math.min(progress, 100)}%` }}
               />
             </div>

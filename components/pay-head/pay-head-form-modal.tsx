@@ -374,7 +374,7 @@ export function PayHeadFormModal({
             <Button
               type="submit"
               form="pay-head-form"
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             >
               {submitLabel}
             </Button>
@@ -532,7 +532,7 @@ export function PayHeadFormModal({
                   <button
                     type="button"
                     onClick={selectAllDepartments}
-                    className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                    className="font-medium text-payroll-primary hover:text-payroll-primary-hover hover:underline cursor-pointer"
                   >
                     All
                   </button>
@@ -547,7 +547,7 @@ export function PayHeadFormModal({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-1.5 max-h-75 overflow-y-auto pr-1">
                 {departments.map((d) => {
                   const isChecked = form.applicableDepartmentIds.includes(d.id);
                   const desigCount = designations.filter(
@@ -580,7 +580,7 @@ export function PayHeadFormModal({
                   <button
                     type="button"
                     onClick={selectAllDesignations}
-                    className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                    className="font-medium text-payroll-primary hover:text-payroll-primary-hover hover:underline cursor-pointer"
                   >
                     All
                   </button>
@@ -595,7 +595,7 @@ export function PayHeadFormModal({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-1.5 max-h-75 overflow-y-auto pr-1">
                 {designations.map((d) => {
                   const isChecked = form.applicableDesignationIds.includes(d.id);
                   const deptId = getDeptIdForDesig(d);
@@ -643,7 +643,7 @@ export function PayHeadFormModal({
                   <span
                     className={cn(
                       "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
-                      active ? "bg-emerald-700 text-white" : "bg-zinc-100 text-zinc-600"
+                      active ? "bg-payroll-primary text-white" : "bg-zinc-100 text-zinc-600"
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
@@ -655,7 +655,7 @@ export function PayHeadFormModal({
                   <span
                     className={cn(
                       "mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                      active ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white"
+                      active ? "border-payroll-primary bg-payroll-primary text-white" : "border-zinc-300 bg-white"
                     )}
                     aria-hidden
                   >
@@ -720,7 +720,7 @@ function inputClass(hasError: boolean, isDisabled: boolean) {
       ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
       : hasError
       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-      : "border-zinc-200 focus:border-emerald-700 focus:ring-emerald-700",
+      : "border-zinc-200 focus:border-payroll-primary focus:ring-payroll-primary",
   ].join(" ");
 }
 
@@ -733,7 +733,7 @@ function YesNoPill({ label, active, onClick }: { label: string; active: boolean;
       className={cn(
         "h-9 min-w-20 rounded-md px-4 text-xs font-semibold transition-colors cursor-pointer",
         active
-          ? "bg-emerald-700 text-white shadow-none"
+          ? "bg-payroll-primary text-white shadow-none"
           : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
       )}
     >
@@ -764,7 +764,7 @@ function CheckboxPill({
       className={cn(
         "flex items-center justify-between gap-2.5 rounded-md border px-3 py-2 text-xs transition-colors cursor-pointer select-none min-w-0 w-full",
         checked
-          ? "border-emerald-600/50 bg-emerald-50/70 text-zinc-900"
+          ? "border-payroll-primary/40 bg-payroll-primary-light text-zinc-900"
           : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300",
         dimmed && !checked && "opacity-60 bg-zinc-50/50"
       )}
@@ -774,7 +774,7 @@ function CheckboxPill({
           className={cn(
             "relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
             checked
-              ? "border-emerald-700 bg-emerald-700 text-white"
+              ? "border-payroll-primary bg-payroll-primary text-white"
               : "border-zinc-300 bg-white"
           )}
           aria-hidden
@@ -803,7 +803,7 @@ function CheckboxPill({
       {badge && (
         <span
           className={cn(
-            "rounded-md px-2 py-0.5 text-[10px] font-medium shrink-0 max-w-[130px] truncate border",
+            "rounded-md px-2 py-0.5 text-[10px] font-medium shrink-0 max-w-32.5 truncate border",
             checked
               ? "bg-emerald-100/70 text-emerald-800 border-emerald-200/80"
               : "bg-zinc-100 text-zinc-600 border-zinc-200"

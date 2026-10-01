@@ -106,7 +106,7 @@ export function OtRuleFormModal({
               onClick={handleSave}
               isSaving={saving}
               label={rule ? "Update Rule" : "Create Rule"}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             />
           </div>
         </div>
@@ -132,7 +132,7 @@ export function OtRuleFormModal({
                 type="text"
                 value={ruleName}
                 onChange={(e) => setRuleName(e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder="e.g. Standard Overtime"
               />
               {errors.ruleName && (
@@ -149,7 +149,7 @@ export function OtRuleFormModal({
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
                     ruleType === "Hourly"
-                      ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                      ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy"
                       : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
                   )}
                 >
@@ -164,7 +164,7 @@ export function OtRuleFormModal({
                   <span
                     className={cn(
                       "h-1.5 w-1.5 rounded-full",
-                      ruleType === "Hourly" ? "bg-emerald-600" : "bg-zinc-300"
+                      ruleType === "Hourly" ? "bg-payroll-primary" : "bg-zinc-300"
                     )}
                   />
                   Hourly Rate (NPR / hr)
@@ -173,7 +173,7 @@ export function OtRuleFormModal({
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
                     ruleType === "Fixed"
-                      ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                      ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy"
                       : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
                   )}
                 >
@@ -188,7 +188,7 @@ export function OtRuleFormModal({
                   <span
                     className={cn(
                       "h-1.5 w-1.5 rounded-full",
-                      ruleType === "Fixed" ? "bg-emerald-600" : "bg-zinc-300"
+                      ruleType === "Fixed" ? "bg-payroll-primary" : "bg-zinc-300"
                     )}
                   />
                   Fixed Daily Amount (NPR / day)
@@ -218,7 +218,7 @@ export function OtRuleFormModal({
                 step={ruleType === "Hourly" ? 0.5 : 1}
                 value={rateOfficeDay}
                 onChange={(e) => setRateOfficeDay(e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder={ruleType === "Hourly" ? "e.g. 1.5" : "e.g. 500"}
               />
               {errors.rateOfficeDay && (
@@ -240,7 +240,7 @@ export function OtRuleFormModal({
                 step={ruleType === "Hourly" ? 0.5 : 1}
                 value={rateOffDay}
                 onChange={(e) => setRateOffDay(e.target.value)}
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                 placeholder={ruleType === "Hourly" ? "e.g. 2.0" : "e.g. 800"}
               />
               {errors.rateOffDay && (
@@ -260,7 +260,7 @@ export function OtRuleFormModal({
               className={cn(
                 "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
                 isActive
-                  ? "border-emerald-700 bg-emerald-50/50 text-emerald-900"
+                  ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy"
                   : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
               )}
             >
@@ -275,7 +275,7 @@ export function OtRuleFormModal({
               <span
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  isActive ? "bg-emerald-600" : "bg-zinc-300"
+                  isActive ? "bg-payroll-primary" : "bg-zinc-300"
                 )}
               />
               Active Rule

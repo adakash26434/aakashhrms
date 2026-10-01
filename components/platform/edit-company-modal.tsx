@@ -793,7 +793,7 @@ export function EditCompanyModal({
                 onClick={handleSubmit}
                 isLoading={isSaving}
                 disabled={isSaving}
-                className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-none cursor-pointer"
+                className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs shadow-none cursor-pointer"
               >
                 Save All Configurations
               </Button>
@@ -834,7 +834,7 @@ export function EditCompanyModal({
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                       placeholder="admin@company.com"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none font-medium"
+                      className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none font-medium"
                     />
                   </div>
                   <p className="text-[11px] text-zinc-500">
@@ -861,7 +861,7 @@ export function EditCompanyModal({
                           value={companyCode}
                           onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
                           placeholder="CMP-123456"
-                          className="w-full pl-9 pr-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                          className="w-full pl-9 pr-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                         />
                       </div>
                     </div>
@@ -876,7 +876,7 @@ export function EditCompanyModal({
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         placeholder="Acme Corp"
-                        className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                        className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                       />
                     </div>
                   </div>
@@ -891,7 +891,7 @@ export function EditCompanyModal({
                       value={legalName}
                       onChange={(e) => setLegalName(e.target.value)}
                       placeholder="Acme Corporation Pvt. Ltd."
-                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                     />
                   </div>
                 </div>
@@ -913,7 +913,7 @@ export function EditCompanyModal({
                         setPanVatNumber(e.target.value.replace(/\D/g, "").slice(0, 9))
                       }
                       placeholder="e.g. 601234567"
-                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none font-mono"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none font-mono"
                     />
                   </div>
 
@@ -926,7 +926,7 @@ export function EditCompanyModal({
                       value={registrationNumber}
                       onChange={(e) => setRegistrationNumber(e.target.value)}
                       placeholder="e.g. 123456/080/081"
-                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                     />
                   </div>
                 </div>
@@ -946,7 +946,7 @@ export function EditCompanyModal({
                       value={headOfficeAddress}
                       onChange={(e) => setHeadOfficeAddress(e.target.value)}
                       placeholder="e.g. Putalisadak, Kathmandu"
-                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                     />
                   </div>
 
@@ -995,7 +995,7 @@ export function EditCompanyModal({
                       onChange={(e) =>
                         setIndustryType(e.target.value as IndustrySectorKey)
                       }
-                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                     >
                       {(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map(
                         (key) => {
@@ -1019,7 +1019,7 @@ export function EditCompanyModal({
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Optional internal notes about this company..."
-                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none resize-none"
+                      className="w-full px-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none resize-none"
                     />
                   </div>
                 </div>
@@ -1062,7 +1062,7 @@ export function EditCompanyModal({
                           setHeadOfficeBranchCode(e.target.value.toUpperCase())
                         }
                         placeholder="HO-01"
-                        className="w-full px-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                        className="w-full px-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                       />
                       <p className="text-[10px] text-zinc-500">
                         Unique corporate code
@@ -1095,7 +1095,7 @@ export function EditCompanyModal({
                             setHeadOfficeBranchAddress(e.target.value)
                           }
                           placeholder="Putalisadak, Kathmandu"
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 shadow-none"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                         />
                       </div>
                     </div>
@@ -1139,7 +1139,7 @@ export function EditCompanyModal({
                           setFyModalMode("edit");
                           setIsFYModalOpen(true);
                         }}
-                        className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-7 px-2.5 font-medium flex items-center gap-1.5 shadow-none"
+                        className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white text-xs h-7 px-2.5 font-medium flex items-center gap-1.5 shadow-none cursor-pointer"
                       >
                         <Pencil className="w-3 h-3" />
                         <span>Edit Fiscal Year</span>
@@ -1260,7 +1260,7 @@ export function EditCompanyModal({
                       onChange={(e) =>
                         setOtHourlyMultiplier(parseFloat(e.target.value) || 1.5)
                       }
-                      className="w-16 px-2 py-0.5 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                      className="w-16 px-2 py-0.5 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                     />
                     <span className="text-xs font-medium text-zinc-600">x</span>
                   </div>
@@ -1296,7 +1296,7 @@ export function EditCompanyModal({
                               type="checkbox"
                               checked={lt.isPaid}
                               onChange={() => handleToggleLeavePaid(idx)}
-                              className="rounded text-emerald-700 focus:ring-emerald-700 accent-emerald-700"
+                              className="rounded text-payroll-primary focus:ring-payroll-primary accent-payroll-primary"
                             />
                             <span>Paid Leave</span>
                           </label>
@@ -1308,7 +1308,7 @@ export function EditCompanyModal({
                               onChange={() =>
                                 handleToggleLeaveEncashable(idx)
                               }
-                              className="rounded text-emerald-700 focus:ring-emerald-700 accent-emerald-700"
+                              className="rounded text-payroll-primary focus:ring-payroll-primary accent-payroll-primary"
                             />
                             <span>Encashable</span>
                           </label>
@@ -1350,7 +1350,7 @@ export function EditCompanyModal({
                               parseInt(e.target.value) || 0,
                             )
                           }
-                          className="w-16 px-2 py-1 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                          className="w-16 px-2 py-1 text-xs text-center font-mono font-semibold bg-zinc-50 border border-zinc-200 rounded-md text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                         />
                       </div>
                     </div>
@@ -1401,7 +1401,7 @@ export function EditCompanyModal({
                             value={newPayHeadName}
                             onChange={(e) => setNewPayHeadName(e.target.value)}
                             placeholder="e.g. Communication Allowance"
-                            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                           />
                         </div>
 
@@ -1416,7 +1416,7 @@ export function EditCompanyModal({
                               setNewPayHeadCode(e.target.value.toUpperCase())
                             }
                             placeholder="COMM"
-                            className="w-full px-2.5 py-1.5 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                            className="w-full px-2.5 py-1.5 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                           />
                         </div>
 
@@ -1429,7 +1429,7 @@ export function EditCompanyModal({
                             onChange={(e) =>
                               setNewPayHeadType(e.target.value as any)
                             }
-                            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                           >
                             <option value="EARNING">Earning</option>
                             <option value="DEDUCTION">Deduction</option>
@@ -1445,7 +1445,7 @@ export function EditCompanyModal({
                             onChange={(e) =>
                               setNewPayHeadTaxable(e.target.checked)
                             }
-                            className="rounded text-emerald-700 focus:ring-emerald-700 accent-emerald-700"
+                            className="rounded text-payroll-primary focus:ring-payroll-primary accent-payroll-primary"
                           />
                           <span>Taxable / Affects Income Tax</span>
                         </label>
@@ -1463,7 +1463,7 @@ export function EditCompanyModal({
                             type="button"
                             size="xs"
                             onClick={handleAddPayHead}
-                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium rounded-md shadow-none"
+                            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium rounded-md shadow-none cursor-pointer"
                           >
                             Add to Pay Heads
                           </Button>
@@ -1613,7 +1613,7 @@ export function EditCompanyModal({
                                   e.target.value,
                                 )
                               }
-                              className="w-full px-2 py-1 text-xs font-mono rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                              className="w-full px-2 py-1 text-xs font-mono rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                             />
                           </div>
 
@@ -1629,7 +1629,7 @@ export function EditCompanyModal({
                                 )
                               }
                               placeholder="And above"
-                              className="w-full px-2 py-1 text-xs font-mono rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                              className="w-full px-2 py-1 text-xs font-mono rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                             />
                           </div>
 
@@ -1646,7 +1646,7 @@ export function EditCompanyModal({
                                     e.target.value,
                                   )
                                 }
-                                className="w-14 px-1.5 py-1 text-xs text-center font-mono font-semibold rounded-md border border-zinc-200 bg-zinc-50/30 text-emerald-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                                className="w-14 px-1.5 py-1 text-xs text-center font-mono font-semibold rounded-md border border-zinc-200 bg-zinc-50/30 text-payroll-navy focus:bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                               />
                               <span className="text-[10px] text-zinc-500">%</span>
                             </div>
@@ -1663,7 +1663,7 @@ export function EditCompanyModal({
                                   e.target.value,
                                 )
                               }
-                              className="w-full px-2 py-1 text-xs font-mono text-right rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                              className="w-full px-2 py-1 text-xs font-mono text-right rounded-md border border-zinc-200 bg-zinc-50/30 text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                             />
                           </div>
                         </div>

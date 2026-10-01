@@ -10,7 +10,7 @@ export function FiscalYearHero({ onCreate }: FiscalYearHeroProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-[#1b3a1f]">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-payroll-navy">
           Fiscal Year Setup
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-gray-500">

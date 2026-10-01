@@ -63,7 +63,7 @@ export function AttendanceFilters({
         <input
           type="text"
           placeholder="Search by name, employee code, or attendance code..."
-          className="h-9 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-8 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none transition-colors"
+          className="h-9 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-8 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-2xs focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none transition-colors"
           value={filter.search}
           onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
         />
@@ -94,7 +94,7 @@ export function AttendanceFilters({
 
         {/* Department Filter */}
         <select
-          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none cursor-pointer shadow-2xs"
+          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none cursor-pointer shadow-2xs"
           value={filter.departmentId}
           onChange={(e) => setFilter((f) => ({ ...f, departmentId: e.target.value }))}
         >
@@ -108,7 +108,7 @@ export function AttendanceFilters({
 
         {/* Branch Filter */}
         <select
-          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none cursor-pointer shadow-2xs"
+          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none cursor-pointer shadow-2xs"
           value={filter.branchId}
           onChange={(e) => setFilter((f) => ({ ...f, branchId: e.target.value }))}
         >
@@ -122,7 +122,7 @@ export function AttendanceFilters({
 
         {/* Status Filter */}
         <select
-          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none cursor-pointer shadow-2xs"
+          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-800 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary focus:outline-none cursor-pointer shadow-2xs"
           value={filter.status}
           onChange={handleStatusSelect}
         >
@@ -142,7 +142,7 @@ export function AttendanceFilters({
             type="checkbox"
             checked={filter.isLateOnly}
             onChange={handleLateToggle}
-            className="rounded border-zinc-300 text-zinc-900 focus:ring-emerald-700"
+            className="rounded border-zinc-300 text-zinc-900 focus:ring-payroll-primary accent-payroll-primary"
           />
           <span>Late Only</span>
         </label>
