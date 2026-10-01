@@ -1,6 +1,7 @@
 import { db } from '../lib/db';
 import { permissions, roles, actionEnum, moduleEnum, rolePermissions } from '../lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { ensureEmployeeSelfServiceRole } from '../lib/auth/employee-self-service-role';
 
 // We extract the actual string values from the schema enums
 const ACTIONS = actionEnum.enumValues;
@@ -70,11 +71,18 @@ async function seed() {
       description: "Scoped access. Can approve leave and view attendance for their own department.",
     },
     {
+      name: "Employee Self-Service",
+      slug: "employee",
+      scopeType: "SELF" as const,
+      isSystemRole: true,
+      description: "Self-service. Can view own payslips and apply for own leave.",
+    },
+    {
       name: "Standard Staff",
       slug: "standard_staff",
       scopeType: "SELF" as const,
       isSystemRole: true,
-      description: "Self-service. Can view own payslips and apply for own leave.",
+      description: "Legacy self-service slug. Prefer the Employee Self-Service (employee) role.",
     },
   ];
 
@@ -153,6 +161,10 @@ async function seed() {
       { action: 'VIEW', module: 'REPORTS_ATTENDANCE' },
       { action: 'VIEW', module: 'REPORTS_LEAVE' },
     ],
+    employee: [
+      { action: 'VIEW', module: 'REPORTS_PAYSLIP' },
+      { action: 'VIEW', module: 'REPORTS_LEAVE' },
+    ],
     standard_staff: [
       { action: 'VIEW', module: 'REPORTS_PAYSLIP' },
       { action: 'VIEW', module: 'REPORTS_LEAVE' },
@@ -177,6 +189,9 @@ async function seed() {
     }
   }
   console.log("✅ Report permissions mapped across core roles.");
+
+  await ensureEmployeeSelfServiceRole(db);
+  console.log("✅ Employee self-service role permissions ensured.");
 
   console.log("🎉 RBAC Seeding Complete!");
   process.exit(0);

@@ -14,6 +14,8 @@ import {
   PayHeadPreset,
 } from '../../types/onboarding';
 import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '../policy-pack-data';
+import { ensureEmployeeSelfServiceRole } from '../../auth/employee-self-service-role';
+import { STANDARD_SHRENI_LEVELS } from '../../constants/industry-types';
 
 export interface SeedTenantOptions {
   connectionUrl: string;
@@ -125,6 +127,8 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
         description: 'Standard employee role for self-service portal, payslip viewing, and leave requests.',
       })
       .onConflictDoNothing({ target: schema.roles.slug });
+
+    await ensureEmployeeSelfServiceRole(tenantDb);
 
     // Resolve Office Admin role ID
     const targetAdminRole =
@@ -449,6 +453,23 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
           isTdsHead: Boolean(ph.isTdsHead),
         });
       }
+    }
+
+    // 9.5 SEED UNIVERSAL SHRENI LEVELS (S1 to S15)
+    for (let i = 0; i < STANDARD_SHRENI_LEVELS.length; i++) {
+      const item = STANDARD_SHRENI_LEVELS[i];
+      await tenantDb
+        .insert(schema.shreniLevels)
+        .values({
+          code: item.code,
+          name: item.name,
+          levelNumber: item.levelNumber,
+          labelNepali: item.labelNepali,
+          description: item.description,
+          rankOrder: i + 1,
+          isActive: true,
+        })
+        .onConflictDoNothing();
     }
 
     // 10. CREATE INITIAL OFFICE ADMIN USER ACCOUNT

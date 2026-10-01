@@ -32,6 +32,7 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "failed_login_attempts" integer DEFAULT 0 NOT NULL`,
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "locked_until" timestamp`,
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "must_change_password" boolean DEFAULT false NOT NULL`,
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "temp_password" text`,
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "delegated_to_user_id" uuid`,
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "delegated_until" timestamp`,
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "assigned_branch_ids" text[] DEFAULT ARRAY[]::text[] NOT NULL`,
@@ -115,6 +116,30 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     )`,
     `CREATE INDEX IF NOT EXISTS "shreni_levels_level_number_idx" ON "shreni_levels" ("level_number")`,
     `CREATE INDEX IF NOT EXISTS "shreni_levels_is_active_idx" ON "shreni_levels" ("is_active")`,
+    `INSERT INTO "shreni_levels" ("code", "name", "level_number", "label_nepali", "description", "min_salary", "max_salary", "rank_order", "is_active")
+    VALUES
+      ('S1', 'Level 1 (Support / Operational)', 1, 'तह १ (सहयोगी तह)', 'Entry / Support / Operational Level', '0', '0', 1, true),
+      ('S2', 'Level 2 (Junior Assistant)', 2, 'तह २ (कनिष्ठ सहायक)', 'Junior Assistant / Trainee Level', '0', '0', 2, true),
+      ('S3', 'Level 3 (Assistant)', 3, 'तह ३ (सहायक तह)', 'Assistant Level', '0', '0', 3, true),
+      ('S4', 'Level 4 (Senior Assistant)', 4, 'तह ४ (वरिष्ठ सहायक)', 'Senior Assistant Level', '0', '0', 4, true),
+      ('S5', 'Level 5 (Supervisor / Jr. Officer)', 5, 'तह ५ (सुपरभाइजर / कनिष्ठ अधिकृत)', 'Supervisor / Junior Officer Level', '0', '0', 5, true),
+      ('S6', 'Level 6 (Officer)', 6, 'तह ६ (अधिकृत तह)', 'Officer Level', '0', '0', 6, true),
+      ('S7', 'Level 7 (Senior Officer)', 7, 'तह ७ (वरिष्ठ अधिकृत)', 'Senior Officer Level', '0', '0', 7, true),
+      ('S8', 'Level 8 (Assistant Manager)', 8, 'तह ८ (सहायक प्रबन्धक)', 'Assistant Manager Level', '0', '0', 8, true),
+      ('S9', 'Level 9 (Deputy Manager)', 9, 'तह ९ (उप-प्रबन्धक)', 'Deputy Manager Level', '0', '0', 9, true),
+      ('S10', 'Level 10 (Manager)', 10, 'तह १० (प्रबन्धक)', 'Manager Level', '0', '0', 10, true),
+      ('S11', 'Level 11 (Senior Manager / Director)', 11, 'तह ११ (वरिष्ठ प्रबन्धक / निर्देशक)', 'Senior Manager / Director Level', '0', '0', 11, true),
+      ('S12', 'Level 12 (Executive / General Manager)', 12, 'तह १२ (कार्यकारी / महाप्रबन्धक)', 'Executive / General Manager Level', '0', '0', 12, true),
+      ('S13', 'Level 13 (Deputy Executive Head)', 13, 'तह १३ (उप-कार्यकारी प्रमुख)', 'Deputy Executive / Division Head', '0', '0', 13, true),
+      ('S14', 'Level 14 (Executive Director)', 14, 'तह १४ (कार्यकारी निर्देशक)', 'Executive Director / VP Level', '0', '0', 14, true),
+      ('S15', 'Level 15 (Chief Executive Officer)', 15, 'तह १५ (प्रमुख कार्यकारी अधिकृत)', 'Chief Executive Officer / C-Suite Apex', '0', '0', 15, true)
+    ON CONFLICT ("code") DO UPDATE
+    SET "name" = EXCLUDED."name",
+        "label_nepali" = EXCLUDED."label_nepali",
+        "description" = EXCLUDED."description",
+        "level_number" = EXCLUDED."level_number"
+    WHERE "shreni_levels"."code" IN ('S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12','S13','S14','S15')
+      AND ("shreni_levels"."name" != EXCLUDED."name" OR "shreni_levels"."label_nepali" != EXCLUDED."label_nepali")`,
     `CREATE TABLE IF NOT EXISTS "employment_types" (
       "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       "code" varchar(50) NOT NULL UNIQUE,

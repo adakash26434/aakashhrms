@@ -302,6 +302,7 @@ export const users = pgTable('users', {
   failedLoginAttempts: integer('failed_login_attempts').default(0).notNull(),
   lockedUntil: timestamp('locked_until'),
   mustChangePassword: boolean('must_change_password').default(false).notNull(),
+  tempPassword: text('temp_password'),
   
   // Enterprise Feature: Delegation
   delegatedToUserId: uuid('delegated_to_user_id'), // Self-referencing FK not strictly enforced here to avoid circular logic
