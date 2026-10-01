@@ -168,3 +168,38 @@ export async function updateRolePermissionsAction(
     return { success: false, error: 'An unexpected error occurred while saving permissions.' };
   }
 }
+
+export async function getUsersByRoleIdAction(roleId: string) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('VIEW', 'USERS_ROLES');
+    const users = await roleService.getUsersByRoleId(roleId);
+    return { success: true, data: users };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Failed to fetch users for role';
+    return { success: false, error: msg };
+  }
+}
+
+export async function assignUsersToRoleAction(
+  roleId: string,
+  userIdsToAdd: string[],
+  userIdsToRemove: string[]
+) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'USERS_ROLES');
+    const session = await auth();
+    const changedByUserId = session?.user?.id;
+    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
+
+    await roleService.assignUsersToRole(roleId, userIdsToAdd, userIdsToRemove, changedByUserId);
+    revalidatePath('/admin/roles');
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Failed to assign users to role';
+    return { success: false, error: msg };
+  }
+}
+

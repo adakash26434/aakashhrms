@@ -14,11 +14,14 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ROLE_PERMISSION_PRESETS } from "@/lib/constants/role-presets";
+import type { PermissionRow } from "@/lib/repositories/role.repository";
 
 interface CreateRoleDialogProps {
   open: boolean;
   onClose: () => void;
   onSuccess: (newRoleId: string) => void;
+  allPermissions?: PermissionRow[];
 }
 
 const SCOPES: {
@@ -73,10 +76,12 @@ export function CreateRoleDialog({
   open,
   onClose,
   onSuccess,
+  allPermissions = [],
 }: CreateRoleDialogProps) {
   const [name, setName] = useState("");
   const [scopeType, setScopeType] = useState<ScopeType>("GLOBAL");
   const [description, setDescription] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -101,11 +106,30 @@ export function CreateRoleDialog({
     setLoading(true);
     setError(null);
 
+    let initialPermissionIds: string[] | undefined = undefined;
+    if (selectedPreset && allPermissions && allPermissions.length > 0) {
+      const preset = ROLE_PERMISSION_PRESETS.find((p) => p.id === selectedPreset);
+      if (preset) {
+        if (preset.id === "read_only") {
+          initialPermissionIds = allPermissions.filter((p) => p.action === "VIEW").map((p) => p.id);
+        } else {
+          const permMap = new Map(allPermissions.map((p) => [`${p.module}:${p.action}`, p.id]));
+          const ids: string[] = [];
+          preset.grants.forEach((g) => {
+            const pid = permMap.get(`${g.module}:${g.action}`);
+            if (pid) ids.push(pid);
+          });
+          initialPermissionIds = ids;
+        }
+      }
+    }
+
     try {
       const res = await createRoleAction({
         name: name.trim(),
         scopeType,
         description: description.trim() || undefined,
+        initialPermissionIds,
       });
 
       if (!res.success) {
@@ -115,6 +139,7 @@ export function CreateRoleDialog({
 
       setName("");
       setDescription("");
+      setSelectedPreset("");
       setScopeType("GLOBAL");
       onClose();
       if (res.data?.id) {
@@ -242,6 +267,28 @@ export function CreateRoleDialog({
               );
             })}
           </div>
+        </div>
+
+        {/* Starter Permissions Template */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-payroll-navy">
+            Starter Permissions Template (Optional)
+          </label>
+          <select
+            value={selectedPreset}
+            onChange={(e) => setSelectedPreset(e.target.value)}
+            className="w-full h-10 px-3 rounded-xl border border-payroll-light bg-white text-xs text-payroll-navy focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer shadow-payroll-xs"
+          >
+            <option value="">-- Blank Permissions (Configure Manually) --</option>
+            {ROLE_PERMISSION_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label} Template — {p.description}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-gray-500">
+            Pre-configures this role with recommended permissions. You can customize them anytime in the matrix.
+          </p>
         </div>
 
         {/* Description */}

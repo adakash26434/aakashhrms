@@ -90,7 +90,7 @@ async function verifyPermission(
     return session.user.id; // System Administrator / Office Administrator has full access
   }
 
-  // 3. SELF_SERVICE module: allow access if user has a SELF-scoped role (no explicit permission row needed)
+  // 3. SELF_SERVICE module: allow access if user has a SELF-scoped role, or fall through to explicit role permissions
   if (module === 'SELF_SERVICE') {
     const scopeResult = await activeDb
       .select({ scopeType: roles.scopeType })
@@ -99,8 +99,7 @@ async function verifyPermission(
       .where(eq(userRoles.userId, session.user.id))
       .limit(1);
 
-    // Any authenticated user can access self-service for VIEW actions
-    if (action === 'VIEW' || action === 'ADD') {
+    if (scopeResult[0]?.scopeType === 'SELF' && (action === 'VIEW' || action === 'ADD' || action === 'EDIT')) {
       return session.user.id;
     }
   }

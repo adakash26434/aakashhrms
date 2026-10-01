@@ -262,3 +262,22 @@ export async function deleteCustomRole(roleId: string, changedByUserId: string):
 
   return deleted;
 }
+
+export async function getUsersByRoleId(roleId: string) {
+  const role = await repository.findRoleById(roleId);
+  if (!role) throw new RoleNotFoundError(roleId);
+  return repository.findUsersByRoleId(roleId);
+}
+
+export async function assignUsersToRole(
+  roleId: string,
+  userIdsToAdd: string[],
+  userIdsToRemove: string[],
+  changedByUserId: string
+) {
+  const role = await repository.findRoleById(roleId);
+  if (!role) throw new RoleNotFoundError(roleId);
+
+  return repository.assignUsersToRole(roleId, userIdsToAdd, userIdsToRemove, changedByUserId);
+}
+

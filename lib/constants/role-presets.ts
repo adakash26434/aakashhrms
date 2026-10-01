@@ -1,0 +1,116 @@
+import type { ActionType, ModuleType } from "@/lib/types/role";
+
+export const EMPLOYEE_ROLE_SLUG = "employee";
+export const EMPLOYEE_ROLE_SLUG_FALLBACK = "standard_staff";
+
+export type RolePermissionGrant = { action: ActionType; module: ModuleType };
+
+export const EMPLOYEE_SELF_SERVICE_GRANTS: RolePermissionGrant[] = [
+  { action: "VIEW", module: "SELF_SERVICE" },
+  { action: "ADD", module: "SELF_SERVICE" },
+  { action: "EDIT", module: "SELF_SERVICE" },
+  { action: "VIEW", module: "LEAVE_APPLICATIONS" },
+  { action: "ADD", module: "LEAVE_APPLICATIONS" },
+  { action: "VIEW", module: "REPORTS_PAYSLIP" },
+  { action: "VIEW", module: "REPORTS_LEAVE" },
+  { action: "VIEW", module: "LOANS" },
+  { action: "ADD", module: "LOANS" },
+];
+
+export const ROLE_PERMISSION_PRESETS: {
+  id: string;
+  label: string;
+  description: string;
+  grants: RolePermissionGrant[];
+}[] = [
+  {
+    id: "self_service",
+    label: "Self-service",
+    description: "Own payslips, leave, and loans",
+    grants: EMPLOYEE_SELF_SERVICE_GRANTS,
+  },
+  {
+    id: "hr",
+    label: "HR",
+    description: "Employees, leave, attendance",
+    grants: [
+      ...EMPLOYEE_SELF_SERVICE_GRANTS,
+      { action: "VIEW", module: "EMPLOYEES" },
+      { action: "ADD", module: "EMPLOYEES" },
+      { action: "EDIT", module: "EMPLOYEES" },
+      { action: "DELETE", module: "EMPLOYEES" },
+      { action: "EXPORT", module: "EMPLOYEES" },
+      { action: "VIEW", module: "ORG_STRUCTURE" },
+      { action: "ADD", module: "ORG_STRUCTURE" },
+      { action: "EDIT", module: "ORG_STRUCTURE" },
+      { action: "VIEW", module: "ATTENDANCE" },
+      { action: "ADD", module: "ATTENDANCE" },
+      { action: "EDIT", module: "ATTENDANCE" },
+      { action: "EXPORT", module: "ATTENDANCE" },
+      { action: "VIEW", module: "LEAVE_APPROVALS" },
+      { action: "APPROVE", module: "LEAVE_APPROVALS" },
+      { action: "VIEW", module: "LEAVE_TYPES" },
+      { action: "VIEW", module: "LEAVE_RULES" },
+      { action: "VIEW", module: "HOLIDAYS" },
+      { action: "VIEW", module: "REPORTS_ATTENDANCE" },
+      { action: "EXPORT", module: "REPORTS_ATTENDANCE" },
+      { action: "VIEW", module: "REPORTS_LOAN" },
+    ],
+  },
+  {
+    id: "payroll",
+    label: "Payroll",
+    description: "Runs, mapping, statutory reports",
+    grants: [
+      { action: "VIEW", module: "EMPLOYEES" },
+      { action: "VIEW", module: "SALARY_MAPPING" },
+      { action: "ADD", module: "SALARY_MAPPING" },
+      { action: "EDIT", module: "SALARY_MAPPING" },
+      { action: "EXPORT", module: "SALARY_MAPPING" },
+      { action: "VIEW", module: "PAYROLL_GENERATE" },
+      { action: "ADD", module: "PAYROLL_GENERATE" },
+      { action: "LOCK", module: "PAYROLL_GENERATE" },
+      { action: "VIEW", module: "PAYROLL_REVIEW" },
+      { action: "EDIT", module: "PAYROLL_REVIEW" },
+      { action: "APPROVE", module: "PAYROLL_REVIEW" },
+      { action: "LOCK", module: "PAYROLL_REVIEW" },
+      { action: "EXPORT", module: "PAYROLL_REVIEW" },
+      { action: "VIEW", module: "PAY_HEADS" },
+      { action: "VIEW", module: "LOANS" },
+      { action: "ADD", module: "LOANS" },
+      { action: "EDIT", module: "LOANS" },
+      { action: "APPROVE", module: "LOANS" },
+      { action: "EXPORT", module: "LOANS" },
+      { action: "VIEW", module: "REPORTS_SALARY_SHEET" },
+      { action: "EXPORT", module: "REPORTS_SALARY_SHEET" },
+      { action: "VIEW", module: "REPORTS_PAYSLIP" },
+      { action: "EXPORT", module: "REPORTS_PAYSLIP" },
+      { action: "VIEW", module: "REPORTS_TAX_IRD" },
+      { action: "EXPORT", module: "REPORTS_TAX_IRD" },
+      { action: "VIEW", module: "REPORTS_LOAN" },
+      { action: "EXPORT", module: "REPORTS_LOAN" },
+    ],
+  },
+  {
+    id: "approver",
+    label: "Approver",
+    description: "Leave approvals, team view",
+    grants: [
+      { action: "VIEW", module: "EMPLOYEES" },
+      { action: "VIEW", module: "LEAVE_APPLICATIONS" },
+      { action: "VIEW", module: "LEAVE_APPROVALS" },
+      { action: "APPROVE", module: "LEAVE_APPROVALS" },
+      { action: "VIEW", module: "ATTENDANCE" },
+      { action: "VIEW", module: "REPORTS_LEAVE" },
+      { action: "VIEW", module: "SELF_SERVICE" },
+      { action: "ADD", module: "SELF_SERVICE" },
+      { action: "EDIT", module: "SELF_SERVICE" },
+    ],
+  },
+  {
+    id: "read_only",
+    label: "Read-only",
+    description: "View all modules, no mutations",
+    grants: [],
+  },
+];

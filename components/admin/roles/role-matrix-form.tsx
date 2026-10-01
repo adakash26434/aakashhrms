@@ -5,6 +5,7 @@ import { PermissionRow } from "@/lib/repositories/role.repository";
 import { updateRolePermissionsAction } from "@/app/actions/role.actions";
 import { useToast } from "@/components/ui/toast";
 import { MODULE_CATEGORIES, ModuleType, ActionType } from "@/lib/types/role";
+import { ROLE_PERMISSION_PRESETS } from "@/lib/constants/role-presets";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -225,6 +226,31 @@ export default function RoleMatrixForm({
     setSaveSuccess(false);
   };
 
+  const applyPreset = (presetId: string) => {
+    if (isSystemAdmin) return;
+    const preset = ROLE_PERMISSION_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+
+    if (preset.id === "read_only") {
+      const viewOnly = new Set(
+        allPermissions.filter((p) => p.action === "VIEW").map((p) => p.id),
+      );
+      setSelectedIds(viewOnly);
+      setSaveSuccess(false);
+      setErrorMessage(null);
+      return;
+    }
+
+    const next = new Set<string>();
+    preset.grants.forEach((g) => {
+      const p = permMap.get(`${g.module}:${g.action}`);
+      if (p) next.add(p.id);
+    });
+    setSelectedIds(next);
+    setSaveSuccess(false);
+    setErrorMessage(null);
+  };
+
   // Bulk Master Actions
   const grantAll = () => {
     if (isSystemAdmin) return;
@@ -335,14 +361,14 @@ export default function RoleMatrixForm({
     <div className="space-y-5 pb-24">
       {/* ── System Admin Full Access Notice ── */}
       {isSystemAdmin && (
-        <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-payroll-light/40 border border-payroll-light text-payroll-navy shadow-payroll-xs">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-payroll-primary text-white shadow-payroll-xs">
-            <Shield className="h-4.5 w-4.5" />
+        <div className="flex items-center gap-3.5 p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 text-zinc-900">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-white">
+            <Shield className="h-4.5 w-4.5 text-emerald-400" />
           </div>
           <div className="text-xs">
-            <p className="font-bold text-payroll-navy">System Administrator Full Access</p>
-            <p className="text-gray-600 mt-0.5">
-              This system role possesses complete, unrestricted access across all 27 modules. Permissions are automatically granted and locked against manual tampering.
+            <p className="font-semibold text-zinc-900">System Administrator Full Access</p>
+            <p className="text-zinc-500 mt-0.5">
+              This system role possesses complete, unrestricted access across all 27 modules. Permissions are automatically granted and locked against manual changes.
             </p>
           </div>
         </div>
@@ -350,150 +376,147 @@ export default function RoleMatrixForm({
 
       {/* ── Master Toolbar with Search, Filters & Bulk Actions ── */}
       {!isSystemAdmin && (
-        <Card className="border-payroll-light/80 bg-white shadow-payroll-xs overflow-hidden">
-          <CardContent className="p-4 space-y-4">
-            {/* Top Toolbar Row */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              {/* Search Box */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="search"
-                  placeholder="Search permissions by module name or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-payroll-xs transition-all placeholder:text-gray-400"
+        <div className="rounded-xl border border-zinc-200/80 bg-white p-4 space-y-4">
+          {/* Quick Functional Presets & Global Progress Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3.5 border-b border-zinc-200/60">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-semibold text-zinc-900 flex items-center gap-1.5 mr-1">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-700" />
+                Quick Presets:
+              </span>
+              {ROLE_PERMISSION_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyPreset(preset.id)}
+                  title={preset.description}
+                  className="px-2.5 py-1 text-xs font-medium rounded-md border border-zinc-200/80 bg-zinc-50 hover:bg-emerald-50 hover:text-emerald-950 hover:border-emerald-300 text-zinc-700 cursor-pointer transition-all"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <span className="text-zinc-300 mx-1">|</span>
+              <button
+                type="button"
+                onClick={grantAll}
+                className="px-2.5 py-1 text-xs font-medium rounded-md border border-zinc-200/80 bg-white hover:bg-zinc-50 text-zinc-700 cursor-pointer transition-all"
+              >
+                All (Admin)
+              </button>
+              <button
+                type="button"
+                onClick={revokeAll}
+                className="px-2.5 py-1 text-xs font-medium rounded-md border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer transition-all"
+              >
+                Clear All
+              </button>
+            </div>
+
+            {/* Progress Summary Pill */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500 font-medium">
+                Allocated:{" "}
+                <strong className="text-zinc-900 font-bold">
+                  {activePermissionCount}
+                </strong>{" "}
+                / {totalPossiblePermissions} ({overallPercentage}%)
+              </span>
+              <div className="w-24 h-1.5 bg-zinc-100 rounded-full overflow-hidden border border-zinc-200/60">
+                <div
+                  className="h-full bg-emerald-700 rounded-full transition-all duration-300"
+                  style={{ width: `${overallPercentage}%` }}
                 />
               </div>
+            </div>
+          </div>
 
-              {/* Status Filter Tabs */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-semibold text-gray-500 mr-1 flex items-center gap-1">
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-payroll-primary" />
-                  Filter:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setFilterView("all")}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer select-none",
-                    filterView === "all"
-                      ? "bg-payroll-primary text-white shadow-payroll-xs"
-                      : "bg-payroll-cream text-gray-700 hover:bg-payroll-light/60",
-                  )}
-                >
-                  All Modules
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterView("granted")}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer select-none",
-                    filterView === "granted"
-                      ? "bg-payroll-primary text-white shadow-payroll-xs"
-                      : "bg-payroll-cream text-gray-700 hover:bg-payroll-light/60",
-                  )}
-                >
-                  Granted Only
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterView("unassigned")}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer select-none",
-                    filterView === "unassigned"
-                      ? "bg-payroll-primary text-white shadow-payroll-xs"
-                      : "bg-payroll-cream text-gray-700 hover:bg-payroll-light/60",
-                  )}
-                >
-                  Unassigned
-                </button>
-              </div>
-
-              {/* Expand / Collapse All */}
-              <div className="flex items-center gap-1.5 border-l border-payroll-light/80 pl-3">
-                <button
-                  type="button"
-                  onClick={expandAll}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg text-gray-600 hover:bg-payroll-cream transition-colors cursor-pointer"
-                  title="Expand all categories"
-                >
-                  <FolderOpen className="h-3.5 w-3.5 text-payroll-primary" />
-                  <span>Expand All</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={collapseAll}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg text-gray-600 hover:bg-payroll-cream transition-colors cursor-pointer"
-                  title="Collapse all categories"
-                >
-                  <FolderClosed className="h-3.5 w-3.5 text-gray-500" />
-                  <span>Collapse All</span>
-                </button>
-              </div>
+          {/* Search, Filter, and Accordion Controls Row */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-0.5">
+            {/* Search Box */}
+            <div className="relative flex-1 max-w-sm">
+              <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="search"
+                placeholder="Search modules by name or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-zinc-200/80 bg-white text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700 transition-all"
+              />
             </div>
 
-            {/* Bottom Row: Quick Bulk Presets & Global Progress Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-payroll-light/60">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-bold text-payroll-navy flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5 text-payroll-primary" />
-                  Global Presets:
-                </span>
-                <button
-                  type="button"
-                  onClick={grantAll}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-payroll-light bg-white hover:bg-payroll-cream text-payroll-navy cursor-pointer transition-all shadow-payroll-xs"
-                >
-                  Grant All (Full Access)
-                </button>
-                <button
-                  type="button"
-                  onClick={grantAllView}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-payroll-light bg-white hover:bg-payroll-cream text-payroll-primary cursor-pointer transition-all shadow-payroll-xs"
-                >
-                  Read-Only (View All)
-                </button>
-                <button
-                  type="button"
-                  onClick={revokeAll}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer transition-all shadow-payroll-xs"
-                >
-                  Clear All
-                </button>
-              </div>
-
-              {/* Progress Summary Pill */}
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <span className="text-xs text-gray-500 font-medium">
-                    Allocated:{" "}
-                    <strong className="text-payroll-navy font-bold">
-                      {activePermissionCount}
-                    </strong>{" "}
-                    / {totalPossiblePermissions} ({overallPercentage}%)
-                  </span>
-                </div>
-                <div className="w-24 h-2 bg-payroll-light/60 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-payroll-primary rounded-full transition-all duration-300"
-                    style={{ width: `${overallPercentage}%` }}
-                  />
-                </div>
-              </div>
+            {/* Status Filter Tabs */}
+            <div className="inline-flex items-center p-0.5 rounded-lg border border-zinc-200/70 bg-zinc-50">
+              <button
+                type="button"
+                onClick={() => setFilterView("all")}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer select-none",
+                  filterView === "all"
+                    ? "bg-white text-zinc-900 shadow-2xs font-semibold"
+                    : "text-zinc-600 hover:text-zinc-900",
+                )}
+              >
+                All Modules
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterView("granted")}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer select-none",
+                  filterView === "granted"
+                    ? "bg-white text-emerald-950 shadow-2xs font-semibold"
+                    : "text-zinc-600 hover:text-zinc-900",
+                )}
+              >
+                Granted Only
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterView("unassigned")}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer select-none",
+                  filterView === "unassigned"
+                    ? "bg-white text-zinc-900 shadow-2xs font-semibold"
+                    : "text-zinc-600 hover:text-zinc-900",
+                )}
+              >
+                Unassigned
+              </button>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Expand / Collapse All */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={expandAll}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
+                title="Expand all categories"
+              >
+                <FolderOpen className="h-3.5 w-3.5 text-zinc-500" />
+                <span>Expand All</span>
+              </button>
+              <button
+                type="button"
+                onClick={collapseAll}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
+                title="Collapse all categories"
+              >
+                <FolderClosed className="h-3.5 w-3.5 text-zinc-500" />
+                <span>Collapse All</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Categorized Permission Matrix Accordions ── */}
       <div className="space-y-3.5">
         {filteredCategories.length === 0 ? (
-          <Card className="p-8 text-center border-payroll-light bg-white">
-            <p className="text-xs text-gray-500">
+          <div className="p-8 text-center rounded-xl border border-zinc-200/80 bg-white">
+            <p className="text-xs text-zinc-500">
               No permission modules match your search query or filter.
             </p>
-          </Card>
+          </div>
         ) : (
           filteredCategories.map((category) => {
             const isCollapsed = collapsedCategories.has(category.id);
@@ -519,32 +542,36 @@ export default function RoleMatrixForm({
                 : 0;
 
             return (
-              <Card
+              <div
                 key={category.id}
-                className="border-payroll-light/80 shadow-payroll-xs overflow-hidden bg-white transition-all duration-150"
+                className="rounded-xl border border-zinc-200/80 overflow-hidden bg-white transition-all duration-150"
               >
                 {/* Category Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 bg-payroll-cream/50 border-b border-payroll-light/60 gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 bg-zinc-50/70 border-b border-zinc-200/60 gap-3">
                   <div
                     onClick={() => toggleCategory(category.id)}
                     className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0"
                   >
-                    <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl bg-white border border-payroll-light/80 text-payroll-primary shadow-payroll-xs">
-                      <Layers className="h-4 w-4" />
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white border border-zinc-200/80 text-emerald-800">
+                      <Layers className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-xs sm:text-sm font-bold text-payroll-navy truncate">
+                        <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
                           {category.name}
                         </h4>
-                        <Badge
-                          variant={selectedCatPerms > 0 ? "success" : "neutral"}
-                          size="sm"
+                        <span
+                          className={cn(
+                            "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                            selectedCatPerms > 0
+                              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                              : "bg-zinc-100 text-zinc-500 border-zinc-200",
+                          )}
                         >
                           {selectedCatPerms}/{totalCatPerms} Enabled ({catPercentage}%)
-                        </Badge>
+                        </span>
                       </div>
-                      <p className="text-[11px] text-gray-500 mt-0.5 truncate max-w-xl">
+                      <p className="text-[11px] text-zinc-500 mt-0.5 truncate max-w-xl">
                         {category.description}
                       </p>
                     </div>
@@ -558,10 +585,10 @@ export default function RoleMatrixForm({
                           type="button"
                           onClick={() => toggleAllInCategory(category.id, !isFullySelected)}
                           className={cn(
-                            "text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer shadow-payroll-xs",
+                            "text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-all cursor-pointer",
                             isFullySelected
                               ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
-                              : "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100",
+                              : "bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100",
                           )}
                         >
                           {isFullySelected ? "Clear Domain" : "Select All in Domain"}
@@ -569,7 +596,7 @@ export default function RoleMatrixForm({
                         <button
                           type="button"
                           onClick={() => grantAllCategoryView(category.id)}
-                          className="text-[11px] font-bold px-2 py-1 rounded-lg border border-payroll-light bg-white hover:bg-payroll-cream text-payroll-navy transition-colors cursor-pointer shadow-payroll-xs"
+                          className="text-[11px] font-semibold px-2 py-1 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition-colors cursor-pointer"
                           title="Set entire domain to View Only"
                         >
                           View Only
@@ -579,7 +606,7 @@ export default function RoleMatrixForm({
                     <button
                       type="button"
                       onClick={() => toggleCategory(category.id)}
-                      className="p-1 rounded-lg text-gray-400 hover:text-payroll-navy hover:bg-payroll-light/60 transition-colors cursor-pointer"
+                      className="p-1 rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-colors cursor-pointer"
                       aria-label="Toggle Category"
                     >
                       {isCollapsed ? (
@@ -593,7 +620,7 @@ export default function RoleMatrixForm({
 
                 {/* Module Table Body */}
                 {!isCollapsed && (
-                  <div className="divide-y divide-payroll-light/40">
+                  <div className="divide-y divide-zinc-100">
                     {category.modules.map((mod) => {
                       const modPermCount = mod.allowedActions.length;
                       const modGrantedCount = mod.allowedActions.filter((act) => {
@@ -602,33 +629,29 @@ export default function RoleMatrixForm({
                       }).length;
 
                       const isModFull = modGrantedCount === modPermCount;
-                      const isModViewOnly =
-                        modGrantedCount === 1 &&
-                        mod.allowedActions.includes("VIEW") &&
-                        selectedIds.has(permMap.get(`${mod.key}:VIEW`)?.id || "");
 
                       return (
                         <div
                           key={mod.key}
-                          className="p-3.5 sm:p-4 hover:bg-payroll-cream/20 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3"
+                          className="p-3.5 sm:p-4 hover:bg-zinc-50/40 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3"
                         >
                           {/* Module Name & Details */}
                           <div className="space-y-0.5 md:w-5/12 pr-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-payroll-navy">
+                              <span className="text-xs font-semibold text-zinc-900">
                                 {mod.label}
                               </span>
-                              <span className="text-[10px] text-gray-400 font-mono">
+                              <span className="text-[10px] text-zinc-400 font-mono">
                                 ({modGrantedCount}/{modPermCount})
                               </span>
                             </div>
-                            <p className="text-[11px] text-gray-500 leading-relaxed">
+                            <p className="text-[11px] text-zinc-500 leading-relaxed">
                               {mod.description}
                             </p>
                           </div>
 
                           {/* Action Permission Toggle Chips */}
-                          <div className="flex items-center gap-2 flex-wrap md:flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap md:flex-1">
                             {mod.allowedActions.map((action) => {
                               const perm = permMap.get(`${mod.key}:${action}`);
                               const isSelected = perm
@@ -644,17 +667,17 @@ export default function RoleMatrixForm({
                                   onClick={() => togglePermission(mod.key, action)}
                                   title={`${meta.label}: ${meta.description}`}
                                   className={cn(
-                                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[11px] border transition-all select-none cursor-pointer active:scale-[0.97]",
+                                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all select-none cursor-pointer",
                                     isSelected
-                                      ? "bg-payroll-primary border-payroll-primary text-white shadow-payroll-xs"
-                                      : "border-payroll-light/80 bg-white text-gray-600 hover:border-payroll-primary/40 hover:bg-payroll-cream/50",
+                                      ? "bg-emerald-950 border-emerald-950 text-white shadow-2xs font-semibold"
+                                      : "border-zinc-200/80 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50",
                                     isSystemAdmin && "cursor-default opacity-90",
                                   )}
                                 >
                                   {isSelected ? (
-                                    <Check className="h-3 w-3 stroke-3 text-white" />
+                                    <Check className="h-3 w-3 stroke-2.5 text-emerald-300" />
                                   ) : (
-                                    <X className="h-3 w-3 stroke-2 text-gray-300" />
+                                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
                                   )}
                                   <span>{meta.label}</span>
                                 </button>
@@ -663,7 +686,7 @@ export default function RoleMatrixForm({
 
                             {/* Quick Module Shortcuts */}
                             {!isSystemAdmin && modPermCount > 1 && (
-                              <div className="flex items-center gap-1 ml-auto shrink-0">
+                              <div className="flex items-center gap-1 ml-auto shrink-0 pl-2">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -671,17 +694,17 @@ export default function RoleMatrixForm({
                                       ? clearAllInModule(mod.key, mod.allowedActions)
                                       : grantAllInModule(mod.key, mod.allowedActions)
                                   }
-                                  className="text-[10px] text-gray-400 hover:text-payroll-primary font-semibold underline underline-offset-2 cursor-pointer"
+                                  className="text-[10px] text-zinc-400 hover:text-emerald-900 font-medium underline underline-offset-2 cursor-pointer"
                                 >
                                   {isModFull ? "Clear" : "All"}
                                 </button>
-                                <span className="text-gray-300 text-[10px]">·</span>
+                                <span className="text-zinc-300 text-[10px]">·</span>
                                 <button
                                   type="button"
                                   onClick={() =>
                                     grantViewOnlyInModule(mod.key, mod.allowedActions)
                                   }
-                                  className="text-[10px] text-gray-400 hover:text-payroll-primary font-semibold underline underline-offset-2 cursor-pointer"
+                                  className="text-[10px] text-zinc-400 hover:text-emerald-900 font-medium underline underline-offset-2 cursor-pointer"
                                 >
                                   View
                                 </button>
@@ -693,7 +716,7 @@ export default function RoleMatrixForm({
                     })}
                   </div>
                 )}
-              </Card>
+              </div>
             );
           })
         )}
@@ -703,39 +726,39 @@ export default function RoleMatrixForm({
       {!isSystemAdmin && (
         <div
           className={cn(
-            "fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] p-3.5 sm:p-4 rounded-2xl border shadow-payroll-lg backdrop-blur-md transition-all duration-300",
+            "fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] p-3.5 sm:p-4 rounded-xl border shadow-xl backdrop-blur-md transition-all duration-300",
             hasUnsavedChanges
-              ? "bg-payroll-navy/95 border-payroll-light/40 text-white translate-y-0 opacity-100"
+              ? "bg-zinc-950/95 border-zinc-800 text-white translate-y-0 opacity-100"
               : "translate-y-16 opacity-0 pointer-events-none",
           )}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <span className="relative flex h-3 w-3 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">
+                <p className="text-xs font-semibold text-zinc-100 truncate">
                   Unsaved changes for &ldquo;{roleName}&rdquo;
                 </p>
-                <p className="text-[11px] text-gray-300">
-                  {addedCount > 0 && <span className="text-emerald-400 font-bold">+{addedCount} added </span>}
-                  {removedCount > 0 && <span className="text-rose-400 font-bold">-{removedCount} removed </span>}
-                  <span className="text-gray-400">(Press Ctrl+S to save)</span>
+                <p className="text-[11px] text-zinc-400">
+                  {addedCount > 0 && <span className="text-emerald-400 font-semibold">+{addedCount} granted </span>}
+                  {removedCount > 0 && <span className="text-rose-400 font-semibold">-{removedCount} revoked </span>}
+                  <span className="text-zinc-500">(Press Ctrl+S to save)</span>
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <Button
-                variant="subtle"
+                variant="outline"
                 size="sm"
                 onClick={resetToOriginal}
                 disabled={isPending}
-                className="text-xs bg-white/10 hover:bg-white/20 text-white border-white/20"
+                className="text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800"
               >
-                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                <RotateCcw className="h-3 w-3 mr-1" />
                 Reset
               </Button>
               <Button
@@ -743,9 +766,9 @@ export default function RoleMatrixForm({
                 onClick={handleSave}
                 isLoading={isPending}
                 disabled={isPending}
-                className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs shadow-payroll-sm"
+                className="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-xs shadow-xs"
               >
-                Save Matrix
+                Save Permissions
               </Button>
             </div>
           </div>
@@ -754,14 +777,14 @@ export default function RoleMatrixForm({
 
       {/* ── Feedback Toast Banners ── */}
       {saveSuccess && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 p-3.5 rounded-xl bg-payroll-primary text-white shadow-payroll-lg text-xs font-bold animate-[slideInUp_150ms_ease-out]">
-          <CheckCircle2 className="h-4 w-4" />
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 p-3.5 rounded-xl bg-emerald-900 text-white shadow-lg text-xs font-semibold animate-[slideInUp_150ms_ease-out]">
+          <CheckCircle2 className="h-4 w-4 text-emerald-300" />
           <span>Permissions saved successfully for &ldquo;{roleName}&rdquo;!</span>
         </div>
       )}
 
       {errorMessage && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 p-3.5 rounded-xl bg-rose-600 text-white shadow-payroll-lg text-xs font-bold animate-[slideInUp_150ms_ease-out]">
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 p-3.5 rounded-xl bg-rose-600 text-white shadow-lg text-xs font-semibold animate-[slideInUp_150ms_ease-out]">
           <AlertCircle className="h-4 w-4" />
           <span>{errorMessage}</span>
         </div>

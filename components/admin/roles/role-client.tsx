@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   RoleWithStats,
   PermissionRow,
@@ -10,6 +11,7 @@ import RoleMatrixForm from "./role-matrix-form";
 import { CreateRoleDialog } from "./create-role-dialog";
 import { CloneRoleDialog } from "./clone-role-dialog";
 import { EditRoleDialog } from "./edit-role-dialog";
+import { AssignUsersDialog } from "./assign-users-dialog";
 import { PermissionChangeTable } from "@/components/admin/audit/permission-change-table";
 import { deleteRoleAction } from "@/app/actions/role.actions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +24,7 @@ import {
   Users,
   Building2,
   User,
+  UserPlus,
   Globe,
   History,
   Plus,
@@ -63,6 +66,7 @@ export default function RoleClient({
   rolePermissionsMap,
   permissionChangeLogs = [],
 }: RoleClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"matrix" | "history">("matrix");
   const [activeRoleId, setActiveRoleId] = useState<string>(roles[0]?.id || "");
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,6 +75,7 @@ export default function RoleClient({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [assignUsersOpen, setAssignUsersOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
@@ -135,20 +140,20 @@ export default function RoleClient({
   return (
     <div className="space-y-6">
       {/* ── Top Header Navigation Bar ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-1 border-b border-zinc-200/60">
         {/* Tab switchers */}
-        <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-payroll-light/80 shadow-payroll-xs">
+        <div className="inline-flex items-center p-1 rounded-lg border border-zinc-200/70 bg-zinc-50/80">
           <button
             onClick={() => setActiveTab("matrix")}
             className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer select-none",
+              "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer select-none",
               activeTab === "matrix"
-                ? "bg-payroll-primary text-white shadow-payroll-xs"
-                : "text-gray-600 hover:text-payroll-navy hover:bg-payroll-cream",
+                ? "bg-white text-emerald-950 shadow-2xs border border-zinc-200/60"
+                : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/60",
             )}
           >
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
+              <Shield className="h-3.5 w-3.5 text-emerald-700" />
               <span>Permission Matrix</span>
             </div>
           </button>
@@ -156,17 +161,15 @@ export default function RoleClient({
           <button
             onClick={() => setActiveTab("history")}
             className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer select-none",
+              "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer select-none",
               activeTab === "history"
-                ? "bg-payroll-primary text-white shadow-payroll-xs"
-                : "text-gray-600 hover:text-payroll-navy hover:bg-payroll-cream",
+                ? "bg-white text-emerald-950 shadow-2xs border border-zinc-200/60"
+                : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/60",
             )}
           >
             <div className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              <span>
-                Change History ({permissionChangeLogs.length})
-              </span>
+              <History className="h-3.5 w-3.5 text-zinc-500" />
+              <span>Change History ({permissionChangeLogs.length})</span>
             </div>
           </button>
         </div>
@@ -174,7 +177,7 @@ export default function RoleClient({
         {/* Create Role Trigger */}
         <Button
           onClick={() => setCreateDialogOpen(true)}
-          className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-bold text-xs shadow-payroll-sm"
+          className="bg-emerald-900 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs px-3.5 py-2 rounded-lg"
         >
           <Plus className="h-4 w-4 mr-1.5" />
           <span>Create Custom Role</span>
@@ -183,22 +186,27 @@ export default function RoleClient({
 
       {activeTab === "matrix" ? (
         <div className="space-y-5">
-          {/* ── Role Selector Bar with Search & Badges ── */}
-          <div className="space-y-3">
-            {roles.length > 5 && (
-              <div className="relative max-w-xs">
-                <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="search"
-                  placeholder="Filter roles list..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-payroll-light bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary shadow-payroll-xs"
-                />
-              </div>
-            )}
+          {/* ── Role Selector Bar with Search & Refined Chips ── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                Select Organizational Role
+              </span>
+              {roles.length > 5 && (
+                <div className="relative max-w-xs">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="search"
+                    placeholder="Filter roles..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-48 pl-8 pr-2.5 py-1 text-xs rounded-md border border-zinc-200/80 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 focus:border-emerald-700"
+                  />
+                </div>
+              )}
+            </div>
 
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               {filteredRoles.map((role) => {
                 const isActive = role.id === activeRoleId;
                 const isSys = role.isSystemRole || role.isProtected;
@@ -210,65 +218,43 @@ export default function RoleClient({
                     key={role.id}
                     onClick={() => setActiveRoleId(role.id)}
                     className={cn(
-                      "inline-flex items-center gap-3 rounded-2xl px-4 py-2.5 transition-all duration-150 cursor-pointer border select-none text-left shadow-payroll-xs",
+                      "inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-left transition-all duration-150 cursor-pointer border select-none text-xs",
                       isActive
-                        ? "bg-payroll-primary border-payroll-primary text-white shadow-payroll-sm ring-2 ring-payroll-primary/25"
-                        : "bg-white border-payroll-light/80 text-payroll-navy hover:border-payroll-primary/40 hover:bg-payroll-cream/50",
+                        ? "bg-emerald-950 border-emerald-950 text-white shadow-xs font-semibold"
+                        : "bg-white border-zinc-200/80 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/70 font-medium",
                     )}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="truncate max-w-44">{role.name}</span>
+                      {isSys && (
+                        <Lock
+                          className={cn(
+                            "h-3 w-3 shrink-0",
+                            isActive ? "text-emerald-300" : "text-zinc-400",
+                          )}
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-zinc-200/40">
+                      <span
                         className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors",
-                          isActive
-                            ? "bg-white/20 text-white"
-                            : "bg-payroll-cream text-payroll-primary border border-payroll-light",
+                          "text-[10px] inline-flex items-center gap-0.5",
+                          isActive ? "text-emerald-300" : "text-zinc-500",
                         )}
                       >
-                        <Shield className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold truncate max-w-44">{role.name}</span>
-                          {isSys && (
-                            <span title="System Protected Role">
-                              <Lock
-                                className={cn(
-                                  "h-3 w-3",
-                                  isActive ? "text-emerald-200" : "text-gray-400",
-                                )}
-                              />
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span
-                            className={cn(
-                              "text-[10px] inline-flex items-center gap-1 font-semibold",
-                              isActive ? "text-emerald-100" : "text-gray-500",
-                            )}
-                          >
-                            <RScopeIcon className="h-3 w-3" />
-                            {rScope.label}
-                          </span>
-                          <span
-                            className={cn(
-                              "text-[10px]",
-                              isActive ? "text-emerald-200" : "text-gray-300",
-                            )}
-                          >
-                            •
-                          </span>
-                          <span
-                            className={cn(
-                              "text-[10px] font-semibold",
-                              isActive ? "text-white" : "text-gray-500",
-                            )}
-                          >
-                            {role.userCount} {role.userCount === 1 ? "user" : "users"}
-                          </span>
-                        </div>
-                      </div>
+                        <RScopeIcon className="h-2.5 w-2.5" />
+                        {rScope.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded font-mono font-medium",
+                          isActive
+                            ? "bg-white/15 text-white"
+                            : "bg-zinc-100 text-zinc-600",
+                        )}
+                      >
+                        {role.userCount}
+                      </span>
                     </div>
                   </button>
                 );
@@ -276,71 +262,79 @@ export default function RoleClient({
             </div>
           </div>
 
-          {/* ── Active Role Control Toolbar ── */}
+          {/* ── Active Role Control Header ── */}
           {activeRole && (
-            <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
-              <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1.5 min-w-0">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <h3 className="text-base sm:text-lg font-bold text-payroll-navy">
-                      {activeRole.name}
-                    </h3>
-                    <Badge variant={scope.variant} size="sm">
-                      <ScopeIcon className="h-3 w-3 mr-1" />
-                      <span>{scope.label} Scope</span>
-                    </Badge>
-                    {activeRole.isProtected ? (
-                      <Badge variant="warning" size="sm">
-                        System Protected
-                      </Badge>
-                    ) : (
-                      <Badge variant="neutral" size="sm">
-                        Custom Role
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 max-w-2xl leading-relaxed">
-                    {activeRole.description ||
-                      "No custom description configured for this role."}
-                  </p>
-                </div>
-
-                {/* Role Actions */}
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCloneDialogOpen(true)}
-                    className="text-xs"
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1 text-payroll-primary" />
-                    <span>Clone</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditDialogOpen(true)}
-                    className="text-xs"
-                  >
-                    <Edit3 className="h-3.5 w-3.5 mr-1 text-payroll-primary" />
-                    <span>Edit</span>
-                  </Button>
-
-                  {!isProtectedRole && (
-                    <Button
-                      variant="subtle"
-                      size="sm"
-                      onClick={() => setDeleteConfirmOpen(true)}
-                      className="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200/60"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1 text-rose-600" />
-                      <span>Delete</span>
-                    </Button>
+            <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/60 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-base sm:text-lg font-bold tracking-tight text-zinc-950">
+                    {activeRole.name}
+                  </h3>
+                  <Badge variant={scope.variant} size="sm">
+                    <ScopeIcon className="h-3 w-3 mr-1" />
+                    <span>{scope.label} Scope</span>
+                  </Badge>
+                  {activeRole.isProtected ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
+                      <Lock className="h-2.5 w-2.5" /> System Protected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
+                      Custom Role
+                    </span>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+                <p className="text-xs text-zinc-600 max-w-2xl leading-relaxed">
+                  {activeRole.description ||
+                    "No custom description configured for this role."}
+                </p>
+              </div>
+
+              {/* Role Actions */}
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAssignUsersOpen(true)}
+                  className="text-xs border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-50/80 font-medium shadow-2xs"
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-1 text-emerald-700" />
+                  <span>Assign Users ({activeRole.userCount})</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCloneDialogOpen(true)}
+                  className="text-xs border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 font-medium"
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1 text-zinc-500" />
+                  <span>Clone</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditDialogOpen(true)}
+                  className="text-xs border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 font-medium"
+                >
+                  <Edit3 className="h-3.5 w-3.5 mr-1 text-zinc-500" />
+                  <span>Edit</span>
+                </Button>
+
+                {!isProtectedRole && (
+                  <Button
+                    variant="subtle"
+                    size="sm"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200/60 font-medium"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1 text-rose-600" />
+                    <span>Delete</span>
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
 
           {/* ── Role Permission Matrix Form ── */}
@@ -365,6 +359,7 @@ export default function RoleClient({
       <CreateRoleDialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
+        allPermissions={allPermissions}
         onSuccess={(newId) => {
           setActiveRoleId(newId);
         }}
@@ -444,6 +439,17 @@ export default function RoleClient({
               )}
             </div>
           </Dialog>
+
+          {/* Assign Users Dialog */}
+          <AssignUsersDialog
+            open={assignUsersOpen}
+            onClose={() => setAssignUsersOpen(false)}
+            roleId={activeRole.id}
+            roleName={activeRole.name}
+            onSuccess={() => {
+              router.refresh();
+            }}
+          />
         </>
       )}
     </div>

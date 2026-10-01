@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
-import { roles, permissions, rolePermissions, rolePermissionChangeLog, auditLogs, userRoles } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { roles, permissions, rolePermissions, rolePermissionChangeLog, auditLogs, userRoles, users, employees } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import type { ScopeType } from '@/lib/types/role';
 
 export type RoleRow = typeof roles.$inferSelect;
@@ -309,3 +309,75 @@ export async function deleteRole(id: string): Promise<boolean> {
   const res = await getDb().delete(roles).where(eq(roles.id, id)).returning({ id: roles.id });
   return res.length > 0;
 }
+
+export async function findUsersByRoleId(roleId: string) {
+  return await getDb()
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      isActive: users.isActive,
+      employeeId: users.employeeId,
+      employeeCode: employees.employeeCode,
+      employeeName: employees.fullName,
+    })
+    .from(users)
+    .innerJoin(userRoles, eq(users.id, userRoles.userId))
+    .leftJoin(employees, eq(users.employeeId, employees.id))
+    .where(eq(userRoles.roleId, roleId));
+}
+
+export async function assignUsersToRole(
+  roleId: string,
+  userIdsToAdd: string[],
+  userIdsToRemove: string[],
+  changedByUserId: string
+) {
+  return await getDb().transaction(async (tx) => {
+    // 1. Resolve fallback employee role for users being removed from this role
+    let fallbackRoleId: string | null = null;
+    if (userIdsToRemove.length > 0) {
+      const [empRole] = await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.slug, 'employee'))
+        .limit(1);
+      fallbackRoleId = empRole?.id || null;
+    }
+
+    // 2. Add users to this role (replaces user_roles row)
+    for (const userId of userIdsToAdd) {
+      await tx.delete(userRoles).where(eq(userRoles.userId, userId));
+      await tx.insert(userRoles).values({
+        userId,
+        roleId,
+      });
+    }
+
+    // 3. Remove users from this role (reassigns to fallback employee role if available)
+    for (const userId of userIdsToRemove) {
+      await tx.delete(userRoles).where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
+      if (fallbackRoleId && fallbackRoleId !== roleId) {
+        await tx.insert(userRoles).values({
+          userId,
+          roleId: fallbackRoleId,
+        });
+      }
+    }
+
+    // 4. Record audit log
+    await tx.insert(auditLogs).values({
+      userId: changedByUserId,
+      action: 'EDIT',
+      module: 'USERS_ROLES',
+      recordId: roleId,
+      result: 'SUCCESS',
+      newValues: {
+        assignedUserIds: userIdsToAdd,
+        removedUserIds: userIdsToRemove,
+      },
+      ipAddress: '127.0.0.1',
+    });
+  });
+}
+
