@@ -1,8 +1,11 @@
 import postgres from 'postgres';
 import * as dotenv from 'dotenv';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import * as schema from '../lib/db/schema';
 import { decryptCredential } from '../lib/platform/crypto';
 import { ensureTenantSchema } from '../lib/db/tenant-schema-sync';
 import { ensurePlatformTablesExist } from '../lib/platform/db';
+import { seedRbacForDb } from './seed-rbac';
 
 dotenv.config({ path: '.env' });
 
@@ -74,7 +77,9 @@ async function syncSchema() {
 
           try {
             await ensureTenantSchema(tenantSql);
-            console.log(`   ✅ Tenant "${t.name}" synced successfully.`);
+            const tenantDrizzle = drizzle(tenantSql, { schema });
+            await seedRbacForDb(tenantDrizzle);
+            console.log(`   ✅ Tenant "${t.name}" synced and RBAC seeded successfully.`);
           } finally {
             await tenantSql.end();
           }
@@ -85,7 +90,9 @@ async function syncSchema() {
     } else {
       console.log('Single database environment detected. Syncing tenant tables directly...');
       await ensureTenantSchema(sql);
-      console.log('✅ Direct database schema synced successfully.');
+      const targetDb = drizzle(sql, { schema });
+      await seedRbacForDb(targetDb);
+      console.log('✅ Direct database schema and RBAC synced successfully.');
     }
 
     console.log('\n🎉 All schema migrations & self-healing updates completed successfully!');
