@@ -150,7 +150,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S1",
     code: "S1",
-    name: "S1 — Level 1",
+    name: "Level 1 (Support / Operational)",
     levelNumber: 1,
     labelNepali: "तह १ (सहयोगी तह)",
     description: "Entry / Support / Operational Level",
@@ -159,7 +159,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S2",
     code: "S2",
-    name: "S2 — Level 2",
+    name: "Level 2 (Junior Assistant)",
     levelNumber: 2,
     labelNepali: "तह २ (कनिष्ठ सहायक)",
     description: "Junior Assistant / Trainee Level",
@@ -168,7 +168,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S3",
     code: "S3",
-    name: "S3 — Level 3",
+    name: "Level 3 (Assistant)",
     levelNumber: 3,
     labelNepali: "तह ३ (सहायक तह)",
     description: "Assistant Level",
@@ -177,7 +177,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S4",
     code: "S4",
-    name: "S4 — Level 4",
+    name: "Level 4 (Senior Assistant)",
     levelNumber: 4,
     labelNepali: "तह ४ (वरिष्ठ सहायक)",
     description: "Senior Assistant Level",
@@ -186,7 +186,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S5",
     code: "S5",
-    name: "S5 — Level 5",
+    name: "Level 5 (Supervisor / Jr. Officer)",
     levelNumber: 5,
     labelNepali: "तह ५ (सुपरभाइजर / कनिष्ठ अधिकृत)",
     description: "Supervisor / Junior Officer Level",
@@ -195,7 +195,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S6",
     code: "S6",
-    name: "S6 — Level 6",
+    name: "Level 6 (Officer)",
     levelNumber: 6,
     labelNepali: "तह ६ (अधिकृत तह)",
     description: "Officer Level",
@@ -204,7 +204,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S7",
     code: "S7",
-    name: "S7 — Level 7",
+    name: "Level 7 (Senior Officer)",
     levelNumber: 7,
     labelNepali: "तह ७ (वरिष्ठ अधिकृत)",
     description: "Senior Officer Level",
@@ -213,7 +213,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S8",
     code: "S8",
-    name: "S8 — Level 8",
+    name: "Level 8 (Assistant Manager)",
     levelNumber: 8,
     labelNepali: "तह ८ (सहायक प्रबन्धक)",
     description: "Assistant Manager Level",
@@ -222,7 +222,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S9",
     code: "S9",
-    name: "S9 — Level 9",
+    name: "Level 9 (Deputy Manager)",
     levelNumber: 9,
     labelNepali: "तह ९ (उप-प्रबन्धक)",
     description: "Deputy Manager Level",
@@ -231,7 +231,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S10",
     code: "S10",
-    name: "S10 — Level 10",
+    name: "Level 10 (Manager)",
     levelNumber: 10,
     labelNepali: "तह १० (प्रबन्धक)",
     description: "Manager Level",
@@ -240,7 +240,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S11",
     code: "S11",
-    name: "S11 — Level 11",
+    name: "Level 11 (Senior Manager / Director)",
     levelNumber: 11,
     labelNepali: "तह ११ (वरिष्ठ प्रबन्धक / निर्देशक)",
     description: "Senior Manager / Director Level",
@@ -249,7 +249,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S12",
     code: "S12",
-    name: "S12 — Level 12",
+    name: "Level 12 (Executive / General Manager)",
     levelNumber: 12,
     labelNepali: "तह १२ (कार्यकारी / महाप्रबन्धक)",
     description: "Executive / General Manager Level",
@@ -258,7 +258,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S13",
     code: "S13",
-    name: "S13 — Level 13",
+    name: "Level 13 (Deputy Executive Head)",
     levelNumber: 13,
     labelNepali: "तह १३ (उप-कार्यकारी प्रमुख)",
     description: "Deputy Executive / Division Head",
@@ -267,7 +267,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S14",
     code: "S14",
-    name: "S14 — Level 14",
+    name: "Level 14 (Executive Director)",
     levelNumber: 14,
     labelNepali: "तह १४ (कार्यकारी निर्देशक)",
     description: "Executive Director / VP Level",
@@ -276,7 +276,7 @@ export const STANDARD_SHRENI_LEVELS: ShreniLevelItem[] = [
   {
     id: "S15",
     code: "S15",
-    name: "S15 — Level 15",
+    name: "Level 15 (Chief Executive Officer)",
     levelNumber: 15,
     labelNepali: "तह १५ (प्रमुख कार्यकारी अधिकृत)",
     description: "Chief Executive Officer / C-Suite Apex",

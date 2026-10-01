@@ -43,7 +43,7 @@ describe("Organization Industry Sectors & Universal Shreni Levels Architecture",
       const item = levels.find((l) => l.code === code);
       assert.ok(item, `Level ${code} must exist in canonical levels`);
       assert.equal(item.levelNumber, i);
-      assert.ok(item.name.includes(code), `Name must contain ${code}`);
+      assert.ok(item.name.includes(String(i)), `Name must contain level number ${i}`);
       assert.ok(item.labelNepali.includes("तह"), "Nepali label must mention तह");
       assert.ok(item.description && item.description.length > 0, "Level must have a description");
     }
@@ -54,7 +54,7 @@ describe("Organization Industry Sectors & Universal Shreni Levels Architecture",
     // Shreni levels must be clean grade levels, not specific professional roles
     for (const lvl of levels) {
       assert.match(lvl.code, /^S\d+$/, "Code must follow the S1, S2, ... level pattern");
-      assert.ok(lvl.name.startsWith("S"), "Level name must start with Level Code");
+      assert.ok(lvl.name.includes("Level"), "Level name must mention Level");
     }
   });
 

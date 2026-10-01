@@ -70,6 +70,37 @@ export async function findAllShreniLevels(): Promise<ShreniLevelItem[]> {
     }
   }
 
+  if (rows.length > 0) {
+    // Dynamic synchronization: keep canonical S1–S15 titles & Nepali labels aligned with clarity tiers
+    const standardMap = new Map(getStandardShreniLevels().map((s) => [s.code, s]));
+    for (const row of rows) {
+      const std = standardMap.get(row.code);
+      if (
+        std &&
+        (row.name !== std.name ||
+          row.labelNepali !== std.labelNepali ||
+          row.description !== (std.description ?? null))
+      ) {
+        try {
+          await db
+            .update(shreniLevels)
+            .set({
+              name: std.name,
+              labelNepali: std.labelNepali,
+              description: std.description ?? null,
+              updatedAt: new Date(),
+            })
+            .where(eq(shreniLevels.id, row.id));
+          row.name = std.name;
+          row.labelNepali = std.labelNepali;
+          row.description = std.description ?? null;
+        } catch {
+          // ignore concurrency
+        }
+      }
+    }
+  }
+
   return rows.map(mapRowToItem);
 }
 

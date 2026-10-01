@@ -6,6 +6,7 @@ import {
   resolveDesignationName,
   resolveBranchName,
   resolveEmployeeName,
+  resolveShreniName,
   type RawLookupData,
 } from '../lib/constants/employee-lookups';
 import {
@@ -44,6 +45,10 @@ describe('Organizational Structure & Lookups Module', () => {
         employees: [
           { id: 'emp-1', name: 'Aarav Sharma' },
         ],
+        shreniLevels: [
+          { code: 'S2', name: 'Level 2 (Junior Assistant)', labelNepali: 'तह २ (कनिष्ठ सहायक)' },
+          { code: 'S7', name: 'Level 7 (Senior Officer)', labelNepali: 'तह ७ (वरिष्ठ अधिकृत)' },
+        ],
       };
 
       const employees: Employee[] = [];
@@ -60,6 +65,11 @@ describe('Organizational Structure & Lookups Module', () => {
 
       assert.equal(resolveEmployeeName('emp-1', lookups.employeeNameById), 'Aarav Sharma');
       assert.equal(resolveEmployeeName(null, lookups.employeeNameById), '—');
+
+      assert.equal(resolveShreniName('S2', lookups.shreniNameByCode), 'S2 — Level 2 (Junior Assistant)');
+      assert.equal(resolveShreniName('S7', lookups.shreniNameByCode), 'S7 — Level 7 (Senior Officer)');
+      assert.equal(resolveShreniName('unknown', lookups.shreniNameByCode), 'unknown');
+      assert.equal(resolveShreniName(null, lookups.shreniNameByCode), '—');
     });
   });
 

@@ -5,6 +5,7 @@ export interface EmployeeLookups {
   branchNameById: Map<string, string>;
   designationNameById: Map<string, string>;
   employeeNameById: Map<string, string>;
+  shreniNameByCode?: Map<string, string>;
 }
 
 export interface RawLookupData {
@@ -13,6 +14,7 @@ export interface RawLookupData {
   designations: { id: string; name: string; departmentId: string }[];
   employees: { id: string; name: string; employeeCode?: string; attendanceCode?: string }[];
   industryType?: string;
+  shreniLevels?: Array<{ code: string; name: string; labelNepali?: string }>;
 }
 
 export function buildEmployeeLookups(
@@ -36,11 +38,19 @@ export function buildEmployeeLookups(
     employeeNameById.set(e.id, e.fullName);
   }
 
+  const shreniNameByCode = new Map<string, string>();
+  for (const s of (lookupData?.shreniLevels ?? [])) {
+    const display = s.name ? `${s.code} — ${s.name}` : s.code;
+    shreniNameByCode.set(s.code, display);
+    shreniNameByCode.set(s.code.toUpperCase(), display);
+  }
+
   return {
     departmentNameById,
     branchNameById,
     designationNameById,
     employeeNameById,
+    shreniNameByCode,
   };
 }
 
@@ -68,4 +78,12 @@ export function resolveEmployeeName(
 ): string {
   if (!id) return "—";
   return map.get(id) ?? id;
+}
+
+export function resolveShreniName(
+  code: string | null | undefined,
+  map?: Map<string, string>,
+): string {
+  if (!code) return "—";
+  return map?.get(code) ?? map?.get(code.toUpperCase()) ?? code;
 }
