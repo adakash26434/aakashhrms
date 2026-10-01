@@ -80,7 +80,7 @@ export function UserResetPasswordDialog({
         {!tempPassword ? (
           <>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Are you sure you want to reset password for <strong className="text-[#1b3a1f]">{user.email}</strong>?
+              Are you sure you want to reset password for <strong className="text-payroll-navy">{user.email}</strong>?
               A new secure temporary password will be generated for this user.
             </p>
 
@@ -99,7 +99,7 @@ export function UserResetPasswordDialog({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#1b3a1f] uppercase tracking-wider mb-1">
+              <label className="block text-xs font-semibold text-payroll-navy uppercase tracking-wider mb-1">
                 Temporary Password
               </label>
               <div className="flex items-center gap-2">
@@ -107,7 +107,7 @@ export function UserResetPasswordDialog({
                   type="text"
                   readOnly
                   value={tempPassword}
-                  className="flex-1 font-mono text-sm font-bold bg-[#f6faf6] border border-[#d7e8d0] rounded-lg px-3 py-2 text-[#1b3a1f]"
+                  className="flex-1 font-mono text-sm font-bold bg-payroll-cream border border-payroll-border rounded-lg px-3 py-2 text-payroll-navy"
                 />
                 <Button variant="outline" size="md" onClick={handleCopy} className="shrink-0 gap-1.5">
                   {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4 text-gray-500" />}

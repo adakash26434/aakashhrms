@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
+  AlertCircle,
   AlertTriangle,
   Building2,
+  Check,
+  Copy,
   CreditCard,
+  ExternalLink,
+  Eye,
+  EyeOff,
   IdCard,
+  KeyRound,
+  Loader2,
+  Mail,
   MapPin,
   Pencil,
+  ShieldCheck,
   User,
   Users,
 } from "lucide-react";
@@ -21,6 +32,7 @@ import {
   resolveDesignationName,
   resolveDepartmentName,
   resolveEmployeeName,
+  resolveShreniName,
   type EmployeeLookups,
 } from "@/lib/constants/employee-lookups";
 import {
@@ -28,7 +40,11 @@ import {
   parseStructuredAddress,
 } from "@/lib/constants/nepal-locations";
 import { cn } from "@/lib/utils";
-import { getEmployeeByIdAction } from "@/app/actions/employee.actions";
+import {
+  getEmployeeByIdAction,
+  getEmployeeAccessAction,
+  resendEmployeeCredentialsAction,
+} from "@/app/actions/employee.actions";
 
 interface EmployeeDetailPanelProps {
   open: boolean;
@@ -36,6 +52,22 @@ interface EmployeeDetailPanelProps {
   lookups: EmployeeLookups;
   onClose: () => void;
   onEdit: (id: string) => void;
+}
+
+interface LinkedEmployeeAccess {
+  userId: string;
+  email: string;
+  name: string | null;
+  isActive: boolean;
+  roleId: string | null;
+  roleName: string | null;
+  roleSlug: string | null;
+  roleScopeType: "GLOBAL" | "BRANCH" | "DEPARTMENT" | "SELF" | null;
+  mustChangePassword?: boolean;
+  tempPassword?: string | null;
+  lastLoginAt?: Date | null;
+  updatedAt?: Date;
+  createdAt?: Date;
 }
 
 export function EmployeeDetailPanel({
@@ -46,24 +78,83 @@ export function EmployeeDetailPanel({
   onEdit,
 }: EmployeeDetailPanelProps) {
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [access, setAccess] = useState<LinkedEmployeeAccess | null>(null);
+  const [loadingAccess, setLoadingAccess] = useState(false);
+  const [showTempPassword, setShowTempPassword] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     async function load() {
       if (!employeeId) {
         setEmployee(null);
+        setAccess(null);
         return;
       }
-      const result = await getEmployeeByIdAction(employeeId);
-      if (result.success && result.data) {
-        setEmployee(result.data);
+      setLoadingAccess(true);
+      setFeedback(null);
+      setShowTempPassword(false);
+
+      const [empRes, accessRes] = await Promise.all([
+        getEmployeeByIdAction(employeeId),
+        getEmployeeAccessAction(employeeId),
+      ]);
+
+      if (empRes.success && empRes.data) {
+        setEmployee(empRes.data);
       } else {
         setEmployee(null);
       }
+
+      if (accessRes.success && accessRes.data?.access) {
+        setAccess(accessRes.data.access);
+      } else {
+        setAccess(null);
+      }
+      setLoadingAccess(false);
     }
+
     if (open) {
       load();
     }
   }, [employeeId, open]);
+
+  const handleCopyPassword = (password: string) => {
+    navigator.clipboard.writeText(password);
+    setCopiedPassword(true);
+    setTimeout(() => setCopiedPassword(false), 2000);
+  };
+
+  const handleResendCredentials = async () => {
+    if (!employeeId) return;
+    setIsResending(true);
+    setFeedback(null);
+    try {
+      const res = await resendEmployeeCredentialsAction(employeeId);
+      if (res.success) {
+        setFeedback({
+          type: "success",
+          text: `Credentials email successfully dispatched to ${res.email}.`,
+        });
+      } else {
+        setFeedback({
+          type: "error",
+          text: res.error || "Failed to resend credentials email.",
+        });
+      }
+    } catch (err: unknown) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Error sending email.",
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const departmentName = employee
     ? resolveDepartmentName(employee.departmentId, lookups.departmentNameById)
@@ -107,7 +198,7 @@ export function EmployeeDetailPanel({
             Employee Details
           </h2>
           <p className="mt-0.5 text-xs text-zinc-500">
-            Complete employee record and official details
+            Complete employee record, official details, and portal access credentials
           </p>
         </div>
       }
@@ -125,6 +216,7 @@ export function EmployeeDetailPanel({
           </Button>
           <Button
             type="button"
+            className="bg-emerald-950 text-white hover:bg-emerald-900"
             onClick={() => employee && onEdit(employee.id)}
             disabled={!employee}
           >
@@ -136,6 +228,7 @@ export function EmployeeDetailPanel({
     >
       {employee && (
         <div className="space-y-6">
+          {/* Header Badge Card */}
           <div className="flex items-center gap-3.5 rounded-md border border-zinc-200 bg-zinc-50/60 p-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-zinc-950 text-base font-semibold text-white shadow-2xs">
               {employee.fullName ? employee.fullName.slice(0, 2).toUpperCase() : "EM"}
@@ -157,6 +250,7 @@ export function EmployeeDetailPanel({
             </div>
           </div>
 
+          {/* General Information */}
           <DetailSection title="General Information" icon={User}>
             <FieldGrid>
               <Field label="Attendance Code" value={employee.attendanceCode} />
@@ -178,12 +272,13 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
+          {/* Office Information */}
           <DetailSection title="Office Information" icon={Building2}>
             <FieldGrid>
               <Field label="Category" value={employee.category} />
               <Field label="Department" value={departmentName} />
               <Field label="Designation" value={designationName} />
-              <Field label="Level / Shreni" value={employee.shreni || "—"} />
+              <Field label="Level / Shreni" value={resolveShreniName(employee.shreni, lookups.shreniNameByCode)} />
               <Field label="Branch" value={branchName} />
               <Field label="Is Supervisor" value={employee.isSupervisor ? "Yes" : "No"} />
               <Field label="Supervisor" value={supervisorName} />
@@ -224,6 +319,7 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
+          {/* Personal Information & Documents */}
           <DetailSection title="Personal Information & Documents" icon={IdCard}>
             <FieldGrid>
               <Field label="Citizenship No" value={employee.citizenshipNo} />
@@ -238,9 +334,17 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
+          {/* Contact & Addresses */}
           <DetailSection title="Contact & Addresses" icon={MapPin}>
             <FieldGrid>
-              <Field label="Company Email" value={employee.companyEmail || employee.email} />
+              <Field
+                label="Company Email (Login Username)"
+                value={
+                  <div className="font-mono text-xs font-semibold text-zinc-900">
+                    {employee.companyEmail || employee.email}
+                  </div>
+                }
+              />
               <Field label="Personal Email" value={employee.personalEmail || "—"} />
               <Field label="Mobile Number" value={employee.mobileNo} />
               <Field label="Phone (Home)" value={employee.phoneHome || "—"} />
@@ -257,6 +361,251 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
+          {/* System Access & Self-Service Credentials */}
+          <DetailSection title="System Access & Self-Service Credentials" icon={KeyRound}>
+            {loadingAccess ? (
+              <div className="flex items-center gap-2 py-4 text-xs text-zinc-500">
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-800" />
+                <span>Loading system access details...</span>
+              </div>
+            ) : !access ? (
+              <div className="rounded-md border border-dashed border-zinc-200 p-4 text-center">
+                <p className="text-xs font-medium text-zinc-600">
+                  No self-service account linked to this employee.
+                </p>
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  An account is created automatically when saving an employee with an email, or can be assigned from Admin → Users.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {feedback && (
+                  <div
+                    className={cn(
+                      "flex items-start gap-2 rounded-md p-3 text-xs",
+                      feedback.type === "success"
+                        ? "border border-emerald-200 bg-emerald-50/70 text-emerald-800"
+                        : "border border-red-200 bg-red-50 text-red-700"
+                    )}
+                  >
+                    {feedback.type === "success" ? (
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+                    )}
+                    <span className="flex-1">{feedback.text}</span>
+                  </div>
+                )}
+
+                <FieldGrid>
+                  <Field
+                    label="Portal Account Status"
+                    value={
+                      <div className="flex items-center gap-2">
+                        {access.mustChangePassword ? (
+                          <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                            Pending First Login
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900">
+                            Active & Password Secured
+                          </span>
+                        )}
+                        {!access.isActive && (
+                          <Badge variant="neutral">Deactivated</Badge>
+                        )}
+                      </div>
+                    }
+                  />
+
+                  <Field
+                    label="Assigned System Role"
+                    value={
+                      <span className="inline-flex items-center gap-1.5 font-medium text-zinc-900">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-800" />
+                        {access.roleName || "Employee Self-Service"}
+                      </span>
+                    }
+                  />
+
+                  <Field
+                    label="Login Username / Destination Email"
+                    value={
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs font-semibold text-zinc-900 truncate">
+                          {access.email}
+                        </div>
+                        <span className="text-[10px] text-zinc-500">
+                          {employee.companyEmail
+                            ? "Company email account"
+                            : "Personal email (corporate fallback)"}
+                        </span>
+                      </div>
+                    }
+                  />
+
+                  {access.mustChangePassword ? (
+                    <Field
+                      label="Temporary Login Password"
+                      value={
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-block rounded border border-zinc-200 bg-zinc-100 px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-zinc-900">
+                              {showTempPassword
+                                ? access.tempPassword || "••••••••••••"
+                                : "••••••••••••"}
+                            </span>
+                            {access.tempPassword && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-zinc-500 hover:text-zinc-900"
+                                  onClick={() =>
+                                    setShowTempPassword(!showTempPassword)
+                                  }
+                                  title={
+                                    showTempPassword
+                                      ? "Hide password"
+                                      : "Show password"
+                                  }
+                                >
+                                  {showTempPassword ? (
+                                    <EyeOff className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Eye className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-zinc-500 hover:text-zinc-900"
+                                  onClick={() =>
+                                    handleCopyPassword(access.tempPassword!)
+                                  }
+                                  title="Copy temporary password"
+                                >
+                                  {copiedPassword ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-zinc-500">
+                            Dispatched to employee email. Automatically purged once the employee sets their permanent password.
+                          </p>
+                        </div>
+                      }
+                    />
+                  ) : (
+                    <Field
+                      label="Account Password"
+                      value={
+                        <div className="space-y-1">
+                          <div className="font-mono text-xs font-semibold text-zinc-700">
+                            •••••••••••• (Encrypted Hash)
+                          </div>
+                          <p className="text-[10px] text-zinc-400">
+                            Secured with bcrypt. Zero-knowledge compliance prevents plaintext viewing.
+                          </p>
+                        </div>
+                      }
+                    />
+                  )}
+
+                  {!access.mustChangePassword && (
+                    <>
+                      <Field
+                        label="Password Last Changed"
+                        value={
+                          access.updatedAt ? (
+                            <span className="text-xs text-zinc-700">
+                              {new Date(access.updatedAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </span>
+                          ) : (
+                            "—"
+                          )
+                        }
+                      />
+                      <Field
+                        label="Last Active Login"
+                        value={
+                          access.lastLoginAt ? (
+                            <span className="text-xs text-zinc-700">
+                              {new Date(access.lastLoginAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-zinc-400">
+                              Never logged in
+                            </span>
+                          )
+                        }
+                      />
+                    </>
+                  )}
+                </FieldGrid>
+
+                {/* Actions & Navigation Footer */}
+                {access.mustChangePassword && access.tempPassword && (
+                  <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-zinc-100">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-8 border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                      onClick={handleResendCredentials}
+                      disabled={isResending}
+                    >
+                      {isResending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <Mail className="h-3.5 w-3.5 mr-1.5 text-emerald-800" />
+                      )}
+                      Resend Credentials Email
+                    </Button>
+                  </div>
+                )}
+
+                {!access.mustChangePassword && (
+                  <div className="flex items-center justify-between pt-2.5 border-t border-zinc-100 text-xs text-zinc-500">
+                    <span>To issue an administrative reset or update security roles:</span>
+                    <Link
+                      href="/admin/users"
+                      className="inline-flex items-center gap-1 font-medium text-emerald-800 hover:text-emerald-950 hover:underline"
+                    >
+                      Manage in Admin → Users
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </DetailSection>
+
+          {/* Family Information */}
           <DetailSection title="Family Information (Lineage)" icon={Users}>
             <FieldGrid>
               <Field label="Father's Name" value={employee.fatherName || "—"} />
@@ -266,6 +615,7 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
+          {/* Bank Details */}
           <DetailSection title="Bank Details" icon={CreditCard}>
             <FieldGrid>
               <Field label="Bank Name" value={employee.bankName || "—"} />
@@ -274,6 +624,7 @@ export function EmployeeDetailPanel({
             </FieldGrid>
           </DetailSection>
 
+          {/* Termination / Retirement Details (Conditional) */}
           {(employee.status === "Inactive" || employee.terminationDate || employee.terminationType) && (
             <DetailSection title="Termination / Retirement Information" icon={AlertTriangle}>
               <FieldGrid>

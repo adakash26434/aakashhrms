@@ -61,13 +61,34 @@ export function UserFormModal({
       } else {
         setName("");
         setEmail("");
-        setRoleId(roles[0]?.id || "");
+        // SMART DEFAULT: default to the 'employee' self-service role if available, otherwise first role
+        const defaultRole = roles.find((r) => r.slug === "employee" || r.scopeType === "SELF") || roles[0];
+        setRoleId(defaultRole?.id || "");
         setEmployeeId("");
         setAssignedBranchIds([]);
         setAssignedDepartmentIds([]);
       }
     }
   }, [open, userToEdit, roles]);
+
+  const handleEmployeeSelect = (selectedId: string) => {
+    setEmployeeId(selectedId);
+    if (selectedId) {
+      const emp = unlinkedEmployees.find((e) => e.id === selectedId);
+      if (emp && !name.trim()) {
+        setName(emp.name);
+      }
+      // If we are creating a new user and currently have an admin role or empty role,
+      // default to the employee self-service role
+      if (!isEditing) {
+        const empRole = roles.find((r) => r.slug === "employee" || r.scopeType === "SELF");
+        const currentRole = roles.find((r) => r.id === roleId);
+        if (empRole && (!roleId || currentRole?.slug === "system_admin" || currentRole?.slug === "office_administrator")) {
+          setRoleId(empRole.id);
+        }
+      }
+    }
+  };
 
   const toggleBranch = (bId: string) => {
     setAssignedBranchIds((prev) =>
@@ -159,7 +180,7 @@ export function UserFormModal({
               type="submit"
               form="user-form"
               disabled={loading}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
             >
               {loading
                 ? isEditing ? "Saving..." : "Creating..."
@@ -199,7 +220,7 @@ export function UserFormModal({
                     "block w-full rounded-md border pl-9 pr-3 py-2 text-sm text-zinc-900 outline-none transition-colors",
                     errors.name
                       ? "border-red-500 bg-red-50/20"
-                      : "border-zinc-200 bg-white focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      : "border-zinc-200 bg-white focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   )}
                 />
               </div>
@@ -233,7 +254,7 @@ export function UserFormModal({
                       ? "bg-zinc-100/80 border-zinc-200 text-zinc-600 cursor-not-allowed select-none font-medium"
                       : errors.email
                       ? "border-red-500 bg-red-50/20"
-                      : "border-zinc-200 bg-white text-zinc-900 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      : "border-zinc-200 bg-white text-zinc-900 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   )}
                 />
               </div>
@@ -268,7 +289,7 @@ export function UserFormModal({
                     "block w-full rounded-md border pl-9 pr-3 py-2 text-sm text-zinc-900 outline-none transition-colors bg-white",
                     errors.roleId
                       ? "border-red-500 bg-red-50/20"
-                      : "border-zinc-200 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      : "border-zinc-200 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   )}
                 >
                   <option value="" disabled>
@@ -292,12 +313,12 @@ export function UserFormModal({
                 <Link2 className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
                 <select
                   value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
+                  onChange={(e) => handleEmployeeSelect(e.target.value)}
                   className={cn(
                     "block w-full rounded-md border pl-9 pr-3 py-2 text-sm text-zinc-900 outline-none transition-colors bg-white",
                     errors.employeeId
                       ? "border-red-500 bg-red-50/20"
-                      : "border-zinc-200 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      : "border-zinc-200 focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   )}
                 >
                   <option value="">-- No linked employee (e.g. IT Admin) --</option>
@@ -330,7 +351,7 @@ export function UserFormModal({
                 <div className="rounded-md border border-zinc-200 bg-zinc-50/50 p-3">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-300/60">
                     <div className="flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4 text-emerald-800" />
+                      <Building2 className="h-4 w-4 text-payroll-primary" />
                       <label className="text-xs font-semibold text-zinc-900">
                         Branch Access Scope
                       </label>
@@ -348,7 +369,7 @@ export function UserFormModal({
                           className={cn(
                             "flex items-center gap-2 text-xs rounded-md border p-2 cursor-pointer transition-colors",
                             checked
-                              ? "border-emerald-700 bg-emerald-50/50 text-emerald-950 font-medium"
+                              ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-medium"
                               : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                           )}
                         >
@@ -356,7 +377,7 @@ export function UserFormModal({
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleBranch(b.id)}
-                            className="rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700"
+                            className="rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary"
                           />
                           <span className="truncate">{b.code} - {b.name}</span>
                         </label>
@@ -374,7 +395,7 @@ export function UserFormModal({
                 <div className="rounded-md border border-zinc-200 bg-zinc-50/50 p-3">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-300/60">
                     <div className="flex items-center gap-1.5">
-                      <Users className="h-4 w-4 text-emerald-800" />
+                      <Users className="h-4 w-4 text-payroll-primary" />
                       <label className="text-xs font-semibold text-zinc-900">
                         Department Access Scope
                       </label>
@@ -392,7 +413,7 @@ export function UserFormModal({
                           className={cn(
                             "flex items-center gap-2 text-xs rounded-md border p-2 cursor-pointer transition-colors",
                             checked
-                              ? "border-emerald-700 bg-emerald-50/50 text-emerald-950 font-medium"
+                              ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-medium"
                               : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                           )}
                         >
@@ -400,7 +421,7 @@ export function UserFormModal({
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleDept(d.id)}
-                            className="rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700"
+                            className="rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary"
                           />
                           <span className="truncate">{d.code} - {d.name}</span>
                         </label>

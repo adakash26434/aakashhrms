@@ -60,6 +60,8 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
       employeeId: users.employeeId,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
+      mustChangePassword: users.mustChangePassword,
+      tempPassword: users.tempPassword,
       delegatedToUserId: users.delegatedToUserId,
       delegatedToUserName: delegatedUsers.name,
       delegatedToUserEmail: delegatedUsers.email,
@@ -98,6 +100,8 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
     employeeId: r.employeeId,
     isActive: r.isActive,
     lastLoginAt: r.lastLoginAt,
+    mustChangePassword: r.mustChangePassword,
+    tempPassword: r.tempPassword,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     delegatedToUserId: r.delegatedToUserId ?? null,
@@ -131,6 +135,8 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
       employeeId: users.employeeId,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
+      mustChangePassword: users.mustChangePassword,
+      tempPassword: users.tempPassword,
       delegatedToUserId: users.delegatedToUserId,
       delegatedToUserName: delegatedUsers.name,
       delegatedToUserEmail: delegatedUsers.email,
@@ -172,6 +178,8 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
     employeeId: r.employeeId,
     isActive: r.isActive,
     lastLoginAt: r.lastLoginAt,
+    mustChangePassword: r.mustChangePassword,
+    tempPassword: r.tempPassword,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     delegatedToUserId: r.delegatedToUserId ?? null,
@@ -302,11 +310,33 @@ export async function findAuditLogsByUserId(userId: string, limit: number = 50):
 }
 
 /**
- * Updates a user's password hash.
+ * Updates a user's password hash and optional temporary password / mustChangePassword flag.
  */
-export async function updateUserPassword(id: string, passwordHash: string) {
+export async function updateUserPassword(
+  id: string,
+  passwordHash: string,
+  tempPassword?: string | null,
+  mustChangePassword?: boolean
+) {
+  const updateData: {
+    passwordHash: string;
+    updatedAt: Date;
+    tempPassword?: string | null;
+    mustChangePassword?: boolean;
+  } = {
+    passwordHash,
+    updatedAt: new Date(),
+  };
+
+  if (tempPassword !== undefined) {
+    updateData.tempPassword = tempPassword;
+  }
+  if (mustChangePassword !== undefined) {
+    updateData.mustChangePassword = mustChangePassword;
+  }
+
   const result = await getDb().update(users)
-    .set({ passwordHash, updatedAt: new Date() })
+    .set(updateData)
     .where(eq(users.id, id))
     .returning();
   return result[0];

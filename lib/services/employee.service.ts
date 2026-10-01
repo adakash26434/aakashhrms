@@ -14,6 +14,12 @@ import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import { calculateProRataLeaveDays } from "@/lib/engines/leave-type.engine";
 import { ScopeFilter, buildEmployeeScopeCondition } from "@/lib/auth/scope-filter";
+import {
+  findUserByEmployeeId,
+  findUserByEmail,
+  updateUser as updateUserRepository,
+} from "@/lib/repositories/user.repository";
+import { EMPLOYEE_ROLE_SLUG } from "@/lib/auth/employee-self-service-role";
 
 export class EmployeeValidationError extends Error {
   constructor(public errors: EmployeeValidationErrors) {
@@ -88,7 +94,149 @@ export async function getEmployeeById(id: string) {
   return employee;
 }
 
-export async function saveEmployee(id: string | null, formData: EmployeeFormData) {
+// ---------------------------------------------------------------------------
+// Employee <-> User (self-service login) synchronization
+// ---------------------------------------------------------------------------
+
+export interface EmployeeAccessProvisioning {
+  email: string;
+  tempPassword: string;
+  userName?: string;
+}
+
+export interface SaveEmployeeResult {
+  employee: Employee;
+  provisionedAccess?: EmployeeAccessProvisioning;
+  accessWarning?: string;
+}
+
+export interface EmployeeAccessOptions {
+  createLogin?: boolean;
+  roleSlug?: string;
+  roleId?: string;
+}
+
+/**
+ * Keeps the employee's self-service login in sync with the employee record.
+ *
+ * - Unlinked employee with a real email -> creates a linked user with the
+ *   canonical `employee` (self-service) role and returns the temp password.
+ * - Linked employee whose email changed  -> updates the linked user's email
+ *   (skipped with a warning if the new email is already in use).
+ * - Linked employee whose role changed   -> updates the linked user's role.
+ * - No real email / already in sync      -> no-op.
+ *
+ * `loginEmail` is the real email from the form (companyEmail || email). It is
+ * NOT read from the persisted entity because the repository writes a
+ * `{id}@placeholder.com` value when no email is supplied.
+ *
+ * Never throws: provisioning problems are reported via `accessWarning` so the
+ * employee save itself is not blocked.
+ */
+async function syncEmployeeUserAccess(
+  employee: Employee,
+  loginEmail: string,
+  accessOptions?: EmployeeAccessOptions
+): Promise<{
+  provisionedAccess?: EmployeeAccessProvisioning;
+  accessWarning?: string;
+}> {
+  const email = loginEmail.trim().toLowerCase();
+  const roleSlug = accessOptions?.roleSlug || EMPLOYEE_ROLE_SLUG;
+  const roleId = accessOptions?.roleId;
+
+  const linkedUser = await findUserByEmployeeId(employee.id);
+
+  if (linkedUser) {
+    // Linked: keep the login email in sync with the employee record.
+    if (email && linkedUser.email.trim().toLowerCase() !== email) {
+      const conflict = await findUserByEmail(email);
+      if (conflict && conflict.id !== linkedUser.id) {
+        return {
+          accessWarning: `Login email not updated: ${email} is already in use by another account.`,
+        };
+      }
+      await updateUserRepository(linkedUser.id, { email });
+    }
+
+    // Role update support on existing linked user
+    let targetRoleId = roleId;
+    if (!targetRoleId && accessOptions?.roleSlug) {
+      const { findRoleBySlug } = await import("@/lib/repositories/role.repository");
+      const r = await findRoleBySlug(accessOptions.roleSlug);
+      if (r) targetRoleId = r.id;
+    }
+
+    if (targetRoleId) {
+      await updateUserRepository(linkedUser.id, {}, targetRoleId);
+    }
+
+    return {};
+  }
+
+  // Unlinked: only provision when the toggle is on (or unspecified) and a real
+  // email is present.
+  if (accessOptions?.createLogin === false) {
+    return {};
+  }
+  if (!email) {
+    return {};
+  }
+
+  try {
+    const { createSecureUserAccount } = await import("@/lib/services/user.service");
+    let resolvedSlug = roleSlug;
+    if (roleId) {
+      const { findRoleById } = await import("@/lib/repositories/role.repository");
+      const r = await findRoleById(roleId);
+      if (r) resolvedSlug = r.slug;
+    }
+
+    const { user, tempPassword } = await createSecureUserAccount(
+      employee.id,
+      email,
+      resolvedSlug,
+      employee.fullName
+    );
+
+    // Dispatch credentials email (asynchronously safe, non-blocking)
+    try {
+      const { sendEmployeeCredentialsEmail } = await import("@/lib/services/email.service");
+      await sendEmployeeCredentialsEmail({
+        to: email,
+        employeeName: employee.fullName,
+        tempPassword,
+        isReset: false,
+      });
+    } catch (emailErr) {
+      console.warn(`[EMPLOYEE_SERVICE] Welcome email dispatch warning for ${email}:`, emailErr);
+    }
+
+    return {
+      provisionedAccess: {
+        email,
+        tempPassword,
+        userName: user.name || employee.fullName,
+      },
+    };
+  } catch (err) {
+    if (err instanceof Error && err.name === "UserExistsError") {
+      return {
+        accessWarning: `Self-service login not created: ${email} is already in use by another account.`,
+      };
+    }
+    console.error(`Failed to generate user account for employee ${employee.id}:`, err);
+    return {
+      accessWarning: "Self-service login could not be created. You can create it manually from Admin → Users.",
+    };
+  }
+}
+
+export async function saveEmployee(
+  id: string | null,
+  formData: EmployeeFormData,
+  accessOptions?: EmployeeAccessOptions
+): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
   const errors = engine.validateEmployee(formData);
   if (Object.keys(errors).length > 0) {
@@ -277,7 +425,18 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
       // Non-blocking
     }
 
-    return updated;
+    // =======================================================================
+    // EMPLOYEE-USER SYNC ON UPDATE
+    // Provision a self-service login for previously-unlinked employees that
+    // now have an email, and keep linked logins' email in sync.
+    // =======================================================================
+    const syncResult = await syncEmployeeUserAccess(
+      updated,
+      formData.companyEmail || formData.email || "",
+      accessOptions
+    );
+
+    return { employee: updated, ...syncResult };
   } else {
     const employee = await repository.create(employeeData);
     
@@ -285,14 +444,11 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
     // EMPLOYEE-USER SYNC (STAGE A ARCHITECTURE)
     // Automatically generate a self-service login account for new employees
     // =======================================================================
-    if (employee.email) {
-      const { createSecureUserAccount } = await import("@/lib/services/user.service");
-      try {
-        await createSecureUserAccount(employee.id, employee.email, "standard_staff");
-      } catch (err) {
-        console.error(`Failed to generate user account for employee ${employee.id}:`, err);
-      }
-    }
+    const syncResult = await syncEmployeeUserAccess(
+      employee,
+      formData.companyEmail || formData.email || "",
+      accessOptions
+    );
 
     // =======================================================================
     // P0 FIX: LEAVE BALANCE INITIALIZATION ON HIRE
@@ -380,7 +536,7 @@ export async function saveEmployee(id: string | null, formData: EmployeeFormData
       }
     }
     
-    return employee;
+    return { employee, ...syncResult };
   }
 }
 

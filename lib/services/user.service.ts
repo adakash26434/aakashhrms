@@ -4,6 +4,12 @@ import { validateUserFormData, generateTemporaryPassword } from "../engines/user
 import { UserFormData, DelegationFormData, UserFilter, UserWithRole, UserKPIs, UserValidationErrors, UserAuditLogEntry } from "../types/user";
 import { recordAuditLog } from "@/lib/services/audit.service";
 import bcrypt from "bcryptjs";
+import { getDb } from "@/lib/db";
+import {
+  ensureEmployeeSelfServiceRole,
+  EMPLOYEE_ROLE_SLUG,
+  EMPLOYEE_ROLE_SLUG_FALLBACK,
+} from "@/lib/auth/employee-self-service-role";
 
 // ---------------------------------------------------------------------------
 // Custom Errors
@@ -82,6 +88,32 @@ export async function getUserAuditLogs(userId: string): Promise<UserAuditLogEntr
   return repository.findAuditLogsByUserId(userId);
 }
 
+/**
+ * Returns the self-service login (user) linked to an employee, along with the
+ * role assigned to that user. Returns null when the employee has no linked user.
+ */
+export async function getEmployeeAccess(employeeId: string) {
+  const user = await repository.findUserByEmployeeId(employeeId);
+  if (!user) return null;
+  const fullUser = await repository.findUserWithRoleById(user.id);
+  if (!fullUser) return null;
+  return {
+    userId: fullUser.id,
+    email: fullUser.email,
+    name: fullUser.name,
+    isActive: fullUser.isActive,
+    roleId: fullUser.roleId,
+    roleName: fullUser.roleName,
+    roleSlug: fullUser.roleSlug,
+    roleScopeType: fullUser.roleScopeType,
+    mustChangePassword: fullUser.mustChangePassword ?? false,
+    tempPassword: fullUser.tempPassword ?? null,
+    lastLoginAt: fullUser.lastLoginAt,
+    updatedAt: fullUser.updatedAt,
+    createdAt: fullUser.createdAt,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
@@ -138,6 +170,7 @@ export async function createUser(formData: UserFormData): Promise<{
       assignedDepartmentIds: formData.assignedDepartmentIds || [],
       isActive: true,
       mustChangePassword: true,
+      tempPassword,
     },
     role.id
   );
@@ -354,7 +387,7 @@ export async function resetUserPassword(id: string): Promise<{
   const tempPassword = generateTemporaryPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
-  await repository.updateUserPassword(id, passwordHash);
+  await repository.updateUserPassword(id, passwordHash, tempPassword, true);
 
   await recordAuditLog({
     action: "EDIT",
@@ -370,18 +403,48 @@ export async function resetUserPassword(id: string): Promise<{
 
 /**
  * Helper method for system automatic user creation (kept for backward compatibility with employee.service.ts).
+ *
+ * Resolves the target role by the requested slug, falling back to the canonical
+ * employee self-service slug and then the legacy `standard_staff` slug. If no
+ * matching role exists, the employee self-service role is ensured (created and
+ * seeded with its standard grants) before the account is created, so hire-time
+ * provisioning never fails silently on tenants with legacy or missing role data.
+ *
+ * @param employeeId - The employee record to link the new login to.
+ * @param email - The login email (normalized to lowercase).
+ * @param roleSlug - Preferred role slug. Defaults to the canonical `employee` slug.
+ * @param name - Optional display name (typically the employee's full name).
  */
 export async function createSecureUserAccount(
-  employeeId: string, 
-  email: string, 
-  roleSlug: string = "standard_staff"
+  employeeId: string,
+  email: string,
+  roleSlug: string = EMPLOYEE_ROLE_SLUG,
+  name?: string | null
 ) {
-  const existing = await repository.findUserByEmail(email);
+  const cleanEmail = email.trim().toLowerCase();
+
+  const existing = await repository.findUserByEmail(cleanEmail);
   if (existing) {
-    throw new UserExistsError(email);
+    throw new UserExistsError(cleanEmail);
   }
 
-  const role = await roleRepository.findRoleBySlug(roleSlug);
+  // Resolve role: requested slug -> canonical employee slug -> legacy fallback slug
+  let role = await roleRepository.findRoleBySlug(roleSlug);
+  if (!role && roleSlug !== EMPLOYEE_ROLE_SLUG) {
+    role = await roleRepository.findRoleBySlug(EMPLOYEE_ROLE_SLUG);
+  }
+  if (!role && roleSlug !== EMPLOYEE_ROLE_SLUG_FALLBACK) {
+    role = await roleRepository.findRoleBySlug(EMPLOYEE_ROLE_SLUG_FALLBACK);
+  }
+
+  // Auto-repair: ensure the canonical self-service role + grants exist
+  if (!role) {
+    const ensured = await ensureEmployeeSelfServiceRole(getDb());
+    if (ensured) {
+      role = ensured;
+    }
+  }
+
   if (!role) {
     throw new RoleNotFoundError(roleSlug);
   }
@@ -390,11 +453,13 @@ export async function createSecureUserAccount(
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
   const user = await repository.createUser({
+    name: name?.trim() || null,
     employeeId,
-    email,
+    email: cleanEmail,
     passwordHash,
     isActive: true,
     mustChangePassword: true,
+    tempPassword,
   }, role.id);
 
   return { user, tempPassword };

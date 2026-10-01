@@ -17,10 +17,13 @@ import {
   ChevronRight,
   Save,
   RotateCcw,
+  Copy,
+  KeyRound,
 } from "lucide-react";
 
 import { PageFrame } from "@/components/layout/page-frame";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import type {
@@ -40,7 +43,9 @@ import {
   saveEmployeeAction,
   getEmployeeByIdAction,
   getEmployeeLookupDataAction,
+  getEmployeeAccessAction,
 } from "@/app/actions/employee.actions";
+import type { EmployeeAccessOptions } from "@/lib/services/employee.service";
 import { getShreniLevelsAction } from "@/app/actions/shreni.actions";
 import { getEmploymentTypesAction } from "@/app/actions/company-setup.actions";
 import type { GradePolicySettings } from "@/lib/types/system-control";
@@ -276,6 +281,48 @@ export function EmployeeCreateFlow({
   const [shreniLevels, setShreniLevels] = useState<ShreniLevelItem[]>(initialShreniLevels || []);
   const [employmentTypes, setEmploymentTypes] = useState<EmploymentType[]>([]);
   const [gradePolicy, setGradePolicy] = useState<GradePolicySettings | undefined>(initialGradePolicy);
+  const [credentials, setCredentials] = useState<{
+    email: string;
+    tempPassword: string;
+    userName?: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [roles, setRoles] = useState<any[]>([]);
+  const [accessInfo, setAccessInfo] = useState<any>(null);
+  const [accessOptions, setAccessOptions] = useState<EmployeeAccessOptions>({
+    createLogin: true,
+    roleSlug: "employee",
+  });
+
+  // Load employee access and available roles
+  useEffect(() => {
+    let active = true;
+    getEmployeeAccessAction(editingId || null).then((res) => {
+      if (active && res.success && res.data) {
+        setRoles(res.data.roles);
+        setAccessInfo(res.data.access);
+        if (res.data.access) {
+          setAccessOptions({
+            createLogin: res.data.access.isActive,
+            roleSlug: res.data.access.roleSlug || "employee",
+            roleId: res.data.access.roleId || undefined,
+          });
+        } else {
+          const empRole = res.data.roles.find((r: any) => r.slug === "employee");
+          if (empRole) {
+            setAccessOptions((prev) => ({
+              ...prev,
+              roleSlug: "employee",
+              roleId: empRole.id,
+            }));
+          }
+        }
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [editingId]);
 
   // Load organizational custom levels and employment types
   useEffect(() => {
@@ -416,7 +463,7 @@ export function EmployeeCreateFlow({
 
     setIsSaving(true);
     try {
-      const res = await saveEmployeeAction(editingId ?? null, formData);
+      const res = await saveEmployeeAction(editingId ?? null, formData, accessOptions);
       if (!res.success) {
         if (res.validationErrors && Object.keys(res.validationErrors).length > 0) {
           setErrors(res.validationErrors);
@@ -437,6 +484,27 @@ export function EmployeeCreateFlow({
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("payroll_employee_new_draft");
       }
+
+      const saved = res.data as
+        | {
+            provisionedAccess?: { email: string; tempPassword: string; userName?: string };
+            accessWarning?: string;
+          }
+        | undefined;
+
+      // Surface any access-provisioning warning (e.g. email already in use)
+      if (saved?.accessWarning) {
+        toast.error(saved.accessWarning);
+      }
+
+      // If a self-service login was provisioned, show the credentials
+      // instead of navigating away immediately.
+      if (saved?.provisionedAccess) {
+        setCredentials(saved.provisionedAccess);
+        setIsSaving(false);
+        return;
+      }
+
       toast.success(
         editingId
           ? "Employee updated successfully!"
@@ -582,7 +650,7 @@ export function EmployeeCreateFlow({
                 </div>
                 <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-700 rounded-full transition-all duration-300"
+                    className="h-full bg-payroll-primary rounded-full transition-all duration-300"
                     style={{ width: `${Math.round(((activeStep + 1) / STEPS.length) * 100)}%` }}
                   />
                 </div>
@@ -607,7 +675,7 @@ export function EmployeeCreateFlow({
                       className={cn(
                         "flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-left transition-all cursor-pointer select-none",
                         isActive
-                          ? "bg-emerald-50 border border-emerald-200/80 text-emerald-950 font-semibold shadow-none"
+                          ? "bg-payroll-primary-light border border-payroll-border text-payroll-navy font-semibold shadow-none"
                           : "bg-white hover:bg-zinc-50 border border-transparent text-zinc-600",
                       )}
                     >
@@ -616,9 +684,9 @@ export function EmployeeCreateFlow({
                         className={cn(
                           "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                           isActive
-                            ? "bg-emerald-700 text-white shadow-none"
+                            ? "bg-payroll-primary text-white shadow-none"
                             : isCompleted && !hasErrors
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "bg-payroll-primary-light text-payroll-primary"
                             : hasErrors
                             ? "bg-red-100 text-red-700"
                             : "bg-zinc-100 text-zinc-400",
@@ -742,6 +810,10 @@ export function EmployeeCreateFlow({
               errors={errors}
               setErrors={setErrors}
               editingId={editingId}
+              roles={roles}
+              accessInfo={accessInfo}
+              accessOptions={accessOptions}
+              setAccessOptions={setAccessOptions}
             />
 
             {/* In-Step Review Card on Step 4 (Bank & Review) */}
@@ -815,9 +887,9 @@ export function EmployeeCreateFlow({
                     className={cn(
                       "h-2 rounded-full transition-all cursor-pointer",
                       s.index === activeStep
-                        ? "w-6 bg-emerald-700"
+                        ? "w-6 bg-payroll-primary"
                         : s.index < activeStep
-                        ? "w-2 bg-emerald-400"
+                        ? "w-2 bg-payroll-primary/60"
                         : "w-2 bg-zinc-200",
                     )}
                     aria-label={`Go to ${s.title}`}
@@ -831,7 +903,7 @@ export function EmployeeCreateFlow({
                     type="button"
                     size="sm"
                     onClick={handleNextStep}
-                    className="h-10 px-5 gap-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold text-white shadow-none transition-colors cursor-pointer"
+                    className="h-10 px-5 gap-1.5 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-xs font-semibold text-white shadow-none transition-colors cursor-pointer"
                   >
                     <span>Save & Continue</span>
                     <ChevronRight className="h-3.5 w-3.5" />
@@ -842,7 +914,7 @@ export function EmployeeCreateFlow({
                     size="sm"
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="h-10 px-6 gap-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold text-white shadow-none transition-colors cursor-pointer"
+                    className="h-10 px-6 gap-1.5 rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-xs font-semibold text-white shadow-none transition-colors cursor-pointer"
                   >
                     <Save className="h-3.5 w-3.5" />
                     <span>{isSaving ? "Saving..." : editingId ? "Save Changes" : "Submit & Register Employee"}</span>
@@ -856,6 +928,82 @@ export function EmployeeCreateFlow({
           </div>
         </div>
       </div>
+
+      {/* Self-Service Credentials Dialog */}
+      <Dialog
+        open={!!credentials}
+        onClose={() => {
+          setCredentials(null);
+          router.push("/workforce/employees");
+        }}
+        title="Self-Service Login Created"
+        description="A login account was created for this employee. Share the temporary password securely."
+        size="lg"
+        footer={
+          <Button
+            onClick={() => {
+              setCredentials(null);
+              router.push("/workforce/employees");
+            }}
+            className="bg-payroll-primary hover:bg-payroll-primary-hover text-white font-semibold"
+          >
+            Done
+          </Button>
+        }
+      >
+        {credentials && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+              <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm mb-3">
+                <KeyRound className="h-4 w-4" />
+                <span>Temporary Credentials</span>
+              </div>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500 shrink-0">Name</span>
+                  <span className="font-semibold text-zinc-900 truncate">
+                    {credentials.userName || "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500 shrink-0">Email</span>
+                  <span className="font-mono font-semibold text-zinc-900 truncate">
+                    {credentials.email}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500 shrink-0">Temporary Password</span>
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono bg-emerald-100 px-2 py-0.5 rounded font-bold text-emerald-950">
+                      {credentials.tempPassword}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(credentials.tempPassword);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="gap-1 bg-white"
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-gray-500" />
+                      )}
+                      <span>{copied ? "Copied" : "Copy"}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500">
+              The employee will be asked to change this password on first login.
+            </p>
+          </div>
+        )}
+      </Dialog>
     </PageFrame>
   );
 }

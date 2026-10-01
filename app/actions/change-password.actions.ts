@@ -76,6 +76,7 @@ export async function changePasswordAction(input: ChangePasswordInput): Promise<
       .update(users)
       .set({
         passwordHash: newHash,
+        tempPassword: null,
         mustChangePassword: false,
         updatedAt: new Date(),
       })

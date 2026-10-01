@@ -492,7 +492,7 @@ export function EmployeeFormModal({
               onClick={handleSave}
               isSaving={isSaving}
               label={editingId ? "Save Changes" : "Add Employee"}
-              className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-none cursor-pointer"
+              className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
             />
           </div>
         </div>
@@ -503,14 +503,14 @@ export function EmployeeFormModal({
         <div className="space-y-2 pb-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-500 font-medium">Form Completion</span>
-            <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80 text-[11px]">
+            <span className="inline-flex items-center gap-1 font-semibold text-payroll-primary bg-payroll-primary-light px-2.5 py-0.5 rounded-full border border-payroll-border text-[11px]">
               <span>{completedCount} of {TABS.length} sections complete</span>
               <span>({progressPercent}%)</span>
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-zinc-100 overflow-hidden">
             <div
-              className="h-full rounded-full bg-emerald-700 transition-all duration-300 ease-out"
+              className="h-full rounded-full bg-payroll-primary transition-all duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -531,7 +531,7 @@ export function EmployeeFormModal({
                 className={cn(
                   "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-medium transition-all whitespace-nowrap cursor-pointer relative rounded-t-md",
                   isActive
-                    ? "border-emerald-700 text-emerald-950 font-semibold bg-emerald-50/50"
+                    ? "border-payroll-primary text-payroll-navy font-semibold bg-payroll-primary-light/50"
                     : "border-transparent text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
@@ -547,7 +547,7 @@ export function EmployeeFormModal({
 
                 {/* Section Complete Checkmark */}
                 {!status.hasError && status.isComplete && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-payroll-primary-light text-payroll-primary text-[10px] font-bold">
                     ✓
                   </span>
                 )}

@@ -27,6 +27,7 @@ import {
   Lock,
   Unlock,
   AlertCircle,
+  Shield,
 } from "lucide-react";
 import type { ShreniLevelItem } from "@/lib/constants/industry-types";
 import type { EmploymentType } from "@/lib/types/company-setup";
@@ -65,6 +66,35 @@ interface EmployeeFormTabsProps {
   errors?: EmployeeValidationErrors;
   setErrors?: React.Dispatch<React.SetStateAction<EmployeeValidationErrors>>;
   editingId?: string | null;
+  roles?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    scopeType: string;
+    description?: string | null;
+    isSystemRole?: boolean;
+    isProtected?: boolean;
+  }>;
+  accessInfo?: {
+    userId: string;
+    email: string;
+    name: string | null;
+    isActive: boolean;
+    roleId: string | null;
+    roleName: string | null;
+    roleSlug: string | null;
+    roleScopeType: string | null;
+  } | null;
+  accessOptions?: {
+    createLogin?: boolean;
+    roleSlug?: string;
+    roleId?: string;
+  };
+  setAccessOptions?: React.Dispatch<React.SetStateAction<{
+    createLogin?: boolean;
+    roleSlug?: string;
+    roleId?: string;
+  }>>;
 }
 
 /**
@@ -122,6 +152,10 @@ export function EmployeeFormTabs({
   errors,
   setErrors,
   editingId,
+  roles,
+  accessInfo,
+  accessOptions,
+  setAccessOptions,
 }: EmployeeFormTabsProps) {
   const { isPinned } = useSidebar();
 
@@ -327,10 +361,10 @@ export function EmployeeFormTabs({
 
   // Editorial sharp input styles: h-10, rounded-md, crisp zinc-200 border, brand emerald focus
   const inputClass =
-    "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 transition-colors placeholder:text-zinc-400 hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700";
+    "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 transition-colors placeholder:text-zinc-400 hover:border-zinc-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary";
 
   const selectClass =
-    "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 transition-colors hover:border-zinc-300 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 cursor-pointer";
+    "h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-xs sm:text-sm text-zinc-900 transition-colors hover:border-zinc-300 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary cursor-pointer";
 
   const labelClass = (hasError: boolean) =>
     cn(
@@ -633,7 +667,7 @@ export function EmployeeFormTabs({
                     id="disabled-emp"
                     checked={formData.isDisabled}
                     onChange={(e) => update("isDisabled", e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary accent-payroll-primary cursor-pointer"
                   />
                   <span>Physical Disability Tax Exemption</span>
                 </label>
@@ -835,7 +869,7 @@ export function EmployeeFormTabs({
                 id="isSupervisorCheckbox"
                 checked={formData.isSupervisor}
                 onChange={(e) => update("isSupervisor", e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary accent-payroll-primary cursor-pointer"
               />
               <span>Mark as Supervisor / Line Manager</span>
             </label>
@@ -1007,7 +1041,7 @@ export function EmployeeFormTabs({
             {/* Header with Title, Policy Pill & Manual Toggle */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-zinc-300/70">
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-700 text-white shadow-2xs">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-payroll-primary text-white shadow-2xs">
                   <Calculator className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-bold text-zinc-900 tracking-tight">
@@ -1024,7 +1058,7 @@ export function EmployeeFormTabs({
                   type="checkbox"
                   checked={isManualGradeOverride}
                   onChange={(e) => handleToggleManualOverride(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700 cursor-pointer"
+                  className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary accent-payroll-primary cursor-pointer"
                 />
                 <span>Manual Override</span>
               </label>
@@ -1100,6 +1134,190 @@ export function EmployeeFormTabs({
               </div>
             )}
           </div>
+        </FormSection>
+
+        {/* Section 4: System Access & Role Assignment */}
+        <FormSection
+          title="System Access & Role Assignment"
+          description="Self-service portal access and administrative system role configuration."
+        >
+          {accessInfo ? (
+            <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200/60">
+                    <Shield className="h-4.5 w-4.5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-zinc-900">Linked User Login</span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                          accessInfo.isActive
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-zinc-100 text-zinc-600 border-zinc-200"
+                        )}
+                      >
+                        {accessInfo.isActive ? "Active Account" : "Disabled"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5">{accessInfo.email}</p>
+                  </div>
+                </div>
+
+                {accessOptions && setAccessOptions && (
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-700">
+                    <input
+                      type="checkbox"
+                      checked={accessOptions.createLogin ?? accessInfo.isActive}
+                      onChange={(e) => setAccessOptions((prev) => ({ ...prev, createLogin: e.target.checked }))}
+                      className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary accent-payroll-primary cursor-pointer"
+                    />
+                    <span>Login Access Enabled</span>
+                  </label>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className={labelClass(false)}>
+                    Assigned System Role
+                  </label>
+                  <select
+                    value={accessOptions?.roleId || accessInfo.roleId || ""}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selectedR = (roles || []).find((r) => r.id === selectedId);
+                      if (setAccessOptions) {
+                        setAccessOptions((prev) => ({
+                          ...prev,
+                          roleId: selectedId,
+                          roleSlug: selectedR?.slug,
+                        }));
+                      }
+                    }}
+                    className={selectClass}
+                  >
+                    {roles && roles.length > 0 ? (
+                      roles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name} ({r.scopeType === "GLOBAL" ? "Global Access" : r.scopeType === "BRANCH" ? "Branch Scoped" : r.scopeType === "DEPARTMENT" ? "Department Scoped" : "Self-Service Only"})
+                        </option>
+                      ))
+                    ) : (
+                      <option value={accessInfo.roleId || ""}>
+                        {accessInfo.roleName || "Employee Self-Service"}
+                      </option>
+                    )}
+                  </select>
+                  <p className="text-[10px] text-zinc-500">
+                    Changing the role here updates this employee&apos;s system authority upon saving.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className={labelClass(false)}>Current Data Authority</label>
+                  <div className="h-10 flex items-center px-3 rounded-md border border-zinc-200 bg-white text-xs text-zinc-700">
+                    <span className="font-semibold text-emerald-950">
+                      {accessInfo.roleScopeType === "GLOBAL"
+                        ? "Global Access (Entire Organization)"
+                        : accessInfo.roleScopeType === "BRANCH"
+                        ? "Branch Restricted (Local Branch Records)"
+                        : accessInfo.roleScopeType === "DEPARTMENT"
+                        ? "Department Restricted (Department Records)"
+                        : "Self-Service Only (Personal Records)"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">
+                    Configured via granular permission matrix in Admin &rarr; Roles.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                    <Shield className="h-4.5 w-4.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-900">Self-Service Login Provisioning</h4>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      Automatically generate a login account and temporary password for this employee upon save.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-700 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={accessOptions?.createLogin ?? true}
+                    onChange={(e) => {
+                      if (setAccessOptions) {
+                        setAccessOptions((prev) => ({ ...prev, createLogin: e.target.checked }));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-zinc-300 text-payroll-primary focus:ring-payroll-primary accent-payroll-primary cursor-pointer"
+                  />
+                  <span className="font-semibold text-zinc-900">Enable System Login</span>
+                </label>
+              </div>
+
+              {(accessOptions?.createLogin ?? true) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div className="space-y-1">
+                    <label className={labelClass(false)}>
+                      Initial System Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={accessOptions?.roleId || accessOptions?.roleSlug || "employee"}
+                      onChange={(e) => {
+                        const selectedVal = e.target.value;
+                        const selectedR = (roles || []).find((r) => r.id === selectedVal || r.slug === selectedVal);
+                        if (setAccessOptions) {
+                          setAccessOptions((prev) => ({
+                            ...prev,
+                            roleId: selectedR?.id,
+                            roleSlug: selectedR?.slug || selectedVal,
+                          }));
+                        }
+                      }}
+                      className={selectClass}
+                    >
+                      {roles && roles.length > 0 ? (
+                        roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} ({r.scopeType === "GLOBAL" ? "Global Access" : r.scopeType === "BRANCH" ? "Branch Scoped" : r.scopeType === "DEPARTMENT" ? "Department Scoped" : "Self-Service Only"})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="employee">Employee Self-Service (Self-Service Only)</option>
+                      )}
+                    </select>
+                    <p className="text-[10px] text-zinc-500">
+                      Defaults to Employee Self-Service. Select an administrative role (e.g. Department Head, HR Officer) if hiring into management.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className={labelClass(false)}>Login Email Target</label>
+                    <div className="h-10 flex items-center px-3 rounded-md border border-zinc-200 bg-white text-xs font-mono text-zinc-700">
+                      {formData.companyEmail || formData.email ? (
+                        <span className="text-emerald-950 font-semibold">{formData.companyEmail || formData.email}</span>
+                      ) : (
+                        <span className="text-amber-600 italic">No email entered yet (specify in Step 3)</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-zinc-500">
+                      Uses Company Email (or personal email). The temporary password will be shown in a dialog after saving.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </FormSection>
       </div>
     );
