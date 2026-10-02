@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getClientIp } from '@/lib/auth/client-ip';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies, platformImpersonationLog, platformAuditLogs } from '@/lib/platform/schema';
 import { requirePlatformAuth, createPlatformSessionToken } from '@/lib/platform/auth';
@@ -62,10 +63,7 @@ export async function POST(
     }
 
     // Extract IP and User-Agent for audit
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
+    const ip = getClientIp(request.headers);
     const userAgent = request.headers.get('user-agent') || '';
 
     // Log the impersonation session start

@@ -3,6 +3,26 @@
 import nodemailer from "nodemailer";
 import { logger } from "@/lib/logger";
 import { validatePhoneNumber } from "@/lib/utils/phone";
+import { escapeHtml } from "@/lib/utils/escape-html";
+import { headers } from "next/headers";
+import { createRateLimiter } from "@/lib/auth/rate-limiter";
+import { getClientIp } from "@/lib/auth/client-ip";
+
+// S10: public form — at most 5 submissions per client IP per hour.
+const contactFormLimiter = createRateLimiter({
+  maxAttempts: 5,
+  windowMs: 60 * 60 * 1000,
+  lockoutMs: 60 * 60 * 1000,
+});
+
+const MAX_LENGTHS = {
+  fullName: 100,
+  email: 254,
+  companyName: 150,
+  teamSize: 50,
+  phone: 30,
+  message: 2000,
+} as const;
 
 export interface DemoRequestPayload {
   fullName: string;
@@ -45,6 +65,31 @@ export async function submitDemoRequestAction(
   } = payload;
 
   const errors: Record<string, string> = {};
+
+  // 0. S10: per-IP throttle (every submission counts, valid or not)
+  const ipKey = `contact:${getClientIp(await headers())}`;
+  const throttle = contactFormLimiter.recordFailure(ipKey);
+  if (!throttle.allowed) {
+    logger.warn("Contact form throttled", { ipKey });
+    return {
+      success: false,
+      emailSent: false,
+      message: "Too many requests from your network. Please try again later.",
+    };
+  }
+
+  // 0b. S10: reject oversized or non-string input before any processing
+  const fields = { fullName, email, companyName, teamSize, phone, message } as Record<keyof typeof MAX_LENGTHS, unknown>;
+  for (const [field, max] of Object.entries(MAX_LENGTHS) as [keyof typeof MAX_LENGTHS, number][]) {
+    const value = fields[field];
+    if (value !== undefined && value !== null && (typeof value !== "string" || value.length > max)) {
+      return {
+        success: false,
+        emailSent: false,
+        message: "One or more fields are too long. Please shorten your entry and try again.",
+      };
+    }
+  }
 
   // 1. Anti-Bot: Honeypot check (hidden field should remain empty)
   if (botHoneypot && botHoneypot.trim() !== "") {
@@ -200,6 +245,19 @@ Delivered to: ${recipientEmail}
         },
       });
 
+      // S10: every visitor-supplied value is HTML-escaped in the email body
+      const safe = {
+        companyName: escapeHtml(companyName.trim()),
+        fullName: escapeHtml(fullName.trim()),
+        email: escapeHtml(trimmedEmail),
+        phone: escapeHtml(cleanPhone),
+        teamSize: escapeHtml(teamSize?.trim() || "Not specified"),
+        message: escapeHtml(
+          message?.trim() || "Standard walkthrough requested for Nepal tax slabs, SSF compliance, and payroll workflow."
+        ),
+        replySubject: encodeURIComponent(`Re: Aakash HRMS Demo Walkthrough for ${companyName.trim()}`),
+      };
+
       const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -251,10 +309,10 @@ Delivered to: ${recipientEmail}
                       ORGANIZATION
                     </div>
                     <div style="font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 2px;">
-                      ${companyName.trim()}
+                      ${safe.companyName}
                     </div>
                     <div style="font-size: 13px; color: #475569; margin-top: 4px;">
-                      Contact Person: <strong style="color: #0f172a;">${fullName.trim()}</strong> &bull; Team: <strong style="color: #0f172a;">${teamSize?.trim() || "Not specified"}</strong>
+                      Contact Person: <strong style="color: #0f172a;">${safe.fullName}</strong> &bull; Team: <strong style="color: #0f172a;">${safe.teamSize}</strong>
                     </div>
                   </td>
                   <td align="right" valign="middle">
@@ -280,7 +338,7 @@ Delivered to: ${recipientEmail}
                     Full Name
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    ${fullName.trim()}
+                    ${safe.fullName}
                   </td>
                 </tr>
                 <tr style="background-color: #fcfdfe;">
@@ -288,8 +346,8 @@ Delivered to: ${recipientEmail}
                     Work Email
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    <a href="mailto:${trimmedEmail}" style="color: #1B6B54; font-weight: 600; text-decoration: underline;">
-                      ${trimmedEmail}
+                    <a href="mailto:${safe.email}" style="color: #1B6B54; font-weight: 600; text-decoration: underline;">
+                      ${safe.email}
                     </a>
                   </td>
                 </tr>
@@ -298,8 +356,8 @@ Delivered to: ${recipientEmail}
                     Phone Number
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    <a href="tel:${cleanPhone}" style="color: #1B6B54; font-weight: 600; text-decoration: underline;">
-                      ${cleanPhone}
+                    <a href="tel:${safe.phone}" style="color: #1B6B54; font-weight: 600; text-decoration: underline;">
+                      ${safe.phone}
                     </a>
                   </td>
                 </tr>
@@ -308,7 +366,7 @@ Delivered to: ${recipientEmail}
                     Company / Entity
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    ${companyName.trim()}
+                    ${safe.companyName}
                   </td>
                 </tr>
                 <tr style="background-color: #ffffff;">
@@ -316,7 +374,7 @@ Delivered to: ${recipientEmail}
                     Team Size
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    ${teamSize?.trim() || "Not specified"}
+                    ${safe.teamSize}
                   </td>
                 </tr>
                 <tr style="background-color: #fcfdfe;">
@@ -337,7 +395,7 @@ Delivered to: ${recipientEmail}
               <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; margin-bottom: 10px;">
                 Current Payroll Setup &amp; Exploration Goals
               </div>
-              <div style="background-color: #f8fafc; border-left: 4px solid #1B6B54; border-radius: 0 8px 8px 0; padding: 16px 20px; font-size: 14px; line-height: 1.65; color: #334155; white-space: pre-wrap;">${message?.trim() || "Standard walkthrough requested for Nepal tax slabs, SSF compliance, and payroll workflow."}</div>
+              <div style="background-color: #f8fafc; border-left: 4px solid #1B6B54; border-radius: 0 8px 8px 0; padding: 16px 20px; font-size: 14px; line-height: 1.65; color: #334155; white-space: pre-wrap;">${safe.message}</div>
             </td>
           </tr>
 
@@ -347,13 +405,13 @@ Delivered to: ${recipientEmail}
               <table role="presentation" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="padding-right: 12px;">
-                    <a href="mailto:${trimmedEmail}?subject=${encodeURIComponent(`Re: Aakash HRMS Demo Walkthrough for ${companyName.trim()}`)}" style="display: inline-block; background-color: #1B6B54; color: #ffffff; padding: 12px 22px; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 8px; text-align: center;">
-                      &rarr; Reply to ${fullName.trim()}
+                    <a href="mailto:${safe.email}?subject=${safe.replySubject}" style="display: inline-block; background-color: #1B6B54; color: #ffffff; padding: 12px 22px; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 8px; text-align: center;">
+                      &rarr; Reply to ${safe.fullName}
                     </a>
                   </td>
                   <td>
-                    <a href="tel:${cleanPhone}" style="display: inline-block; background-color: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 11px 20px; font-size: 13px; font-weight: 600; text-decoration: none; border-radius: 8px; text-align: center;">
-                      Call ${cleanPhone}
+                    <a href="tel:${safe.phone}" style="display: inline-block; background-color: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 11px 20px; font-size: 13px; font-weight: 600; text-decoration: none; border-radius: 8px; text-align: center;">
+                      Call ${safe.phone}
                     </a>
                   </td>
                 </tr>

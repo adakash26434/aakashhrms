@@ -6,7 +6,24 @@ import { getDbAsync } from '../db';
 import { users, userRoles, roles } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
-import { checkRateLimit, recordFailedAttempt, resetRateLimit } from './rate-limiter';
+import { randomUUID } from 'node:crypto';
+import {
+  checkRateLimit,
+  recordFailedAttempt,
+  resetRateLimit,
+  ipRateLimiter,
+  computeAccountLockoutMs,
+} from './rate-limiter';
+import { getClientIp } from './client-ip';
+
+// Used to equalise response time when the email does not exist, so login
+// timing does not reveal which accounts are registered (S5). A real cost-12
+// hash of a random secret, generated once on first use.
+let dummyHashPromise: Promise<string> | null = null;
+function getDummyHash(): Promise<string> {
+  dummyHashPromise ??= bcrypt.hash(randomUUID(), 12);
+  return dummyHashPromise;
+}
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
@@ -26,19 +43,26 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         const companyCode = credentials.companyCode ? String(credentials.companyCode).trim().toUpperCase() : null;
         const isSingleTenant = process.env.SINGLE_TENANT_MODE === 'true';
 
-        // Rate limiting: block brute-force attacks by IP+companyCode+email
-        const ip = request?.headers?.get('x-forwarded-for')?.split(',')[0]?.trim()
-          || request?.headers?.get('x-real-ip')
-          || 'unknown';
+        // Rate limiting (S5). The client IP comes from the proxy-appended end
+        // of X-Forwarded-For; the client-supplied left end is never trusted.
+        const ip = getClientIp(request?.headers);
         const rateLimitKey = companyCode
           ? `${ip}:${companyCode}:${email}`
           : `${ip}:${email}`;
+        const ipKey = `ip:${ip}`;
 
+        const ipCheck = ipRateLimiter.check(ipKey);
         const limitCheck = checkRateLimit(rateLimitKey);
-        if (!limitCheck.allowed) {
-          const minutesLeft = Math.ceil((limitCheck.lockedUntil! - Date.now()) / 60000);
+        if (!ipCheck.allowed || !limitCheck.allowed) {
+          const lockedUntil = Math.max(ipCheck.lockedUntil ?? 0, limitCheck.lockedUntil ?? 0);
+          const minutesLeft = Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000));
           throw new Error(`TOO_MANY_ATTEMPTS:Too many failed login attempts. Try again in ${minutesLeft} minute(s).`);
         }
+
+        const recordFailure = () => {
+          recordFailedAttempt(rateLimitKey);
+          ipRateLimiter.recordFailure(ipKey);
+        };
 
         // Resolve tenant slug via Company Code lookup
         let tenantSlug: string | null = null;
@@ -56,7 +80,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
               .limit(1);
 
             if (!company || company.status !== 'ACTIVE') {
-              recordFailedAttempt(rateLimitKey);
+              recordFailure();
               logger.warn('Login failed: invalid or inactive company code', { companyCode, email, ip });
               throw new Error('INVALID_COMPANY:Invalid or inactive company code.');
             }
@@ -79,7 +103,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // 1. Find user in the tenant database
         const rows = await db.select().from(users).where(eq(users.email, email));
         if (!rows.length) {
-          recordFailedAttempt(rateLimitKey);
+          // Spend the same bcrypt time as a real check (no user enumeration)
+          await bcrypt.compare(password, await getDummyHash());
+          recordFailure();
           logger.warn('Login failed: user not found in tenant database', { email, tenantSlug, ip });
           return null;
         }
@@ -88,7 +114,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         // 2. Check if active
         if (!user.isActive) {
-          recordFailedAttempt(rateLimitKey);
+          recordFailure();
           logger.warn('Login failed: inactive user', { userId: user.id, email, ip });
           return null;
         }
@@ -102,15 +128,24 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // 4. Verify password
         const passwordsMatch = await bcrypt.compare(password, user.passwordHash);
         if (!passwordsMatch) {
-          recordFailedAttempt(rateLimitKey);
+          recordFailure();
           
           const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
           let lockTime: Date | null = null;
-          
-          // Lock account if failed attempts reach 4
-          if (newFailedAttempts >= 4) {
-            lockTime = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes lock
-            logger.warn(`Account locked for 15 minutes after ${newFailedAttempts} failed attempts`, { email, userId: user.id });
+
+          // Account-wide escalating lock (S5): none below the threshold, then
+          // 1, 2, 4, 8 … minutes, capped at 15. Replaces the old hard 15-minute
+          // lock after 4 failures, which anyone could trigger with an email.
+          const lockMs = computeAccountLockoutMs(newFailedAttempts);
+          if (lockMs > 0) {
+            lockTime = new Date(Date.now() + lockMs);
+            logger.warn('Account temporarily locked after repeated failed logins', {
+              email,
+              userId: user.id,
+              failedAttempts: newFailedAttempts,
+              lockMinutes: Math.round(lockMs / 60000),
+              ip,
+            });
           }
 
           await db.update(users)

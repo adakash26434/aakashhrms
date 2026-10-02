@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
 import { eq } from 'drizzle-orm';
+import { companyLookupLimiter } from '@/lib/auth/rate-limiter';
+import { getClientIp } from '@/lib/auth/client-ip';
 
 /**
  * POST /api/auth/resolve-company
@@ -16,6 +18,16 @@ import { eq } from 'drizzle-orm';
  */
 export async function POST(request: Request) {
   try {
+    // S5: failed lookups are throttled per client IP (prevents enumerating codes)
+    const lookupKey = `company-lookup:${getClientIp(request.headers)}`;
+    const lookupCheck = companyLookupLimiter.check(lookupKey);
+    if (!lookupCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many attempts. Please wait a few minutes and try again.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const companyCode = (body.companyCode || '').trim().toUpperCase();
 
@@ -49,6 +61,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (!company) {
+      companyLookupLimiter.recordFailure(lookupKey);
       return NextResponse.json(
         { success: false, error: 'Company not found. Please check your company code.' },
         { status: 404 }
