@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AakashHRMS — Desktop Frame Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#1E7F12; --brand-hover:#186A0F; --brand-strong:#15540F; --brand-subtle:#EEF7EB; --brand-red:#D3070B;
+    --chrome-bg:#FFFFFF; --rail-bg:#F4F7F3; --chrome-border:#DDE4DA; --chrome-hover:#EAF1E7;
+    --canvas:#F1F4F0; --nav-bg:#FAFBF9; --surface:#fff; --sunken:#F7F9F6;
+    --border:#DDE4DA; --border-strong:#C6D0C2;
+    --text:#1A2118; --muted:#56604F; --faint:#7A8574;
+    --accent:var(--brand); --accent-hover:var(--brand-hover); --accent-subtle:var(--brand-subtle); --selection:#E0F0DB;
+    --success:#1E7A4C; --success-s:#E3F3EA; --warning:#A86300; --warning-s:#FDF1DC;
+    --danger:#B91C1C; --danger-s:#FDECEC; --info:#1F5FA8; --info-s:#E6EEF8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font:13px/1.45 Inter,system-ui,sans-serif;font-feature-settings:"tnum","cv11";color:var(--text);background:var(--canvas);overflow:hidden}
+  .mono{font-family:"JetBrains Mono",monospace;font-size:12px}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .app{display:grid;grid-template-rows:42px 1fr 26px;height:100vh}
+  /* Title bar — light chrome with the logo's green→red underline as a 2px brand strip */
+  .titlebar{position:relative;background:var(--chrome-bg);border-bottom:1px solid var(--chrome-border);display:flex;align-items:center;gap:14px;padding:0 10px 0 0}
+  .titlebar::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--brand) 0 68%,var(--brand-red) 68% 100%)}
+  .brand{display:flex;align-items:center;justify-content:center;width:56px;height:100%;border-right:1px solid var(--chrome-border);background:var(--rail-bg)}
+  .logo{width:32px;height:25px;background:url(data:image/png;base64,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) center/contain no-repeat}
+  .appname{font-weight:700;font-size:14px;letter-spacing:-.01em;color:var(--brand)} .appname em{font-style:normal;color:var(--brand-red);margin-left:3px}
+  .menus{display:flex;gap:2px;margin-left:2px}
+  .menus button{padding:5px 9px;border-radius:4px;color:var(--muted)}
+  .menus button:hover{background:var(--chrome-hover);color:var(--text)}
+  .search{flex:1;max-width:440px;margin:0 auto;display:flex;align-items:center;gap:8px;background:var(--sunken);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--faint);cursor:text;transition:border-color .12s,background .12s}
+  .search:hover{border-color:var(--border-strong);background:#fff}
+  kbd{font:500 10.5px Inter;border:1px solid var(--border-strong);border-radius:3px;padding:1px 5px;color:var(--muted);background:#fff}
+  .tb-right{display:flex;align-items:center;gap:6px}
+  .seg{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;font-size:11.5px}
+  .seg span{padding:3px 8px;color:var(--muted)} .seg .on{background:var(--brand-subtle);color:var(--brand-strong);font-weight:600}
+  .period{display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #BFDDB5;background:var(--brand-subtle);border-radius:5px;font-size:12px;color:var(--brand-strong)}
+  .period small{color:var(--muted)}
+  .chip-dark{padding:4px 9px;border:1px solid var(--border);border-radius:5px;font-size:12px;color:var(--text)}
+  .icon-btn{width:30px;height:30px;border-radius:5px;display:grid;place-items:center;color:var(--muted);position:relative}
+  .icon-btn:hover{background:var(--chrome-hover);color:var(--text)}
+  .dot{position:absolute;top:2px;right:2px;background:var(--brand-red);color:#fff;font-size:9.5px;font-weight:700;border-radius:8px;padding:0 4px}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--brand);display:grid;place-items:center;font-size:11px;font-weight:600;color:#fff}
+  /* Body */
+  .body{display:grid;grid-template-columns:56px 224px 1fr;min-height:0}
+  .body.nav-collapsed{grid-template-columns:56px 0 1fr}
+  .rail{background:var(--rail-bg);border-right:1px solid var(--chrome-border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px}
+  .rail button{width:40px;height:40px;border-radius:8px;display:grid;place-items:center;color:var(--muted);position:relative;transition:background .12s,color .12s}
+  .rail button:hover{background:var(--chrome-hover);color:var(--text)}
+  .rail button.on{background:#fff;color:var(--brand);box-shadow:0 1px 2px rgba(26,33,24,.08),inset 0 0 0 1px var(--border)}
+  .rail button.on::before{content:"";position:absolute;left:-8px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
+  .rail .tip{position:absolute;left:48px;background:#1A2118;color:#fff;font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:5}
+  .rail button:hover .tip{opacity:1}
+  .rail .spacer{flex:1}
+  .snav{background:var(--nav-bg);border-right:1px solid var(--border);overflow:hidden;display:flex;flex-direction:column}
+  .snav h6{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600;padding:14px 14px 6px}
+  .snav a{display:flex;align-items:center;justify-content:space-between;margin:1px 8px;padding:6px 8px;border-radius:5px;color:var(--muted);text-decoration:none;white-space:nowrap}
+  .snav a:hover{background:var(--chrome-hover);color:var(--text)}
+  .snav a.on{background:var(--selection);color:var(--brand-strong);font-weight:600}
+  .count{font-size:11px;background:#E7ECE5;border-radius:4px;padding:0 6px;color:var(--muted)}
+  .snav a.on .count{background:#fff;color:var(--brand-strong)}
+  .snav .recent a{font-size:12px}
+  /* Workspace */
+  .work{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .pagebar{height:44px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px}
+  .crumb{color:var(--faint);font-size:12px} .crumb b{color:var(--text);font-size:15px;font-weight:600;margin-left:6px}
+  .toolbar{height:40px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:2px}
+  .tbtn{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:4px;color:var(--text);font-size:12.5px}
+  .tbtn:hover{background:#EEF2F0} .tbtn svg{color:var(--muted)}
+  .tbtn.primary{background:var(--accent);color:#fff} .tbtn.primary svg{color:#fff} .tbtn.primary:hover{background:var(--accent-hover)}
+  .tbtn:disabled{opacity:.4;cursor:default}
+  .sep{width:1px;height:20px;background:var(--border);margin:0 6px}
+  .filters{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--nav-bg);border-bottom:1px solid var(--border)}
+  .fsel{display:flex;align-items:center;gap:6px;height:28px;padding:0 9px;border:1px solid var(--border-strong);border-radius:4px;background:#fff;font-size:12.5px;color:var(--text)}
+  .fsel small{color:var(--faint)}
+  .gsearch{margin-left:auto;display:flex;align-items:center;gap:6px;height:28px;width:240px;padding:0 9px;border:1px solid var(--border-strong);border-radius:4px;background:#fff;color:var(--faint)}
+  .split{flex:1;display:grid;grid-template-columns:1fr 340px;min-height:0}
+  .split>*{min-width:0}
+  .gridwrap{overflow:auto;background:var(--surface);border-right:1px solid var(--border)}
+  table{border-collapse:separate;border-spacing:0;width:100%}
+  th{position:sticky;top:0;background:var(--sunken);font-size:11.5px;font-weight:600;color:var(--muted);text-align:left;padding:0 10px;height:32px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+  td{height:32px;padding:0 10px;border-bottom:1px solid #EDF2EB;white-space:nowrap}
+  tr:hover td{background:#F5F9F3}
+  tr.sel td{background:var(--selection)}
+  .num{text-align:right}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:1px 8px;border-radius:10px}
+  .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .ok{background:var(--success-s);color:var(--success)} .warn{background:var(--warning-s);color:var(--warning)} .bad{background:var(--danger-s);color:var(--danger)}
+  .cb{width:14px;height:14px;border:1px solid var(--border-strong);border-radius:3px;display:inline-block;vertical-align:middle;background:#fff}
+  tr.sel .cb{background:var(--accent);border-color:var(--accent)}
+  .foot{height:34px;display:flex;align-items:center;gap:18px;padding:0 12px;background:var(--sunken);border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+  .foot b{color:var(--text)}
+  .detail{background:var(--surface);overflow:auto}
+  .dhead{padding:16px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center}
+  .big-av{width:44px;height:44px;border-radius:8px;background:var(--accent-subtle);color:var(--accent);display:grid;place-items:center;font-weight:600}
+  .dname{font-size:15px;font-weight:600} .dsub{color:var(--muted);font-size:12px}
+  .tabs{display:flex;border-bottom:1px solid var(--border);padding:0 12px}
+  .tabs span{padding:9px 10px;font-size:12.5px;color:var(--muted);border-bottom:2px solid transparent}
+  .tabs .on{color:var(--accent);border-color:var(--accent);font-weight:600}
+  .props{padding:6px 16px 16px}
+  .prop{display:grid;grid-template-columns:120px 1fr;padding:7px 0;border-bottom:1px dashed #E8ECEA;font-size:12.5px}
+  .prop span:first-child{color:var(--faint)}
+  .sect{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600;margin:14px 0 4px}
+  /* Status bar */
+  .status{background:var(--rail-bg);border-top:1px solid var(--border);display:flex;align-items:center;font-size:11.5px;color:var(--muted)}
+  .status span{padding:0 12px;border-right:1px solid var(--border);height:100%;display:flex;align-items:center;gap:6px}
+  .status .live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--success)}
+  .status .r{margin-left:auto;border-left:1px solid var(--border);border-right:0}
+  /* Palette */
+  .scrim{position:fixed;inset:0;background:rgba(10,20,17,.35);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:50}
+  .scrim.open{display:flex}
+  .palette{width:560px;background:#fff;border-radius:8px;box-shadow:0 24px 60px -12px rgba(0,0,0,.35);overflow:hidden;animation:pop .16s cubic-bezier(.22,1,.36,1)}
+  @keyframes pop{from{opacity:0;transform:translateY(6px) scale(.98)}}
+  .palette input{width:100%;border:0;border-bottom:1px solid var(--border);padding:14px 16px;font:14px Inter;outline:none}
+  .pgroup{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:10px 16px 4px;font-weight:600}
+  .pitem{display:flex;justify-content:space-between;padding:8px 16px;font-size:13px}
+  .pitem.on{background:var(--selection)}
+  .pitem kbd{border-color:var(--border);color:var(--muted)}
+  .note{position:fixed;right:14px;bottom:36px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted);box-shadow:0 8px 24px -10px rgba(0,0,0,.2);max-width:260px}
+  .note b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TITLE BAR -->
+  <header class="titlebar">
+    <div class="brand"><div class="logo" role="img" aria-label="Aakash HRMS"></div></div>
+    <span class="appname">Aakash<em>HRMS</em></span>
+    <nav class="menus"><button>Go</button><button>Actions</button><button>Help</button></nav>
+    <div class="search" onclick="openPalette()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="4.5"/><path d="m10 10 3 3"/></svg>
+      <span style="flex:1">Search employees, pages, or run a command…</span><kbd>Ctrl K</kbd>
+    </div>
+    <div class="tb-right">
+      <div class="seg"><span class="on">BS</span><span>AD</span></div>
+      <span class="period" title="Working period — default for payroll, attendance and reports"><small>Period</small> Ashwin 2082 ▾</span>
+      <span class="chip-dark">FY 2082/83 ▾</span>
+      <button class="icon-btn" title="Approvals"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11V7a4 4 0 0 1 8 0v4l1.5 2h-11z"/><path d="M6.5 14.5a1.5 1.5 0 0 0 3 0"/></svg><span class="dot">3</span></button>
+      <div class="avatar">CT</div>
+    </div>
+  </header>
+
+  <div class="body" id="body">
+    <!-- MODULE RAIL -->
+    <nav class="rail">
+      <button><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8 9 3l6 5v7H3z"/></svg><span class="tip">Home · Alt+1</span></button>
+      <button><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="2.5"/><path d="M9 2v2M9 14v2M2 9h2M14 9h2M4 4l1.5 1.5M12.5 12.5 14 14M4 14l1.5-1.5M12.5 5.5 14 4"/></svg><span class="tip">Setup · Alt+2</span></button>
+      <button class="on"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="6" r="3"/><path d="M1.5 16c.5-3 2.7-4.5 5.5-4.5s5 1.5 5.5 4.5"/><path d="M12 3.5a3 3 0 0 1 0 5M14 11.5c1.5.6 2.3 2 2.5 4.5"/></svg><span class="tip">Workforce · Alt+3</span></button>
+      <button><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l3 2"/></svg><span class="tip">Time &amp; Leave · Alt+4</span></button>
+      <button><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M2 8h14M5 11h3"/></svg><span class="tip">Payroll · Alt+5</span></button>
+      <button><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 15V9M7 15V4M11 15v-7M15 15V6"/></svg><span class="tip">Reports · Alt+6</span></button>
+      <button><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 2 3 4.5v4C3 12 5.5 15 9 16c3.5-1 6-4 6-7.5v-4z"/></svg><span class="tip">Administration · Alt+7</span></button>
+      <div class="spacer"></div>
+      <button onclick="toggleNav()"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="3" width="13" height="12" rx="1.5"/><path d="M7 3v12"/></svg><span class="tip">Toggle navigator · Ctrl+B</span></button>
+    </nav>
+
+    <!-- SECTION NAVIGATOR -->
+    <aside class="snav">
+      <h6>Workforce</h6>
+      <a class="on" href="#">Employees <span class="count">248</span></a>
+      <a href="#">Organization <span class="count">12</span></a>
+      <a href="#">Salary structure <span class="count">231</span></a>
+      <h6>Recent</h6>
+      <div class="recent">
+        <a href="#">EMP-0142 · Sita Sharma</a>
+        <a href="#">EMP-0098 · Ram Thapa</a>
+        <a href="#">Dept · Finance</a>
+      </div>
+    </aside>
+
+    <!-- WORKSPACE -->
+    <main class="work">
+      <div class="pagebar">
+        <div class="crumb">Workforce ›<b>Employees</b></div>
+        <span class="chip ok" style="margin-left:6px">231 active</span>
+        <span class="chip warn">9 on probation</span>
+      </div>
+      <div class="toolbar">
+        <button class="tbtn primary" title="Ctrl+N"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 2v10M2 7h10"/></svg>New employee</button>
+        <div class="sep"></div>
+        <button class="tbtn" title="F2"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.5 2.5l2 2L5 11H3V9z"/></svg>Edit</button>
+        <button class="tbtn"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="5" r="2.5"/><path d="M2.5 12.5c.6-2.4 2.3-3.5 4.5-3.5s3.9 1.1 4.5 3.5"/></svg>Provision login</button>
+        <button class="tbtn"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4h10M5 4V2.5h4V4M3.5 4l.7 8h5.6l.7-8"/></svg>Terminate</button>
+        <div class="sep"></div>
+        <button class="tbtn" title="Ctrl+P"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5V2h6v3M4 10H2.5V5.5h9V10H10M4 8.5h6V12H4z"/></svg>Print</button>
+        <button class="tbtn" title="Ctrl+Shift+E"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 2v7M4 6l3 3 3-3M2.5 12h9"/></svg>Export</button>
+        <button class="tbtn"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 2v7M4 5l3-3 3 3M2.5 12h9"/></svg>Import</button>
+        <div class="sep"></div>
+        <button class="tbtn" title="F5"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 2v3h-3"/></svg>Refresh</button>
+      </div>
+      <div class="filters">
+        <span class="fsel"><small>Branch</small> All ▾</span>
+        <span class="fsel"><small>Department</small> All ▾</span>
+        <span class="fsel"><small>Type</small> Permanent ▾</span>
+        <span class="fsel"><small>Status</small> Active ▾</span>
+        <div class="gsearch"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="5.5" r="4"/><path d="m9 9 3 3"/></svg>Search name, code, PAN… <kbd style="margin-left:auto;border-color:var(--border);color:var(--faint)">/</kbd></div>
+      </div>
+      <div class="split">
+        <div style="display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border)">
+          <div class="gridwrap" style="flex:1;border:0">
+            <table id="grid">
+              <thead><tr><th style="width:34px"><span class="cb"></span></th><th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Shreni</th><th>Joined (BS)</th><th class="num">Basic (₨)</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="foot"><span>248 records</span><span>Selected <b id="selcount">1</b></span><span style="margin-left:auto">Total basic <b>₨ 72,48,500.00</b></span><span>Page 1 of 10 ‹ ›</span></div>
+        </div>
+        <aside class="detail" id="detail"></aside>
+      </div>
+    </main>
+  </div>
+
+  <!-- STATUS BAR -->
+  <footer class="status">
+    <span class="live">Connected</span>
+    <span>Aakash Pvt. Ltd. (AAK01) · Head Office</span>
+    <span>FY 2082/83</span>
+    <span>16 Ashwin 2082 · 2 Oct 2026</span>
+    <span>Office Administrator</span>
+    <span class="r">Ctrl K commands · ? shortcuts · v1.0</span>
+  </footer>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="scrim" id="scrim" onclick="if(event.target===this)closePalette()">
+  <div class="palette">
+    <input placeholder="Type a command or search…" value="sit">
+    <div class="pgroup">Employees</div>
+    <div class="pitem on"><span>Sita Sharma · EMP-0142 · Finance</span><kbd>Enter</kbd></div>
+    <div class="pitem"><span>Sitaram Karki · EMP-0201 · Operations</span></div>
+    <div class="pgroup">Actions</div>
+    <div class="pitem"><span>New employee</span><kbd>Ctrl N</kbd></div>
+    <div class="pitem"><span>Run payroll for Ashwin 2082</span></div>
+    <div class="pgroup">Go to</div>
+    <div class="pitem"><span>Time &amp; Leave › Approvals</span><kbd>Alt 4</kbd></div>
+  </div>
+</div>
+
+<div class="note"><b>Mockup:</b> click rows to change the detail pane, press <b>Ctrl K</b> or click search for the palette, <b>Ctrl B</b> to collapse the navigator.</div>
+
+<script>
+const rows=[
+ ["EMP-0142","Sita Sharma","Finance","Senior Accountant","Shreni 5","2078-04-01","48,500.00","ok","Active"],
+ ["EMP-0098","Ram Bahadur Thapa","Operations","Supervisor","Shreni 4","2076-09-15","38,200.00","ok","Active"],
+ ["EMP-0201","Sitaram Karki","Operations","Field Officer","Shreni 3","2081-01-10","29,750.00","warn","Probation"],
+ ["EMP-0117","Anjali Gurung","Human Resources","HR Officer","Shreni 4","2077-07-22","36,000.00","ok","Active"],
+ ["EMP-0076","Bikash Shrestha","IT","Systems Engineer","Shreni 6","2075-03-02","62,400.00","ok","Active"],
+ ["EMP-0188","Pooja Adhikari","Finance","Accounts Assistant","Shreni 2","2080-11-05","24,900.00","ok","Active"],
+ ["EMP-0054","Hari Prasad Joshi","Administration","Office Manager","Shreni 5","2074-06-18","51,300.00","bad","Notice"],
+ ["EMP-0163","Nisha Rai","Sales","Sales Executive","Shreni 3","2079-02-27","31,500.00","ok","Active"],
+ ["EMP-0129","Suman Tamang","IT","Support Technician","Shreni 2","2078-10-12","26,800.00","ok","Active"],
+ ["EMP-0210","Kabita Magar","Human Resources","Recruiter","Shreni 3","2081-04-03","30,200.00","warn","Probation"],
+ ["EMP-0035","Dipendra Bhandari","Operations","Branch Head","Shreni 7","2072-12-09","78,000.00","ok","Active"],
+ ["EMP-0150","Rojina Khadka","Sales","Area Coordinator","Shreni 4","2079-08-14","35,600.00","ok","Active"],
+];
+const tb=document.querySelector("#grid tbody");
+let sel=0;
+function render(){
+  tb.innerHTML=rows.map((r,i)=>`<tr class="${i===sel?'sel':''}" onclick="pick(${i})"><td><span class="cb"></span></td><td class="mono">${r[0]}</td><td><b style="font-weight:500">${r[1]}</b></td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td class="num">${r[6]}</td><td><span class="chip ${r[7]}">${r[8]}</span></td></tr>`).join("");
+  const r=rows[sel], ini=r[1].split(" ").map(w=>w[0]).slice(0,2).join("");
+  document.getElementById("detail").innerHTML=`
+   <div class="dhead"><div class="big-av">${ini}</div><div><div class="dname">${r[1]}</div><div class="dsub"><span class="mono">${r[0]}</span> · ${r[3]}</div></div><span class="chip ${r[7]}" style="margin-left:auto">${r[8]}</span></div>
+   <div class="tabs"><span class="on">General</span><span>Salary</span><span>Leave</span><span>Documents</span></div>
+   <div class="props">
+     <div class="sect">Employment</div>
+     <div class="prop"><span>Department</span><span>${r[2]}</span></div>
+     <div class="prop"><span>Designation</span><span>${r[3]}</span></div>
+     <div class="prop"><span>Grade</span><span>${r[4]}</span></div>
+     <div class="prop"><span>Joined</span><span>${r[5]} BS</span></div>
+     <div class="prop"><span>Branch</span><span>Head Office</span></div>
+     <div class="sect">Pay</div>
+     <div class="prop"><span>Basic salary</span><span>₨ ${r[6]}</span></div>
+     <div class="prop"><span>SSF</span><span>Enrolled · 31%</span></div>
+     <div class="prop"><span>CIT</span><span>10% of basic</span></div>
+     <div class="prop"><span>Bank</span><span>NIC Asia · <span class="mono">••••4821</span></span></div>
+   </div>`;
+}
+function pick(i){sel=i;render()}
+function openPalette(){document.getElementById("scrim").classList.add("open");setTimeout(()=>document.querySelector(".palette input").focus(),10)}
+function closePalette(){document.getElementById("scrim").classList.remove("open")}
+function toggleNav(){document.getElementById("body").classList.toggle("nav-collapsed")}
+document.addEventListener("keydown",e=>{
+  if(e.ctrlKey&&e.key.toLowerCase()==="k"){e.preventDefault();openPalette()}
+  else if(e.ctrlKey&&e.key.toLowerCase()==="b"){e.preventDefault();toggleNav()}
+  else if(e.key==="Escape")closePalette();
+  else if(!document.getElementById("scrim").classList.contains("open")){
+    if(e.key==="ArrowDown"){sel=Math.min(rows.length-1,sel+1);render();e.preventDefault()}
+    if(e.key==="ArrowUp"){sel=Math.max(0,sel-1);render();e.preventDefault()}
+  }
+});
+render();
+</script>
+</body>
+</html>
