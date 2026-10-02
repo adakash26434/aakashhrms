@@ -12,6 +12,8 @@ import { NprText } from "@/components/ui/npr-text";
 import { Progress } from "@/components/ui/progress";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Toggle } from "@/components/ui/toggle";
+import { PageBar } from "@/components/frame/page-bar";
+import { CheckCircle2, Lock, Pencil, Trash2 } from "lucide-react";
 
 // Development-only gallery. Sample data only. Legacy screens are built from
 // zinc / emerald / payroll-* classes, so this page deliberately uses them too:
@@ -52,6 +54,28 @@ export function KitGallery() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-8 p-6">
+        <Section title="Page bar + command toolbar (Phase 2.5)">
+          <div className="rounded-lg border border-line bg-surface p-4">
+            <PageBar
+              title="Payroll run — Ashwin 2083"
+              description="Toolbar order is fixed: Create · Act on selection · Output · Refresh. Ctrl+N fires New run here."
+              status={<Badge variant="warning">Draft</Badge>}
+              crumbs={[{ label: "Payroll" }]}
+              actions={[
+                { id: "new", label: "New run", icon: Plus, group: "create", primary: true, shortcut: "Ctrl+N", onClick: () => alert("New run (sample)") },
+                { id: "edit", label: "Edit", icon: Pencil, group: "selection", shortcut: "F2" },
+                { id: "approve", label: "Approve", icon: CheckCircle2, group: "selection", disabled: true, disabledReason: "Resolve 2 blocking issues first" },
+                { id: "lock", label: "Lock", icon: Lock, group: "selection", hidden: true },
+                { id: "delete", label: "Delete", icon: Trash2, group: "selection" },
+                { id: "print", label: "Print", icon: Printer, group: "output", shortcut: "Ctrl+P" },
+                { id: "export", label: "Export", icon: Download, group: "output", shortcut: "Ctrl+Shift+E" },
+                { id: "refresh", label: "Refresh", icon: RefreshCw, group: "refresh" },
+              ]}
+            />
+            <p className="text-xs text-ink-faint">“Lock” is hidden (no permission); “Approve” is disabled with a reason tooltip.</p>
+          </div>
+        </Section>
+
         <Section title="Colour ramps (logo forest green · green-tinted neutrals)">
           <div className="space-y-2">
             {(["forest", "neutral"] as const).map((ramp) => (

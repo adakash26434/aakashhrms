@@ -4,6 +4,7 @@ import { userRoles, rolePermissions, permissions, roles, users } from '@/lib/db/
 import { eq, and } from 'drizzle-orm';
 import { resolveUserScope, type ScopeFilter } from './scope-filter';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
+import { assertSessionUsable } from './session-updates';
 
 // Re-export for convenience
 export type { ScopeFilter } from './scope-filter';
@@ -59,6 +60,7 @@ async function verifyPermission(
   if (!session?.user?.id) {
     throw new Error('Unauthorized: Not authenticated');
   }
+  assertSessionUsable(session.user);
 
   // Resolve the tenant DB from the signed session (fails closed if none)
   const activeDb = await getDbAsync(session.user.tenantSlug);
@@ -138,6 +140,7 @@ export async function requireAuthenticatedUser(): Promise<{ userId: string; isIm
   if (!session?.user?.id) {
     throw new Error('Unauthorized: Not authenticated');
   }
+  assertSessionUsable(session.user);
 
   const activeDb = await getDbAsync(session.user.tenantSlug);
   const userRows = await activeDb

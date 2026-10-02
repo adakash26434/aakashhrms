@@ -110,25 +110,25 @@ describe("Company & Organizational Setup Master Module Architecture", () => {
   });
 
   describe("Navigation & Architectural De-duplication", () => {
-    it("should ensure Workforce sidebar contains only employee-centric operations without duplicate structural modules", async () => {
-      const { NAV_GROUPS } = await import("../lib/constants/navigation");
-      const workforceGroup = NAV_GROUPS.find((g) => g.label === "Workforce");
-      assert.ok(workforceGroup, "Workforce group must exist");
+    it("should ensure the Workforce module contains only employee-centric operations without duplicate structural modules", async () => {
+      const { NAV_MODULES } = await import("../lib/frame/navigation");
+      const workforce = NAV_MODULES.find((m) => m.id === "workforce");
+      assert.ok(workforce, "Workforce module must exist");
 
-      const workforceHrefs = workforceGroup.items.map((i) => i.href);
+      const workforceHrefs = workforce.sections.map((s) => s.href);
       assert.ok(workforceHrefs.includes("/workforce/employees"));
       assert.ok(workforceHrefs.includes("/workforce/salary-mapping"));
       assert.ok(workforceHrefs.includes("/workforce/organization"), "Organization points to /workforce/organization");
     });
 
-    it("should ensure Configuration sidebar contains unified Company Setup master hub", async () => {
-      const { NAV_GROUPS } = await import("../lib/constants/navigation");
-      const configGroup = NAV_GROUPS.find((g) => g.label === "Configuration");
-      assert.ok(configGroup, "Configuration group must exist");
+    it("should ensure the Setup module contains the unified Company Setup master hub", async () => {
+      const { NAV_MODULES } = await import("../lib/frame/navigation");
+      const setup = NAV_MODULES.find((m) => m.id === "setup");
+      assert.ok(setup, "Setup module must exist");
 
-      const companySetupItem = configGroup.items.find((i) => i.href === "/setup/company-setup");
-      assert.ok(companySetupItem, "Company setup must be in Configuration");
-      assert.equal(companySetupItem.requiredModule, "ORG_STRUCTURE");
+      const companySetup = setup.sections.find((s) => s.href === "/setup/company-setup");
+      assert.ok(companySetup, "Company setup must be in Setup");
+      assert.deepEqual(companySetup.requires, ["ORG_STRUCTURE"]);
     });
   });
 

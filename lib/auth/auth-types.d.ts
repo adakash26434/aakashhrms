@@ -10,6 +10,9 @@ declare module "next-auth" {
       scopeType: string | null;
       employeeId: string | null;
       mustChangePassword?: boolean;
+      /** Idle lock (2.8): set by the server-signed session update flow. */
+      locked?: boolean;
+      lockedAt?: number;
     } & DefaultSession["user"];
   }
 
@@ -20,6 +23,8 @@ declare module "next-auth" {
     scopeType?: string | null;
     employeeId?: string | null;
     mustChangePassword?: boolean;
+    locked?: boolean;
+    lockedAt?: number;
   }
 }
 
@@ -31,5 +36,7 @@ declare module "next-auth/jwt" {
     scopeType?: string | null;
     employeeId?: string | null;
     mustChangePassword?: boolean;
+    locked?: boolean;
+    lockedAt?: number;
   }
 }

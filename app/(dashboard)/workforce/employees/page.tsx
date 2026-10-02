@@ -10,14 +10,21 @@ export const metadata: Metadata = {
   description: "Manage employee records, personal information, and employment details.",
 };
 
-export default async function EmployeePage() {
+export default async function EmployeePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("VIEW", "EMPLOYEES");
+  // ?q= pre-fills the search (used by the command palette). Filter text only.
+  const { q } = await searchParams;
+  const initialSearch = typeof q === "string" ? q.slice(0, 100) : "";
 
   const [{ employees, kpis }, lookupData] = await Promise.all([
     getEmployees(
       {
-        search: "",
+        search: initialSearch,
         departmentId: "all",
         branchId: "all",
         category: "all",
@@ -33,6 +40,7 @@ export default async function EmployeePage() {
       initialEmployees={employees}
       initialKpis={kpis}
       initialLookupData={lookupData}
+      initialSearch={initialSearch}
     />
   );
 }

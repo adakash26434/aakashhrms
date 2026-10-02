@@ -5,7 +5,8 @@ import { getDbAsync } from '@/lib/db';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
 import { users, roles, userRoles, employees, fiscalYears, leaveApplications, branches } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { buildEmployeeIdScopeCondition, resolveUserScope } from '@/lib/auth/scope-filter';
 import { getFiscalYear } from '@/lib/utils/bs-calendar';
 
 export interface WorkspaceContext {
@@ -294,16 +295,10 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
           .from(branches)
           .limit(1);
 
-        const pendingLeavesPromise = tenantDb
-          .select({ count: sql<number>`count(*)::int` })
-          .from(leaveApplications)
-          .where(eq(leaveApplications.status, 'Pending'));
-
-        const [, fyResult, branchResult, pendingResult] = await Promise.all([
+        const [, fyResult, branchResult] = await Promise.all([
           userDetailsPromise,
           fyPromise.catch(() => []),
           branchPromise.catch(() => []),
-          pendingLeavesPromise.catch(() => []),
         ]);
 
         if (fyResult[0]) {
@@ -313,10 +308,6 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 
         if (branchResult[0]) {
           branchName = branchResult[0].name;
-        }
-
-        if (pendingResult[0]) {
-          pendingCount = Number(pendingResult[0].count) || 0;
         }
       }
     } catch (err) {
@@ -336,6 +327,24 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
     allowedModules = await getUserAllowedModulesArray();
   } catch (err) {
     console.error('Error resolving user allowed modules:', err);
+  }
+
+  // S15: the pending-approvals badge is shown only to approvers, and counts
+  // only the requests inside the approver's branch / department scope.
+  if (userId && allowedModules.includes('LEAVE_APPROVALS')) {
+    try {
+      const tenantDb = await getDbAsync(tenantSlug || undefined);
+      const scope = await resolveUserScope(userId, tenantSlug);
+      const scopeCondition = buildEmployeeIdScopeCondition(scope, leaveApplications.employeeId);
+      const pending = eq(leaveApplications.status, 'Pending');
+      const [row] = await tenantDb
+        .select({ count: sql<number>`count(*)::int` })
+        .from(leaveApplications)
+        .where(scopeCondition ? and(pending, scopeCondition) : pending);
+      pendingCount = Number(row?.count) || 0;
+    } catch (err) {
+      console.error('Error counting pending approvals:', err);
+    }
   }
 
   return {

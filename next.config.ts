@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { API_CONTENT_SECURITY_POLICY } from "./lib/security/csp";
 
@@ -13,8 +14,13 @@ if (process.env.npm_lifecycle_event === "build" || process.argv.includes("build"
 }
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+const appVersion: string = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 
 const nextConfig: NextConfig = {
+  // Shown in the status bar.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
   typescript: {
     // Verified via `npm run type-check` and tests. Prevents OOM crashes in memory-constrained cloud containers.
     ignoreBuildErrors: true,

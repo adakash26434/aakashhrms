@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from 'next-auth';
+import { applySessionUpdate } from './session-updates';
 
 /**
  * S4: payroll data warrants short sessions. A session expires after 8 hours,
@@ -39,11 +40,11 @@ export const authConfig = {
         // Carry mustChangePassword for forced first-login password change flow
         token.mustChangePassword = user.mustChangePassword ?? false;
       }
-      // Handle session updates (e.g. after password change)
-      if (trigger === "update" && session?.user) {
-        if (session.user.mustChangePassword !== undefined) {
-          token.mustChangePassword = session.user.mustChangePassword;
-        }
+      // SECURITY (S14): the browser can trigger updates with any payload, so
+      // only server-signed grants may relax restrictions (password change
+      // done, unlock). Locking is always allowed. See session-updates.ts.
+      if (trigger === "update" && session) {
+        return applySessionUpdate(token, session);
       }
       return token;
     },
@@ -56,6 +57,8 @@ export const authConfig = {
         session.user.scopeType = token.scopeType || null;
         session.user.employeeId = token.employeeId || null;
         session.user.mustChangePassword = token.mustChangePassword ?? false;
+        session.user.locked = token.locked ?? false;
+        session.user.lockedAt = token.lockedAt;
       }
       return session;
     },
@@ -86,6 +89,20 @@ export const authConfig = {
       if (isLoggedIn) {
         const mustChangePassword = Boolean(auth?.user?.mustChangePassword);
         const scopeType = auth?.user?.scopeType;
+        const isLockedRoute = nextUrl.pathname === '/locked';
+
+        // 0. IDLE LOCK (2.8): a locked session reaches nothing but /locked.
+        // Server actions POSTed from /locked are refused by the permission
+        // helpers (assertSessionUsable).
+        if (auth?.user?.locked) {
+          if (isLockedRoute) return true;
+          const lockUrl = new URL('/locked', nextUrl);
+          lockUrl.searchParams.set('returnTo', nextUrl.pathname);
+          return Response.redirect(lockUrl);
+        }
+        if (isLockedRoute) {
+          return Response.redirect(new URL(scopeType === 'SELF' ? '/self-service' : '/dashboard', nextUrl));
+        }
 
         // 1. FORCED PASSWORD CHANGE ENFORCEMENT
         // If user must change password, lock them into /change-password until completed

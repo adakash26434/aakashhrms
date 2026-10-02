@@ -172,3 +172,10 @@ export const companyLookupLimiter = createRateLimiter({
   windowMs: COMPANY_LOOKUP_LIMIT_CONFIG.WINDOW_MS,
   lockoutMs: COMPANY_LOOKUP_LIMIT_CONFIG.LOCKOUT_MS,
 });
+
+/** Idle-lock unlock attempts (2.8): 5 wrong passwords per user, then sign-out. */
+export const sessionUnlockLimiter = createRateLimiter({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  lockoutMs: 15 * 60 * 1000,
+});

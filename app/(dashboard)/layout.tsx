@@ -1,8 +1,7 @@
-import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { AppFrame } from "@/components/frame/app-frame";
 import { redirect } from "next/navigation";
 import { getTenantDb } from "@/lib/db/tenant-pool-manager";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
-import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
 import { getWorkspaceContext } from "@/lib/services/workspace-context.service";
 
 import { auth } from "@/lib/auth";
@@ -27,14 +26,16 @@ export default async function DashboardLayout({
 
     const context = await getWorkspaceContext();
     return (
-      <>
-        <ImpersonationBanner
-          actorName={impersonation.actorName}
-          companyName={impersonation.companyName}
-          companyId={impersonation.companyId}
-        />
-        <DashboardShell context={context}>{children}</DashboardShell>
-      </>
+      <AppFrame
+        context={context}
+        impersonation={{
+          actorName: impersonation.actorName,
+          companyName: impersonation.companyName,
+          companyId: impersonation.companyId,
+        }}
+      >
+        {children}
+      </AppFrame>
     );
   }
 
@@ -56,5 +57,5 @@ export default async function DashboardLayout({
   }
 
   const context = await getWorkspaceContext();
-  return <DashboardShell context={context}>{children}</DashboardShell>;
+  return <AppFrame context={context}>{children}</AppFrame>;
 }

@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/services/audit.service';
+import { signSessionGrant } from '@/lib/auth/session-updates';
 
 export interface ChangePasswordInput {
   currentPassword: string;
@@ -82,15 +83,12 @@ export async function changePasswordAction(input: ChangePasswordInput): Promise<
       })
       .where(eq(users.id, userId));
 
-    // Update active JWT session cookie so mustChangePassword is false
+    // Update the JWT so mustChangePassword is false. S14: the session only
+    // accepts this with a server-signed grant (a browser update can't forge it).
     try {
-      if (typeof unstable_update === 'function') {
-        await unstable_update({
-          user: {
-            mustChangePassword: false,
-          },
-        });
-      }
+      await unstable_update({
+        grant: await signSessionGrant(userId, 'password-changed'),
+      } as Parameters<typeof unstable_update>[0]);
     } catch (sessionErr) {
       console.warn('[CHANGE_PASSWORD_ACTION] Session cookie update warning:', sessionErr);
     }

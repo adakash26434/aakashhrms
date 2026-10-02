@@ -100,6 +100,50 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
 // Reads
 // ---------------------------------------------------------------------------
 
+export interface EmployeeQuickResult {
+  id: string;
+  fullName: string;
+  employeeCode: string;
+  status: string;
+  departmentName: string | null;
+}
+
+/** Escapes LIKE wildcards so user input matches literally. */
+function likeTerm(input: string): string {
+  return `%${input.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
+/**
+ * Lightweight lookup for the command palette: name / code / department only,
+ * never personal, bank or salary fields. Honours the caller's scope condition.
+ */
+export async function quickSearch(
+  search: string,
+  scopeCondition?: SQL<unknown>,
+  limit = 8
+): Promise<EmployeeQuickResult[]> {
+  const term = likeTerm(search.trim());
+  const match = or(
+    ilike(employees.fullName, term),
+    ilike(employees.employeeCode, term),
+    ilike(employees.attendanceCode, term)
+  );
+  const where = scopeCondition && match ? and(match, scopeCondition) : match;
+  return (await getDb())
+    .select({
+      id: employees.id,
+      fullName: employees.fullName,
+      employeeCode: employees.employeeCode,
+      status: employees.status,
+      departmentName: departments.name,
+    })
+    .from(employees)
+    .leftJoin(departments, eq(departments.id, employees.departmentId))
+    .where(where)
+    .orderBy(employees.fullName)
+    .limit(limit);
+}
+
 export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unknown>): Promise<Employee[]> {
   const conditions: SQL<unknown>[] = [];
   

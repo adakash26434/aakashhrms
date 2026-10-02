@@ -39,12 +39,12 @@ export function ImpersonationBanner({
   };
 
   return (
-    <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white px-4 py-2 flex flex-wrap items-center justify-between sticky top-0 z-[100] shadow-payroll-md gap-2">
+    <div className="flex min-h-8 flex-wrap items-center justify-between gap-2 bg-warning px-3 py-1 text-white">
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0 bg-white/20 px-2 py-0.5 rounded-md">
           <ShieldCheck className="w-4 h-4 text-amber-200" />
-          <span className="text-xs font-bold uppercase tracking-wider">
-            Super Admin Mode
+          <span className="text-2xs font-semibold uppercase tracking-wider">
+            Super-admin view
           </span>
         </div>
 
@@ -68,7 +68,7 @@ export function ImpersonationBanner({
         <button
           onClick={handleExit}
           disabled={isExiting}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all disabled:opacity-50 border border-white/20 cursor-pointer select-none active:scale-[0.98]"
+          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition-colors disabled:opacity-50 border border-white/25 cursor-pointer select-none"
         >
           {isExiting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />

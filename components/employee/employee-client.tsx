@@ -57,12 +57,15 @@ interface EmployeeClientProps {
   initialEmployees: Employee[];
   initialKpis: EmployeeKPIs;
   initialLookupData?: RawLookupData | null;
+  /** Pre-filled search text (from ?q=, e.g. the command palette). */
+  initialSearch?: string;
 }
 
 export function EmployeeClient({
   initialEmployees,
   initialKpis,
   initialLookupData,
+  initialSearch = "",
 }: EmployeeClientProps) {
   const router = useRouter();
   const [employees, setEmployees] = useState(initialEmployees);
@@ -74,7 +77,7 @@ export function EmployeeClient({
   const toast = useToast();
 
   const [filters, setFilters] = useState<EmployeeFilter>({
-    search: "",
+    search: initialSearch,
     departmentId: "all",
     branchId: "all",
     category: "all",

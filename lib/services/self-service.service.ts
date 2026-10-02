@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { calculateProRataLeaveDays } from '@/lib/engines/leave-type.engine';
+import { assertSessionUsable } from '@/lib/auth/session-updates';
 
 // ---------------------------------------------------------------------------
 // Session-Based Employee ID Resolution
@@ -28,6 +29,7 @@ async function getSessionEmployeeId(): Promise<{ employeeId: string; userId: str
   if (!session?.user?.id) {
     throw new Error('Unauthorized: Not authenticated');
   }
+  assertSessionUsable(session.user);
 
   // S8: re-check the account on every call instead of trusting the JWT. A
   // deactivated or re-linked user loses access immediately.
