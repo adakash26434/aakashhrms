@@ -186,6 +186,25 @@ are designed so it only needs new values.
 | `EmptyState`, `Skeleton`, `ErrorBanner`, `Toast` | existing | Restyled |
 | `Confirm` | per-module `confirm-delete-dialog` (×4) | One generic confirm with a typed-confirmation option for destructive acts |
 
+### Implemented kit (Phase 3)
+
+`components/kit/`:
+
+| Component | Use for |
+|---|---|
+| `DataGrid` | Every register. Give it an `id` (prefs are remembered per grid), `columns` with `type` (`text`/`amount`/`number`/`date`/`code`/`status`), `value` for sort, total, copy and export, and `sticky` for pinned leading columns. Optional: `rowTone` (E9), `exportModule` (audited CSV), `selectable`, `onOpen`, `activeRowId`. |
+| `FilterStrip` | Search + filters + applied chips + saved views above a grid |
+| `SplitView` | Register + detail pane (detail = `FactBox` / record summary) |
+| `Window` + `WindowButton` | Every dialog; pass `dirty` on edit forms |
+| `Confirm` | Every confirmation; `requireText` for destructive or irreversible actions |
+| `PropertyForm` / `FieldGroup` / `FieldRow` / `inputClass` | Every form |
+| `Tabs` | Horizontal (pages) or vertical (record editor sections) |
+| `StatusChip`, `Amount`, `DateCell` | Statuses, money and dates, everywhere |
+| `FactBox`, `Worklist` | Context panels (E2); approval queues (E3) |
+| `GridSkeleton`, `FormSkeleton`, `EmptyState`, `ErrorState` | Loading, empty and error states |
+
+The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts` and `density.ts`. Exports use `lib/export/csv.ts` and `authorizeExportAction`.
+
 ## 5. Screen templates
 
 | Template | Used by | Layout |

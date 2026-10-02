@@ -111,17 +111,37 @@ Goal: the app looks and behaves like installed software.
 - [x] 2.10 `AppFrame` replaces `DashboardShell`, `Sidebar` and `TopHeader` (deleted). The impersonation banner is a slim strip inside the frame. **Signed off by you on 2026-10-02**, after the real-password unlock worked. The restricted-role and super-admin-view passes carry over to the 4.1 sign-off.
 
 ## Phase 3 — Component kit v2
-Goal: building blocks so modules don't re-invent tables and forms.
+Goal: building blocks so modules don't re-invent tables and forms. The code is in `components/kit/` (UI) and `lib/kit/` (pure, unit-tested logic). Everything is shown in `/dev/kit`.
 
-- [ ] 3.1 `DataGrid` (sort, resize, hide columns, persisted widths, selection, keyboard nav, totals footer, states)
-- [ ] 3.2 `FilterStrip` + applied chips + saved views (local)
-- [ ] 3.3 `SplitView` (master/detail, resizable, stacks on mobile)
-- [ ] 3.4 `Window` (dialog v2: focus trap, sizes, sticky footer, dirty guard)
-- [ ] 3.5 `PropertyForm`, `FieldRow`, `FieldGroup`, vertical `Tabs`
-- [ ] 3.6 `StatusChip`, `Amount`, `DateCell`, `Confirm` (typed confirmation), `Skeleton`, `EmptyState`
-- [ ] 3.7 Safe export helper (CSV formula-injection escaping, permission + audit hook)
-- [ ] 3.8 `FactBox` context pane (E2), `Worklist` template (E3), density toggle (E5), status-edge rows (E9), layout-matched skeletons (E11)
-- [ ] 3.9 Dev-only component gallery route (`/dev/kit`, disabled in production). *Started in Phase 1* with the existing primitives; Phase 3 adds the kit v2 components.
+- [x] 3.1 `DataGrid`:
+  - sort (numeric- and date-aware, empties last)
+  - resize by drag or keyboard, hide columns, widths and visibility remembered per grid
+  - **pinned leading columns**
+  - selection with Shift-range and Ctrl+A
+  - full keyboard navigation, Enter to open
+  - totals footer computed in paisa (no float drift)
+  - paging, density, and loading, empty and error states
+  - **Ctrl+C copies rows Excel-ready** (formula-safe)
+  - **built-in audited CSV export**
+  - ARIA grid semantics
+- [x] 3.2 `FilterStrip`: search, inline filters, applied chips with remove and clear-all, **saved views** (filter choices only, never search text).
+- [x] 3.3 `SplitView`: resizable by drag or keyboard, width remembered, a full-screen panel with Back on phones.
+- [x] 3.4 `Window`:
+  - sizes sm to full, title bar, sticky footer
+  - focus trap, focus restore, Esc
+  - **unsaved-changes guard**
+  - portal, plus standard `WindowButton`s
+- [x] 3.5 `PropertyForm`, `FieldGroup`, `FieldRow` (label-left; automatic id, aria-describedby, aria-invalid and aria-required wiring; read-only variant) and `Tabs` (horizontal or vertical, roving focus, ARIA tabs).
+- [x] 3.6 Display components:
+  - `StatusChip`: 12-term vocabulary, alias mapping, icon and label (never colour alone)
+  - `Amount`: lakh grouping, negatives, accounting style, KPI lakh and crore compact
+  - `DateCell`: BS first, other calendar on hover
+  - `Confirm`: **typed confirmation**
+  - `Skeleton`, `GridSkeleton`, `FormSkeleton`, `EmptyState`, `ErrorState`
+- [x] 3.7 Safe export (`lib/export/csv.ts`, `authorizeExportAction`): formula neutralising, BOM for Excel, the EXPORT permission check and an audit entry. **Every existing CSV export migrated (S16)**, including the bank file.
+- [x] 3.8 `FactBox` (E2), `Worklist` (E3: J/K/A/R, reason required to reject), density toggle (E5, in the user menu and palette), status-edge rows (E9), layout-matched skeletons (E11).
+- [x] 3.9 `/dev/kit` gallery with realistic sample data for every component (dev only).
+- [x] Extra: `toActionError()` / `UserFacingError` (S9 helper; modules adopt it in Phase 4).
 
 ## Phase 4 — Module migrations (one branch each)
 Every module follows its template from the design system (§5) and the
@@ -199,4 +219,6 @@ See `CHANGELOG.md`.
 - **Phase 0** is complete on `redesign/0-security`.
 - **Phase 1** is complete and signed off on `redesign/1-foundation`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
-- **Phase 2 is signed off.** Next is Phase 3 (component kit v2), waiting for your go-ahead and any additions.
+- **Phase 2 is signed off.**
+- **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
+- Next is Phase 4.1 (Home dashboard, the first module migration and a sign-off point).

@@ -13,6 +13,54 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — Phase 3: component kit v2
+Branch: `redesign/3-component-kit` (from `redesign/2-app-frame` @ `7f61f53`; not merged or pushed)
+
+Changed:
+- **Kit** (`components/kit/`):
+  - `DataGrid`, `FilterStrip`, `SplitView`, `Window`/`WindowButton`, `Confirm`
+  - `PropertyForm`/`FieldGroup`/`FieldRow`, `Tabs`
+  - `StatusChip`, `Amount`, `DateCell`
+  - `FactBox`, `Worklist`, skeletons, `EmptyState`/`ErrorState`
+- **Logic** (`lib/kit/`, unit-tested):
+  - grid sort, selection, keyboard movement, prefs and paisa totals
+  - amount format and parse (lakh, crore, accounting)
+  - status vocabulary and aliases; focus-trap index; density preference
+- **Enhancements beyond the plan:**
+  - pinned columns
+  - Ctrl+C copies grid rows into Excel safely
+  - audited CSV export built into the grid
+  - saved views store filter choices only
+  - typed confirmation for destructive actions
+  - unsaved-changes guard on windows
+  - required rejection reason in the worklist
+  - KPI compact amounts (L / Cr)
+  - accounting-style negatives
+  - density toggle in the user menu and command palette
+- **S16 (Medium, new):**
+  - 10 browser-built CSV exports had no formula neutralising and no EXPORT check or audit; all now go through `lib/export/csv.ts` + `authorizeExportAction`.
+  - The bank transfer file quotes and cleans fields (a comma in a name shifted columns) and is audited.
+  - The server report CSVs share the same escaper, which now also leaves plain negative amounts as numbers.
+- **S9:** `toActionError()` / `UserFacingError` helper (modules adopt it in Phase 4).
+- `/dev/kit` gallery with 60 synthetic employees, leave requests and forms exercising every component.
+
+Verified:
+- `tsc` exit 0.
+- **320/320 tests** (25 new: `kit-logic`, `security-export`).
+- No new lint errors in touched files. The one error in `components/reports/` is pre-existing, in the untouched `attendance-report-table.tsx`.
+- Browser (dev, 1440 and 390px), 0 page errors:
+  - keyboard selection (Space, Shift+↓ = 3 rows)
+  - sort (aria-sort), filter + chips (Finance → 12 rows), status edges
+  - SplitView detail and FactBox
+  - Window focus trap (15 Tabs stayed inside) and dirty guard
+  - typed confirm (disabled until "UNLOCK")
+  - worklist A/R (3 → 1)
+  - phone: icon toolbar, full-screen detail with Back, no overflow
+
+Notes:
+- The browser CSV exports now ask the server for permission first. Users without EXPORT on a module (for example a role with VIEW only) can no longer download that CSV. This is intended (standing measure 5); grant EXPORT where it is needed.
+- Bank file: names keep their text but lose leading `= + - @`, and commas are quoted. Check one file against your bank's upload screen after deploying.
+
 ## 2026-10-02 — Phase 2 signed off
 Branch: `redesign/2-app-frame`
 
