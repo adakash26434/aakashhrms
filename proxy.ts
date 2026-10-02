@@ -5,7 +5,12 @@ import { authConfig } from './lib/auth/auth.config';
 
 import { verifyImpersonationToken, IMPERSONATION_COOKIE } from './lib/platform/impersonation';
 
-const nextAuthHandler = NextAuth(authConfig).auth;
+// NextAuth's auth() doubles as middleware; type the call signature we use here.
+type ProxyAuthHandler = (
+  request: NextRequest,
+  init: { request: { headers: Headers } }
+) => Promise<Response>;
+const nextAuthHandler = NextAuth(authConfig).auth as unknown as ProxyAuthHandler;
 
 export default async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -43,6 +48,7 @@ export default async function middleware(request: NextRequest) {
   // Super Admin can directly view and navigate the company workspace
   // without needing tenant user credentials or being redirected to /login.
   const impersonationCookie = request.cookies.get(IMPERSONATION_COOKIE)?.value;
+  let hasInvalidImpersonationCookie = false;
   if (impersonationCookie) {
     const session = await verifyImpersonationToken(impersonationCookie);
     if (session) {
@@ -52,14 +58,33 @@ export default async function middleware(request: NextRequest) {
       }
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
+    // SECURITY (S1): a forged or expired token never grants access. It is
+    // ignored here (NextAuth decides) and cleared on the way out.
+    hasInvalidImpersonationCookie = true;
   }
 
   // 3. Tenant Application Routes — Delegate to NextAuth for JWT session verification
-  return (nextAuthHandler as any)(request, {
+  const response: Response = await nextAuthHandler(request, {
     request: {
       headers: requestHeaders,
     },
   });
+
+  if (hasInvalidImpersonationCookie && response) {
+    // Copy first: redirect responses have immutable headers.
+    const headers = new Headers(response.headers);
+    headers.append(
+      'Set-Cookie',
+      `${IMPERSONATION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`
+    );
+    return new NextResponse(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  return response;
 }
 
 export const config = {

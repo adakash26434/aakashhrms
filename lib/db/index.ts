@@ -182,7 +182,7 @@ export async function getCurrentTenantSlug(): Promise<string | null> {
  * existing call sites at the top of pages and server actions. It does not
  * throw: access is enforced by getDb() (fails closed) and checkPermission().
  */
-export async function ensureTenantContext(_explicitSlug?: string | null): Promise<void> {
+export async function ensureTenantContext(): Promise<void> {
   if (isSingleTenantMode()) return;
   try {
     await resolveRequestTenant();

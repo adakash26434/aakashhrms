@@ -74,7 +74,9 @@ export function Sidebar({
   const isImpersonating = context?.isImpersonating || false;
 
   const allowedModules = context?.allowedModules || [];
-  const isFullAccess = context?.isImpersonating || allowedModules.length === 0;
+  // Only impersonating super admins see everything. An empty module list means
+  // no access (admin roles receive the full module list explicitly).
+  const isFullAccess = Boolean(context?.isImpersonating);
 
   return (
     <div

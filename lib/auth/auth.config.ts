@@ -64,15 +64,9 @@ export const authConfig = {
         return true;
       }
 
-      // Super Admin "View Company Workspace" (Impersonation Mode)
-      // If super admin is viewing this company, bypass tenant user login
-      const impersonationCookie = request?.cookies?.get?.('platform_impersonation')?.value;
-      if (impersonationCookie) {
-        if (isAuthRoute || isChangePasswordRoute) {
-          return Response.redirect(new URL('/dashboard', nextUrl));
-        }
-        return true;
-      }
+      // SECURITY (S1): impersonation is handled in proxy.ts, which only skips
+      // this callback after cryptographically verifying the token. The mere
+      // presence of an impersonation cookie must never authorize a request.
 
       if (isLoggedIn) {
         const mustChangePassword = Boolean(auth?.user?.mustChangePassword);
