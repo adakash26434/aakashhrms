@@ -92,6 +92,7 @@ export async function updateUserPassword(
     .set({
       passwordHash,
       mustChangePassword: setMustChangePasswordFalse ? false : undefined,
+      tempPassword: null, // S2: never keep plaintext temp passwords
       updatedAt: new Date(),
     })
     .where(eq(users.id, userId));

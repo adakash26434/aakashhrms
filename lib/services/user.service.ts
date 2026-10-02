@@ -107,7 +107,6 @@ export async function getEmployeeAccess(employeeId: string) {
     roleSlug: fullUser.roleSlug,
     roleScopeType: fullUser.roleScopeType,
     mustChangePassword: fullUser.mustChangePassword ?? false,
-    tempPassword: fullUser.tempPassword ?? null,
     lastLoginAt: fullUser.lastLoginAt,
     updatedAt: fullUser.updatedAt,
     createdAt: fullUser.createdAt,
@@ -170,7 +169,6 @@ export async function createUser(formData: UserFormData): Promise<{
       assignedDepartmentIds: formData.assignedDepartmentIds || [],
       isActive: true,
       mustChangePassword: true,
-      tempPassword,
     },
     role.id
   );
@@ -387,7 +385,7 @@ export async function resetUserPassword(id: string): Promise<{
   const tempPassword = generateTemporaryPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
-  await repository.updateUserPassword(id, passwordHash, tempPassword, true);
+  await repository.updateUserPassword(id, passwordHash, true);
 
   await recordAuditLog({
     action: "EDIT",
@@ -459,7 +457,6 @@ export async function createSecureUserAccount(
     passwordHash,
     isActive: true,
     mustChangePassword: true,
-    tempPassword,
   }, role.id);
 
   return { user, tempPassword };

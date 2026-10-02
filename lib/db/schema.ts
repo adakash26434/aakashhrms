@@ -302,6 +302,7 @@ export const users = pgTable('users', {
   failedLoginAttempts: integer('failed_login_attempts').default(0).notNull(),
   lockedUntil: timestamp('locked_until'),
   mustChangePassword: boolean('must_change_password').default(false).notNull(),
+  /** @deprecated S2: never written (always NULL). Kept so older deploys can roll back; drop in Phase 8. */
   tempPassword: text('temp_password'),
   
   // Enterprise Feature: Delegation

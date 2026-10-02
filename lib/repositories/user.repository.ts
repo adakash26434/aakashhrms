@@ -61,7 +61,6 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
       mustChangePassword: users.mustChangePassword,
-      tempPassword: users.tempPassword,
       delegatedToUserId: users.delegatedToUserId,
       delegatedToUserName: delegatedUsers.name,
       delegatedToUserEmail: delegatedUsers.email,
@@ -101,7 +100,6 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
     isActive: r.isActive,
     lastLoginAt: r.lastLoginAt,
     mustChangePassword: r.mustChangePassword,
-    tempPassword: r.tempPassword,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     delegatedToUserId: r.delegatedToUserId ?? null,
@@ -136,7 +134,6 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
       mustChangePassword: users.mustChangePassword,
-      tempPassword: users.tempPassword,
       delegatedToUserId: users.delegatedToUserId,
       delegatedToUserName: delegatedUsers.name,
       delegatedToUserEmail: delegatedUsers.email,
@@ -179,7 +176,6 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
     isActive: r.isActive,
     lastLoginAt: r.lastLoginAt,
     mustChangePassword: r.mustChangePassword,
-    tempPassword: r.tempPassword,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     delegatedToUserId: r.delegatedToUserId ?? null,
@@ -310,27 +306,26 @@ export async function findAuditLogsByUserId(userId: string, limit: number = 50):
 }
 
 /**
- * Updates a user's password hash and optional temporary password / mustChangePassword flag.
+ * Updates a user's password hash and optional mustChangePassword flag.
+ * SECURITY (S2): plaintext temporary passwords are never persisted; the
+ * legacy temp_password column is always cleared.
  */
 export async function updateUserPassword(
   id: string,
   passwordHash: string,
-  tempPassword?: string | null,
   mustChangePassword?: boolean
 ) {
   const updateData: {
     passwordHash: string;
     updatedAt: Date;
-    tempPassword?: string | null;
+    tempPassword: null;
     mustChangePassword?: boolean;
   } = {
     passwordHash,
     updatedAt: new Date(),
+    tempPassword: null,
   };
 
-  if (tempPassword !== undefined) {
-    updateData.tempPassword = tempPassword;
-  }
   if (mustChangePassword !== undefined) {
     updateData.mustChangePassword = mustChangePassword;
   }

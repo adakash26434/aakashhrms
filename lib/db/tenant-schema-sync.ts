@@ -47,6 +47,14 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     }
   }
 
+  // SECURITY (S2): plaintext temporary passwords are no longer stored. Purge
+  // any values written by older versions. Idempotent and cheap once empty.
+  try {
+    await sql.unsafe(`UPDATE "users" SET "temp_password" = NULL WHERE "temp_password" IS NOT NULL`);
+  } catch {
+    // Ignored if "users" table does not exist yet
+  }
+
   // 3. Columns on other statutory & employee tables
   const otherColumnQueries = [
     `ALTER TABLE "leave_rules" ADD COLUMN IF NOT EXISTS "is_platform_locked" boolean DEFAULT false NOT NULL`,

@@ -10,8 +10,6 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
-  Eye,
-  EyeOff,
   IdCard,
   KeyRound,
   Loader2,
@@ -64,7 +62,6 @@ interface LinkedEmployeeAccess {
   roleSlug: string | null;
   roleScopeType: "GLOBAL" | "BRANCH" | "DEPARTMENT" | "SELF" | null;
   mustChangePassword?: boolean;
-  tempPassword?: string | null;
   lastLoginAt?: Date | null;
   updatedAt?: Date;
   createdAt?: Date;
@@ -80,7 +77,8 @@ export function EmployeeDetailPanel({
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [access, setAccess] = useState<LinkedEmployeeAccess | null>(null);
   const [loadingAccess, setLoadingAccess] = useState(false);
-  const [showTempPassword, setShowTempPassword] = useState(false);
+  // S2: a temporary password exists only in the response that issued it.
+  const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -97,7 +95,7 @@ export function EmployeeDetailPanel({
       }
       setLoadingAccess(true);
       setFeedback(null);
-      setShowTempPassword(false);
+      setIssuedPassword(null);
 
       const [empRes, accessRes] = await Promise.all([
         getEmployeeByIdAction(employeeId),
@@ -136,9 +134,10 @@ export function EmployeeDetailPanel({
     try {
       const res = await resendEmployeeCredentialsAction(employeeId);
       if (res.success) {
+        setIssuedPassword(res.tempPassword ?? null);
         setFeedback({
           type: "success",
-          text: `Credentials email successfully dispatched to ${res.email}.`,
+          text: `A new temporary password was issued and emailed to ${res.email}. The previous one no longer works.`,
         });
       } else {
         setFeedback({
@@ -448,58 +447,41 @@ export function EmployeeDetailPanel({
                     <Field
                       label="Temporary Login Password"
                       value={
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-block rounded border border-zinc-200 bg-zinc-100 px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-zinc-900">
-                              {showTempPassword
-                                ? access.tempPassword || "••••••••••••"
-                                : "••••••••••••"}
-                            </span>
-                            {access.tempPassword && (
-                              <>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 text-zinc-500 hover:text-zinc-900"
-                                  onClick={() =>
-                                    setShowTempPassword(!showTempPassword)
-                                  }
-                                  title={
-                                    showTempPassword
-                                      ? "Hide password"
-                                      : "Show password"
-                                  }
-                                >
-                                  {showTempPassword ? (
-                                    <EyeOff className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <Eye className="h-3.5 w-3.5" />
-                                  )}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 text-zinc-500 hover:text-zinc-900"
-                                  onClick={() =>
-                                    handleCopyPassword(access.tempPassword!)
-                                  }
-                                  title="Copy temporary password"
-                                >
-                                  {copiedPassword ? (
-                                    <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                  ) : (
-                                    <Copy className="h-3.5 w-3.5" />
-                                  )}
-                                </Button>
-                              </>
-                            )}
+                        issuedPassword ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-block rounded border border-zinc-200 bg-zinc-100 px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-zinc-900">
+                                {issuedPassword}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-zinc-500 hover:text-zinc-900"
+                                onClick={() => handleCopyPassword(issuedPassword)}
+                                title="Copy temporary password"
+                              >
+                                {copiedPassword ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
+                            </div>
+                            <p className="text-[10px] text-amber-700">
+                              Shown once. It is not stored and cannot be viewed again after you close this panel.
+                            </p>
                           </div>
-                          <p className="text-[10px] text-zinc-500">
-                            Dispatched to employee email. Automatically purged once the employee sets their permanent password.
-                          </p>
-                        </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="text-xs font-semibold text-amber-800">
+                              Pending first sign-in
+                            </div>
+                            <p className="text-[10px] text-zinc-500">
+                              The temporary password was emailed to the employee and is not stored. Issue a new one if it was lost.
+                            </p>
+                          </div>
+                        )
                       }
                     />
                   ) : (
@@ -569,7 +551,7 @@ export function EmployeeDetailPanel({
                 </FieldGrid>
 
                 {/* Actions & Navigation Footer */}
-                {access.mustChangePassword && access.tempPassword && (
+                {access.mustChangePassword && (
                   <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-zinc-100">
                     <Button
                       type="button"
@@ -584,7 +566,7 @@ export function EmployeeDetailPanel({
                       ) : (
                         <Mail className="h-3.5 w-3.5 mr-1.5 text-emerald-800" />
                       )}
-                      Resend Credentials Email
+                      Issue New Password &amp; Email
                     </Button>
                   </div>
                 )}

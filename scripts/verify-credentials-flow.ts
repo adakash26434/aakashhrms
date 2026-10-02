@@ -104,14 +104,14 @@ async function verifyCredentialsFlow() {
 
     console.log(`   Email: ${userRow.email}`);
     console.log(`   mustChangePassword: ${userRow.mustChangePassword}`);
-    console.log(`   tempPassword stored in DB: "${userRow.tempPassword}"`);
+    console.log(`   tempPassword column in DB: ${userRow.tempPassword} (must be null)`);
     console.log(`   passwordHash prefix: ${userRow.passwordHash.substring(0, 10)}...`);
 
     if (userRow.mustChangePassword !== true) {
       throw new Error("Expected mustChangePassword to be true on new account!");
     }
-    if (userRow.tempPassword !== tempPassword) {
-      throw new Error("Expected tempPassword in DB to match generated temporary password!");
+    if (userRow.tempPassword !== null) {
+      throw new Error("S2 violation: plaintext temporary password was persisted to the database!");
     }
     const isTempHashValid = await bcrypt.compare(tempPassword, userRow.passwordHash);
     if (!isTempHashValid) {
@@ -119,18 +119,17 @@ async function verifyCredentialsFlow() {
     }
     console.log("✅ Database row state pending first login verified 100% correct.");
 
-    // 4. Verify getEmployeeAccess returns the temporary password to HR
+    // 4. Verify getEmployeeAccess never exposes a temporary password to HR (S2)
     console.log("\n[Step 4] Checking HR view access via userService.getEmployeeAccess...");
     const hrAccess = await userService.getEmployeeAccess(createdEmpId);
     if (!hrAccess) {
       throw new Error("getEmployeeAccess returned null for linked employee!");
     }
     console.log(`   HR View - mustChangePassword: ${hrAccess.mustChangePassword}`);
-    console.log(`   HR View - tempPassword: "${hrAccess.tempPassword}"`);
-    if (hrAccess.tempPassword !== tempPassword) {
-      throw new Error("HR View does not show temporary password!");
+    if ("tempPassword" in hrAccess) {
+      throw new Error("S2 violation: HR view exposes a tempPassword field!");
     }
-    console.log("✅ HR Detail Panel will show the temporary password with show/copy buttons.");
+    console.log("✅ HR view shows pending-first-login status only; no password is retrievable.");
 
     // 5. Simulate First-Login Password Change
     console.log("\n[Step 5] Simulating employee first-login password change...");
@@ -171,9 +170,8 @@ async function verifyCredentialsFlow() {
     console.log("\n[Step 7] Checking HR view access after first login completion...");
     const hrAccessPostChange = await userService.getEmployeeAccess(createdEmpId);
     console.log(`   HR View - mustChangePassword: ${hrAccessPostChange?.mustChangePassword}`);
-    console.log(`   HR View - tempPassword: ${hrAccessPostChange?.tempPassword}`);
-    if (hrAccessPostChange?.tempPassword !== null) {
-      throw new Error("Expected HR View tempPassword to be null after password change!");
+    if (hrAccessPostChange && "tempPassword" in hrAccessPostChange) {
+      throw new Error("S2 violation: HR view exposes a tempPassword field!");
     }
     console.log("✅ HR Detail Panel cleanly displays 'Active & Password Secured' with permanent hash hidden!");
 
@@ -184,13 +182,13 @@ async function verifyCredentialsFlow() {
 
     const postResetUserRow = (await db.select().from(users).where(eq(users.id, createdUserId)).limit(1))[0];
     console.log(`   mustChangePassword: ${postResetUserRow.mustChangePassword}`);
-    console.log(`   tempPassword in DB: "${postResetUserRow.tempPassword}"`);
+    console.log(`   tempPassword column in DB: ${postResetUserRow.tempPassword} (must be null)`);
 
     if (postResetUserRow.mustChangePassword !== true) {
       throw new Error("Expected mustChangePassword to be true after reset!");
     }
-    if (postResetUserRow.tempPassword !== resetResult.tempPassword) {
-      throw new Error("Expected tempPassword in DB to match new reset temporary password!");
+    if (postResetUserRow.tempPassword !== null) {
+      throw new Error("S2 violation: reset persisted the plaintext temporary password!");
     }
     console.log("✅ Reset Password workflow verified: account transitions back to pending first login with new temp password.");
 

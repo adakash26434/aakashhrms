@@ -8,7 +8,6 @@ export interface UserWithRole {
   isActive: boolean;
   lastLoginAt: Date | null;
   mustChangePassword?: boolean;
-  tempPassword?: string | null;
   createdAt: Date;
   updatedAt: Date;
 

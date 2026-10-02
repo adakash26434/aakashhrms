@@ -109,8 +109,10 @@ export async function getEmployeeAccessAction(employeeId: string | null) {
 }
 
 /**
- * Resends the onboarding email containing the temporary password to the employee's login email.
- * Only applicable while the account is pending first login (tempPassword is still stored).
+ * Re-sends onboarding credentials while the account is pending first login.
+ * SECURITY (S2): temporary passwords are never stored, so a resend issues a
+ * fresh temporary password (the previous one stops working), emails it, and
+ * returns it once for HR to hand over.
  */
 export async function resendEmployeeCredentialsAction(employeeId: string) {
   await ensureTenantContext();
@@ -126,24 +128,27 @@ export async function resendEmployeeCredentialsAction(employeeId: string) {
       return { success: false, error: 'No self-service account is linked to this employee.' };
     }
 
-    if (!access.tempPassword) {
+    if (!access.mustChangePassword) {
       return {
         success: false,
-        error: 'Cannot resend temporary password: the user has already changed their password. Use "Reset Password" to issue a new temporary credential.',
+        error: 'The employee has already set a permanent password. Use "Reset Password" in Admin → Users to issue a new temporary credential.',
       };
     }
+
+    const resetResult = await userService.resetUserPassword(access.userId);
 
     const { sendEmployeeCredentialsEmail } = await import('@/lib/services/email.service');
     const emailResult = await sendEmployeeCredentialsEmail({
       to: access.email,
       employeeName: employee.fullName,
-      tempPassword: access.tempPassword,
+      tempPassword: resetResult.tempPassword,
       isReset: false,
     });
 
     return {
       success: true,
       email: access.email,
+      tempPassword: resetResult.tempPassword,
       deliveredVia: emailResult.deliveredVia,
     };
   } catch (error: unknown) {
