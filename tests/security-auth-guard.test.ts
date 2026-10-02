@@ -61,3 +61,15 @@ describe('Route guard (S1)', () => {
     assert.equal(await callAuthorized('/login'), true);
   });
 });
+
+describe('Session lifetime (S4)', () => {
+  it('expires sessions within 8 hours instead of the 30-day default', () => {
+    assert.ok(authConfig.session?.maxAge !== undefined);
+    assert.ok(authConfig.session.maxAge <= 8 * 60 * 60);
+  });
+
+  it('refreshes the JWT at least every 15 minutes while in use', () => {
+    assert.ok(authConfig.session?.updateAge !== undefined);
+    assert.ok(authConfig.session.updateAge <= 15 * 60);
+  });
+});

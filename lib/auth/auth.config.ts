@@ -1,7 +1,19 @@
 import type { NextAuthConfig } from 'next-auth';
 
+/**
+ * S4: payroll data warrants short sessions. A session expires after 8 hours,
+ * and the JWT is re-issued (sliding) at most every 15 minutes while in use.
+ */
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
+export const SESSION_UPDATE_AGE_SECONDS = 15 * 60;
+
 export const authConfig = {
   trustHost: true,
+  session: {
+    strategy: 'jwt',
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    updateAge: SESSION_UPDATE_AGE_SECONDS,
+  },
   pages: {
     signIn: '/login', // The login page we will build
   },

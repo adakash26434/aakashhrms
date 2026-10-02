@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server';
 // ---------------------------------------------------------------------------
 
 const PLATFORM_COOKIE_NAME = 'platform_session';
-const TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24; // 24 hours
+const TOKEN_MAX_AGE_SECONDS = 60 * 60 * 8; // 8 hours (S4: same ceiling as tenant sessions)
 
 interface PlatformSessionPayload extends JWTPayload {
   /** Platform user UUID */
