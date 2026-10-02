@@ -8,11 +8,11 @@ export function DashboardHeadcountCard({ headcount }: { headcount: { name: strin
   const shown = headcount.slice(0, 7);
   const rest = headcount.slice(7).reduce((n, d) => n + d.count, 0);
   return (
-    <Panel id="dashboard-headcount" title="Headcount" icon={<UsersRound />} meta={`${total.toLocaleString("en-IN")} active`} href="/workforce/organization" hrefLabel="Organisation">
+    <Panel level={3} id="dashboard-headcount" title="Headcount" icon={<UsersRound />} meta={`${total.toLocaleString("en-IN")} active`} href="/workforce/organization" hrefLabel="Organisation">
       {total === 0 ? (
-        <p className="p-3 text-xs text-ink-muted">No active employees yet.</p>
+        <p className="p-4 text-xs text-ink-muted">No active employees yet.</p>
       ) : (
-        <ul className="space-y-1.5 p-3">
+        <ul className="space-y-1.5 p-4">
           {shown.map((d) => (
             <li key={d.name} className="grid grid-cols-[minmax(0,8rem)_1fr_2.5rem] items-center gap-2 text-xs">
               <span className="truncate text-ink-muted">{d.name}</span>

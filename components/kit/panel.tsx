@@ -24,6 +24,7 @@ export function Panel({
   bodyClassName,
   children,
   id,
+  level = 2,
 }: {
   title: string;
   icon?: ReactNode;
@@ -41,15 +42,20 @@ export function Panel({
   bodyClassName?: string;
   children: ReactNode;
   id?: string;
+  /** Heading level of the title; 3 when the panel sits under a section heading. */
+  level?: 2 | 3;
 }) {
   const headingId = id ? `${id}-title` : undefined;
+  const Heading = level === 3 ? "h3" : "h2";
   return (
-    <section id={id} aria-labelledby={headingId} className={cn("flex min-w-0 flex-col rounded-lg border border-line bg-surface", className)}>
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
+    // Outline one step darker than the dividers inside (line-strong vs line), so
+    // boxes separate clearly from the canvas while rows inside stay quiet.
+    <section id={id} aria-labelledby={headingId} className={cn("flex min-w-0 flex-col rounded-lg border border-line-strong bg-surface shadow-sm", className)}>
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-4">
         {icon && <span className="text-ink-faint [&>svg]:h-4 [&>svg]:w-4">{icon}</span>}
-        <h2 id={headingId} className="truncate text-xs font-semibold text-ink">
+        <Heading id={headingId} className="truncate text-sm font-semibold text-ink">
           {title}
-        </h2>
+        </Heading>
         {count !== undefined && (
           <span
             className={cn(
@@ -74,8 +80,8 @@ export function Panel({
           )}
         </span>
       </header>
-      <div className={cn("min-h-0 flex-1", padded && "p-3", bodyClassName)}>{children}</div>
-      {footer && <footer className="border-t border-line px-3 py-2">{footer}</footer>}
+      <div className={cn("min-h-0 flex-1", padded && "p-4", bodyClassName)}>{children}</div>
+      {footer && <footer className="border-t border-line px-4 py-2">{footer}</footer>}
     </section>
   );
 }

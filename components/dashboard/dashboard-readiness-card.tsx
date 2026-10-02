@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export function DashboardReadinessCard({ checked, issues }: { checked: number; issues: ReadinessIssue[] }) {
   const affected = issues.reduce((n, i) => n + i.count, 0);
   return (
-    <Panel
+    <Panel level={3}
       id="dashboard-readiness"
       title="Records to fix"
       icon={<ClipboardCheck />}
@@ -20,13 +20,13 @@ export function DashboardReadinessCard({ checked, issues }: { checked: number; i
       hrefLabel="Employees"
     >
       {issues.length === 0 ? (
-        <p className="flex items-center gap-2 p-3 text-xs text-success">
+        <p className="flex items-center gap-2 p-4 text-xs text-success">
           <ShieldCheck className="h-4 w-4 shrink-0" /> Every active employee has a PAN, a bank account and a basic salary.
         </p>
       ) : (
         <ul className="divide-y divide-line">
           {issues.map((issue) => (
-            <li key={issue.id} className="px-3 py-2">
+            <li key={issue.id} className="px-4 py-2.5">
               <details className="group">
                 <summary className="flex cursor-pointer list-none items-center gap-2 text-xs [&::-webkit-details-marker]:hidden">
                   <span className={cn("inline-flex h-5 min-w-7 items-center justify-center rounded-full border px-1.5 text-2xs font-semibold tabular-nums", TONE_CLASSES.warning)}>

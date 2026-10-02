@@ -60,12 +60,12 @@ export function DashboardPayRunCard({ payRun, access }: { payRun: DashboardPayRu
   const { latest, next } = payRun;
   const action = latest ? nextAction(latest.status, access) : null;
   const canStart = !!next && access.payrollGenerate && !access.supportView;
-  const button = "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium";
+  const button = "inline-flex h-8 items-center gap-1.5 rounded-md px-4 text-xs font-medium";
 
   return (
-    <Panel id="dashboard-pay-run" title="Pay run" icon={<Landmark />} meta={latest?.label} href="/payroll" hrefLabel="Payroll">
+    <Panel level={3} id="dashboard-pay-run" title="Pay run" icon={<Landmark />} meta={latest?.label} href="/payroll" hrefLabel="Payroll">
       {!latest ? (
-        <div className="space-y-3 p-3">
+        <div className="space-y-3 p-4">
           <p className="text-xs text-ink-muted">No payroll has been run yet.</p>
           {canStart && (
             <Link href="/payroll/generate" className={cn(button, "bg-brand text-white hover:bg-brand-hover")}>
@@ -74,7 +74,7 @@ export function DashboardPayRunCard({ payRun, access }: { payRun: DashboardPayRu
           )}
         </div>
       ) : (
-        <div className="space-y-3 p-3">
+        <div className="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <StatusChip status={latest.status} />
             {latest.runCount > 1 && (

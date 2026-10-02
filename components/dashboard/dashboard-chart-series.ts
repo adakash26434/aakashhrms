@@ -10,6 +10,9 @@ export const COST_TREND_SERIES = [
   { key: "employerExtra", label: "Employer PF", color: CHART_COLORS.navy },
 ] as const;
 
+/** Legend entry for months whose payroll is not locked yet (drawn at 45% opacity). */
+export const NOT_LOCKED_LEGEND = { label: "Lighter: not locked yet", color: "#C9E3C0" } as const;
+
 export const BREAKDOWN_COLORS: Record<BreakdownSegment["id"], string> = {
   net: CHART_COLORS.primary,
   tds: CHART_COLORS.warning,

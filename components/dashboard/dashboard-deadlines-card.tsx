@@ -12,15 +12,15 @@ import { cn } from "@/lib/utils";
 /** Statutory deposit dates (TDS, SSF) with the amount from payroll when known. */
 export function DashboardDeadlinesCard({ deadlines }: { deadlines: DashboardDeadline[] }) {
   return (
-    <Panel id="dashboard-deadlines" title="Statutory deadlines" icon={<CalendarClock />} href="/reports/tax-ird" hrefLabel="Tax reports">
+    <Panel level={3} id="dashboard-deadlines" title="Statutory deadlines" icon={<CalendarClock />} href="/reports/tax-ird" hrefLabel="Tax reports">
       {deadlines.length === 0 ? (
-        <p className="p-3 text-xs text-ink-muted">Nothing statutory is due in the next month.</p>
+        <p className="p-4 text-xs text-ink-muted">Nothing statutory is due in the next month.</p>
       ) : (
         <ul className="divide-y divide-line">
           {deadlines.map((d) => {
             const tone = deadlineTone(d.daysLeft);
             return (
-              <li key={d.id} className="flex items-start gap-2.5 px-3 py-2" title={d.basis}>
+              <li key={d.id} className="flex items-start gap-2.5 px-4 py-2.5" title={d.basis}>
                 <span className="mt-0.5 flex h-7 w-10 shrink-0 items-center justify-center rounded border border-line bg-surface-sunken font-code text-2xs font-semibold text-ink">
                   {d.code}
                 </span>
@@ -45,7 +45,7 @@ export function DashboardDeadlinesCard({ deadlines }: { deadlines: DashboardDead
           })}
         </ul>
       )}
-      <p className="border-t border-line px-3 py-1.5 text-3xs text-ink-faint">Standard deposit dates. Confirm with your tax advisor.</p>
+      <p className="border-t border-line px-4 py-1.5 text-3xs text-ink-faint">Standard deposit dates. Confirm with your tax advisor.</p>
     </Panel>
   );
 }

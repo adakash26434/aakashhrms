@@ -16,8 +16,8 @@ export function DashboardLeaveOverview({
   const max = Math.max(...types.map((t) => t.days), 1);
   const total = types.reduce((n, t) => n + t.days, 0);
   return (
-    <Panel id="dashboard-leave" title="Leave" icon={<Plane />} meta={leaveByType?.fiscalYear} href="/timeAndLeave/leaves" hrefLabel="Leave">
-      <div className="space-y-3 p-3">
+    <Panel level={3} id="dashboard-leave" title="Leave" icon={<Plane />} meta={leaveByType?.fiscalYear} href="/timeAndLeave/leaves" hrefLabel="Leave">
+      <div className="space-y-3 p-4">
         {leaveByType && (
           <div>
             <p className="mb-1.5 flex items-baseline justify-between text-2xs font-semibold uppercase tracking-wide text-ink-faint">

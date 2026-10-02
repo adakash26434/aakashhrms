@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/kit/skeleton";
 
 function PanelSkeleton({ body }: { body: string }) {
   return (
-    <div className="rounded-lg border border-line bg-surface">
+    <div className="rounded-lg border border-line-strong bg-surface shadow-sm">
       <div className="flex h-10 items-center gap-2 border-b border-line px-3">
         <Skeleton className="h-3 w-3" />
         <Skeleton className="h-2.5 w-32" />
@@ -23,22 +23,22 @@ export default function DashboardLoading() {
         <Skeleton className="h-2.5 w-72" />
       </div>
       <Skeleton className="mb-4 h-8 w-80" />
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="space-y-2 rounded-lg border border-line bg-surface px-3.5 py-3">
+          <div key={i} className="space-y-2 rounded-lg border border-line-strong bg-surface shadow-sm px-3.5 py-3">
             <Skeleton className="h-2 w-20" />
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-8 w-full" />
           </div>
         ))}
       </div>
-      <div className="mb-4 grid gap-4 xl:grid-cols-3">
+      <div className="mb-5 grid gap-5 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <PanelSkeleton body="h-64" />
+          <PanelSkeleton body="h-72" />
         </div>
-        <PanelSkeleton body="h-64" />
+        <PanelSkeleton body="h-72" />
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-2">
         <PanelSkeleton body="h-48" />
         <PanelSkeleton body="h-48" />
       </div>

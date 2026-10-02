@@ -14,7 +14,7 @@ import { formatAmount } from "@/lib/kit/amount";
 import { formatBSDateWithDay } from "@/lib/utils/bs-calendar";
 import { toLocalDate } from "@/lib/utils/nepal-time";
 import type { DashboardData } from "@/lib/types/dashboard";
-import { ATTENDANCE_SERIES, BREAKDOWN_COLORS, COST_TREND_SERIES } from "./dashboard-chart-series";
+import { ATTENDANCE_SERIES, BREAKDOWN_COLORS, COST_TREND_SERIES, NOT_LOCKED_LEGEND } from "./dashboard-chart-series";
 import { DashboardFilters } from "./dashboard-filters";
 import { DashboardKpiCards } from "./dashboard-kpi-cards";
 import { DashboardPayRunCard } from "./dashboard-pay-run-card";
@@ -33,7 +33,7 @@ const chartLoading = (height: string) =>
   };
 const DashboardCostTrendChart = dynamic(() => import("./dashboard-cost-trend-chart").then((m) => m.DashboardCostTrendChart), {
   ssr: false,
-  loading: chartLoading("h-64"),
+  loading: chartLoading("h-72"),
 });
 const DashboardCostBreakdownChart = dynamic(() => import("./dashboard-cost-breakdown-chart").then((m) => m.DashboardCostBreakdownChart), {
   ssr: false,
@@ -68,9 +68,23 @@ function Legend({ items }: { items: readonly { label: string; color: string }[] 
 
 function FailedPanel({ id, title, onRetry }: { id: string; title: string; onRetry: () => void }) {
   return (
-    <Panel id={id} title={title} icon={<TriangleAlert />}>
+    <Panel level={3} id={id} title={title} icon={<TriangleAlert />}>
       <ErrorState message="This section could not be loaded. Nothing has changed in your data." onRetry={onRetry} />
     </Panel>
+  );
+}
+
+/** A labelled group of cards: gives the page a clear rhythm instead of one long grid. */
+function DashboardSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={title} className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{title}</h2>
+        {description && <p className="hidden text-2xs text-ink-faint sm:block">{description}</p>}
+        <span aria-hidden className="h-px flex-1 bg-line-strong" />
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -87,23 +101,21 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const todayCounts = data.attendance?.days[data.attendance.days.length - 1];
   const showFilters = access.payroll || filters.branches.length > 1;
 
-  const actionCards = [
-    data.payRun && <DashboardPayRunCard key="payrun" payRun={data.payRun} access={access} />,
+  const payRunCard = data.payRun && <DashboardPayRunCard payRun={data.payRun} access={access} />;
+  const attentionCards = [
     data.deadlines && <DashboardDeadlinesCard key="deadlines" deadlines={data.deadlines} />,
     data.approvals && <DashboardApprovalsCard key="approvals" total={data.approvals.total} items={data.approvals.items} scopeLabel={access.scopeLabel} />,
     failed("approvals") && !data.approvals && <FailedPanel key="approvals-failed" id="dashboard-approvals" title="Pending approvals" onRetry={refresh} />,
     data.readiness && <DashboardReadinessCard key="readiness" checked={data.readiness.checked} issues={data.readiness.issues} />,
   ].filter(Boolean);
 
-  const workforceCards = [
-    (data.leaveByType || data.onLeaveToday) && <DashboardLeaveOverview key="leave" leaveByType={data.leaveByType} onLeaveToday={data.onLeaveToday} />,
-    data.headcount && <DashboardHeadcountCard key="headcount" headcount={data.headcount} />,
-    data.activity && <DashboardActivityCard key="activity" activity={data.activity} todayIso={data.todayIso} />,
-    failed("activity") && !data.activity && <FailedPanel key="activity-failed" id="dashboard-activity" title="Recent activity" onRetry={refresh} />,
-  ].filter(Boolean);
-
   const payrollFailed = access.payroll && !data.kpis && failed("payroll");
-  const nothing = !data.kpis && !payrollFailed && !data.attendance && actionCards.length === 0 && workforceCards.length === 0;
+  const hasPayroll = !!(data.costTrend || data.departmentCost || payRunCard || payrollFailed);
+  const hasLeave = !!(data.leaveByType || data.onLeaveToday);
+  const attendanceFailed = failed("attendance") && !data.attendance;
+  const activityFailed = failed("activity") && !data.activity;
+  const hasPeople = !!(data.attendance || attendanceFailed || hasLeave || data.headcount || data.activity || activityFailed);
+  const nothing = !data.kpis && !hasPayroll && attentionCards.length === 0 && !hasPeople;
 
   return (
     <PageFrame size="wide" spacing="none">
@@ -125,13 +137,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       />
 
       {access.supportView && (
-        <p className="mb-3 flex items-center gap-2 rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-xs text-warning">
+        <p className="mb-3 flex items-center gap-2 rounded-md border border-warning/30 bg-warning-subtle px-4 py-2 text-xs text-warning">
           <Eye className="h-3.5 w-3.5" /> Support view: read-only.
         </p>
       )}
 
       {data.failed.length > 0 && (
-        <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">
+        <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-danger/30 bg-danger-subtle px-4 py-2 text-xs text-danger">
           <TriangleAlert className="h-3.5 w-3.5" />
           <span className="flex-1">Some sections could not load ({data.failed.join(", ")}). Everything else on this page is complete.</span>
           <button type="button" onClick={refresh} className="h-7 rounded-md border border-danger/30 bg-surface px-2.5 font-medium hover:bg-danger-subtle cursor-pointer">
@@ -148,84 +160,126 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             title="Nothing to show here"
             description="Your role has no dashboard figures. Your payslips, leave and profile are in self-service."
             action={
-              <Link href="/self-service" className="inline-flex h-8 items-center rounded-md bg-brand px-3 text-xs font-medium text-white hover:bg-brand-hover">
+              <Link href="/self-service" className="inline-flex h-8 items-center rounded-md bg-brand px-4 text-xs font-medium text-white hover:bg-brand-hover">
                 Open self-service
               </Link>
             }
           />
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-8">
           {data.kpis && <DashboardKpiCards kpis={data.kpis} compareLabel={filters.period.compareLabel} />}
-          {payrollFailed && <FailedPanel id="dashboard-payroll" title="Payroll figures" onRetry={refresh} />}
 
-          {data.costTrend && data.costBreakdown && (
-            <div className="grid items-stretch gap-4 xl:grid-cols-3">
-              <Panel
-                id="dashboard-cost-trend"
-                title="Payroll cost by month"
-                icon={<BarChart3 />}
-                meta="Last 12 months · lighter bars are not locked yet"
-                href="/reports/salary-sheet"
-                hrefLabel="Salary sheet"
-                className="xl:col-span-2"
-              >
-                {trendHasData ? (
-                  <div className="space-y-2 px-3 pb-3 pt-2">
-                    <Legend items={COST_TREND_SERIES} />
-                    <DashboardCostTrendChart points={data.costTrend} />
-                  </div>
-                ) : (
-                  <EmptyState title="No payroll yet" description="The monthly cost appears here after the first payroll run." />
-                )}
-              </Panel>
-              <Panel id="dashboard-cost-breakdown" title="Where the money went" icon={<PieChart />} meta={filters.period.label}>
-                {data.costBreakdown.total > 0 ? (
-                  <div className="p-3">
-                    <DashboardCostBreakdownChart total={data.costBreakdown.total} segments={data.costBreakdown.segments} />
-                    <ul className="mt-3 space-y-1">
-                      {data.costBreakdown.segments.map((s) => (
-                        <li key={s.id} className="flex items-center gap-2 text-xs">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: BREAKDOWN_COLORS[s.id] }} />
-                          <span className="flex-1 truncate text-ink-muted">{s.label}</span>
-                          <span className="tabular-nums text-ink" title={formatAmount(s.amount, { prefix: "NPR" })}>
-                            {formatAmount(s.amount, { compact: true })}
-                          </span>
-                          <span className="w-10 text-right text-2xs tabular-nums text-ink-faint">{Math.round((s.amount / data.costBreakdown!.total) * 1000) / 10}%</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <EmptyState title="No payroll in this period" description="Choose another period, or run payroll for this month." />
-                )}
-              </Panel>
-            </div>
-          )}
-
-          {(data.departmentCost || data.attendance || failed("attendance")) && (
-            <div className="grid items-start gap-4 xl:grid-cols-2">
-              {data.departmentCost && <DashboardDepartmentCostCard departments={data.departmentCost} periodLabel={filters.period.label} />}
-              {data.attendance && (
-                <Panel id="dashboard-attendance" title="Attendance this month" icon={<Clock3 />} meta={data.attendance.monthLabel} href="/timeAndLeave/attendance" hrefLabel="Attendance">
-                  <div className="space-y-2 px-3 pb-3 pt-2">
-                    {todayCounts && (
-                      <p className="text-xs text-ink-muted">
-                        Today: <span className="font-medium text-ink">{todayCounts.present}</span> present · {todayCounts.leave} on leave · {todayCounts.absent} absent
-                        {todayCounts.notRecorded > 0 && <span className="text-warning"> · {todayCounts.notRecorded} not recorded</span>}
-                      </p>
+          {hasPayroll && (
+            <DashboardSection title="Payroll" description={filters.period.label}>
+              {payrollFailed && <FailedPanel id="dashboard-payroll" title="Payroll figures" onRetry={refresh} />}
+              {data.costTrend && data.costBreakdown && (
+                <div className="grid items-stretch gap-5 xl:grid-cols-3">
+                  <Panel
+                    level={3}
+                    id="dashboard-cost-trend"
+                    title="Payroll cost by month"
+                    icon={<BarChart3 />}
+                    meta="Last 12 months"
+                    href="/reports/salary-sheet"
+                    hrefLabel="Salary sheet"
+                    className="xl:col-span-2"
+                  >
+                    {trendHasData ? (
+                      <div className="space-y-3 px-4 pb-4 pt-3">
+                        <Legend items={[...COST_TREND_SERIES, NOT_LOCKED_LEGEND]} />
+                        <DashboardCostTrendChart points={data.costTrend} />
+                      </div>
+                    ) : (
+                      <EmptyState title="No payroll yet" description="The monthly cost appears here after the first payroll run." />
                     )}
-                    <Legend items={ATTENDANCE_SERIES} />
-                    <DashboardAttendanceChart days={data.attendance.days} />
-                  </div>
-                </Panel>
+                  </Panel>
+                  <Panel level={3} id="dashboard-cost-breakdown" title="Where the money went" icon={<PieChart />} meta={filters.period.label}>
+                    {data.costBreakdown.total > 0 ? (
+                      <div className="p-4">
+                        <DashboardCostBreakdownChart total={data.costBreakdown.total} segments={data.costBreakdown.segments} />
+                        <ul className="mt-4 space-y-1.5">
+                          {data.costBreakdown.segments.map((s) => (
+                            <li key={s.id} className="flex items-center gap-2 text-xs">
+                              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: BREAKDOWN_COLORS[s.id] }} />
+                              <span className="flex-1 truncate text-ink-muted">{s.label}</span>
+                              <span className="tabular-nums text-ink" title={formatAmount(s.amount, { prefix: "NPR" })}>
+                                {formatAmount(s.amount, { compact: true })}
+                              </span>
+                              <span className="w-10 text-right text-2xs tabular-nums text-ink-faint">{Math.round((s.amount / data.costBreakdown!.total) * 1000) / 10}%</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <EmptyState title="No payroll in this period" description="Choose another period, or run payroll for this month." />
+                    )}
+                  </Panel>
+                </div>
               )}
-              {failed("attendance") && !data.attendance && <FailedPanel id="dashboard-attendance" title="Attendance this month" onRetry={refresh} />}
-            </div>
+              {(data.departmentCost || payRunCard) && (
+                <div className="grid items-start gap-5 xl:grid-cols-3">
+                  {data.departmentCost && (
+                    <div className="xl:col-span-2">
+                      <DashboardDepartmentCostCard departments={data.departmentCost} periodLabel={filters.period.label} />
+                    </div>
+                  )}
+                  {payRunCard}
+                </div>
+              )}
+            </DashboardSection>
           )}
 
-          {actionCards.length > 0 && <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">{actionCards}</div>}
-          {workforceCards.length > 0 && <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">{workforceCards}</div>}
+          {attentionCards.length > 0 && (
+            <DashboardSection title="Needs attention" description="Deposits, approvals and records to fix">
+              <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">{attentionCards}</div>
+            </DashboardSection>
+          )}
+
+          {hasPeople && (
+            <DashboardSection title="People" description={data.attendance?.monthLabel}>
+              {(data.attendance || attendanceFailed || hasLeave) && (
+                <div className="grid items-start gap-5 xl:grid-cols-3">
+                  {data.attendance && (
+                    <Panel
+                      level={3}
+                      id="dashboard-attendance"
+                      title="Attendance this month"
+                      icon={<Clock3 />}
+                      meta={data.attendance.monthLabel}
+                      href="/timeAndLeave/attendance"
+                      hrefLabel="Attendance"
+                      className={hasLeave ? "xl:col-span-2" : "xl:col-span-3"}
+                    >
+                      <div className="space-y-3 px-4 pb-4 pt-3">
+                        {todayCounts && (
+                          <p className="text-xs text-ink-muted">
+                            Today: <span className="font-medium text-ink">{todayCounts.present}</span> present · {todayCounts.leave} on leave · {todayCounts.absent} absent
+                            {todayCounts.notRecorded > 0 && <span className="text-warning"> · {todayCounts.notRecorded} not recorded</span>}
+                          </p>
+                        )}
+                        <Legend items={ATTENDANCE_SERIES} />
+                        <DashboardAttendanceChart days={data.attendance.days} />
+                      </div>
+                    </Panel>
+                  )}
+                  {attendanceFailed && (
+                    <div className={hasLeave ? "xl:col-span-2" : "xl:col-span-3"}>
+                      <FailedPanel id="dashboard-attendance" title="Attendance this month" onRetry={refresh} />
+                    </div>
+                  )}
+                  {hasLeave && <DashboardLeaveOverview leaveByType={data.leaveByType} onLeaveToday={data.onLeaveToday} />}
+                </div>
+              )}
+              {(data.headcount || data.activity || activityFailed) && (
+                <div className="grid items-start gap-5 lg:grid-cols-2">
+                  {data.headcount && <DashboardHeadcountCard headcount={data.headcount} />}
+                  {data.activity && <DashboardActivityCard activity={data.activity} todayIso={data.todayIso} />}
+                  {activityFailed && <FailedPanel id="dashboard-activity" title="Recent activity" onRetry={refresh} />}
+                </div>
+              )}
+            </DashboardSection>
+          )}
         </div>
       )}
     </PageFrame>

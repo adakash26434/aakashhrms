@@ -13,6 +13,22 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — 4.1 dashboard polish: separation and breathing room (sign-off pending)
+Branch: `redesign/4.1-home`
+
+Changed (your review: borders too faint, layout felt congested):
+- **Stronger box edges:** the card outline is one step darker (`line-strong`, was the same tone as the row dividers) with a soft `shadow-sm`; dividers inside cards stay light, so edges read clearly without heavy lines. Applied in kit `Panel` (shared) and the KPI cards.
+- **Sections:** the page is grouped under labelled headings with a rule: **Payroll** (cost trend + breakdown, cost by department + pay run), **Needs attention** (deadlines, approvals, records to fix), **People** (attendance + leave, headcount + activity). Card titles became level-3 headings under them.
+- **Space:**
+  - 32px between sections, 20px between cards, 16px inside cards
+  - roomier card headers (44px, 13px titles) and list rows
+  - the cramped four-across action row is now three cards
+- **KPI cards:** icon in a tinted tile, more padding, the hint separated by a hairline, hover lifts the card.
+- **Trend chart:** taller to fill its row; the "not locked" note moved from the title into the legend.
+- The loading skeleton matches the new outline and spacing.
+
+Verified: `tsc` 0, no lint errors in the touched files, 353/353 tests, build OK; browser at 1440 / 1024 / 390px (preview and signed-in), no overflow, 0 console errors or warnings.
+
 ## 2026-10-02 — 4.1 revised: analytics dashboard + file structure (sign-off pending)
 Branch: `redesign/4.1-home` (on top of `2bf5363`; not merged or pushed)
 

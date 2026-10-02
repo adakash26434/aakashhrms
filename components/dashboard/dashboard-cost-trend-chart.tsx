@@ -21,7 +21,7 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Tooltip
   const point = payload?.[0]?.payload;
   if (!active || !point) return null;
   return (
-    <div style={CHART_TOOLTIP_STYLE} className="px-3 py-2">
+    <div style={CHART_TOOLTIP_STYLE} className="px-4 py-2">
       <p className="mb-1 text-xs font-semibold text-ink">
         {point.label} {!point.locked && point.hasData && <span className="font-normal text-warning">(not locked)</span>}
       </p>
@@ -61,7 +61,7 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Tooltip
  */
 export function DashboardCostTrendChart({ points }: { points: CostTrendPoint[] }) {
   return (
-    <div className="h-64 w-full min-w-0">
+    <div className="h-72 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 480, height: 220 }}>
         <BarChart data={points} margin={{ top: 16, right: 8, left: 0, bottom: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />

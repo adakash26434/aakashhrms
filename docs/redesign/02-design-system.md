@@ -236,6 +236,12 @@ sparkline, insight within ~10 seconds, thresholds, role-based views).
 | Actions | Pay run (step rail, next action), statutory deadlines, pending approvals (5 oldest, decided on the Approvals page), records to fix | Compact cards |
 | Workforce | Leave taken this FY by type + on leave today, headcount by department, recent activity | Activity needs AUDIT_LOG |
 
+Spacing and separation: cards (`Panel`, KPI cards) have a `line-strong`
+outline and `shadow-sm`; lines inside a card stay `line`, so the box edge is
+always darker than its rows. The page is grouped into labelled sections
+(Payroll · Needs attention · People) 32px apart, with 20px between cards and
+16px card padding.
+
 Chart colours: `CHART_COLORS` / `CHART_THEME` in `lib/constants/colors.ts`;
 series and legends in `components/dashboard/dashboard-chart-series.ts`.
 Figures come from payslips (as the salary sheet does), not from stored run

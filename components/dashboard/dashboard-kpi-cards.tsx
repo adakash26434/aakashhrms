@@ -73,7 +73,7 @@ function Change({ kpi, compareLabel }: { kpi: DashboardKpi; compareLabel: string
  */
 export function DashboardKpiCards({ kpis, compareLabel }: { kpis: DashboardKpi[]; compareLabel: string }) {
   return (
-    <ul aria-label="Key figures" className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <ul aria-label="Key figures" className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
       {kpis.map((kpi) => {
         const Icon = ICONS[kpi.id];
         const value = display(kpi);
@@ -81,22 +81,24 @@ export function DashboardKpiCards({ kpis, compareLabel }: { kpis: DashboardKpi[]
           <li key={kpi.id} className="min-w-0 last:col-span-2 md:last:col-span-1">
             <Link
               href={kpi.href}
-              className="group flex h-full min-w-0 flex-col rounded-lg border border-line bg-surface px-3.5 pb-2.5 pt-3 transition-colors hover:border-line-strong"
+              className="group flex h-full min-w-0 flex-col rounded-lg border border-line-strong bg-surface px-4 pb-3.5 pt-4 shadow-sm transition-[border-color,box-shadow] hover:border-brand/40 hover:shadow-md"
             >
-              <span className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-ink-faint">
-                <Icon aria-hidden className="h-3.5 w-3.5" />
+              <span className="flex items-center gap-2 text-xs font-medium text-ink-muted">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand-strong">
+                  <Icon aria-hidden className="h-4 w-4" />
+                </span>
                 <span className="truncate">{kpi.label}</span>
               </span>
-              <span className="mt-1 truncate text-2xl font-semibold leading-tight tabular-nums text-ink" title={value.full}>
+              <span className="mt-3 truncate text-2xl font-semibold leading-tight tabular-nums text-ink" title={value.full}>
                 {value.text}
               </span>
               <span className="mt-0.5 min-h-4 truncate">
                 <Change kpi={kpi} compareLabel={compareLabel} />
               </span>
-              <span className="mt-1.5">
+              <span className="mt-3">
                 <Sparkline values={kpi.sparkline} warning={kpi.tone === "warning"} />
               </span>
-              <span className="mt-1 truncate text-2xs text-ink-muted group-hover:text-ink">{kpi.hint}</span>
+              <span className="mt-2 truncate border-t border-line pt-2 text-2xs text-ink-muted group-hover:text-ink">{kpi.hint}</span>
             </Link>
           </li>
         );
