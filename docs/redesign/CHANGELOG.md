@@ -13,6 +13,17 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — Phase 2 signed off
+Branch: `redesign/2-app-frame`
+
+You unlocked the locked session with your password in the browser. Afterwards:
+- `/dashboard` and `/payroll/review` load normally.
+- `/locked` redirects back to `/dashboard`.
+
+That closes the last unverified item in the lock flow.
+
+Carried over to the 4.1 sign-off: the restricted-role (BRANCH/DEPARTMENT) pass and the super-admin (impersonation) view of the frame.
+
 ## 2026-10-02 — 2.8 idle lock: 15 → 30 minutes
 Branch: `redesign/2-app-frame`
 

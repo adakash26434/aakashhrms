@@ -108,7 +108,7 @@ Goal: the app looks and behaves like installed software.
   - 1024–1279px: the navigator floats on demand.
   - <1024px: rail and navigator move into a drawer.
   - The status bar condenses, and pages have no horizontal overflow.
-- [x] 2.10 `AppFrame` replaces `DashboardShell`, `Sidebar` and `TopHeader` (deleted). The impersonation banner is a slim strip inside the frame. **Sign-off pending.**
+- [x] 2.10 `AppFrame` replaces `DashboardShell`, `Sidebar` and `TopHeader` (deleted). The impersonation banner is a slim strip inside the frame. **Signed off by you on 2026-10-02**, after the real-password unlock worked. The restricted-role and super-admin-view passes carry over to the 4.1 sign-off.
 
 ## Phase 3 — Component kit v2
 Goal: building blocks so modules don't re-invent tables and forms.
@@ -199,4 +199,4 @@ See `CHANGELOG.md`.
 - **Phase 0** is complete on `redesign/0-security`.
 - **Phase 1** is complete and signed off on `redesign/1-foundation`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
-- **Waiting at the Phase 2 sign-off**, which includes the restricted-role pass.
+- **Phase 2 is signed off.** Next is Phase 3 (component kit v2), waiting for your go-ahead and any additions.
