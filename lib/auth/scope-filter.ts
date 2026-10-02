@@ -166,15 +166,13 @@ function buildSubqueryScope(
   scope: ScopeFilter,
   employeeIdColumn: any
 ): SQL | undefined {
+  // S7: fully parameterised (no sql.raw string concatenation of ids)
   if (scope.scopeType === 'BRANCH' && scope.branchIds.length > 0) {
-    // Build placeholders for the IN clause
-    const placeholders = scope.branchIds.map(id => `'${id}'`).join(',');
-    return sql`${employeeIdColumn} IN (SELECT id FROM employees WHERE branch_id IN (${sql.raw(placeholders)}))`;
+    return sql`${employeeIdColumn} IN (SELECT ${employees.id} FROM ${employees} WHERE ${inArray(employees.branchId, scope.branchIds)})`;
   }
 
   if (scope.scopeType === 'DEPARTMENT' && scope.departmentIds.length > 0) {
-    const placeholders = scope.departmentIds.map(id => `'${id}'`).join(',');
-    return sql`${employeeIdColumn} IN (SELECT id FROM employees WHERE department_id IN (${sql.raw(placeholders)}))`;
+    return sql`${employeeIdColumn} IN (SELECT ${employees.id} FROM ${employees} WHERE ${inArray(employees.departmentId, scope.departmentIds)})`;
   }
 
   return sql`false`;
