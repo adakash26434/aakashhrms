@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { API_CONTENT_SECURITY_POLICY } from "./lib/security/csp";
 
 // Normalize NODE_ENV to strip trailing whitespace or CRLF from cloud/cPanel env files
 const envObj = process.env as Record<string, string | undefined>;
@@ -42,8 +43,20 @@ const nextConfig: NextConfig = {
       "tailwind-merge",
     ],
   },
-  // Security headers for production hardening.
+  poweredByHeader: false,
+  // Security headers for production hardening. The page Content-Security-Policy
+  // carries a per-request nonce, so proxy.ts sets it (lib/security/csp.ts);
+  // only API responses get a static policy here. Never set a second CSP for
+  // pages in this file: browsers enforce both and the nonce would be lost.
   async headers() {
+    const isProduction = process.env.NODE_ENV === "production";
+    const hsts =
+      process.env.FORCE_SSL === "true"
+        ? "max-age=31536000; includeSubDomains; preload"
+        : isProduction
+          ? "max-age=31536000"
+          : null;
+
     return [
       {
         source: "/(.*)",
@@ -51,11 +64,20 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-XSS-Protection", value: "1; mode=block" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-          ...(process.env.FORCE_SSL === "true"
-            ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" }]
-            : [{ key: "Strict-Transport-Security", value: "max-age=0" }]),
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
+          },
+          ...(hsts ? [{ key: "Strict-Transport-Security", value: hsts }] : []),
+        ],
+      },
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: API_CONTENT_SECURITY_POLICY },
+          { key: "Cache-Control", value: "no-store" },
         ],
       },
     ];
