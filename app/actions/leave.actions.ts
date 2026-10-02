@@ -17,7 +17,7 @@ import {
   isLeaveStatus,
   isOwnRequest,
   REJECTION_REASON_MIN,
-} from '@/lib/leave/decision';
+} from '@/lib/engines/leave.engine';
 
 export async function saveLeaveApplicationAction(id: string | null, formData: LeaveApplicationFormData) {
   await ensureTenantContext();

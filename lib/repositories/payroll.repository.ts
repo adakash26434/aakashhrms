@@ -1,6 +1,8 @@
 import { getDb } from '@/lib/db';
 import { payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
   PayrollRun, 
   PayrollSlip, 
@@ -362,5 +364,75 @@ export async function addSlipHead(
     isManualOverride: head.isManualOverride ?? true,
     overrideReason: head.overrideReason || null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard aggregates (4.1). Read-only SQL SUMs over payslips, grouped in
+// the database; `employeeCondition` carries the caller's branch / department
+// scope and branch filter (built with buildEmployeeIdScopeCondition).
+// ---------------------------------------------------------------------------
+
+const periodKeySql = sql<number>`(${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth})`;
+const money = (column: AnyPgColumn) => sql<string>`coalesce(sum(${column}), 0)`;
+
+/** One row per BS pay month between the two period keys (yyyymm), inclusive. */
+export async function sumSlipsByPeriod(args: { fromKey: number; toKey: number; employeeCondition?: SQL }): Promise<PeriodCostRow[]> {
+  const where = and(sql`${periodKeySql} between ${args.fromKey} and ${args.toKey}`, args.employeeCondition);
+  const rows = await (await getDb())
+    .select({
+      year: payrollRuns.payPeriodYear,
+      month: payrollRuns.payPeriodMonth,
+      gross: money(payrollSlips.grossEarnings),
+      net: money(payrollSlips.netPayable),
+      totalDeductions: money(payrollSlips.totalDeductions),
+      tds: money(payrollSlips.tdsThisMonth),
+      pfEmployee: money(payrollSlips.pfEmployee),
+      pfEmployer: money(payrollSlips.pfEmployer),
+      ssfEmployee: money(payrollSlips.ssfEmployee),
+      ssfEmployer: money(payrollSlips.ssfEmployer),
+      cit: money(payrollSlips.citDeduction),
+      loan: money(payrollSlips.loanDeduction),
+      ot: money(payrollSlips.otAmount),
+      employees: sql<number>`count(distinct ${payrollSlips.employeeId})::int`,
+      unlockedRuns: sql<number>`count(distinct case when ${payrollRuns.status} <> 'LOCKED' then ${payrollRuns.id} end)::int`,
+    })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(where)
+    .groupBy(payrollRuns.payPeriodYear, payrollRuns.payPeriodMonth);
+
+  return rows.map((r) => ({
+    year: Number(r.year),
+    month: Number(r.month),
+    gross: Number(r.gross),
+    net: Number(r.net),
+    totalDeductions: Number(r.totalDeductions),
+    tds: Number(r.tds),
+    pfEmployee: Number(r.pfEmployee),
+    pfEmployer: Number(r.pfEmployer),
+    ssfEmployee: Number(r.ssfEmployee),
+    ssfEmployer: Number(r.ssfEmployer),
+    cit: Number(r.cit),
+    loan: Number(r.loan),
+    ot: Number(r.ot),
+    employees: Number(r.employees),
+    locked: Number(r.unlockedRuns) === 0,
+  }));
+}
+
+/** Employer cost (gross + employer PF) and paid employees per department over the period keys. */
+export async function sumSlipsByDepartment(args: { fromKey: number; toKey: number; employeeCondition?: SQL }): Promise<DepartmentCost[]> {
+  const where = and(sql`${periodKeySql} between ${args.fromKey} and ${args.toKey}`, args.employeeCondition);
+  const rows = await (await getDb())
+    .select({
+      name: payrollSlips.departmentName,
+      cost: sql<string>`coalesce(sum(${payrollSlips.grossEarnings}), 0) + coalesce(sum(${payrollSlips.pfEmployer}), 0)`,
+      employees: sql<number>`count(distinct ${payrollSlips.employeeId})::int`,
+    })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(where)
+    .groupBy(payrollSlips.departmentName);
+  return rows.map((r) => ({ name: r.name || "Unassigned", cost: Number(r.cost), employees: Number(r.employees) }));
 }
 

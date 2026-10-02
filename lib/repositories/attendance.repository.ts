@@ -8,7 +8,7 @@ import {
   departments,
   branches,
 } from "@/lib/db/schema";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, type SQL } from "drizzle-orm";
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -582,4 +582,21 @@ export async function bulkSaveRecords(
 ): Promise<{ successCount: number; errorCount: number }> {
   await saveBulkAttendance(items, attendanceDate, fiscalYearId);
   return { successCount: items.length, errorCount: 0 };
-}
+}
+
+/**
+ * Dashboard (4.1): one row per attendance mark between two dates (inclusive),
+ * restricted by `employeeCondition` (scope + branch filter).
+ */
+export async function findAttendanceMarksInRange(
+  fromDate: string,
+  toDate: string,
+  employeeCondition?: SQL
+): Promise<{ employeeId: string; date: string; status: string }[]> {
+  const rows = await (await getDb())
+    .select({ employeeId: attendanceRecords.employeeId, date: attendanceRecords.attendanceDate, status: attendanceRecords.status })
+    .from(attendanceRecords)
+    .where(and(gte(attendanceRecords.attendanceDate, fromDate), lte(attendanceRecords.attendanceDate, toDate), employeeCondition));
+  return rows.map((r) => ({ employeeId: r.employeeId, date: String(r.date), status: r.status }));
+}
+

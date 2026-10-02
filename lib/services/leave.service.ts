@@ -15,7 +15,6 @@ import { findAll, findById as findEmployeeById } from "@/lib/repositories/employ
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
-import { employeeInScope } from "@/lib/leave/decision";
 
 export class LeaveValidationError extends Error {
   constructor(public errors: LeaveApplicationValidationErrors) {
@@ -84,7 +83,7 @@ export async function getLeaveApplications(filter: LeaveFilter, scope?: ScopeFil
   const applications = scope
     ? allApplications.filter((app) => {
         const emp = employeeById.get(app.employeeId);
-        return !!emp && employeeInScope(scope, emp);
+        return !!emp && engine.employeeInScope(scope, emp);
       })
     : allApplications;
   const kpis = engine.calculateLeaveKPIs(applications);

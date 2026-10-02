@@ -65,10 +65,10 @@ export const NAV_MODULES: readonly NavModule[] = [
     sections: [
       {
         id: "dashboard",
-        label: "Home",
+        label: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
-        description: "Approvals, payroll progress, deadlines and records to fix",
+        description: "Payroll cost, statutory dues, attendance and pending work",
         keywords: ["home", "dashboard", "overview", "work queue", "approvals", "deadlines"],
       },
     ],

@@ -366,3 +366,24 @@ export async function transitionLeaveApplication(args: {
     return mapApp(app);
   });
 }
+
+/**
+ * Dashboard (4.1): approved leave days per leave type in the active fiscal
+ * year, within `employeeCondition` (scope + branch filter).
+ */
+export async function sumApprovedLeaveDaysByType(employeeCondition?: SQL): Promise<{ fiscalYear: string; types: { name: string; days: number }[] } | null> {
+  const db = await getDb();
+  const [fy] = await db.select({ id: fiscalYears.id, label: fiscalYears.label }).from(fiscalYears).where(eq(fiscalYears.status, "Active")).limit(1);
+  if (!fy) return null;
+  const rows = await db
+    .select({ name: leaveTypes.name, days: sql<string>`coalesce(sum(${leaveApplications.noOfDays}), 0)` })
+    .from(leaveApplications)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveApplications.leaveTypeId))
+    .where(and(eq(leaveApplications.fiscalYearId, fy.id), eq(leaveApplications.status, "Approved"), employeeCondition))
+    .groupBy(leaveTypes.name);
+  return {
+    fiscalYear: fy.label,
+    types: rows.map((r) => ({ name: r.name, days: Number(r.days) })).filter((r) => r.days > 0).sort((a, b) => b.days - a.days),
+  };
+}
+

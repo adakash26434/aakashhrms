@@ -33,6 +33,24 @@ components/<module>/     client UI (XxxClient + table + filters + form modal + d
 components/ui/           shared primitives
 ```
 
+### Where files go (one domain name, used in every layer)
+| Kind | Path | Example (dashboard) |
+|---|---|---|
+| Route | `app/(dashboard)/<route>/page.tsx` + `loading.tsx` | `app/(dashboard)/dashboard/page.tsx` |
+| Server actions | `app/actions/<domain>.actions.ts` | `app/actions/leave.actions.ts` |
+| Orchestration | `lib/services/<domain>.service.ts` | `lib/services/dashboard.service.ts` |
+| Pure logic (tested) | `lib/engines/<domain>.engine.ts` | `lib/engines/dashboard.engine.ts` |
+| Queries | `lib/repositories/<domain>.repository.ts` | `sumSlipsByPeriod` in `payroll.repository.ts` |
+| Types | `lib/types/<domain>.ts` (+ `lib/types/index.ts`) | `lib/types/dashboard.ts` |
+| Fixed tables / rules | `lib/constants/<topic>.ts` | `lib/constants/statutory-deadlines.ts` |
+| Generic helpers | `lib/utils/<topic>.ts` | `lib/utils/nepal-time.ts` |
+| Module UI | `components/<domain>/<domain>-<part>.tsx`, entry `<domain>-client.tsx` | `components/dashboard/dashboard-kpi-cards.tsx` |
+| Shared UI kit | `components/kit/*`, frame in `components/frame/*` | `components/kit/panel.tsx` |
+| Dev preview (sample data only) | `app/dev/<domain>/page.tsx` + `components/dev/<domain>-preview.tsx` | `/dev/dashboard` |
+| Tests | `tests/<domain>.test.ts`, security in `tests/security-<topic>.test.ts` | `tests/dashboard.test.ts` |
+
+Do not create new top-level folders under `lib/` or `components/` for a feature; add the file to its layer.
+
 ## Security rules (non-negotiable)
 
 These come from Phase 0 (`docs/redesign/03-security-plan.md`). `tests/security-invariants.test.ts` enforces several of them.
@@ -85,6 +103,7 @@ UI conventions for new code:
 
 - `npm run lint` has ~225 **pre-existing** errors (mostly `no-explicit-any`), so CI lint fails on `main`. Don't add new ones; clean up as modules are migrated (Phases 4/8).
 - `npm audit`: the nodemailer advisory via next-auth needs a major upgrade, so CI gates on `critical` for now.
+- Stored payroll run totals (`payroll_runs.total_*`) can lag behind the payslips (Shrawan 2083: run net 62,068.75 vs payslips and salary sheet 68,068.75). Reports and the dashboard read the payslips; fix the run-total update in 4.8 (Payroll run).
 
 ## Git
 

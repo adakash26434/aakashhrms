@@ -13,7 +13,53 @@ Notes: follow-ups, decisions
 
 ---
 
-## 2026-10-02 — 4.1 Home: work queues (sign-off pending)
+## 2026-10-02 — 4.1 revised: analytics dashboard + file structure (sign-off pending)
+Branch: `redesign/4.1-home` (on top of `2bf5363`; not merged or pushed)
+
+Why: on review you wanted the dashboard to look like a dashboard (figures and charts), with the desktop-app style kept for the table and report modules, and the files to follow the project's layer and naming conventions.
+
+Research (summarised in `02-design-system.md`):
+- **Zoho Payroll:** pay run card, to-do, statutory summary, payroll cost summary with a period filter.
+- **Keka and Rippling:** cost by department and variance tracking.
+- **Dribbble / Behance payroll dashboards:** KPI cards, monthly trend, department breakdown.
+- **Best practice:** 5–7 KPIs with change and a sparkline; insight in about 10 seconds.
+
+Changed:
+- **Layout** (your choices: analytics-first, compact approvals, latest pay month by default):
+  - page bar, then filters (period: latest month / fiscal year to date / last 12 months; branch for company-wide users; both kept in the URL)
+  - **5 KPI cards**: payroll cost, net pay, statutory, active employees, cost per employee. Each has its change against the comparison period, a 12-month sparkline and amber for ±10% swings.
+  - **charts**: payroll cost by month (12 BS months, stacked net / deductions / employer PF, unlocked months lighter, swings flagged); where the money went (donut + table); cost by department; attendance this month (daily present / leave / absent / off / not recorded)
+  - **action cards**: pay run, statutory deadlines, pending approvals (5 oldest, linking to the Approvals page), records to fix
+  - **workforce**: leave by type this FY + on leave today, headcount, recent activity
+- **Data:** new read-only SQL aggregates, all scoped to the user and the branch filter:
+  - `sumSlipsByPeriod`, `sumSlipsByDepartment` (payroll)
+  - `findAttendanceMarksInRange` (attendance)
+  - `countJoinersLeavers` (employee)
+  - `sumApprovedLeaveDaysByType` (leave)
+- **Cost model** (verified against the payroll engine): employer SSF 20% is inside gross and the 31% is deducted, so payroll cost = gross + employer PF, and the breakdown segments add up exactly to it.
+- **File structure:**
+  - `lib/home/*` → `lib/engines/dashboard.engine.ts`, `lib/constants/statutory-deadlines.ts`, `lib/utils/nepal-time.ts`, `lib/types/dashboard.ts`
+  - `lib/leave/decision.ts` → `lib/engines/leave.engine.ts`
+  - `home.service.ts` → `dashboard.service.ts`
+  - `components/workspace-home/` → `components/dashboard/dashboard-*.tsx`
+  - `/dev/home` → `/dev/dashboard`
+  - Conventions written into `CLAUDE.md` ("Where files go") and design-system §7.
+- The worklist and inline approve/reject left the dashboard. The secure S17 leave action is unchanged and still used by the Approvals page.
+
+Found while verifying:
+- **Stored run totals disagree with payslips.** Shrawan 2083: the run says net 62,068.75 and gross 84,718.75; the payslips and salary sheet say 68,068.75 and 90,718.75 (one employee's employer SSF). The old dashboard showed the wrong run totals. The dashboard now reads payslips like the salary sheet. The run-total bug is logged under Known debt for 4.8.
+- The attendance chart labelled days by AD date; it now uses the BS day number.
+
+Verified:
+- `tsc` 0; no new lint errors (the 13 in the touched repositories are pre-existing).
+- **353/353 tests** (`dashboard`: 22, `security-dashboard-access`: 5, `security-leave-decision`).
+- Production build OK.
+- Browser, signed in (1440, 1024, 390px; 0 console errors or warnings; no overflow):
+  - every period option; the branch filter (Head Office = all three employees, Pokhara = none); bogus `?period` and `?branch` fall back safely
+  - KPI figures cross-checked against the salary sheet for Shrawan 2083
+- `/dev/dashboard`: admin, branch manager, employee, failed sections and new-company states.
+
+## 2026-10-02 — 4.1 Home: work queues (superseded by the revision above)
 Branch: `redesign/4.1-home` (from `redesign/3-component-kit` @ `d78817c`; not merged or pushed)
 
 Changed:

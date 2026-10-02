@@ -150,7 +150,7 @@ per-module **definition of done** below.
 
 | Step | Module | Template | Screens |
 |---|---|---|---|
-| 4.1 | **Home** | F | `/dashboard` (work queues instead of hero) — **sign-off**. **Built on `redesign/4.1-home`, awaiting your sign-off** |
+| 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version — **sign-off**. **Built on `redesign/4.1-home`, awaiting your sign-off** |
 | 4.2 | **Workforce: Employees** | A + B | list + split detail, create flow, edit tabs (`employee-form-tabs` 2k lines) |
 | 4.3 | **Workforce: Organization** | A | departments, designations, branches, organization view |
 | 4.4 | **Salary structure** | A + B | salary mapping list, mapping editor, bulk actions |
@@ -222,4 +222,4 @@ See `CHANGELOG.md`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
 - **Phase 2 is signed off.**
 - **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
-- Phase 4.1 (Home) is built and waiting for sign-off; 4.2 Employees follows once you approve the design.
+- Phase 4.1 (Dashboard, revised to an analytics dashboard) is built and waiting for sign-off; 4.2 Employees (desktop register) follows once you approve it.

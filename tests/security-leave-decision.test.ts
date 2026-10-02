@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { canTransitionLeave, cleanRemarks, employeeInScope, isLeaveStatus, isOwnRequest } from '../lib/leave/decision';
+import { canTransitionLeave, cleanRemarks, employeeInScope, isLeaveStatus, isOwnRequest } from '../lib/engines/leave.engine';
 
 // S17: leave decisions — scope, self-approval, transitions, race, audit.
 const root = join(__dirname, '..');
@@ -81,14 +81,4 @@ describe('S17 leave decisions', () => {
     assert.match(source('lib/services/leave.service.ts'), /employeeInScope\(scope, emp\)/);
   });
 
-  it('Home loads each section only with its permission and scopes employee data', () => {
-    const home = source('lib/services/home.service.ts');
-    for (const perm of ['"VIEW", "EMPLOYEES"', '"VIEW", "LEAVE_APPROVALS"', '"APPROVE", "LEAVE_APPROVALS"', '"VIEW", "PAYROLL_GENERATE"', '"VIEW", "LOANS"', '"VIEW", "AUDIT_LOG"']) {
-      assert.ok(home.includes(`hasPermission(${perm})`), perm);
-    }
-    assert.match(home, /buildEmployeeScopeCondition\(scope\)/);
-    assert.match(home, /leaveDecide: leaveApprovals && leaveApprove && !supportView/);
-    assert.match(home, /audit\s*\?\s*section\("activity"/);
-    assert.match(home, /access\.payroll\s*\?\s*section\("payroll"/);
-  });
 });

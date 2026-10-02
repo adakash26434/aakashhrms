@@ -450,3 +450,22 @@ export async function remove(id: string): Promise<void> {
     await tx.delete(employees).where(eq(employees.id, id));
   });
 }
+
+/**
+ * Dashboard (4.1): employees who joined and who left between two dates
+ * (inclusive), within `scopeCondition` (built with buildEmployeeScopeCondition).
+ */
+export async function countJoinersLeavers(fromDate: string, toDate: string, scopeCondition?: SQL): Promise<{ joiners: number; leavers: number }> {
+  const db = await getDb();
+  const [joined] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(employees)
+    .where(and(sql`${employees.joiningDate} between ${fromDate} and ${toDate}`, scopeCondition));
+  const [left] = await db
+    .select({ count: sql<number>`count(distinct ${employeeTermination.employeeId})::int` })
+    .from(employeeTermination)
+    .innerJoin(employees, eq(employees.id, employeeTermination.employeeId))
+    .where(and(sql`${employeeTermination.terminationDate} between ${fromDate} and ${toDate}`, scopeCondition));
+  return { joiners: Number(joined?.count) || 0, leavers: Number(left?.count) || 0 };
+}
+

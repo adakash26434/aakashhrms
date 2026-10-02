@@ -214,23 +214,33 @@ The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.
 | **C. Process** | Payroll run, Leave salary run, Attendance lock, Fiscal-year close, Onboarding | Step rail (Setup → Pre-flight → Calculate → Review → Approve → Lock) with a blocking-issue panel and an audit trail |
 | **D. Report viewer** | All `/reports/*`, payslips | Parameters panel on the left, paged document preview on the right, toolbar with Print / PDF / Excel / CSV |
 | **E. Settings** | System control, Payroll rules, Fiscal year, Tax rates, Company profile | Category list on the left, form on the right, change summary before save |
-| **F. Home / Work queue** | `/dashboard` | Tiles of *actionable* queues (pending approvals, payroll status, compliance deadlines, attendance exceptions), plus compact charts. No hero banner. |
+| **F. Dashboard** | `/dashboard` | Analytics dashboard: period/branch filters, KPI cards with change and sparkline, payroll cost and attendance charts, then compact action cards (pay run, deadlines, approvals, records to fix). No hero banner. The only screen that is a dashboard; see “Implemented dashboard”. |
 
-### Implemented Home (Phase 4.1, template F)
+### Implemented dashboard (Phase 4.1, template F — revised)
 
-`/dashboard`, built from `components/workspace-home/` on the kit, data from `lib/services/home.service.ts` (pure logic in `lib/home/`):
+`/dashboard` is the one screen designed as an **analytics dashboard**; every
+other module (registers, editors, processes, reports) keeps the desktop-app
+templates A–E. Research behind it: Zoho Payroll (pay runs, to-do, statutory
+summary, payroll cost summary with period filter), Keka and Rippling (cost by
+department, variance), Dribbble/Behance payroll dashboards (KPI cards, monthly
+trend, department breakdown), and dashboard practice (5–7 KPIs with change and
+sparkline, insight within ~10 seconds, thresholds, role-based views).
 
-| Region | What it shows | Rules |
+| Row | Content | Rules |
 |---|---|---|
-| Page bar | "Home", greeting, BS date, "Updated hh:mm", scope badge for restricted users | Toolbar: Add employee · Run payroll (only with permission) · Refresh |
-| Cue strip | Up to 6 cues: Approvals, Payroll, Next deposit, Records to fix, Attendance, Loans | Number = queue size; 3px top edge = needs action (amber) / overdue (red) / done (green), always with a text hint |
-| Leave approvals | `Worklist` with balance before → after, waiting days, unpaid-leave flag, colleagues off at the same time | View-only list without APPROVE; keys only while focused |
-| Payroll | Latest period across all branch runs, step rail, gross / deductions / net / employees, the one next action, "Start <next month>" | Period status = slowest branch |
-| Net pay by period | CSS bars, last 6 periods, ±10% swings flagged | From two periods; screen-reader table |
-| Recent activity | Last 8 audit entries, denials highlighted | AUDIT_LOG only |
-| Side column | Today (attendance, on leave), Statutory deadlines (TDS 25 / SSF 15 days after BS month end, passed ones kept 7 days), Payroll readiness (PAN, bank, basic), Headcount | Employee data scoped |
+| Page bar | Title, greeting, BS date, "Updated hh:mm", scope badge; Run payroll · Add employee · Refresh | Actions hidden without permission |
+| Filters | Period (latest month · fiscal year to date · last 12 months) and branch (company-wide users) | In the URL (`?period=&branch=`), validated on the server |
+| KPI cards | Payroll cost (gross + employer PF), net pay, statutory (TDS + SSF 31% + PF + CIT), active employees, cost per employee | Change vs comparison period; amber only for ±10% or more; never green/red for direction alone; 12-month sparkline |
+| Charts | Payroll cost by month (stacked net / deductions / employer PF, unlocked months lighter, swings flagged); where the money went (donut + table) | Recharts loaded after first paint; legends and tables outside the chart; empty states |
+| Charts | Cost by department (bars + paid + %); attendance this month (daily present / leave / absent / off / not recorded) | Not recorded is shown, never counted as present |
+| Actions | Pay run (step rail, next action), statutory deadlines, pending approvals (5 oldest, decided on the Approvals page), records to fix | Compact cards |
+| Workforce | Leave taken this FY by type + on leave today, headcount by department, recent activity | Activity needs AUDIT_LOG |
 
-New kit part: `Panel` (`components/kit/panel.tsx`), the titled group box with count, meta and "open" link, used by every Home section. A section that fails to load stays in place as an error panel; a user with no queues gets a pointer to self-service. `/dev/home` previews every state with sample data (dev only).
+Chart colours: `CHART_COLORS` / `CHART_THEME` in `lib/constants/colors.ts`;
+series and legends in `components/dashboard/dashboard-chart-series.ts`.
+Figures come from payslips (as the salary sheet does), not from stored run
+totals. Sections the user may not see are never loaded; failed sections stay
+in place as error panels. `/dev/dashboard` previews every state with sample data.
 
 ## 5b. Design enhancements (beyond the base frame)
 
@@ -294,3 +304,12 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
   `PropertyForm`.
 - Every toolbar action declares its permission. Hidden is preferred to
   disabled when the user can never perform it.
+- **File structure:** use the domain name in every layer: `app/(dashboard)/<route>`,
+  `app/actions/<domain>.actions.ts`, `lib/services/<domain>.service.ts`,
+  `lib/engines/<domain>.engine.ts` (pure, tested), `lib/repositories/<domain>.repository.ts`,
+  `lib/types/<domain>.ts`, `components/<domain>/<domain>-<part>.tsx` (entry
+  `<domain>-client.tsx`), `tests/<domain>.test.ts`. Rules tables go in
+  `lib/constants/`, generic helpers in `lib/utils/`. No new top-level folders
+  for a feature. Full table in `CLAUDE.md`.
+- Dashboard vs desktop: only `/dashboard` uses KPI cards and charts; module
+  screens use the register / editor / process / report templates.
