@@ -98,7 +98,7 @@ Goal: the app looks and behaves like installed software.
   - full keyboard and ARIA combobox behaviour
 - [x] 2.7 Shortcut registry `lib/frame/shortcuts.ts`, which drives both the key handler and the `?` help overlay. Plain keys never fire while typing.
 - [x] 2.8 **Idle session lock, enforced on the server**:
-  - After 15 minutes without input in any tab, plus a 60-second countdown, the session is locked.
+  - After **30 minutes** without input in any tab, plus a 2-minute countdown, the session is locked (duration chosen from research, see the security plan).
   - `Ctrl Shift L` and the user menu lock it straight away.
   - The lock is a flag in the signed JWT. The route guard sends every page and action to `/locked`, and the permission helpers refuse locked sessions.
   - Unlocking needs the password: 5 tries, then sign-out. A server-signed grant then releases that specific lock.

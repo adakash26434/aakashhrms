@@ -13,6 +13,16 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — 2.8 idle lock: 15 → 30 minutes
+Branch: `redesign/2-app-frame`
+
+You asked for 30 minutes or for research on real-world values. I researched NIST 800-63B-4, OWASP, PCI DSS, the CIS benchmark, Dynamics 365 F&O, Workday, Xero and QuickBooks Online (table in `03-security-plan.md` → "Idle lock duration").
+- The lock is now **30 minutes**, with a **2-minute** status-bar countdown.
+- The policy lives in one place: `lib/frame/session-policy.ts`.
+- A test keeps it at or under NIST AAL2's one-hour ceiling.
+
+Verified: `tsc` exit 0 · tests pass.
+
 ## 2026-10-02 — Phase 2: application frame (sign-off pending)
 Branch: `redesign/2-app-frame` (from `redesign/1-foundation` @ `a2fccfc`; not merged or pushed). Phase 1 was signed off by you on this date.
 
@@ -29,8 +39,8 @@ Changed:
 - **Shortcuts:** one registry drives both the handler and the `?` overlay.
 - **`PageBar` + `CommandToolbar`** are ready for Phase 4 and shown in `/dev/kit`.
 - **Idle lock (2.8):**
-  - 15 minutes without input in any tab, shared through localStorage timestamps.
-  - 60-second countdown in the status bar; `Ctrl Shift L` locks straight away.
+  - 15 minutes without input in any tab, shared through localStorage timestamps (now 30 minutes, see the entry above).
+  - 60-second countdown in the status bar (now 2 minutes); `Ctrl Shift L` locks straight away.
   - A JWT `locked` flag, enforced by the route guard (`/locked?returnTo=`) and by the permission helpers.
   - Unlocking takes the password: 5 tries, then sign-out. A signed grant then releases that specific lock.
   - `safeReturnTo()` blocks open redirects.
@@ -56,7 +66,7 @@ Not yet verified:
 
 Deployment notes:
 1. Users signed in before this deploy get the new frame on their next page load. No new environment variables are needed.
-2. Sessions now lock after 15 minutes idle. People must re-enter their password, and 5 wrong tries sign them out.
+2. Sessions now lock after 30 minutes idle. People must re-enter their password, and 5 wrong tries sign them out.
 
 ## 2026-10-02 — Phase 1.7 screenshot tour (signed in) + fixes
 Branch: `redesign/1-foundation`

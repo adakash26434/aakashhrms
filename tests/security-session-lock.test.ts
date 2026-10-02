@@ -144,6 +144,16 @@ describe('Idle lock enforcement (2.8)', () => {
   });
 });
 
+describe('Idle lock policy', () => {
+  it('locks after 30 minutes, within the NIST AAL2 one-hour ceiling, with a 2-minute warning', async () => {
+    const policy = await import('../lib/frame/session-policy');
+    assert.equal(policy.IDLE_LOCK_MINUTES, 30);
+    assert.ok(policy.IDLE_LOCK_MS <= 60 * 60 * 1000);
+    assert.ok(policy.IDLE_WARNING_MS < policy.IDLE_LOCK_MS);
+    assert.match(source('components/frame/use-idle-lock.ts'), /from "@\/lib\/frame\/session-policy"/);
+  });
+});
+
 describe('Return path validation (open redirect)', () => {
   it('accepts same-origin paths only', () => {
     assert.equal(safeReturnTo('/payroll/review'), '/payroll/review');

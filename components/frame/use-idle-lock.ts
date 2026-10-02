@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { lockSessionAction } from "@/app/actions/session-lock.actions";
+import { IDLE_LOCK_MS, IDLE_WARNING_MS } from "@/lib/frame/session-policy";
 
-/** Security plan S4 / roadmap 2.8. */
-export const IDLE_LOCK_MS = 15 * 60 * 1000;
-const WARNING_MS = 60 * 1000;
 const ACTIVITY_KEY = "aakash.lastActivity";
 const LOCKED_KEY = "aakash.locked";
 const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll"] as const;
@@ -82,7 +80,7 @@ export function useIdleLock(enabled: boolean) {
       if (remaining <= 0) {
         setCountdown(null);
         void lockNow();
-      } else if (remaining <= WARNING_MS) {
+      } else if (remaining <= IDLE_WARNING_MS) {
         setCountdown(Math.ceil(remaining / 1000));
       } else {
         setCountdown((c) => (c === null ? c : null));
