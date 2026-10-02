@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getPlatformSigningSecret } from '@/lib/security/secrets';
 import { getClientIp } from '@/lib/auth/client-ip';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies, platformImpersonationLog, platformAuditLogs } from '@/lib/platform/schema';
@@ -13,16 +14,8 @@ const IMPERSONATION_MAX_AGE = 60 * 60 * 4; // 4 hours
  * Derives the signing key for impersonation tokens.
  */
 function getImpersonationKey(): Uint8Array {
-  const secret =
-    process.env.PLATFORM_SESSION_SECRET ||
-    process.env.PLATFORM_SECRETS_KEY ||
-    process.env.AUTH_SECRET;
-
-  if (!secret) {
-    throw new Error('Platform signing key is not configured.');
-  }
-
-  return new TextEncoder().encode(`impersonate:${secret}`);
+  // Must match lib/platform/impersonation.ts
+  return new TextEncoder().encode(`impersonate:${getPlatformSigningSecret()}`);
 }
 
 /**

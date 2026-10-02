@@ -1,4 +1,5 @@
 import { jwtVerify } from 'jose';
+import { getPlatformSigningSecret } from '@/lib/security/secrets';
 import { cookies } from 'next/headers';
 
 const IMPERSONATION_COOKIE = 'platform_impersonation';
@@ -18,16 +19,8 @@ export interface ImpersonationSession {
  * Must match the key used in the impersonation API route.
  */
 function getImpersonationKey(): Uint8Array {
-  const secret =
-    process.env.PLATFORM_SESSION_SECRET ||
-    process.env.PLATFORM_SECRETS_KEY ||
-    process.env.AUTH_SECRET;
-
-  if (!secret) {
-    throw new Error('Platform signing key is not configured.');
-  }
-
-  return new TextEncoder().encode(`impersonate:${secret}`);
+  // Domain-separated from the platform session key by the "impersonate:" prefix
+  return new TextEncoder().encode(`impersonate:${getPlatformSigningSecret()}`);
 }
 
 /**

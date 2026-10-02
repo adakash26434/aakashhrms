@@ -19,6 +19,12 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      # Security gate (docs/redesign/03-security-plan.md, rule 7). Fails on
+      # critical advisories in production dependencies. Raise to "high" once
+      # the next-auth -> nodemailer chain has a non-breaking fix.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=critical
+
       - name: Lint
         run: npm run lint
 
@@ -31,7 +37,7 @@ jobs:
       - name: Build Next.js (Bypass Database check)
         run: |
           export DATABASE_URL="postgresql://mock:mock@localhost:5432/mock"
-          export AUTH_SECRET="mock_secret_key_for_building_only_12345"
+          export AUTH_SECRET="mock_secret_key_for_building_only_1234567890"
           npm run build
 
       - name: Zip .next folder specifically

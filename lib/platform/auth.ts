@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { getPlatformSigningSecret } from '@/lib/security/secrets';
 import { cookies } from 'next/headers';
 import { platformDb, ensurePlatformTablesExist } from './db';
 import { platformUsers } from './schema';
@@ -29,24 +30,11 @@ export interface VerifiedPlatformUser {
 }
 
 /**
- * Derives the JWT signing key from the environment.
- * Reuses PLATFORM_SECRETS_KEY if set, otherwise falls back to AUTH_SECRET.
- * Throws if neither is available — never silently falls back to a hardcoded value.
+ * Derives the JWT signing key from the dedicated PLATFORM_SESSION_SECRET.
+ * Production refuses to fall back to other secrets (see lib/security/secrets).
  */
 function getSigningKey(): Uint8Array {
-  const secret =
-    process.env.PLATFORM_SESSION_SECRET ||
-    process.env.PLATFORM_SECRETS_KEY ||
-    process.env.AUTH_SECRET;
-
-  if (!secret) {
-    throw new Error(
-      'Platform session signing key is not configured. ' +
-        'Set PLATFORM_SESSION_SECRET, PLATFORM_SECRETS_KEY, or AUTH_SECRET in your environment.'
-    );
-  }
-
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(getPlatformSigningSecret());
 }
 
 // ---------------------------------------------------------------------------

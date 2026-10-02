@@ -32,6 +32,25 @@ in the phase noted, with a regression test where practical.
 | **S11** | Low | `typescript.ignoreBuildErrors: true`. CI runs `type-check`, but local and cPanel builds can ship type errors. | `next.config.ts` | Keep it (cPanel OOM), but make `npm run build` locally run `type-check` first. CI already enforces it. | 1 |
 | **S12** | Info | `getWorkspaceContext()` falls back to `admin@aakashhrms.com` and placeholder company data when no session exists. | `lib/services/workspace-context.service.ts` | Remove the placeholders. No session means redirect (covered by S1). **Fixed (0.4).** User is resolved by id, not email, with no placeholder email. | 0 ✅ |
 
+## Dependency audit (step 0.8, 2026-10-02)
+
+`npm audit --omit=dev` found 9 advisories (1 critical, 4 high, 4 moderate).
+
+| Package | Severity | Issue | Action |
+|---|---|---|---|
+| `next` 16.3.0 | **Critical** | Unauthenticated remote code execution (Windows-hosted servers; image optimiser) | **Fixed:** upgraded to **16.3.8** (patch release), with `eslint-config-next` 16.3.8 to match |
+| `sharp` (via next) | High | libheif vulnerabilities | **Fixed:** 0.35.5 via `npm audit fix` |
+| `nodemailer` 8.0.11 (direct, and via `next-auth` → `@auth/core`) | High | `raw` message option bypasses file/URL access limits; address-parser ReDoS | **Open.** The fix is nodemailer 10 (major), and next-auth beta still pins the old range. Exposure is limited: we never use the `raw` option, and the only user-supplied address (contact form `replyTo`) is now regex-validated and capped at 254 chars before reaching nodemailer. Revisit when next-auth publishes a compatible release. Then raise the CI gate to `high`. |
+| `drizzle-kit` / `esbuild` / `@esbuild-kit/*` | Moderate | esbuild dev-server request issue | **Accepted.** CLI tooling only (migrations); never runs as a server in production. |
+
+CI now runs `npm audit --omit=dev --audit-level=critical` after install.
+
+## Secret separation (step 0.8)
+
+- `lib/security/secrets.ts` → `getPlatformSigningSecret()`. In production, platform session and impersonation tokens are signed **only** with `PLATFORM_SESSION_SECRET`, which must differ from `AUTH_SECRET` and `PLATFORM_SECRETS_KEY`. Production refuses to sign rather than fall back. Development falls back with a warning.
+- `instrumentation.ts` runs `validateSecurityConfig()` at server start and logs missing, short (<32 chars) or shared secrets, and `FORCE_SSL` being off in production.
+- **Deployment action required:** set a dedicated `PLATFORM_SESSION_SECRET` on the server (`openssl rand -base64 48`) before deploying this branch. Without it, super-admin login and impersonation are refused in production. Existing platform sessions are invalidated once and admins sign in again.
+
 ## Standing measures (apply throughout the redesign)
 
 1. **The UI never decides access.** Hiding a button is UX only. Every server
