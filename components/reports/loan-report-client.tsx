@@ -30,6 +30,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoanIndividualSlips } from "./individual-report-slips";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface LoanReportClientProps {
   initialLookups: ReportFilterLookupData;
@@ -113,19 +116,18 @@ export function LoanReportClient({
       } else {
         if (rowsToExport && rowsToExport.length === 1) {
           const row = rowsToExport[0];
-          let csv =
-            "SN,Code,EmployeeName,Department,LoanType,LoanAmount,Installment,TotalReturned,Remaining,Status\n";
-          csv += `1,"${row.employeeCode}","${row.employeeName}","${row.departmentName}","${row.loanTypeName}",${row.loanAmount},${row.installmentAmount},${row.totalReturned},${row.remainingAmount},"${row.status}"\n`;
-
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.setAttribute("href", url);
-          link.setAttribute("download", `loan-statement-${row.employeeCode}.csv`);
-          link.style.visibility = "hidden";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          const gate = await authorizeExportAction({ module: "REPORTS_LOAN", label: `Loan statement ${row.employeeCode} (CSV)`, rowCount: 1 });
+          if (!gate.allowed) {
+            toast.error(gate.error ?? "Export not allowed");
+            return;
+          }
+          downloadTextFile(
+            `loan-statement-${row.employeeCode}.csv`,
+            rowsToCsv(
+              ["SN", "Code", "EmployeeName", "Department", "LoanType", "LoanAmount", "Installment", "TotalReturned", "Remaining", "Status"],
+              [[1, row.employeeCode, row.employeeName, row.departmentName, row.loanTypeName, row.loanAmount, row.installmentAmount, row.totalReturned, row.remainingAmount, row.status]]
+            )
+          );
           toast.success("Single employee loan CSV exported.");
           return;
         }

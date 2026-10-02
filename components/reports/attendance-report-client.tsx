@@ -18,6 +18,9 @@ import { getAttendanceReportAction } from "@/app/actions/report.actions";
 import { AlertCircle, CalendarCheck, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { getTodayBS } from "@/lib/utils/bs-calendar";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface AttendanceReportClientProps {
   lookupData: ReportFilterLookupData;
@@ -123,30 +126,24 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
     setIsExporting(true);
     try {
       const exportRows = rowsToExport || activeReportData?.rows || reportData.rows;
-      let csv =
-        "SN,Code,EmployeeName,Department,WorkingDays,Present,PayLeave,NonPayLeave,AbsentDays,OfficeOT,OffDayOT,OTEarned,LeaveDeduction\n";
-      exportRows.forEach((r, idx) => {
-        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${r.departmentName}",${
-          r.totalWorkingDays
-        },${r.presentDays},${r.payLeaveDays},${r.nonPayLeaveDays},${r.absentDays},${
-          r.totalOtHoursOffice
-        },${r.totalOtHoursOff},${r.otEarnedAmount},${r.leaveDeductionAmount}\n`;
-      });
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
+      const gate = await authorizeExportAction({ module: "REPORTS_ATTENDANCE", label: `Attendance ${reportData.monthLabel} (CSV)`, rowCount: exportRows.length });
+      if (!gate.allowed) {
+        toast.error(gate.error ?? "Export not allowed");
+        return;
+      }
+      const csv = rowsToCsv(
+        ["SN", "Code", "EmployeeName", "Department", "WorkingDays", "Present", "PayLeave", "NonPayLeave", "AbsentDays", "OfficeOT", "OffDayOT", "OTEarned", "LeaveDeduction"],
+        exportRows.map((r, idx) => [
+          idx + 1, r.employeeCode, r.employeeName, r.departmentName, r.totalWorkingDays, r.presentDays, r.payLeaveDays,
+          r.nonPayLeaveDays, r.absentDays, r.totalOtHoursOffice, r.totalOtHoursOff, r.otEarnedAmount, r.leaveDeductionAmount,
+        ])
+      );
+      downloadTextFile(
         exportRows.length === 1
           ? `attendance-${exportRows[0].employeeCode}.csv`
-          : `attendance-report-${reportData.monthLabel.replace(/[^a-zA-Z0-9]/g, "-")}.csv`
+          : `attendance-report-${reportData.monthLabel.replace(/[^a-zA-Z0-9]/g, "-")}.csv`,
+        csv
       );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       toast.success("Attendance CSV exported successfully.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to export CSV";

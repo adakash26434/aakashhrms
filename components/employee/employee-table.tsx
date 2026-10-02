@@ -22,6 +22,9 @@ import {
 } from "@/lib/constants/employee-lookups";
 import { Employee } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { toCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -128,59 +131,28 @@ export function EmployeeTable({
   }
 
 
-  const handleExportSelected = () => {
+  const handleExportSelected = async () => {
     const selectedEmps = sortedEmployees.filter((e) => selectedIds.has(e.id));
     if (selectedEmps.length === 0) return;
+    const gate = await authorizeExportAction({ module: "EMPLOYEES", label: "Employees, selected (CSV)", rowCount: selectedEmps.length });
+    if (!gate.allowed) return;
 
-    const headers = [
-      "Employee Code",
-      "Attendance Code",
-      "Name",
-      "Department",
-      "Designation",
-      "Branch",
-      "Category",
-      "Status",
-      "Email",
-      "Mobile",
-    ];
-    const csvRows = [headers.join(",")];
-
-    for (const emp of selectedEmps) {
-      const dept = resolveDepartmentName(
-        emp.departmentId,
-        lookups.departmentNameById,
-      );
-      const desig = resolveDesignationName(
-        emp.designationId,
-        lookups.designationNameById,
-      );
-      const branch = resolveBranchName(emp.branchId, lookups.branchNameById);
-      const name = `"${emp.fullName}"`;
-      const row = [
-        emp.employeeCode,
-        emp.attendanceCode,
-        name,
-        `"${dept}"`,
-        `"${desig}"`,
-        `"${branch}"`,
-        emp.category,
-        emp.status,
-        emp.email,
-        emp.mobileNo,
-      ];
-      csvRows.push(row.join(","));
-    }
-
-    const blob = new Blob([csvRows.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `employees_export_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const csv = toCsv<Employee>(
+      [
+        { header: "Employee Code", value: (e) => e.employeeCode },
+        { header: "Attendance Code", value: (e) => e.attendanceCode },
+        { header: "Name", value: (e) => e.fullName },
+        { header: "Department", value: (e) => resolveDepartmentName(e.departmentId, lookups.departmentNameById) },
+        { header: "Designation", value: (e) => resolveDesignationName(e.designationId, lookups.designationNameById) },
+        { header: "Branch", value: (e) => resolveBranchName(e.branchId, lookups.branchNameById) },
+        { header: "Category", value: (e) => e.category },
+        { header: "Status", value: (e) => e.status },
+        { header: "Email", value: (e) => e.email },
+        { header: "Mobile", value: (e) => e.mobileNo },
+      ],
+      selectedEmps
+    );
+    downloadTextFile(`employees_export_${new Date().toISOString().split("T")[0]}.csv`, csv);
   };
 
   if (isLoading) {

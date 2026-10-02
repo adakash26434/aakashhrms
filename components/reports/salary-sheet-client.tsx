@@ -22,6 +22,9 @@ import {
 import { AlertCircle, FileSpreadsheet, Layers, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 const ReportPreviewModal = dynamic(
   () => import("./report-preview-modal").then((m) => m.ReportPreviewModal),
@@ -197,26 +200,25 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
     setIsExporting(true);
     try {
       const exportRows = rowsToExport || activeSheetData?.rows || sheetData.rows;
-      let csv =
-        "SN,Code,EmployeeName,Department,BasicSalary,GradeAmount,OTAmount,GrossEarnings,AbsentDeduction,PF,SSF,CIT,TDS,LoanDeduction,TotalDeductions,NetPayable,BankName,BankAccount\n";
-      exportRows.forEach((r, idx) => {
-        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${r.departmentName}",${r.basicSalary},${r.gradeAmount},${r.otAmount},${r.grossEarnings},${r.absentDeduction},${r.pfEmployee},${r.ssfEmployee},${r.citDeduction},${r.tdsThisMonth},${r.loanDeduction},${r.totalDeductions},${r.netPayable},"${r.bankName}","${r.bankAccountNumberFull}"\n`;
-      });
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
+      const gate = await authorizeExportAction({ module: "REPORTS_SALARY_SHEET", label: `Salary sheet ${sheetData.run.label} (CSV)`, rowCount: exportRows.length });
+      if (!gate.allowed) {
+        toast.error(gate.error ?? "Export not allowed");
+        return;
+      }
+      const csv = rowsToCsv(
+        ["SN", "Code", "EmployeeName", "Department", "BasicSalary", "GradeAmount", "OTAmount", "GrossEarnings", "AbsentDeduction", "PF", "SSF", "CIT", "TDS", "LoanDeduction", "TotalDeductions", "NetPayable", "BankName", "BankAccount"],
+        exportRows.map((r, idx) => [
+          idx + 1, r.employeeCode, r.employeeName, r.departmentName, r.basicSalary, r.gradeAmount, r.otAmount, r.grossEarnings,
+          r.absentDeduction, r.pfEmployee, r.ssfEmployee, r.citDeduction, r.tdsThisMonth, r.loanDeduction, r.totalDeductions,
+          r.netPayable, r.bankName, r.bankAccountNumberFull,
+        ])
+      );
+      downloadTextFile(
         exportRows.length === 1
           ? `salary-sheet-${exportRows[0].employeeCode}.csv`
-          : `salary-sheet-${sheetData.run.label.replace(/[^a-zA-Z0-9]/g, "-")}.csv`
+          : `salary-sheet-${sheetData.run.label.replace(/[^a-zA-Z0-9]/g, "-")}.csv`,
+        csv
       );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       toast.success("Salary sheet CSV exported successfully.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to export CSV";

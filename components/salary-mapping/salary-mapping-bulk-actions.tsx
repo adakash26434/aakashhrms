@@ -6,6 +6,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { SalaryHeadFormItem } from "@/lib/types/salary-mapping";
 import { bulkSaveSalaryMappingsAction } from "@/app/actions/salary-mapping.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface SalaryMappingBulkActionsProps {
   open: boolean;
@@ -145,14 +147,7 @@ export function SalaryMappingBulkActions({
       "—",
     ]);
 
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "salary-mapping-template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile("salary-mapping-template.csv", rowsToCsv(headers, rows));
   }
 
   return (

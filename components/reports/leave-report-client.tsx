@@ -30,6 +30,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LeaveIndividualSlips } from "./individual-report-slips";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface LeaveReportClientProps {
   initialLookups: ReportFilterLookupData;
@@ -103,19 +106,18 @@ export function LeaveReportClient({
       if (activeTab === "BALANCES") {
         if (rowsToExport && rowsToExport.length === 1) {
           const row = rowsToExport[0];
-          let csv =
-            "SN,Code,EmployeeName,Department,LeaveType,Allotted,Taken,CarriedForward,Balance,Encashable\n";
-          csv += `1,"${row.employeeCode}","${row.employeeName}","${row.departmentName}","${row.leaveTypeName}",${row.allotted},${row.taken},${row.carriedForward},${row.balance},"${row.isEncashable ? "Yes" : "No"}"\n`;
-
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.setAttribute("href", url);
-          link.setAttribute("download", `leave-balance-${row.employeeCode}.csv`);
-          link.style.visibility = "hidden";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          const gate = await authorizeExportAction({ module: "REPORTS_LEAVE", label: `Leave balance ${row.employeeCode} (CSV)`, rowCount: 1 });
+          if (!gate.allowed) {
+            toast.error(gate.error ?? "Export not allowed");
+            return;
+          }
+          downloadTextFile(
+            `leave-balance-${row.employeeCode}.csv`,
+            rowsToCsv(
+              ["SN", "Code", "EmployeeName", "Department", "LeaveType", "Allotted", "Taken", "CarriedForward", "Balance", "Encashable"],
+              [[1, row.employeeCode, row.employeeName, row.departmentName, row.leaveTypeName, row.allotted, row.taken, row.carriedForward, row.balance, row.isEncashable ? "Yes" : "No"]]
+            )
+          );
           toast.success("Single employee leave CSV exported.");
           return;
         }

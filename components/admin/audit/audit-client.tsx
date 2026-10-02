@@ -23,6 +23,9 @@ import {
   Download,
   Activity,
 } from "lucide-react";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface AuditClientProps {
   initialLogs: AuditLogEntry[];
@@ -82,13 +85,18 @@ export function AuditClient({
 
   const toast = useToast();
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (logs.length === 0) {
       toast.warning("No audit logs to export.");
       return;
     }
 
     try {
+      const gate = await authorizeExportAction({ module: "AUDIT_LOG", label: "Audit log (CSV)", rowCount: logs.length });
+      if (!gate.allowed) {
+        toast.error(gate.error ?? "Export not allowed");
+        return;
+      }
       const headers = [
         "Timestamp",
         "User Email",
@@ -108,23 +116,10 @@ export function AuditClient({
         l.ipAddress || "",
       ]);
 
-      const csvContent =
-        "data:text/csv;charset=utf-8," +
-        [
-          headers.join(","),
-          ...rows.map((e) => e.map((cell) => `"${cell}"`).join(",")),
-        ].join("\n");
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
+      downloadTextFile(
         `aakashhrms_audit_log_${new Date().toISOString().substring(0, 10)}.csv`,
+        rowsToCsv(headers, rows),
       );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       toast.success("Audit logs CSV exported successfully.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to export audit logs.");

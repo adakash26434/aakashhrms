@@ -52,6 +52,9 @@ const ConfirmDeleteEmployeeDialog = dynamic(
 );
 
 import { useToast } from "@/components/ui/toast";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { toCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface EmployeeClientProps {
   initialEmployees: Employee[];
@@ -140,62 +143,34 @@ export function EmployeeClient({
     }
   }, [filters, lookupData]);
 
-  // Quick export all filtered employees to CSV
-  function handleExportAll() {
+  // Quick export all filtered employees to CSV (EXPORT permission + audit, S16-safe CSV)
+  async function handleExportAll() {
     if (employees.length === 0) {
       toast.info("No employees to export");
       return;
     }
-
-    const headers = [
-      "Employee Code",
-      "Attendance Code",
-      "Name",
-      "Department",
-      "Designation",
-      "Branch",
-      "Category",
-      "Status",
-      "Email",
-      "Mobile",
-    ];
-    const csvRows = [headers.join(",")];
-
-    for (const emp of employees) {
-      const dept = resolveDepartmentName(
-        emp.departmentId,
-        lookups.departmentNameById,
-      );
-      const desig = resolveDesignationName(
-        emp.designationId,
-        lookups.designationNameById,
-      );
-      const branch = resolveBranchName(emp.branchId, lookups.branchNameById);
-      const name = `"${emp.fullName}"`;
-      const row = [
-        emp.employeeCode,
-        emp.attendanceCode,
-        name,
-        `"${dept}"`,
-        `"${desig}"`,
-        `"${branch}"`,
-        emp.category,
-        emp.status,
-        emp.email,
-        emp.mobileNo,
-      ];
-      csvRows.push(row.join(","));
+    const gate = await authorizeExportAction({ module: "EMPLOYEES", label: "Employee register (CSV)", rowCount: employees.length });
+    if (!gate.allowed) {
+      toast.error(gate.error ?? "Export not allowed");
+      return;
     }
 
-    const blob = new Blob([csvRows.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `employees_export_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const csv = toCsv<Employee>(
+      [
+        { header: "Employee Code", value: (e) => e.employeeCode },
+        { header: "Attendance Code", value: (e) => e.attendanceCode },
+        { header: "Name", value: (e) => e.fullName },
+        { header: "Department", value: (e) => resolveDepartmentName(e.departmentId, lookups.departmentNameById) },
+        { header: "Designation", value: (e) => resolveDesignationName(e.designationId, lookups.designationNameById) },
+        { header: "Branch", value: (e) => resolveBranchName(e.branchId, lookups.branchNameById) },
+        { header: "Category", value: (e) => e.category },
+        { header: "Status", value: (e) => e.status },
+        { header: "Email", value: (e) => e.email },
+        { header: "Mobile", value: (e) => e.mobileNo },
+      ],
+      employees
+    );
+    downloadTextFile(`employees_export_${new Date().toISOString().split("T")[0]}.csv`, csv);
     toast.success("Employee list exported successfully");
   }
 

@@ -13,6 +13,9 @@ import type { ReportFilterLookupData, TDSReportData, TDSReportRow } from "@/lib/
 import { getTDSReportAction } from "@/app/actions/report.actions";
 import { AlertCircle, Receipt, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface TDSReportClientProps {
   lookupData: ReportFilterLookupData;
@@ -124,30 +127,24 @@ export function TDSReportClient({ lookupData }: TDSReportClientProps) {
     setIsExporting(true);
     try {
       const exportRows = rowsToExport || activeReportData?.rows || reportData.rows;
-      let csv =
-        "SN,Code,EmployeeName,PANNumber,TaxStatus,Period,GrossIncome,PFDeducted,CITDeducted,TaxableIncome,TDSDeducted\n";
-      exportRows.forEach((r, idx) => {
-        csv += `${idx + 1},"${r.employeeCode}","${r.employeeName}","${
-          r.panNumber || "N/A"
-        }","${r.taxStatus}","${r.period}",${r.grossIncome},${r.pfDeducted},${
-          r.citDeducted
-        },${r.taxableIncome},${r.tdsDeducted}\n`;
-      });
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
+      const gate = await authorizeExportAction({ module: "REPORTS_TAX_IRD", label: `TDS / IRD ${reportData.period} (CSV)`, rowCount: exportRows.length });
+      if (!gate.allowed) {
+        toast.error(gate.error ?? "Export not allowed");
+        return;
+      }
+      const csv = rowsToCsv(
+        ["SN", "Code", "EmployeeName", "PANNumber", "TaxStatus", "Period", "GrossIncome", "PFDeducted", "CITDeducted", "TaxableIncome", "TDSDeducted"],
+        exportRows.map((r, idx) => [
+          idx + 1, r.employeeCode, r.employeeName, r.panNumber || "N/A", r.taxStatus, r.period, r.grossIncome,
+          r.pfDeducted, r.citDeducted, r.taxableIncome, r.tdsDeducted,
+        ])
+      );
+      downloadTextFile(
         exportRows.length === 1
           ? `tds-ird-${exportRows[0].employeeCode}.csv`
-          : `tds-ird-report-${reportData.period.replace(/[^a-zA-Z0-9]/g, "-")}.csv`
+          : `tds-ird-report-${reportData.period.replace(/[^a-zA-Z0-9]/g, "-")}.csv`,
+        csv
       );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       toast.success("TDS IRD CSV exported successfully.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to export CSV";

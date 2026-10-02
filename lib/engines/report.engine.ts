@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
+import { escapeCsvCell as escapeCsv } from '@/lib/export/csv';
 import type {
   SalarySheetRow,
   SalarySheetSummary,
@@ -69,18 +70,9 @@ export function formatBSMonthLabel(bsMonth: number, bsYear: number): string {
   return `${monthName} ${bsYear}`;
 }
 
-/**
- * Helper to escape CSV cell value and prevent CSV Formula Injection
- */
+/** Shared, formula-safe CSV field (lib/export/csv.ts). */
 function escapeCsvCell(val: string | number | null | undefined): string {
-  if (val === null || val === undefined) return '""';
-  let str = String(val);
-  // Neutralize formula injection: if cell starts with formula trigger characters, prefix a single quote
-  if (/^[=+\-@\t\r]/.test(str)) {
-    str = `'${str}`;
-  }
-  str = str.replace(/"/g, '""');
-  return `"${str}"`;
+  return escapeCsv(val);
 }
 
 /**

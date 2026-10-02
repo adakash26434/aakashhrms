@@ -11,6 +11,8 @@ import type {
   PayrollRunStatus,
   AddSlipHeadPayload
 } from "@/lib/types/payroll";
+import { recordAuditLog } from '@/lib/services/audit.service';
+import { plainCsvField } from '@/lib/export/csv';
 
 export async function getPayrollHistoryAction() {
   await ensureTenantContext();
@@ -117,11 +119,23 @@ export async function generateBankExportCSVAction(runId: string) {
       throw new Error("Bank payment file can only be generated for LOCKED payroll runs.");
     }
 
-    // Nepal commercial bank bulk payment format: SN, AccountNumber, AccountName, Amount, Remarks
-    let csv = "SN,AccountNumber,AccountName,Amount,Remarks\n";
+    // Nepal commercial bank bulk payment format: SN, AccountNumber, AccountName, Amount, Remarks.
+    // S16: fields are quoted when needed and cleaned (a comma in a name used
+    // to shift every later column in the file sent to the bank).
+    const remarks = `Salary Month ${details.payrollRun.payPeriodMonth} ${details.payrollRun.payPeriodYear}`;
+    const lines = ["SN,AccountNumber,AccountName,Amount,Remarks"];
     details.slips.forEach((slip, idx) => {
-      const remarks = `Salary Month ${details.payrollRun.payPeriodMonth} ${details.payrollRun.payPeriodYear}`;
-      csv += `${idx + 1},${slip.bankAccountNumber},${slip.employeeName},${slip.netPayable},"${remarks}"\n`;
+      lines.push(
+        [idx + 1, slip.bankAccountNumber, slip.employeeName, slip.netPayable, remarks].map(plainCsvField).join(",")
+      );
+    });
+    const csv = `${lines.join("\n")}\n`;
+
+    await recordAuditLog({
+      action: 'EXPORT',
+      module: 'PAYROLL_GENERATE',
+      recordId: `Bank transfer file ${details.payrollRun.payPeriodMonth}/${details.payrollRun.payPeriodYear}`,
+      newValues: { rows: details.slips.length },
     });
 
     return { success: true, data: csv };

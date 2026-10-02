@@ -12,6 +12,9 @@ import type { ReportFilterLookupData, PayslipPrintData } from "@/lib/types/repor
 import { getPayslipReportAction } from "@/app/actions/report.actions";
 import { AlertCircle, Printer, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { authorizeExportAction } from "@/app/actions/export.actions";
+import { rowsToCsv } from "@/lib/export/csv";
+import { downloadTextFile } from "@/lib/export/download";
 
 interface PayslipClientProps {
   lookupData: ReportFilterLookupData;
@@ -82,24 +85,23 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
     window.print();
   };
 
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
     if (activePayslips.length === 0) return;
-    let csv =
-      "EmployeeCode,EmployeeName,Department,BasicSalary,GradeAmount,GrossEarnings,TotalDeductions,NetPayable,BankAccount\n";
-    activePayslips.forEach(({ slip }) => {
-      csv += `"${slip.employeeCode}","${slip.employeeName}","${slip.departmentName}",${slip.basicSalary},${slip.gradeAmount},${slip.grossEarnings},${slip.totalDeductions},${slip.netPayable},"${slip.bankAccountNumber}"\n`;
-    });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
+    const gate = await authorizeExportAction({ module: "REPORTS_PAYSLIP", label: "Payslips (CSV)", rowCount: activePayslips.length });
+    if (!gate.allowed) return;
+    const csv = rowsToCsv(
+      ["EmployeeCode", "EmployeeName", "Department", "BasicSalary", "GradeAmount", "GrossEarnings", "TotalDeductions", "NetPayable", "BankAccount"],
+      activePayslips.map(({ slip }) => [
+        slip.employeeCode, slip.employeeName, slip.departmentName, slip.basicSalary, slip.gradeAmount,
+        slip.grossEarnings, slip.totalDeductions, slip.netPayable, slip.bankAccountNumber,
+      ])
+    );
+    downloadTextFile(
       activePayslips.length === 1
         ? `payslip-${activePayslips[0].slip.employeeCode}.csv`
-        : `payslips-export-${filterState.payrollRunId}.csv`
+        : `payslips-export-${filterState.payrollRunId}.csv`,
+      csv
     );
-    link.click();
   };
 
   const selectedRunLabel =
