@@ -9,6 +9,7 @@ import {
   Lock,
   LogOut,
   PanelLeft,
+  Rows3,
   Search,
   User,
   Wallet,
@@ -19,6 +20,7 @@ import { logoutAction } from "@/app/actions/auth.actions";
 import { useDateFormat } from "@/lib/contexts/date-format-context";
 import type { NavModule } from "@/lib/frame/navigation";
 import { rankCandidates } from "@/lib/frame/palette-search";
+import { useDensity } from "@/lib/kit/density";
 import type { EmployeeQuickResult } from "@/lib/repositories/employee.repository";
 import { cn } from "@/lib/utils";
 import { useFrame } from "./frame-context";
@@ -54,6 +56,7 @@ function PaletteDialog({ modules, recent, canSearchEmployees, isImpersonating }:
   const { setPaletteOpen, toggleNavigator, setHelpOpen, lockNow } = useFrame();
   const router = useRouter();
   const { calendar, setCalendar } = useDateFormat();
+  const [density, setDensity] = useDensity();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [lookup, setLookup] = useState<{ term: string; results: EmployeeQuickResult[] }>({ term: "", results: [] });
@@ -121,6 +124,17 @@ function PaletteDialog({ modules, recent, canSearchEmployees, isImpersonating }:
       icon: CalendarRange,
       run: () => {
         setCalendar(calendar === "bs" ? "ad" : "bs");
+        close();
+      },
+    },
+    {
+      id: "cmd:density",
+      label: density === "compact" ? "Use comfortable rows" : "Use compact rows",
+      group: "Commands",
+      keywords: ["density", "row height", "dense", "spacing"],
+      icon: Rows3,
+      run: () => {
+        setDensity(density === "compact" ? "comfortable" : "compact");
         close();
       },
     },
@@ -219,7 +233,7 @@ function PaletteDialog({ modules, recent, canSearchEmployees, isImpersonating }:
       ...rankCandidates(commandItems, q, 6),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, recent, pageItems, employees, calendar, lockNow, isImpersonating]);
+  }, [query, recent, pageItems, employees, calendar, density, lockNow, isImpersonating]);
 
   const activeIndex = Math.min(active, Math.max(0, items.length - 1));
 

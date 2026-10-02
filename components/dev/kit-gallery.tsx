@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Toggle } from "@/components/ui/toggle";
 import { PageBar } from "@/components/frame/page-bar";
+import { KitV2Gallery } from "./kit-v2-gallery";
 import { CheckCircle2, Lock, Pencil, Trash2 } from "lucide-react";
 
 // Development-only gallery. Sample data only. Legacy screens are built from
@@ -54,6 +55,9 @@ export function KitGallery() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-8 p-6">
+        <KitV2Gallery />
+        <hr className="border-line" />
+        <p className="text-2xs font-semibold uppercase tracking-wider text-ink-faint">Phase 1–2 references (legacy components, remapped)</p>
         <Section title="Page bar + command toolbar (Phase 2.5)">
           <div className="rounded-lg border border-line bg-surface p-4">
             <PageBar

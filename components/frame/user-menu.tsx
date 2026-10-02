@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Keyboard, Lock, LogOut, UserCircle, Wallet } from "lucide-react";
+import { ChevronDown, Keyboard, Lock, LogOut, Rows3, UserCircle, Wallet } from "lucide-react";
+import { useDensity } from "@/lib/kit/density";
 import { logoutAction } from "@/app/actions/auth.actions";
 import type { WorkspaceContext } from "@/lib/services/workspace-context.service";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { useFrame } from "./frame-context";
 
 export function UserMenu({ context }: { context?: WorkspaceContext }) {
   const { lockNow, setHelpOpen } = useFrame();
+  const [density, setDensity] = useDensity();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const isImpersonating = Boolean(context?.isImpersonating);
@@ -84,6 +86,19 @@ export function UserMenu({ context }: { context?: WorkspaceContext }) {
               </Link>
             </>
           )}
+          <button
+            role="menuitemcheckbox"
+            aria-checked={density === "compact"}
+            type="button"
+            className={itemClass}
+            onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}
+          >
+            <Rows3 className="h-4 w-4 text-ink-faint" />
+            <span className="flex-1">Compact rows</span>
+            <span className={cn("h-4 w-7 rounded-full p-0.5 transition-colors", density === "compact" ? "bg-brand" : "bg-line-strong")} aria-hidden>
+              <span className={cn("block h-3 w-3 rounded-full bg-white transition-transform", density === "compact" && "translate-x-3")} />
+            </span>
+          </button>
           <button
             role="menuitem"
             type="button"
