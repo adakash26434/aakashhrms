@@ -1,0 +1,86 @@
+# AakashHRMS — Claude Code instructions
+
+Multi-tenant, Nepal-compliant HR & payroll system (Next.js 16 App Router + Drizzle/PostgreSQL + NextAuth v5). One PostgreSQL database per company (tenant) plus a central platform DB. Deployed on cPanel/Passenger.
+
+Stack, PG10 constraints, DB scripts and deploy steps (also read by other agents):
+@AGENTS.md
+
+## Commands
+
+```bash
+npm run dev                      # dev server (webpack)
+npm run type-check               # tsc --noEmit — must exit 0
+npm test                         # node --test, all tests/*.test.ts
+node --import tsx --test tests/<file>.test.ts   # one test file
+npx eslint <changed files>       # lint only what you touched (see "Known debt")
+npm run build                    # production build (slow: cpus=1); runs postbuild asset copy
+```
+
+- Check **exit codes**, not grep output. `tsc ... | grep` hides failures. Use `npx tsc --noEmit > out.txt 2>&1; echo $?`.
+- Never run `npm audit fix --omit=dev`; it prunes devDependencies from node_modules. Run `npm install` to restore.
+- The shell is Git Bash on Windows. LF→CRLF warnings from git are harmless.
+
+## Architecture (keep the layering)
+
+```
+app/**/page.tsx          server component: ensureTenantContext → checkPermission[WithScope] → service → <XxxClient/>
+app/actions/*.actions.ts 'use server' boundary: checkPermission → service → { success, data | error }
+lib/services/            orchestration, transactions, audit logging
+lib/engines/             pure calculation/validation — unit-test these
+lib/repositories/        Drizzle queries only
+components/<module>/     client UI (XxxClient + table + filters + form modal + detail panel)
+components/ui/           shared primitives
+```
+
+## Security rules (non-negotiable)
+
+These come from Phase 0 (`docs/redesign/03-security-plan.md`). `tests/security-invariants.test.ts` enforces several of them.
+
+- **Tenant DB:** always `await getDb()` / `await getDbAsync(slug?)` from `@/lib/db`. They resolve the tenant **per request** and throw `TenantContextError` when none. Never cache a tenant DB in module scope or on `globalThis`. Never fall back to the primary `db` export in request code (scripts only).
+- **Authorization lives on the server.** Every page and server action calls `checkPermission` / `checkPermissionWithScope`. Use `requireAuthenticatedUser()` when there is no single module. Hiding UI is never access control.
+- **No `'use server'` in `lib/` or `components/`.** Every export of such a file becomes a public endpoint. Server actions live only in `app/actions/`.
+- **Never persist or return plaintext passwords.** A temporary password may appear once in the response that issued it; `users.temp_password` is always NULL.
+- **Client IP:** use `getClientIp()` (`lib/auth/client-ip.ts`), never `x-forwarded-for.split(',')[0]`.
+- **Raw SQL:** no `sql.raw()` with interpolated values; use Drizzle operators (`inArray`, `eq`) or `sql` template params.
+- **HTML from user input** (emails, print views): escape with `escapeHtml()`; no `dangerouslySetInnerHTML`.
+- **Secrets:** `AUTH_SECRET`, `PLATFORM_SESSION_SECRET` and `PLATFORM_SECRETS_KEY` are distinct (see `lib/security/secrets.ts`). Never read, print or commit `.env`.
+- Add a `tests/security-*.test.ts` case for any new guard. Where practical, confirm it fails on the old code.
+
+## Next.js 16 specifics
+
+- Middleware is `proxy.ts`. `instrumentation.ts` validates security config at server start.
+- APIs differ from older Next.js. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
+- `next.config.ts` has `typescript.ignoreBuildErrors: true` (cPanel memory), so `npm run type-check` is the real type gate.
+
+## Redesign programme (in progress)
+
+`docs/redesign/` is the source of truth. **Read `04-roadmap.md` and `CHANGELOG.md` before starting work.**
+
+| File | Contents |
+|---|---|
+| `01-project-analysis.md` | Modules, routes, UI audit |
+| `02-design-system.md` | Desktop-style frame, logo forest-green palette (`#1E7F12`), light chrome, templates A–F, shortcuts |
+| `03-security-plan.md` | Findings S0–S12 + standing rules |
+| `05-functional-research.md` | Payroll features F1–F17 |
+
+Workflow:
+- One branch per phase or module: `redesign/<phase>-<slug>` (features: `feature/<slug>`). Never mix with unrelated work.
+- Run a verification gate after every step: type-check exit 0, tests pass, no new lint errors in touched files, build for shell/config changes. Then check screens at 1440 / 1024 / 390 px with a restricted (BRANCH/DEPARTMENT) role.
+- After each completed step: tick the roadmap box and add a `CHANGELOG.md` entry (commits, verification, deployment notes).
+- **Stop at phase boundaries and at the sign-off points** (after Phase 1, Phase 2 and module 4.1). The user adds requirements between phases.
+- UI phases change no backend behaviour, except for items in the security plan.
+
+UI conventions for new code:
+- Use semantic tokens. No raw hex, no new `zinc-NNN`, no arbitrary `text-[Npx]`.
+- Lists use `DataGrid`, dialogs `Window`, forms `PropertyForm` (component kit, Phase 3).
+- Money is right-aligned with tabular numerals and lakh grouping; dates are BS-first.
+
+## Known debt
+
+- `npm run lint` has ~225 **pre-existing** errors (mostly `no-explicit-any`), so CI lint fails on `main`. Don't add new ones; clean up as modules are migrated (Phases 4/8).
+- `npm audit`: the nodemailer advisory via next-auth needs a major upgrade, so CI gates on `critical` for now.
+
+## Git
+
+- Commit only when asked or when completing an agreed roadmap step. Prefer new commits over amending. Do not push or merge without being asked.
+- End commit messages with: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
