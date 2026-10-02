@@ -14,6 +14,7 @@ npm test                         # node --test, all tests/*.test.ts
 node --import tsx --test tests/<file>.test.ts   # one test file
 npx eslint <changed files>       # lint only what you touched (see "Known debt")
 npm run build                    # production build (slow: cpus=1); runs postbuild asset copy
+npm run verify                   # local gate: type-check → test → build
 ```
 
 - Check **exit codes**, not grep output. `tsc ... | grep` hides failures. Use `npx tsc --noEmit > out.txt 2>&1; echo $?`.
@@ -48,7 +49,7 @@ These come from Phase 0 (`docs/redesign/03-security-plan.md`). `tests/security-i
 
 ## Next.js 16 specifics
 
-- Middleware is `proxy.ts`. `instrumentation.ts` validates security config at server start.
+- Middleware is `proxy.ts`. It sets the per-request nonce CSP (`lib/security/csp.ts`). Never add a page CSP in `next.config.ts`: two policies would void the nonce. Every pass-through must go through `continueWith()` so request headers survive NextAuth. `instrumentation.ts` validates security config at server start.
 - APIs differ from older Next.js. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
 - `next.config.ts` has `typescript.ignoreBuildErrors: true` (cPanel memory), so `npm run type-check` is the real type gate.
 
@@ -71,7 +72,8 @@ Workflow:
 - UI phases change no backend behaviour, except for items in the security plan.
 
 UI conventions for new code:
-- Use semantic tokens. No raw hex, no new `zinc-NNN`, no arbitrary `text-[Npx]`.
+- Use semantic tokens: `bg-brand`, `bg-surface`, `bg-canvas`, `text-ink` / `text-ink-muted` / `text-ink-faint`, `border-line`, `text-danger`, and so on. The full map is in `02-design-system.md` §3. No raw hex, no new `zinc-NNN`, no arbitrary `text-[Npx]` (use `text-2xs`/`xs`/`sm`). `tests/design-foundation.test.ts` enforces this outside the entry pages.
+- Preview components at `/dev/kit` (dev only; 404 in production).
 - Lists use `DataGrid`, dialogs `Window`, forms `PropertyForm` (component kit, Phase 3).
 - Money is right-aligned with tabular numerals and lakh grouping; dates are BS-first.
 

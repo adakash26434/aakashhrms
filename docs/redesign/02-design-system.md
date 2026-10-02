@@ -105,6 +105,34 @@ the ~1,000 existing `emerald-NNN` usages follow the logo colour.
 
 Tailwind's `zinc-*` neutrals are remapped to these green-tinted greys.
 
+### Implemented token map (Phase 1)
+
+All of this lives in `app/globals.css`. It has three layers:
+
+1. **Ramps** on `:root`: `--forest-50…950`, `--neutral-50…950` and `--crimson-50…950` (danger).
+2. **Semantic variables** (`--brand`, `--surface`, `--text`, …) that point at the ramps.
+3. **Tailwind remaps** in `@theme inline`:
+   - `zinc`, `gray`, `slate`, `neutral` and `stone` → `--neutral-*`
+   - `emerald` and `green` → `--forest-*`
+   - `rose` and `red` → `--crimson-*`, so every error uses one crimson that stays distinct from the logo red
+   - the old `payroll-*` colours → semantic variables
+
+| Use in new code | Utility | Variable |
+|---|---|---|
+| Primary action, links | `bg-brand`, `text-brand`, `hover:bg-brand-hover`, `bg-brand-subtle`, `bg-brand-50…950` | `--brand*`, `--forest-*` |
+| Logo red (wordmark/strip only) | `text-brand-red`, `bg-brand-red` | `--brand-red` |
+| Backgrounds | `bg-canvas` (workspace), `bg-surface` (panels), `bg-surface-sunken` (headers, read-only), `bg-chrome`, `bg-rail`, `bg-nav` | |
+| Borders | `border-line`, `border-line-strong` | `--border`, `--border-strong` |
+| Text | `text-ink`, `text-ink-muted`, `text-ink-faint` | `--text*` |
+| Selection / focus | `bg-selection`, `ring-focus` | |
+| Status | `text-success`, `bg-success-subtle` (same for `warning`, `danger`, `info`), `text-amount-negative` | |
+| Charts | `bg-chart-primary`, `-primary-soft`, `-estimated`, `-info`, `-warning`, `-danger` (legends). Recharts reads the hex mirror in `lib/constants/colors.ts` (`CHART_COLORS`, `CHART_THEME`, `CHART_TOOLTIP_STYLE`, `CHART_AXIS_TICK`). | `--chart-*` |
+
+Radius is tightened globally: `rounded-md` is now 4px (controls),
+`rounded-lg` 6px (panels), `rounded-xl` 8px (windows) and `rounded-2xl` 10px.
+Shadows are near-flat up to `shadow-sm`. `shadow-md` and above are soft,
+green-black, and meant for floating layers.
+
 A dark theme (`[data-theme="dark"]`) is a stretch goal (Phase 9). The tokens
 are designed so it only needs new values.
 
@@ -116,8 +144,13 @@ are designed so it only needs new values.
   numbers), never for amounts.
 - Scale (px): **11** caption/labels · **12** secondary/grid meta · **13** body
   and grid cells (base) · **14** emphasis/section titles · **16** page
-  title · **20** dashboard figures. Replace all `text-[10.5px]`-style
-  arbitrary sizes with this scale.
+  title · **20** dashboard figures.
+  - Utilities: `text-2xs` (11), `text-xs` (12), `text-sm` (**13**, reduced from Tailwind's 14), `text-base` (16).
+  - `text-3xs` (10) is only for count badges and micro-chips.
+  - Phase 1 replaced 1,072 arbitrary `text-[Npx]` sizes, and a test now blocks new ones.
+- Tabular numerals apply to tables, inputs, selects, `<time>` and `<output>`,
+  plus the `tabular` / `tabular-nums` utilities. They are **not** global,
+  because Inter's `tnum` also widens hyphens and slashes in running text.
 - Amounts: right-aligned, tabular numbers, Nepali grouping (`4,52,300.00`),
   `₨` prefix only in headers and totals.
 
@@ -202,7 +235,9 @@ Each one is scheduled in the roadmap.
 ## 7. Rules for contributors
 
 - Never hard-code hex colours or `zinc-NNN` in **new** code. Use the semantic
-  tokens (`bg-surface`, `text-muted`, `border-default`, `bg-accent`…).
+  tokens (`bg-surface`, `text-ink-muted`, `border-line`, `bg-brand`…). See the
+  token map in §3. Preview everything at `/dev/kit`, the development-only
+  gallery.
 - No arbitrary font sizes. Use the type scale.
 - New lists must use `DataGrid`, new dialogs `Window`, new forms
   `PropertyForm`.

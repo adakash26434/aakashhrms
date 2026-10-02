@@ -13,6 +13,54 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — Phase 1 steps 1.1–1.6: design foundation (sign-off 1.7 pending)
+Branch: `redesign/1-foundation` (from `redesign/0-security` @ `d47fcb2`; not merged or pushed)
+Commits:
+- `f7e9cde` **1.1–1.5 design foundation**
+  - Token layers: forest / neutral / crimson ramps, semantic variables and utilities.
+  - Global remap of zinc/gray/slate/neutral/stone, emerald/green, rose/red and `payroll-*`.
+  - Radii tightened to 4/6/8px and in-page shadows flattened.
+  - Inter self-hosted; amounts no longer monospace; tabular numerals scoped.
+  - Body 13px; 1,072 arbitrary font sizes replaced in 174 files.
+  - `!important` hacks replaced by cascade layers.
+  - Chart theme centralised; hex removed from app screens.
+  - Hero headline re-fitted after the font change.
+  - Dev-only `/dev/kit` gallery added.
+- `7c509c6` **1.6 security**
+  - S6 nonce CSP plus header clean-up.
+  - **S13 (new):** NextAuth dropped the proxy's request-header overrides, so the `x-tenant-slug` strip never ran on tenant routes. Not exploitable, since nothing reads it, but now fixed.
+  - S11 `npm run verify`.
+
+Enhancements beyond the original Phase 1 scope:
+- gray, slate and rose remapped.
+- Radius and shadow retune.
+- Scoped tabular numerals (Inter's `tnum` widened hyphens in prose).
+- Chart tokens.
+- `/dev/kit` started early (roadmap 3.9).
+- COOP and Permissions-Policy hardening.
+- API deny-all CSP and no-store.
+- Guard tests for every new rule.
+
+Verified:
+- `tsc` exit 0.
+- 262/262 tests (27 new: `security-csp`, `design-foundation`). The S13 header tests fail on the old proxy.
+- Lint: 215 errors in the linted folders before and after, so none added.
+- Production build succeeded.
+- Standalone production server:
+  - All 14 page scripts carry the nonce.
+  - React hydrates.
+  - Zero console errors and zero off-site requests.
+  - `/dev/kit` is redirected or 404.
+  - API responses carry the deny-all CSP.
+- Dev: `/login`, `/` and `/dev/kit` checked at 1440 and 390px with no CSP violations.
+
+Not yet verified: signed-in screens (dashboard, registers, payroll, reports, print preview) and restricted-role checks. They need a sign-in with your credentials, which stay in `.env`. That is the 1.7 sign-off tour.
+
+Deployment notes:
+1. The CSP is enforcing. A page that loads an off-site script, font or image will be blocked. None exist today; add a source in `lib/security/csp.ts` if one is ever needed.
+2. HSTS is now on in production (1 year). It adds `includeSubDomains; preload` only with `FORCE_SSL=true`.
+3. `upgrade-insecure-requests` is sent only when `FORCE_SSL=true`. Leave it unset on HTTP-only test hosts.
+
 ## 2026-10-02 — Phase 0 complete: preparation & security hardening
 Branch: `redesign/0-security` (from `main` @ `2eea440`; not merged or pushed)
 Commits:

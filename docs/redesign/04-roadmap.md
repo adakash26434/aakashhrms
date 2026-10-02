@@ -55,13 +55,13 @@ Goal: a safe baseline before any visual work.
 ## Phase 1 — Design foundation (global reskin)
 Goal: the whole app shifts to the new look with no component rewrites.
 
-- [ ] 1.1 New token set in `app/globals.css` (`:root` + `@theme`), using the **logo forest-green palette and light chrome** from §3 of the design system.
-- [ ] 1.2 **Remap Tailwind `zinc-*`, `emerald-*` and `green-*` scales** to the green-tinted neutrals and the forest-green ramp (reskins ~7k usages).
-- [ ] 1.3 Switch the font from Poppins to **Inter** via `next/font` (self-hosted). Remove the Google `@import` and `<link>`. Enable tabular numerals.
-- [ ] 1.4 Base type scale and density: body 13px, control heights, table header and row rules (remove the `!important` hacks).
-- [ ] 1.5 Remove decorative aura/beam animations from app routes (keep them on the marketing page only).
-- [ ] 1.6 **S6**: Content-Security-Policy plus header clean-up (now possible because fonts are self-hosted).
-- [ ] 1.7 Screenshot tour of every route. **Sign-off.**
+- [x] 1.1 New token set in `app/globals.css`: ramps (`--forest`, `--neutral`, `--crimson`), semantic variables, and Tailwind utilities (`bg-brand`, `bg-surface`, `text-ink-muted`, `border-line`, status and chart tokens). The logo forest-green palette uses light chrome.
+- [x] 1.2 **Remapped** `zinc`/`gray`/`slate`/`neutral`/`stone` → green-tinted neutrals, `emerald`/`green` → forest ramp, `rose`/`red` → one crimson danger hue, and `payroll-*` → semantic tokens (~8.5k usages, no rewrites). *Enhanced:* gray and slate (1.9k usages) were added so neutrals no longer mix cool and warm greys. Rose was unified with red so errors don't clash with the logo red. Radii tightened (4/6/8px) and shadows flattened for a desktop feel.
+- [x] 1.3 Poppins → **Inter** via `next/font` (self-hosted). JetBrains Mono kept for codes only, and amounts moved off mono (`NprText`). Google `@import` and `<link>` removed. Tabular numerals are scoped to tables, fields and numbers. Devanagari falls back to the OS font.
+- [x] 1.4 Type scale and density: body 13px (`text-sm` 14→13), new `text-2xs` (11) and `text-3xs` (10, badges only). **1,072 arbitrary `text-[Npx]` replaced across 174 files.** Removed every `!important` outside print and reduced motion: the global rules now use cascade layers. One focus style, one table header style. Themed thin scrollbars, brand `accent-color` on native controls, `::selection` and visible `:focus-visible` rings.
+- [x] 1.5 Decorative motion: unused aura/beam/glow animations deleted. The remaining ambient glow is limited to the entry pages (login, marketing), and a test keeps it off app screens. Chart colours are centralised (`CHART_THEME`), and hard-coded hex colours were removed from the dashboard charts, error pages, onboarding and date picker.
+- [x] 1.6 **S6**: nonce-based CSP plus header clean-up. **S13** (found here): request headers were dropped on NextAuth routes. **S11**: `npm run verify`.
+- [ ] 1.7 Screenshot tour of every route. **Sign-off.** The gallery `/dev/kit` (dev only, roadmap 3.9 started early) and the entry pages were checked at 1440 and 390px. Signed-in screens need a sign-in by you (credentials stay in `.env`).
 
 ## Phase 2 — Application frame (desktop shell)
 Goal: the app looks and behaves like installed software.
@@ -88,7 +88,7 @@ Goal: building blocks so modules don't re-invent tables and forms.
 - [ ] 3.6 `StatusChip`, `Amount`, `DateCell`, `Confirm` (typed confirmation), `Skeleton`, `EmptyState`
 - [ ] 3.7 Safe export helper (CSV formula-injection escaping, permission + audit hook)
 - [ ] 3.8 `FactBox` context pane (E2), `Worklist` template (E3), density toggle (E5), status-edge rows (E9), layout-matched skeletons (E11)
-- [ ] 3.9 Dev-only component gallery route (`/dev/kit`, disabled in production)
+- [ ] 3.9 Dev-only component gallery route (`/dev/kit`, disabled in production). *Started in Phase 1* with the existing primitives; Phase 3 adds the kit v2 components.
 
 ## Phase 4 — Module migrations (one branch each)
 Every module follows its template from the design system (§5) and the
@@ -162,4 +162,7 @@ attendance and review grids.
 ---
 
 ## Current status
-See `CHANGELOG.md`. **Phase 0 complete** on branch `redesign/0-security` (not merged or pushed). **Paused before Phase 1** at the user's request; additions to Phase 1 are pending from the user.
+See `CHANGELOG.md`.
+- **Phase 0 complete** on `redesign/0-security`.
+- **Phase 1 steps 1.1–1.6 complete** on `redesign/1-foundation`, which branches from `redesign/0-security`. Neither branch is merged or pushed.
+- **Waiting at the Phase 1 sign-off (1.7)** before Phase 2.
