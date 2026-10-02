@@ -22,7 +22,7 @@ export function OnboardingBanner({ isCompleted }: OnboardingBannerProps) {
         <div>
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-bold text-white">Initial Organization Setup Pending</h4>
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-400 text-gray-900 rounded-full">
+            <span className="px-2 py-0.5 text-2xs font-bold bg-amber-400 text-gray-900 rounded-full">
               Setup Required
             </span>
           </div>

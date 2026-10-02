@@ -66,7 +66,7 @@ export function LoansClientList({ loans }: LoansClientListProps) {
                     <Badge
                       variant={isActive ? "warning" : "success"}
                       size="sm"
-                      className="font-bold text-[10px]"
+                      className="font-bold text-2xs"
                     >
                       {isActive ? (
                         <>
@@ -114,7 +114,7 @@ export function LoansClientList({ loans }: LoansClientListProps) {
                 {/* Financial Summary Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-payroll-light/60 text-xs">
                   <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block">
+                    <span className="text-2xs text-gray-400 font-bold uppercase block">
                       Principal Loan
                     </span>
                     <strong className="font-mono font-bold text-payroll-navy mt-0.5 block">
@@ -123,7 +123,7 @@ export function LoansClientList({ loans }: LoansClientListProps) {
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block">
+                    <span className="text-2xs text-gray-400 font-bold uppercase block">
                       Total Returned
                     </span>
                     <strong className="font-mono font-bold text-payroll-primary mt-0.5 block">
@@ -132,7 +132,7 @@ export function LoansClientList({ loans }: LoansClientListProps) {
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block">
+                    <span className="text-2xs text-gray-400 font-bold uppercase block">
                       Remaining Balance
                     </span>
                     <strong className="font-mono font-bold text-rose-600 mt-0.5 block">
@@ -141,7 +141,7 @@ export function LoansClientList({ loans }: LoansClientListProps) {
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block">
+                    <span className="text-2xs text-gray-400 font-bold uppercase block">
                       Monthly EMI
                     </span>
                     <strong className="font-mono font-bold text-payroll-navy mt-0.5 block">

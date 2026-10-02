@@ -81,7 +81,7 @@ export function PayrollPreflightSummary({
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                "font-bold text-[12px]",
+                "font-bold text-xs",
                 !canGenerate
                   ? "text-red-800"
                   : hasWarnings
@@ -98,13 +98,13 @@ export function PayrollPreflightSummary({
 
             <span className="text-gray-300">·</span>
 
-            <span className="text-gray-600 text-[11px]">
+            <span className="text-gray-600 text-2xs">
               {selectedEmployeeCount} staff selected
             </span>
 
             <span className="text-gray-300">·</span>
 
-            <span className="text-gray-600 text-[11px]">
+            <span className="text-gray-600 text-2xs">
               {hasBankDiscrepancy
                 ? `${missingBankEmployees.length} staff lack bank details (manual payout required)`
                 : "Bank details verified"}
@@ -112,7 +112,7 @@ export function PayrollPreflightSummary({
 
             <span className="text-gray-300 hidden md:inline">·</span>
 
-            <span className="text-gray-600 text-[11px] hidden md:inline">
+            <span className="text-gray-600 text-2xs hidden md:inline">
               {occasionalAllowancesCount > 0
                 ? `${occasionalAllowancesCount} occasional allowance(s)`
                 : "Standard compensation"}
@@ -125,7 +125,7 @@ export function PayrollPreflightSummary({
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer",
+            "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-2xs font-semibold transition-colors cursor-pointer",
             !canGenerate
               ? "bg-white text-red-700 border border-red-200 hover:bg-red-50"
               : hasWarnings
@@ -153,7 +153,7 @@ export function PayrollPreflightSummary({
                 <p className="text-xs font-bold text-payroll-navy truncate">
                   {monthName} {bsYear} BS Period
                 </p>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Fiscal schedule & tax period confirmed
                 </p>
               </div>
@@ -186,7 +186,7 @@ export function PayrollPreflightSummary({
                 </p>
                 <p
                   className={cn(
-                    "text-[10px]",
+                    "text-2xs",
                     hasEmployees ? "text-gray-500" : "text-red-600"
                   )}
                 >
@@ -227,7 +227,7 @@ export function PayrollPreflightSummary({
                     <button
                       type="button"
                       onClick={() => setShowMissingBankList(!showMissingBankList)}
-                      className="text-[10px] font-semibold text-amber-800 hover:underline cursor-pointer flex items-center"
+                      className="text-2xs font-semibold text-amber-800 hover:underline cursor-pointer flex items-center"
                     >
                       {showMissingBankList ? (
                         <ChevronUp className="h-3 w-3" />
@@ -239,7 +239,7 @@ export function PayrollPreflightSummary({
                 </div>
                 <p
                   className={cn(
-                    "text-[10px]",
+                    "text-2xs",
                     hasBankDiscrepancy ? "text-amber-700" : "text-gray-500"
                   )}
                 >
@@ -257,7 +257,7 @@ export function PayrollPreflightSummary({
                 <p className="text-xs font-bold text-payroll-navy truncate">
                   Attendance & Leave Inputs
                 </p>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Approved leaves and overtime dynamically synced
                 </p>
               </div>
@@ -272,7 +272,7 @@ export function PayrollPreflightSummary({
                     ? `${occasionalAllowancesCount} occasional allowance(s) applied`
                     : "Standard monthly compensation"}
                 </p>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   {occasionalAllowancesCount > 0
                     ? occasionalAllowanceNames.join(", ")
                     : "No festival, Dashain, or remote additions in this run"}
@@ -284,8 +284,8 @@ export function PayrollPreflightSummary({
           {/* Missing Bank Details List if requested */}
           {showMissingBankList && hasBankDiscrepancy && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900 space-y-1.5 animate-[fadeIn_150ms_ease-out]">
-              <p className="font-bold text-[11px]">Staff with missing bank account numbers:</p>
-              <div className="max-h-28 overflow-y-auto space-y-1 pr-1 font-mono text-[10px]">
+              <p className="font-bold text-2xs">Staff with missing bank account numbers:</p>
+              <div className="max-h-28 overflow-y-auto space-y-1 pr-1 font-mono text-2xs">
                 {missingBankEmployees.map((emp) => (
                   <div key={emp.id} className="flex items-center justify-between py-0.5 border-b border-amber-200/50">
                     <span>{emp.name}</span>

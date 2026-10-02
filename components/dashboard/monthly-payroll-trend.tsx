@@ -18,6 +18,7 @@ import { formatNPR, formatPayrollCycleMonth } from "@/lib/utils";
 import { useDateFormat } from "@/lib/contexts/date-format-context";
 import { useClientReady } from "@/lib/hooks/use-client-ready";
 import type { TrendDataPoint } from "@/lib/types/dashboard";
+import { CHART_COLORS, CHART_THEME, CHART_TOOLTIP_STYLE, CHART_AXIS_TICK } from "@/lib/constants/colors";
 
 interface MonthlyPayrollTrendProps {
   data: TrendDataPoint[];
@@ -102,17 +103,17 @@ export function MonthlyPayrollTrend({
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="#f4f4f5"
+                    stroke={CHART_THEME.grid}
                     vertical={false}
                   />
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 11, fill: "#71717a" }}
+                    tick={CHART_AXIS_TICK}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#71717a" }}
+                    tick={CHART_AXIS_TICK}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(val) =>
@@ -125,19 +126,13 @@ export function MonthlyPayrollTrend({
                       formatNPR(Number(val)),
                       "Net Payout",
                     ]}
-                    contentStyle={{
-                      fontSize: 12,
-                      borderRadius: 6,
-                      border: "1px solid #e4e4e7",
-                      backgroundColor: "#FFFFFF",
-                      boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.05)",
-                    }}
+                    contentStyle={CHART_TOOLTIP_STYLE}
                   />
                   <Bar dataKey="net" radius={[3, 3, 0, 0]}>
                     {chartData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={entry.isEstimated ? "#94a3b8" : "#065f46"}
+                        fill={entry.isEstimated ? CHART_COLORS.estimated : CHART_COLORS.primary}
                       />
                     ))}
                   </Bar>
@@ -146,7 +141,7 @@ export function MonthlyPayrollTrend({
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center text-xs text-zinc-400 border border-dashed border-zinc-200 rounded-md p-4">
                 <p className="font-medium text-zinc-700">No payroll runs recorded yet</p>
-                <p className="text-[11px] mt-0.5">Generate your first payroll cycle to begin tracking disbursement trends.</p>
+                <p className="text-2xs mt-0.5">Generate your first payroll cycle to begin tracking disbursement trends.</p>
               </div>
             )
           ) : (
@@ -158,15 +153,15 @@ export function MonthlyPayrollTrend({
         <div className="mt-3 flex items-center justify-between text-xs text-zinc-500 pt-2 border-t border-zinc-200">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2.5 w-2.5 rounded-xs bg-[#065f46]" />
+              <span className="h-2.5 w-2.5 rounded-xs bg-chart-primary" />
               <span>Paid</span>
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2.5 w-2.5 rounded-xs bg-[#94a3b8]" />
+              <span className="h-2.5 w-2.5 rounded-xs bg-chart-estimated" />
               <span>Estimated</span>
             </span>
           </div>
-          <span className="text-[11px] text-zinc-400">L = 100,000 NPR</span>
+          <span className="text-2xs text-zinc-400">L = 100,000 NPR</span>
         </div>
       </div>
 
@@ -193,8 +188,8 @@ export function MonthlyPayrollTrend({
         {showTable && (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-                <tr className="border-b border-zinc-300 bg-zinc-50 text-[10px] uppercase font-semibold text-zinc-500">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+                <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs uppercase font-semibold text-zinc-500">
                   <th className="px-3 py-2">Month</th>
                   <th className="px-3 py-2 text-right">Net Payout</th>
                   <th className="px-3 py-2 text-right">Status</th>
@@ -211,7 +206,7 @@ export function MonthlyPayrollTrend({
                     </td>
                     <td className="px-3 py-2 text-right">
                       <span
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
+                        className={`text-2xs font-medium px-2 py-0.5 rounded-md border ${
                           d.isEstimated
                             ? "border-emerald-200/50 bg-emerald-50/70 text-emerald-800"
                             : "border-zinc-200 bg-zinc-50 text-zinc-600"

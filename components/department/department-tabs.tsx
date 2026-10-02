@@ -75,7 +75,7 @@ export function DepartmentTabs({
             <span>{t.label}</span>
             <span
               className={cn(
-                "rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums font-mono",
+                "rounded-md px-1.5 py-0.5 text-2xs font-bold tabular-nums font-mono",
                 isActive
                   ? "bg-white/20 text-white"
                   : "bg-payroll-cream text-payroll-navy border border-payroll-light/60",

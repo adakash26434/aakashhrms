@@ -171,7 +171,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
             <h3 className="text-base font-semibold text-zinc-900 tracking-tight">
               Grade Ladder &amp; Shreni Hierarchy
             </h3>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200/70">
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-800 border border-emerald-200/70">
               {levels.length} Configured Levels
             </span>
           </div>
@@ -239,7 +239,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
       <div className="overflow-x-auto border border-zinc-200 rounded-xl">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50/80 text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
+            <tr className="border-b border-zinc-200 bg-zinc-50/80 text-2xs font-semibold uppercase tracking-wider text-zinc-600">
               <th className="px-4 py-3 w-16 text-center">Rank</th>
               <th className="px-4 py-3 w-24">Code</th>
               <th className="px-4 py-3">Level Title</th>
@@ -253,7 +253,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
             {filteredLevels.map((lvl) => (
               <tr key={lvl.id} className="hover:bg-emerald-50/20 transition-colors">
                 <td className="px-4 py-3.5 text-center">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-medium text-zinc-600 font-mono">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-2xs font-medium text-zinc-600 font-mono">
                     {lvl.levelNumber}
                   </span>
                 </td>
@@ -347,7 +347,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
                     : "border-zinc-300 focus:border-emerald-700 focus:ring-emerald-700"
                 )}
               />
-              {errors.code && <p className="mt-1 text-[11px] text-red-500">{errors.code}</p>}
+              {errors.code && <p className="mt-1 text-2xs text-red-500">{errors.code}</p>}
             </div>
 
             <div>
@@ -387,7 +387,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
                   : "border-zinc-300 focus:border-emerald-700 focus:ring-emerald-700"
               )}
             />
-            {errors.name && <p className="mt-1 text-[11px] text-red-500">{errors.name}</p>}
+            {errors.name && <p className="mt-1 text-2xs text-red-500">{errors.name}</p>}
           </div>
 
           <div>
@@ -422,7 +422,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
                 }
                 className="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-xs font-mono text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
               />
-              <p className="mt-1 text-[11px] text-zinc-500">
+              <p className="mt-1 text-2xs text-zinc-500">
                 Starting basic scale. Used for 1 Grade = Basic &divide; 30.
               </p>
             </div>
@@ -445,7 +445,7 @@ export function ShreniManagerTab({ levels, onLevelsChange }: ShreniManagerTabPro
                 }
                 className="h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-xs font-mono text-zinc-900 focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700"
               />
-              <p className="mt-1 text-[11px] text-zinc-500">
+              <p className="mt-1 text-2xs text-zinc-500">
                 Highest scale boundary before promotion.
               </p>
             </div>

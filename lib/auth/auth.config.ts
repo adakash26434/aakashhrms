@@ -71,8 +71,11 @@ export const authConfig = {
       const isApiRoute = nextUrl.pathname.startsWith('/api');
       const isStaticAsset = /\.(png|jpe?g|svg|gif|webp|ico|css|js|txt|xml)$/i.test(nextUrl.pathname);
 
+      // Development-only component gallery (app/dev). Never public in production.
+      const isDevGallery = nextUrl.pathname.startsWith('/dev/') && process.env.NODE_ENV !== 'production';
+
       // Allow static assets, platform routes, and APIs unconditionally
-      if (isStaticAsset || isPlatformRoute || isApiRoute) {
+      if (isStaticAsset || isPlatformRoute || isApiRoute || isDevGallery) {
         return true;
       }
 

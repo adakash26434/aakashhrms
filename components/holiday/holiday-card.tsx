@@ -102,7 +102,7 @@ export function HolidayCard({
         <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-0.5">
           <dt className="text-xs text-gray-500">Date Range</dt>
           <dd className="min-w-0">
-            <p className="text-[13px] font-medium text-payroll-navy tabular-nums">
+            <p className="text-sm font-medium text-payroll-navy tabular-nums">
               {formatDateRange(holiday.startDate, holiday.endDate)}
             </p>
             <DualDateLabel
@@ -203,8 +203,8 @@ function DualDateLabel({
 
   if (!start || !end) {
     return (
-      <p className="mt-0.5 text-[11px] text-gray-400 tabular-nums">
-        <span className="mr-1.5 inline-block rounded bg-payroll-cream px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+      <p className="mt-0.5 text-2xs text-gray-400 tabular-nums">
+        <span className="mr-1.5 inline-block rounded bg-payroll-cream px-1 py-px text-3xs font-semibold uppercase tracking-wider text-gray-500">
           AD
         </span>
         —
@@ -221,8 +221,8 @@ function DualDateLabel({
   const endStr = formatADDate(end, "long"); // "December 16, 2024"
 
   return (
-    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-500 tabular-nums">
-      <span className="inline-block rounded bg-payroll-cream px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+    <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-gray-500 tabular-nums">
+      <span className="inline-block rounded bg-payroll-cream px-1 py-px text-3xs font-semibold uppercase tracking-wider text-gray-500">
         AD
       </span>
       <span>
@@ -244,7 +244,7 @@ function BranchesCell({
   if (ids.length === 0) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-[13px] text-payroll-navy">All Branches</span>
+        <span className="text-sm text-payroll-navy">All Branches</span>
       </div>
     );
   }
@@ -256,11 +256,11 @@ function BranchesCell({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="truncate text-[13px] text-payroll-navy">
+      <span className="truncate text-sm text-payroll-navy">
         {visible.join(", ")}
       </span>
       {overflow > 0 && (
-        <span className="shrink-0 rounded bg-payroll-light/60 px-1.5 py-0.5 text-[10px] font-semibold text-payroll-navy tabular-nums">
+        <span className="shrink-0 rounded bg-payroll-light/60 px-1.5 py-0.5 text-2xs font-semibold text-payroll-navy tabular-nums">
           +{overflow}
         </span>
       )}

@@ -189,7 +189,7 @@ export default function RoleClient({
           {/* ── Role Selector Bar with Search & Refined Chips ── */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+              <span className="text-2xs font-semibold text-zinc-500 uppercase tracking-wider">
                 Select Organizational Role
               </span>
               {roles.length > 5 && (
@@ -238,7 +238,7 @@ export default function RoleClient({
                     <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-zinc-200/40">
                       <span
                         className={cn(
-                          "text-[10px] inline-flex items-center gap-0.5",
+                          "text-2xs inline-flex items-center gap-0.5",
                           isActive ? "text-emerald-300" : "text-zinc-500",
                         )}
                       >
@@ -247,7 +247,7 @@ export default function RoleClient({
                       </span>
                       <span
                         className={cn(
-                          "text-[10px] px-1.5 py-0.2 rounded font-mono font-medium",
+                          "text-2xs px-1.5 py-0.2 rounded font-mono font-medium",
                           isActive
                             ? "bg-white/15 text-white"
                             : "bg-zinc-100 text-zinc-600",
@@ -275,11 +275,11 @@ export default function RoleClient({
                     <span>{scope.label} Scope</span>
                   </Badge>
                   {activeRole.isProtected ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
+                    <span className="inline-flex items-center gap-1 text-2xs font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
                       <Lock className="h-2.5 w-2.5" /> System Protected
                     </span>
                   ) : (
-                    <span className="inline-flex items-center text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
+                    <span className="inline-flex items-center text-2xs font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
                       Custom Role
                     </span>
                   )}

@@ -57,7 +57,7 @@ function SortHeader({
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-950"
+        className="inline-flex items-center gap-1.5 text-left text-2xs uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-950"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -124,17 +124,17 @@ export function LeaveApprovalTable({
   return (
     <div className="overflow-x-auto w-full">
       <table className="w-full min-w-180 text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs uppercase tracking-wider text-zinc-500">
             <SortHeader label="Employee" onClick={() => toggleSort("employeeName")} />
             <SortHeader label="Leave Type" onClick={() => toggleSort("leaveTypeId")} />
             <th scope="col" className="px-4 py-4 font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-zinc-500">From &rarr; To</span>
+              <span className="text-2xs uppercase tracking-wider text-zinc-500">From &rarr; To</span>
             </th>
             <SortHeader label="Days" onClick={() => toggleSort("noOfDays")} />
             <SortHeader label="Applied" onClick={() => toggleSort("appliedDate")} />
             <th scope="col" className="px-4 py-4 text-right font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-zinc-500">Actions</span>
+              <span className="text-2xs uppercase tracking-wider text-zinc-500">Actions</span>
             </th>
           </tr>
         </thead>
@@ -150,7 +150,7 @@ export function LeaveApprovalTable({
               >
                 <td className="px-4 py-4 align-middle">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-[11px] font-medium text-white shadow-2xs">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-2xs font-medium text-white shadow-2xs">
                       {getInitials(app.employeeName)}
                     </div>
                     <div className="min-w-0">
@@ -165,14 +165,14 @@ export function LeaveApprovalTable({
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <Clock className="h-3 w-3 text-zinc-400" />
-                    <span className="text-[11px] text-zinc-400">
+                    <span className="text-2xs text-zinc-400">
                       {app.duration === "Half Day" ? "½ Day" : "Full Day"}
                     </span>
                   </div>
                 </td>
                 <td className="px-4 py-4 align-middle">
                   <div className="text-zinc-600">{formatDate(app.effectiveFrom)}</div>
-                  <div className="text-[11px] text-zinc-400">&rarr; {formatDate(app.effectiveTo)}</div>
+                  <div className="text-2xs text-zinc-400">&rarr; {formatDate(app.effectiveTo)}</div>
                 </td>
                 <td className="px-4 py-4 align-middle">
                   <span className="font-semibold text-zinc-950 tabular-nums">{app.noOfDays}</span>

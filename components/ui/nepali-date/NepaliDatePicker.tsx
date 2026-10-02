@@ -438,7 +438,7 @@ export function NepaliDatePicker({
 
       {/* Opposite Calendar Context Hint */}
       {value && !isNaN(value.getTime()) && (
-        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+        <div className="mt-1 flex items-center justify-between text-2xs text-slate-500 font-mono">
           <span>
             {isBS
               ? `AD Equivalent: ${formatADDate(value, "long")}`
@@ -447,7 +447,7 @@ export function NepaliDatePicker({
                   return `${bs.year}/${pad2(bs.month)}/${pad2(bs.day)} (${BS_MONTHS_EN[bs.month] || bs.monthName})`;
                 })()}`}
           </span>
-          <span className="text-[10px] uppercase font-bold text-payroll-primary tracking-wider">
+          <span className="text-2xs uppercase font-bold text-payroll-primary tracking-wider">
             {isBS ? "B.S. Calendar" : "A.D. Calendar"}
           </span>
         </div>
@@ -526,7 +526,7 @@ export function NepaliDatePicker({
           </div>
 
           {/* Weekday Row Header */}
-          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-[11px] font-semibold text-slate-500">
+          <div className="grid grid-cols-7 text-center pt-2 pb-1 text-2xs font-semibold text-slate-500">
             {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((dayName, idx) => (
               <div key={idx} className="py-0.5">
                 {dayName}

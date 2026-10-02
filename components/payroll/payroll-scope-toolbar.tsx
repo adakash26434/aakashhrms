@@ -112,7 +112,7 @@ export function PayrollScopeToolbar({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-payroll-navy text-[13px]">
+            <span className="font-bold text-payroll-navy text-sm">
               Active Scope
             </span>
             <span className="text-gray-300">·</span>
@@ -136,7 +136,7 @@ export function PayrollScopeToolbar({
               <span>{catText}</span>
             </div>
             <span className="text-gray-300 hidden sm:inline">|</span>
-            <span className="inline-flex items-center gap-1 rounded-md bg-payroll-cream px-2 py-0.5 font-bold font-mono text-payroll-primary text-[11px] border border-payroll-light/80">
+            <span className="inline-flex items-center gap-1 rounded-md bg-payroll-cream px-2 py-0.5 font-bold font-mono text-payroll-primary text-2xs border border-payroll-light/80">
               {matchedEmployeesCount} staff in scope
             </span>
           </div>
@@ -148,7 +148,7 @@ export function PayrollScopeToolbar({
             <button
               type="button"
               onClick={onReset}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-payroll-primary hover:underline cursor-pointer px-2 py-1"
+              className="inline-flex items-center gap-1 text-2xs font-semibold text-payroll-primary hover:underline cursor-pointer px-2 py-1"
             >
               <RotateCcw className="h-3 w-3" />
               Reset Scope
@@ -228,7 +228,7 @@ export function PayrollScopeToolbar({
             />
           </div>
 
-          <div className="mt-3 flex items-center justify-between border-t border-payroll-light/50 pt-2.5 text-[11px] text-gray-500">
+          <div className="mt-3 flex items-center justify-between border-t border-payroll-light/50 pt-2.5 text-2xs text-gray-500">
             <span>
               Matches <strong>{matchedEmployeesCount}</strong> employee(s) across selected branches, departments, and designations.
             </span>

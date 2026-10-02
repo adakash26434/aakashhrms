@@ -29,7 +29,7 @@ export function AppliedFiltersRow({
       className={cn("flex flex-wrap items-center gap-1.5 py-1 text-xs", className)}
       {...props}
     >
-      <span className="text-[11px] font-medium text-gray-400 mr-1">
+      <span className="text-2xs font-medium text-gray-400 mr-1">
         Applied filters:
       </span>
       {filters.map((filter) => (
@@ -54,7 +54,7 @@ export function AppliedFiltersRow({
         <button
           type="button"
           onClick={onClearAll}
-          className="ml-1 text-[11px] font-semibold text-payroll-primary hover:underline cursor-pointer"
+          className="ml-1 text-2xs font-semibold text-payroll-primary hover:underline cursor-pointer"
         >
           Clear all
         </button>

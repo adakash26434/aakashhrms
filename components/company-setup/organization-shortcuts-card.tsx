@@ -95,7 +95,7 @@ export function OrganizationShortcutsCard({
                     <h3 className="text-sm font-semibold text-slate-900">
                       {unit.title}
                     </h3>
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-mono font-medium text-slate-700">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-2xs font-mono font-medium text-slate-700">
                       {unit.count} {unit.countLabel}
                     </span>
                   </div>

@@ -1,5 +1,5 @@
 import type { DashboardData } from "@/lib/types/dashboard";
-import { DEPARTMENT_COLORS, PAYROLL_COLORS } from "@/lib/constants/colors";
+import { CHART_COLORS, DEPARTMENT_COLORS, PAYROLL_COLORS } from "@/lib/constants/colors";
 
 export const mockDashboardData: DashboardData = {
   hero: {
@@ -76,7 +76,7 @@ export const mockDashboardData: DashboardData = {
     totalDeductions: 12_486_210,
     netPayable: 71_728_296,
     deductions: [
-      { label: "TDS", amount: 4_821_400, color: "#F59E0B" },
+      { label: "TDS", amount: 4_821_400, color: CHART_COLORS.warning },
       { label: "PF", amount: 3_942_800, color: PAYROLL_COLORS.primary },
       { label: "SSF", amount: 2_118_600, color: PAYROLL_COLORS.navy },
     ],

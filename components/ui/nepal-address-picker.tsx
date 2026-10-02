@@ -366,7 +366,7 @@ export function NepalAddressPicker({
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
               Permanent Address *
             </h4>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Official legal residence as recorded on Citizenship or National ID.
             </p>
           </div>
@@ -465,7 +465,7 @@ export function NepalAddressPicker({
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                 Temporary Address
               </h4>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Current residence address if different from permanent address.
               </p>
             </div>

@@ -46,7 +46,7 @@ function Field({
         {isLocked && (
           <span
             title="Controlled by tax slab configuration"
-            className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-600"
+            className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.2 text-2xs font-medium text-slate-600"
           >
             <Lock className="h-2.5 w-2.5 text-slate-400" />
             Locked
@@ -81,7 +81,7 @@ function Field({
       </div>
 
       {helperText && (
-        <p className="text-[11px] text-slate-500 leading-normal">{helperText}</p>
+        <p className="text-2xs text-slate-500 leading-normal">{helperText}</p>
       )}
     </div>
   );
@@ -100,7 +100,7 @@ export function InsuranceDiscountsCard({
             <h3 className="text-sm font-semibold text-slate-900">
               Insurance exemptions &amp; tax rebates
             </h3>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-600">
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-2xs font-mono font-medium text-slate-600">
               Income Tax Act 2058
             </span>
           </div>

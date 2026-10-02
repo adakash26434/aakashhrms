@@ -528,7 +528,7 @@ export function PayHeadFormModal({
                     ({form.applicableDepartmentIds.length} of {departments.length} selected)
                   </span>
                 </span>
-                <div className="flex items-center gap-2 text-[11px]">
+                <div className="flex items-center gap-2 text-2xs">
                   <button
                     type="button"
                     onClick={selectAllDepartments}
@@ -576,7 +576,7 @@ export function PayHeadFormModal({
                     ({form.applicableDesignationIds.length} of {designations.length} selected)
                   </span>
                 </span>
-                <div className="flex items-center gap-2 text-[11px]">
+                <div className="flex items-center gap-2 text-2xs">
                   <button
                     type="button"
                     onClick={selectAllDesignations}
@@ -650,7 +650,7 @@ export function PayHeadFormModal({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-zinc-900">{meta.label}</p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{meta.description}</p>
+                    <p className="mt-0.5 text-2xs leading-relaxed text-zinc-500">{meta.description}</p>
                   </div>
                   <span
                     className={cn(
@@ -803,7 +803,7 @@ function CheckboxPill({
       {badge && (
         <span
           className={cn(
-            "rounded-md px-2 py-0.5 text-[10px] font-medium shrink-0 max-w-32.5 truncate border",
+            "rounded-md px-2 py-0.5 text-2xs font-medium shrink-0 max-w-32.5 truncate border",
             checked
               ? "bg-emerald-100/70 text-emerald-800 border-emerald-200/80"
               : "bg-zinc-100 text-zinc-600 border-zinc-200"

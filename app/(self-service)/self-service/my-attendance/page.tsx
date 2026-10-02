@@ -97,7 +97,7 @@ export default async function MyAttendancePage() {
 
                     <div className="flex items-center gap-2">
                       {month.isLocked && (
-                        <Badge variant="neutral" size="sm" className="font-bold text-[10px]">
+                        <Badge variant="neutral" size="sm" className="font-bold text-2xs">
                           LOCKED
                         </Badge>
                       )}
@@ -118,7 +118,7 @@ export default async function MyAttendancePage() {
                   {/* Telemetry Breakdown Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-payroll-cream/50 rounded-xl border border-payroll-light/70 text-xs">
                     <div>
-                      <span className="text-[10px] text-gray-500 font-medium block">
+                      <span className="text-2xs text-gray-500 font-medium block">
                         Present
                       </span>
                       <strong className="text-sm font-bold text-payroll-navy font-mono">
@@ -126,7 +126,7 @@ export default async function MyAttendancePage() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-500 font-medium block">
+                      <span className="text-2xs text-gray-500 font-medium block">
                         Paid Leave
                       </span>
                       <strong className="text-sm font-bold text-blue-700 font-mono">
@@ -134,7 +134,7 @@ export default async function MyAttendancePage() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-500 font-medium block">
+                      <span className="text-2xs text-gray-500 font-medium block">
                         Absent
                       </span>
                       <strong className="text-sm font-bold text-rose-600 font-mono">
@@ -142,7 +142,7 @@ export default async function MyAttendancePage() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-500 font-medium block">
+                      <span className="text-2xs text-gray-500 font-medium block">
                         Working Days
                       </span>
                       <strong className="text-sm font-bold text-gray-700 font-mono">
@@ -160,7 +160,7 @@ export default async function MyAttendancePage() {
                           Overtime Logged: <strong>{otHours.toFixed(1)} hrs</strong>
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-200 font-bold">
+                      <span className="text-2xs font-mono text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-200 font-bold">
                         Office: {month.totalOtHoursOffice || 0}h / Off: {month.totalOtHoursOff || 0}h
                       </span>
                     </div>

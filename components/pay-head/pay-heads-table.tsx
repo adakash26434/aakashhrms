@@ -60,8 +60,8 @@ export function PayHeadsTable({
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
             <th scope="col" className="px-4 py-3 font-semibold">
               Code
             </th>
@@ -122,11 +122,11 @@ export function PayHeadsTable({
                 {/* Type Pill */}
                 <td className="px-4 py-4 align-middle">
                   {h.type === "allowance" ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50/70 text-emerald-800 border border-emerald-200/50">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-medium bg-emerald-50/70 text-emerald-800 border border-emerald-200/50">
                       {formatPayHeadType(h.type)}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50/70 text-rose-800 border border-rose-200/50">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-medium bg-rose-50/70 text-rose-800 border border-rose-200/50">
                       {formatPayHeadType(h.type)}
                     </span>
                   )}
@@ -152,7 +152,7 @@ export function PayHeadsTable({
                       {formatCalcBasis(h.calcBasis)}
                     </div>
                     {h.calcBasis !== "None" && (
-                      <div className="text-[10px] text-zinc-400">
+                      <div className="text-2xs text-zinc-400">
                         {h.calcBasis === "BasicSalary"
                           ? "Basic Salary"
                           : "Basic + Grade"}
@@ -178,7 +178,7 @@ export function PayHeadsTable({
                           <span
                             key={f}
                             title={`${meta.label} — ${meta.description}`}
-                            className="inline-flex items-center justify-center rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-zinc-600 border border-zinc-200"
+                            className="inline-flex items-center justify-center rounded bg-zinc-100 px-1.5 py-0.5 text-2xs font-mono font-medium text-zinc-600 border border-zinc-200"
                           >
                             {meta.short}
                           </span>
@@ -270,7 +270,7 @@ function DepartmentsCell({
     <div className="flex items-center gap-1.5 text-xs text-zinc-600">
       <span className="truncate max-w-25">{visible[0]}</span>
       {overflow > 0 && (
-        <span className="rounded bg-zinc-100 px-1 py-0.2 text-[10px] font-medium text-zinc-500 border border-zinc-200">
+        <span className="rounded bg-zinc-100 px-1 py-0.2 text-2xs font-medium text-zinc-500 border border-zinc-200">
           +{overflow}
         </span>
       )}

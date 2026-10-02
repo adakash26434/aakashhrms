@@ -473,7 +473,7 @@ export function EmployeeFormTabs({
                 <button
                   type="button"
                   onClick={handleAutoGenerateEmp}
-                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-700 hover:underline cursor-pointer"
                   title="Generate next sequential code"
                 >
                   <Sparkles className="h-2.5 w-2.5" />
@@ -501,12 +501,12 @@ export function EmployeeFormTabs({
                 />
               </div>
               {duplicateEmp && (
-                <span className="text-[11px] font-semibold text-amber-600">
+                <span className="text-2xs font-semibold text-amber-600">
                   ⚠️ In use
                 </span>
               )}
               {errors?.employeeCode && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.employeeCode}
                 </p>
               )}
@@ -522,7 +522,7 @@ export function EmployeeFormTabs({
                   <button
                     type="button"
                     onClick={handleMatchEmpCode}
-                    className="inline-flex items-center gap-0.5 text-[10px] font-medium text-zinc-500 hover:text-emerald-700 cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-2xs font-medium text-zinc-500 hover:text-emerald-700 cursor-pointer"
                     title="Copy number from Employee Code"
                   >
                     <LinkIcon className="h-2.5 w-2.5" />
@@ -532,7 +532,7 @@ export function EmployeeFormTabs({
                   <button
                     type="button"
                     onClick={handleAutoGenerateAtd}
-                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-2xs font-semibold text-emerald-700 hover:underline cursor-pointer"
                     title="Next Attendance Code"
                   >
                     <Sparkles className="h-2.5 w-2.5" />
@@ -561,12 +561,12 @@ export function EmployeeFormTabs({
                 />
               </div>
               {duplicateAtd && (
-                <span className="text-[11px] font-semibold text-amber-600">
+                <span className="text-2xs font-semibold text-amber-600">
                   ⚠️ In use
                 </span>
               )}
               {errors?.attendanceCode && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.attendanceCode}
                 </p>
               )}
@@ -592,7 +592,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Pratima Shrestha"
               />
               {errors?.fullName && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.fullName}
                 </p>
               )}
@@ -612,7 +612,7 @@ export function EmployeeFormTabs({
                 }
               />
               {errors?.dateOfBirth && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.dateOfBirth}
                 </p>
               )}
@@ -710,7 +710,7 @@ export function EmployeeFormTabs({
                 ))}
               </select>
               {errors?.departmentId && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.departmentId}
                 </p>
               )}
@@ -740,7 +740,7 @@ export function EmployeeFormTabs({
                   ))}
               </select>
               {errors?.designationId && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.designationId}
                 </p>
               )}
@@ -764,7 +764,7 @@ export function EmployeeFormTabs({
                 ))}
               </select>
               {errors?.branchId && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.branchId}
                 </p>
               )}
@@ -776,7 +776,7 @@ export function EmployeeFormTabs({
                 <label className={labelClass(!!errors?.shreni)}>
                   Shreni / Level <span className="text-red-500">*</span>
                 </label>
-                <span className="text-[10px] text-emerald-700 font-semibold">
+                <span className="text-2xs text-emerald-700 font-semibold">
                   {shreniLevels && shreniLevels.length > 0
                     ? `${shreniLevels[0]?.code} – ${shreniLevels[shreniLevels.length - 1]?.code}`
                     : "S1–S15"}
@@ -791,7 +791,7 @@ export function EmployeeFormTabs({
                 placeholder="Select Level (e.g. S1, S2, S3...)"
               />
               {errors?.shreni && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.shreni}
                 </p>
               )}
@@ -896,7 +896,7 @@ export function EmployeeFormTabs({
                 }
               />
               {errors?.joiningDate && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.joiningDate}
                 </p>
               )}
@@ -918,7 +918,7 @@ export function EmployeeFormTabs({
                 }
               />
               {errors?.confirmationDate && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.confirmationDate}
                 </p>
               )}
@@ -948,12 +948,12 @@ export function EmployeeFormTabs({
                   Basic Salary (NPR)
                 </label>
                 {levelStartingScale > 0 && formData.basicSalary === levelStartingScale && (
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                  <span className="text-2xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
                     Scale Default
                   </span>
                 )}
                 {levelStartingScale > 0 && formData.basicSalary !== undefined && formData.basicSalary !== 0 && formData.basicSalary !== levelStartingScale && (
-                  <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60">
+                  <span className="text-2xs font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60">
                     Custom Base
                   </span>
                 )}
@@ -965,7 +965,7 @@ export function EmployeeFormTabs({
                 className={fieldInputClass(false)}
                 placeholder={levelStartingScale > 0 ? `Scale: ${levelStartingScale.toLocaleString()}` : "e.g. 35,000"}
               />
-              <p className="text-[10px] text-slate-500">
+              <p className="text-2xs text-slate-500">
                 {levelStartingScale > 0
                   ? `Starting scale: NPR ${levelStartingScale.toLocaleString()}. Can be adjusted per employee contract.`
                   : "Enter employee monthly basic salary to auto-calculate 1 grade rate."}
@@ -978,7 +978,7 @@ export function EmployeeFormTabs({
                 <label className={labelClass(!!errors?.gradeCount)}>
                   Grade Count <span className="text-red-500">*</span>
                 </label>
-                <span className="text-[10px] font-medium text-slate-500">
+                <span className="text-2xs font-medium text-slate-500">
                   0 = Starting Scale
                 </span>
               </div>
@@ -992,7 +992,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 2"
               />
               {errors?.gradeCount && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.gradeCount}
                 </p>
               )}
@@ -1005,12 +1005,12 @@ export function EmployeeFormTabs({
                   Grade Amount (NPR) <span className="text-red-500">*</span>
                 </label>
                 {!isManualGradeOverride ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
                     <Lock className="h-2.5 w-2.5" />
                     Auto-calc
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
                     <Unlock className="h-2.5 w-2.5" />
                     Manual
                   </span>
@@ -1029,7 +1029,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 1,500"
               />
               {errors?.gradeAmount && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.gradeAmount}
                 </p>
               )}
@@ -1047,7 +1047,7 @@ export function EmployeeFormTabs({
                 <span className="text-xs font-bold text-zinc-900 tracking-tight">
                   Grade Increment Breakdown
                 </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-2xs font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
                   {policyMethodDisplay.badge}
                 </span>
               </div>
@@ -1068,7 +1068,7 @@ export function EmployeeFormTabs({
             <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Metric 1: Shreni Level & Scale */}
               <div className="rounded-md border border-zinc-200 bg-white p-3.5">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                <div className="text-2xs font-semibold uppercase tracking-wider text-zinc-400">
                   Selected Level &amp; Scale
                 </div>
                 <div className="mt-1 text-xs font-semibold text-zinc-900 truncate" title={levelDisplayName || "No level selected"}>
@@ -1078,7 +1078,7 @@ export function EmployeeFormTabs({
                     <span className="text-zinc-400 italic">No level selected</span>
                   )}
                 </div>
-                <div className="mt-1 text-[11px] font-mono text-zinc-500">
+                <div className="mt-1 text-2xs font-mono text-zinc-500">
                   {levelStartingScale > 0
                     ? `Starting Scale: NPR ${levelStartingScale.toLocaleString()}`
                     : "No starting scale configured"}
@@ -1087,33 +1087,33 @@ export function EmployeeFormTabs({
 
               {/* Metric 2: Per Grade Rate */}
               <div className="rounded-md border border-zinc-200 bg-white p-3.5">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                <div className="text-2xs font-semibold uppercase tracking-wider text-zinc-400">
                   1 Grade Rate
                 </div>
                 <div className="mt-1 text-xs font-semibold font-mono text-zinc-900">
                   {gradeRate > 0 ? (
                     <>
                       <span>NPR {gradeRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      <span className="text-[10px] text-zinc-400 font-normal"> / mo</span>
+                      <span className="text-2xs text-zinc-400 font-normal"> / mo</span>
                     </>
                   ) : (
                     <span className="text-zinc-400">NPR 0.00</span>
                   )}
                 </div>
-                <div className="mt-1 text-[11px] text-zinc-500">
+                <div className="mt-1 text-2xs text-zinc-500">
                   {policyMethodDisplay.formula}
                 </div>
               </div>
 
               {/* Metric 3: Total Monthly Base & Grade */}
               <div className="rounded-md border border-emerald-200/80 bg-emerald-50/50 p-3.5">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-800">
+                <div className="text-2xs font-semibold uppercase tracking-wider text-emerald-800">
                   Total Monthly Base Pay
                 </div>
                 <div className="mt-1 text-sm font-bold font-mono text-emerald-950">
                   NPR {(effectiveBasicSalary + (formData.gradeAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <div className="mt-1 text-[11px] text-emerald-800">
+                <div className="mt-1 text-2xs text-emerald-800">
                   {isManualGradeOverride ? (
                     <span className="text-amber-700 font-medium">Custom Grade Amount Applied</span>
                   ) : (
@@ -1153,7 +1153,7 @@ export function EmployeeFormTabs({
                       <span className="text-xs font-bold text-zinc-900">Linked User Login</span>
                       <span
                         className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-semibold border",
                           accessInfo.isActive
                             ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                             : "bg-zinc-100 text-zinc-600 border-zinc-200"
@@ -1162,7 +1162,7 @@ export function EmployeeFormTabs({
                         {accessInfo.isActive ? "Active Account" : "Disabled"}
                       </span>
                     </div>
-                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5">{accessInfo.email}</p>
+                    <p className="text-2xs font-mono text-zinc-500 mt-0.5">{accessInfo.email}</p>
                   </div>
                 </div>
 
@@ -1211,7 +1211,7 @@ export function EmployeeFormTabs({
                       </option>
                     )}
                   </select>
-                  <p className="text-[10px] text-zinc-500">
+                  <p className="text-2xs text-zinc-500">
                     Changing the role here updates this employee&apos;s system authority upon saving.
                   </p>
                 </div>
@@ -1229,7 +1229,7 @@ export function EmployeeFormTabs({
                         : "Self-Service Only (Personal Records)"}
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-500">
+                  <p className="text-2xs text-zinc-500">
                     Configured via granular permission matrix in Admin &rarr; Roles.
                   </p>
                 </div>
@@ -1244,7 +1244,7 @@ export function EmployeeFormTabs({
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-zinc-900">Self-Service Login Provisioning</h4>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                    <p className="text-2xs text-zinc-500 mt-0.5">
                       Automatically generate a login account and temporary password for this employee upon save.
                     </p>
                   </div>
@@ -1296,7 +1296,7 @@ export function EmployeeFormTabs({
                         <option value="employee">Employee Self-Service (Self-Service Only)</option>
                       )}
                     </select>
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-2xs text-zinc-500">
                       Defaults to Employee Self-Service. Select an administrative role (e.g. Department Head, HR Officer) if hiring into management.
                     </p>
                   </div>
@@ -1310,7 +1310,7 @@ export function EmployeeFormTabs({
                         <span className="text-amber-600 italic">No email entered yet (specify in Step 3)</span>
                       )}
                     </div>
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-2xs text-zinc-500">
                       Uses Company Email (or personal email). The temporary password will be shown in a dialog after saving.
                     </p>
                   </div>
@@ -1389,7 +1389,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 27-01-75-01234"
               />
               {errors?.citizenshipNo && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.citizenshipNo}
                 </p>
               )}
@@ -1406,7 +1406,7 @@ export function EmployeeFormTabs({
                 placeholder="Select District (e.g. Kathmandu...)"
               />
               {errors?.issuingDistrict && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.issuingDistrict}
                 </p>
               )}
@@ -1424,7 +1424,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 123-456-7890"
               />
               {errors?.nidNo && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.nidNo}
                 </p>
               )}
@@ -1441,7 +1441,7 @@ export function EmployeeFormTabs({
                 placeholder="Search NID District..."
               />
               {errors?.nidIssuingDistrict && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.nidIssuingDistrict}
                 </p>
               )}
@@ -1461,7 +1461,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. PA1234567"
               />
               {errors?.passportNo && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.passportNo}
                 </p>
               )}
@@ -1478,7 +1478,7 @@ export function EmployeeFormTabs({
                 placeholder="Search Passport District..."
               />
               {errors?.passportIssuingDistrict && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.passportIssuingDistrict}
                 </p>
               )}
@@ -1496,7 +1496,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 12345678"
               />
               {errors?.votersId && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.votersId}
                 </p>
               )}
@@ -1513,7 +1513,7 @@ export function EmployeeFormTabs({
                 placeholder="Search Voter District..."
               />
               {errors?.voterIdIssuingDistrict && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.voterIdIssuingDistrict}
                 </p>
               )}
@@ -1536,7 +1536,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 123456789"
               />
               {errors?.panNumber && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.panNumber}
                 </p>
               )}
@@ -1577,7 +1577,7 @@ export function EmployeeFormTabs({
                   placeholder="name@company.com"
                 />
                 {(errors?.companyEmail || errors?.email) && (
-                  <p className="text-[11px] font-medium text-red-500">
+                  <p className="text-2xs font-medium text-red-500">
                     {errors?.companyEmail || errors?.email}
                   </p>
                 )}
@@ -1596,7 +1596,7 @@ export function EmployeeFormTabs({
                   placeholder="personal@gmail.com"
                 />
                 {errors?.personalEmail && (
-                  <p className="text-[11px] font-medium text-red-500">
+                  <p className="text-2xs font-medium text-red-500">
                     {errors.personalEmail}
                   </p>
                 )}
@@ -1617,7 +1617,7 @@ export function EmployeeFormTabs({
                   placeholder="9841123456"
                 />
                 {errors?.mobileNo && (
-                  <p className="text-[11px] font-medium text-red-500">
+                  <p className="text-2xs font-medium text-red-500">
                     {errors.mobileNo}
                   </p>
                 )}
@@ -1635,7 +1635,7 @@ export function EmployeeFormTabs({
                   placeholder="015551234"
                 />
                 {errors?.phoneHome && (
-                  <p className="text-[11px] font-medium text-red-500">
+                  <p className="text-2xs font-medium text-red-500">
                     {errors.phoneHome}
                   </p>
                 )}
@@ -1697,7 +1697,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Krishna Prasad Shrestha"
               />
               {errors?.fatherName && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.fatherName}
                 </p>
               )}
@@ -1715,7 +1715,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Shanti Shrestha"
               />
               {errors?.motherName && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.motherName}
                 </p>
               )}
@@ -1733,7 +1733,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Gopal Prasad Shrestha"
               />
               {errors?.grandfatherName && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.grandfatherName}
                 </p>
               )}
@@ -1758,7 +1758,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Rajendra Shrestha"
               />
               {errors?.spouseName && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.spouseName}
                 </p>
               )}
@@ -1796,7 +1796,7 @@ export function EmployeeFormTabs({
                 placeholder="Select Bank..."
               />
               {errors?.bankName && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.bankName}
                 </p>
               )}
@@ -1814,7 +1814,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Patan Branch"
               />
               {errors?.bankBranch && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.bankBranch}
                 </p>
               )}
@@ -1832,7 +1832,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. 012345678901"
               />
               {errors?.bankAccountNumber && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.bankAccountNumber}
                 </p>
               )}
@@ -1846,7 +1846,7 @@ export function EmployeeFormTabs({
           description="Voluntary resignation, contract end, retirement, or termination details."
           badge={
             isTerminated && (
-              <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-800">
+              <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-2xs font-semibold text-red-800">
                 Marked Inactive / Terminated
               </span>
             )
@@ -1869,7 +1869,7 @@ export function EmployeeFormTabs({
                 }
               />
               {errors?.informedDate && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.informedDate}
                 </p>
               )}
@@ -1892,7 +1892,7 @@ export function EmployeeFormTabs({
                 }
               />
               {errors?.terminationDate && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.terminationDate}
                 </p>
               )}
@@ -1916,7 +1916,7 @@ export function EmployeeFormTabs({
                 <option value="Contract End">Contract End</option>
               </select>
               {errors?.terminationType && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.terminationType}
                 </p>
               )}
@@ -1953,7 +1953,7 @@ export function EmployeeFormTabs({
                 placeholder="e.g. Mandatory age retirement / Career transition"
               />
               {errors?.terminationReason && (
-                <p className="text-[11px] font-medium text-red-500">
+                <p className="text-2xs font-medium text-red-500">
                   {errors.terminationReason}
                 </p>
               )}

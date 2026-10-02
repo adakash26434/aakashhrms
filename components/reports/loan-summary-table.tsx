@@ -38,7 +38,7 @@ export function LoanSummaryTable({ rows, loading, onSingleEmployeeAction }: Loan
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
           <tr>
             <th className="px-4 py-3 text-center w-12">SN</th>
             <th className="px-4 py-3">Code</th>
@@ -62,7 +62,7 @@ export function LoanSummaryTable({ rows, loading, onSingleEmployeeAction }: Loan
           {rows.map((row, idx) => (
             <tr key={row.loanId || idx} className="hover:bg-zinc-50/60 transition-colors">
               <td className="px-4 py-3.5 text-center font-medium text-zinc-400">{idx + 1}</td>
-              <td className="px-4 py-3.5 font-mono text-[11px] text-zinc-500">{row.employeeCode}</td>
+              <td className="px-4 py-3.5 font-mono text-2xs text-zinc-500">{row.employeeCode}</td>
               <td className="px-4 py-3.5 font-medium text-zinc-900">{row.employeeName}</td>
               <td className="px-4 py-3.5 text-zinc-600">{row.departmentName}</td>
               <td className="px-4 py-3.5 text-zinc-500">Staff</td>

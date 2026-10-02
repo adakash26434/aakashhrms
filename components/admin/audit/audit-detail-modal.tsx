@@ -34,7 +34,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
         <div className="grid grid-cols-2 gap-y-4 gap-x-6 border-b border-payroll-border pb-5">
           {/* USER & TIMESTAMP */}
           <div>
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+            <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
               USER
             </span>
             <div className="font-bold text-sm text-payroll-navy">
@@ -46,7 +46,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
           </div>
 
           <div>
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+            <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
               TIMESTAMP
             </span>
             <span className="font-medium text-xs text-gray-700 font-mono" suppressHydrationWarning>
@@ -56,7 +56,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
 
           {/* ACTION & RESULT */}
           <div>
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+            <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
               ACTION
             </span>
             <span className="inline-flex items-center rounded-full bg-payroll-primary-light-2 text-payroll-primary px-2.5 py-0.5 text-xs font-semibold uppercase">
@@ -65,7 +65,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
           </div>
 
           <div>
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+            <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
               RESULT
             </span>
             <Badge variant={log.result === "SUCCESS" ? "info" : "danger"} className="rounded-full px-2.5 py-0.5 text-xs font-semibold">
@@ -76,14 +76,14 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
           {/* MODULE & RECORD */}
           <div className="col-span-2 space-y-3">
             <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">
+              <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">
                 MODULE
               </span>
               <span className="font-medium text-sm text-payroll-navy">{log.module}</span>
             </div>
 
             <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">
+              <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-0.5">
                 RECORD
               </span>
               <span className="font-medium text-sm text-payroll-navy">{recordDisplay}</span>
@@ -128,7 +128,7 @@ export function AuditDetailModal({ open, onClose, log }: AuditDetailModalProps) 
 
         {/* IP ADDRESS Footer */}
         <div className="pt-2 border-t border-payroll-border">
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+          <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
             IP ADDRESS
           </span>
           <span className="font-mono text-xs font-bold text-payroll-navy">

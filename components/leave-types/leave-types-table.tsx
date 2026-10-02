@@ -46,7 +46,7 @@ function SortHeader({
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-left text-[11px] uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-900"
+        className="inline-flex items-center gap-1.5 text-left text-2xs uppercase tracking-wider text-zinc-500 transition-colors hover:text-zinc-900"
       >
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-60" />
@@ -128,8 +128,8 @@ export function LeaveTypesTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-240 text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
             <SortHeader label="Leave Name" onClick={() => toggleSort("name")} />
             <SortHeader label="Code" onClick={() => toggleSort("code")} />
             <SortHeader
@@ -155,7 +155,7 @@ export function LeaveTypesTable({
             />
             <SortHeader label="Status" onClick={() => toggleSort("isActive")} />
             <th scope="col" className="px-4 py-3 text-right font-semibold">
-              <span className="text-[11px] uppercase tracking-wider text-zinc-500">
+              <span className="text-2xs uppercase tracking-wider text-zinc-500">
                 Actions
               </span>
             </th>

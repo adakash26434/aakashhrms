@@ -106,18 +106,18 @@ export function PayrollExceptionsCard({
               </h4>
               <div className="flex items-center gap-1.5">
                 {criticalCount > 0 && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800 border border-red-200">
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-2xs font-bold text-red-800 border border-red-200">
                     {criticalCount} critical
                   </span>
                 )}
                 {warningCount > 0 && (
-                  <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300/60">
+                  <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-2xs font-bold text-amber-900 border border-amber-300/60">
                     {warningCount} warning
                   </span>
                 )}
               </div>
             </div>
-            <p className="text-[11px] text-amber-700 mt-0.5">
+            <p className="text-2xs text-amber-700 mt-0.5">
               Discrepancies identified in disbursement readiness or tax parameters. Resolve before final batch locking.
             </p>
           </div>
@@ -143,13 +143,13 @@ export function PayrollExceptionsCard({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-payroll-navy">{slip.employeeName}</span>
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-600">
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-2xs text-gray-600">
                     {slip.employeeCode}
                   </span>
                   <span className="text-gray-400">·</span>
-                  <span className="text-gray-500 text-[11px]">{slip.departmentName}</span>
+                  <span className="text-gray-500 text-2xs">{slip.departmentName}</span>
                   {hasCritical && (
-                    <span className="inline-flex items-center gap-0.5 rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-700 border border-red-200">
+                    <span className="inline-flex items-center gap-0.5 rounded bg-red-50 px-1.5 py-0.5 text-3xs font-bold text-red-700 border border-red-200">
                       <AlertCircle className="h-2.5 w-2.5" />
                       Critical
                     </span>
@@ -160,7 +160,7 @@ export function PayrollExceptionsCard({
                   {issues.map((issue, idx) => (
                     <span
                       key={idx}
-                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium border ${
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-2xs font-medium border ${
                         issue.severity === "critical"
                           ? "bg-rose-50 text-rose-700 border-rose-200/80 font-semibold"
                           : "bg-amber-50 text-amber-800 border-amber-200/80"

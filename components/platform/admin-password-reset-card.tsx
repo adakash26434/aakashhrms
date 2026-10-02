@@ -94,23 +94,23 @@ export function AdminPasswordResetCard({ companyId, companyName, currentEmail }:
               <button
                 type="button"
                 onClick={() => copyToClipboard(`Email: ${lastResetInfo.email}\nPassword: ${lastResetInfo.password}`)}
-                className="text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-1 text-[11px]"
+                className="text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-1 text-2xs"
               >
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono bg-white p-2.5 rounded-lg border border-emerald-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-2xs font-mono bg-white p-2.5 rounded-lg border border-emerald-100">
               <div>
-                <span className="text-gray-400 block text-[10px]">EMAIL</span>
+                <span className="text-gray-400 block text-2xs">EMAIL</span>
                 <span className="text-gray-800 font-semibold">{lastResetInfo.email}</span>
               </div>
               <div>
-                <span className="text-gray-400 block text-[10px]">PASSWORD</span>
+                <span className="text-gray-400 block text-2xs">PASSWORD</span>
                 <span className="text-emerald-700 font-bold">{lastResetInfo.password}</span>
               </div>
             </div>
-            <p className="text-[10px] text-emerald-600">
+            <p className="text-2xs text-emerald-600">
               The user will be required to change this password upon their first sign-in.
             </p>
           </div>
@@ -118,7 +118,7 @@ export function AdminPasswordResetCard({ companyId, companyName, currentEmail }:
 
         <form onSubmit={handleResetPassword} className="space-y-3 text-xs">
           <div>
-            <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+            <label className="block text-2xs font-bold text-gray-600 uppercase mb-1">
               Admin Email Address
             </label>
             <div className="relative">
@@ -136,13 +136,13 @@ export function AdminPasswordResetCard({ companyId, companyName, currentEmail }:
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[11px] font-bold text-gray-600 uppercase">
+              <label className="block text-2xs font-bold text-gray-600 uppercase">
                 New Password (Optional)
               </label>
               <button
                 type="button"
                 onClick={handleGeneratePassword}
-                className="text-[10px] text-payroll-primary hover:underline flex items-center gap-1 font-semibold"
+                className="text-2xs text-payroll-primary hover:underline flex items-center gap-1 font-semibold"
               >
                 <Sparkles className="w-3 h-3" /> Auto-generate
               </button>

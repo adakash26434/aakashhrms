@@ -164,7 +164,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
         {/* Edge-to-edge Table */}
         <div className="max-h-[50vh] overflow-y-auto border border-zinc-200/80 rounded-md">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 bg-zinc-200 border-b border-zinc-300 text-[11px] font-semibold text-zinc-900 uppercase tracking-wider z-10">
+            <thead className="sticky top-0 bg-zinc-200 border-b border-zinc-300 text-2xs font-semibold text-zinc-900 uppercase tracking-wider z-10">
               <tr>
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-4 py-3">Department</th>
@@ -179,7 +179,7 @@ export function AttendanceBulkModal({ open, onClose, onSave, employees, selected
                 return (
                   <tr key={e.id} className="hover:bg-zinc-50/70 transition-colors">
                     <td className="px-4 py-3 font-medium text-zinc-900">
-                      {e.fullName} <span className="font-mono text-[11px] text-zinc-400">({e.attendanceCode})</span>
+                      {e.fullName} <span className="font-mono text-2xs text-zinc-400">({e.attendanceCode})</span>
                     </td>
                     <td className="px-4 py-3 text-zinc-600">{e.departmentName}</td>
                     <td className="px-4 py-3">

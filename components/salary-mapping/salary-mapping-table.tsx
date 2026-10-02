@@ -49,8 +49,8 @@ export function SalaryMappingTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-2xs font-semibold uppercase tracking-wider text-zinc-500">
             <th className="px-4 py-3">Employee</th>
             <th className="px-4 py-3">Department</th>
             <th className="px-4 py-3">Branch</th>
@@ -86,7 +86,7 @@ export function SalaryMappingTable({
                         ? emp.fullName
                         : "Unknown"}
                     </span>
-                    <span className="text-[11px] text-zinc-400 font-mono">
+                    <span className="text-2xs text-zinc-400 font-mono">
                       {emp?.employeeCode ?? ""}
                     </span>
                   </div>

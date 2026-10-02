@@ -63,7 +63,7 @@ export default async function PlatformAuditLogsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <tr className="border-b border-zinc-200 bg-transparent text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                   <th className="px-4 py-3">Timestamp</th>
                   <th className="px-4 py-3">Action</th>
                   <th className="px-4 py-3">Target Organization</th>
@@ -78,7 +78,7 @@ export default async function PlatformAuditLogsPage() {
 
                   return (
                     <tr key={log.id} className="border-b border-zinc-100 hover:bg-zinc-50/60 transition-colors">
-                      <td className="px-4 py-3.5 whitespace-nowrap text-zinc-500 font-mono text-[11px]">
+                      <td className="px-4 py-3.5 whitespace-nowrap text-zinc-500 font-mono text-2xs">
                         {new Date(log.createdAt).toLocaleString()}
                       </td>
 
@@ -97,7 +97,7 @@ export default async function PlatformAuditLogsPage() {
                         {log.companyName ? (
                           <div>
                             <span className="font-medium text-zinc-900 block">{log.companyName}</span>
-                            <span className="text-[10px] font-mono text-zinc-500">{log.companyCode}</span>
+                            <span className="text-2xs font-mono text-zinc-500">{log.companyCode}</span>
                           </div>
                         ) : (
                           <span className="text-zinc-400 font-medium">System Platform</span>
@@ -107,23 +107,23 @@ export default async function PlatformAuditLogsPage() {
                       <td className="px-4 py-3.5">
                         {log.actorName ? (
                           <div className="flex items-center gap-2">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200 text-[10px] font-medium">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200 text-2xs font-medium">
                               <User className="h-3 w-3" />
                             </div>
                             <div>
                               <span className="font-medium text-zinc-900 block">{log.actorName}</span>
-                              <span className="text-[10px] text-zinc-400">{log.actorEmail}</span>
+                              <span className="text-2xs text-zinc-400">{log.actorEmail}</span>
                             </div>
                           </div>
                         ) : (
-                          <span className="text-zinc-500 font-mono text-[11px]">System Daemon</span>
+                          <span className="text-zinc-500 font-mono text-2xs">System Daemon</span>
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 text-zinc-600 font-mono text-[11px]">
+                      <td className="px-4 py-3.5 text-zinc-600 font-mono text-2xs">
                         {metaObj.dbName && <div>DB: <span className="font-medium text-zinc-900">{metaObj.dbName}</span></div>}
                         {metaObj.slug && <div>Slug: <span className="text-zinc-700">{metaObj.slug}</span></div>}
-                        {metaObj.adminEmail && <div className="text-[10px] text-zinc-400">{metaObj.adminEmail}</div>}
+                        {metaObj.adminEmail && <div className="text-2xs text-zinc-400">{metaObj.adminEmail}</div>}
                       </td>
                     </tr>
                   );

@@ -109,7 +109,7 @@ export function SystemControlClient({
                 Rules &amp; statutory defaults
               </h2>
               {hasChanges && (
-                <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200">
+                <span className="rounded bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-800 border border-amber-200">
                   Unsaved changes
                 </span>
               )}
@@ -127,7 +127,7 @@ export function SystemControlClient({
         >
           <div className="flex items-center gap-3">
             {hasChanges && (
-              <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200">
+              <span className="rounded bg-amber-50 px-2 py-0.5 text-2xs font-medium text-amber-800 border border-amber-200">
                 Unsaved changes
               </span>
             )}

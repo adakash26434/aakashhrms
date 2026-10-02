@@ -193,7 +193,7 @@ export function AssignUsersDialog({
               <span>Assign to Role</span>
             </Button>
           </div>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-2xs text-zinc-500">
             Assigning a user here immediately grants them this role&apos;s permission matrix across the platform.
           </p>
         </div>
@@ -236,7 +236,7 @@ export function AssignUsersDialog({
                   ? "No users currently assigned to this role."
                   : "No assigned users match your search."}
               </p>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <p className="text-2xs text-zinc-400 mt-0.5">
                 Use the dropdown above to assign employees or administrative accounts.
               </p>
             </div>
@@ -257,18 +257,18 @@ export function AssignUsersDialog({
                           {user.name || user.employeeName || "User"}
                         </span>
                         {user.employeeCode && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60">
+                          <span className="inline-flex items-center gap-0.5 text-2xs font-mono font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60">
                             <IdCard className="h-2.5 w-2.5" />
                             {user.employeeCode}
                           </span>
                         )}
                         {!user.isActive && (
-                          <span className="text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-1.5 py-0.2 rounded">
+                          <span className="text-2xs font-semibold text-zinc-500 bg-zinc-100 px-1.5 py-0.2 rounded">
                             Inactive
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-zinc-500 truncate font-mono mt-0.5">
+                      <p className="text-2xs text-zinc-500 truncate font-mono mt-0.5">
                         {user.email}
                       </p>
                     </div>
@@ -279,7 +279,7 @@ export function AssignUsersDialog({
                     size="sm"
                     onClick={() => handleRemoveUser(user.id, user.name || user.email)}
                     disabled={isPending}
-                    className="h-8 px-2.5 text-[11px] text-zinc-600 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200 shrink-0 gap-1 border-zinc-200"
+                    className="h-8 px-2.5 text-2xs text-zinc-600 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200 shrink-0 gap-1 border-zinc-200"
                     title="Remove user from this role (reassigns to standard employee self-service)"
                   >
                     <UserMinus className="h-3 w-3" />

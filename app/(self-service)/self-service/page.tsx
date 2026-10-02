@@ -133,7 +133,7 @@ function AttendanceStatus() {
 function StatusValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-3 first:pl-0 last:pr-0">
-      <span className="block text-[10px] font-medium text-zinc-500">{label}</span>
+      <span className="block text-2xs font-medium text-zinc-500">{label}</span>
       <span className="mt-1 block text-lg font-semibold tabular-nums text-payroll-navy">{value}</span>
     </div>
   );
@@ -207,7 +207,7 @@ function LatestPayslip({
 function AmountValue({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
-      <span className="block text-[11px] text-payroll-text-muted">{label}</span>
+      <span className="block text-2xs text-payroll-text-muted">{label}</span>
       <span className="mt-1 block font-mono font-semibold tabular-nums text-payroll-navy">NPR {Number(value).toLocaleString("en-NP")}</span>
     </div>
   );
@@ -239,7 +239,7 @@ function LeaveBalanceSummary({
         <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-payroll-cream">
           <div className="h-full rounded-full bg-payroll-primary" style={{ width: `${usedPercent}%` }} />
         </div>
-        <div className="mt-2 flex justify-between text-[11px] text-payroll-text-muted">
+        <div className="mt-2 flex justify-between text-2xs text-payroll-text-muted">
           <span>{taken} used</span>
           <span>{total} allotted</span>
         </div>

@@ -822,7 +822,7 @@ export function EditCompanyModal({
                     <label className="text-xs font-semibold text-zinc-700">
                       Company Admin Email <span className="text-rose-500">*</span>
                     </label>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       <Shield className="w-2.5 h-2.5" /> Super Admin Authority
                     </span>
                   </div>
@@ -837,7 +837,7 @@ export function EditCompanyModal({
                       className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none font-medium"
                     />
                   </div>
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-2xs text-zinc-500">
                     Changing this email updates both the Platform Registry and the tenant&apos;s primary Administrator account.
                   </p>
                 </div>
@@ -956,7 +956,7 @@ export function EditCompanyModal({
                         Contact Phone
                       </label>
                       {!phoneError && contactPhone && (
-                        <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                        <span className="text-2xs text-emerald-700 font-semibold flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" /> Valid
                         </span>
                       )}
@@ -968,7 +968,7 @@ export function EditCompanyModal({
                       placeholder="9800000000 / 01-4XXXXXX"
                     />
                     {phoneError && (
-                      <p className="text-[11px] text-rose-600 font-semibold">
+                      <p className="text-2xs text-rose-600 font-semibold">
                         {phoneError}
                       </p>
                     )}
@@ -986,7 +986,7 @@ export function EditCompanyModal({
                       <label className="text-xs font-semibold text-zinc-700">
                         Industry Sector (संस्थाको क्षेत्र)
                       </label>
-                      <span className="text-[10px] text-emerald-700 font-semibold">
+                      <span className="text-2xs text-emerald-700 font-semibold">
                         Super Admin
                       </span>
                     </div>
@@ -1040,7 +1040,7 @@ export function EditCompanyModal({
                     <p className="font-semibold text-zinc-800">
                       Primary Corporate Facility
                     </p>
-                    <p className="text-[11px] mt-0.5 text-zinc-500">
+                    <p className="text-2xs mt-0.5 text-zinc-500">
                       Syncs automatically to the tenant&apos;s primary record in the{" "}
                       <code className="font-mono text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200/60">
                         branches
@@ -1064,7 +1064,7 @@ export function EditCompanyModal({
                         placeholder="HO-01"
                         className="w-full px-3 py-2 text-xs font-mono font-semibold rounded-md border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary shadow-none"
                       />
-                      <p className="text-[10px] text-zinc-500">
+                      <p className="text-2xs text-zinc-500">
                         Unique corporate code
                       </p>
                     </div>
@@ -1079,7 +1079,7 @@ export function EditCompanyModal({
                           onClick={() =>
                             setHeadOfficeBranchAddress(headOfficeAddress)
                           }
-                          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                          className="text-2xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                         >
                           <RefreshCw className="w-3 h-3" />
                           <span>Sync from Head Office Address</span>
@@ -1159,12 +1159,12 @@ export function EditCompanyModal({
                             <span className="text-sm font-semibold text-zinc-900">
                               {fyLabel}
                             </span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                               {fyStatus === "Active" ? "Active Operating Cycle" : "Configured Cycle"}
                             </span>
                           </div>
-                          <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                          <p className="text-2xs text-zinc-500 font-mono mt-0.5">
                             Database Slug: <span className="text-emerald-800 font-semibold">{fySlug}</span>
                           </p>
                         </div>
@@ -1174,37 +1174,37 @@ export function EditCompanyModal({
                     {/* 3 Detail Blocks */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3">
                       <div className="p-3 bg-white rounded-md border border-zinc-200/70">
-                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                        <span className="text-2xs font-semibold text-zinc-500 uppercase tracking-wider block">
                           Bikram Sambat (BS) Range
                         </span>
                         <span className="text-xs font-mono font-semibold text-zinc-900 mt-1 block">
                           {fyStartDateBS} ~ {fyEndDateBS}
                         </span>
-                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
+                        <span className="text-2xs text-zinc-400 mt-0.5 block">
                           Bikram Sambat calendar
                         </span>
                       </div>
 
                       <div className="p-3 bg-white rounded-md border border-zinc-200/70">
-                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                        <span className="text-2xs font-semibold text-zinc-500 uppercase tracking-wider block">
                           Gregorian (AD) Equivalent
                         </span>
                         <span className="text-xs font-mono font-semibold text-zinc-900 mt-1 block">
                           {formatADDate(fyStartDateAD, "short")} to {formatADDate(fyEndDateAD, "short")}
                         </span>
-                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
+                        <span className="text-2xs text-zinc-400 mt-0.5 block">
                           Stored in tenant DB as AD timestamp
                         </span>
                       </div>
 
                       <div className="p-3 bg-white rounded-md border border-zinc-200/70">
-                        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                        <span className="text-2xs font-semibold text-zinc-500 uppercase tracking-wider block">
                           Operational Month Range
                         </span>
                         <span className="text-xs font-semibold text-zinc-900 mt-1 block">
                           {BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]}
                         </span>
-                        <span className="text-[10px] text-zinc-400 mt-0.5 block">
+                        <span className="text-2xs text-zinc-400 mt-0.5 block">
                           Month {fyFromMonth} through Month {fyToMonth} (12 Mo.)
                         </span>
                       </div>
@@ -1217,7 +1217,7 @@ export function EditCompanyModal({
                       <p className="font-semibold text-zinc-900">
                         Active Cycle: <strong>{fyLabel}</strong> ({BS_MONTHS_EN[fyFromMonth]} to {BS_MONTHS_EN[fyToMonth]})
                       </p>
-                      <p className="text-[11px] text-zinc-600">
+                      <p className="text-2xs text-zinc-600">
                         Changes made here synchronize with the tenant&apos;s <code>fiscal_years</code> table using canonical Bikram Sambat date mappings.
                       </p>
                     </div>
@@ -1242,7 +1242,7 @@ export function EditCompanyModal({
                       <h4 className="text-xs font-semibold text-zinc-800">
                         Statutory Overtime Multiplier Rate
                       </h4>
-                      <p className="text-[11px] text-zinc-500">
+                      <p className="text-2xs text-zinc-500">
                         Nepal Labour Act Section 31 standard multiplier (default 1.5x basic hourly wage)
                       </p>
                     </div>
@@ -1282,15 +1282,15 @@ export function EditCompanyModal({
                           <span className="text-xs font-semibold text-zinc-900">
                             {lt.name}
                           </span>
-                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 bg-zinc-100 text-zinc-700 border border-zinc-200/60 rounded">
+                          <span className="text-2xs font-mono font-semibold px-1.5 py-0.5 bg-zinc-100 text-zinc-700 border border-zinc-200/60 rounded">
                             {lt.code}
                           </span>
-                          <span className="text-[10px] text-zinc-500">
+                          <span className="text-2xs text-zinc-500">
                             • {lt.category}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-600">
+                        <div className="flex items-center gap-3 mt-1.5 text-2xs text-zinc-600">
                           <label className="inline-flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
@@ -1314,7 +1314,7 @@ export function EditCompanyModal({
                           </label>
 
                           {lt.isEncashable && (
-                            <div className="inline-flex items-center gap-1 text-[11px]">
+                            <div className="inline-flex items-center gap-1 text-2xs">
                               <span>Cap:</span>
                               <input
                                 type="number"
@@ -1393,7 +1393,7 @@ export function EditCompanyModal({
                       </h5>
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                         <div className="sm:col-span-2">
-                          <label className="text-[10px] font-semibold text-zinc-600 block mb-1">
+                          <label className="text-2xs font-semibold text-zinc-600 block mb-1">
                             Head Name
                           </label>
                           <input
@@ -1406,7 +1406,7 @@ export function EditCompanyModal({
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-semibold text-zinc-600 block mb-1">
+                          <label className="text-2xs font-semibold text-zinc-600 block mb-1">
                             Code
                           </label>
                           <input
@@ -1421,7 +1421,7 @@ export function EditCompanyModal({
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-semibold text-zinc-600 block mb-1">
+                          <label className="text-2xs font-semibold text-zinc-600 block mb-1">
                             Type
                           </label>
                           <select
@@ -1493,12 +1493,12 @@ export function EditCompanyModal({
                               </span>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-mono font-semibold text-zinc-500">
+                              <span className="text-2xs font-mono font-semibold text-zinc-500">
                                 {ph.code}
                               </span>
-                              <span className="text-[10px] text-zinc-300">•</span>
+                              <span className="text-2xs text-zinc-300">•</span>
                               <span
-                                className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
+                                className={`text-2xs font-semibold px-1.5 py-0.2 rounded ${
                                   isEarning
                                     ? "bg-emerald-50 text-emerald-700"
                                     : "bg-amber-50 text-amber-700"
@@ -1513,7 +1513,7 @@ export function EditCompanyModal({
                             <button
                               type="button"
                               onClick={() => handleTogglePayHeadTaxable(ph.code)}
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border cursor-pointer transition-all ${
+                              className={`text-2xs font-semibold px-2 py-0.5 rounded-md border cursor-pointer transition-all ${
                                 ph.isTaxable
                                   ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                                   : "bg-zinc-50 border-zinc-200 text-zinc-500"
@@ -1580,7 +1580,7 @@ export function EditCompanyModal({
                       size="xs"
                       variant="outline"
                       onClick={handleResetTaxSlabs}
-                      className="text-[11px] font-medium text-emerald-800 border-zinc-200 rounded-md hover:bg-zinc-50"
+                      className="text-2xs font-medium text-emerald-800 border-zinc-200 rounded-md hover:bg-zinc-50"
                     >
                       <RefreshCw className="w-3 h-3 mr-1" />
                       <span>Reset to Standard</span>
@@ -1589,7 +1589,7 @@ export function EditCompanyModal({
 
                   {/* Table of Brackets for the selected category */}
                   <div className="bg-white rounded-md border border-zinc-200/80 overflow-hidden shadow-none">
-                    <div className="grid grid-cols-12 gap-2 bg-zinc-50/80 p-2.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider border-b border-zinc-300/80">
+                    <div className="grid grid-cols-12 gap-2 bg-zinc-50/80 p-2.5 text-2xs font-semibold text-zinc-600 uppercase tracking-wider border-b border-zinc-300/80">
                       <span className="col-span-4">Income Bracket (NPR)</span>
                       <span className="col-span-3">Upper Limit (Empty = Above)</span>
                       <span className="col-span-2 text-center">Rate (%)</span>
@@ -1648,7 +1648,7 @@ export function EditCompanyModal({
                                 }
                                 className="w-14 px-1.5 py-1 text-xs text-center font-mono font-semibold rounded-md border border-zinc-200 bg-zinc-50/30 text-payroll-navy focus:bg-white focus:outline-none focus:ring-1 focus:ring-payroll-primary focus:border-payroll-primary"
                               />
-                              <span className="text-[10px] text-zinc-500">%</span>
+                              <span className="text-2xs text-zinc-500">%</span>
                             </div>
                           </div>
 

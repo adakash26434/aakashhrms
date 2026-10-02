@@ -220,7 +220,7 @@ export function DropdownMenu<TValue extends string>({
                         {opt.label}
                       </span>
                       {opt.description && (
-                        <span className="block text-[11px] text-gray-500">
+                        <span className="block text-2xs text-gray-500">
                           {opt.description}
                         </span>
                       )}

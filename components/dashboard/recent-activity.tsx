@@ -102,11 +102,11 @@ export function RecentActivity({ items }: RecentActivityProps) {
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs sm:text-[13px] font-semibold text-zinc-900 truncate">
+                    <p className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
                       <span>{item.actor}</span>
                       <span className="text-zinc-400 font-normal"> · {item.role}</span>
                     </p>
-                    <span className="text-[11px] text-zinc-400 font-mono shrink-0">
+                    <span className="text-2xs text-zinc-400 font-mono shrink-0">
                       {item.timestamp}
                     </span>
                   </div>

@@ -174,49 +174,49 @@ export function PayslipDetailModal({
           {/* Employee & Pay Period Details Card */}
           <div className="p-4 rounded-md bg-zinc-50 border border-zinc-200/80 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <span className="text-[10px] font-semibold text-zinc-500 uppercase block">
+              <span className="text-2xs font-semibold text-zinc-500 uppercase block">
                 Employee
               </span>
               <strong className="text-zinc-900 font-semibold block mt-0.5">
                 {slip.employeeName}
               </strong>
-              <span className="text-[11px] font-mono text-emerald-800 font-medium">
+              <span className="text-2xs font-mono text-emerald-800 font-medium">
                 {slip.employeeCode}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] font-semibold text-zinc-500 uppercase block">
+              <span className="text-2xs font-semibold text-zinc-500 uppercase block">
                 Designation / Dept
               </span>
               <strong className="text-zinc-900 font-semibold block mt-0.5">
                 {slip.designationName || "Staff"}
               </strong>
-              <span className="text-[11px] text-zinc-500">
+              <span className="text-2xs text-zinc-500">
                 {slip.departmentName}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] font-semibold text-zinc-500 uppercase block">
+              <span className="text-2xs font-semibold text-zinc-500 uppercase block">
                 Bank Disbursement
               </span>
               <strong className="text-zinc-900 font-semibold block mt-0.5">
                 {slip.bankName || "Direct Bank Transfer"}
               </strong>
-              <span className="text-[11px] font-mono text-zinc-600">
+              <span className="text-2xs font-mono text-zinc-600">
                 {slip.bankAccountNumber || "—"}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] font-semibold text-zinc-500 uppercase block">
+              <span className="text-2xs font-semibold text-zinc-500 uppercase block">
                 Pay Period
               </span>
               <strong className="text-zinc-900 font-semibold block mt-0.5">
                 {BS_MONTHS[(slip.payslipMonth || 1) - 1]}
               </strong>
-              <Badge variant="success" size="sm" className="mt-0.5 text-[10px]">
+              <Badge variant="success" size="sm" className="mt-0.5 text-2xs">
                 {slip.status || "CONFIRMED"}
               </Badge>
             </div>
@@ -282,7 +282,7 @@ export function PayslipDetailModal({
                   <div className="flex justify-between py-2.5 border-b border-zinc-100">
                     <div>
                       <span className="text-zinc-600 font-medium">Social Security Fund (SSF 31%)</span>
-                      <span className="block text-[10px] text-zinc-400 font-normal">
+                      <span className="block text-2xs text-zinc-400 font-normal">
                         EE 11% + ER 20%
                       </span>
                     </div>
@@ -349,10 +349,10 @@ export function PayslipDetailModal({
           {/* Net Payable Strip */}
           <div className="p-4 rounded-md bg-emerald-950 text-white flex items-center justify-between shadow-none">
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200/80 block">
+              <span className="text-2xs font-semibold uppercase tracking-wider text-emerald-200/80 block">
                 Total Net Payable Disbursement
               </span>
-              <p className="text-[11px] text-emerald-300">
+              <p className="text-2xs text-emerald-300">
                 Credited to account #{slip.bankAccountNumber || "Primary Account"}
               </p>
             </div>

@@ -172,7 +172,7 @@ export function CompanyLifecycleCard({
                   </>
                 )}
               </h4>
-              <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              <p className="text-2xs text-gray-500 mt-1 leading-relaxed">
                 {currentStatus === "SUSPENDED"
                   ? "Re-enable employee logins and active database connection pools."
                   : "Instantly block all user logins while keeping the database intact."}
@@ -218,7 +218,7 @@ export function CompanyLifecycleCard({
                   </>
                 )}
               </h4>
-              <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              <p className="text-2xs text-gray-500 mt-1 leading-relaxed">
                 {currentStatus === "ARCHIVED"
                   ? "Restore this company back to the active directory."
                   : "Hide from active directory with a 30-day recovery grace period."}
@@ -258,7 +258,7 @@ export function CompanyLifecycleCard({
                   <Trash2 className="w-4 h-4 text-rose-600" />
                   <span>Danger Zone: Permanent Delete & Purge</span>
                 </h4>
-                <p className="text-[11px] text-rose-700">
+                <p className="text-2xs text-rose-700">
                   Permanently deletes all company records and drops the physical PostgreSQL database <code className="font-mono font-bold">pay_t_{slug}</code>.
                 </p>
               </div>
@@ -310,7 +310,7 @@ export function CompanyLifecycleCard({
               <p>
                 You are about to permanently delete <strong>{legalName}</strong>.
               </p>
-              <ul className="list-disc pl-4 text-[11px] space-y-0.5 text-rose-800">
+              <ul className="list-disc pl-4 text-2xs space-y-0.5 text-rose-800">
                 <li>Database <strong>pay_t_{slug}</strong> will be dropped from PostgreSQL.</li>
                 <li>All employee records, payroll runs, and tax history will be destroyed.</li>
                 <li>Both PostgreSQL and Platform Control Plane will be purged.</li>

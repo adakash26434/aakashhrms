@@ -143,7 +143,7 @@ export function UserResendInvitationDialog({
                   <span>{copied ? "Copied" : "Copy"}</span>
                 </Button>
               </div>
-              <p className="text-[11px] text-emerald-800 leading-tight">
+              <p className="text-2xs text-emerald-800 leading-tight">
                 Share this credential with <strong>{user.email}</strong>. They will be prompted to choose a new password upon first sign-in.
               </p>
             </div>

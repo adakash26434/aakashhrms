@@ -312,7 +312,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       {syncResult.syncedCompanies.map((c, i) => (
                         <span
                           key={i}
-                          className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-[11px] font-mono text-emerald-800 font-semibold shadow-2xs"
+                          className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-2xs font-mono text-emerald-800 font-semibold shadow-2xs"
                         >
                           {c.name} ({c.slug})
                         </span>
@@ -499,7 +499,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
               <h3 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                 Mandatory Leave Types (Nepal Labour Act 2074 Section 40–45)
               </h3>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Enforced across all tenant company databases under platform
                 policy lock
               </p>
@@ -548,7 +548,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                   </div>
 
                   <div className="space-y-2 pt-3 border-t border-payroll-light/60 text-xs">
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="grid grid-cols-2 gap-2 text-2xs">
                       <div>
                         <span className="text-gray-500 block">
                           Annual Days:
@@ -583,9 +583,9 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       </div>
                     </div>
 
-                    <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-payroll-primary bg-payroll-cream/70 p-2 rounded-lg border border-payroll-light">
+                    <div className="pt-2 flex items-center justify-between text-2xs font-mono text-payroll-primary bg-payroll-cream/70 p-2 rounded-lg border border-payroll-light">
                       <span>Code: {rule.code}</span>
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-2xs text-gray-500">
                         {rule.legalSection}
                       </span>
                     </div>
@@ -605,7 +605,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
               <h3 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                 Statutory Overtime Parameters (Nepal Labour Act 2074 Section 31)
               </h3>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Hourly rate calculations and maximum weekly overtime caps
               </p>
             </div>
@@ -652,7 +652,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
 
                   <div className="grid grid-cols-3 gap-3 p-3 bg-payroll-cream/70 rounded-xl border border-payroll-light text-center text-xs">
                     <div>
-                      <span className="text-[10px] text-gray-500 block">
+                      <span className="text-2xs text-gray-500 block">
                         Office Day Multiplier
                       </span>
                       <strong className="text-sm font-bold text-payroll-navy">
@@ -660,7 +660,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-500 block">
+                      <span className="text-2xs text-gray-500 block">
                         Holiday Multiplier
                       </span>
                       <strong className="text-sm font-bold text-payroll-navy">
@@ -668,7 +668,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-500 block">
+                      <span className="text-2xs text-gray-500 block">
                         Max Weekly Limit
                       </span>
                       <strong className="text-sm font-bold text-payroll-navy">
@@ -677,7 +677,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-gray-500 flex items-center justify-between pt-1">
+                  <div className="text-2xs text-gray-500 flex items-center justify-between pt-1">
                     <span>Basis: Basic Remuneration / Working Hours</span>
                     <span className="font-bold text-payroll-primary">
                       {rule.legalSection}
@@ -699,7 +699,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                 Statutory Deductions & Retirement Funds (SSF Act 2074, EPF &
                 CIT)
               </h3>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Governed contribution rates for social security and retirement
                 funds
               </p>
@@ -750,7 +750,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                   <div className="space-y-2 pt-3 border-t border-payroll-light/60">
                     <div className="grid grid-cols-2 gap-2 p-2.5 bg-payroll-cream/70 rounded-xl border border-payroll-light text-xs text-center">
                       <div>
-                        <span className="text-[10px] text-gray-500 block">
+                        <span className="text-2xs text-gray-500 block">
                           Employee Deduction
                         </span>
                         <strong className="text-sm font-bold text-payroll-navy">
@@ -760,7 +760,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </strong>
                       </div>
                       <div>
-                        <span className="text-[10px] text-gray-500 block">
+                        <span className="text-2xs text-gray-500 block">
                           Employer Contribution
                         </span>
                         <strong className="text-sm font-bold text-payroll-primary">
@@ -770,7 +770,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </strong>
                       </div>
                     </div>
-                    <div className="text-[10px] text-gray-500 text-right font-bold">
+                    <div className="text-2xs text-gray-500 text-right font-bold">
                       {rule.legalSection}
                     </div>
                   </div>
@@ -790,7 +790,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                 Statutory Festival Allowance & Mandatory Benefits (Nepal Labour
                 Act 2074 s.37)
               </h3>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Dashain festival bonus and statutory profit bonus frameworks
               </p>
             </div>
@@ -837,7 +837,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
 
                   <div className="grid grid-cols-2 gap-3 p-3 bg-payroll-cream/70 rounded-xl border border-payroll-light text-center text-xs">
                     <div>
-                      <span className="text-[10px] text-gray-500 block">
+                      <span className="text-2xs text-gray-500 block">
                         Entitlement Amount
                       </span>
                       <strong className="text-sm font-bold text-payroll-navy">
@@ -845,7 +845,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-500 block">
+                      <span className="text-2xs text-gray-500 block">
                         Eligibility Threshold
                       </span>
                       <strong className="text-sm font-bold text-payroll-navy">
@@ -855,7 +855,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-gray-500 flex items-center justify-between pt-1">
+                  <div className="text-2xs text-gray-500 flex items-center justify-between pt-1">
                     <span>Disbursement: Before Dashain / Annual Festival</span>
                     <span className="font-bold text-payroll-primary">
                       {rule.legalSection}
@@ -877,7 +877,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                 Statutory Personal Income Tax Brackets (Nepal Income Tax Act
                 2058 / Annex-10)
               </h3>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Baseline statutory tax brackets automatically seeded during new
                 tenant onboarding
               </p>
@@ -1097,7 +1097,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
         }
         footer={
           <div className="flex items-center justify-between gap-3 w-full">
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
+            <div className="flex items-center gap-1.5 text-2xs text-gray-500 font-medium">
               <Shield className="w-3.5 h-3.5 text-emerald-600" />
               <span>
                 Platform Policy Lock • Broadcastable to all tenant databases
@@ -1133,7 +1133,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     Statutory Leave Types Parameters (
                     {editingPack.leaveRules?.length || 0})
                   </span>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-2xs text-gray-500">
                     Nepal Labour Act 2074 s.40–45
                   </span>
                 </div>
@@ -1150,18 +1150,18 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                             <span className="text-xs font-bold text-payroll-navy">
                               {rule.name}
                             </span>
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-payroll-cream text-payroll-primary border border-payroll-light rounded">
+                            <span className="text-2xs font-mono font-bold px-1.5 py-0.5 bg-payroll-cream text-payroll-primary border border-payroll-light rounded">
                               {rule.code}
                             </span>
                           </div>
-                          <span className="text-[11px] text-gray-500 block mt-0.5">
+                          <span className="text-2xs text-gray-500 block mt-0.5">
                             {rule.legalSection}
                           </span>
                         </div>
                         <Badge
                           variant="neutral"
                           size="sm"
-                          className="font-mono text-[10px]"
+                          className="font-mono text-2xs"
                         >
                           {rule.leaveType}
                         </Badge>
@@ -1169,7 +1169,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Days / Year
                           </label>
                           <input
@@ -1189,7 +1189,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Accumulation Cap
                           </label>
                           <input
@@ -1210,7 +1210,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Pay Status
                           </label>
                           <select
@@ -1246,7 +1246,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                               }}
                               className="rounded text-payroll-primary focus:ring-payroll-primary"
                             />
-                            <span className="font-semibold text-[11px]">
+                            <span className="font-semibold text-2xs">
                               Encashable
                             </span>
                           </label>
@@ -1265,7 +1265,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                   <span className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                     Statutory Overtime Parameters
                   </span>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-2xs text-gray-500">
                     Nepal Labour Act 2074 s.31
                   </span>
                 </div>
@@ -1281,7 +1281,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                           <h4 className="text-xs font-bold text-payroll-navy">
                             {rule.name}
                           </h4>
-                          <span className="text-[10px] text-gray-500 font-mono">
+                          <span className="text-2xs text-gray-500 font-mono">
                             {rule.code} • {rule.legalSection}
                           </span>
                         </div>
@@ -1292,7 +1292,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Office Day Multiplier
                           </label>
                           <input
@@ -1314,7 +1314,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Holiday Multiplier
                           </label>
                           <input
@@ -1334,7 +1334,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Max Weekly Overtime Hours
                           </label>
                           <input
@@ -1368,7 +1368,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     Statutory Deduction Rules (
                     {editingPack.statutoryDeductions?.length || 0})
                   </span>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-2xs text-gray-500">
                     SSF Act 2074 & EPF Act
                   </span>
                 </div>
@@ -1384,18 +1384,18 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                           <h4 className="text-xs font-bold text-payroll-navy">
                             {rule.name}
                           </h4>
-                          <span className="text-[10px] text-gray-500 font-mono">
+                          <span className="text-2xs text-gray-500 font-mono">
                             {rule.code} • {rule.nepaliName}
                           </span>
                         </div>
-                        <span className="text-[10px] text-payroll-primary font-bold">
+                        <span className="text-2xs text-payroll-primary font-bold">
                           {rule.legalSection}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Employee Deduction (%)
                           </label>
                           <input
@@ -1419,7 +1419,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Employer Contribution (%)
                           </label>
                           <input
@@ -1459,7 +1459,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                               }}
                               className="rounded text-payroll-primary focus:ring-payroll-primary"
                             />
-                            <span className="font-semibold text-[11px]">
+                            <span className="font-semibold text-2xs">
                               Pre-Tax Deduction
                             </span>
                           </label>
@@ -1467,7 +1467,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       </div>
 
                       {rule.code?.includes("SSF") && (
-                        <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200/80 text-[11px] flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                        <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200/80 text-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                           <span className="text-emerald-900 font-medium">
                             Pass-Through Remittance:{" "}
                             <strong>
@@ -1478,7 +1478,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                             (EE {rule.employeePercent}% + ER{" "}
                             {rule.employerPercent}%)
                           </span>
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded self-start sm:self-auto">
+                          <span className="text-2xs font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded self-start sm:self-auto">
                             Net Take-Home: -{rule.employeePercent}%
                           </span>
                         </div>
@@ -1497,7 +1497,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     Statutory Benefit & Festival Allowance Rules (
                     {editingPack.statutoryBenefits?.length || 0})
                   </span>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-2xs text-gray-500">
                     Nepal Labour Act 2074 s.37
                   </span>
                 </div>
@@ -1513,18 +1513,18 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                           <h4 className="text-xs font-bold text-payroll-navy">
                             {rule.name}
                           </h4>
-                          <span className="text-[10px] text-gray-500 font-mono">
+                          <span className="text-2xs text-gray-500 font-mono">
                             {rule.code} • {rule.nepaliName}
                           </span>
                         </div>
-                        <span className="text-[10px] text-payroll-primary font-bold">
+                        <span className="text-2xs text-payroll-primary font-bold">
                           {rule.legalSection}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Entitlement Multiplier (Months Basic)
                           </label>
                           <input
@@ -1548,7 +1548,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-gray-600 block mb-1">
+                          <label className="text-2xs font-bold text-gray-600 block mb-1">
                             Eligibility Threshold (Months)
                           </label>
                           <input
@@ -1587,7 +1587,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                               }}
                               className="rounded text-payroll-primary focus:ring-payroll-primary"
                             />
-                            <span className="font-semibold text-[11px]">
+                            <span className="font-semibold text-2xs">
                               Pro-Rata for Mid-Year Service
                             </span>
                           </label>
@@ -1608,7 +1608,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                       Baseline Progressive Tax Brackets (Nepal Income Tax Act
                       2058)
                     </span>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-2xs text-gray-500">
                       Standard brackets automatically seeded for new tenant
                       companies
                     </p>
@@ -1618,7 +1618,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                     size="xs"
                     variant="outline"
                     onClick={handleResetModalTaxSlabs}
-                    className="text-[11px] font-semibold text-payroll-primary"
+                    className="text-2xs font-semibold text-payroll-primary"
                   >
                     <RotateCcw className="w-3 h-3 mr-1" />
                     <span>Reset to IRD Guidelines</span>
@@ -1648,7 +1648,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
 
                 {/* Brackets Grid */}
                 <div className="bg-white rounded-xl border border-payroll-light overflow-hidden shadow-2xs">
-                  <div className="grid grid-cols-12 gap-2 bg-payroll-cream/40 p-2.5 text-[10px] font-bold text-payroll-navy uppercase tracking-wider border-b border-payroll-light">
+                  <div className="grid grid-cols-12 gap-2 bg-payroll-cream/40 p-2.5 text-2xs font-bold text-payroll-navy uppercase tracking-wider border-b border-payroll-light">
                     <span className="col-span-4">Bracket From (NPR)</span>
                     <span className="col-span-3">Upper Limit</span>
                     <span className="col-span-2 text-center">Rate (%)</span>
@@ -1709,7 +1709,7 @@ function PolicyPackManagerInner({ initialPack, activeTenantsCount }: Props) {
                               }
                               className="w-14 px-1.5 py-1 text-xs text-center font-mono font-bold rounded border border-payroll-light bg-payroll-cream/20 text-payroll-primary"
                             />
-                            <span className="text-[10px] text-gray-500">%</span>
+                            <span className="text-2xs text-gray-500">%</span>
                           </div>
                         </div>
 

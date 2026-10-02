@@ -138,7 +138,7 @@ export function PayslipDetailModal({
         <div className="flex items-center justify-between border-b border-payroll-light bg-payroll-cream px-6 py-4">
           <div>
             <h2 className="text-base font-bold text-payroll-navy">{slip.employeeName}</h2>
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mt-0.5">
+            <p className="text-2xs font-semibold text-gray-500 uppercase tracking-wider mt-0.5">
               Code: {slip.employeeCode} · {slip.departmentName} · {slip.designationName}
             </p>
           </div>
@@ -188,19 +188,19 @@ export function PayslipDetailModal({
           {/* Quick Summary Grid */}
           <div className="grid gap-3 grid-cols-3 rounded-xl bg-payroll-cream border border-payroll-light p-4 text-center">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Gross Earnings</p>
+              <p className="text-2xs font-semibold uppercase tracking-wider text-gray-400">Gross Earnings</p>
               <p className="text-sm font-bold text-payroll-navy mt-1 tabular-nums">
                 Rs. {Number(slip.grossEarnings).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
             </div>
             <div className="border-x border-payroll-light">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Deductions</p>
+              <p className="text-2xs font-semibold uppercase tracking-wider text-gray-400">Total Deductions</p>
               <p className="text-sm font-bold text-red-600 mt-1 tabular-nums">
                 Rs. {Number(slip.totalDeductions).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Net Payable</p>
+              <p className="text-2xs font-semibold uppercase tracking-wider text-gray-400">Net Payable</p>
               <p className="text-sm font-bold text-emerald-600 mt-1 tabular-nums">
                 Rs. {Number(slip.netPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
@@ -230,7 +230,7 @@ export function PayslipDetailModal({
               <div className="space-y-3 mt-1.5 bg-white p-3.5 rounded-lg border border-payroll-light">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="text-[10px] font-semibold text-gray-400 uppercase block mb-1">Bank Name</label>
+                    <label className="text-2xs font-semibold text-gray-400 uppercase block mb-1">Bank Name</label>
                     <input
                       type="text"
                       value={overrideAmount}
@@ -240,7 +240,7 @@ export function PayslipDetailModal({
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold text-gray-400 uppercase block mb-1">Account Number</label>
+                    <label className="text-2xs font-semibold text-gray-400 uppercase block mb-1">Account Number</label>
                     <input
                       type="text"
                       value={overrideReason}
@@ -253,7 +253,7 @@ export function PayslipDetailModal({
                 <div className="flex gap-1.5 justify-end mt-2">
                   <button
                     onClick={cancelEdit}
-                    className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100"
+                    className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100"
                   >
                     Cancel
                   </button>
@@ -275,7 +275,7 @@ export function PayslipDetailModal({
                       }
                     }}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy"
+                    className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy"
                   >
                     <Save className="h-3 w-3" />
                     Save Bank Info
@@ -305,7 +305,7 @@ export function PayslipDetailModal({
                 <div className="border-b border-gray-100 pb-3">
                   {editingHeadId === "basic-salary" ? (
                     <div className="space-y-2 mt-1 bg-gray-50 p-2.5 rounded border border-payroll-light">
-                      <label className="text-[10px] font-semibold text-gray-400 uppercase block">Basic Salary</label>
+                      <label className="text-2xs font-semibold text-gray-400 uppercase block">Basic Salary</label>
                       <input
                         type="number"
                         value={overrideAmount}
@@ -321,8 +321,8 @@ export function PayslipDetailModal({
                         placeholder="Override Justification"
                       />
                       <div className="flex gap-1.5 justify-end">
-                        <button onClick={cancelEdit} className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
-                        <button onClick={() => handleSave("basic-salary")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy">
+                        <button onClick={cancelEdit} className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
+                        <button onClick={() => handleSave("basic-salary")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy">
                           <Save className="h-3 w-3" /> Save
                         </button>
                       </div>
@@ -347,7 +347,7 @@ export function PayslipDetailModal({
                   <div className="border-b border-gray-100 pb-3">
                     {editingHeadId === "grade-amount" ? (
                       <div className="space-y-2 mt-1 bg-gray-50 p-2.5 rounded border border-payroll-light">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase block">Salary Grade</label>
+                        <label className="text-2xs font-semibold text-gray-400 uppercase block">Salary Grade</label>
                         <input
                           type="number"
                           value={overrideAmount}
@@ -363,8 +363,8 @@ export function PayslipDetailModal({
                           placeholder="Override Justification"
                         />
                         <div className="flex gap-1.5 justify-end">
-                          <button onClick={cancelEdit} className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
-                          <button onClick={() => handleSave("grade-amount")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy">
+                          <button onClick={cancelEdit} className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
+                          <button onClick={() => handleSave("grade-amount")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy">
                             <Save className="h-3 w-3" /> Save
                           </button>
                         </div>
@@ -389,7 +389,7 @@ export function PayslipDetailModal({
                 <div className="border-b border-gray-100 pb-3">
                   {editingHeadId === "ot-amount" ? (
                     <div className="space-y-2 mt-1 bg-gray-50 p-2.5 rounded border border-payroll-light">
-                      <label className="text-[10px] font-semibold text-gray-400 uppercase block">Overtime Earned (OT)</label>
+                      <label className="text-2xs font-semibold text-gray-400 uppercase block">Overtime Earned (OT)</label>
                       <input
                         type="number"
                         value={overrideAmount}
@@ -405,8 +405,8 @@ export function PayslipDetailModal({
                         placeholder="Override Justification"
                       />
                       <div className="flex gap-1.5 justify-end">
-                        <button onClick={cancelEdit} className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
-                        <button onClick={() => handleSave("ot-amount")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy">
+                        <button onClick={cancelEdit} className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
+                        <button onClick={() => handleSave("ot-amount")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy">
                           <Save className="h-3 w-3" /> Save
                         </button>
                       </div>
@@ -430,7 +430,7 @@ export function PayslipDetailModal({
                   <div key={head.payHeadId} className="border-b border-gray-100 pb-3">
                     {editingHeadId === head.payHeadId ? (
                       <div className="space-y-2 mt-1">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase block">{head.payHeadName}</label>
+                        <label className="text-2xs font-semibold text-gray-400 uppercase block">{head.payHeadName}</label>
                         <input
                           type="number"
                           value={overrideAmount}
@@ -448,14 +448,14 @@ export function PayslipDetailModal({
                         <div className="flex gap-1.5 justify-end">
                           <button
                             onClick={cancelEdit}
-                            className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100"
+                            className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100"
                           >
                             Cancel
                           </button>
                           <button
                             onClick={() => handleSave(head.payHeadId)}
                             disabled={isSaving}
-                            className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy"
+                            className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy"
                           >
                             <Save className="h-3 w-3" />
                             Save
@@ -467,10 +467,10 @@ export function PayslipDetailModal({
                         <div>
                           <span className="font-medium">{head.payHeadName}</span>
                           {head.isManualOverride && (
-                            <span className="ml-1.5 rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] text-amber-700">Overridden</span>
+                            <span className="ml-1.5 rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-3xs text-amber-700">Overridden</span>
                           )}
                           {head.payHeadName.toLowerCase().includes("ssf") && head.payHeadName.toLowerCase().includes("employer") && (
-                            <span className="block text-[10px] text-gray-400">Employer non-cash benefit deposited to SSF (20%)</span>
+                            <span className="block text-2xs text-gray-400">Employer non-cash benefit deposited to SSF (20%)</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ export function PayslipDetailModal({
                 <div className="border-b border-gray-100 pb-3">
                   {editingHeadId === "absent-deduction" ? (
                     <div className="space-y-2 mt-1 bg-gray-50 p-2.5 rounded border border-payroll-light">
-                      <label className="text-[10px] font-semibold text-gray-400 uppercase block">Absent/Leave Deduction</label>
+                      <label className="text-2xs font-semibold text-gray-400 uppercase block">Absent/Leave Deduction</label>
                       <input
                         type="number"
                         value={overrideAmount}
@@ -515,8 +515,8 @@ export function PayslipDetailModal({
                         placeholder="Override Justification"
                       />
                       <div className="flex gap-1.5 justify-end">
-                        <button onClick={cancelEdit} className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
-                        <button onClick={() => handleSave("absent-deduction")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy">
+                        <button onClick={cancelEdit} className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
+                        <button onClick={() => handleSave("absent-deduction")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy">
                           <Save className="h-3 w-3" /> Save
                         </button>
                       </div>
@@ -540,7 +540,7 @@ export function PayslipDetailModal({
                 <div className="border-b border-gray-100 pb-3">
                   {editingHeadId === "loan-deduction" ? (
                     <div className="space-y-2 mt-1 bg-gray-50 p-2.5 rounded border border-payroll-light">
-                      <label className="text-[10px] font-semibold text-gray-400 uppercase block">Loan Deduction</label>
+                      <label className="text-2xs font-semibold text-gray-400 uppercase block">Loan Deduction</label>
                       <input
                         type="number"
                         value={overrideAmount}
@@ -556,8 +556,8 @@ export function PayslipDetailModal({
                         placeholder="Override Justification"
                       />
                       <div className="flex gap-1.5 justify-end">
-                        <button onClick={cancelEdit} className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
-                        <button onClick={() => handleSave("loan-deduction")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy">
+                        <button onClick={cancelEdit} className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
+                        <button onClick={() => handleSave("loan-deduction")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy">
                           <Save className="h-3 w-3" /> Save
                         </button>
                       </div>
@@ -581,7 +581,7 @@ export function PayslipDetailModal({
                   <div key={head.payHeadId} className="border-b border-gray-100 pb-3">
                     {editingHeadId === head.payHeadId ? (
                       <div className="space-y-2 mt-1">
-                        <label className="text-[10px] font-semibold text-gray-400 uppercase block">{head.payHeadName}</label>
+                        <label className="text-2xs font-semibold text-gray-400 uppercase block">{head.payHeadName}</label>
                         <input
                           type="number"
                           value={overrideAmount}
@@ -599,14 +599,14 @@ export function PayslipDetailModal({
                         <div className="flex gap-1.5 justify-end">
                           <button
                             onClick={cancelEdit}
-                            className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100"
+                            className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100"
                           >
                             Cancel
                           </button>
                           <button
                             onClick={() => handleSave(head.payHeadId)}
                             disabled={isSaving}
-                            className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy"
+                            className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy"
                           >
                             <Save className="h-3 w-3" />
                             Save
@@ -618,10 +618,10 @@ export function PayslipDetailModal({
                         <div>
                           <span className="font-medium">{head.payHeadName}</span>
                           {head.isManualOverride && (
-                            <span className="ml-1.5 rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] text-amber-700">Overridden</span>
+                            <span className="ml-1.5 rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-3xs text-amber-700">Overridden</span>
                           )}
                           {(head.payHeadName.toLowerCase().includes("ssf") || head.payHeadName.toLowerCase().includes("social security fund")) && (
-                            <span className="block text-[10px] text-gray-400">
+                            <span className="block text-2xs text-gray-400">
                               {Number(slip.ssfEmployee) > 0 && Number(slip.ssfEmployer) > 0
                                 ? `EE 11% (Rs. ${Number(slip.ssfEmployee).toLocaleString("en-IN", { minimumFractionDigits: 2 })}) + ER 20% (Rs. ${Number(slip.ssfEmployer).toLocaleString("en-IN", { minimumFractionDigits: 2 })})`
                                 : "Total 31% SSF Deposit (11% Employee + 20% Employer)"}
@@ -654,7 +654,7 @@ export function PayslipDetailModal({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h4 className="text-xs font-bold text-payroll-navy">Missed an Allowance or Deduction?</h4>
-                    <p className="text-[11px] text-gray-500">Attach any company pay head to this employee&apos;s payslip and automatically recalculate progressive taxes.</p>
+                    <p className="text-2xs text-gray-500">Attach any company pay head to this employee&apos;s payslip and automatically recalculate progressive taxes.</p>
                   </div>
                   {availablePayHeads.length > 0 ? (
                     <button
@@ -666,7 +666,7 @@ export function PayslipDetailModal({
                       + Add Pay Head
                     </button>
                   ) : (
-                    <span className="text-[11px] font-medium text-gray-400 bg-gray-100 px-2.5 py-1 rounded-md">
+                    <span className="text-2xs font-medium text-gray-400 bg-gray-100 px-2.5 py-1 rounded-md">
                       All company pay heads are already added
                     </span>
                   )}
@@ -686,7 +686,7 @@ export function PayslipDetailModal({
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Pay Head</label>
+                      <label className="text-2xs font-semibold text-gray-500 uppercase block mb-1">Pay Head</label>
                       <select
                         value={newHeadId}
                         onChange={(e) => setNewHeadId(e.target.value)}
@@ -702,7 +702,7 @@ export function PayslipDetailModal({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Amount (Rs.)</label>
+                      <label className="text-2xs font-semibold text-gray-500 uppercase block mb-1">Amount (Rs.)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -714,7 +714,7 @@ export function PayslipDetailModal({
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Reason / Justification</label>
+                      <label className="text-2xs font-semibold text-gray-500 uppercase block mb-1">Reason / Justification</label>
                       <input
                         type="text"
                         value={newHeadReason}

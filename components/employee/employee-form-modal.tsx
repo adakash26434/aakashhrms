@@ -503,7 +503,7 @@ export function EmployeeFormModal({
         <div className="space-y-2 pb-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-500 font-medium">Form Completion</span>
-            <span className="inline-flex items-center gap-1 font-semibold text-payroll-primary bg-payroll-primary-light px-2.5 py-0.5 rounded-full border border-payroll-border text-[11px]">
+            <span className="inline-flex items-center gap-1 font-semibold text-payroll-primary bg-payroll-primary-light px-2.5 py-0.5 rounded-full border border-payroll-border text-2xs">
               <span>{completedCount} of {TABS.length} sections complete</span>
               <span>({progressPercent}%)</span>
             </span>
@@ -540,14 +540,14 @@ export function EmployeeFormModal({
 
                 {/* Persistent Error Badge */}
                 {status.hasError && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 shadow-xs animate-pulse">
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-2xs font-bold text-white px-1 shadow-xs animate-pulse">
                     {status.errCount}
                   </span>
                 )}
 
                 {/* Section Complete Checkmark */}
                 {!status.hasError && status.isComplete && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-payroll-primary-light text-payroll-primary text-[10px] font-bold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-payroll-primary-light text-payroll-primary text-2xs font-bold">
                     ✓
                   </span>
                 )}

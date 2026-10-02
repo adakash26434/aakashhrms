@@ -71,7 +71,7 @@ export function TableToolbar({
 
         {/* Record count — expressed as plain type, not a boxed badge */}
         {typeof totalCount === "number" && (
-          <span className="hidden lg:inline text-[11px] text-zinc-400 tabular-nums ml-1">
+          <span className="hidden lg:inline text-2xs text-zinc-400 tabular-nums ml-1">
             {isFiltered
               ? `${filteredCount} of ${totalCount}`
               : `${totalCount} records`}

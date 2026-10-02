@@ -233,7 +233,7 @@ export function UserFormModal({
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 {isSuperAdminManaged && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70">
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70">
                     <Lock className="w-2.5 h-2.5" /> Super Admin Managed
                   </span>
                 )}
@@ -259,7 +259,7 @@ export function UserFormModal({
                 />
               </div>
               {isSuperAdminManaged ? (
-                <p className="mt-1 text-[11px] text-zinc-500 font-medium">
+                <p className="mt-1 text-2xs text-zinc-500 font-medium">
                   Company Admin email is managed exclusively by the Super Admin in the Platform Control Plane.
                 </p>
               ) : errors.email ? (
@@ -356,7 +356,7 @@ export function UserFormModal({
                         Branch Access Scope
                       </label>
                     </div>
-                    <span className="text-[11px] font-mono text-zinc-500">
+                    <span className="text-2xs font-mono text-zinc-500">
                       {assignedBranchIds.length} selected
                     </span>
                   </div>
@@ -400,7 +400,7 @@ export function UserFormModal({
                         Department Access Scope
                       </label>
                     </div>
-                    <span className="text-[11px] font-mono text-zinc-500">
+                    <span className="text-2xs font-mono text-zinc-500">
                       {assignedDepartmentIds.length} selected
                     </span>
                   </div>

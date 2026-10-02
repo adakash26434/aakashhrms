@@ -80,7 +80,7 @@ export function AttendanceReportTable({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {/* Day range selectors */}
           <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50/50 px-2.5 py-1">
-            <span className="text-[11px] text-zinc-500">From day</span>
+            <span className="text-2xs text-zinc-500">From day</span>
             <select
               value={fromDay}
               onChange={(e) => {
@@ -94,7 +94,7 @@ export function AttendanceReportTable({
                 <option key={dh.dayNum} value={dh.dayNum}>{dh.dayNum}</option>
               ))}
             </select>
-            <span className="text-[11px] text-zinc-400">–</span>
+            <span className="text-2xs text-zinc-400">–</span>
             <select
               value={toDay}
               onChange={(e) => {
@@ -121,7 +121,7 @@ export function AttendanceReportTable({
                 key={p.label}
                 type="button"
                 onClick={() => { setFromDay(p.from); setToDay(p.to); }}
-                className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                className={`rounded px-2.5 py-1 text-2xs font-medium transition-colors ${
                   fromDay === p.from && toDay === p.to
                     ? "bg-white text-zinc-900 shadow-sm"
                     : "text-zinc-500 hover:text-zinc-900"
@@ -138,7 +138,7 @@ export function AttendanceReportTable({
               <button
                 type="button"
                 onClick={() => setViewMode("SUMMARY")}
-                className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                className={`rounded px-2.5 py-1 text-2xs font-medium transition-colors ${
                   viewMode === "SUMMARY" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
                 }`}
               >
@@ -147,7 +147,7 @@ export function AttendanceReportTable({
               <button
                 type="button"
                 onClick={() => setViewMode("MATRIX")}
-                className={`rounded px-2.5 py-1 text-[11px] font-medium flex items-center gap-1 transition-colors ${
+                className={`rounded px-2.5 py-1 text-2xs font-medium flex items-center gap-1 transition-colors ${
                   viewMode === "MATRIX" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
                 }`}
               >
@@ -164,7 +164,7 @@ export function AttendanceReportTable({
             <button
               type="button"
               onClick={() => setCalendarType("BS")}
-              className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2.5 py-1 text-2xs font-medium transition-colors ${
                 calendarType === "BS" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
               }`}
             >
@@ -173,7 +173,7 @@ export function AttendanceReportTable({
             <button
               type="button"
               onClick={() => setCalendarType("AD")}
-              className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2.5 py-1 text-2xs font-medium transition-colors ${
                 calendarType === "AD" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
               }`}
             >
@@ -209,7 +209,7 @@ export function AttendanceReportTable({
       {(viewMode === "SUMMARY" || activeFormat === "STATUTORY_SUMMARY") && (
         <div className="overflow-x-auto print:overflow-visible">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+            <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold text-zinc-900">
               <tr>
                 <th className="px-3 py-3 text-center">SN</th>
                 <th className="px-3 py-3">Code</th>
@@ -234,10 +234,10 @@ export function AttendanceReportTable({
               {filteredRows.map((row, idx) => (
                 <tr key={idx} className="hover:bg-zinc-50/60 transition-colors">
                   <td className="px-3 py-3 text-center text-zinc-400 font-medium">{idx + 1}</td>
-                  <td className="px-3 py-3 font-mono text-[11px] text-zinc-500">{row.employeeCode}</td>
+                  <td className="px-3 py-3 font-mono text-2xs text-zinc-500">{row.employeeCode}</td>
                   <td className="px-3 py-3 font-medium text-zinc-900">{row.employeeName}</td>
-                  <td className="px-3 py-3 text-zinc-500 text-[11px]">{row.departmentName}</td>
-                  <td className="px-3 py-3 text-zinc-500 text-[11px]">{row.designationName}</td>
+                  <td className="px-3 py-3 text-zinc-500 text-2xs">{row.departmentName}</td>
+                  <td className="px-3 py-3 text-zinc-500 text-2xs">{row.designationName}</td>
                   <td className="px-3 py-3 text-center tabular-nums font-medium text-zinc-700">{row.totalWorkingDays}</td>
                   <td className="px-3 py-3 text-center tabular-nums font-semibold text-emerald-800">{row.presentDays}</td>
                   <td className="px-3 py-3 text-center tabular-nums text-teal-700">{row.payLeaveDays}</td>
@@ -272,7 +272,7 @@ export function AttendanceReportTable({
         <div className="overflow-x-auto print:overflow-visible">
           {activeFormat === "STATUS_MATRIX" && (
             <table className="w-full text-left text-xs border-collapse min-w-max">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold text-zinc-900">
                 <tr>
                   <th className="px-3 py-2.5 text-center sticky left-0 z-20 bg-white">SN</th>
                   <th className="px-3 py-2.5 min-w-36 sticky left-8 z-20 bg-white">Name</th>
@@ -292,7 +292,7 @@ export function AttendanceReportTable({
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 text-[11px]">
+              <tbody className="divide-y divide-zinc-200 text-2xs">
                 {filteredRows.map((row, idx) => {
                   const activeDetails = (row.dailyDetails || []).filter((d) => d.dayNum >= fromDay && d.dayNum <= toDay);
                   let rP = 0, rL = 0, rA = 0, rLwop = 0;
@@ -340,7 +340,7 @@ export function AttendanceReportTable({
 
           {activeFormat === "DEVICE_PUNCH" && (
             <table className="w-full text-left text-xs border-collapse min-w-max">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold text-zinc-900">
                 <tr>
                   <th rowSpan={2} className="px-3 py-2.5 text-center sticky left-0 z-20 bg-white">SN</th>
                   <th rowSpan={2} className="px-3 py-2.5 min-w-36 sticky left-8 z-20 bg-white">Name</th>
@@ -359,9 +359,9 @@ export function AttendanceReportTable({
                 <tr>
                   {activeDateHeaders.map((dh) => (
                     <React.Fragment key={`sub-${dh.dayNum}`}>
-                      <th className="px-1.5 py-1 text-[9px] text-zinc-400">In</th>
-                      <th className="px-1.5 py-1 text-[9px] text-zinc-400">Out</th>
-                      <th className="px-1.5 py-1 text-[9px] text-zinc-400">Hrs</th>
+                      <th className="px-1.5 py-1 text-3xs text-zinc-400">In</th>
+                      <th className="px-1.5 py-1 text-3xs text-zinc-400">Out</th>
+                      <th className="px-1.5 py-1 text-3xs text-zinc-400">Hrs</th>
                     </React.Fragment>
                   ))}
                 </tr>
@@ -377,9 +377,9 @@ export function AttendanceReportTable({
                       <td className="px-3 py-2 text-zinc-500">{row.designationName}</td>
                       {activeDetails.map((d, dIdx) => (
                         <React.Fragment key={dIdx}>
-                          <td className="px-1.5 py-2 text-center text-[10px] font-mono text-zinc-500">{d.inTime && d.inTime !== "-" ? d.inTime : "—"}</td>
-                          <td className="px-1.5 py-2 text-center text-[10px] font-mono text-zinc-500">{d.outTime && d.outTime !== "-" ? d.outTime : "—"}</td>
-                          <td className="px-1.5 py-2 text-center text-[10px] font-mono font-medium text-zinc-700">{d.workHours && d.workHours !== "-" && d.workHours !== "00:00" ? d.workHours : "—"}</td>
+                          <td className="px-1.5 py-2 text-center text-2xs font-mono text-zinc-500">{d.inTime && d.inTime !== "-" ? d.inTime : "—"}</td>
+                          <td className="px-1.5 py-2 text-center text-2xs font-mono text-zinc-500">{d.outTime && d.outTime !== "-" ? d.outTime : "—"}</td>
+                          <td className="px-1.5 py-2 text-center text-2xs font-mono font-medium text-zinc-700">{d.workHours && d.workHours !== "-" && d.workHours !== "00:00" ? d.workHours : "—"}</td>
                         </React.Fragment>
                       ))}
                       <td className="px-3 py-2 text-center tabular-nums font-semibold text-emerald-700 font-mono">{row.totalWorkHours || "00:00"}</td>

@@ -252,7 +252,7 @@ export function EmployeeTable({
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs text-zinc-700">
-          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold tracking-wider text-zinc-900 uppercase select-none">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold tracking-wider text-zinc-900 uppercase select-none">
             <tr>
               <SortHeader
                 label="ATT. CODE"
@@ -335,7 +335,7 @@ export function EmployeeTable({
                   {/* EMPLOYEE (Avatar + Name) */}
                   <td className="px-4 py-4 align-middle">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-[11px] font-semibold text-white shadow-2xs">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-900 text-2xs font-semibold text-white shadow-2xs">
                         {initials}
                       </div>
                       <div className="min-w-0 max-w-50">
@@ -343,7 +343,7 @@ export function EmployeeTable({
                           {emp.fullName}
                         </div>
                         {emp.isSupervisor && (
-                          <span className="inline-block mt-0.5 rounded bg-sky-50 px-1.5 py-0.2 text-[10px] font-medium text-sky-800 border border-sky-200/50">
+                          <span className="inline-block mt-0.5 rounded bg-sky-50 px-1.5 py-0.2 text-2xs font-medium text-sky-800 border border-sky-200/50">
                             Supervisor
                           </span>
                         )}

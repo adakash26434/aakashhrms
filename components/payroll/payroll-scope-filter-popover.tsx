@@ -134,7 +134,7 @@ export function PayrollScopeFilterPopover({
             <Icon className="h-3.5 w-3.5" />
           </div>
           <div className="flex flex-col text-left truncate">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 leading-tight">
+            <span className="text-2xs font-bold uppercase tracking-wider text-gray-500 leading-tight">
               {label}
             </span>
             <span
@@ -154,7 +154,7 @@ export function PayrollScopeFilterPopover({
 
         <div className="flex items-center gap-1 shrink-0">
           {selectedIds.length > 0 && !isAllSelected && !(allowEmptyAsAll && isNoneSelected) && (
-            <span className="flex h-5 items-center rounded-full bg-payroll-primary/10 px-1.5 text-[10px] font-bold text-payroll-primary font-mono">
+            <span className="flex h-5 items-center rounded-full bg-payroll-primary/10 px-1.5 text-2xs font-bold text-payroll-primary font-mono">
               {selectedIds.length}
             </span>
           )}
@@ -177,11 +177,11 @@ export function PayrollScopeFilterPopover({
               <span className="text-xs font-bold text-payroll-navy">
                 {label}
               </span>
-              <span className="text-[10px] text-gray-400 font-mono">
+              <span className="text-2xs text-gray-400 font-mono">
                 ({items.length})
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] font-semibold text-payroll-primary">
+            <div className="flex items-center gap-2 text-2xs font-semibold text-payroll-primary">
               <button
                 type="button"
                 onClick={handleSelectAll}
@@ -258,7 +258,7 @@ export function PayrollScopeFilterPopover({
                       <span className="truncate">{item.label}</span>
                     </div>
                     {item.count !== undefined && (
-                      <span className="text-[10px] text-gray-400 font-mono shrink-0">
+                      <span className="text-2xs text-gray-400 font-mono shrink-0">
                         {item.count}
                       </span>
                     )}
@@ -269,7 +269,7 @@ export function PayrollScopeFilterPopover({
           </div>
 
           {/* Footer note */}
-          <div className="mt-2.5 flex items-center justify-between border-t border-payroll-light/60 pt-2 text-[10px] text-gray-400">
+          <div className="mt-2.5 flex items-center justify-between border-t border-payroll-light/60 pt-2 text-2xs text-gray-400">
             {allowEmptyAsAll && isNoneSelected ? (
               <span className="text-emerald-700 font-medium">
                 Empty selection includes all

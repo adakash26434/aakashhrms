@@ -211,7 +211,7 @@ export function CompanySetupInnerNav({
                             {item.label}
                           </div>
                           <div className={cn(
-                            "text-[11px] leading-tight truncate mt-0.5",
+                            "text-2xs leading-tight truncate mt-0.5",
                             isActive ? "text-payroll-primary/70" : "text-zinc-400 group-hover:text-payroll-primary/70"
                           )}>
                             {item.sublabel}
@@ -222,7 +222,7 @@ export function CompanySetupInnerNav({
                       {item.badge !== null && item.badge !== undefined && (
                         <span
                           className={cn(
-                            "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-mono font-medium",
+                            "shrink-0 rounded px-1.5 py-0.5 text-2xs font-mono font-medium",
                             isActive
                               ? "bg-payroll-primary/15 text-payroll-primary"
                               : "bg-zinc-100 text-zinc-500"

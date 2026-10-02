@@ -41,8 +41,8 @@ export function BranchesTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-180 text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs uppercase tracking-wider text-zinc-500">
             <th scope="col" className="px-4 py-4 font-semibold">Branch</th>
             <th scope="col" className="px-4 py-4 font-semibold">Code</th>
             <th scope="col" className="px-4 py-4 font-semibold">Location</th>
@@ -70,7 +70,7 @@ export function BranchesTable({
                 </div>
               </td>
               <td className="px-4 py-4 align-middle">
-                <code className="rounded border border-zinc-200/60 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-mono text-zinc-700">
+                <code className="rounded border border-zinc-200/60 bg-zinc-50 px-1.5 py-0.5 text-2xs font-mono text-zinc-700">
                   {b.code}
                 </code>
               </td>

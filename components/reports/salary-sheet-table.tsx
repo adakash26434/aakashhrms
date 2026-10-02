@@ -61,7 +61,7 @@ export function SalarySheetTable({
       {/* Responsive Table Container */}
       <div className="overflow-x-auto max-h-150 overflow-y-auto print:max-h-none print:overflow-visible print:w-full">
         <table className="w-full text-left text-xs text-zinc-900 border-collapse print:text-[7.5pt]">
-          <thead className="sticky top-0 z-10 border-b border-zinc-300 bg-zinc-200 font-semibold text-zinc-900 text-[11px]">
+          <thead className="sticky top-0 z-10 border-b border-zinc-300 bg-zinc-200 font-semibold text-zinc-900 text-2xs">
             <tr>
               <th className="px-3.5 py-3 text-center sticky left-0 z-20 bg-white print:static print:px-1.5 print:py-1.5">SN</th>
               <th className="px-3.5 py-3 sticky left-8 z-20 bg-white print:static print:px-1.5 print:py-1.5">Code</th>
@@ -120,16 +120,16 @@ export function SalarySheetTable({
                   <td className="px-3.5 py-3.5 text-center text-zinc-400 font-medium sticky left-0 z-10 bg-white print:static print:px-1.5 print:py-1">
                     {idx + 1}
                   </td>
-                  <td className="px-3.5 py-3.5 font-mono text-[11px] text-zinc-500 sticky left-8 z-10 bg-white print:static print:px-1.5 print:py-1">
+                  <td className="px-3.5 py-3.5 font-mono text-2xs text-zinc-500 sticky left-8 z-10 bg-white print:static print:px-1.5 print:py-1">
                     {row.employeeCode}
                   </td>
                   <td className="px-3.5 py-3.5 font-medium text-zinc-900 sticky left-24 z-10 bg-white print:static print:px-1.5 print:py-1">
                     {row.employeeName}
                   </td>
-                  <td className="px-3.5 py-3.5 text-zinc-600 text-[11px] print:px-1.5 print:py-1">
+                  <td className="px-3.5 py-3.5 text-zinc-600 text-2xs print:px-1.5 print:py-1">
                     {row.departmentName}
                   </td>
-                  <td className="px-3.5 py-3.5 text-zinc-600 text-[11px] print:px-1.5 print:py-1">
+                  <td className="px-3.5 py-3.5 text-zinc-600 text-2xs print:px-1.5 print:py-1">
                     {row.designationName || "Staff"}
                   </td>
                   <td className="px-3.5 py-3.5 tabular-nums text-right font-mono text-zinc-800 print:px-1.5 print:py-1">
@@ -190,10 +190,10 @@ export function SalarySheetTable({
                   <td className="px-3.5 py-3.5 tabular-nums text-right font-bold text-emerald-800 bg-emerald-50/50 font-mono print:px-1.5 print:py-1">
                     {Number(row.netPayable).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-3.5 py-3.5 text-zinc-600 text-[11px] print:hidden">
+                  <td className="px-3.5 py-3.5 text-zinc-600 text-2xs print:hidden">
                     {row.bankName}
                   </td>
-                  <td className="px-3.5 py-3.5 font-mono text-[11px] text-zinc-600 print:hidden">
+                  <td className="px-3.5 py-3.5 font-mono text-2xs text-zinc-600 print:hidden">
                     {row.bankAccountNumberMasked}
                   </td>
                   {onSingleEmployeeAction && (
@@ -234,7 +234,7 @@ export function SalarySheetTable({
           {/* Table Summary Footer */}
           <tfoot className="sticky bottom-0 bg-zinc-50/90 font-medium border-t border-zinc-200 text-xs text-zinc-800">
             <tr>
-              <td colSpan={5} className="px-3.5 py-3 text-right uppercase tracking-wider text-zinc-500 font-semibold text-[11px]">
+              <td colSpan={5} className="px-3.5 py-3 text-right uppercase tracking-wider text-zinc-500 font-semibold text-2xs">
                 Total ({summary.totalEmployees} employees)
               </td>
               <td className="px-3.5 py-3"></td>

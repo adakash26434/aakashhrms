@@ -64,8 +64,8 @@ export function FiscalYearTable({
       emptyDescription="Click 'Add fiscal year' above to configure an accounting cycle."
     >
       <table className="w-full min-w-215 text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs uppercase tracking-wider text-zinc-500 font-semibold">
             <th scope="col" className="px-4 py-3 font-semibold">
               Fiscal year
             </th>
@@ -147,7 +147,7 @@ export function FiscalYearTable({
                           date={fy.startDateAD}
                           format={activeFormat}
                         />
-                        <span className="text-[11px] text-zinc-400">to</span>
+                        <span className="text-2xs text-zinc-400">to</span>
                         <BSDateDisplay
                           date={fy.endDateAD}
                           format={activeFormat}
@@ -180,7 +180,7 @@ export function FiscalYearTable({
                           <button
                             type="button"
                             onClick={() => onUnlock(fy)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/50 rounded-md transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-medium text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/50 rounded-md transition-colors cursor-pointer"
                           >
                             <LockOpen className="w-3 h-3" />
                             Unlock

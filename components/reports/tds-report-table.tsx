@@ -47,7 +47,7 @@ export function TDSReportTable({
               are missing PAN numbers. IRD submission requires valid PAN numbers.
             </span>
           </div>
-          <span className="text-[11px] font-medium text-amber-800 bg-amber-100/70 border border-amber-200/50 px-2 py-0.5 rounded">
+          <span className="text-2xs font-medium text-amber-800 bg-amber-100/70 border border-amber-200/50 px-2 py-0.5 rounded">
             Action Needed in Employee Profiles
           </span>
         </div>
@@ -56,7 +56,7 @@ export function TDSReportTable({
       {/* Header bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-300/80">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-900 block">
+          <span className="text-2xs font-semibold uppercase tracking-wider text-emerald-900 block">
             Government of Nepal — Inland Revenue Department (IRD)
           </span>
           <h2 className="text-sm font-semibold text-zinc-900">
@@ -90,7 +90,7 @@ export function TDSReportTable({
       {/* Table Container */}
       <div className="overflow-x-auto max-h-150 overflow-y-auto print:max-h-none print:overflow-visible">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="sticky top-0 z-10 border-b border-zinc-300 bg-zinc-200 font-semibold uppercase tracking-wider text-zinc-900 text-[10px]">
+          <thead className="sticky top-0 z-10 border-b border-zinc-300 bg-zinc-200 font-semibold uppercase tracking-wider text-zinc-900 text-2xs">
             <tr>
               <th className="px-3.5 py-3 text-center w-12">SN</th>
               <th className="px-3.5 py-3">Code</th>
@@ -115,7 +115,7 @@ export function TDSReportTable({
                 <td className="px-3.5 py-3 text-center text-zinc-400 font-medium">
                   {idx + 1}
                 </td>
-                <td className="px-3.5 py-3 font-mono text-[11px] text-zinc-500">
+                <td className="px-3.5 py-3 font-mono text-2xs text-zinc-500">
                   {row.employeeCode}
                 </td>
                 <td className="px-3.5 py-3 font-medium text-zinc-900">
@@ -127,15 +127,15 @@ export function TDSReportTable({
                       {row.panNumber}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded border border-amber-200/50 bg-amber-50/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                    <span className="inline-flex items-center gap-1 rounded border border-amber-200/50 bg-amber-50/70 px-1.5 py-0.5 text-2xs font-medium text-amber-800">
                       <AlertCircle className="h-3 w-3" /> N/A
                     </span>
                   )}
                 </td>
-                <td className="px-3.5 py-3 text-zinc-600 text-[11px]">
+                <td className="px-3.5 py-3 text-zinc-600 text-2xs">
                   {row.taxStatus}
                 </td>
-                <td className="px-3.5 py-3 text-zinc-500 text-[11px]">
+                <td className="px-3.5 py-3 text-zinc-500 text-2xs">
                   {row.period}
                 </td>
                 <td className="px-3.5 py-3 tabular-nums text-right font-medium text-zinc-900">

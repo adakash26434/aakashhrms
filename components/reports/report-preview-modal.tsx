@@ -90,11 +90,11 @@ export function ReportPreviewModal({
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-zinc-900 tracking-tight">{title} — Document preview</h2>
                 {isSingleEmployee ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-2xs font-medium text-zinc-700">
                     <User className="h-3 w-3 text-zinc-500" /> Single employee mode
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-2xs font-medium text-zinc-700">
                     <Users className="h-3 w-3 text-zinc-500" /> Multi-employee batch mode
                   </span>
                 )}
@@ -194,7 +194,7 @@ export function ReportPreviewModal({
                 <div className="text-zinc-500 text-xs">
                   Generated: <span className="font-medium text-zinc-700">{new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span>
                 </div>
-                <div className="inline-flex items-center gap-1 text-[11px] text-zinc-600 font-medium pt-0.5">
+                <div className="inline-flex items-center gap-1 text-2xs text-zinc-600 font-medium pt-0.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" /> Official verified statement
                 </div>
               </div>
@@ -225,7 +225,7 @@ export function ReportPreviewModal({
                 <div className="h-10 border-b border-dashed border-zinc-300" />
                 <div>
                   <p className="font-semibold text-zinc-900">Prepared By</p>
-                  <p className="text-[11px] text-zinc-500">Payroll / HR Officer</p>
+                  <p className="text-2xs text-zinc-500">Payroll / HR Officer</p>
                 </div>
               </div>
 
@@ -233,7 +233,7 @@ export function ReportPreviewModal({
                 <div className="h-10 border-b border-dashed border-zinc-300" />
                 <div>
                   <p className="font-semibold text-zinc-900">Verified & Checked By</p>
-                  <p className="text-[11px] text-zinc-500">Finance Auditor</p>
+                  <p className="text-2xs text-zinc-500">Finance Auditor</p>
                 </div>
               </div>
 
@@ -241,12 +241,12 @@ export function ReportPreviewModal({
                 <div className="h-10 border-b border-dashed border-zinc-300" />
                 <div>
                   <p className="font-semibold text-zinc-900">Approved & Authorized By</p>
-                  <p className="text-[11px] text-zinc-500">Head of Finance / Admin (Seal)</p>
+                  <p className="text-2xs text-zinc-500">Head of Finance / Admin (Seal)</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-200 pt-3">
+            <div className="flex items-center justify-between text-2xs text-zinc-400 border-t border-zinc-200 pt-3">
               <span>Confidential — Internal Company Record</span>
               <span>Page 1 of 1</span>
               <span>Generated for {companyLegalName}</span>

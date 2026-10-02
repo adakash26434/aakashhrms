@@ -71,7 +71,7 @@ export function HolidayDetailPanel({
             </button>
           </div>
           {holiday && (
-            <p className="mt-0.5 font-mono text-[11px] text-gray-500">
+            <p className="mt-0.5 font-mono text-2xs text-gray-500">
               {holiday.id}
             </p>
           )}
@@ -150,7 +150,7 @@ function Section({
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="text-2xs font-semibold uppercase tracking-wider text-gray-500">
           {title}
         </h3>
         {rightMeta}
@@ -189,7 +189,7 @@ function OverviewRow({
         className,
       )}
     >
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <p className="text-2xs font-medium uppercase tracking-wider text-gray-500">
         {label}
       </p>
       <div className="mt-1">
@@ -227,7 +227,7 @@ function DateRangeBlock({
 
   return (
     <div className="rounded-lg border border-payroll-border bg-white p-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <p className="text-2xs font-medium uppercase tracking-wider text-gray-500">
         Date Range
       </p>
       <div className="mt-1.5 space-y-1">
@@ -237,14 +237,14 @@ function DateRangeBlock({
         </p>
         {/* Secondary: BS pretty */}
         {startBS && endBS && (
-          <p className="text-[11px] text-gray-600 tabular-nums">
+          <p className="text-2xs text-gray-600 tabular-nums">
             {bsStart === bsEnd ? startBS : `${startBS} → ${endBS}`}
           </p>
         )}
         {/* Tertiary: AD */}
         {startADStr && endADStr && (
-          <div className="mt-1 flex items-center gap-1.5 border-t border-payroll-border pt-1.5 text-[11px] text-gray-500 tabular-nums">
-            <span className="rounded bg-payroll-cream px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+          <div className="mt-1 flex items-center gap-1.5 border-t border-payroll-border pt-1.5 text-2xs text-gray-500 tabular-nums">
+            <span className="rounded bg-payroll-cream px-1 py-px text-3xs font-semibold uppercase tracking-wider text-gray-500">
               AD
             </span>
             <span>
@@ -272,7 +272,7 @@ function BranchGroup({
   const visible = isAll ? [] : ids.map((id) => nameById.get(id) ?? id);
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <p className="mb-1.5 text-2xs font-medium uppercase tracking-wider text-gray-500">
         Applicable Branches
       </p>
       {isAll ? (
@@ -280,7 +280,7 @@ function BranchGroup({
           <span className="rounded-md border border-payroll-primary/20 bg-payroll-primary-light-2 px-2 py-0.5 text-xs font-medium text-payroll-primary">
             All Branches
           </span>
-          <span className="rounded bg-payroll-primary-light-2 px-1.5 py-0.5 text-[10px] font-semibold text-payroll-navy tabular-nums">
+          <span className="rounded bg-payroll-primary-light-2 px-1.5 py-0.5 text-2xs font-semibold text-payroll-navy tabular-nums">
             +{totalCount}
           </span>
         </div>

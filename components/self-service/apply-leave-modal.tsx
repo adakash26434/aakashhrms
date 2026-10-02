@@ -278,13 +278,13 @@ export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
               {effectiveFrom && effectiveTo && (
                 <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200/80 flex items-center justify-between text-xs">
                   <div>
-                    <span className="text-zinc-500 block text-[11px]">Calculated Leave Duration:</span>
+                    <span className="text-zinc-500 block text-2xs">Calculated Leave Duration:</span>
                     <span className="font-semibold text-zinc-900 text-sm font-mono">
                       {calculatedDays} day(s)
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[11px] text-right">Available Balance:</span>
+                    <span className="text-zinc-500 block text-2xs text-right">Available Balance:</span>
                     <span
                       className={cn(
                         "font-semibold block text-right text-xs font-mono",

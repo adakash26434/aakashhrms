@@ -235,7 +235,7 @@ export function TaxSlabFormModal({
             <span className="text-zinc-400 mx-2">·</span>
             <span>Fiscal Year <strong className="font-semibold text-zinc-900">{fiscalYearLabel}</strong></span>
           </div>
-          <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded">
+          <span className="text-2xs font-medium text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded">
             {firstSlab
               ? "Base tier (Slab 1)"
               : isEdit
@@ -262,9 +262,9 @@ export function TaxSlabFormModal({
                 disabled={firstSlab || (!isEdit && newDefaults !== null)} // Always disable AmountFrom on create, it's auto-calculated!
                 className={inputClass(Boolean(errors.amountFrom), firstSlab || (!isEdit && newDefaults !== null))}
               />
-              {firstSlab && <p className="mt-1.5 text-[11px] text-zinc-500">The first slab always starts at 0.</p>}
+              {firstSlab && <p className="mt-1.5 text-2xs text-zinc-500">The first slab always starts at 0.</p>}
               {!firstSlab && !isEdit && newDefaults && (
-                <p className="mt-1.5 text-[11px] text-zinc-500">Auto-filled from previous slab Amount To + 1.</p>
+                <p className="mt-1.5 text-2xs text-zinc-500">Auto-filled from previous slab Amount To + 1.</p>
               )}
             </Field>
 
@@ -331,9 +331,9 @@ export function TaxSlabFormModal({
                 className={inputClass(Boolean(errors.fixedDeduction || errors.deductionRule), firstSlab)}
               />
               {firstSlab ? (
-                <p className="mt-1.5 text-[11px] text-zinc-500">Slab 1 always has a fixed deduction of 0.</p>
+                <p className="mt-1.5 text-2xs text-zinc-500">Slab 1 always has a fixed deduction of 0.</p>
               ) : (
-                <p className="mt-1.5 text-[11px] text-zinc-500">Cumulative tax deducted from preceding slabs.</p>
+                <p className="mt-1.5 text-2xs text-zinc-500">Cumulative tax deducted from preceding slabs.</p>
               )}
             </Field>
           </div>

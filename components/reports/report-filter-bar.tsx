@@ -163,7 +163,7 @@ export function ReportFilterBar({
             Filter report data
           </h3>
           {hasActiveFilterChips && (
-            <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+            <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 text-2xs font-medium text-emerald-800">
               Filters applied
             </span>
           )}

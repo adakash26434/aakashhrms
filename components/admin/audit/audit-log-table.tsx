@@ -41,8 +41,8 @@ export function AuditLogTable({ logs, onViewDetails }: AuditLogTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider text-[11px]">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider text-2xs">
             <th className="px-4 py-3">Timestamp</th>
             <th className="px-4 py-3">User</th>
             <th className="px-4 py-3">Action</th>
@@ -80,7 +80,7 @@ export function AuditLogTable({ logs, onViewDetails }: AuditLogTableProps) {
                     <span className="font-medium text-xs text-zinc-900 block">
                       {log.userName || log.userEmail?.split("@")[0] || "System"}
                     </span>
-                    <span className="text-[11px] text-zinc-400 block font-mono">
+                    <span className="text-2xs text-zinc-400 block font-mono">
                       {log.roleNameAtTime ||
                         log.userEmail ||
                         "System Administrator"}
@@ -90,7 +90,7 @@ export function AuditLogTable({ logs, onViewDetails }: AuditLogTableProps) {
 
                 {/* ACTION */}
                 <td className="px-4 py-4">
-                  <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase text-zinc-700 border border-zinc-200">
+                  <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-2xs font-medium uppercase text-zinc-700 border border-zinc-200">
                     {log.action}
                   </span>
                 </td>
@@ -117,7 +117,7 @@ export function AuditLogTable({ logs, onViewDetails }: AuditLogTableProps) {
                 <td className="px-4 py-4">
                   <Badge
                     variant={log.result === "SUCCESS" ? "info" : "danger"}
-                    className="rounded-full px-2 py-0.5 text-[10px]"
+                    className="rounded-full px-2 py-0.5 text-2xs"
                   >
                     {log.result}
                   </Badge>

@@ -137,7 +137,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
                     {isOff && <Check className="h-3 w-3 stroke-3" />}
                   </div>
                 </div>
-                <span className="text-[11px] font-normal text-slate-400 mt-2">
+                <span className="text-2xs font-normal text-slate-400 mt-2">
                   {isOff ? "Official off-day" : "Working day"}
                 </span>
               </button>
@@ -253,7 +253,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
               }}
               className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
-            <p className="text-[11px] text-slate-400">
+            <p className="text-2xs text-slate-400">
               Check-in delays within this window do not record a penalty.
             </p>
           </div>
@@ -273,7 +273,7 @@ export function WorkScheduleTab({ schedule, onScheduleChange }: WorkScheduleTabP
               }}
               className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary"
             />
-            <p className="text-[11px] text-slate-400">
+            <p className="text-2xs text-slate-400">
               Minimum working hours required to record half-day attendance.
             </p>
           </div>

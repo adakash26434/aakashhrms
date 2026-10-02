@@ -212,7 +212,7 @@ export default function PlatformChangeRequestsPage() {
         <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Pending Verification
               </span>
               <div className="text-2xl font-extrabold text-amber-600 mt-1">{stats.pending}</div>
@@ -226,7 +226,7 @@ export default function PlatformChangeRequestsPage() {
         <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Approved & Synced
               </span>
               <div className="text-2xl font-extrabold text-emerald-600 mt-1">{stats.approved}</div>
@@ -240,7 +240,7 @@ export default function PlatformChangeRequestsPage() {
         <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Rejected
               </span>
               <div className="text-2xl font-extrabold text-rose-600 mt-1">{stats.rejected}</div>
@@ -254,7 +254,7 @@ export default function PlatformChangeRequestsPage() {
         <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+              <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider">
                 Total Requests
               </span>
               <div className="text-2xl font-extrabold text-payroll-navy mt-1">{stats.total}</div>
@@ -423,17 +423,17 @@ export default function PlatformChangeRequestsPage() {
                     <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                       <span className="text-slate-500 font-medium">Proposed Changes:</span>
                       {hasLegalNameChange && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200 text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200 text-2xs font-medium">
                           Legal Name: {req.proposedValues.legalName}
                         </span>
                       )}
                       {hasPanChange && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200 text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200 text-2xs font-medium">
                           PAN/VAT: {req.proposedValues.panVatNumber}
                         </span>
                       )}
                       {hasRegChange && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-2xs font-medium">
                           Reg No: {req.proposedValues.registrationNumber}
                         </span>
                       )}
@@ -494,7 +494,7 @@ export default function PlatformChangeRequestsPage() {
                   <h3 className="text-sm font-bold text-slate-900">
                     Statutory Change Request Review
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-2xs text-slate-500">
                     Company: <strong className="text-slate-800">{selectedRequest.companyLegalName}</strong> ({selectedRequest.companyCode})
                   </p>
                 </div>
@@ -514,7 +514,7 @@ export default function PlatformChangeRequestsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    <tr className="border-b border-zinc-200 bg-transparent text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                       <th className="py-2.5 px-3.5 w-1/4">Credential Field</th>
                       <th className="py-2.5 px-3.5 w-3/8">Current Active Value</th>
                       <th className="py-2.5 px-3.5 w-3/8">Proposed Value</th>
@@ -528,7 +528,7 @@ export default function PlatformChangeRequestsPage() {
                       <td className="py-3 px-3.5 font-medium text-zinc-900">
                         {selectedRequest.proposedValues.legalName}
                         {selectedRequest.proposedValues.legalName !== selectedRequest.currentValues.legalName && (
-                          <span className="ml-2 text-[10px] text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-2xs text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
@@ -540,7 +540,7 @@ export default function PlatformChangeRequestsPage() {
                       <td className="py-3 px-3.5 font-mono font-medium text-zinc-900">
                         {selectedRequest.proposedValues.panVatNumber || "—"}
                         {selectedRequest.proposedValues.panVatNumber !== selectedRequest.currentValues.panVatNumber && (
-                          <span className="ml-2 text-[10px] text-amber-700 font-sans font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-2xs text-amber-700 font-sans font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
@@ -552,7 +552,7 @@ export default function PlatformChangeRequestsPage() {
                       <td className="py-3 px-3.5 font-mono font-medium text-zinc-900">
                         {selectedRequest.proposedValues.registrationNumber || "—"}
                         {selectedRequest.proposedValues.registrationNumber !== selectedRequest.currentValues.registrationNumber && (
-                          <span className="ml-2 text-[10px] text-amber-700 font-sans font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-2xs text-amber-700 font-sans font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
@@ -564,7 +564,7 @@ export default function PlatformChangeRequestsPage() {
                       <td className="py-3 px-3.5 font-medium text-zinc-900">
                         {selectedRequest.proposedValues.industryType || "General"}
                         {selectedRequest.proposedValues.industryType !== selectedRequest.currentValues.industryType && (
-                          <span className="ml-2 text-[10px] text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-2xs text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
@@ -576,7 +576,7 @@ export default function PlatformChangeRequestsPage() {
                       <td className="py-3 px-3.5 font-medium text-zinc-900">
                         {selectedRequest.proposedValues.headOfficeAddress || "—"}
                         {selectedRequest.proposedValues.headOfficeAddress !== selectedRequest.currentValues.headOfficeAddress && (
-                          <span className="ml-2 text-[10px] text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
+                          <span className="ml-2 text-2xs text-amber-700 font-medium bg-amber-100/70 border border-amber-200/60 px-1.5 py-0.5 rounded">Changed</span>
                         )}
                       </td>
                     </tr>
@@ -588,7 +588,7 @@ export default function PlatformChangeRequestsPage() {
               <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800">Requester Justification:</span>
-                  <span className="text-slate-500 text-[11px]">
+                  <span className="text-slate-500 text-2xs">
                     Submitted by {selectedRequest.requestedByUserEmail}
                   </span>
                 </div>
@@ -596,7 +596,7 @@ export default function PlatformChangeRequestsPage() {
                   "{selectedRequest.reason}"
                 </p>
                 {selectedRequest.documentReference && (
-                  <div className="pt-1 text-[11px] text-slate-600">
+                  <div className="pt-1 text-2xs text-slate-600">
                     <strong>Document Reference:</strong> {selectedRequest.documentReference}
                   </div>
                 )}

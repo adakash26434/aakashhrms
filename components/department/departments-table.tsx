@@ -73,8 +73,8 @@ export function DepartmentsTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-200 text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs uppercase tracking-wider text-zinc-500">
             <th scope="col" className="px-4 py-4 font-semibold">
               Department
             </th>
@@ -170,7 +170,7 @@ function DepartmentRow({
             <span className="block font-medium text-zinc-950">
               {department.name}
             </span>
-            <span className="block font-mono text-[11px] text-zinc-400">
+            <span className="block font-mono text-2xs text-zinc-400">
               {department.code}
             </span>
           </span>

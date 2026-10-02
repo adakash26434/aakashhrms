@@ -26,8 +26,8 @@ export function PermissionChangeTable({ logs }: PermissionChangeTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-zinc-500 font-semibold text-[11px] uppercase tracking-wider">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-zinc-500 font-semibold text-2xs uppercase tracking-wider">
             <th className="px-4 py-3">Timestamp</th>
             <th className="px-4 py-3">Changed By</th>
             <th className="px-4 py-3">Target Role</th>
@@ -57,7 +57,7 @@ export function PermissionChangeTable({ logs }: PermissionChangeTableProps) {
                       <span className="font-medium text-zinc-900 block text-xs">
                         {log.changedByUserName || log.changedByUserEmail?.split("@")[0] || "Admin"}
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">{log.changedByUserEmail}</span>
+                      <span className="text-2xs text-zinc-400 font-mono">{log.changedByUserEmail}</span>
                     </div>
                   </div>
                 </td>

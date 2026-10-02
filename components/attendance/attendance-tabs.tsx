@@ -34,7 +34,7 @@ export function AttendanceTabs({ active, allCount, presentCount, absentCount, la
             }`}
           >
             <span>{t.label}</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isSelected ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"}`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-2xs ${isSelected ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"}`}>
               {t.count}
             </span>
           </button>

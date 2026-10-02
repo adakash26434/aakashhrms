@@ -561,12 +561,12 @@ export function EmployeeCreateFlow({
             {editingId ? `Edit Employee: ${formData.fullName || "Record"}` : "Add Employee"}
           </span>
           {totalMissingRequired === 0 ? (
-            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-2xs font-semibold text-emerald-800">
               <Check className="h-3 w-3" />
               Ready to Save
             </span>
           ) : (
-            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-2xs font-semibold text-amber-800">
               <AlertCircle className="h-3 w-3" />
               {totalMissingRequired} required {totalMissingRequired === 1 ? "field" : "fields"} remaining
             </span>
@@ -634,7 +634,7 @@ export function EmployeeCreateFlow({
                   <h3 className="text-sm font-semibold text-zinc-900 truncate">
                     {editingId ? "Edit Profile" : "New Employee"}
                   </h3>
-                  <p className="text-[11px] text-zinc-500 truncate">
+                  <p className="text-2xs text-zinc-500 truncate">
                     Complete all 5 sections
                   </p>
                 </div>
@@ -642,9 +642,9 @@ export function EmployeeCreateFlow({
 
               {/* Progress Bar */}
               <div className="pb-4 pt-1 border-t border-zinc-200">
-                <div className="flex items-center justify-between text-[10px] font-bold tracking-wider text-zinc-400 uppercase mb-1.5">
+                <div className="flex items-center justify-between text-2xs font-bold tracking-wider text-zinc-400 uppercase mb-1.5">
                   <span>Progress</span>
-                  <span className="text-emerald-700 font-mono text-[11px]">
+                  <span className="text-emerald-700 font-mono text-2xs">
                     {Math.round(((activeStep + 1) / STEPS.length) * 100)}%
                   </span>
                 </div>
@@ -717,7 +717,7 @@ export function EmployeeCreateFlow({
                             {step.title}
                           </span>
                           {hasErrors && (
-                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                            <span className="text-2xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
                               {Object.keys(stepErrors).length}
                             </span>
                           )}
@@ -731,7 +731,7 @@ export function EmployeeCreateFlow({
 
             {/* Key Parameters Card */}
             <div className="rounded-xl border border-zinc-200/80 bg-white p-5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              <span className="text-2xs font-bold uppercase tracking-wider text-zinc-400">
                 Assigned Identifiers
               </span>
               <div className="mt-3 space-y-2 text-xs">
@@ -749,7 +749,7 @@ export function EmployeeCreateFlow({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-500">Status:</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800 text-[11px] border border-emerald-200/60">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800 text-2xs border border-emerald-200/60">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                     {formData.status}
                   </span>
@@ -761,9 +761,9 @@ export function EmployeeCreateFlow({
                   </span>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-zinc-200 flex items-center justify-between text-[11px] text-zinc-400">
+              <div className="mt-3 pt-3 border-t border-zinc-200 flex items-center justify-between text-2xs text-zinc-400">
                 <span>Quick save:</span>
-                <kbd className="rounded bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600">
+                <kbd className="rounded bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 font-mono text-2xs text-zinc-600">
                   Ctrl+S
                 </kbd>
               </div>
@@ -825,37 +825,37 @@ export function EmployeeCreateFlow({
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   <div className="rounded-md bg-white p-3 border border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Full Name</span>
+                    <span className="text-2xs text-zinc-400 uppercase font-semibold">Full Name</span>
                     <div className="font-semibold text-zinc-900 truncate mt-0.5">
                       {formData.fullName || "—"}
                     </div>
                   </div>
                   <div className="rounded-md bg-white p-3 border border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Contact</span>
+                    <span className="text-2xs text-zinc-400 uppercase font-semibold">Contact</span>
                     <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.mobileNo || "—"}
                     </div>
                   </div>
                   <div className="rounded-md bg-white p-3 border border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">PAN Number</span>
+                    <span className="text-2xs text-zinc-400 uppercase font-semibold">PAN Number</span>
                     <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.panNumber || "—"}
                     </div>
                   </div>
                   <div className="rounded-md bg-white p-3 border border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Citizenship</span>
+                    <span className="text-2xs text-zinc-400 uppercase font-semibold">Citizenship</span>
                     <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.citizenshipNo || "—"}
                     </div>
                   </div>
                   <div className="rounded-md bg-white p-3 border border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Bank</span>
+                    <span className="text-2xs text-zinc-400 uppercase font-semibold">Bank</span>
                     <div className="text-zinc-900 truncate mt-0.5">
                       {formData.bankName || "—"}
                     </div>
                   </div>
                   <div className="rounded-md bg-white p-3 border border-zinc-200">
-                    <span className="text-[10px] text-zinc-400 uppercase font-semibold">Account No</span>
+                    <span className="text-2xs text-zinc-400 uppercase font-semibold">Account No</span>
                     <div className="font-mono text-zinc-900 truncate mt-0.5">
                       {formData.bankAccountNumber || "—"}
                     </div>
@@ -918,7 +918,7 @@ export function EmployeeCreateFlow({
                   >
                     <Save className="h-3.5 w-3.5" />
                     <span>{isSaving ? "Saving..." : editingId ? "Save Changes" : "Submit & Register Employee"}</span>
-                    <kbd className="hidden sm:inline-block ml-1 rounded bg-black/20 px-1 text-[10px] font-mono font-normal">
+                    <kbd className="hidden sm:inline-block ml-1 rounded bg-black/20 px-1 text-2xs font-mono font-normal">
                       Ctrl+S
                     </kbd>
                   </Button>

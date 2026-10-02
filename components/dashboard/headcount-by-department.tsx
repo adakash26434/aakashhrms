@@ -6,6 +6,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card } from "@/components/ui/card";
 import { useClientReady } from "@/lib/hooks/use-client-ready";
 import type { DepartmentHeadcount } from "@/lib/types/dashboard";
+import { CHART_TOOLTIP_STYLE } from "@/lib/constants/colors";
 
 interface HeadcountByDepartmentProps {
   data: DepartmentHeadcount[];
@@ -64,13 +65,7 @@ export function HeadcountByDepartment({
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      fontSize: 12,
-                      borderRadius: 6,
-                      border: "1px solid #e4e4e7",
-                      backgroundColor: "#FFFFFF",
-                      boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.05)",
-                    }}
+                    contentStyle={CHART_TOOLTIP_STYLE}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -81,14 +76,14 @@ export function HeadcountByDepartment({
               <span className="text-base font-semibold text-zinc-950 font-mono leading-none">
                 {total.toLocaleString()}
               </span>
-              <span className="text-[9px] text-zinc-400 font-medium mt-0.5">Active</span>
+              <span className="text-3xs text-zinc-400 font-medium mt-0.5">Active</span>
             </div>
           </div>
 
           {/* Quick Metrics */}
           <div className="flex-1 grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-md bg-white p-2.5 border border-zinc-200/80 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-medium">
+              <div className="flex items-center gap-1.5 text-zinc-500 text-2xs font-medium">
                 <Users className="h-3 w-3 text-emerald-800" />
                 <span>Total Staff</span>
               </div>
@@ -97,12 +92,12 @@ export function HeadcountByDepartment({
               </div>
             </div>
             <div className="rounded-md bg-white p-2.5 border border-zinc-200/80 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-medium">
+              <div className="flex items-center gap-1.5 text-zinc-500 text-2xs font-medium">
                 <Briefcase className="h-3 w-3 text-zinc-700" />
                 <span>Active Units</span>
               </div>
               <div className="text-sm font-semibold text-zinc-900 font-mono mt-0.5">
-                {activeDepts} <span className="text-[10px] font-normal text-zinc-400">/ {data.length}</span>
+                {activeDepts} <span className="text-2xs font-normal text-zinc-400">/ {data.length}</span>
               </div>
             </div>
           </div>
@@ -124,11 +119,11 @@ export function HeadcountByDepartment({
                       {dept.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                  <div className="flex items-center gap-2 shrink-0 font-mono text-2xs">
                     <span className="font-semibold text-zinc-900">
                       {dept.count} {dept.count === 1 ? "emp" : "emps"}
                     </span>
-                    <span className="text-zinc-400 text-[10px]">
+                    <span className="text-zinc-400 text-2xs">
                       ({percentage}%)
                     </span>
                   </div>
@@ -149,7 +144,7 @@ export function HeadcountByDepartment({
         </div>
 
         {/* 4. Bottom Footer Subtext */}
-        <div className="flex items-center justify-between text-[11px] text-zinc-400 border-t border-zinc-200 pt-2.5">
+        <div className="flex items-center justify-between text-2xs text-zinc-400 border-t border-zinc-200 pt-2.5">
           <span>Workforce allocation fully mapped</span>
           <Link
             href="/workforce/employees"

@@ -101,7 +101,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
             <h3 className="text-sm font-semibold text-slate-900">
               Grade &amp; promotion progression
             </h3>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-600">
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-2xs font-mono font-medium text-slate-600">
               Civil Service Rule 112 &amp; 113
             </span>
           </div>
@@ -136,12 +136,12 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                     {m.label}
                   </span>
                   {m.badge && (
-                    <span className="rounded bg-emerald-100/80 text-emerald-800 px-1.5 py-0.2 text-[10px] font-medium shrink-0">
+                    <span className="rounded bg-emerald-100/80 text-emerald-800 px-1.5 py-0.2 text-2xs font-medium shrink-0">
                       {m.badge}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-2xs text-slate-500 leading-relaxed">
                   {m.description}
                 </p>
               </button>
@@ -174,7 +174,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                   days
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">Nepal standard 30-day divisor</p>
+              <p className="text-2xs text-slate-500">Nepal standard 30-day divisor</p>
             </div>
           )}
 
@@ -233,7 +233,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
                 grades
               </span>
             </div>
-            <p className="text-[11px] text-slate-500">0 = Unlimited progression</p>
+            <p className="text-2xs text-slate-500">0 = Unlimited progression</p>
           </div>
         </div>
 
@@ -243,7 +243,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
             <div className="font-medium text-slate-900">
               Formula verification test
             </div>
-            <div className="text-slate-500 text-[11px]">
+            <div className="text-slate-500 text-2xs">
               Sample basic salary NPR {previewSimulation.sampleBasic.toLocaleString()} with {previewSimulation.sampleGrades} grades
             </div>
           </div>
@@ -251,7 +251,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
             <span className="text-emerald-900 font-semibold font-mono">
               NPR {previewSimulation.total.toLocaleString()} / mo
             </span>
-            <span className="text-[11px] text-emerald-700">
+            <span className="text-2xs text-emerald-700">
               (NPR {previewSimulation.rate.toLocaleString()} / grade)
             </span>
           </div>
@@ -265,7 +265,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
             <h4 className="text-xs font-semibold text-slate-900">
               Promotion pay protection (Non-reduction principle)
             </h4>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-600">
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-2xs font-mono font-medium text-slate-600">
               Rule 113
             </span>
           </div>
@@ -280,7 +280,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
               <span className="text-xs font-medium text-slate-900">
                 Enforce non-reduction of base pay on promotion
               </span>
-              <p className="text-[11px] text-slate-500 max-w-xl">
+              <p className="text-2xs text-slate-500 max-w-xl">
                 Guarantees new basic pay after promotion can never be less than previous total base (Old Basic + Old Grade amount).
               </p>
             </div>
@@ -297,7 +297,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
               <span className="text-xs font-medium text-slate-900">
                 Guarantee minimum 1 grade increment of new post
               </span>
-              <p className="text-[11px] text-slate-500 max-w-xl">
+              <p className="text-2xs text-slate-500 max-w-xl">
                 Statutory requirement in BFIs and public enterprises: Promoted pay must exceed old total base by at least 1 grade value of the new post.
               </p>
             </div>
@@ -314,7 +314,7 @@ export function GradePolicyCard({ value, onChange }: GradePolicyCardProps) {
               <span className="text-xs font-medium text-slate-900">
                 Scale deficit adjustment method
               </span>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-2xs text-slate-500">
                 Select how shortfall between old earnings and new grade minimum is resolved.
               </p>
             </div>

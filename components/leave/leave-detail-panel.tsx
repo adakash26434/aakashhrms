@@ -186,7 +186,7 @@ export function LeaveDetailPanel({
             >
               <div className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-payroll-primary-light-2 text-[11px] font-bold text-payroll-navy">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-payroll-primary-light-2 text-2xs font-bold text-payroll-navy">
                     {application.reviewerName
                       ? getInitials(application.reviewerName)
                       : "?"}

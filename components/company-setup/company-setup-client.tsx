@@ -396,7 +396,7 @@ export function CompanySetupClient({
                 </span>
               </div>
             )}
-            <div className="text-[11px] text-slate-500 font-medium">
+            <div className="text-2xs text-slate-500 font-medium">
               {branches.length} branches, {departments.length} departments, {designations.length} designations
             </div>
           </div>

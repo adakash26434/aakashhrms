@@ -59,7 +59,7 @@ export function DesignationDetailPanel({
               </button>
             </div>
             {designation && (
-              <p className="mt-0.5 font-mono text-[11px] text-gray-500">
+              <p className="mt-0.5 font-mono text-2xs text-gray-500">
                 {designation.id}
               </p>
             )}
@@ -118,7 +118,7 @@ export function DesignationDetailPanel({
                   <Users className="h-4 w-4 text-violet-600" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-2xs font-medium uppercase tracking-wider text-gray-500">
                     Employees
                   </p>
                   <p className="mt-0.5 text-sm font-semibold text-payroll-navy tabular-nums">
@@ -177,7 +177,7 @@ function Section({
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="text-2xs font-semibold uppercase tracking-wider text-gray-500">
           {title}
         </h3>
       </div>
@@ -207,7 +207,7 @@ function OverviewRow({
 }) {
   return (
     <div className="rounded-lg border border-payroll-border bg-white p-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <p className="text-2xs font-medium uppercase tracking-wider text-gray-500">
         {label}
       </p>
       <div className="mt-1">
@@ -221,7 +221,7 @@ function OverviewRow({
         </span>
       </div>
       {description && (
-        <p className="mt-1 text-[11px] text-gray-500">{description}</p>
+        <p className="mt-1 text-2xs text-gray-500">{description}</p>
       )}
     </div>
   );

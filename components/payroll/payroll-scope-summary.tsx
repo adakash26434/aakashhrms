@@ -103,7 +103,7 @@ export function PayrollScopeSummary({
         <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1 text-xs font-semibold shadow-xs border border-payroll-light/80">
           <CheckCircle2 className="h-4 w-4 text-payroll-primary" />
           <span className="text-gray-600">Matched Scope:</span>
-          <span className="font-bold text-payroll-primary font-mono text-[13px]">
+          <span className="font-bold text-payroll-primary font-mono text-sm">
             {matchedEmployeesCount} {matchedEmployeesCount === 1 ? "staff" : "staff"}
           </span>
           {employeesLoaded && selectedEmployeesCount !== undefined && (

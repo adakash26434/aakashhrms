@@ -334,7 +334,7 @@ export function BSDatePicker({
 
       {/* AD Preview Hint */}
       {adPreview && (
-        <p className="mt-1 text-[11px] text-gray-500 font-mono">
+        <p className="mt-1 text-2xs text-gray-500 font-mono">
           AD: {adPreview}
         </p>
       )}
@@ -431,8 +431,8 @@ export function BSDatePicker({
                   className={cn(
                     "h-7 w-full flex items-center justify-center rounded-xs text-xs font-bold transition-all cursor-pointer select-none",
                     selected
-                      ? "bg-[#fee56b] hover:bg-[#fdd842] text-payroll-navy border border-[#f5d742] shadow-xs scale-105 z-10"
-                      : "bg-[#f0f8f1] hover:bg-[#d8eedb] text-payroll-primary-hover border border-[#d2ead5]",
+                      ? "bg-brand hover:bg-brand-hover text-white border border-brand shadow-xs z-10"
+                      : "bg-brand-50 hover:bg-brand-100 text-brand-strong border border-brand-100",
                     isToday && !selected && "ring-1.5 ring-payroll-primary font-black text-payroll-navy",
                   )}
                 >

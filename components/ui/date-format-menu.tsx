@@ -104,7 +104,7 @@ export function DateFormatMenu({
   }, [open]);
 
   const heightClass = size === "sm" ? "h-7" : "h-8";
-  const textClass = size === "sm" ? "text-[11px]" : "text-xs";
+  const textClass = size === "sm" ? "text-2xs" : "text-xs";
   const pxClass = size === "sm" ? "px-2.5" : "px-3";
 
   return (
@@ -209,7 +209,7 @@ export function DateFormatMenu({
                       <span className="block text-xs font-medium">
                         {opt.label}
                       </span>
-                      <span className="block text-[11px] text-gray-500">
+                      <span className="block text-2xs text-gray-500">
                         {opt.description}
                       </span>
                     </span>

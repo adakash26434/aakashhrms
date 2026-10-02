@@ -244,11 +244,11 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
           ? "Locked — payslips generated"
           : "Active — editable",
         adornment: fy.isLocked ? (
-          <Badge variant="default" className="text-[10px]">
+          <Badge variant="default" className="text-2xs">
             Locked
           </Badge>
         ) : (
-          <Badge variant="success" className="text-[10px]">
+          <Badge variant="success" className="text-2xs">
             Active
           </Badge>
         ),
@@ -410,11 +410,11 @@ export function TaxRateClient({ initialData, embedded = false }: TaxRateClientPr
             <span className="text-slate-400">Active period:</span>
             <span className="font-semibold text-slate-900">{selectedFY?.label ?? "None selected"}</span>
             {isLocked ? (
-              <span className="rounded bg-amber-50 px-1.5 py-0.2 text-[10px] font-mono font-medium text-amber-800 border border-amber-200">
+              <span className="rounded bg-amber-50 px-1.5 py-0.2 text-2xs font-mono font-medium text-amber-800 border border-amber-200">
                 Locked
               </span>
             ) : (
-              <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-mono font-medium text-emerald-800 border border-emerald-200/60">
+              <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-2xs font-mono font-medium text-emerald-800 border border-emerald-200/60">
                 Editable
               </span>
             )}

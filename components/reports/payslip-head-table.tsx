@@ -104,7 +104,7 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold text-zinc-900">
                 <tr>
                   <th className="px-2 py-2.5">Pay head</th>
                   <th className="px-2 py-2.5 text-right">Total amount</th>
@@ -130,7 +130,7 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
                     </td>
                     <td className="px-2 py-3.5 text-center">
                       {r.overrideCount > 0 ? (
-                        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-normal text-zinc-700">
+                        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-2xs font-normal text-zinc-700">
                           {r.overrideCount}
                         </span>
                       ) : (
@@ -153,7 +153,7 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold text-zinc-900">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold text-zinc-900">
                 <tr>
                   <th className="px-2 py-2.5">Pay head</th>
                   <th className="px-2 py-2.5 text-right">Total amount</th>
@@ -179,7 +179,7 @@ export function PayslipHeadTable({ rows, runLabel }: PayslipHeadTableProps) {
                     </td>
                     <td className="px-2 py-3.5 text-center">
                       {r.overrideCount > 0 ? (
-                        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-normal text-zinc-700">
+                        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-2xs font-normal text-zinc-700">
                           {r.overrideCount}
                         </span>
                       ) : (

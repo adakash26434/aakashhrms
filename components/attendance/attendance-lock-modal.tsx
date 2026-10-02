@@ -107,7 +107,7 @@ export function AttendanceLockModal({
               value={datePrefix}
               onChange={(e) => setDatePrefix(e.target.value)}
             />
-            <p className="mt-1 text-[11px] text-zinc-500">
+            <p className="mt-1 text-2xs text-zinc-500">
               Matches attendance punches corresponding to this month period.
             </p>
           </div>

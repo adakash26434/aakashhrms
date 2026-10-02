@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useClientReady } from "@/lib/hooks/use-client-ready";
 import type { AttendanceDay } from "@/lib/types/dashboard";
+import { CHART_COLORS, CHART_THEME, CHART_TOOLTIP_STYLE, CHART_AXIS_TICK } from "@/lib/constants/colors";
 
 interface AttendanceLeaveChartProps {
   data: AttendanceDay[];
@@ -38,11 +39,11 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
               Present
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <span className="h-2 w-2 rounded-full bg-chart-warning" />
               Leave
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-2 w-2 rounded-full bg-rose-500" />
+              <span className="h-2 w-2 rounded-full bg-chart-danger" />
               Absent
             </span>
           </div>
@@ -58,41 +59,35 @@ export function AttendanceLeaveChart({ data }: AttendanceLeaveChartProps) {
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#f4f4f5"
+                  stroke={CHART_THEME.grid}
                   vertical={false}
                 />
                 <XAxis
                   dataKey="day"
-                  tick={{ fontSize: 11, fill: "#71717a" }}
+                  tick={CHART_AXIS_TICK}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#71717a" }}
+                  tick={CHART_AXIS_TICK}
                   axisLine={false}
                   tickLine={false}
                   domain={[0, "auto"]}
                 />
                 <Tooltip
-                  contentStyle={{
-                    fontSize: 12,
-                    borderRadius: 6,
-                    border: "1px solid #e4e4e7",
-                    backgroundColor: "#FFFFFF",
-                    boxShadow: "0 2px 4px 0 rgba(0, 0, 0, 0.05)",
-                  }}
+                  contentStyle={CHART_TOOLTIP_STYLE}
                 />
                 <Bar
                   dataKey="present"
                   stackId="a"
-                  fill="#065f46"
+                  fill={CHART_COLORS.primary}
                   radius={[0, 0, 0, 0]}
                 />
-                <Bar dataKey="leave" stackId="a" fill="#f59e0b" />
+                <Bar dataKey="leave" stackId="a" fill={CHART_COLORS.warning} />
                 <Bar
                   dataKey="absent"
                   stackId="a"
-                  fill="#f43f5e"
+                  fill={CHART_COLORS.danger}
                   radius={[3, 3, 0, 0]}
                 />
               </BarChart>

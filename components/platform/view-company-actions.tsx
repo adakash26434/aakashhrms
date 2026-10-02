@@ -73,7 +73,7 @@ export function ViewCompanyActions({ companyId, companyName }: ViewCompanyAction
             <span>{isStarting ? "Initiating Session..." : "View Company Workspace"}</span>
           </Button>
 
-          <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+          <p className="text-2xs text-gray-500 text-center leading-relaxed">
             Opens this company&apos;s workspace in Super Admin mode. All actions are logged to the forensic audit trail.
           </p>
         </div>

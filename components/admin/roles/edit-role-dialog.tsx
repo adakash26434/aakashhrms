@@ -160,7 +160,7 @@ export function EditRoleDialog({
             )}
           />
           {isNameLocked && (
-            <p className="text-[11px] text-amber-700 font-medium mt-1">
+            <p className="text-2xs text-amber-700 font-medium mt-1">
               System-protected role names cannot be renamed to ensure platform stability.
             </p>
           )}
@@ -197,7 +197,7 @@ export function EditRoleDialog({
                       {s.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-500 leading-tight">
+                  <p className="text-2xs text-gray-500 leading-tight">
                     {s.description}
                   </p>
                 </div>

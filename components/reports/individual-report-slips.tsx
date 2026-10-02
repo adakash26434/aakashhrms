@@ -216,13 +216,13 @@ export function SalarySheetIndividualSlips({
                 minimumFractionDigits: 2,
               })}
             </span>
-            <span className="text-[11px] text-zinc-400 font-normal block">
+            <span className="text-2xs text-zinc-400 font-normal block">
               Disbursement to {row.bankName || "Bank Transfer"} ({row.bankAccountNumberMasked || row.bankAccountNumberFull})
             </span>
           </div>
 
           {/* Signature Block */}
-          <div className="grid grid-cols-3 gap-8 text-center text-[10px] text-gray-500 pt-6 border-t border-dashed border-gray-300">
+          <div className="grid grid-cols-3 gap-8 text-center text-2xs text-gray-500 pt-6 border-t border-dashed border-gray-300">
             <div>
               <div className="h-8 border-b border-gray-400 mb-1" />
               Employee Signature
@@ -319,7 +319,7 @@ export function AttendanceIndividualSlips({
           {/* Attendance Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2 text-xs mb-6">
             <div className="py-2 px-3 sm:first:pl-0">
-              <span className="text-[10px] text-zinc-500 block font-medium">
+              <span className="text-2xs text-zinc-500 block font-medium">
                 Working Days
               </span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">
@@ -327,7 +327,7 @@ export function AttendanceIndividualSlips({
               </span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">
+              <span className="text-2xs text-zinc-500 block font-medium">
                 Present Days
               </span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">
@@ -335,7 +335,7 @@ export function AttendanceIndividualSlips({
               </span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">
+              <span className="text-2xs text-zinc-500 block font-medium">
                 Paid Leave
               </span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">
@@ -343,7 +343,7 @@ export function AttendanceIndividualSlips({
               </span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">
+              <span className="text-2xs text-zinc-500 block font-medium">
                 Non-Pay Leave
               </span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">
@@ -351,7 +351,7 @@ export function AttendanceIndividualSlips({
               </span>
             </div>
             <div className="py-2 px-3 sm:last:pr-0">
-              <span className="text-[10px] text-zinc-500 block font-medium">
+              <span className="text-2xs text-zinc-500 block font-medium">
                 Absent Days
               </span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">
@@ -404,7 +404,7 @@ export function AttendanceIndividualSlips({
           </div>
 
           {/* Signature Block */}
-          <div className="grid grid-cols-3 gap-8 text-center text-[10px] text-gray-500 pt-6 border-t border-dashed border-gray-300">
+          <div className="grid grid-cols-3 gap-8 text-center text-2xs text-gray-500 pt-6 border-t border-dashed border-gray-300">
             <div>
               <div className="h-8 border-b border-gray-400 mb-1" />
               Employee Signature
@@ -527,7 +527,7 @@ export function TDSIndividualSlips({
           </div>
 
           {/* Signature Block */}
-          <div className="grid grid-cols-3 gap-8 text-center text-[10px] text-gray-500 pt-6 border-t border-dashed border-gray-300">
+          <div className="grid grid-cols-3 gap-8 text-center text-2xs text-gray-500 pt-6 border-t border-dashed border-gray-300">
             <div>
               <div className="h-8 border-b border-gray-400 mb-1" />
               Tax Payer Signature
@@ -616,25 +616,25 @@ export function LeaveIndividualSlips({
           {/* Balances Card */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2 text-xs mb-8">
             <div className="py-2 px-3 sm:first:pl-0">
-              <span className="text-[10px] text-zinc-500 block font-medium">Allotted</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Allotted</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">{row.allotted} days</span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">Taken</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Taken</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">{row.taken} days</span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">Carried Forward</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Carried Forward</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">{row.carriedForward} days</span>
             </div>
             <div className="py-2 px-3 sm:last:pr-0">
-              <span className="text-[10px] text-zinc-500 block font-medium">Remaining Balance</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Remaining Balance</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">{row.balance} days</span>
             </div>
           </div>
 
           {/* Signature Block */}
-          <div className="grid grid-cols-3 gap-8 text-center text-[10px] text-gray-500 pt-6 border-t border-dashed border-gray-300">
+          <div className="grid grid-cols-3 gap-8 text-center text-2xs text-gray-500 pt-6 border-t border-dashed border-gray-300">
             <div>
               <div className="h-8 border-b border-gray-400 mb-1" />
               Employee Signature
@@ -723,25 +723,25 @@ export function LoanIndividualSlips({
           {/* Loan Principal & Recovery Summary Table */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2 text-xs mb-8">
             <div className="py-2 px-3 sm:first:pl-0">
-              <span className="text-[10px] text-zinc-500 block font-medium">Disbursed Amount</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Disbursed Amount</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">NPR {Number(row.loanAmount).toLocaleString()}</span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">Total Returned</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Total Returned</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">NPR {Number(row.totalReturned).toLocaleString()}</span>
             </div>
             <div className="py-2 px-3">
-              <span className="text-[10px] text-zinc-500 block font-medium">Remaining Principal</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Remaining Principal</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">NPR {Number(row.remainingAmount).toLocaleString()}</span>
             </div>
             <div className="py-2 px-3 sm:last:pr-0">
-              <span className="text-[10px] text-zinc-500 block font-medium">Monthly EMI</span>
+              <span className="text-2xs text-zinc-500 block font-medium">Monthly EMI</span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">NPR {Number(row.installmentAmount).toLocaleString()}</span>
             </div>
           </div>
 
           {/* Signature Block */}
-          <div className="grid grid-cols-3 gap-8 text-center text-[10px] text-gray-500 pt-6 border-t border-dashed border-gray-300">
+          <div className="grid grid-cols-3 gap-8 text-center text-2xs text-gray-500 pt-6 border-t border-dashed border-gray-300">
             <div>
               <div className="h-8 border-b border-gray-400 mb-1" />
               Borrower Signature

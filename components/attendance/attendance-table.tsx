@@ -56,7 +56,7 @@ export function AttendanceTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
           <tr>
             <th className="px-4 py-4">Employee</th>
             <th className="px-4 py-4">Attendance Code</th>
@@ -78,13 +78,13 @@ export function AttendanceTable({
               <td className="px-4 py-4 font-mono text-xs text-zinc-500">
                 <div>{r.attendanceCode}</div>
                 {r.employeeCode && r.employeeCode !== r.attendanceCode && (
-                  <div className="text-[10px] text-zinc-400">Emp: {r.employeeCode}</div>
+                  <div className="text-2xs text-zinc-400">Emp: {r.employeeCode}</div>
                 )}
               </td>
               <td className="px-4 py-4 text-zinc-600">
                 <div>{r.departmentName}</div>
                 {r.branchName && r.branchName !== "—" && (
-                  <div className="text-[11px] text-zinc-400">{r.branchName}</div>
+                  <div className="text-2xs text-zinc-400">{r.branchName}</div>
                 )}
               </td>
               <td className="px-4 py-4">
@@ -111,12 +111,12 @@ export function AttendanceTable({
               <td className="px-4 py-4">
                 <div className="flex items-center gap-1.5">
                   {r.isLate && (
-                    <span title="Late Arrival" className="inline-flex items-center gap-1 rounded border border-amber-200/50 bg-amber-50/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                    <span title="Late Arrival" className="inline-flex items-center gap-1 rounded border border-amber-200/50 bg-amber-50/70 px-1.5 py-0.5 text-2xs font-medium text-amber-800">
                       <AlertTriangle className="h-3 w-3" /> Late
                     </span>
                   )}
                   {r.isLocked && (
-                    <span title="Locked for Payroll" className="inline-flex items-center gap-1 rounded border border-zinc-200/60 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
+                    <span title="Locked for Payroll" className="inline-flex items-center gap-1 rounded border border-zinc-200/60 bg-zinc-50 px-1.5 py-0.5 text-2xs font-medium text-zinc-600">
                       <Lock className="h-3 w-3" /> Locked
                     </span>
                   )}

@@ -190,7 +190,7 @@ export function CreateRoleDialog({
             <label className="text-xs font-bold text-payroll-navy">
               Role Name <span className="text-rose-500">*</span>
             </label>
-            <span className="text-[10px] text-gray-400">Type or choose a template</span>
+            <span className="text-2xs text-gray-400">Type or choose a template</span>
           </div>
 
           <input
@@ -209,7 +209,7 @@ export function CreateRoleDialog({
           {/* Combobox Dropdown Suggestions */}
           {showSuggestions && filteredSuggestions.length > 0 && (
             <div className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-payroll-light bg-white p-1 shadow-payroll-lg animate-[dialogIn_150ms_ease-out]">
-              <div className="px-2.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <div className="px-2.5 py-1 text-2xs font-bold text-gray-400 uppercase tracking-wider">
                 Suggested Role Templates
               </div>
               {filteredSuggestions.map((s) => (
@@ -220,7 +220,7 @@ export function CreateRoleDialog({
                   className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-payroll-navy hover:bg-payroll-cream transition-colors text-left cursor-pointer"
                 >
                   <span className="font-semibold">{s.name}</span>
-                  <span className="text-[10px] text-payroll-primary bg-payroll-light/60 px-2 py-0.5 rounded-md font-semibold">
+                  <span className="text-2xs text-payroll-primary bg-payroll-light/60 px-2 py-0.5 rounded-md font-semibold">
                     {s.defaultScope}
                   </span>
                 </button>
@@ -260,7 +260,7 @@ export function CreateRoleDialog({
                       {s.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-500 leading-tight">
+                  <p className="text-2xs text-gray-500 leading-tight">
                     {s.description}
                   </p>
                 </div>
@@ -286,7 +286,7 @@ export function CreateRoleDialog({
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-2xs text-gray-500">
             Pre-configures this role with recommended permissions. You can customize them anytime in the matrix.
           </p>
         </div>

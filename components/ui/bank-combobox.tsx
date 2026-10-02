@@ -191,15 +191,15 @@ export function BankCombobox({
       {open && !disabled && (
         <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white py-1 shadow-lg animate-[fadeIn_100ms_ease-out]">
           {/* Header search info */}
-          <div className="px-3 py-1.5 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between text-[11px] text-zinc-500 font-medium">
+          <div className="px-3 py-1.5 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between text-2xs text-zinc-500 font-medium">
             <span>Official Nepal Banks ({filteredBanks.length})</span>
-            <span className="text-[10px] text-zinc-400">Class A, B, C & NRB</span>
+            <span className="text-2xs text-zinc-400">Class A, B, C & NRB</span>
           </div>
 
           {Object.keys(groupedBanks).length === 0 ? (
             <div className="p-3 text-center text-xs text-zinc-500">
               <p className="font-medium text-zinc-900">No matching bank found</p>
-              <p className="mt-0.5 text-[11px] text-zinc-400">
+              <p className="mt-0.5 text-2xs text-zinc-400">
                 Press Enter to keep &quot;{searchQuery}&quot; as custom bank name.
               </p>
             </div>
@@ -208,7 +208,7 @@ export function BankCombobox({
               let runningIdx = -1;
               return Object.entries(groupedBanks).map(([category, list]) => (
                 <div key={category} className="py-1">
-                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-payroll-navy bg-payroll-cream">
+                  <div className="px-3 py-1 text-2xs font-bold uppercase tracking-wider text-payroll-navy bg-payroll-cream">
                     {category}
                   </div>
                   {list.map((bank) => {
@@ -237,7 +237,7 @@ export function BankCombobox({
                       >
                         <div className="flex flex-col min-w-0 pr-2">
                           <span className="font-medium truncate">{bank.name}</span>
-                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400 font-mono">
+                          <div className="flex items-center gap-2 mt-0.5 text-2xs text-gray-400 font-mono">
                             <span>{bank.shortName}</span>
                             {bank.swiftCode && (
                               <span className="bg-gray-100 px-1 rounded text-gray-500 font-mono">

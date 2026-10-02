@@ -85,11 +85,11 @@ export function PayrollPeriodSummaryBar({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-payroll-navy text-[13px]">
+            <span className="font-bold text-payroll-navy text-sm">
               {monthName} {payPeriodYear} BS
             </span>
             <span className="text-gray-300">·</span>
-            <span className="rounded-md bg-payroll-cream px-2 py-0.5 font-bold font-mono text-payroll-primary text-[11px] border border-payroll-light/80">
+            <span className="rounded-md bg-payroll-cream px-2 py-0.5 font-bold font-mono text-payroll-primary text-2xs border border-payroll-light/80">
               {fyLabel}
             </span>
             <span className="text-gray-300">·</span>
@@ -97,7 +97,7 @@ export function PayrollPeriodSummaryBar({
               Payslip Date: <strong className="font-mono text-payroll-navy">{payslipDate}</strong>
             </span>
             <span className="text-gray-300 hidden md:inline">·</span>
-            <span className="text-[11px] text-gray-400 hidden md:inline">
+            <span className="text-2xs text-gray-400 hidden md:inline">
               Cut-off: 1st of {monthName} to month-end
             </span>
           </div>
@@ -136,7 +136,7 @@ export function PayrollPeriodSummaryBar({
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
             {/* Month Selection */}
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+              <label className="block text-2xs font-bold uppercase tracking-wider text-gray-500 mb-1">
                 Payroll Month (BS)
               </label>
               <select
@@ -158,7 +158,7 @@ export function PayrollPeriodSummaryBar({
 
             {/* Payslip Month */}
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+              <label className="block text-2xs font-bold uppercase tracking-wider text-gray-500 mb-1">
                 Payslip Month
               </label>
               <select
@@ -176,7 +176,7 @@ export function PayrollPeriodSummaryBar({
 
             {/* Payslip Date */}
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+              <label className="block text-2xs font-bold uppercase tracking-wider text-gray-500 mb-1">
                 Payslip Date (AD)
               </label>
               <div className="relative">
@@ -192,7 +192,7 @@ export function PayrollPeriodSummaryBar({
 
             {/* BS Year Selector */}
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+              <label className="block text-2xs font-bold uppercase tracking-wider text-gray-500 mb-1">
                 BS Fiscal Year
               </label>
               <select
@@ -209,7 +209,7 @@ export function PayrollPeriodSummaryBar({
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between border-t border-payroll-light/50 pt-2.5 text-[11px] text-gray-500">
+          <div className="mt-3 flex items-center justify-between border-t border-payroll-light/50 pt-2.5 text-2xs text-gray-500">
             <span>
               Configured: <strong>{monthName} {payPeriodYear}</strong> · Payslip registered on <strong>{payslipMonthName}</strong>
             </span>

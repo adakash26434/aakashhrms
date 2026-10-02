@@ -321,8 +321,8 @@ export function PayrollReviewGrid({
       >
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
-            <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-              <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+              <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                 <th className="px-5 py-3">Employee</th>
                 <th className="px-5 py-3">Department / Role</th>
                 <th className="px-5 py-3">Bank Details</th>
@@ -346,16 +346,16 @@ export function PayrollReviewGrid({
                   <td className="px-5 py-3.5">
                     <div>
                       <span className="font-medium text-zinc-900">{slip.employeeName}</span>
-                      <span className="ml-2 rounded border border-zinc-200/70 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 tabular-nums">
+                      <span className="ml-2 rounded border border-zinc-200/70 bg-zinc-50 px-1.5 py-0.5 text-2xs font-mono text-zinc-600 tabular-nums">
                         {slip.employeeCode}
                       </span>
                     </div>
                   </td>
                   <td className="px-5 py-3.5 text-zinc-600">
                     {slip.departmentName} <br />
-                    <span className="text-[11px] text-zinc-400">{slip.designationName}</span>
+                    <span className="text-2xs text-zinc-400">{slip.designationName}</span>
                   </td>
-                  <td className="px-5 py-3.5 text-zinc-600 text-[11px]">
+                  <td className="px-5 py-3.5 text-zinc-600 text-2xs">
                     <span className="font-medium text-zinc-800">{slip.bankName}</span> <br />
                     <span className="text-zinc-400 font-mono tabular-nums">{slip.bankAccountNumber}</span>
                   </td>
@@ -433,7 +433,7 @@ export function PayrollReviewGrid({
             </div>
             <div>
               <p className="font-semibold text-emerald-950">Finalized & Locked Payroll Batch</p>
-              <p className="text-[11px] text-emerald-800/80 mt-0.5">
+              <p className="text-2xs text-emerald-800/80 mt-0.5">
                 This batch is locked for audit integrity. Payslip line-items cannot be altered. Bank transfers and statutory ledgers can be exported from the top header.
               </p>
             </div>
@@ -564,7 +564,7 @@ export function PayrollReviewGrid({
                 <p className="mt-1 text-xs text-gray-600">
                   Are you sure you want to remove <span className="font-semibold text-gray-800">{confirmDeleteSlip.employeeName}</span> ({confirmDeleteSlip.employeeCode}) from this payroll run?
                 </p>
-                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
+                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-2xs text-red-700">
                   Their payslip will be deleted and the batch totals will be automatically recalculated.
                 </div>
               </div>
@@ -607,7 +607,7 @@ export function PayrollReviewGrid({
                 <p className="mt-1 text-xs text-gray-600">
                   Are you sure you want to cancel and delete this entire payroll run? All generated payslips in this batch will be deleted and the period will fall back to the initial state.
                 </p>
-                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
+                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-2xs text-red-700">
                   You will be able to generate the payslips again for this month from scratch.
                 </div>
               </div>

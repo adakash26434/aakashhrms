@@ -194,7 +194,7 @@ export function LoanDisbursementModal({
                 <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
                   Tenure (Months) <span className="text-red-500">*</span>
                   {selectedLoanType && selectedLoanType.maxInstallments > 0 && (
-                    <span className="ml-1 text-[11px] font-normal text-zinc-400">
+                    <span className="ml-1 text-2xs font-normal text-zinc-400">
                       (Max {selectedLoanType.maxInstallments})
                     </span>
                   )}
@@ -248,25 +248,25 @@ export function LoanDisbursementModal({
                   <p className="text-xs font-semibold text-payroll-navy uppercase tracking-wider">
                     Installment Calculation Preview
                   </p>
-                  <span className="text-[11px] text-payroll-primary font-mono">
+                  <span className="text-2xs text-payroll-primary font-mono">
                     {form.noOfInstallments} monthly cycle(s)
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-4 pt-3 text-center">
                   <div>
-                    <p className="text-[11px] font-medium text-zinc-500">Accrued Interest</p>
+                    <p className="text-2xs font-medium text-zinc-500">Accrued Interest</p>
                     <p className="text-sm font-semibold tabular-nums text-zinc-900 font-mono">
                       NPR {computed.totalInterest.toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-zinc-500">Total Payable</p>
+                    <p className="text-2xs font-medium text-zinc-500">Total Payable</p>
                     <p className="text-sm font-semibold tabular-nums text-zinc-900 font-mono">
                       NPR {computed.totalPayable.toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-emerald-800">Monthly Deduction</p>
+                    <p className="text-2xs font-medium text-emerald-800">Monthly Deduction</p>
                     <p className="text-base font-bold tabular-nums text-emerald-950 font-mono">
                       NPR {computed.installment.toLocaleString()}
                     </p>

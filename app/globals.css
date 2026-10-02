@@ -1,238 +1,572 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
-:root {
-  /* Brand accent — v0 aligned */
-  --payroll-primary: #1B6B54;
-  --payroll-primary-hover: #155743;
-  --payroll-primary-light: #EBF4F0;
-  --payroll-primary-light-2: #F3F8F5;
-  --payroll-primary-border: #DDECE3;
+/* =============================================================================
+   AakashHRMS design tokens (redesign Phase 1, docs/redesign/02-design-system.md §3)
 
-  /* Surfaces & canvas */
-  --payroll-cream: #F6F8F5;
-  --payroll-light: #E4E7E4;
-  --payroll-navy: #111827;
-  --payroll-sidebar-bg: #FFFFFF;
-  --payroll-header-bg: #FFFFFF;
-  --payroll-workspace-bg: #F6F8F5;
-  --payroll-surface: #FFFFFF;
-  --payroll-surface-soft: #FBFCFB;
+   Layering:
+   1. Raw ramps (--forest-*, --neutral-*): the logo forest green and
+      green-tinted greys. Change a colour here and the whole app follows.
+   2. Semantic tokens (--brand, --surface, --text, ...): what new code uses,
+      through Tailwind utilities such as bg-surface, text-ink-muted,
+      border-line, bg-brand.
+   3. Legacy remaps (@theme below): Tailwind's zinc / gray / slate / neutral /
+      stone and emerald / green scales, plus the old payroll-* colours, point
+      at the ramps so existing screens pick up the new look without rewrites.
+
+   A dark theme (Phase 9) only needs to redefine layers 1–2 under
+   [data-theme="dark"].
+   ============================================================================= */
+
+:root {
+  color-scheme: light;
+
+  /* Forest green: logo green ≈ #1A850C. 600 is the primary (5.1:1 on white). */
+  --forest-50: #F1F8EF;
+  --forest-100: #E0F0DB;
+  --forest-200: #C2E2B8;
+  --forest-300: #96CD86;
+  --forest-400: #5FB04B;
+  --forest-500: #2E9420;
+  --forest-600: #1E7F12;
+  --forest-700: #186A0F;
+  --forest-800: #15540F;
+  --forest-900: #12440E;
+  --forest-950: #0A2707;
+
+  /* Green-tinted neutrals. Text steps keep AA contrast:
+     500 = 5.0:1 on white / 4.5:1 on 100, 600 = 7.0:1, 900 = 16.5:1. */
+  --neutral-50: #F7F9F6;
+  --neutral-100: #F1F4F0;
+  --neutral-200: #DDE4DA;
+  --neutral-300: #C6D0C2;
+  --neutral-400: #8E9988;
+  --neutral-500: #677262;
+  --neutral-600: #525C4C;
+  --neutral-700: #3D4638;
+  --neutral-800: #272F23;
+  --neutral-900: #1A2118;
+  --neutral-950: #0C110B;
+
+  /* Crimson danger ramp: Tailwind red and rose both map here, so errors use
+     one hue that stays distinct from the brand red. 700 = --danger. */
+  --crimson-50: #FEF2F2;
+  --crimson-100: #FEE2E2;
+  --crimson-200: #FECACA;
+  --crimson-300: #FCA5A5;
+  --crimson-400: #F87171;
+  --crimson-500: #EF4444;
+  --crimson-600: #DC2626;
+  --crimson-700: #B91C1C;
+  --crimson-800: #991B1B;
+  --crimson-900: #7F1D1D;
+  --crimson-950: #450A0A;
+
+  /* Brand */
+  --brand: var(--forest-600);
+  --brand-hover: var(--forest-700);
+  --brand-strong: var(--forest-800);
+  --brand-subtle: #EEF7EB;
+  --brand-red: #D3070B; /* brand moments only (wordmark, title-bar strip); never buttons or errors */
+
+  /* Chrome and surfaces (light chrome) */
+  --chrome-bg: #FFFFFF;
+  --rail-bg: #F4F7F3;
+  --nav-bg: #FAFBF9;
+  --canvas: var(--neutral-100);
+  --surface: #FFFFFF;
+  --surface-sunken: var(--neutral-50);
+  --border: var(--neutral-200);
+  --border-strong: var(--neutral-300);
 
   /* Text */
-  --payroll-ink: #111827;
-  --payroll-text: #2C2C2C;
-  --payroll-text-muted: #6B7280;
-  --payroll-text-caption: #9CA3AF;
+  --text: var(--neutral-900);
+  --text-muted: var(--neutral-600);
+  --text-faint: var(--neutral-500);
 
-  /* Borders */
-  --payroll-border: #E4E7E4;
-  --payroll-border-light: #F0F1F0;
-  --payroll-divider: #ECEFED;
-  /* Table-specific: header separator (stronger) and row divider (medium) */
-  --payroll-border-table: #D1D5DB;
-  --payroll-border-row: #E4E7E4;
+  /* Interaction */
+  --selection: var(--forest-100);
+  --focus: var(--forest-600);
 
-  --background: #F6F8F5;
-  --foreground: #111827;
+  /* Status (success leans teal so it never merges with the brand green) */
+  --success: #1E7A4C;
+  --success-subtle: #E8F5EE;
+  --warning: #A86300;
+  --warning-subtle: #FFF5E0;
+  --danger: var(--crimson-700);
+  --danger-subtle: #FDECEC;
+  --info: #1F5FA8;
+  --info-subtle: #EAF1FB;
+  --amount-negative: var(--crimson-700);
+
+  /* Chart series (mirrored as hex in lib/constants/colors.ts for Recharts) */
+  --chart-primary: var(--forest-600);
+  --chart-primary-soft: var(--forest-300);
+  --chart-estimated: #AEB8A9;
+  --chart-info: #4F7CB8;
+  --chart-warning: #D99A2B;
+  --chart-danger: #C2413B;
+
+  /* Elevation: panels are flat; shadows belong to floating layers. */
+  --shadow-color: 26 33 24; /* neutral-900 as rgb channels */
+
+  /* Motion */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-panel: 160ms;
+
+  /* Legacy aliases (removed in Phase 8). Kept so any var(--payroll-*) still resolves. */
+  --payroll-primary: var(--brand);
+  --payroll-primary-hover: var(--brand-hover);
+  --payroll-primary-light: var(--brand-subtle);
+  --payroll-workspace-bg: var(--canvas);
+  --payroll-surface: var(--surface);
+  --payroll-border: var(--border);
+  --payroll-ink: var(--text);
+  --payroll-text-muted: var(--text-muted);
+  --background: var(--canvas);
+  --foreground: var(--text);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-payroll-cream: #F6F8F5;
-  --color-payroll-light: #E4E7E4;
-  --color-payroll-primary: #1B6B54;
-  --color-payroll-navy: #111827;
-  --color-payroll-primary-hover: #155743;
-  --color-payroll-primary-light: #EBF4F0;
-  --color-payroll-primary-light-2: #F3F8F5;
-  --color-payroll-primary-border: #DDECE3;
-  --color-payroll-border: #E4E7E4;
-  --color-payroll-border-light: #F0F1F0;
-  --color-payroll-border-table: #D1D5DB;
-  --color-payroll-border-row: #E4E7E4;
-  --color-payroll-divider: #ECEFED;
-  --color-payroll-workspace: #F6F8F5;
-  --color-payroll-surface: #FFFFFF;
-  --color-payroll-surface-soft: #FBFCFB;
-  --color-payroll-ink: #111827;
-  --color-payroll-text: #2C2C2C;
-  --color-payroll-text-muted: #6B7280;
-  --color-payroll-text-caption: #9CA3AF;
-  --font-sans: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-}
+  /* ---- Semantic utilities for new code ---------------------------------- */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-red: var(--brand-red);
+  --color-brand-50: var(--forest-50);
+  --color-brand-100: var(--forest-100);
+  --color-brand-200: var(--forest-200);
+  --color-brand-300: var(--forest-300);
+  --color-brand-400: var(--forest-400);
+  --color-brand-500: var(--forest-500);
+  --color-brand-600: var(--forest-600);
+  --color-brand-700: var(--forest-700);
+  --color-brand-800: var(--forest-800);
+  --color-brand-900: var(--forest-900);
+  --color-brand-950: var(--forest-950);
 
-html,
-body {
-  background: #F6F8F5;
-  color: #111827;
-  font-family: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  --color-chrome: var(--chrome-bg);
+  --color-rail: var(--rail-bg);
+  --color-nav: var(--nav-bg);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-selection: var(--selection);
+  --color-focus: var(--focus);
 
-/* Universal inheritance so all nested elements, containers, and cards inherit Poppins */
-*,
-*::before,
-*::after {
-  font-family: inherit;
-}
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-amount-negative: var(--amount-negative);
+  --color-chart-primary: var(--chart-primary);
+  --color-chart-primary-soft: var(--chart-primary-soft);
+  --color-chart-estimated: var(--chart-estimated);
+  --color-chart-info: var(--chart-info);
+  --color-chart-warning: var(--chart-warning);
+  --color-chart-danger: var(--chart-danger);
 
-/* Explicitly ensure form controls and table cells inherit and use Poppins by default */
-input,
-button,
-select,
-textarea,
-optgroup,
-table,
-th,
-td {
-  font-family: 'Poppins', var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
+  --color-background: var(--canvas);
+  --color-foreground: var(--text);
 
-/* ============================================================================
-   GLOBAL FOCUS RING — Emerald brand colour on all text inputs, selects, textareas
-   Overrides any Tailwind zinc/slate/gray focus utilities applied per-component.
-   Uses !important to win against specificity of co-located Tailwind variants.
-   ============================================================================ */
-input:focus,
-input:focus-visible,
-select:focus,
-select:focus-visible,
-textarea:focus,
-textarea:focus-visible {
-  outline: none !important;
-  border-color: #1B6B54 !important; /* payroll-primary / emerald-800 */
-  box-shadow: 0 0 0 1px #1B6B54 !important;
-}
+  /* ---- Legacy remap: neutrals → green-tinted greys ----------------------- */
+  --color-zinc-50: var(--neutral-50);
+  --color-zinc-100: var(--neutral-100);
+  --color-zinc-200: var(--neutral-200);
+  --color-zinc-300: var(--neutral-300);
+  --color-zinc-400: var(--neutral-400);
+  --color-zinc-500: var(--neutral-500);
+  --color-zinc-600: var(--neutral-600);
+  --color-zinc-700: var(--neutral-700);
+  --color-zinc-800: var(--neutral-800);
+  --color-zinc-900: var(--neutral-900);
+  --color-zinc-950: var(--neutral-950);
 
-/* Monospace overrides for codes, numbers, and financial codes */
-code,
-kbd,
-samp,
-pre,
-.font-mono,
-[data-font-mono="true"] {
-  font-family: 'JetBrains Mono', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
-}
+  --color-gray-50: var(--neutral-50);
+  --color-gray-100: var(--neutral-100);
+  --color-gray-200: var(--neutral-200);
+  --color-gray-300: var(--neutral-300);
+  --color-gray-400: var(--neutral-400);
+  --color-gray-500: var(--neutral-500);
+  --color-gray-600: var(--neutral-600);
+  --color-gray-700: var(--neutral-700);
+  --color-gray-800: var(--neutral-800);
+  --color-gray-900: var(--neutral-900);
+  --color-gray-950: var(--neutral-950);
 
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
+  --color-slate-50: var(--neutral-50);
+  --color-slate-100: var(--neutral-100);
+  --color-slate-200: var(--neutral-200);
+  --color-slate-300: var(--neutral-300);
+  --color-slate-400: var(--neutral-400);
+  --color-slate-500: var(--neutral-500);
+  --color-slate-600: var(--neutral-600);
+  --color-slate-700: var(--neutral-700);
+  --color-slate-800: var(--neutral-800);
+  --color-slate-900: var(--neutral-900);
+  --color-slate-950: var(--neutral-950);
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+  --color-neutral-50: var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+  --color-neutral-950: var(--neutral-950);
 
-::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 9999px;
-}
+  --color-stone-50: var(--neutral-50);
+  --color-stone-100: var(--neutral-100);
+  --color-stone-200: var(--neutral-200);
+  --color-stone-300: var(--neutral-300);
+  --color-stone-400: var(--neutral-400);
+  --color-stone-500: var(--neutral-500);
+  --color-stone-600: var(--neutral-600);
+  --color-stone-700: var(--neutral-700);
+  --color-stone-800: var(--neutral-800);
+  --color-stone-900: var(--neutral-900);
+  --color-stone-950: var(--neutral-950);
 
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
-}
+  /* ---- Legacy remap: emerald / green → logo forest green ----------------- */
+  --color-emerald-50: var(--forest-50);
+  --color-emerald-100: var(--forest-100);
+  --color-emerald-200: var(--forest-200);
+  --color-emerald-300: var(--forest-300);
+  --color-emerald-400: var(--forest-400);
+  --color-emerald-500: var(--forest-500);
+  --color-emerald-600: var(--forest-600);
+  --color-emerald-700: var(--forest-700);
+  --color-emerald-800: var(--forest-800);
+  --color-emerald-900: var(--forest-900);
+  --color-emerald-950: var(--forest-950);
 
-/* Scrollbar hiding utility */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+  --color-green-50: var(--forest-50);
+  --color-green-100: var(--forest-100);
+  --color-green-200: var(--forest-200);
+  --color-green-300: var(--forest-300);
+  --color-green-400: var(--forest-400);
+  --color-green-500: var(--forest-500);
+  --color-green-600: var(--forest-600);
+  --color-green-700: var(--forest-700);
+  --color-green-800: var(--forest-800);
+  --color-green-900: var(--forest-900);
+  --color-green-950: var(--forest-950);
 
-/* Canonical AakashHRMS Elevation System — v0 aligned */
-.shadow-payroll-xs {
-  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+  /* ---- Legacy remap: rose / red → one crimson danger hue --------------- */
+  --color-rose-50: var(--crimson-50);
+  --color-rose-100: var(--crimson-100);
+  --color-rose-200: var(--crimson-200);
+  --color-rose-300: var(--crimson-300);
+  --color-rose-400: var(--crimson-400);
+  --color-rose-500: var(--crimson-500);
+  --color-rose-600: var(--crimson-600);
+  --color-rose-700: var(--crimson-700);
+  --color-rose-800: var(--crimson-800);
+  --color-rose-900: var(--crimson-900);
+  --color-rose-950: var(--crimson-950);
+  --color-red-50: var(--crimson-50);
+  --color-red-100: var(--crimson-100);
+  --color-red-200: var(--crimson-200);
+  --color-red-300: var(--crimson-300);
+  --color-red-400: var(--crimson-400);
+  --color-red-500: var(--crimson-500);
+  --color-red-600: var(--crimson-600);
+  --color-red-700: var(--crimson-700);
+  --color-red-800: var(--crimson-800);
+  --color-red-900: var(--crimson-900);
+  --color-red-950: var(--crimson-950);
+
+  /* ---- Legacy remap: payroll-* colours (removed in Phase 8) -------------- */
+  --color-payroll-primary: var(--brand);
+  --color-payroll-primary-hover: var(--brand-hover);
+  --color-payroll-primary-light: var(--brand-subtle);
+  --color-payroll-primary-light-2: var(--forest-50);
+  --color-payroll-primary-border: var(--forest-200);
+  --color-payroll-navy: var(--text);
+  --color-payroll-ink: var(--text);
+  --color-payroll-text: var(--text);
+  --color-payroll-text-muted: var(--text-muted);
+  --color-payroll-text-caption: var(--text-faint);
+  --color-payroll-cream: var(--surface-sunken);
+  --color-payroll-light: var(--border);
+  --color-payroll-border: var(--border);
+  --color-payroll-border-light: var(--neutral-100);
+  --color-payroll-border-table: var(--border-strong);
+  --color-payroll-border-row: var(--border);
+  --color-payroll-divider: var(--border);
+  --color-payroll-workspace: var(--canvas);
+  --color-payroll-surface: var(--surface);
+  --color-payroll-surface-soft: var(--surface-sunken);
+
+  /* ---- Typography -------------------------------------------------------- */
+  /* Inter (self-hosted by next/font, see app/layout.tsx). Devanagari falls
+     back to the OS font until Noto Sans Devanagari arrives with E8. */
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Nirmala UI", "Noto Sans Devanagari", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono",
+    monospace;
+
+  /* Scale (px): 11 caption · 12 secondary · 13 body · 14 emphasis · 16 title.
+     text-2xs is new; text-sm drops 14 → 13 so body copy matches desktop density.
+     text-3xs (10px) is reserved for count badges and micro-chips; never body text. */
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: 0.875rem;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+
+  /* ---- Radius: tighter, desktop-like (controls 4 · panels 6 · windows 8) - */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.75rem;
+
+  /* ---- Elevation: near-flat for in-page surfaces, soft for floating ------ */
+  --shadow-2xs: 0 1px 0 rgb(var(--shadow-color) / 0.03);
+  --shadow-xs: 0 1px 1px rgb(var(--shadow-color) / 0.04);
+  --shadow-sm: 0 1px 2px rgb(var(--shadow-color) / 0.05);
+  --shadow-md: 0 4px 10px -2px rgb(var(--shadow-color) / 0.08), 0 2px 4px -2px rgb(var(--shadow-color) / 0.05);
+  --shadow-lg: 0 10px 24px -6px rgb(var(--shadow-color) / 0.12), 0 4px 8px -4px rgb(var(--shadow-color) / 0.06);
+  --shadow-xl: 0 18px 36px -10px rgb(var(--shadow-color) / 0.16), 0 6px 12px -6px rgb(var(--shadow-color) / 0.08);
+  --shadow-2xl: 0 28px 56px -14px rgb(var(--shadow-color) / 0.22);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* =============================================================================
-   DATA TABLE SYSTEM
-   These rules define the visual language for all tabular data in AakashHRMS.
-   They are intentionally un-!important so Tailwind utilities override freely.
+   Base layer: element defaults. Tailwind utilities override these.
    ============================================================================= */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
 
-/* Table header: zinc-200 ground — clearly distinguishes header zone from data rows */
-table thead tr,
-table > thead > tr {
-  background-color: rgb(241, 241, 241) !important; /* zinc-200 */
+  body {
+    background: var(--canvas);
+    color: var(--text);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    /* cv11: single-storey "a". Tabular figures are scoped below, because
+       Inter's tnum also widens hyphens and slashes in running text. */
+    font-feature-settings: "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Figures line up wherever numbers are compared: grids, fields, dates. */
+  table,
+  input,
+  select,
+  output,
+  time,
+  kbd {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--forest-200);
+    color: var(--text);
+  }
+
+  /* Native checkboxes, radios, ranges and progress bars use the brand. */
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"],
+  progress {
+    accent-color: var(--brand);
+  }
+
+  ::placeholder {
+    color: var(--neutral-400);
+    opacity: 1;
+  }
+
+  /* Keyboard focus: one visible ring for links and buttons (WCAG 2.4.7). */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  /* Firefox / Chromium 121+: thin themed scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--neutral-300) transparent;
+  }
 }
 
-/* Header cells: near-black labels, strong bottom border anchors the header zone */
+/* Older WebKit fallback (ignored where scrollbar-color is supported) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-400);
+  background-clip: padding-box;
+}
+
+/* =============================================================================
+   Global consistency rules (intentionally UNLAYERED).
+   Unlayered CSS beats Tailwind's layered utilities without !important, so these
+   give every legacy screen one focus style and one table header style until the
+   Phase 3 DataGrid / form kit replaces the per-screen markup.
+   ============================================================================= */
+
+/* Text fields: brand border + 1px ring on focus (no halo, so inputs inside
+   clipped grids and composite controls don't bleed). */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
+/* Table header: sunken band, 11px semibold labels, strong bottom rule. */
+table thead tr {
+  background-color: var(--surface-sunken);
+}
 table thead th {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  color: rgb(24 24 27); /* zinc-900 */
-  border-bottom: 1.5px solid rgb(212 212 216); /* zinc-300 */
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
   white-space: nowrap;
 }
 
-/* Body rows: only transition, let Tailwind handle hover colors */
+/* Body rows: hairline dividers and a quick hover transition. */
 table tbody tr {
-  transition: background-color 100ms ease;
+  transition: background-color var(--duration-fast) ease;
 }
-
-/* Row dividers: medium weight for clear row separation */
 table tbody tr + tr {
-  border-top: 1px solid rgb(228 228 231); /* zinc-200 */
+  border-top: 1px solid var(--border);
 }
 
-/* Filter select inputs — recessed feel, matches search input */
-.filter-select {
-  background-color: rgb(250 250 250); /* zinc-50 */
-  border: 1px solid rgb(228 228 231); /* zinc-200 */
-  border-radius: 6px;
-  font-size: 12px;
-  color: rgb(39 39 42); /* zinc-800 */
-  padding: 6px 8px;
-  transition: background-color 120ms, border-color 120ms;
-  cursor: pointer;
-  appearance: none;
-}
-.filter-select:hover {
-  border-color: rgb(161 161 170); /* zinc-400 */
-}
-.filter-select:focus {
-  background-color: white;
-  border-color: rgb(161 161 170);
-  outline: none;
+/* =============================================================================
+   Components and utilities
+   ============================================================================= */
+@layer components {
+  .payroll-input {
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .payroll-input:focus {
+    border-color: var(--focus);
+  }
 }
 
-.payroll-input {
-  border-color: var(--color-payroll-light);
-  color: var(--color-payroll-navy);
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.payroll-input:focus {
-  border-color: var(--color-payroll-primary);
+/* Legacy elevation helpers (map onto the token shadows). */
+@utility shadow-payroll-xs {
+  box-shadow: var(--shadow-xs);
+}
+@utility shadow-payroll-sm {
+  box-shadow: var(--shadow-sm);
+}
+@utility shadow-payroll-md {
+  box-shadow: var(--shadow-md);
+}
+@utility shadow-payroll-lg {
+  box-shadow: var(--shadow-lg);
 }
 
-.payroll-input::placeholder {
-  color: #9ca3af;
+/* Money and figures: right alignment is the caller's job; this fixes the digits. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }
 
-.shadow-payroll-sm {
-  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 8px 24px -16px rgba(17, 24, 39, 0.08);
+/* =============================================================================
+   Motion
+   ============================================================================= */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.shadow-payroll-md {
-  box-shadow: 0 8px 24px -14px rgba(17, 24, 39, 0.12), 0 2px 8px rgba(17, 24, 39, 0.04);
+@keyframes dialogIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.shadow-payroll-lg {
-  box-shadow:
-    0 4px 6px -2px rgba(27, 58, 31, 0.06),
-    0 16px 24px -6px rgba(27, 58, 31, 0.12),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+@keyframes panelIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+/* Decorative ambient glow: ENTRY PAGES ONLY (login / marketing).
+   Never inside the app frame (design system §3, "Motion"). */
+@keyframes auraPulse {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.55; }
+  50% { transform: scale(1.2) translate(24px, -20px); opacity: 0.85; }
+}
+@keyframes cornerGlowTR {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.55; }
+  50% { transform: scale(1.16) translate(-14px, 14px); opacity: 0.85; }
+}
+@keyframes cornerGlowBL {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.5; }
+  50% { transform: scale(1.15) translate(14px, -14px); opacity: 0.8; }
+}
+@utility animate-aura-pulse {
+  animation: auraPulse 7s ease-in-out infinite;
+}
+@utility animate-corner-tr {
+  animation: cornerGlowTR 8s ease-in-out infinite;
+}
+@utility animate-corner-bl {
+  animation: cornerGlowBL 9s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -244,179 +578,24 @@ table tbody tr + tr {
   }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes dialogIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulseSubtle {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(0.98);
-  }
-}
-
-@keyframes auraPulse {
-  0%, 100% {
-    transform: scale(1) translate(0, 0);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.2) translate(24px, -20px);
-    opacity: 0.85;
-  }
-}
-
-@keyframes auraFloat {
-  0%, 100% {
-    transform: scale(1) translate(0, 0);
-    opacity: 0.45;
-  }
-  50% {
-    transform: scale(1.15) translate(-28px, 24px);
-    opacity: 0.8;
-  }
-}
-
-@keyframes auraGlow {
-  0%, 100% {
-    opacity: 0.4;
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: rotate(180deg) scale(1.25);
-  }
-}
-
-@keyframes beamSlowSpin {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    transform: rotate(180deg) scale(1.1);
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-  }
-}
-
-@keyframes cornerGlowTR {
-  0%, 100% {
-    transform: scale(1) translate(0, 0);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.16) translate(-14px, 14px);
-    opacity: 0.85;
-  }
-}
-
-@keyframes cornerGlowBL {
-  0%, 100% {
-    transform: scale(1) translate(0, 0);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.15) translate(14px, -14px);
-    opacity: 0.8;
-  }
-}
-
-.animate-aura-pulse {
-  animation: auraPulse 7s ease-in-out infinite;
-}
-
-.animate-aura-float {
-  animation: auraFloat 9s ease-in-out infinite;
-}
-
-.animate-aura-glow {
-  animation: auraGlow 12s ease-in-out infinite;
-}
-
-.animate-beam-spin {
-  animation: beamSlowSpin 25s linear infinite;
-}
-
-.animate-corner-tr {
-  animation: cornerGlowTR 8s ease-in-out infinite;
-}
-
-.animate-corner-bl {
-  animation: cornerGlowBL 9s ease-in-out infinite;
-}
-
-
-
 /* =============================================================================
-   ENTERPRISE PRINT STYLESHEET
+   PRINT
+   (!important is deliberate here: print must beat every screen utility.)
    ============================================================================= */
 
-/* @page MUST be at the stylesheet root — NOT inside @media print (that's invalid CSS) */
+/* @page MUST be at the stylesheet root, not inside @media print. */
 @page {
   size: A4 portrait;
   margin: 12mm 10mm;
 }
 
-/* Named page for wide tabular reports — referenced by body.print-landscape */
+/* Named page for wide tabular reports, used via body.print-landscape */
 @page landscape-sheet {
   size: A4 landscape;
   margin: 8mm 6mm;
 }
 
 @media print {
-  /* Apply landscape named page when class is present on body */
   body.print-landscape {
     page: landscape-sheet;
   }
@@ -434,7 +613,7 @@ table tbody tr + tr {
     print-color-adjust: exact !important;
   }
 
-  /* Hide app navigation chrome and non-print actions */
+  /* Hide app chrome and non-print actions */
   header, nav, aside, footer,
   .print\:hidden,
   button:not(.print-include) {
@@ -449,7 +628,7 @@ table tbody tr + tr {
     box-shadow: none !important;
   }
 
-  /* Reset scroll wrappers — but do NOT force position:static globally (breaks table layout) */
+  /* Reset scroll wrappers; do NOT force position:static globally (breaks table layout) */
   div {
     max-height: none !important;
     overflow: visible !important;
@@ -464,12 +643,10 @@ table tbody tr + tr {
     overflow: visible !important;
   }
 
-  /* Preserve white background on table cells */
   th, td {
     background-color: #ffffff !important;
   }
 
-  /* Printable Document Table Styling */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
@@ -494,8 +671,8 @@ table tbody tr + tr {
   }
 
   th {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
+    background-color: #eef1ed !important;
+    color: #1a2118 !important;
     font-weight: 700 !important;
   }
 
@@ -513,4 +690,3 @@ table tbody tr + tr {
     display: block !important;
   }
 }
-

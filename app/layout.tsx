@@ -1,25 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
-const poppins = Poppins({
-  weight: ["300", "400", "500", "600", "700"],
+// Fonts are downloaded at build time and served from this origin (no runtime
+// Google requests), which lets the CSP keep font-src/style-src to 'self'.
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-poppins",
+  variable: "--font-inter",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-jetbrains-mono",
   display: "swap",
 });
 
 export const viewport: Viewport = {
-  themeColor: "#1B6B54",
+  themeColor: "#1E7F12",
   width: "device-width",
   initialScale: 1,
 };
@@ -93,19 +95,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${poppins.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <head>
         <link rel="icon" href="/AakashHrmsLogo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/AakashHrmsLogo.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body className={`${poppins.className} min-h-full flex flex-col font-sans`}>
+      <body className="min-h-full flex flex-col font-sans">
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

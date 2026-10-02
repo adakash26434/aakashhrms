@@ -83,7 +83,7 @@ export function SalaryMappingTabs({
             <span>{t.label}</span>
             <span
               className={cn(
-                "rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+                "rounded-md px-1.5 py-0.5 text-2xs font-semibold tabular-nums",
                 isActive
                   ? "bg-white/20 text-white"
                   : "bg-payroll-primary-light-2 text-payroll-primary",

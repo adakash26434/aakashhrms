@@ -112,7 +112,7 @@ export function EmployeeLoansTable({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {/* Status Pills */}
         <div className="flex items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+          <span className="mr-1 text-2xs font-semibold uppercase tracking-wider text-zinc-400">
             Status:
           </span>
           {statusOptions.map((opt) => (
@@ -132,7 +132,7 @@ export function EmployeeLoansTable({
 
         {/* Type Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+          <span className="mr-1 text-2xs font-semibold uppercase tracking-wider text-zinc-400">
             Type:
           </span>
           <button
@@ -164,8 +164,8 @@ export function EmployeeLoansTable({
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-            <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
               <th className="w-8 px-4 py-3 text-center">
                 SN
               </th>
@@ -213,14 +213,14 @@ export function EmployeeLoansTable({
                   {/* Employee with avatar */}
                   <td className="whitespace-nowrap px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-payroll-border bg-payroll-cream font-semibold text-payroll-navy text-[10px]">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-payroll-border bg-payroll-cream font-semibold text-payroll-navy text-2xs">
                         {getInitial(loan.employeeName)}
                       </div>
                       <div>
                         <p className="text-xs font-medium text-zinc-900">
                           {loan.employeeName}
                         </p>
-                        <p className="text-[10px] text-zinc-400 font-mono">
+                        <p className="text-2xs text-zinc-400 font-mono">
                           {loan.employeeCode}
                         </p>
                       </div>
@@ -232,7 +232,7 @@ export function EmployeeLoansTable({
                     <p className="text-xs font-medium text-zinc-900">
                       {loan.loanTypeName}
                     </p>
-                    <p className="text-[10px] text-zinc-400 font-mono">
+                    <p className="text-2xs text-zinc-400 font-mono">
                       Principal {loan.loanAmount.toLocaleString()} · {loan.noOfInstallments}mo
                     </p>
                   </td>
@@ -249,7 +249,7 @@ export function EmployeeLoansTable({
                     <p className="text-xs font-medium tabular-nums text-zinc-900">
                       {loan.installmentAmount.toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-zinc-400">/month</p>
+                    <p className="text-2xs text-zinc-400">/month</p>
                   </td>
 
                   {/* Progress */}
@@ -265,7 +265,7 @@ export function EmployeeLoansTable({
                         <span className="text-xs font-medium tabular-nums text-zinc-900">
                           {paidInstallments}/{loan.noOfInstallments}
                         </span>
-                        <p className="text-[10px] text-zinc-400">
+                        <p className="text-2xs text-zinc-400">
                           {remainingMonths > 0
                             ? `${remainingMonths}mo left`
                             : "Complete"}

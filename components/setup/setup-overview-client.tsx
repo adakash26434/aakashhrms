@@ -94,7 +94,7 @@ export function SetupOverviewClient({
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
                 <Building2 className="h-5 w-5" />
               </div>
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-bold text-emerald-700 border border-emerald-200">
                 Core Identity
               </span>
             </div>
@@ -109,19 +109,19 @@ export function SetupOverviewClient({
             </div>
 
             <div className="rounded-lg bg-payroll-cream/50 p-3 text-xs space-y-1.5 border border-payroll-light/60 font-mono">
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Legal Name:</span>
                 <span className="font-bold text-payroll-navy truncate max-w-42.5">
                   {companyProfile.legalName}
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">PAN / VAT:</span>
                 <span className="font-semibold text-payroll-navy">
                   {companyProfile.panVatNumber || "Not configured"}
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Reg No:</span>
                 <span className="font-semibold text-payroll-navy">
                   {companyProfile.registrationNumber || "Not configured"}
@@ -148,7 +148,7 @@ export function SetupOverviewClient({
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
                 <Clock className="h-5 w-5" />
               </div>
-              <span className="rounded-full bg-payroll-cream px-2 py-0.5 text-[10px] font-bold text-payroll-primary border border-payroll-light/80">
+              <span className="rounded-full bg-payroll-cream px-2 py-0.5 text-2xs font-bold text-payroll-primary border border-payroll-light/80">
                 Attendance Rules
               </span>
             </div>
@@ -163,19 +163,19 @@ export function SetupOverviewClient({
             </div>
 
             <div className="rounded-lg bg-payroll-cream/50 p-3 text-xs space-y-1.5 border border-payroll-light/60 font-mono">
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Weekly Days:</span>
                 <span className="font-bold text-payroll-navy">
                   {workSchedule.workingDaysPerWeek} Days / Week
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Weekly Off:</span>
                 <span className="font-semibold text-payroll-navy">
                   {workSchedule.weeklyOffDays.join(", ")}
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Office Hours:</span>
                 <span className="font-semibold text-payroll-navy">
                   {workSchedule.coreStartTime} - {workSchedule.coreEndTime}
@@ -202,7 +202,7 @@ export function SetupOverviewClient({
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
                 <Layers className="h-5 w-5" />
               </div>
-              <span className="rounded-full bg-payroll-cream px-2 py-0.5 text-[10px] font-bold text-payroll-primary border border-payroll-light/80">
+              <span className="rounded-full bg-payroll-cream px-2 py-0.5 text-2xs font-bold text-payroll-primary border border-payroll-light/80">
                 Grades &amp; Contracts
               </span>
             </div>
@@ -217,19 +217,19 @@ export function SetupOverviewClient({
             </div>
 
             <div className="rounded-lg bg-payroll-cream/50 p-3 text-xs space-y-1.5 border border-payroll-light/60 font-mono">
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Shreni Levels:</span>
                 <span className="font-bold text-payroll-navy">
                   {shreniLevels.length} Active Tiers
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Contract Types:</span>
                 <span className="font-semibold text-payroll-navy">
                   {employmentTypes.length} Configured Types
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Compliance:</span>
                 <span className="font-semibold text-emerald-700">
                   SSF &amp; Labour Act Mapped
@@ -271,7 +271,7 @@ export function SetupOverviewClient({
                   </p>
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-2xs font-bold text-emerald-800 border border-emerald-200">
                 Finance &amp; Tax
               </span>
             </div>
@@ -286,7 +286,7 @@ export function SetupOverviewClient({
                   <CalendarDays className="h-4 w-4 text-payroll-primary" />
                   <div>
                     <span className="text-xs font-bold text-payroll-navy block">Fiscal Year</span>
-                    <span className="text-[10px] text-gray-500 font-mono">{statutoryCounts.fiscalYearsCount} configured</span>
+                    <span className="text-2xs text-gray-500 font-mono">{statutoryCounts.fiscalYearsCount} configured</span>
                   </div>
                 </div>
                 <ArrowUpRight className="h-3.5 w-3.5 text-gray-400" />
@@ -300,7 +300,7 @@ export function SetupOverviewClient({
                   <Percent className="h-4 w-4 text-payroll-primary" />
                   <div>
                     <span className="text-xs font-bold text-payroll-navy block">Tax Slabs</span>
-                    <span className="text-[10px] text-gray-500 font-mono">{statutoryCounts.taxSlabsCount} slabs</span>
+                    <span className="text-2xs text-gray-500 font-mono">{statutoryCounts.taxSlabsCount} slabs</span>
                   </div>
                 </div>
                 <ArrowUpRight className="h-3.5 w-3.5 text-gray-400" />
@@ -314,7 +314,7 @@ export function SetupOverviewClient({
                   <FileText className="h-4 w-4 text-payroll-primary" />
                   <div>
                     <span className="text-xs font-bold text-payroll-navy block">Pay Heads</span>
-                    <span className="text-[10px] text-gray-500 font-mono">{statutoryCounts.payHeadsCount} heads</span>
+                    <span className="text-2xs text-gray-500 font-mono">{statutoryCounts.payHeadsCount} heads</span>
                   </div>
                 </div>
                 <ArrowUpRight className="h-3.5 w-3.5 text-gray-400" />
@@ -328,7 +328,7 @@ export function SetupOverviewClient({
                   <CalendarDays className="h-4 w-4 text-payroll-primary" />
                   <div>
                     <span className="text-xs font-bold text-payroll-navy block">Holidays</span>
-                    <span className="text-[10px] text-gray-500 font-mono">{statutoryCounts.holidaysCount} events</span>
+                    <span className="text-2xs text-gray-500 font-mono">{statutoryCounts.holidaysCount} events</span>
                   </div>
                 </div>
                 <ArrowUpRight className="h-3.5 w-3.5 text-gray-400" />
@@ -357,7 +357,7 @@ export function SetupOverviewClient({
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-payroll-primary/10 text-payroll-primary">
                 <Building2 className="h-5 w-5" />
               </div>
-              <span className="rounded-full bg-payroll-cream px-2 py-0.5 text-[10px] font-bold text-payroll-primary border border-payroll-light/80">
+              <span className="rounded-full bg-payroll-cream px-2 py-0.5 text-2xs font-bold text-payroll-primary border border-payroll-light/80">
                 Workforce Hub
               </span>
             </div>
@@ -372,19 +372,19 @@ export function SetupOverviewClient({
             </div>
 
             <div className="rounded-lg bg-payroll-cream/50 p-3 text-xs space-y-1.5 border border-payroll-light/60 font-mono">
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Branches:</span>
                 <span className="font-bold text-payroll-navy">
                   {branches.length} Locations
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Departments:</span>
                 <span className="font-semibold text-payroll-navy">
                   {departments.length} Units
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-2xs">
                 <span className="text-gray-500">Designations:</span>
                 <span className="font-semibold text-payroll-navy">
                   {designations.length} Roles

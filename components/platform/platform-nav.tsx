@@ -138,7 +138,7 @@ function PlatformNavContent() {
     <nav className="space-y-4">
       {NAV_SECTIONS.map((section) => (
         <div key={section.category} className="space-y-1">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-payroll-light/70 uppercase tracking-[0.14em]">
+          <div className="px-3 py-1.5 text-2xs font-bold text-payroll-light/70 uppercase tracking-[0.14em]">
             {section.category}
           </div>
 
@@ -218,7 +218,7 @@ function PlatformNavContent() {
                             key={sub.tab}
                             href={sub.href}
                             className={cn(
-                              "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all select-none cursor-pointer",
+                              "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-2xs font-medium transition-all select-none cursor-pointer",
                               isSubActive
                                 ? "bg-white/20 text-white font-bold shadow-2xs translate-x-0.5"
                                 : "text-white/60 hover:text-white hover:bg-white/10 hover:translate-x-0.5",
@@ -251,7 +251,7 @@ export function PlatformNav() {
     <Suspense
       fallback={
         <nav className="space-y-4">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-payroll-light/70 uppercase tracking-[0.14em]">
+          <div className="px-3 py-1.5 text-2xs font-bold text-payroll-light/70 uppercase tracking-[0.14em]">
             Loading Navigation...
           </div>
         </nav>

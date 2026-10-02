@@ -211,7 +211,7 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
                     <Icon className="h-4 w-4" />
                   )}
                 </div>
-                <span className="text-[11px] font-bold text-gray-800 leading-tight line-clamp-1">
+                <span className="text-2xs font-bold text-gray-800 leading-tight line-clamp-1">
                   {s.label}
                 </span>
               </div>
@@ -287,7 +287,7 @@ export function OnboardingWizard({ initialStatus }: WizardProps) {
               type="button"
               onClick={handleNext}
               disabled={isPending}
-              className="bg-payroll-primary hover:bg-[#256629] text-white text-xs font-bold shadow-sm"
+              className="bg-payroll-primary hover:bg-brand-hover text-white text-xs font-bold shadow-sm"
             >
               {isPending ? (
                 <div className="flex items-center gap-2">

@@ -86,7 +86,7 @@ export function ComplianceCenter({ score, items }: ComplianceCenterProps) {
                   {item.name}
                 </h4>
                 <div className="mt-2.5">
-                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                  <div className="mb-1 flex items-center justify-between text-2xs">
                     <span className="text-zinc-500">Readiness</span>
                     <span className="font-semibold text-emerald-800 font-mono">
                       {item.readiness}%
@@ -94,7 +94,7 @@ export function ComplianceCenter({ score, items }: ComplianceCenterProps) {
                   </div>
                   <Progress value={item.readiness} />
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+                <p className="mt-2 text-2xs leading-relaxed text-zinc-500">
                   {item.detail}
                 </p>
               </div>

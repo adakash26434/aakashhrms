@@ -49,7 +49,7 @@ export function PayrollStickyActionBar({
                 {selectedCount} of {matchedCount} staff selected
               </span>
             </div>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               {isReady
                 ? "All inputs and scope verified. Click generate to compute draft slips."
                 : "Select at least 1 employee to enable draft calculation."}

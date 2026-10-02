@@ -137,7 +137,7 @@ export default async function MyProfilePage() {
             <div className="flex items-center gap-2 text-xs bg-payroll-cream px-3.5 py-2 rounded-xl border border-payroll-light shadow-2xs self-start sm:self-auto">
               <Calendar className="h-4 w-4 text-payroll-primary shrink-0" />
               <div>
-                <span className="text-[10px] uppercase font-bold text-gray-400 block">
+                <span className="text-2xs uppercase font-bold text-gray-400 block">
                   Joined Date
                 </span>
                 <strong className="text-payroll-navy block font-mono text-xs">
@@ -236,7 +236,7 @@ export default async function MyProfilePage() {
                     </p>
                   </div>
                   {bank.isPrimary && (
-                    <Badge variant="success" size="sm" className="font-bold text-[10px]">
+                    <Badge variant="success" size="sm" className="font-bold text-2xs">
                       PRIMARY
                     </Badge>
                   )}

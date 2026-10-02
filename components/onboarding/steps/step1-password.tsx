@@ -75,7 +75,7 @@ export function Step1Password({ data, onChange, contactEmail }: Step1Props) {
           onClick={() => handleToggleKeep(true)}
           className={`p-4 rounded-2xl border cursor-pointer transition-all duration-150 flex flex-col justify-between ${
             keepPassword
-              ? "border-payroll-primary bg-[#f4f9f4] shadow-sm ring-2 ring-payroll-primary/20"
+              ? "border-payroll-primary bg-brand-50 shadow-sm ring-2 ring-payroll-primary/20"
               : "border-gray-200 hover:border-gray-300 bg-white"
           }`}
         >
@@ -88,12 +88,12 @@ export function Step1Password({ data, onChange, contactEmail }: Step1Props) {
                 Keep Current Password
               </span>
               {keepPassword && (
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-payroll-primary text-white rounded-full">
+                <span className="text-2xs font-bold px-2 py-0.5 bg-payroll-primary text-white rounded-full">
                   Selected
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-gray-500 leading-relaxed">
+            <p className="text-2xs text-gray-500 leading-relaxed">
               Continue using the initial password provided during company
               provisioning.
             </p>
@@ -104,7 +104,7 @@ export function Step1Password({ data, onChange, contactEmail }: Step1Props) {
           onClick={() => handleToggleKeep(false)}
           className={`p-4 rounded-2xl border cursor-pointer transition-all duration-150 flex flex-col justify-between ${
             !keepPassword
-              ? "border-payroll-primary bg-[#f4f9f4] shadow-sm ring-2 ring-payroll-primary/20"
+              ? "border-payroll-primary bg-brand-50 shadow-sm ring-2 ring-payroll-primary/20"
               : "border-gray-200 hover:border-gray-300 bg-white"
           }`}
         >
@@ -117,12 +117,12 @@ export function Step1Password({ data, onChange, contactEmail }: Step1Props) {
                 Set New Password
               </span>
               {!keepPassword && (
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-payroll-primary text-white rounded-full">
+                <span className="text-2xs font-bold px-2 py-0.5 bg-payroll-primary text-white rounded-full">
                   Selected
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-gray-500 leading-relaxed">
+            <p className="text-2xs text-gray-500 leading-relaxed">
               Create a custom, permanent password for the Office Administrator
               account.
             </p>
@@ -195,7 +195,7 @@ export function Step1Password({ data, onChange, contactEmail }: Step1Props) {
       {/* Superadmin Universal Note */}
       <div className="p-3.5 bg-blue-50/60 rounded-xl border border-blue-200/70 text-xs text-blue-900 flex items-center gap-2.5">
         <Lock className="h-4 w-4 text-blue-600 shrink-0" />
-        <p className="text-[11px] text-blue-800">
+        <p className="text-2xs text-blue-800">
           <strong>Master Access Guarantee:</strong> Platform Superadmins can
           always authenticate into your workspace using secure control plane
           tokens.

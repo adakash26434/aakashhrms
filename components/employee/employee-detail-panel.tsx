@@ -372,7 +372,7 @@ export function EmployeeDetailPanel({
                 <p className="text-xs font-medium text-zinc-600">
                   No self-service account linked to this employee.
                 </p>
-                <p className="mt-1 text-[11px] text-zinc-400">
+                <p className="mt-1 text-2xs text-zinc-400">
                   An account is created automatically when saving an employee with an email, or can be assigned from Admin → Users.
                 </p>
               </div>
@@ -434,7 +434,7 @@ export function EmployeeDetailPanel({
                         <div className="font-mono text-xs font-semibold text-zinc-900 truncate">
                           {access.email}
                         </div>
-                        <span className="text-[10px] text-zinc-500">
+                        <span className="text-2xs text-zinc-500">
                           {employee.companyEmail
                             ? "Company email account"
                             : "Personal email (corporate fallback)"}
@@ -468,7 +468,7 @@ export function EmployeeDetailPanel({
                                 )}
                               </Button>
                             </div>
-                            <p className="text-[10px] text-amber-700">
+                            <p className="text-2xs text-amber-700">
                               Shown once. It is not stored and cannot be viewed again after you close this panel.
                             </p>
                           </div>
@@ -477,7 +477,7 @@ export function EmployeeDetailPanel({
                             <div className="text-xs font-semibold text-amber-800">
                               Pending first sign-in
                             </div>
-                            <p className="text-[10px] text-zinc-500">
+                            <p className="text-2xs text-zinc-500">
                               The temporary password was emailed to the employee and is not stored. Issue a new one if it was lost.
                             </p>
                           </div>
@@ -492,7 +492,7 @@ export function EmployeeDetailPanel({
                           <div className="font-mono text-xs font-semibold text-zinc-700">
                             •••••••••••• (Encrypted Hash)
                           </div>
-                          <p className="text-[10px] text-zinc-400">
+                          <p className="text-2xs text-zinc-400">
                             Secured with bcrypt. Zero-knowledge compliance prevents plaintext viewing.
                           </p>
                         </div>
@@ -682,7 +682,7 @@ function Field({
 }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+      <p className="text-2xs font-medium uppercase tracking-wider text-zinc-400">
         {label}
       </p>
       <div className="text-sm font-medium text-zinc-900">{value}</div>

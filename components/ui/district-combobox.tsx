@@ -222,7 +222,7 @@ export function DistrictCombobox({
               let runningIdx = -1;
               return groupedByProvince.map((group) => (
                 <div key={group.provinceName} className="mb-2 last:mb-0">
-                  <div className="sticky top-0 bg-zinc-50/95 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 backdrop-blur-xs">
+                  <div className="sticky top-0 bg-zinc-50/95 px-2.5 py-1 text-2xs font-semibold text-emerald-800 backdrop-blur-xs">
                     {group.provinceName}
                   </div>
                   <div className="mt-0.5 space-y-0.5">

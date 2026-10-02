@@ -170,7 +170,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
                   <h4 className="text-xs font-semibold text-amber-950">
                     Statutory change request pending verification
                   </h4>
-                  <span className="rounded px-1.5 py-0.5 text-[10px] font-mono font-medium bg-amber-100 text-amber-900">
+                  <span className="rounded px-1.5 py-0.5 text-2xs font-mono font-medium bg-amber-100 text-amber-900">
                     Awaiting Super Admin review
                   </span>
                 </div>
@@ -289,7 +289,7 @@ export function CompanyProfileTab({ profile, onProfileChange }: CompanyProfileTa
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-2xs font-medium text-slate-600">
               <Lock className="w-3 h-3 text-slate-400" />
               Statutory record • Locked
             </span>

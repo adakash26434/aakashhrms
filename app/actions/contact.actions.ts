@@ -275,7 +275,7 @@ Delivered to: ${recipientEmail}
           
           <!-- Header Banner -->
           <tr>
-            <td style="background: linear-gradient(135deg, #102214 0%, #1B6B54 100%); padding: 28px 32px; text-align: left;">
+            <td style="background: linear-gradient(135deg, #102214 0%, #1E7F12 100%); padding: 28px 32px; text-align: left;">
               <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td>
@@ -346,7 +346,7 @@ Delivered to: ${recipientEmail}
                     Work Email
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    <a href="mailto:${safe.email}" style="color: #1B6B54; font-weight: 600; text-decoration: underline;">
+                    <a href="mailto:${safe.email}" style="color: #1E7F12; font-weight: 600; text-decoration: underline;">
                       ${safe.email}
                     </a>
                   </td>
@@ -356,7 +356,7 @@ Delivered to: ${recipientEmail}
                     Phone Number
                   </td>
                   <td style="padding: 12px 16px; font-size: 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
-                    <a href="tel:${safe.phone}" style="color: #1B6B54; font-weight: 600; text-decoration: underline;">
+                    <a href="tel:${safe.phone}" style="color: #1E7F12; font-weight: 600; text-decoration: underline;">
                       ${safe.phone}
                     </a>
                   </td>
@@ -395,7 +395,7 @@ Delivered to: ${recipientEmail}
               <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; margin-bottom: 10px;">
                 Current Payroll Setup &amp; Exploration Goals
               </div>
-              <div style="background-color: #f8fafc; border-left: 4px solid #1B6B54; border-radius: 0 8px 8px 0; padding: 16px 20px; font-size: 14px; line-height: 1.65; color: #334155; white-space: pre-wrap;">${safe.message}</div>
+              <div style="background-color: #f8fafc; border-left: 4px solid #1E7F12; border-radius: 0 8px 8px 0; padding: 16px 20px; font-size: 14px; line-height: 1.65; color: #334155; white-space: pre-wrap;">${safe.message}</div>
             </td>
           </tr>
 
@@ -405,7 +405,7 @@ Delivered to: ${recipientEmail}
               <table role="presentation" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="padding-right: 12px;">
-                    <a href="mailto:${safe.email}?subject=${safe.replySubject}" style="display: inline-block; background-color: #1B6B54; color: #ffffff; padding: 12px 22px; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 8px; text-align: center;">
+                    <a href="mailto:${safe.email}?subject=${safe.replySubject}" style="display: inline-block; background-color: #1E7F12; color: #ffffff; padding: 12px 22px; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 8px; text-align: center;">
                       &rarr; Reply to ${safe.fullName}
                     </a>
                   </td>

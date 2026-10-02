@@ -152,7 +152,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
             <h3 className="text-base font-semibold text-slate-900 tracking-tight">
               Employment Types &amp; Classifications
             </h3>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-2xs font-medium text-slate-600">
               {types.length} Categories
             </span>
           </div>
@@ -174,8 +174,8 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
       {/* Categories Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-            <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
               <th className="px-4 py-3">Classification Title</th>
               <th className="px-4 py-3">Local Title</th>
               <th className="px-3 py-3 text-center">SSF Eligible</th>
@@ -192,7 +192,7 @@ export function EmploymentTypesTab({ types, onTypesChange }: EmploymentTypesTabP
                 <td className="px-4 py-3.5 font-medium text-zinc-900">
                   <div className="flex items-center gap-2">
                     <span>{t.name}</span>
-                    <span className="font-mono text-[11px] text-zinc-400">({t.code})</span>
+                    <span className="font-mono text-2xs text-zinc-400">({t.code})</span>
                   </div>
                 </td>
                 <td className="px-4 py-3.5 font-nepali text-zinc-700">

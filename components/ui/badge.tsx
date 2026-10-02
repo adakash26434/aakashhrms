@@ -37,7 +37,7 @@ export function Badge({
       className={cn(
         "inline-flex items-center gap-1 font-medium border rounded-md select-none transition-colors",
         variants[variant] || variants.default,
-        size === "sm" && "px-1.5 py-0.5 text-[11px]",
+        size === "sm" && "px-1.5 py-0.5 text-2xs",
         size === "md" && "px-2 py-0.5 text-xs",
         className,
       )}

@@ -82,8 +82,8 @@ export function UserTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider text-[11px]">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider text-2xs">
             <th className="px-4 py-3">User</th>
             <th className="px-4 py-3">Role</th>
             <th className="px-4 py-3">Scope</th>
@@ -118,10 +118,10 @@ export function UserTable({
                         <span>{user.name || user.email.split("@")[0]}</span>
                         {isSysAdmin && <Lock className="h-3 w-3 text-amber-500 shrink-0" />}
                       </div>
-                      <div className="text-zinc-500 text-[11px] truncate flex items-center gap-2">
+                      <div className="text-zinc-500 text-2xs truncate flex items-center gap-2">
                         <span>{user.email}</span>
                         {isDelegated && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-800 bg-amber-50/70 border border-amber-200/50 px-1.5 py-0.2 rounded" title={`Delegated to ${user.delegatedToUserName}`}>
+                          <span className="inline-flex items-center gap-0.5 text-2xs font-medium text-amber-800 bg-amber-50/70 border border-amber-200/50 px-1.5 py-0.2 rounded" title={`Delegated to ${user.delegatedToUserName}`}>
                             <ShieldAlert className="h-2.5 w-2.5" /> Proxy: {user.delegatedToUserName}
                           </span>
                         )}
@@ -130,13 +130,13 @@ export function UserTable({
                       {/* Employee Link Badge */}
                       <div className="mt-1">
                         {user.employeeId && user.employeeCode ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-800 bg-emerald-50/70 border border-emerald-200/50 px-1.5 py-0.5 rounded">
+                          <span className="inline-flex items-center gap-1 text-2xs font-medium text-emerald-800 bg-emerald-50/70 border border-emerald-200/50 px-1.5 py-0.5 rounded">
                             <Link2 className="h-2.5 w-2.5 text-emerald-600" />
                             <span>{user.employeeCode}</span>
                             {user.employeeName && <span className="text-emerald-700 font-normal">({user.employeeName})</span>}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-zinc-400">No linked employee</span>
+                          <span className="text-2xs text-zinc-400">No linked employee</span>
                         )}
                       </div>
                     </div>
@@ -152,7 +152,7 @@ export function UserTable({
 
                 {/* SCOPE */}
                 <td className="px-4 py-4">
-                  <Badge variant={scopeVariant} className="px-2 py-0.5 font-medium text-[10px] tracking-wide">
+                  <Badge variant={scopeVariant} className="px-2 py-0.5 font-medium text-2xs tracking-wide">
                     {scopeType}
                   </Badge>
                 </td>

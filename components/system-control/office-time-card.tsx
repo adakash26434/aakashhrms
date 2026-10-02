@@ -171,7 +171,7 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
                   x Rate
                 </span>
               </div>
-              <p className="mt-1 text-[10px] text-gray-400 font-medium">
+              <p className="mt-1 text-2xs text-gray-400 font-medium">
                 Fixed standard under Nepal&apos;s Labour Act.
               </p>
             </div>
@@ -195,7 +195,7 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
                   x Rate
                 </span>
               </div>
-              <p className="mt-1 text-[10px] text-gray-500">
+              <p className="mt-1 text-2xs text-gray-500">
                 Minimum 1.5x as required by law.
               </p>
             </div>

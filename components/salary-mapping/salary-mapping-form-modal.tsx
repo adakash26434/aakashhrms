@@ -595,7 +595,7 @@ export function SalaryMappingFormModal({
                   <span className="text-zinc-500">0 Steps (Initial baseline scale)</span>
                 )}
               </div>
-              <p className="text-[11px] text-zinc-500 font-medium mt-1">Automatically linked to employee master career record</p>
+              <p className="text-2xs text-zinc-500 font-medium mt-1">Automatically linked to employee master career record</p>
             </div>
           </div>
         </div>
@@ -619,7 +619,7 @@ export function SalaryMappingFormModal({
                 <p className="text-xs font-semibold text-zinc-900">
                   Enroll in Government SSF
                 </p>
-                <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+                <p className="text-2xs text-zinc-500 font-medium mt-0.5">
                   Automatic computation of 11% employee deduction + 20% employer contribution.
                 </p>
               </div>
@@ -646,15 +646,15 @@ export function SalaryMappingFormModal({
             {isSsfEnrolled && (
               <div className="grid grid-cols-3 gap-2.5 text-center">
                 <div className="rounded-md bg-white p-2.5 border border-zinc-200">
-                  <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Employer Addition</span>
+                  <span className="block text-2xs text-zinc-500 uppercase font-semibold">Employer Addition</span>
                   <span className="text-xs font-semibold text-emerald-800 font-mono mt-0.5 block">+20% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.20).toLocaleString("en-IN")})</span>
                 </div>
                 <div className="rounded-md bg-white p-2.5 border border-zinc-200">
-                  <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Total SSF Deduction</span>
+                  <span className="block text-2xs text-zinc-500 uppercase font-semibold">Total SSF Deduction</span>
                   <span className="text-xs font-semibold text-rose-700 font-mono mt-0.5 block">-31% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.31).toLocaleString("en-IN")})</span>
                 </div>
                 <div className="rounded-md bg-white p-2.5 border border-zinc-200">
-                  <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Net Employee Impact</span>
+                  <span className="block text-2xs text-zinc-500 uppercase font-semibold">Net Employee Impact</span>
                   <span className="text-xs font-semibold text-amber-700 font-mono mt-0.5 block">-11% (NPR {Math.round((Number(form.basicSalary) || 0) * 0.11).toLocaleString("en-IN")})</span>
                 </div>
               </div>
@@ -838,7 +838,7 @@ export function SalaryMappingFormModal({
           {activeEmployeeLoans.length > 0 && (
             <div className="rounded-md border border-emerald-200/70 bg-emerald-50/50 p-2.5 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-emerald-950 flex items-center gap-1.5">
+                <span className="text-2xs font-semibold text-emerald-950 flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 inline-block" />
                   Active Staff Loans ({activeEmployeeLoans.length} active)
                 </span>
@@ -853,12 +853,12 @@ export function SalaryMappingFormModal({
                       loan2Deduction: String(l2 ? Math.min(l2.installmentAmount, l2.remainingAmount) : 0),
                     }));
                   }}
-                  className="text-[10px] font-semibold text-emerald-800 hover:text-emerald-950 hover:underline cursor-pointer"
+                  className="text-2xs font-semibold text-emerald-800 hover:text-emerald-950 hover:underline cursor-pointer"
                 >
                   Auto-fill Contract EMIs
                 </button>
               </div>
-              <div className="text-[10px] text-emerald-800 space-y-0.5">
+              <div className="text-2xs text-emerald-800 space-y-0.5">
                 {activeEmployeeLoans.map((l, idx) => (
                   <div key={l.id} className="flex justify-between font-mono">
                     <span>Loan {idx + 1}: {l.loanTypeName} (EMI: NPR {l.installmentAmount.toLocaleString()})</span>
@@ -896,7 +896,7 @@ export function SalaryMappingFormModal({
                 />
               </div>
             </div>
-            <p className="text-[11px] text-zinc-500 font-medium">
+            <p className="text-2xs text-zinc-500 font-medium">
               Standard recurring amortizations synced from employee loan contracts.
             </p>
           </div>

@@ -70,7 +70,7 @@ export function SalaryMappingDetailPanel({
       <div className="space-y-6">
         {/* Employee Info */}
         <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
             <Users className="h-3 w-3" /> Employee
           </h3>
           <div className="rounded-xl border border-payroll-light/80 bg-payroll-cream/60 p-3.5 shadow-payroll-xs">
@@ -79,21 +79,21 @@ export function SalaryMappingDetailPanel({
             </p>
             <p className="mt-0.5 text-xs text-gray-500">{emp?.employeeCode ?? ""}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-md bg-green-50 px-2 py-0.5 text-[11px] font-medium text-payroll-primary">
+              <span className="rounded-md bg-green-50 px-2 py-0.5 text-2xs font-medium text-payroll-primary">
                 {emp?.departmentName ?? "—"}
               </span>
-              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-2xs font-medium text-gray-600">
                 {emp?.branchName ?? "—"}
               </span>
-              <span className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-600">
+              <span className="rounded-md bg-violet-50 px-2 py-0.5 text-2xs font-medium text-violet-600">
                 {emp?.designationName ?? "—"}
               </span>
               {mapping.salaryHeads.some((h) => h.payHeadName.toLowerCase().includes("ssf")) ? (
-                <span className="rounded-md bg-emerald-100/70 font-semibold px-2 py-0.5 text-[11px] text-emerald-800">
+                <span className="rounded-md bg-emerald-100/70 font-semibold px-2 py-0.5 text-2xs text-emerald-800">
                   SSF Enrolled (11% / 20% / 31%)
                 </span>
               ) : (
-                <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">
+                <span className="rounded-md bg-gray-100 px-2 py-0.5 text-2xs text-gray-500">
                   Non-SSF
                 </span>
               )}
@@ -103,7 +103,7 @@ export function SalaryMappingDetailPanel({
 
         {/* Base Salary */}
         <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
             <DollarSign className="h-3 w-3" /> Base Salary
           </h3>
           <div className="space-y-2 rounded-xl border border-payroll-light/80 bg-white p-3.5 shadow-payroll-xs">
@@ -141,7 +141,7 @@ export function SalaryMappingDetailPanel({
         {/* Loans */}
         {(mapping.loan1Deduction > 0 || mapping.loan2Deduction > 0) && (
           <section>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-gray-500">
               Active Loans
             </h3>
             <div className="space-y-2 rounded-xl border border-payroll-light/80 bg-white p-3.5 shadow-payroll-xs">
@@ -157,7 +157,7 @@ export function SalaryMappingDetailPanel({
 
         {/* Summary */}
         <section>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-gray-500">
             Summary
           </h3>
           <div className="space-y-2 rounded-xl border border-payroll-light/80 bg-payroll-cream/30 p-3.5 text-xs shadow-payroll-xs">

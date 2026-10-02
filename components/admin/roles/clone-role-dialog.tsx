@@ -191,7 +191,7 @@ export function CloneRoleDialog({
                       {s.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-500 leading-tight">
+                  <p className="text-2xs text-gray-500 leading-tight">
                     {s.description}
                   </p>
                 </div>

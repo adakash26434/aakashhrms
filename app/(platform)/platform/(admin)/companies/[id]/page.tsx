@@ -262,7 +262,7 @@ export default async function CompanyDetailPage({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Database Identifier
                   </span>
                   <span className="text-payroll-navy font-mono font-bold mt-1 block">
@@ -271,7 +271,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Contact Email (Office Admin)
                   </span>
                   <span className="text-payroll-navy font-semibold mt-1 block truncate">
@@ -280,7 +280,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     PAN / VAT Number
                   </span>
                   <span className="text-payroll-navy font-mono font-bold mt-1 block">
@@ -289,7 +289,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     OCR Registration Number
                   </span>
                   <span className="text-payroll-navy font-semibold mt-1 block">
@@ -298,7 +298,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Company Head Office Address
                   </span>
                   <span className="text-payroll-navy font-semibold mt-1 block">
@@ -307,7 +307,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Contact Phone
                   </span>
                   <span className="text-payroll-navy font-semibold mt-1 block">
@@ -316,7 +316,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60 sm:col-span-2">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Organization Industry Sector (संस्थाको क्षेत्र / प्रकृति)
                   </span>
                   <div className="flex items-center gap-2 mt-1">
@@ -326,7 +326,7 @@ export default async function CompanyDetailPage({
                     <span className="text-gray-500 text-xs">
                       ({INDUSTRY_SECTORS[company.industryType as IndustrySectorKey]?.labelNepali || "सामान्य"})
                     </span>
-                    <Badge variant="info" size="sm" className="ml-auto text-[10px] font-semibold text-payroll-primary border-payroll-primary/30">
+                    <Badge variant="info" size="sm" className="ml-auto text-2xs font-semibold text-payroll-primary border-payroll-primary/30">
                       Super Admin Managed
                     </Badge>
                   </div>
@@ -335,7 +335,7 @@ export default async function CompanyDetailPage({
 
               {company.notes && (
                 <div className="pt-3 border-t border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block mb-1">
                     Super Admin Notes
                   </span>
                   <p className="text-xs text-gray-700 bg-payroll-cream/60 p-3 rounded-xl border border-payroll-light leading-relaxed">
@@ -367,7 +367,7 @@ export default async function CompanyDetailPage({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Branch Code
                   </span>
                   <span className="text-payroll-navy font-mono font-bold text-sm mt-1 block">
@@ -376,7 +376,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Branch Address / Location
                   </span>
                   <span className="text-payroll-navy font-semibold mt-1 block">
@@ -408,21 +408,21 @@ export default async function CompanyDetailPage({
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Fiscal Cycle
                   </span>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className="text-payroll-navy font-bold text-sm">
                       {activeFY?.label || "2081/82"}
                     </span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="text-3xs font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Active
                     </span>
                   </div>
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Bikram Sambat (BS) Range
                   </span>
                   <span className="text-payroll-navy font-mono font-bold mt-1 block">
@@ -431,7 +431,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Gregorian (AD) Range
                   </span>
                   <span className="text-payroll-navy font-mono font-medium mt-1 block">
@@ -441,7 +441,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div className="bg-payroll-cream/40 p-3 rounded-xl border border-payroll-light/60">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Cycle Months
                   </span>
                   <span className="text-payroll-navy font-bold mt-1 block">
@@ -497,7 +497,7 @@ export default async function CompanyDetailPage({
                       <span className="font-bold text-payroll-navy block truncate">
                         {lt.name}
                       </span>
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-2xs text-gray-500">
                         {lt.isPaid ? "Paid" : "Unpaid"} • {lt.isEncashable ? "Encashable" : "No-encash"}
                       </span>
                     </div>
@@ -534,7 +534,7 @@ export default async function CompanyDetailPage({
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-payroll-light/60">
                     <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="font-bold text-payroll-navy uppercase text-[10px]">
+                    <span className="font-bold text-payroll-navy uppercase text-2xs">
                       Earnings
                     </span>
                   </div>
@@ -545,7 +545,7 @@ export default async function CompanyDetailPage({
                         className="p-2 bg-payroll-cream/20 rounded-lg border border-payroll-light flex items-center justify-between"
                       >
                         <span className="font-medium text-payroll-navy">{ph.name}</span>
-                        <span className="font-mono text-[10px] font-bold text-gray-500">{ph.code}</span>
+                        <span className="font-mono text-2xs font-bold text-gray-500">{ph.code}</span>
                       </div>
                     ))}
                   </div>
@@ -555,7 +555,7 @@ export default async function CompanyDetailPage({
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-payroll-light/60">
                     <ArrowDownRight className="w-3.5 h-3.5 text-amber-600" />
-                    <span className="font-bold text-payroll-navy uppercase text-[10px]">
+                    <span className="font-bold text-payroll-navy uppercase text-2xs">
                       Deductions
                     </span>
                   </div>
@@ -566,7 +566,7 @@ export default async function CompanyDetailPage({
                         className="p-2 bg-payroll-cream/20 rounded-lg border border-payroll-light flex items-center justify-between"
                       >
                         <span className="font-medium text-payroll-navy">{ph.name}</span>
-                        <span className="font-mono text-[10px] font-bold text-gray-500">{ph.code}</span>
+                        <span className="font-mono text-2xs font-bold text-gray-500">{ph.code}</span>
                       </div>
                     ))}
                   </div>
@@ -671,12 +671,12 @@ export default async function CompanyDetailPage({
                                 {meta.label}
                               </h5>
                               <span
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${meta.badgeClass}`}
+                                className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${meta.badgeClass}`}
                               >
                                 {meta.badge}
                               </span>
                             </div>
-                            <ul className="space-y-1 text-[11px] text-gray-600">
+                            <ul className="space-y-1 text-2xs text-gray-600">
                               {slabs.map((slab, i) => {
                                 const fromNum = Number(slab.amountFrom);
                                 const fromStr = isNaN(fromNum)
@@ -702,7 +702,7 @@ export default async function CompanyDetailPage({
                                     key={i}
                                     className="flex justify-between items-center py-1 border-b border-payroll-light/50 last:border-0"
                                   >
-                                    <span className="font-mono text-[10.5px]">
+                                    <span className="font-mono text-2xs">
                                       {rangeLabel}
                                     </span>
                                     <strong className="text-payroll-navy font-bold">
@@ -764,7 +764,7 @@ export default async function CompanyDetailPage({
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Registration Status
                   </span>
                   <Badge
@@ -783,7 +783,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Policy Pack Version
                   </span>
                   <span className="text-xs text-purple-700 font-mono font-bold mt-0.5 block">
@@ -792,7 +792,7 @@ export default async function CompanyDetailPage({
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase block">
                     Provisioned Timestamp
                   </span>
                   <span className="text-xs text-gray-700 mt-0.5 block">
@@ -817,7 +817,7 @@ export default async function CompanyDetailPage({
                 </div>
                 <Link
                   href="/platform/change-requests"
-                  className="text-[11px] font-semibold text-payroll-primary hover:underline flex items-center gap-0.5"
+                  className="text-2xs font-semibold text-payroll-primary hover:underline flex items-center gap-0.5"
                 >
                   <span>View All</span>
                   <ArrowRight className="w-3 h-3" />
@@ -860,10 +860,10 @@ export default async function CompanyDetailPage({
                           {cr.status}
                         </Badge>
                       </div>
-                      <div className="text-[11px] text-gray-600 truncate">
+                      <div className="text-2xs text-gray-600 truncate">
                         {cr.reason}
                       </div>
-                      <div className="text-[10px] text-gray-400">
+                      <div className="text-2xs text-gray-400">
                         {new Date(cr.createdAt).toLocaleDateString()} by {cr.requestedByUserEmail}
                       </div>
                     </div>

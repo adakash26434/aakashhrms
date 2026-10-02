@@ -26,7 +26,7 @@ function DetailCard({
     <div
       className={`rounded-md border border-zinc-200/80 bg-white p-3 shadow-2xs ${className ?? ""}`}
     >
-      <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+      <h4 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-zinc-400">
         {title}
       </h4>
       {children}

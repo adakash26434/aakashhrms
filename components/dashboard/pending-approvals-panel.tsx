@@ -36,7 +36,7 @@ export function PendingApprovalsPanel({
             <h3 className="text-sm sm:text-base font-semibold text-zinc-950">
               Pending Approvals
             </h3>
-            <span className="inline-flex h-5 items-center justify-center rounded-md bg-zinc-100 px-2 text-[11px] font-medium text-zinc-900 border border-zinc-200">
+            <span className="inline-flex h-5 items-center justify-center rounded-md bg-zinc-100 px-2 text-2xs font-medium text-zinc-900 border border-zinc-200">
               {displayCount}
             </span>
           </div>
@@ -108,13 +108,13 @@ export function PendingApprovalsPanel({
                     {item.initials}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-[13px] font-semibold text-zinc-900 truncate">
+                    <p className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
                       {item.name}
                     </p>
                     <p className="text-xs text-zinc-500 truncate">
                       {item.type} · {item.durationOrAmount}
                     </p>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
+                    <p className="text-2xs text-zinc-400 mt-0.5 truncate">
                       {item.dateTag}
                     </p>
                   </div>
@@ -132,7 +132,7 @@ export function PendingApprovalsPanel({
             <p className="text-xs font-semibold text-zinc-800">
               No pending approvals
             </p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
+            <p className="text-2xs text-zinc-400 mt-0.5">
               All leave and loan requests are up to date.
             </p>
           </div>
@@ -140,7 +140,7 @@ export function PendingApprovalsPanel({
       </div>
 
       {/* Footer Note */}
-      <div className="mt-3 pt-2.5 border-t border-zinc-200 flex items-center gap-2 text-[11px] text-zinc-400">
+      <div className="mt-3 pt-2.5 border-t border-zinc-200 flex items-center gap-2 text-2xs text-zinc-400">
         <Clock className="h-3 w-3 text-zinc-400 shrink-0" />
         <span>All approved items flow automatically into the next payroll cycle.</span>
       </div>

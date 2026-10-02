@@ -71,7 +71,7 @@ export function PayrollPreflightChecklist({
             <h4 className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
               Payroll Preflight Checklist
             </h4>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Confidence gate verifying period, scope readiness, and disbursement requirements before generating draft slips.
             </p>
           </div>
@@ -79,17 +79,17 @@ export function PayrollPreflightChecklist({
 
         <div className="flex items-center gap-1.5">
           {!canGenerate ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-700 border border-red-200">
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-2xs font-bold text-red-700 border border-red-200">
               <AlertCircle className="h-3 w-3" />
               Scope Selection Required
             </span>
           ) : hasWarnings ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-2xs font-bold text-amber-800 border border-amber-200">
               <AlertTriangle className="h-3 w-3" />
               Ready with {missingBankEmployees.length} Warning
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-2xs font-bold text-emerald-800 border border-emerald-200">
               <CheckCircle2 className="h-3 w-3" />
               Preflight Verified
             </span>
@@ -106,7 +106,7 @@ export function PayrollPreflightChecklist({
             <p className="text-xs font-bold text-payroll-navy truncate">
               {monthName} {bsYear} BS
             </p>
-            <p className="text-[10px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Regular monthly schedule & tax period confirmed
             </p>
           </div>
@@ -139,7 +139,7 @@ export function PayrollPreflightChecklist({
             </p>
             <p
               className={cn(
-                "text-[10px]",
+                "text-2xs",
                 hasEmployees ? "text-gray-500" : "text-red-600"
               )}
             >
@@ -180,7 +180,7 @@ export function PayrollPreflightChecklist({
                 <button
                   type="button"
                   onClick={() => setShowMissingBank(!showMissingBank)}
-                  className="text-[10px] font-semibold text-amber-800 hover:underline cursor-pointer flex items-center"
+                  className="text-2xs font-semibold text-amber-800 hover:underline cursor-pointer flex items-center"
                 >
                   {showMissingBank ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
@@ -188,7 +188,7 @@ export function PayrollPreflightChecklist({
             </div>
             <p
               className={cn(
-                "text-[10px]",
+                "text-2xs",
                 hasBankDiscrepancy ? "text-amber-700" : "text-gray-500"
               )}
             >
@@ -206,7 +206,7 @@ export function PayrollPreflightChecklist({
             <p className="text-xs font-bold text-payroll-navy truncate">
               Attendance & Leave Cut-off
             </p>
-            <p className="text-[10px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Approved leaves and overtime synced dynamically
             </p>
           </div>
@@ -221,7 +221,7 @@ export function PayrollPreflightChecklist({
                 ? `${occasionalAllowancesCount} occasional allowance(s) applied`
                 : "Standard compensation structure"}
             </p>
-            <p className="text-[10px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               {occasionalAllowancesCount > 0
                 ? occasionalAllowanceNames.join(", ")
                 : "No festival, Dashain, or remote additions in this run"}
@@ -233,8 +233,8 @@ export function PayrollPreflightChecklist({
       {/* Expanded list of employees missing bank details if any */}
       {showMissingBank && hasBankDiscrepancy && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-amber-900 space-y-1 animate-[fadeIn_150ms_ease-out]">
-          <p className="font-bold text-[11px]">Staff with missing bank account numbers:</p>
-          <div className="max-h-28 overflow-y-auto space-y-1 pr-1 font-mono text-[10px]">
+          <p className="font-bold text-2xs">Staff with missing bank account numbers:</p>
+          <div className="max-h-28 overflow-y-auto space-y-1 pr-1 font-mono text-2xs">
             {missingBankEmployees.map((emp) => (
               <div key={emp.id} className="flex items-center justify-between py-0.5 border-b border-amber-200/50">
                 <span>{emp.name}</span>

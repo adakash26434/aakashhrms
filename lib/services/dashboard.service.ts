@@ -12,7 +12,7 @@ import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as attendanceRepository from "@/lib/repositories/attendance.repository";
 import type { ApprovalItem, DashboardData, TodayWorkforceSummary } from "@/lib/types/dashboard";
-import { DEPARTMENT_COLORS, PAYROLL_COLORS } from "@/lib/constants/colors";
+import { CHART_COLORS, DEPARTMENT_COLORS, PAYROLL_COLORS } from "@/lib/constants/colors";
 import { formatNPR, getInitials } from "@/lib/utils";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import Decimal from "decimal.js";
@@ -304,7 +304,7 @@ async function buildSnapshot(): Promise<DashboardData> {
       totalDeductions,
       netPayable,
       deductions: [
-        { label: "TDS", amount: totalTds, color: "#F59E0B" },
+        { label: "TDS", amount: totalTds, color: CHART_COLORS.warning },
         { label: "PF", amount: totalPf, color: PAYROLL_COLORS.primary },
         { label: "SSF", amount: totalSsf, color: PAYROLL_COLORS.navy },
       ],
@@ -359,7 +359,7 @@ function fallbackSnapshot(): DashboardData {
       awaitingLabel: "None", employeesIncluded: 0, employeesExcluded: 0, exceptions: 0,
       grossPayroll: 0, totalDeductions: 0, netPayable: 0,
       deductions: [
-        { label: "TDS", amount: 0, color: "#F59E0B" },
+        { label: "TDS", amount: 0, color: CHART_COLORS.warning },
         { label: "PF", amount: 0, color: PAYROLL_COLORS.primary },
         { label: "SSF", amount: 0, color: PAYROLL_COLORS.navy },
       ],

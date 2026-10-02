@@ -196,7 +196,7 @@ export function PayrollRulesHubClient({
                   {tab.count !== null && (
                     <span
                       className={cn(
-                        "rounded px-1.5 py-0.2 text-[10px] font-mono",
+                        "rounded px-1.5 py-0.2 text-2xs font-mono",
                         isActive
                           ? "bg-emerald-50 text-emerald-800 font-medium"
                           : "bg-slate-200/70 text-slate-600",

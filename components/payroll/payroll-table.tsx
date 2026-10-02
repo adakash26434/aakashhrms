@@ -128,7 +128,7 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                   key={st}
                   type="button"
                   onClick={() => setStatusFilter(st)}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                  className={`rounded-md px-2.5 py-1 text-2xs font-medium transition-all cursor-pointer ${
                     statusFilter === st
                       ? "bg-zinc-900 text-white shadow-xs"
                       : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
@@ -156,8 +156,8 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-                <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+                <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                   <th className="px-4 py-3 min-w-36">BS Period</th>
                   <th className="px-4 py-3 min-w-44">AD Date Range</th>
                   <th className="px-4 py-3 text-center w-24">Employees</th>
@@ -190,7 +190,7 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                             <span className="font-medium text-zinc-900 text-xs">
                               {getBSMonthName(run.payPeriodMonth)} {run.payPeriodYear}
                             </span>
-                            <p className="text-[10px] text-zinc-400 font-mono">
+                            <p className="text-2xs text-zinc-400 font-mono">
                               Month {run.payPeriodMonth}
                             </p>
                           </div>
@@ -198,7 +198,7 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                       </td>
 
                       {/* AD Date Range */}
-                      <td className="px-4 py-4 text-zinc-600 font-mono text-[11px] tabular-nums">
+                      <td className="px-4 py-4 text-zinc-600 font-mono text-2xs tabular-nums">
                         {run.payPeriodStartDate} → {run.payPeriodEndDate}
                       </td>
 
@@ -282,7 +282,7 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                   </span>
                   ?
                 </p>
-                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
+                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-2xs text-red-700">
                   This will delete all generated payslips for this period and fallback to the initial un-generated state, allowing you to re-generate payslips again for this month.
                 </div>
               </div>

@@ -44,7 +44,7 @@ export function UpcomingEvents({ items }: UpcomingEventsProps) {
                 className="flex items-center gap-3 rounded-md border border-zinc-200/80 bg-white p-2.5 hover:bg-zinc-50 transition-colors"
               >
                 <div className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-md bg-zinc-100 text-center font-mono">
-                  <span className="text-[9px] font-medium uppercase text-zinc-500">
+                  <span className="text-3xs font-medium uppercase text-zinc-500">
                     {event.monthCode}
                   </span>
                   <span className="text-xs font-semibold text-zinc-900 leading-none">
@@ -55,7 +55,7 @@ export function UpcomingEvents({ items }: UpcomingEventsProps) {
                   <p className="truncate text-xs font-semibold text-zinc-900">
                     {event.title}
                   </p>
-                  <p className="text-[11px] text-zinc-500 truncate">
+                  <p className="text-2xs text-zinc-500 truncate">
                     Owner: {event.owner}
                   </p>
                 </div>

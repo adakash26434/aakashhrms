@@ -99,7 +99,7 @@ export function TopHeader({
             >
               {companyName}
             </span>
-            <span className="text-[10px] text-zinc-400 font-mono block">
+            <span className="text-2xs text-zinc-400 font-mono block">
               {branchName} ({companyCode})
             </span>
           </div>
@@ -115,7 +115,7 @@ export function TopHeader({
             placeholder="Search employees, payroll runs, leaves..."
             className="w-full rounded-md border border-zinc-200 bg-zinc-50/50 py-1.5 pl-8.5 pr-14 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-payroll-primary focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-2xs"
           />
-          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[9px] font-mono text-zinc-400">
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-3xs font-mono text-zinc-400">
             ⌘K
           </kbd>
         </div>
@@ -149,7 +149,7 @@ export function TopHeader({
         >
           <Bell className="h-4 w-4 text-zinc-700" />
           {pendingCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-xs animate-[pulseSubtle_2s_infinite]">
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-3xs font-bold text-white shadow-xs animate-[pulseSubtle_2s_infinite]">
               {pendingCount}
             </span>
           )}
@@ -192,7 +192,7 @@ export function TopHeader({
               >
                 {userName}
               </div>
-              <div className="text-[10px] text-zinc-500 leading-tight truncate max-w-32">
+              <div className="text-2xs text-zinc-500 leading-tight truncate max-w-32">
                 {userRole}
               </div>
             </div>
@@ -222,19 +222,19 @@ export function TopHeader({
                     </p>
                     {userEmail && (
                       <p
-                        className="text-[11px] text-zinc-500 truncate"
+                        className="text-2xs text-zinc-500 truncate"
                         title={userEmail}
                       >
                         {userEmail}
                       </p>
                     )}
-                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-2xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
                       {userRole}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-2.5 pt-2 border-t border-zinc-200 flex items-center justify-between text-[11px] text-zinc-500">
+                <div className="mt-2.5 pt-2 border-t border-zinc-200 flex items-center justify-between text-2xs text-zinc-500">
                   <div
                     className="flex items-center gap-1.5 truncate max-w-44"
                     title={`${companyName} (${companyCode})`}
@@ -242,7 +242,7 @@ export function TopHeader({
                     <Building2 className="h-3 w-3 text-emerald-800 shrink-0" />
                     <span className="truncate text-zinc-700">{companyName}</span>
                   </div>
-                  <span className="text-[10px] font-medium text-zinc-400 shrink-0">
+                  <span className="text-2xs font-medium text-zinc-400 shrink-0">
                     {branchName}
                   </span>
                 </div>
@@ -263,7 +263,7 @@ export function TopHeader({
                       <p className="font-semibold text-zinc-900">
                         My Self-Service
                       </p>
-                      <p className="text-[10px] text-zinc-500">
+                      <p className="text-2xs text-zinc-500">
                         Payslips, leaves & attendance
                       </p>
                     </div>
@@ -281,7 +281,7 @@ export function TopHeader({
                   </div>
                   <div>
                     <p className="font-semibold text-zinc-900">My Profile</p>
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-2xs text-zinc-500">
                       Personal details & documents
                     </p>
                   </div>
@@ -305,7 +305,7 @@ export function TopHeader({
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-rose-700">Sign Out</p>
-                  <p className="text-[10px] text-rose-500">
+                  <p className="text-2xs text-rose-500">
                     End current active session
                   </p>
                 </div>

@@ -55,7 +55,7 @@ export function ReportActionToolbar({
                     </h3>
                   )}
                   {badge && (
-                    <span className="rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+                    <span className="rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-2xs font-medium text-zinc-600">
                       {badge}
                     </span>
                   )}

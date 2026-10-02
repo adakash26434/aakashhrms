@@ -237,12 +237,12 @@ export function ShreniCombobox({
         <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg animate-[fadeIn_100ms_ease-out]">
           {/* Quick-Select Level Pills Header */}
           <div className="bg-zinc-50 p-2.5 border-b border-zinc-200 space-y-1.5 select-none">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-600">
+            <div className="flex items-center justify-between text-2xs font-semibold text-zinc-600">
               <span className="flex items-center gap-1.5">
                 <Sparkles className="h-3 w-3 text-emerald-800" />
                 <span>Quick Select Grade Level:</span>
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
+              <span className="text-2xs text-zinc-500 font-mono">
                 {availableLevels[0]?.code} &ndash; {availableLevels[availableLevels.length - 1]?.code}
               </span>
             </div>
@@ -256,7 +256,7 @@ export function ShreniCombobox({
                     type="button"
                     onClick={() => handleSelect(lvl)}
                     className={cn(
-                      "px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer",
+                      "px-2 py-0.5 rounded text-2xs font-mono font-bold transition-all cursor-pointer",
                       isSelected
                         ? "bg-emerald-900 text-white shadow-2xs"
                         : "bg-white border border-zinc-200 text-zinc-700 hover:border-emerald-700 hover:text-emerald-900"
@@ -310,7 +310,7 @@ export function ShreniCombobox({
                         {lvl.name} {lvl.labelNepali ? `\u2022 ${lvl.labelNepali}` : ""}
                       </p>
                       {lvl.description && (
-                        <p className="text-[11px] text-zinc-500 truncate">
+                        <p className="text-2xs text-zinc-500 truncate">
                           {lvl.description}
                         </p>
                       )}
@@ -319,7 +319,7 @@ export function ShreniCombobox({
 
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     {lvl.minSalary && lvl.minSalary > 0 ? (
-                      <span className="font-mono text-[11px] text-emerald-900 bg-emerald-50/60 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                      <span className="font-mono text-2xs text-emerald-900 bg-emerald-50/60 px-1.5 py-0.5 rounded border border-emerald-200/50">
                         NPR {lvl.minSalary.toLocaleString()}
                       </span>
                     ) : null}

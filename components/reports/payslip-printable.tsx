@@ -71,7 +71,7 @@ export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
                   #{slip.id ? slip.id.slice(0, 8) : "N/A"}
                 </p>
                 {activeCompany?.panVatNumber && (
-                  <p className="text-[11px] text-zinc-400 font-mono">
+                  <p className="text-2xs text-zinc-400 font-mono">
                     PAN: {activeCompany.panVatNumber}
                   </p>
                 )}
@@ -197,7 +197,7 @@ export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
                       <span className="text-zinc-600 font-medium">
                         {head.payHeadName}
                         {head.isManualOverride && (
-                          <span className="text-[10px] text-zinc-500 font-normal ml-1">
+                          <span className="text-2xs text-zinc-500 font-normal ml-1">
                             (Adjusted)
                           </span>
                         )}
@@ -245,7 +245,7 @@ export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
                         <span className="text-zinc-600 font-medium">
                           Social Security Fund (SSF 31%)
                         </span>
-                        <span className="block text-[10px] text-zinc-400 font-normal">
+                        <span className="block text-2xs text-zinc-400 font-normal">
                           EE 11% + ER 20%
                         </span>
                       </div>
@@ -342,7 +342,7 @@ export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
                   minimumFractionDigits: 2,
                 })}
               </span>
-              <span className="text-[11px] text-zinc-400 font-normal block">
+              <span className="text-2xs text-zinc-400 font-normal block">
                 Disbursement to {slip.bankName || "Bank Account"} ({maskAccountNumber(slip.bankAccountNumber)})
               </span>
             </div>
@@ -351,13 +351,13 @@ export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
             <div className="grid grid-cols-2 gap-12 pt-8 border-t border-dashed border-zinc-300">
               <div className="text-center">
                 <div className="border-b border-zinc-300 w-3/4 mx-auto mb-1 h-6"></div>
-                <span className="text-[11px] font-medium text-zinc-600">
+                <span className="text-2xs font-medium text-zinc-600">
                   Prepared By (Payroll Controller)
                 </span>
               </div>
               <div className="text-center">
                 <div className="border-b border-zinc-300 w-3/4 mx-auto mb-1 h-6"></div>
-                <span className="text-[11px] font-medium text-zinc-600">
+                <span className="text-2xs font-medium text-zinc-600">
                   Authorized Signatory (HR / Management)
                 </span>
               </div>

@@ -45,8 +45,8 @@ export function TaxRateSlabsTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-200 text-left text-sm">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs uppercase tracking-wider text-zinc-500 font-semibold">
             <th scope="col" className="px-4 py-3 font-semibold">
               S.N.
             </th>

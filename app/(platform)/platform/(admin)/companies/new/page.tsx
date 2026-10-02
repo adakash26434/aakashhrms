@@ -540,7 +540,7 @@ export default function RegisterCompanyPage() {
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                   Company Legal & Registration Profile
                 </h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Official identity, registration numbers, and administrative
                   contact
                 </p>
@@ -598,7 +598,7 @@ export default function RegisterCompanyPage() {
                   placeholder="e.g. 601234567 (9 digits)"
                   className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs font-mono"
                 />
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Official 9-digit Permanent Account Number (PAN) / VAT in Nepal
                 </p>
               </div>
@@ -615,7 +615,7 @@ export default function RegisterCompanyPage() {
                   placeholder="e.g. 123456/080/081"
                   className="w-full px-3.5 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Office of Company Registrar (OCR) registration number
                 </p>
               </div>
@@ -651,13 +651,13 @@ export default function RegisterCompanyPage() {
                   <button
                     type="button"
                     onClick={handleResetSlug}
-                    className="text-[11px] font-semibold text-payroll-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-2xs font-semibold text-payroll-primary hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className="w-3 h-3" />
                     <span>Auto-sync from Brand Name</span>
                   </button>
                 ) : (
-                  <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                  <span className="text-2xs text-emerald-700 font-semibold flex items-center gap-1">
                     <Sparkles className="w-3 h-3" />
                     <span>Auto-syncing from name</span>
                   </span>
@@ -676,7 +676,7 @@ export default function RegisterCompanyPage() {
                   className="w-full pl-10 pr-4 py-2 text-xs font-mono rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
               </div>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-2xs text-gray-500">
                 Isolated PostgreSQL database:{" "}
                 <code className="text-payroll-primary font-mono font-bold">
                   pay_t_{slug || "slug"}
@@ -712,7 +712,7 @@ export default function RegisterCompanyPage() {
                     Contact Phone
                   </label>
                   {!phoneError && contactPhone && (
-                    <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                    <span className="text-2xs text-emerald-700 font-semibold flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
                       <span>Valid</span>
                     </span>
@@ -725,7 +725,7 @@ export default function RegisterCompanyPage() {
                   placeholder="9800000000 / 01-4XXXXXX"
                 />
                 {phoneError && (
-                  <p className="text-[11px] text-rose-600 font-semibold">
+                  <p className="text-2xs text-rose-600 font-semibold">
                     {phoneError}
                   </p>
                 )}
@@ -739,7 +739,7 @@ export default function RegisterCompanyPage() {
                   Organization Industry Sector{" "}
                   <span className="text-rose-500">*</span>
                 </label>
-                <span className="text-[11px] text-gray-500">
+                <span className="text-2xs text-gray-500">
                   Defines company industry classification
                 </span>
               </div>
@@ -764,7 +764,7 @@ export default function RegisterCompanyPage() {
                             <p className="text-xs font-bold text-payroll-navy truncate">
                               {sector.label}
                             </p>
-                            <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                            <p className="text-2xs text-gray-500 truncate mt-0.5">
                               {sector.labelNepali}
                             </p>
                           </div>
@@ -794,7 +794,7 @@ export default function RegisterCompanyPage() {
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                   First Head Office Branch Setup
                 </h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Primary corporate branch code and location (distinguished by
                   location address)
                 </p>
@@ -819,7 +819,7 @@ export default function RegisterCompanyPage() {
                   placeholder="HO-01"
                   className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                 />
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Unique identifier for the primary corporate branch
                 </p>
               </div>
@@ -834,13 +834,13 @@ export default function RegisterCompanyPage() {
                     <button
                       type="button"
                       onClick={handleResetBranchAddress}
-                      className="text-[11px] font-semibold text-payroll-primary hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-2xs font-semibold text-payroll-primary hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className="w-3 h-3" />
                       <span>Sync with Head Office Address</span>
                     </button>
                   ) : (
-                    <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                    <span className="text-2xs text-emerald-700 font-semibold flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       <span>Auto-synced from Head Office</span>
                     </span>
@@ -859,7 +859,7 @@ export default function RegisterCompanyPage() {
                     className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border bg-white payroll-input focus:outline-none focus:ring-1 focus:ring-payroll-primary transition-all shadow-payroll-xs"
                   />
                 </div>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Branch is automatically named &ldquo;Head Office&rdquo; under
                   the organization umbrella.
                 </p>
@@ -881,7 +881,7 @@ export default function RegisterCompanyPage() {
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                   Initial Active Fiscal Year
                 </h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Super Admin establishes the primary active cycle; subsequent
                   years can be created by company admin
                 </p>
@@ -929,12 +929,12 @@ export default function RegisterCompanyPage() {
                       <span className="text-base font-bold text-payroll-navy">
                         {configuredFY.label}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 text-2xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Active Operating Cycle
                       </span>
                     </div>
-                    <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                    <p className="text-2xs text-gray-500 font-mono mt-0.5">
                       Database Slug: <span className="text-payroll-primary font-semibold">{configuredFY.slug}</span>
                     </p>
                   </div>
@@ -944,37 +944,37 @@ export default function RegisterCompanyPage() {
               {/* 3 Detail Blocks: BS Range, AD Equivalent, Operational Months */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
                 <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider block">
                     Bikram Sambat (BS) Range
                   </span>
                   <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
                     {configuredFY.startDateBS} ~ {configuredFY.endDateBS}
                   </span>
-                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                  <span className="text-2xs text-gray-400 mt-0.5 block">
                     Bikram Sambat calendar
                   </span>
                 </div>
 
                 <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider block">
                     Gregorian (AD) Equivalent
                   </span>
                   <span className="text-xs font-mono font-bold text-payroll-navy mt-1 block">
                     {formatADDate(configuredFY.startDateAD, "short")} to {formatADDate(configuredFY.endDateAD, "short")}
                   </span>
-                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                  <span className="text-2xs text-gray-400 mt-0.5 block">
                     Stored in tenant DB as AD timestamp
                   </span>
                 </div>
 
                 <div className="p-3 bg-white rounded-xl border border-payroll-light/70 shadow-2xs">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                  <span className="text-2xs font-bold text-gray-500 uppercase tracking-wider block">
                     Operational Month Range
                   </span>
                   <span className="text-xs font-bold text-payroll-navy mt-1 block">
                     {BS_MONTHS_EN[configuredFY.fromMonth]} to {BS_MONTHS_EN[configuredFY.toMonth]}
                   </span>
-                  <span className="text-[10px] text-gray-400 mt-0.5 block">
+                  <span className="text-2xs text-gray-400 mt-0.5 block">
                     Month {configuredFY.fromMonth} through Month {configuredFY.toMonth} (12 Mo.)
                   </span>
                 </div>
@@ -987,7 +987,7 @@ export default function RegisterCompanyPage() {
                 <p className="font-semibold text-payroll-navy">
                   Active Cycle: <strong>{configuredFY.label}</strong> ({BS_MONTHS_EN[configuredFY.fromMonth]} to {BS_MONTHS_EN[configuredFY.toMonth]})
                 </p>
-                <p className="text-[11px] text-gray-600">
+                <p className="text-2xs text-gray-600">
                   Configured with the canonical Bikram Sambat calendar system. After this initial fiscal year is established, the company administrator can manage future fiscal cycles directly from <strong>Setup → Fiscal Year</strong>.
                 </p>
               </div>
@@ -1019,7 +1019,7 @@ export default function RegisterCompanyPage() {
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                   Statutory Leaves & Overtime Allotments
                 </h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Mandatory Nepal Labour Act 2074 leave allotments and overtime
                   multiplier
                 </p>
@@ -1040,7 +1040,7 @@ export default function RegisterCompanyPage() {
                       <span className="text-xs font-bold text-payroll-navy block">
                         {lt.name}
                       </span>
-                      <span className="text-[10px] text-gray-500 block mt-0.5">
+                      <span className="text-2xs text-gray-500 block mt-0.5">
                         Code: <strong>{lt.code}</strong> • {lt.category}
                       </span>
                     </div>
@@ -1049,7 +1049,7 @@ export default function RegisterCompanyPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-payroll-light/60 text-[10px] text-gray-500 flex-wrap">
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-payroll-light/60 text-2xs text-gray-500 flex-wrap">
                     {lt.isEncashable ? (
                       <span className="text-emerald-700 font-medium">
                         ✓ Encashable (cap: {lt.maxAccumulation}d)
@@ -1080,7 +1080,7 @@ export default function RegisterCompanyPage() {
                   <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                     Statutory Overtime Calculation Rate
                   </h4>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-2xs text-gray-500">
                     Labour Act Section 31 standard overtime rate (default 1.5x
                     basic wage)
                   </p>
@@ -1118,7 +1118,7 @@ export default function RegisterCompanyPage() {
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                   Standard Pay Heads & Salary Components
                 </h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Pre-configured earnings and statutory deductions (SSF, EPF,
                   CIT, TDS)
                 </p>
@@ -1147,11 +1147,11 @@ export default function RegisterCompanyPage() {
                         <span className="font-bold text-payroll-navy block">
                           {ph.name}
                         </span>
-                        <span className="text-[10px] text-gray-500 font-mono">
+                        <span className="text-2xs text-gray-500 font-mono">
                           {ph.code} • Basic Salary Component
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+                      <span className="text-2xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
                         Taxable
                       </span>
                     </div>
@@ -1177,7 +1177,7 @@ export default function RegisterCompanyPage() {
                         <span className="font-bold text-payroll-navy block">
                           {ph.name}
                         </span>
-                        <span className="text-[10px] text-gray-500">
+                        <span className="text-2xs text-gray-500">
                           {ph.code} •{" "}
                           {ph.isSsfHead
                             ? "SSF Scheme (11% + 20%)"
@@ -1190,7 +1190,7 @@ export default function RegisterCompanyPage() {
                                   : "Deduction"}
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                      <span className="text-2xs font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
                         Pre-Tax
                       </span>
                     </div>
@@ -1214,7 +1214,7 @@ export default function RegisterCompanyPage() {
                 <h2 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
                   Nepal IRD Progressive Income Tax Slabs ({configuredFY.label})
                 </h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-2xs text-gray-500">
                   Statutory progressive brackets under Nepal Income Tax Act 2058
                   / Finance Act
                 </p>
@@ -1231,11 +1231,11 @@ export default function RegisterCompanyPage() {
                   <h5 className="font-bold text-payroll-navy">
                     Normal Single Individual
                   </h5>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+                  <span className="text-2xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
                     Standard
                   </span>
                 </div>
-                <ul className="space-y-1 text-[11px] text-gray-600">
+                <ul className="space-y-1 text-2xs text-gray-600">
                   {taxSlabs
                     .filter((s) => s.category === "Normal Single")
                     .map((slab, i) => (
@@ -1258,11 +1258,11 @@ export default function RegisterCompanyPage() {
                   <h5 className="font-bold text-payroll-navy">
                     Married Couple
                   </h5>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+                  <span className="text-2xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
                     Joint
                   </span>
                 </div>
-                <ul className="space-y-1 text-[11px] text-gray-600">
+                <ul className="space-y-1 text-2xs text-gray-600">
                   {taxSlabs
                     .filter((s) => s.category === "Married")
                     .map((slab, i) => (
@@ -1285,11 +1285,11 @@ export default function RegisterCompanyPage() {
                   <h5 className="font-bold text-payroll-navy">
                     Handicapped
                   </h5>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
+                  <span className="text-2xs font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
                     Concessional
                   </span>
                 </div>
-                <ul className="space-y-1 text-[11px] text-gray-600">
+                <ul className="space-y-1 text-2xs text-gray-600">
                   {taxSlabs
                     .filter((s) => s.category === "Handicapped")
                     .map((slab, i) => (
@@ -1307,7 +1307,7 @@ export default function RegisterCompanyPage() {
               </div>
             </div>
 
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               All three tax slab categories (<strong>Normal Single</strong>,{" "}
               <strong>Married</strong>, and <strong>Handicapped</strong>) are
               automatically seeded with their statutory thresholds for this

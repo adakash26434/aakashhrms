@@ -80,7 +80,7 @@ export function ReportDataTableShell({
             <p className="text-xs font-medium text-zinc-800">
               Generating report data...
             </p>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-2xs text-zinc-400">
               Applying statutory computations and organizational filters.
             </p>
           </div>

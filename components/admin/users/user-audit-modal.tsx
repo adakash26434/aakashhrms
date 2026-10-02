@@ -96,23 +96,23 @@ export function UserAuditModal({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={actionVariant} className="font-bold text-[10px] uppercase">
+                      <Badge variant={actionVariant} className="font-bold text-2xs uppercase">
                         {log.action}
                       </Badge>
-                      <Badge variant="neutral" className="font-medium text-[10px]">
+                      <Badge variant="neutral" className="font-medium text-2xs">
                         {log.module}
                       </Badge>
                       {isSuccess ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                        <span className="inline-flex items-center gap-1 text-2xs font-medium text-emerald-600">
                           <ShieldCheck className="h-3 w-3" /> Success
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600">
+                        <span className="inline-flex items-center gap-1 text-2xs font-medium text-red-600">
                           <ShieldAlert className="h-3 w-3" /> {log.result}
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-gray-400 font-mono" suppressHydrationWarning>
+                    <span className="text-2xs text-gray-400 font-mono" suppressHydrationWarning>
                       {formatAuditTimestamp(log.createdAt)}
                     </span>
                   </div>
@@ -137,14 +137,14 @@ export function UserAuditModal({
                   {isExpanded && (oldDiff || newDiff) && (
                     <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 border-t border-payroll-border pt-2 bg-payroll-cream p-2.5 rounded">
                       <div>
-                        <p className="font-semibold text-red-600 mb-1 text-[10px] uppercase">Previous Values</p>
-                        <div className="font-mono text-[10px] bg-red-50/60 p-2 rounded border border-red-100 overflow-x-auto text-red-950">
+                        <p className="font-semibold text-red-600 mb-1 text-2xs uppercase">Previous Values</p>
+                        <div className="font-mono text-2xs bg-red-50/60 p-2 rounded border border-red-100 overflow-x-auto text-red-950">
                           {oldDiff ? JSON.stringify(oldDiff, null, 2) : "(None)"}
                         </div>
                       </div>
                       <div>
-                        <p className="font-semibold text-payroll-primary mb-1 text-[10px] uppercase">New Values</p>
-                        <div className="font-mono text-[10px] bg-green-50/60 p-2 rounded border border-green-100 overflow-x-auto text-green-950">
+                        <p className="font-semibold text-payroll-primary mb-1 text-2xs uppercase">New Values</p>
+                        <div className="font-mono text-2xs bg-green-50/60 p-2 rounded border border-green-100 overflow-x-auto text-green-950">
                           {newDiff ? JSON.stringify(newDiff, null, 2) : "(None)"}
                         </div>
                       </div>

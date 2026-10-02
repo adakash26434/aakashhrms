@@ -60,11 +60,11 @@ export default async function PlatformLayout({
               <span className="font-bold text-sm sm:text-base tracking-tight text-white">
                 AakashHRMS
               </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-payroll-primary text-white border border-white/20 shadow-2xs">
+              <span className="text-2xs font-bold px-2 py-0.5 rounded-md bg-payroll-primary text-white border border-white/20 shadow-2xs">
                 Control Plane
               </span>
             </div>
-            <p className="text-[11px] text-payroll-light/80 font-medium">
+            <p className="text-2xs text-payroll-light/80 font-medium">
               Super Admin Multi-Tenant Console
             </p>
           </div>
@@ -77,7 +77,7 @@ export default async function PlatformLayout({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-semibold text-[11px]">PostgreSQL Engine Online</span>
+            <span className="font-semibold text-2xs">PostgreSQL Engine Online</span>
           </div>
 
           <div className="h-4 w-px bg-white/15 hidden sm:block"></div>
@@ -90,7 +90,7 @@ export default async function PlatformLayout({
               <span className="text-xs font-bold text-white block leading-tight">
                 {platformUser.name || "Super Admin"}
               </span>
-              <span className="text-[10px] text-payroll-light/80 block leading-tight">
+              <span className="text-2xs text-payroll-light/80 block leading-tight">
                 Root Authority
               </span>
             </div>

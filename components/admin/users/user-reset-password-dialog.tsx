@@ -116,7 +116,7 @@ export function UserResetPasswordDialog({
               </div>
             </div>
 
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Share this temporary password with the user securely. They will use it to sign in to the system.
             </p>
           </div>

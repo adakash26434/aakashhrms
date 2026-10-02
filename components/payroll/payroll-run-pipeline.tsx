@@ -56,11 +56,11 @@ export function PayrollRunPipeline({ run }: PayrollRunPipelineProps) {
           <h3 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">
             Payroll Workflow Pipeline
           </h3>
-          <span className="rounded-full bg-payroll-primary/10 px-2 py-0.5 text-[10px] font-bold text-payroll-primary">
+          <span className="rounded-full bg-payroll-primary/10 px-2 py-0.5 text-2xs font-bold text-payroll-primary">
             Step {currIdx + 1} of 4: {run.status.replace("_", " ")}
           </span>
         </div>
-        <span className="text-[11px] text-gray-400 font-mono">
+        <span className="text-2xs text-gray-400 font-mono">
           Run ID: {run.id.slice(0, 8)}...
         </span>
       </div>
@@ -106,9 +106,9 @@ export function PayrollRunPipeline({ run }: PayrollRunPipelineProps) {
                   >
                     {step.label}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-gray-500 line-clamp-1">{step.desc}</p>
+                  <p className="mt-0.5 text-2xs text-gray-500 line-clamp-1">{step.desc}</p>
                   {step.time && (
-                    <p className="mt-1 text-[10px] text-gray-400 tabular-nums">
+                    <p className="mt-1 text-2xs text-gray-400 tabular-nums">
                       {new Date(step.time).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",

@@ -93,7 +93,7 @@ export function LeaveSalaryTable({
       TERMINATION: "border-purple-200/50 bg-purple-50/70 text-purple-800",
     };
     return (
-      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${colors[type]}`}>
+      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-2xs font-medium ${colors[type]}`}>
         {ENCASHMENT_TYPE_LABELS[type] || type}
       </span>
     );
@@ -106,7 +106,7 @@ export function LeaveSalaryTable({
       CASH: "border-emerald-200/50 bg-emerald-50/70 text-emerald-800",
     };
     return (
-      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${styles[method] || "border-zinc-200/60 bg-zinc-50 text-zinc-700"}`}>
+      <span className={`inline-flex items-center rounded border px-2 py-0.5 text-2xs font-medium ${styles[method] || "border-zinc-200/60 bg-zinc-50 text-zinc-700"}`}>
         {PAYMENT_METHOD_LABELS[method] || method}
       </span>
     );
@@ -166,8 +166,8 @@ export function LeaveSalaryTable({
     <>
       <div className="overflow-x-auto w-full">
         <table className="w-full border-collapse text-sm">
-          <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-            <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+            <tr className="border-b border-zinc-300 bg-zinc-50 text-left text-2xs font-semibold uppercase tracking-wider text-zinc-500">
               <th className="px-4 py-4">Employee</th>
               <th className="px-4 py-4">Leave Type</th>
               <th className="px-4 py-4">Type</th>
@@ -299,62 +299,62 @@ export function LeaveSalaryTable({
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Employee</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Employee</p>
                 <p className="font-bold text-payroll-navy text-sm mt-0.5">
                   {employees.find(e => e.id === viewingRun.employeeId)?.name || 'Unknown'}
                 </p>
               </div>
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Leave Type</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Leave Type</p>
                 <p className="font-bold text-payroll-navy text-sm mt-0.5">
                   {leaveTypes.find(t => t.id === viewingRun.leaveTypeId)?.name || 'Unknown'}
                 </p>
               </div>
 
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Encashment Type</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Encashment Type</p>
                 <div className="mt-1">{getEncashmentTypeBadge(viewingRun.encashmentType)}</div>
               </div>
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Payment Method</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Payment Method</p>
                 <div className="mt-1">{getPaymentMethodBadge(viewingRun.paymentMethod)}</div>
               </div>
 
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Days Encashed</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Days Encashed</p>
                 <p className="font-bold text-payroll-navy text-sm mt-0.5">{viewingRun.leaveDays} days</p>
               </div>
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Payment Period</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Payment Period</p>
                 <p className="font-bold text-payroll-navy text-sm mt-0.5">{viewingRun.paymentPeriod}</p>
               </div>
 
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Daily Base Rate</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Daily Base Rate</p>
                 <p className="font-bold text-gray-700 text-sm mt-0.5">
                   Rs. {Number(viewingRun.perDayRate).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="rounded-lg bg-emerald-50/70 p-3 border border-emerald-200">
-                <p className="text-[10px] font-semibold uppercase text-emerald-800">Total Paid Amount</p>
+                <p className="text-2xs font-semibold uppercase text-emerald-800">Total Paid Amount</p>
                 <p className="font-bold text-emerald-700 text-base mt-0.5">
                   Rs. {Number(viewingRun.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
               </div>
 
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Status</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Status</p>
                 <div className="mt-1">{getStatusBadge(viewingRun.status)}</div>
               </div>
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Approved / Paid By</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Approved / Paid By</p>
                 <p className="font-semibold text-gray-700 text-xs mt-0.5">
                   {viewingRun.approvedByName || (viewingRun.status === "PAID" ? "System Administrator" : "Pending Approval")}
                 </p>
               </div>
 
               <div className="rounded-lg bg-payroll-cream p-3 border border-payroll-border col-span-2">
-                <p className="text-[10px] font-semibold uppercase text-gray-400">Approved Date</p>
+                <p className="text-2xs font-semibold uppercase text-gray-400">Approved Date</p>
                 <p className="font-semibold text-gray-700 text-xs mt-0.5">
                   {viewingRun.status === "PAID"
                     ? new Date(viewingRun.updatedAt).toLocaleDateString("en-US", {

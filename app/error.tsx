@@ -43,7 +43,7 @@ export default function ErrorBoundary({
       <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
         <AlertTriangle className="h-8 w-8" />
       </div>
-      <h2 className="text-2xl font-bold text-[#112D4E]">
+      <h2 className="text-2xl font-bold text-ink">
         {isChunkError ? "Application Update Detected" : "Something went wrong"}
       </h2>
       <p className="mt-2 max-w-md text-sm text-gray-600">
@@ -57,7 +57,7 @@ export default function ErrorBoundary({
       <div className="mt-6 flex flex-wrap gap-3 justify-center">
         <Button
           onClick={handleHardReload}
-          className="flex items-center gap-2 bg-[#19960e] hover:bg-[#157e0c] text-white"
+          className="flex items-center gap-2 bg-brand hover:bg-brand-hover text-white"
         >
           <RotateCcw className="h-4 w-4" /> Reload Page
         </Button>

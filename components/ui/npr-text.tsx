@@ -24,7 +24,7 @@ export function NprText({
       : "text-payroll-navy";
 
   return (
-    <span className={`font-mono tabular-nums ${colorClass} ${className}`}>
+    <span className={`tabular-nums ${colorClass} ${className}`}>
       {formatNPR(value, showPrefix)}
     </span>
   );

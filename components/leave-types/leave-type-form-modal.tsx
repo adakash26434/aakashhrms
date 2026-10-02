@@ -352,7 +352,7 @@ export function LeaveTypeFormModal({
 
                 {formData.isEncashable && (
                   <div className="pl-6 pt-1">
-                    <label className="mb-1 block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <label className="mb-1 block text-2xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Encashment Basis
                     </label>
                     <select

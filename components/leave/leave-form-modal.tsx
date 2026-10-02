@@ -275,7 +275,7 @@ export function LeaveFormModal({
                       Remaining balance: <strong className="text-emerald-950 font-semibold">{balance}</strong> days
                     </span>
                     {selectedLeaveType?.accumulationCap && (
-                      <span className="text-zinc-400 font-mono text-[10px]">
+                      <span className="text-zinc-400 font-mono text-2xs">
                         Cap: {selectedLeaveType.accumulationCap} days
                       </span>
                     )}
@@ -348,7 +348,7 @@ export function LeaveFormModal({
                     step={0.5}
                     className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
                   />
-                  <span className="shrink-0 text-[11px] text-zinc-400 font-mono">
+                  <span className="shrink-0 text-2xs text-zinc-400 font-mono">
                     (Auto-calc)
                   </span>
                 </div>

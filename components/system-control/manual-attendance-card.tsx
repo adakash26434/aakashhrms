@@ -49,7 +49,7 @@ export function ManualAttendanceCard({
           }
           options={RADIO_OPTIONS}
         />
-        <p className="text-[11px] text-slate-500">
+        <p className="text-2xs text-slate-500">
           Choosing &quot;Present&quot; treats unposted records as full attendance with standard work hours. &quot;Absent&quot; flags unposted records for manual HR review.
         </p>
       </div>

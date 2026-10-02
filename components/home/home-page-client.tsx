@@ -282,7 +282,7 @@ export function HomePageClient({
           </div>
 
           {/* Main Headline */}
-          <h1 className="mt-8 text-4xl sm:text-5xl md:text-[62px] font-bold tracking-[-0.035em] text-payroll-navy max-w-4xl mx-auto leading-[1.12]">
+          <h1 className="mt-8 text-4xl sm:text-5xl md:text-[62px] font-bold tracking-[-0.035em] text-payroll-navy max-w-5xl mx-auto leading-[1.12] text-balance">
             Payroll, people & compliance —{" "}
             <span className="text-payroll-primary">in</span>
             <span className="block text-payroll-primary">one calm place</span>
@@ -497,12 +497,12 @@ export function HomePageClient({
                           >
                             <stop
                               offset="0%"
-                              stopColor="#1B6B54"
+                              stopColor="#1E7F12"
                               stopOpacity="0.25"
                             />
                             <stop
                               offset="100%"
-                              stopColor="#1B6B54"
+                              stopColor="#1E7F12"
                               stopOpacity="0.01"
                             />
                           </linearGradient>
@@ -574,7 +574,7 @@ export function HomePageClient({
                         <path
                           d="M 35,58 C 110,56 180,54 260,50 C 330,48 370,44 410,42"
                           fill="none"
-                          stroke="#1B6B54"
+                          stroke="#1E7F12"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                         />
@@ -631,7 +631,7 @@ export function HomePageClient({
                             cy="18"
                             r="14"
                             fill="none"
-                            stroke="#1B6B54"
+                            stroke="#1E7F12"
                             strokeWidth="4"
                             strokeDasharray="31 88"
                             strokeDashoffset="0"

@@ -24,7 +24,7 @@ export function Step4LeaveOt({ data, onChange }: Step4Props) {
               Nepal Labour Act 2074 Statutory Leave Allotments
             </h4>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
+          <span className="text-2xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md">
             Statutory Compliant
           </span>
         </div>
@@ -40,7 +40,7 @@ export function Step4LeaveOt({ data, onChange }: Step4Props) {
                   <span className="text-xs font-bold text-gray-900 block">
                     {lt.name}
                   </span>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">
+                  <span className="text-2xs text-gray-500 block mt-0.5">
                     {lt.code} • {lt.category}
                   </span>
                 </div>
@@ -51,7 +51,7 @@ export function Step4LeaveOt({ data, onChange }: Step4Props) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 flex-wrap">
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 text-2xs text-gray-500 flex-wrap">
                 {lt.isEncashable ? (
                   <span className="text-emerald-700 font-medium">
                     ✓ Encashable (up to {lt.maxAccumulation}d)
@@ -83,7 +83,7 @@ export function Step4LeaveOt({ data, onChange }: Step4Props) {
             <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               Overtime Calculation Rate (Labour Act Minimum: 1.5x)
             </h4>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Multiplier applied to the employee's basic hourly wage for
               overtime hours.
             </p>
@@ -118,7 +118,7 @@ export function Step4LeaveOt({ data, onChange }: Step4Props) {
                 onClick={() => handleMultiplierChange(opt.value)}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-150 flex flex-col justify-between ${
                   isSelected
-                    ? "border-payroll-primary bg-[#f4f9f4] shadow-sm ring-1 ring-payroll-primary"
+                    ? "border-payroll-primary bg-brand-50 shadow-sm ring-1 ring-payroll-primary"
                     : "border-gray-200 hover:border-gray-300 bg-white"
                 }`}
               >
@@ -129,11 +129,11 @@ export function Step4LeaveOt({ data, onChange }: Step4Props) {
                     >
                       {opt.label}
                     </span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                    <span className="text-3xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
                       {opt.badge}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-500 leading-snug">
+                  <p className="text-2xs text-gray-500 leading-snug">
                     {opt.desc}
                   </p>
                 </div>

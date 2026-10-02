@@ -38,7 +38,7 @@ export function SegmentedControl<T extends string = string>({
             aria-selected={isActive}
             onClick={() => onChange(opt.id)}
             className={`flex items-center gap-1.5 rounded-lg transition-all text-xs font-semibold px-3 cursor-pointer ${
-              size === "sm" ? "py-1 text-[11px]" : "py-1.5"
+              size === "sm" ? "py-1 text-2xs" : "py-1.5"
             } ${
               isActive
                 ? "bg-payroll-primary text-white shadow-xs"
@@ -48,7 +48,7 @@ export function SegmentedControl<T extends string = string>({
             <span>{opt.label}</span>
             {opt.count !== undefined && (
               <span
-                className={`rounded-full px-1.5 py-0.2 text-[10px] tabular-nums font-semibold ${
+                className={`rounded-full px-1.5 py-0.2 text-2xs tabular-nums font-semibold ${
                   isActive
                     ? "bg-white/20 text-white"
                     : "bg-slate-200 text-slate-700"

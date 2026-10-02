@@ -60,7 +60,7 @@ export function PayHeadDetailPanel({
               <Pencil className="h-3.5 w-3.5" />
             </button>
           </div>
-          {head && <p className="mt-0.5 font-mono text-[11px] text-gray-500">{head.code}</p>}
+          {head && <p className="mt-0.5 font-mono text-2xs text-gray-500">{head.code}</p>}
         </div>
       }
       subtitle={head ? <span>{head.type === "allowance" ? "Allowance" : "Deduction"} pay head</span> : undefined}
@@ -104,7 +104,7 @@ export function PayHeadDetailPanel({
             </div>
           </Section>
 
-          <Section title="Statutory & Calculation Flags" rightMeta={<span className="text-[11px] font-medium text-gray-500">{flagActiveCount} active</span>}>
+          <Section title="Statutory & Calculation Flags" rightMeta={<span className="text-2xs font-medium text-gray-500">{flagActiveCount} active</span>}>
             <div className="space-y-1.5">
               {STATUTORY_FLAGS.map((f) => (
                 <FlagRow key={f} flag={f} active={head.flags[f] === true} />
@@ -123,7 +123,7 @@ function Section({ title, rightMeta, children }: { title: string; rightMeta?: Re
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{title}</h3>
+        <h3 className="text-2xs font-semibold uppercase tracking-wider text-gray-500">{title}</h3>
         {rightMeta}
       </div>
       {children}
@@ -144,7 +144,7 @@ const toneClasses: Record<Tone, string> = {
 function OverviewRow({ label, value, tone, className }: { label: string; value: string; tone: Tone; className?: string }) {
   return (
     <div className={cn("rounded-lg border border-payroll-border bg-white p-2.5", className)}>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{label}</p>
+      <p className="text-2xs font-medium uppercase tracking-wider text-gray-500">{label}</p>
       <div className="mt-1">
         <span className={cn("inline-flex rounded-md px-2 py-0.5 text-xs font-medium", toneClasses[tone])}>{value}</span>
       </div>
@@ -173,7 +173,7 @@ function ApplicabilityGroup({
 
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <p className="mb-1.5 text-2xs font-medium uppercase tracking-wider text-gray-500">
         {label}
       </p>
       {visibleNames.length === 0 ? (
@@ -204,9 +204,9 @@ function FlagRow({ flag, active }: { flag: StatutoryFlag; active: boolean }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold text-payroll-navy">{meta.label}</p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">{meta.description}</p>
+        <p className="mt-0.5 text-2xs leading-relaxed text-gray-500">{meta.description}</p>
       </div>
-      <Badge variant="default" className={cn("shrink-0 text-[10px]", active ? "bg-payroll-primary text-white hover:bg-payroll-primary" : "bg-gray-100 text-gray-500 hover:bg-gray-100")}>
+      <Badge variant="default" className={cn("shrink-0 text-2xs", active ? "bg-payroll-primary text-white hover:bg-payroll-primary" : "bg-gray-100 text-gray-500 hover:bg-gray-100")}>
         {active ? "Active" : "Inactive"}
       </Badge>
     </label>

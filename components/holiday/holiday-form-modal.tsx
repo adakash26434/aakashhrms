@@ -321,7 +321,7 @@ export function HolidayFormModal({
                   ({selectedBranchCount} of {branches.length} selected)
                 </span>
               </span>
-              <div className="flex items-center gap-2 text-[11px]">
+              <div className="flex items-center gap-2 text-2xs">
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, branchIds: [] }))}

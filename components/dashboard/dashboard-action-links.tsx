@@ -50,7 +50,7 @@ export function DashboardActionLinks() {
               className="group inline-flex items-center gap-1.5 text-zinc-600 hover:text-zinc-950 transition-colors"
             >
               <Icon className="h-3.5 w-3.5 text-zinc-400 group-hover:text-emerald-800 transition-colors" />
-              <span className="font-medium text-[13px]">{link.label}</span>
+              <span className="font-medium text-sm">{link.label}</span>
               <ArrowUpRight className="h-3 w-3 text-zinc-400 group-hover:text-zinc-950 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
             </Link>
           );

@@ -217,7 +217,7 @@ export function LeaveSalarySetupForm({
         <div className="rounded-lg border border-payroll-border bg-payroll-primary-light/40 px-4 py-3 transition-all animate-in fade-in duration-200">
           <div className="flex items-center gap-2 mb-2">
             <Info className="h-3.5 w-3.5 text-payroll-primary" />
-            <span className="text-[11px] font-bold text-payroll-navy uppercase tracking-wider">
+            <span className="text-2xs font-bold text-payroll-navy uppercase tracking-wider">
               Leave Balance Preview
             </span>
           </div>
@@ -229,7 +229,7 @@ export function LeaveSalarySetupForm({
           ) : balancePreview ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                <p className="text-3xs font-semibold uppercase tracking-wider text-gray-400">
                   Allotted
                 </p>
                 <p className="text-sm font-bold text-payroll-navy mt-0.5">
@@ -237,7 +237,7 @@ export function LeaveSalarySetupForm({
                 </p>
               </div>
               <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                <p className="text-3xs font-semibold uppercase tracking-wider text-gray-400">
                   Taken
                 </p>
                 <p className="text-sm font-bold text-amber-600 mt-0.5">
@@ -245,7 +245,7 @@ export function LeaveSalarySetupForm({
                 </p>
               </div>
               <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                <p className="text-3xs font-semibold uppercase tracking-wider text-gray-400">
                   Available
                 </p>
                 <p className="text-sm font-bold text-payroll-primary mt-0.5">
@@ -253,7 +253,7 @@ export function LeaveSalarySetupForm({
                 </p>
               </div>
               <div className="rounded-md bg-white p-2 text-center border border-payroll-border shadow-2xs">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                <p className="text-3xs font-semibold uppercase tracking-wider text-gray-400">
                   Max Encashable
                 </p>
                 <p className="text-sm font-bold text-payroll-primary mt-0.5">
@@ -284,7 +284,7 @@ export function LeaveSalarySetupForm({
           {balancePreview &&
             leaveDays > 0 &&
             leaveDays > balancePreview.balance && (
-              <p className="mt-1 text-[11px] text-red-600 font-semibold flex items-center gap-1">
+              <p className="mt-1 text-2xs text-red-600 font-semibold flex items-center gap-1">
                 <AlertCircle className="h-3.5 w-3.5" />
                 Exceeds available balance ({balancePreview.balance} days
                 available)
@@ -294,7 +294,7 @@ export function LeaveSalarySetupForm({
             maxEncashable !== null &&
             leaveDays > maxEncashable &&
             leaveDays <= balancePreview.balance && (
-              <p className="mt-1 text-[11px] text-amber-600 font-semibold flex items-center gap-1">
+              <p className="mt-1 text-2xs text-amber-600 font-semibold flex items-center gap-1">
                 <AlertCircle className="h-3.5 w-3.5" />
                 Exceeds maximum encashable limit ({maxEncashable} days limit)
               </p>
@@ -335,7 +335,7 @@ export function LeaveSalarySetupForm({
               ))}
             </select>
           </div>
-          <p className="mt-1 text-[10px] text-gray-400">
+          <p className="mt-1 text-2xs text-gray-400">
             Selected period:{" "}
             <span className="font-semibold text-payroll-navy">
               {selectedMonth} ({selectedFYLabel})

@@ -61,7 +61,7 @@ export function ConfirmUnlockDialog({
               <p className="font-bold mb-1">
                 Unlock {fiscalYear?.label ?? "Fiscal Year"}
               </p>
-              <ul className="list-disc pl-4 space-y-1 text-[11.5px] text-emerald-800">
+              <ul className="list-disc pl-4 space-y-1 text-2xs text-emerald-800">
                 <li>Enables editing and deleting this fiscal year.</li>
                 <li>Allows modifying tax rate slabs and holiday calendars for this period.</li>
                 <li>Enables standard Active / Inactive status management.</li>
@@ -88,7 +88,7 @@ export function ConfirmUnlockDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-payroll-navy">Active</p>
-                  <p className="text-[10px] text-gray-500">Current cycle</p>
+                  <p className="text-2xs text-gray-500">Current cycle</p>
                 </div>
                 {targetStatus === "Active" && (
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -108,7 +108,7 @@ export function ConfirmUnlockDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-payroll-navy">Inactive</p>
-                  <p className="text-[10px] text-gray-500">Archived cycle</p>
+                  <p className="text-2xs text-gray-500">Archived cycle</p>
                 </div>
                 {targetStatus === "Inactive" && (
                   <CheckCircle2 className="w-4 h-4 text-payroll-navy shrink-0" />

@@ -137,7 +137,7 @@ export default function ReportsHubPage() {
                   <h3 className="text-xs font-semibold text-zinc-900 tracking-tight">
                     {group.name}
                   </h3>
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-2xs text-zinc-500">
                     {group.description}
                   </p>
                 </div>
@@ -158,7 +158,7 @@ export default function ReportsHubPage() {
                           <div className="inline-flex items-center justify-center rounded-md bg-zinc-100 p-2 text-zinc-700 transition-colors group-hover:bg-zinc-950 group-hover:text-white">
                             <Icon className="h-4 w-4" />
                           </div>
-                          <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 border border-zinc-200">
+                          <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-2xs font-medium text-zinc-600 border border-zinc-200">
                             {card.badge}
                           </span>
                         </div>

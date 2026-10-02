@@ -155,7 +155,7 @@ export function DatabaseCredentialsCard({
         {health && health.isOnline && (
           <div className="grid grid-cols-3 gap-3 p-3 bg-payroll-cream/70 rounded-xl border border-payroll-light text-center text-xs">
             <div>
-              <span className="text-[10px] font-semibold text-gray-500 flex items-center justify-center gap-1">
+              <span className="text-2xs font-semibold text-gray-500 flex items-center justify-center gap-1">
                 <HardDrive className="w-3 h-3 text-payroll-primary" />
                 <span>Storage Size</span>
               </span>
@@ -164,7 +164,7 @@ export function DatabaseCredentialsCard({
               </strong>
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-gray-500 flex items-center justify-center gap-1">
+              <span className="text-2xs font-semibold text-gray-500 flex items-center justify-center gap-1">
                 <Users2 className="w-3 h-3 text-emerald-600" />
                 <span>Active Sessions</span>
               </span>
@@ -173,7 +173,7 @@ export function DatabaseCredentialsCard({
               </strong>
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-gray-500 flex items-center justify-center gap-1">
+              <span className="text-2xs font-semibold text-gray-500 flex items-center justify-center gap-1">
                 <Activity className="w-3 h-3 text-blue-600" />
                 <span>Ping Latency</span>
               </span>
@@ -189,7 +189,7 @@ export function DatabaseCredentialsCard({
             <AlertTriangle className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
             <div>
               <strong className="block font-bold">Physical Database Missing in PostgreSQL</strong>
-              <p className="text-[11px] text-rose-700 mt-0.5">
+              <p className="text-2xs text-rose-700 mt-0.5">
                 The database <code className="font-mono font-bold">{dbName}</code> was not found on the PostgreSQL server.
               </p>
             </div>
@@ -199,7 +199,7 @@ export function DatabaseCredentialsCard({
         {/* Credentials Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
           <div className="bg-payroll-cream/50 p-3 rounded-xl border border-payroll-light">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold">
+            <span className="text-gray-500 block text-2xs uppercase font-bold">
               Database Name
             </span>
             <span className="text-payroll-primary font-bold mt-1 block">
@@ -208,7 +208,7 @@ export function DatabaseCredentialsCard({
           </div>
 
           <div className="bg-payroll-cream/50 p-3 rounded-xl border border-payroll-light">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold">
+            <span className="text-gray-500 block text-2xs uppercase font-bold">
               Host / Port
             </span>
             <span className="text-payroll-navy font-bold mt-1 block">
@@ -217,7 +217,7 @@ export function DatabaseCredentialsCard({
           </div>
 
           <div className="bg-payroll-cream/50 p-3 rounded-xl border border-payroll-light">
-            <span className="text-gray-500 block text-[10px] uppercase font-bold">
+            <span className="text-gray-500 block text-2xs uppercase font-bold">
               PostgreSQL User
             </span>
             <span className="text-payroll-navy font-bold mt-1 block">
@@ -227,14 +227,14 @@ export function DatabaseCredentialsCard({
 
           <div className="bg-payroll-cream/50 p-3 rounded-xl border border-payroll-light">
             <div className="flex items-center justify-between">
-              <span className="text-gray-500 block text-[10px] uppercase font-bold">
+              <span className="text-gray-500 block text-2xs uppercase font-bold">
                 Database Password
               </span>
               {credentials && (
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-[10px] text-payroll-primary font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-2xs text-payroll-primary font-semibold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   {showPassword ? (
                     <>
@@ -265,7 +265,7 @@ export function DatabaseCredentialsCard({
           <div className="space-y-3.5 pt-2 border-t border-payroll-light/60">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-payroll-navy">
+                <label className="text-2xs font-bold text-payroll-navy">
                   PostgreSQL Connection URI (pgAdmin4 / DBeaver / psql)
                 </label>
                 <button
@@ -273,7 +273,7 @@ export function DatabaseCredentialsCard({
                   onClick={() =>
                     copyToClipboard(credentials.connectionUri, "uri")
                   }
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-payroll-cream border border-payroll-light text-payroll-primary hover:bg-white transition-all shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-2xs font-semibold bg-payroll-cream border border-payroll-light text-payroll-primary hover:bg-white transition-all shadow-2xs cursor-pointer"
                 >
                   {copiedType === "uri" ? (
                     <>
@@ -288,14 +288,14 @@ export function DatabaseCredentialsCard({
                   )}
                 </button>
               </div>
-              <div className="p-3 bg-gray-900 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto border border-gray-800 select-all">
+              <div className="p-3 bg-gray-900 text-emerald-400 font-mono text-2xs rounded-xl overflow-x-auto border border-gray-800 select-all">
                 {credentials.connectionUri}
               </div>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-payroll-navy flex items-center gap-1.5">
+                <label className="text-2xs font-bold text-payroll-navy flex items-center gap-1.5">
                   <Terminal className="w-3.5 h-3.5 text-purple-600" />
                   <span>Launch this Tenant in Drizzle Studio</span>
                 </label>
@@ -304,7 +304,7 @@ export function DatabaseCredentialsCard({
                   onClick={() =>
                     copyToClipboard(credentials.drizzleStudioCommand, "drizzle")
                   }
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 border border-purple-200 text-purple-700 hover:bg-white transition-all shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-2xs font-semibold bg-purple-50 border border-purple-200 text-purple-700 hover:bg-white transition-all shadow-2xs cursor-pointer"
                 >
                   {copiedType === "drizzle" ? (
                     <>
@@ -319,7 +319,7 @@ export function DatabaseCredentialsCard({
                   )}
                 </button>
               </div>
-              <div className="p-3 bg-gray-900 text-purple-300 font-mono text-[11px] rounded-xl overflow-x-auto border border-gray-800 select-all">
+              <div className="p-3 bg-gray-900 text-purple-300 font-mono text-2xs rounded-xl overflow-x-auto border border-gray-800 select-all">
                 {credentials.drizzleStudioCommand}
               </div>
             </div>

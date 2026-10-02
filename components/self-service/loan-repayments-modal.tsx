@@ -87,15 +87,15 @@ export function LoanRepaymentsModal({
         <div className="py-12 text-center text-xs text-zinc-500 space-y-1 rounded-md border border-dashed border-zinc-200 bg-zinc-50/50">
           <Calendar className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
           <p className="font-semibold text-zinc-900">No installments recorded yet</p>
-          <p className="text-[11px] text-zinc-400">
+          <p className="text-2xs text-zinc-400">
             Deductions will be automatically registered during monthly payroll processing.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto py-1">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-              <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+              <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                 <th className="px-4 py-3">Repayment Date</th>
                 <th className="px-4 py-3 text-right">Amount Deducted</th>
                 <th className="px-4 py-3 text-right">Remaining Balance</th>
@@ -115,7 +115,7 @@ export function LoanRepaymentsModal({
                     NPR {Number(rep.remainingAmount || 0).toLocaleString("en-NP")}
                   </td>
                   <td className="px-4 py-3.5 text-center">
-                    <Badge variant="success" size="sm" className="text-[10px]">
+                    <Badge variant="success" size="sm" className="text-2xs">
                       DEDUCTED
                     </Badge>
                   </td>

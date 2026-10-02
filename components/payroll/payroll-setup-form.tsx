@@ -367,7 +367,7 @@ export function PayrollSetupForm({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-400 font-medium">
+            <span className="text-2xs text-gray-400 font-medium">
               {selectedOccasionalAllowances.length === 0
                 ? "No occasional allowances selected"
                 : `${selectedOccasionalAllowances.length} selected`}
@@ -401,7 +401,7 @@ export function PayrollSetupForm({
                     />
                     <div className="flex flex-col">
                       <span className="font-semibold">{allowance.name}</span>
-                      <span className="text-[10px] text-gray-400">
+                      <span className="text-2xs text-gray-400">
                         {allowance.isFestivalAllowance ? "Festival Allowance" : "Remote Allowance"}
                       </span>
                     </div>

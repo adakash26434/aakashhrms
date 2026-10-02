@@ -157,25 +157,25 @@ export function LoanRepaymentModal({
                   <span className="text-xs font-semibold text-zinc-900">
                     Facility Ledger Snapshot
                   </span>
-                  <span className="text-[11px] text-zinc-500 font-mono">
+                  <span className="text-2xs text-zinc-500 font-mono">
                     Disbursed: {selectedLoan.givenDate}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-4 pt-3 text-center">
                   <div>
-                    <p className="text-[11px] font-medium text-zinc-500">Disbursed Principal</p>
+                    <p className="text-2xs font-medium text-zinc-500">Disbursed Principal</p>
                     <p className="text-sm font-semibold tabular-nums text-zinc-900 font-mono">
                       NPR {selectedLoan.loanAmount.toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-zinc-500">Total Cleared</p>
+                    <p className="text-2xs font-medium text-zinc-500">Total Cleared</p>
                     <p className="text-sm font-semibold tabular-nums text-payroll-primary font-mono">
                       NPR {selectedLoan.totalReturned.toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-zinc-500">Outstanding Balance</p>
+                    <p className="text-2xs font-medium text-zinc-500">Outstanding Balance</p>
                     <p className="text-sm font-semibold tabular-nums text-amber-900 font-mono">
                       NPR {selectedLoan.remainingAmount.toLocaleString()}
                     </p>

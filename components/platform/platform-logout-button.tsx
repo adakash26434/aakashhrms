@@ -35,7 +35,7 @@ export function PlatformLogoutButton() {
         )}
         <span className="truncate">{loading ? "Exiting Session..." : "Exit Control Plane"}</span>
       </div>
-      <span className="text-[10px] uppercase tracking-wider font-bold text-rose-400 bg-rose-950/40 px-1.5 py-0.5 rounded">
+      <span className="text-2xs uppercase tracking-wider font-bold text-rose-400 bg-rose-950/40 px-1.5 py-0.5 rounded">
         Sign Out
       </span>
     </button>

@@ -69,7 +69,7 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
             <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
               Primary Head Office / Central Branch
             </h4>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Customize the name, location, and contact information for your
               organization's primary operating office.
             </p>
@@ -163,7 +163,7 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
               Departments ({data.departments.length})
             </h4>
           </div>
-          <span className="text-[11px] text-gray-500">
+          <span className="text-2xs text-gray-500">
             You can add more departments anytime later
           </span>
         </div>
@@ -175,14 +175,14 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
               className="p-3 bg-white rounded-xl border border-gray-200 flex items-center justify-between gap-2 shadow-2xs hover:border-gray-300"
             >
               <div className="flex items-center gap-2.5">
-                <span className="px-2 py-1 text-[10px] font-bold bg-payroll-cream text-payroll-primary border border-payroll-light rounded-lg">
+                <span className="px-2 py-1 text-2xs font-bold bg-payroll-cream text-payroll-primary border border-payroll-light rounded-lg">
                   {dept.code}
                 </span>
                 <div>
                   <span className="text-xs font-bold text-gray-900 block">
                     {dept.name}
                   </span>
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-2xs text-gray-500">
                     {dept.description}
                   </span>
                 </div>
@@ -223,7 +223,7 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
             size="sm"
             onClick={handleAddDept}
             disabled={!newDeptName.trim()}
-            className="bg-payroll-primary hover:bg-[#256629] text-white text-xs h-8"
+            className="bg-payroll-primary hover:bg-brand-hover text-white text-xs h-8"
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
             Add
@@ -243,7 +243,7 @@ export function Step3OrgStructure({ data, onChange }: Step3Props) {
           {data.designations.map((d, i) => (
             <span
               key={i}
-              className="text-[11px] font-medium px-2.5 py-1 bg-gray-100/80 text-gray-700 rounded-lg border border-gray-200/80"
+              className="text-2xs font-medium px-2.5 py-1 bg-gray-100/80 text-gray-700 rounded-lg border border-gray-200/80"
             >
               {d.name}
             </span>

@@ -146,7 +146,7 @@ export default async function PlatformDashboardPage() {
             </h2>
             <p className="text-emerald-100/90 text-xs leading-relaxed">
               When you register and approve a company, the system provisions an isolated PostgreSQL database (
-              <code className="text-white bg-black/30 px-1.5 py-0.5 rounded border border-white/20 font-mono text-[11px]">
+              <code className="text-white bg-black/30 px-1.5 py-0.5 rounded border border-white/20 font-mono text-2xs">
                 pay_t_slug
               </code>
               ), executes Drizzle migrations, and seeds statutory rules.
@@ -195,7 +195,7 @@ export default async function PlatformDashboardPage() {
             <h3 className="text-sm font-semibold text-zinc-900">
               Recent Tenant Companies ({allCompanies.length})
             </h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
+            <p className="text-2xs text-zinc-500 mt-0.5">
               Live sync from platform control database.
             </p>
           </div>
@@ -231,7 +231,7 @@ export default async function PlatformDashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-zinc-200 bg-transparent text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <tr className="border-b border-zinc-200 bg-transparent text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                   <th className="px-4 py-3">Company Code</th>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Database Identifier</th>
@@ -254,7 +254,7 @@ export default async function PlatformDashboardPage() {
                       <td className="px-4 py-3.5 font-medium text-zinc-900">
                         {comp.displayName || comp.legalName}
                       </td>
-                      <td className="px-4 py-3.5 font-mono text-[11px] text-zinc-500">
+                      <td className="px-4 py-3.5 font-mono text-2xs text-zinc-500">
                         {dbRecord ? dbRecord.dbName : `pay_t_${comp.slug}`}
                       </td>
                       <td className="px-4 py-3.5">

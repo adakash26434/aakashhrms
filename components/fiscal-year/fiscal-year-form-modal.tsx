@@ -358,7 +358,7 @@ export function FiscalYearFormModal({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-zinc-900">Active</p>
-                  <p className="text-[11px] text-zinc-500">Current operating cycle</p>
+                  <p className="text-2xs text-zinc-500">Current operating cycle</p>
                 </div>
                 {form.status === "Active" && (
                   <span className="w-2.5 h-2.5 rounded-full bg-payroll-primary shrink-0" />
@@ -378,7 +378,7 @@ export function FiscalYearFormModal({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-zinc-900">Inactive</p>
-                  <p className="text-[11px] text-zinc-500">Archived or upcoming</p>
+                  <p className="text-2xs text-zinc-500">Archived or upcoming</p>
                 </div>
                 {form.status === "Inactive" && (
                   <span className="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0" />

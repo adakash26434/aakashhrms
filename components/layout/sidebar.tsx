@@ -111,7 +111,7 @@ export function Sidebar({
                 <div className="text-sm font-semibold tracking-tight leading-tight text-zinc-900">
                   AakashHRMS
                 </div>
-                <div className="text-[10px] text-zinc-500 font-medium truncate">
+                <div className="text-2xs text-zinc-500 font-medium truncate">
                   HR & Payroll Nepal
                 </div>
               </div>
@@ -146,11 +146,11 @@ export function Sidebar({
       <div className={cn("px-3 pt-3 pb-2 transition-all duration-200", isCollapsed && "px-2")}>
         {isExpanded && (
           <div className="mb-1.5 flex items-center justify-between px-1">
-            <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+            <p className="whitespace-nowrap text-3xs font-semibold uppercase tracking-[0.14em] text-zinc-400">
               Active Company
             </p>
             {isImpersonating && (
-              <span className="text-[9px] font-semibold text-amber-800 uppercase tracking-tight bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+              <span className="text-3xs font-semibold text-amber-800 uppercase tracking-tight bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
                 Super Admin
               </span>
             )}
@@ -177,7 +177,7 @@ export function Sidebar({
                 <div className="text-xs font-semibold text-zinc-900 truncate max-w-40">
                   {companyName}
                 </div>
-                <div className="text-[10px] text-zinc-500 truncate max-w-40 font-mono">
+                <div className="text-2xs text-zinc-500 truncate max-w-40 font-mono">
                   {companyCode} · {branchName}
                 </div>
               </div>
@@ -217,7 +217,7 @@ export function Sidebar({
                   {group.href ? (
                     <div
                       className={cn(
-                        "flex w-full items-center justify-between px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-all duration-200 rounded-md",
+                        "flex w-full items-center justify-between px-2.5 py-1 text-2xs font-semibold uppercase tracking-[0.12em] transition-all duration-200 rounded-md",
                         pathname === group.href
                           ? "bg-zinc-100 text-zinc-950 font-semibold"
                           : hasActiveChild
@@ -256,7 +256,7 @@ export function Sidebar({
                       type="button"
                       onClick={(e) => toggleSection(group.label, e)}
                       className={cn(
-                        "flex w-full items-center justify-between px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-all duration-200 rounded-md cursor-pointer select-none",
+                        "flex w-full items-center justify-between px-2.5 py-1 text-2xs font-semibold uppercase tracking-[0.12em] transition-all duration-200 rounded-md cursor-pointer select-none",
                         hasActiveChild
                           ? "text-zinc-900 hover:text-black hover:bg-zinc-50 font-semibold"
                           : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50",
@@ -315,7 +315,7 @@ export function Sidebar({
                             {item.badge !== undefined && (
                               <span
                                 className={cn(
-                                  "ml-1.5 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium font-mono transition-colors",
+                                  "ml-1.5 shrink-0 rounded-md px-1.5 py-0.5 text-2xs font-medium font-mono transition-colors",
                                   isActive
                                     ? "bg-white/20 text-white border border-white/20"
                                     : "bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200/60",

@@ -37,7 +37,7 @@ export function LoanRepaymentTable({ rows, loading }: LoanRepaymentTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
           <tr>
             <th className="px-4 py-3 text-center w-12">SN</th>
             <th className="px-4 py-3 min-w-36">Employee</th>
@@ -55,7 +55,7 @@ export function LoanRepaymentTable({ rows, loading }: LoanRepaymentTableProps) {
               <td className="px-4 py-3.5 text-center font-medium text-zinc-400">{idx + 1}</td>
               <td className="px-4 py-3.5">
                 <div className="font-medium text-zinc-900">{row.employeeName}</div>
-                <div className="text-[11px] font-mono text-zinc-400">{row.employeeCode}</div>
+                <div className="text-2xs font-mono text-zinc-400">{row.employeeCode}</div>
               </td>
               <td className="px-4 py-3.5 text-zinc-600">{row.departmentName}</td>
               <td className="px-4 py-3.5 font-medium text-zinc-800">{row.loanTypeName}</td>
@@ -76,7 +76,7 @@ export function LoanRepaymentTable({ rows, loading }: LoanRepaymentTableProps) {
               </td>
               <td className="px-4 py-3.5 text-zinc-600">
                 {row.payrollRunLabel ? (
-                  <span className="rounded border border-zinc-200/70 bg-zinc-50 px-2 py-0.5 font-mono text-[11px] font-medium text-zinc-700">
+                  <span className="rounded border border-zinc-200/70 bg-zinc-50 px-2 py-0.5 font-mono text-2xs font-medium text-zinc-700">
                     {row.payrollRunLabel}
                   </span>
                 ) : (

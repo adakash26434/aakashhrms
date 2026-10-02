@@ -144,7 +144,7 @@ export default function SuperAdminLoginPage() {
         </Card>
 
         {/* Footer info */}
-        <p className="text-center text-[11px] text-gray-500 font-medium">
+        <p className="text-center text-2xs text-gray-500 font-medium">
           Protected Control Plane · AakashHRMS SaaS Multi-Tenant Engine
         </p>
       </div>

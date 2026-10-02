@@ -55,7 +55,7 @@ export function EmployeeLeaveBalanceDetailDrawer({
               <h3 className="text-base font-bold text-payroll-navy leading-tight truncate">
                 {summary.employeeName}
               </h3>
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/70">
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-700 border border-emerald-200/70">
                 Active
               </span>
             </div>
@@ -199,11 +199,11 @@ export function EmployeeLeaveBalanceDetailDrawer({
               <h4 className="text-xs font-bold uppercase tracking-wider text-payroll-navy">
                 Policy Ledger Breakdown
               </h4>
-              <span className="rounded-full bg-payroll-primary/10 px-2 py-0.5 text-[10px] font-semibold text-payroll-primary">
+              <span className="rounded-full bg-payroll-primary/10 px-2 py-0.5 text-2xs font-semibold text-payroll-primary">
                 {summary.items.length} categories
               </span>
             </div>
-            <span className="text-[11px] text-gray-500 font-medium">
+            <span className="text-2xs text-gray-500 font-medium">
               Nepal Labour Act 2074 Rules Applied
             </span>
           </div>
@@ -211,8 +211,8 @@ export function EmployeeLeaveBalanceDetailDrawer({
           {/* Table Container with guaranteed horizontal scroll & min-width */}
           <div className="overflow-x-auto">
             <table className="w-full min-w-165 text-left text-xs border-collapse">
-              <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-                <tr className="border-b border-zinc-300 bg-zinc-50 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+                <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
                   <th className="px-4 py-3 min-w-50">Leave Category</th>
                   <th className="px-3 py-3 text-center w-24">Type</th>
                   <th className="px-3 py-3 text-right w-20">Allotted</th>
@@ -243,7 +243,7 @@ export function EmployeeLeaveBalanceDetailDrawer({
                             {item.leaveTypeName}
                           </div>
                           <div className="mt-1 flex items-center gap-2">
-                            <span className="rounded border border-zinc-200/70 bg-zinc-50 px-1.5 py-0.5 text-[9px] font-mono text-zinc-600">
+                            <span className="rounded border border-zinc-200/70 bg-zinc-50 px-1.5 py-0.5 text-3xs font-mono text-zinc-600">
                               {item.leaveTypeCode}
                             </span>
                             {allotted > 0 ? (
@@ -263,12 +263,12 @@ export function EmployeeLeaveBalanceDetailDrawer({
                                     style={{ width: `${percentUsed}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] text-zinc-400 font-mono">
+                                <span className="text-2xs text-zinc-400 font-mono">
                                   {percentUsed}%
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[10px] text-zinc-400">On-demand</span>
+                              <span className="text-2xs text-zinc-400">On-demand</span>
                             )}
                           </div>
                         </div>
@@ -277,11 +277,11 @@ export function EmployeeLeaveBalanceDetailDrawer({
                       {/* Statutory / Custom Badge */}
                       <td className="px-3 py-3.5 text-center">
                         {item.isStatutory ? (
-                          <span className="inline-flex items-center rounded-md bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800 border border-emerald-200/50">
+                          <span className="inline-flex items-center rounded-md bg-emerald-50/70 px-2 py-0.5 text-2xs font-medium text-emerald-800 border border-emerald-200/50">
                             Statutory
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-md bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-600 border border-zinc-200">
+                          <span className="inline-flex items-center rounded-md bg-zinc-50 px-2 py-0.5 text-2xs font-medium text-zinc-600 border border-zinc-200">
                             Custom
                           </span>
                         )}
@@ -312,12 +312,12 @@ export function EmployeeLeaveBalanceDetailDrawer({
                       {/* Encashable */}
                       <td className="px-4 py-3.5 text-center">
                         {item.isEncashable ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800 border border-emerald-200/50">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50/70 px-2 py-0.5 text-2xs font-medium text-emerald-800 border border-emerald-200/50">
                             <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                             Encashable
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+                          <span className="inline-flex items-center gap-1 text-2xs text-zinc-400">
                             <XCircle className="h-3 w-3 text-zinc-300" />
                             Lapses
                           </span>
@@ -337,7 +337,7 @@ export function EmployeeLeaveBalanceDetailDrawer({
             <Info className="h-4 w-4 text-payroll-primary shrink-0" />
             <span>Nepal Labour Act 2074 Entitlement & Encashment Rules</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-gray-600 text-[11px] leading-relaxed">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-gray-600 text-2xs leading-relaxed">
             <div className="rounded-lg bg-white p-2.5 border border-payroll-light/60">
               <strong className="text-payroll-navy font-semibold">Home Leave (घर बिदा):</strong>
               <p className="mt-0.5">

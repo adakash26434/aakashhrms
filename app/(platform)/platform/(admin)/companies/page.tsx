@@ -208,7 +208,7 @@ export default function PlatformCompaniesPage() {
                     {reconcileReport.totalTenantStorageFormatted}
                   </Badge>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className="text-2xs text-gray-500 mt-0.5">
                   {reconcileReport.hasDesync
                     ? "⚠️ Database desynchronization detected between PostgreSQL server and Control Plane."
                     : "✓ All registered tenant databases are 100% synchronized with the PostgreSQL cluster."}
@@ -253,7 +253,7 @@ export default function PlatformCompaniesPage() {
                     <span className="font-bold text-payroll-navy block">
                       {orphan.displayName} ({orphan.companyCode})
                     </span>
-                    <p className="text-[11px] text-rose-600 mt-0.5">
+                    <p className="text-2xs text-rose-600 mt-0.5">
                       Database <code className="font-mono font-bold">{orphan.dbName}</code> is missing from PostgreSQL server (likely dropped externally).
                     </p>
                   </div>
@@ -296,7 +296,7 @@ export default function PlatformCompaniesPage() {
                   <span className="font-bold text-payroll-navy block">
                     Unlinked Database: <code className="font-mono text-purple-700 font-bold">{unlinked.dbName}</code>
                   </span>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-2xs text-gray-500 mt-0.5">
                     Storage: {unlinked.sizeFormatted} (Exists in PostgreSQL but has no registered platform company).
                   </p>
                 </div>
@@ -411,7 +411,7 @@ export default function PlatformCompaniesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-zinc-200 bg-transparent text-zinc-500 font-semibold uppercase tracking-wider text-[11px]">
+                <tr className="border-b border-zinc-200 bg-transparent text-zinc-500 font-semibold uppercase tracking-wider text-2xs">
                   <th className="px-4 py-3">Company Details</th>
                   <th className="px-4 py-3">Company Code</th>
                   <th className="px-4 py-3">Database Identifier</th>
@@ -424,8 +424,8 @@ export default function PlatformCompaniesPage() {
                   <tr key={company.id} className="border-b border-zinc-100 hover:bg-zinc-50/60 transition-colors">
                     <td className="px-4 py-4">
                       <div className="font-medium text-zinc-900 text-xs">{company.displayName}</div>
-                      <div className="text-[11px] text-zinc-500">{company.legalName}</div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5 font-mono">{company.contactEmail}</div>
+                      <div className="text-2xs text-zinc-500">{company.legalName}</div>
+                      <div className="text-2xs text-zinc-400 mt-0.5 font-mono">{company.contactEmail}</div>
                     </td>
 
                     <td className="px-4 py-4">
@@ -436,7 +436,7 @@ export default function PlatformCompaniesPage() {
 
                     <td className="px-4 py-4">
                       <div className="text-xs font-mono font-medium text-zinc-800">pay_t_{company.slug}</div>
-                      <div className="text-[10px] text-zinc-400 font-mono">Slug: {company.slug}</div>
+                      <div className="text-2xs text-zinc-400 font-mono">Slug: {company.slug}</div>
                     </td>
 
                     <td className="px-4 py-4">

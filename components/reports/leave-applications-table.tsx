@@ -66,7 +66,7 @@ export function LeaveApplicationsTable({ rows, loading }: LeaveApplicationsTable
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
           <tr>
             <th className="px-4 py-3 text-center w-12">SN</th>
             <th className="px-4 py-3 min-w-36">Employee</th>
@@ -86,7 +86,7 @@ export function LeaveApplicationsTable({ rows, loading }: LeaveApplicationsTable
               <td className="px-4 py-3.5 text-center font-medium text-zinc-400">{idx + 1}</td>
               <td className="px-4 py-3.5">
                 <div className="font-medium text-zinc-900">{row.employeeName}</div>
-                <div className="text-[11px] font-mono text-zinc-400">{row.employeeCode}</div>
+                <div className="text-2xs font-mono text-zinc-400">{row.employeeCode}</div>
               </td>
               <td className="px-4 py-3.5 text-zinc-600">{row.departmentName}</td>
               <td className="px-4 py-3.5 font-medium text-zinc-800">{row.leaveTypeName}</td>
@@ -95,7 +95,7 @@ export function LeaveApplicationsTable({ rows, loading }: LeaveApplicationsTable
                 <div className="font-mono text-zinc-700">
                   {row.effectiveFrom} → {row.effectiveTo}
                 </div>
-                <div className="text-[10px] text-zinc-400">{row.duration}</div>
+                <div className="text-2xs text-zinc-400">{row.duration}</div>
               </td>
               <td className="px-4 py-3.5 text-center font-medium text-zinc-900 font-mono">
                 {row.noOfDays}

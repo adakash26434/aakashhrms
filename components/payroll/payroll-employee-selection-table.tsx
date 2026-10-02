@@ -90,7 +90,7 @@ export function PayrollEmployeeSelectionTable({
             <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-900">
               Employee Selection Table
             </h4>
-            <p className="text-[11px] text-zinc-500">
+            <p className="text-2xs text-zinc-500">
               Confirm individual staff and verify bank & calculation readiness.
             </p>
           </div>
@@ -127,7 +127,7 @@ export function PayrollEmployeeSelectionTable({
           )}
 
           {/* View Filter Toggle (All vs Selected) */}
-          <div className="inline-flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50/50 text-[11px] font-medium">
+          <div className="inline-flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50/50 text-2xs font-medium">
             <button
               type="button"
               onClick={() => setViewFilter("all")}
@@ -159,7 +159,7 @@ export function PayrollEmployeeSelectionTable({
       {/* Table with Sticky Header */}
       <div className="max-h-80 overflow-y-auto overflow-x-auto">
         <table className="w-full border-collapse text-left text-xs">
-          <thead className="sticky top-0 z-10 border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
+          <thead className="sticky top-0 z-10 border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
             <tr>
               <th className="w-10 px-4 py-3 text-center">
                 <input
@@ -222,7 +222,7 @@ export function PayrollEmployeeSelectionTable({
                         <span className="font-medium text-zinc-900 truncate">
                           {emp.name}
                         </span>
-                        <span className="text-[10px] text-zinc-400 font-mono">
+                        <span className="text-2xs text-zinc-400 font-mono">
                           {emp.employeeCode} · {branchName}
                         </span>
                       </div>
@@ -240,14 +240,14 @@ export function PayrollEmployeeSelectionTable({
 
                     {/* Category */}
                     <td className="px-4 py-3.5">
-                      <span className="inline-block px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-[10px] font-medium text-zinc-700">
+                      <span className="inline-block px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-2xs font-medium text-zinc-700">
                         {emp.category || "Staff"}
                       </span>
                     </td>
 
                     {/* Payroll Readiness */}
                     <td className="px-4 py-3.5 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50/70 border border-emerald-200/50 text-[10px] font-medium text-emerald-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50/70 border border-emerald-200/50 text-2xs font-medium text-emerald-800">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                         Ready
                       </span>
@@ -256,12 +256,12 @@ export function PayrollEmployeeSelectionTable({
                     {/* Bank Status */}
                     <td className="px-4 py-3.5 text-right">
                       {hasBank ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50/70 border border-emerald-200/50 text-[10px] font-medium text-emerald-800">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50/70 border border-emerald-200/50 text-2xs font-medium text-emerald-800">
                           <CreditCard className="h-3 w-3" />
                           Bank OK
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50/70 border border-rose-200/50 text-[10px] font-medium text-rose-800">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50/70 border border-rose-200/50 text-2xs font-medium text-rose-800">
                           <AlertCircle className="h-3 w-3" />
                           No Bank
                         </span>
@@ -276,7 +276,7 @@ export function PayrollEmployeeSelectionTable({
       </div>
 
       {/* Table Footer Summary */}
-      <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-[11px] text-zinc-500 font-medium">
+      <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-2xs text-zinc-500 font-medium">
         <span>
           Showing <strong className="text-zinc-700">{filteredEmployees.length}</strong> of <strong className="text-zinc-700">{employees.length}</strong> employees in scope
         </span>

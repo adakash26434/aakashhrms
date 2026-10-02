@@ -196,7 +196,7 @@ export function OtRulesClient({
               (2074)**, overtime is calculated globally for all employees at
               **1.5 times** the basic hourly rate:
             </p>
-            <div className="mt-2 pl-3 border-l-2 border-green-300 font-mono text-[12px] text-green-800 space-y-0.5">
+            <div className="mt-2 pl-3 border-l-2 border-green-300 font-mono text-xs text-green-800 space-y-0.5">
               <p>
                 Hourly Rate = Basic Monthly Salary / (30 days &times; 8 hours)
                 = Basic Salary / 240
@@ -206,7 +206,7 @@ export function OtRulesClient({
                 1.5)
               </p>
             </div>
-            <p className="text-[11px] text-green-600 mt-2 italic">
+            <p className="text-2xs text-green-600 mt-2 italic">
               Custom overtime rules are disabled as the statutory calculation
               is enforced globally.
             </p>

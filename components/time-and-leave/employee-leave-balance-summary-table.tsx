@@ -57,8 +57,8 @@ export function EmployeeLeaveBalanceSummaryTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
-        <thead className="border-b border-zinc-300 bg-zinc-200 text-[11px] font-semibold uppercase tracking-wider text-zinc-900">
-          <tr className="border-b border-zinc-300 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <thead className="border-b border-zinc-300 bg-zinc-200 text-2xs font-semibold uppercase tracking-wider text-zinc-900">
+          <tr className="border-b border-zinc-300 bg-zinc-50 text-2xs font-semibold uppercase tracking-wider text-zinc-500">
             <th className="px-4 py-3 text-center w-12">SN</th>
             <th className="px-4 py-3 w-28">Emp Code</th>
             <th className="px-4 py-3 min-w-44">Employee Name</th>
@@ -91,12 +91,12 @@ export function EmployeeLeaveBalanceSummaryTable({
                 <td className="px-4 py-4 text-center font-medium text-zinc-400">
                   {idx + 1}
                 </td>
-                <td className="px-4 py-4 font-mono text-[11px] text-zinc-500">
+                <td className="px-4 py-4 font-mono text-2xs text-zinc-500">
                   {s.employeeCode}
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-emerald-200/50 bg-emerald-50/70 font-semibold text-emerald-800 text-[10px]">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-emerald-200/50 bg-emerald-50/70 font-semibold text-emerald-800 text-2xs">
                       {initials}
                     </div>
                     <span className="font-medium text-zinc-900">
@@ -124,12 +124,12 @@ export function EmployeeLeaveBalanceSummaryTable({
                 </td>
                 <td className="px-4 py-4 text-center">
                   {s.encashableCount > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/50 bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/50 bg-emerald-50/70 px-2 py-0.5 text-2xs font-medium text-emerald-800">
                       <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                       {s.encashableCount} {s.encashableCount === 1 ? "policy" : "policies"}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-zinc-400">None</span>
+                    <span className="text-2xs text-zinc-400">None</span>
                   )}
                 </td>
                 <td className="px-4 py-4 text-center print:hidden">

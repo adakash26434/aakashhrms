@@ -348,7 +348,7 @@ export function FiscalYearClient({ initialData, embedded = false }: FiscalYearCl
             <span className="text-slate-400">Active cycle:</span>
             <span className="font-semibold text-emerald-900">{activeFY?.label ?? "None active"}</span>
             {activeFY && (
-              <span className="text-slate-500 font-mono text-[11px]">
+              <span className="text-slate-500 font-mono text-2xs">
                 ({activeFY.startDateBS} – {activeFY.endDateBS})
               </span>
             )}

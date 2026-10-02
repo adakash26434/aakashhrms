@@ -146,7 +146,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
               <label className="text-xs font-semibold text-gray-700">
                 Company Admin Contact Email <span className="text-red-500">*</span>
               </label>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
+              <span className="inline-flex items-center gap-1 text-2xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
                 <Lock className="w-2.5 h-2.5" /> Super Admin Managed
               </span>
             </div>
@@ -162,7 +162,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                 className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-gray-200 bg-gray-100/80 text-gray-600 font-medium cursor-not-allowed select-none"
               />
             </div>
-            <p className="text-[11px] text-gray-400">
+            <p className="text-2xs text-gray-400">
               Provisioned by Super Admin. Editable only from the Super Admin Control Plane.
             </p>
           </div>
@@ -210,7 +210,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
               Organization Industry Classification (संस्थाको प्रकृति / क्षेत्र)
             </h4>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold shadow-2xs">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-2xs font-bold shadow-2xs">
             <Lock className="h-3 w-3 text-amber-600 shrink-0" />
             <span>Locked by Super Admin (सुपर एडमिनद्वारा निर्धारित)</span>
           </span>
@@ -234,7 +234,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                       <p className="text-sm font-bold text-payroll-navy">
                         {selectedSector.label}
                       </p>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-payroll-cream border border-payroll-light text-payroll-primary font-bold">
+                      <span className="text-2xs px-2 py-0.5 rounded-full bg-payroll-cream border border-payroll-light text-payroll-primary font-bold">
                         {selectedSector.shortLabel}
                       </span>
                     </div>
@@ -245,7 +245,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 text-2xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                     <CheckCircle2 className="h-3 w-3" />
                     <span>Active Classification</span>
                   </span>
@@ -254,13 +254,13 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
 
               {/* Sector Description */}
               <div className="space-y-1.5 px-1">
-                <p className="text-[11px] text-gray-600 leading-relaxed">
+                <p className="text-2xs text-gray-600 leading-relaxed">
                   {selectedSector.description}
                 </p>
               </div>
 
               {/* Super Admin Notice */}
-              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-2xs text-slate-600">
                 <ShieldCheck className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
                 <p>
                   This organization classification was established by the platform Super Administrator during company registration. To maintain enterprise consistency and statutory compliance, it cannot be changed from the tenant console. Contact your Super Admin if an industry sector reclassification is required.
@@ -280,7 +280,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
               Active Bikram Sambat (BS) Fiscal Year
             </h4>
           </div>
-          <span className="inline-flex items-center gap-1 text-[11px] text-payroll-primary font-semibold">
+          <span className="inline-flex items-center gap-1 text-2xs text-payroll-primary font-semibold">
             <Sparkles className="h-3 w-3" />
             <span>Auto-Calculated</span>
           </span>
@@ -297,7 +297,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                 onClick={() => handleSelectFiscalYear(preset)}
                 className={`p-3.5 rounded-xl border text-left transition-all relative ${
                   isSelected
-                    ? "border-payroll-primary bg-[#f0f7ef] shadow-sm ring-1 ring-payroll-primary"
+                    ? "border-payroll-primary bg-brand-50 shadow-sm ring-1 ring-payroll-primary"
                     : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/60"
                 }`}
               >
@@ -311,7 +311,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                 </div>
                 {preset.tag && (
                   <span
-                    className={`inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    className={`inline-block mt-1 text-2xs font-bold px-1.5 py-0.5 rounded ${
                       preset.isCurrent
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-gray-100 text-gray-600"
@@ -320,7 +320,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
                     {preset.tag}
                   </span>
                 )}
-                <p className="text-[11px] text-gray-500 mt-2 font-mono">
+                <p className="text-2xs text-gray-500 mt-2 font-mono">
                   {preset.startDateBS} ~ {preset.endDateBS}
                 </p>
               </button>
@@ -335,7 +335,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
               <span className="text-sm font-bold text-gray-900">
                 {data.fiscalYearLabel}
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-payroll-primary text-white rounded-full">
+              <span className="px-2 py-0.5 text-2xs font-bold bg-payroll-primary text-white rounded-full">
                 Active Cycle
               </span>
             </div>
@@ -345,7 +345,7 @@ export function Step2CompanyProfile({ data, onChange }: Step2Props) {
               <strong className="text-gray-900">{data.endDateBS}</strong>{" "}
               (Shrawan to Asar)
             </p>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-2xs text-gray-500">
               Gregorian equivalent:{" "}
               <span className="font-medium text-gray-700">
                 {formatIsoForDisplay(data.startDateAD)} to{" "}

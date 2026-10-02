@@ -83,7 +83,7 @@ export function AttendanceDetailPanel({ open, record, onClose }: AttendanceDetai
                   <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
                   <span>Statutory Overtime Warning</span>
                 </div>
-                <p className="text-[11px] text-rose-700 leading-normal">
+                <p className="text-2xs text-rose-700 leading-normal">
                   Total OT hours for this day ({Number(record.otHoursOfficeDay) + Number(record.otHoursOffDay)} hrs) exceeds the legal limit of 4 hours/day under Nepal&apos;s Labour Act.
                 </p>
               </div>

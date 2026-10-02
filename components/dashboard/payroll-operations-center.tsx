@@ -39,13 +39,13 @@ function StepCircle({
   }
   if (status === "in-review") {
     return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-payroll-primary text-white font-medium text-[11px] ring-2 ring-payroll-primary-light">
+      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-payroll-primary text-white font-medium text-2xs ring-2 ring-payroll-primary-light">
         <span>{stepNumber}</span>
       </div>
     );
   }
   return (
-    <div className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-400 font-medium text-[11px]">
+    <div className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-400 font-medium text-2xs">
       <span>{stepNumber}</span>
     </div>
   );
@@ -105,7 +105,7 @@ export function PayrollOperationsCenter({
               <h3 className="text-xs sm:text-sm font-semibold text-zinc-900 capitalize">
                 {cycleName}
               </h3>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-2xs text-zinc-500">
                 Monthly cycle · {run.employeesIncluded.toLocaleString()} employees
               </p>
             </div>
@@ -123,14 +123,14 @@ export function PayrollOperationsCenter({
         {/* 3. Main Financial Metric: Net Payout vs Payment Date */}
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end rounded-md bg-zinc-50/70 p-3.5 border border-zinc-200/70">
           <div>
-            <p className="text-[11px] font-medium text-zinc-500">Estimated net payout</p>
+            <p className="text-2xs font-medium text-zinc-500">Estimated net payout</p>
             <div className="mt-0.5 flex items-baseline gap-1.5">
               <span className="text-xs font-medium text-zinc-400 font-mono">NPR</span>
               <span className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 font-mono">
                 {formatNPR(run.netPayable).replace(/^NPR\s*/, "")}
               </span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-2xs text-zinc-500">
               <span>Gross: {formatNPR(run.grossPayroll)}</span>
               <span>·</span>
               <span>Deductions: {formatNPR(run.totalDeductions)}</span>
@@ -138,11 +138,11 @@ export function PayrollOperationsCenter({
           </div>
 
           <div className="sm:text-right">
-            <p className="text-[11px] font-medium text-zinc-500">Payment date</p>
+            <p className="text-2xs font-medium text-zinc-500">Payment date</p>
             <p className="mt-0.5 text-xs sm:text-sm font-semibold text-zinc-900 font-mono">
               {run.dateRange ? run.dateRange.split("–")[1]?.trim() || "30 Sep, 2026" : "End of month"}
             </p>
-            <p className="mt-0.5 text-[10px] text-zinc-400">
+            <p className="mt-0.5 text-2xs text-zinc-400">
               {run.employeesExcluded} excluded · {run.exceptions} exceptions
             </p>
           </div>
@@ -156,7 +156,7 @@ export function PayrollOperationsCenter({
                 key={d.label}
                 className="rounded-md border border-zinc-200/80 bg-white p-2 text-center shadow-2xs"
               >
-                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                <p className="text-2xs font-medium uppercase tracking-wider text-zinc-500">
                   {d.label}
                 </p>
                 <p className="mt-0.5 text-xs font-semibold text-zinc-900 font-mono">
@@ -183,7 +183,7 @@ export function PayrollOperationsCenter({
             {/* Step 1: Attendance */}
             <div className="relative z-10 flex flex-col items-center">
               <StepCircle status="complete" stepNumber={1} />
-              <span className="mt-1 text-[10px] sm:text-[11px] font-medium text-zinc-800 text-center">
+              <span className="mt-1 text-2xs sm:text-2xs font-medium text-zinc-800 text-center">
                 Attendance locked
               </span>
             </div>
@@ -191,7 +191,7 @@ export function PayrollOperationsCenter({
             {/* Step 2: Payroll calculated */}
             <div className="relative z-10 flex flex-col items-center">
               <StepCircle status="complete" stepNumber={2} />
-              <span className="mt-1 text-[10px] sm:text-[11px] font-medium text-zinc-800 text-center">
+              <span className="mt-1 text-2xs sm:text-2xs font-medium text-zinc-800 text-center">
                 Payroll calculated
               </span>
             </div>
@@ -204,7 +204,7 @@ export function PayrollOperationsCenter({
               />
               <span
                 className={cn(
-                  "mt-1 text-[10px] sm:text-[11px] text-center font-medium",
+                  "mt-1 text-2xs sm:text-2xs text-center font-medium",
                   isLocked ? "text-zinc-800" : "text-emerald-900 font-semibold",
                 )}
               >
@@ -218,7 +218,7 @@ export function PayrollOperationsCenter({
                 status={isLocked ? "complete" : "upcoming"}
                 stepNumber={4}
               />
-              <span className="mt-1 text-[10px] sm:text-[11px] font-medium text-zinc-400 text-center">
+              <span className="mt-1 text-2xs sm:text-2xs font-medium text-zinc-400 text-center">
                 Payment
               </span>
             </div>
@@ -247,11 +247,11 @@ export function PayrollOperationsCenter({
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-800" />
                 <span>Preflight Validation</span>
               </div>
-              <span className="text-[11px] font-medium text-zinc-600">
+              <span className="text-2xs font-medium text-zinc-600">
                 {exceptionCount > 0 ? `${exceptionCount} open items` : "Preflight clear"}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-600 mt-1">
+            <p className="text-2xs text-zinc-600 mt-1">
               {exceptionCount > 0
                 ? "Resolve exceptions before final approval."
                 : "All statutory TDS, PF & SSF calculated on active tax slabs."}

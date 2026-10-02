@@ -562,7 +562,7 @@ export default function RoleMatrixForm({
                         </h4>
                         <span
                           className={cn(
-                            "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                            "text-2xs font-semibold px-2 py-0.5 rounded-full border",
                             selectedCatPerms > 0
                               ? "bg-emerald-50 text-emerald-900 border-emerald-200"
                               : "bg-zinc-100 text-zinc-500 border-zinc-200",
@@ -571,7 +571,7 @@ export default function RoleMatrixForm({
                           {selectedCatPerms}/{totalCatPerms} Enabled ({catPercentage}%)
                         </span>
                       </div>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 truncate max-w-xl">
+                      <p className="text-2xs text-zinc-500 mt-0.5 truncate max-w-xl">
                         {category.description}
                       </p>
                     </div>
@@ -585,7 +585,7 @@ export default function RoleMatrixForm({
                           type="button"
                           onClick={() => toggleAllInCategory(category.id, !isFullySelected)}
                           className={cn(
-                            "text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-all cursor-pointer",
+                            "text-2xs font-semibold px-2.5 py-1 rounded-md border transition-all cursor-pointer",
                             isFullySelected
                               ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
                               : "bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100",
@@ -596,7 +596,7 @@ export default function RoleMatrixForm({
                         <button
                           type="button"
                           onClick={() => grantAllCategoryView(category.id)}
-                          className="text-[11px] font-semibold px-2 py-1 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition-colors cursor-pointer"
+                          className="text-2xs font-semibold px-2 py-1 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition-colors cursor-pointer"
                           title="Set entire domain to View Only"
                         >
                           View Only
@@ -641,11 +641,11 @@ export default function RoleMatrixForm({
                               <span className="text-xs font-semibold text-zinc-900">
                                 {mod.label}
                               </span>
-                              <span className="text-[10px] text-zinc-400 font-mono">
+                              <span className="text-2xs text-zinc-400 font-mono">
                                 ({modGrantedCount}/{modPermCount})
                               </span>
                             </div>
-                            <p className="text-[11px] text-zinc-500 leading-relaxed">
+                            <p className="text-2xs text-zinc-500 leading-relaxed">
                               {mod.description}
                             </p>
                           </div>
@@ -694,17 +694,17 @@ export default function RoleMatrixForm({
                                       ? clearAllInModule(mod.key, mod.allowedActions)
                                       : grantAllInModule(mod.key, mod.allowedActions)
                                   }
-                                  className="text-[10px] text-zinc-400 hover:text-emerald-900 font-medium underline underline-offset-2 cursor-pointer"
+                                  className="text-2xs text-zinc-400 hover:text-emerald-900 font-medium underline underline-offset-2 cursor-pointer"
                                 >
                                   {isModFull ? "Clear" : "All"}
                                 </button>
-                                <span className="text-zinc-300 text-[10px]">·</span>
+                                <span className="text-zinc-300 text-2xs">·</span>
                                 <button
                                   type="button"
                                   onClick={() =>
                                     grantViewOnlyInModule(mod.key, mod.allowedActions)
                                   }
-                                  className="text-[10px] text-zinc-400 hover:text-emerald-900 font-medium underline underline-offset-2 cursor-pointer"
+                                  className="text-2xs text-zinc-400 hover:text-emerald-900 font-medium underline underline-offset-2 cursor-pointer"
                                 >
                                   View
                                 </button>
@@ -742,7 +742,7 @@ export default function RoleMatrixForm({
                 <p className="text-xs font-semibold text-zinc-100 truncate">
                   Unsaved changes for &ldquo;{roleName}&rdquo;
                 </p>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-2xs text-zinc-400">
                   {addedCount > 0 && <span className="text-emerald-400 font-semibold">+{addedCount} granted </span>}
                   {removedCount > 0 && <span className="text-rose-400 font-semibold">-{removedCount} revoked </span>}
                   <span className="text-zinc-500">(Press Ctrl+S to save)</span>

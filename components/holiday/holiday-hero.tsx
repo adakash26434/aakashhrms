@@ -35,11 +35,11 @@ export function HolidayHero({ fiscalYears, selectedFYId, onChangeFY, onNew }: Ho
       ? "Locked — payslips have been generated"
       : "Active — editable",
     adornment: fy.isLocked ? (
-      <Badge variant="default" className="text-[10px]">
+      <Badge variant="default" className="text-2xs">
         Locked
       </Badge>
     ) : (
-      <Badge variant="success" className="text-[10px]">
+      <Badge variant="success" className="text-2xs">
         Active
       </Badge>
     ),

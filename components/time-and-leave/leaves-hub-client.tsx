@@ -107,7 +107,7 @@ export function LeavesHubClient({
                 {typeof t.count === "number" && (
                   <span
                     className={cn(
-                      "ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                      "ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums",
                       isActive
                         ? "bg-white/20 text-white"
                         : "bg-payroll-light/60 text-payroll-navy",

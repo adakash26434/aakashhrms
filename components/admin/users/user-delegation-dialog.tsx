@@ -162,7 +162,7 @@ export function UserDelegationDialog({
               ))}
             </select>
           </div>
-          <p className="mt-1 text-[11px] text-gray-500">
+          <p className="mt-1 text-2xs text-gray-500">
             The proxy user will temporarily inherit approval rights for leave, OT, and payroll actions.
           </p>
         </div>
@@ -182,7 +182,7 @@ export function UserDelegationDialog({
               className="w-full rounded-lg border border-payroll-border pl-9 pr-3 py-2 text-sm outline-none bg-white focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
             />
           </div>
-          <p className="mt-1 text-[11px] text-gray-500">
+          <p className="mt-1 text-2xs text-gray-500">
             On this date at 23:59, proxy delegation will automatically expire and revert back.
           </p>
         </div>

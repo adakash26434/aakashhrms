@@ -60,7 +60,7 @@ function NumberField({
           </span>
         )}
       </div>
-      {helper && <p className="text-[11px] text-slate-500">{helper}</p>}
+      {helper && <p className="text-2xs text-slate-500">{helper}</p>}
     </div>
   );
 }
@@ -78,7 +78,7 @@ export function StatutoryDeductionLimitsCard({
             <h3 className="text-sm font-semibold text-slate-900">
               Statutory deduction limits
             </h3>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-600">
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-2xs font-mono font-medium text-slate-600">
               Labour Act 2074
             </span>
           </div>
@@ -128,7 +128,7 @@ export function StatutoryDeductionLimitsCard({
               <span className="text-xs font-semibold text-slate-900">
                 Social Security Fund (SSF) redirection
               </span>
-              <span className="rounded bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 text-[10px] font-mono">
+              <span className="rounded bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.2 text-2xs font-mono">
                 SSF Act 2074
               </span>
             </div>

@@ -62,7 +62,7 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                       {slip.departmentName || "General"} · {slip.designationName || "Staff"}
                     </p>
                     {slip.payslipDate && (
-                      <p className="text-[10px] text-gray-400 mt-0.5 font-mono">
+                      <p className="text-2xs text-gray-400 mt-0.5 font-mono">
                         Disbursed: {slip.payslipDate}
                       </p>
                     )}
@@ -73,7 +73,7 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                   {/* Gross vs Deductions */}
                   <div className="hidden md:flex items-center gap-4 text-xs font-mono">
                     <div className="text-right">
-                      <span className="text-[10px] text-gray-400 uppercase font-bold block">
+                      <span className="text-2xs text-gray-400 uppercase font-bold block">
                         Gross
                       </span>
                       <span className="font-semibold text-gray-700">
@@ -81,7 +81,7 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-gray-400 uppercase font-bold block">
+                      <span className="text-2xs text-gray-400 uppercase font-bold block">
                         Deductions
                       </span>
                       <span className="font-semibold text-rose-600">
@@ -92,7 +92,7 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
 
                   {/* Net Payable */}
                   <div className="text-right min-w-[120px]">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">
+                    <span className="text-2xs text-gray-500 font-bold uppercase tracking-wider block">
                       Net Payable
                     </span>
                     <span className="text-base sm:text-lg font-extrabold text-payroll-navy font-mono">
@@ -105,7 +105,7 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                     <Badge
                       variant={isLocked ? "success" : "warning"}
                       size="sm"
-                      className="font-bold text-[10px]"
+                      className="font-bold text-2xs"
                     >
                       {slip.status || "CONFIRMED"}
                     </Badge>

@@ -513,7 +513,7 @@ export default function PayrollClient({
                   </span>
                   ?
                 </p>
-                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-[11px] text-red-700">
+                <div className="mt-2.5 rounded-lg bg-red-50 p-2.5 text-2xs text-red-700">
                   This will delete all generated payslips and fallback to the initial
                   un-generated state, allowing you to generate payslips again for this month.
                 </div>
