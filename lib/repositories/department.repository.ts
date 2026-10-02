@@ -5,7 +5,7 @@ import type { Department, DepartmentStatus } from '@/lib/types/department';
 import type { DepartmentWriteInput } from '@/lib/data/mock-departments';
 
 export async function countActive(): Promise<number> {
-  const result = await getDb().select({
+  const result = await (await getDb()).select({
     count: sql<number>`count(*)::int`
   }).from(departments).where(eq(departments.status, 'active'));
   return result[0]?.count ?? 0;
@@ -30,7 +30,7 @@ function mapRowToDepartment(row: DepartmentRow): Department {
 }
 
 export async function findAllDepartments(): Promise<Department[]> {
-  const db = getDb();
+  const db = (await getDb());
   const [deptRows, desigRows, empRows] = await Promise.all([
     db.select().from(departments),
     db.select({ departmentId: designations.departmentId, count: sql<number>`count(*)::int` })
@@ -60,7 +60,7 @@ export async function findAllDepartments(): Promise<Department[]> {
 }
 
 export async function findDepartmentById(id: string): Promise<Department | undefined> {
-  const db = getDb();
+  const db = (await getDb());
   const [deptRows, desigRows, empRows] = await Promise.all([
     db.select().from(departments).where(eq(departments.id, id)),
     db.select({ count: sql<number>`count(*)::int` })
@@ -89,7 +89,7 @@ export async function findDepartmentById(id: string): Promise<Department | undef
 }
 
 export async function createDepartment(data: DepartmentWriteInput): Promise<Department> {
-  const rows = await getDb().insert(departments).values({
+  const rows = await (await getDb()).insert(departments).values({
     code: data.code,
     name: data.name,
     branchId: data.branchId,
@@ -103,7 +103,7 @@ export async function createDepartment(data: DepartmentWriteInput): Promise<Depa
 }
 
 export async function updateDepartment(id: string, data: DepartmentWriteInput): Promise<Department> {
-  const rows = await getDb().update(departments)
+  const rows = await (await getDb()).update(departments)
     .set({
       code: data.code,
       name: data.name,
@@ -119,5 +119,5 @@ export async function updateDepartment(id: string, data: DepartmentWriteInput): 
 }
 
 export async function deleteDepartment(id: string): Promise<void> {
-  await getDb().delete(departments).where(eq(departments.id, id));
+  await (await getDb()).delete(departments).where(eq(departments.id, id));
 }

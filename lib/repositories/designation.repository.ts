@@ -20,7 +20,7 @@ function mapRowToDesignation(row: DesignationRow): Designation {
 }
 
 export async function findAllDesignations(): Promise<Designation[]> {
-  const db = getDb();
+  const db = (await getDb());
   const [desigRows, empRows] = await Promise.all([
     db.select().from(designations),
     db.select({ designationId: employees.designationId, count: sql<number>`count(*)::int` })
@@ -43,7 +43,7 @@ export async function findAllDesignations(): Promise<Designation[]> {
 }
 
 export async function findDesignationById(id: string): Promise<Designation | undefined> {
-  const db = getDb();
+  const db = (await getDb());
   const [desigRows, empRows] = await Promise.all([
     db.select().from(designations).where(eq(designations.id, id)),
     db.select({ count: sql<number>`count(*)::int` })
@@ -66,7 +66,7 @@ export async function findDesignationById(id: string): Promise<Designation | und
 }
 
 export async function createDesignation(data: DesignationWriteInput): Promise<Designation> {
-  const rows = await getDb().insert(designations).values({
+  const rows = await (await getDb()).insert(designations).values({
     name: data.name,
     departmentId: data.departmentId,
     description: data.description,
@@ -74,7 +74,7 @@ export async function createDesignation(data: DesignationWriteInput): Promise<De
     employeeCount: 0,
   }).returning();
 
-  await getDb().update(departments)
+  await (await getDb()).update(departments)
     .set({ designationCount: sql`${departments.designationCount} + 1` })
     .where(eq(departments.id, data.departmentId));
 
@@ -82,7 +82,7 @@ export async function createDesignation(data: DesignationWriteInput): Promise<De
 }
 
 export async function updateDesignation(id: string, data: DesignationWriteInput): Promise<Designation> {
-  const rows = await getDb().update(designations)
+  const rows = await (await getDb()).update(designations)
     .set({
       name: data.name,
       departmentId: data.departmentId,
@@ -99,9 +99,9 @@ export async function deleteDesignation(id: string): Promise<void> {
   const designation = await findDesignationById(id);
   
   if (designation) {
-    await getDb().delete(designations).where(eq(designations.id, id));
+    await (await getDb()).delete(designations).where(eq(designations.id, id));
     
-    await getDb().update(departments)
+    await (await getDb()).update(departments)
       .set({ designationCount: sql`${departments.designationCount} - 1` })
       .where(eq(departments.id, designation.departmentId));
   }

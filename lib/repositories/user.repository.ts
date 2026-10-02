@@ -9,16 +9,16 @@ export type UserRow = typeof users.$inferSelect;
 const delegatedUsers = alias(users, "delegated_users");
 
 export async function findAllUsers() {
-  return await getDb().select().from(users);
+  return await (await getDb()).select().from(users);
 }
 
 export async function findUserByEmail(email: string) {
-  const result = await getDb().select().from(users).where(eq(users.email, email.trim().toLowerCase()));
+  const result = await (await getDb()).select().from(users).where(eq(users.email, email.trim().toLowerCase()));
   return result.length > 0 ? result[0] : null;
 }
 
 export async function findUserByEmployeeId(employeeId: string) {
-  const result = await getDb().select().from(users).where(eq(users.employeeId, employeeId));
+  const result = await (await getDb()).select().from(users).where(eq(users.employeeId, employeeId));
   return result.length > 0 ? result[0] : null;
 }
 
@@ -52,7 +52,7 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: users.id,
       name: users.name,
@@ -127,7 +127,7 @@ export async function findAllUsersWithRoles(filter?: UserFilter): Promise<UserWi
  * Finds a single user with joined role, employee, delegation, and scoping details.
  */
 export async function findUserWithRoleById(id: string): Promise<UserWithRole | null> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: users.id,
       name: users.name,
@@ -205,7 +205,7 @@ export async function findUserWithRoleById(id: string): Promise<UserWithRole | n
  * Creates a new user record and assigns the given roleId in a single transaction.
  */
 export async function createUser(data: typeof users.$inferInsert, roleId?: string) {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     const newUsers = await tx.insert(users).values({
       ...data,
       email: data.email.trim().toLowerCase(),
@@ -227,7 +227,7 @@ export async function createUser(data: typeof users.$inferInsert, roleId?: strin
  * Updates user basic details, role, and scoping assignments.
  */
 export async function updateUser(id: string, data: Partial<typeof users.$inferInsert>, roleId?: string) {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     const updatePayload: Partial<typeof users.$inferInsert> = {
       ...data,
       updatedAt: new Date(),
@@ -262,7 +262,7 @@ export async function updateUserDelegation(
   delegatedToUserId: string | null,
   delegatedUntil: Date | null
 ) {
-  const result = await getDb().update(users)
+  const result = await (await getDb()).update(users)
     .set({
       delegatedToUserId,
       delegatedUntil,
@@ -277,7 +277,7 @@ export async function updateUserDelegation(
  * Retrieves audit logs for a specific user.
  */
 export async function findAuditLogsByUserId(userId: string, limit: number = 50): Promise<UserAuditLogEntry[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: auditLogs.id,
       userId: auditLogs.userId,
@@ -335,7 +335,7 @@ export async function updateUserPassword(
     updateData.mustChangePassword = mustChangePassword;
   }
 
-  const result = await getDb().update(users)
+  const result = await (await getDb()).update(users)
     .set(updateData)
     .where(eq(users.id, id))
     .returning();
@@ -346,7 +346,7 @@ export async function updateUserPassword(
  * Soft-deactivates a user.
  */
 export async function deactivateUser(id: string) {
-  const result = await getDb().update(users)
+  const result = await (await getDb()).update(users)
     .set({ isActive: false, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning();
@@ -357,7 +357,7 @@ export async function deactivateUser(id: string) {
  * Reactivates a user account.
  */
 export async function reactivateUser(id: string) {
-  const result = await getDb().update(users)
+  const result = await (await getDb()).update(users)
     .set({ isActive: true, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning();
@@ -368,14 +368,14 @@ export async function reactivateUser(id: string) {
  * Hard deletes a user (internal use only).
  */
 export async function deleteUser(id: string) {
-  await getDb().delete(users).where(eq(users.id, id));
+  await (await getDb()).delete(users).where(eq(users.id, id));
 }
 
 /**
  * Computes User KPIs for summary metrics.
  */
 export async function countUsersKPIs(): Promise<UserKPIs> {
-  const all = await getDb().select({
+  const all = await (await getDb()).select({
     id: users.id,
     isActive: users.isActive,
     employeeId: users.employeeId,
@@ -394,7 +394,7 @@ export async function countUsersKPIs(): Promise<UserKPIs> {
  * Returns employees who are not yet linked to any user account.
  */
 export async function getUnlinkedEmployees() {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: employees.id,
       employeeCode: employees.employeeCode,

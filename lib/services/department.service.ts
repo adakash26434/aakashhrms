@@ -87,7 +87,7 @@ import { eq } from "drizzle-orm";
  */
 export async function syncOrgStructure(): Promise<void> {
   try {
-    const db = getDb();
+    const db = (await getDb());
     const depts = await db.select().from(departmentsTable);
     const desigs = await db.select().from(designationsTable);
 

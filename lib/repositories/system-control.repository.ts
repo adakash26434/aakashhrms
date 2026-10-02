@@ -60,7 +60,7 @@ const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
 export async function findSettings(): Promise<SystemControlData> {
   let rows: Array<{ key: string; value: string; dataType: string; updatedAt: Date }> = [];
   try {
-    rows = await getDb().select().from(systemConfig);
+    rows = await (await getDb()).select().from(systemConfig);
   } catch (error) {
     console.warn('[SYSTEM_CONTROL_REPOSITORY] Failed to fetch system_config rows, falling back to defaults:', error);
     return DEFAULT_SYSTEM_CONTROL;
@@ -175,7 +175,7 @@ export async function updateSettings(data: SystemControlData): Promise<SystemCon
     { key: 'gradePolicy.promotionRule', value: JSON.stringify(policy.promotionRule), dataType: 'json' },
   ];
 
-  const db = getDb();
+  const db = (await getDb());
 
   // Purge removed legacy key from system_config if it exists in the database
   try {

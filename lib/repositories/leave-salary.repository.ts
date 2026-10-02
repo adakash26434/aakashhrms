@@ -55,7 +55,7 @@ export async function findAllLeaveSalaryRuns(filter?: {
   const creatorUser = alias(users, 'creatorUser');
   const creatorEmp = alias(employees, 'creatorEmp');
 
-  const rows = await getDb().select({
+  const rows = await (await getDb()).select({
     run: leaveSalaryRuns,
     approverEmail: approverUser.email,
     approverFullName: approverEmp.fullName,
@@ -94,7 +94,7 @@ export async function findAllLeaveSalaryRuns(filter?: {
 }
 
 export async function findLeaveSalaryRunById(id: string): Promise<LeaveSalaryRun | undefined> {
-  const rows = await getDb().select().from(leaveSalaryRuns).where(eq(leaveSalaryRuns.id, id));
+  const rows = await (await getDb()).select().from(leaveSalaryRuns).where(eq(leaveSalaryRuns.id, id));
   if (!rows.length) return undefined;
   return mapLeaveSalaryRun(rows[0]);
 }
@@ -104,7 +104,7 @@ export async function findDraftRunForEmployeeAndPeriod(
   leaveTypeId: string,
   paymentPeriod: string
 ): Promise<LeaveSalaryRun | undefined> {
-  const rows = await getDb().select()
+  const rows = await (await getDb()).select()
     .from(leaveSalaryRuns)
     .where(
       and(
@@ -120,7 +120,7 @@ export async function findDraftRunForEmployeeAndPeriod(
 }
 
 export async function findRunsByStatus(status: LeaveSalaryRunStatus): Promise<LeaveSalaryRun[]> {
-  const rows = await getDb().select()
+  const rows = await (await getDb()).select()
     .from(leaveSalaryRuns)
     .where(eq(leaveSalaryRuns.status, status))
     .orderBy(desc(leaveSalaryRuns.createdAt));
@@ -129,7 +129,7 @@ export async function findRunsByStatus(status: LeaveSalaryRunStatus): Promise<Le
 }
 
 export async function findRunsByEmployeeId(employeeId: string): Promise<LeaveSalaryRun[]> {
-  const rows = await getDb().select()
+  const rows = await (await getDb()).select()
     .from(leaveSalaryRuns)
     .where(eq(leaveSalaryRuns.employeeId, employeeId))
     .orderBy(desc(leaveSalaryRuns.createdAt));
@@ -138,7 +138,7 @@ export async function findRunsByEmployeeId(employeeId: string): Promise<LeaveSal
 }
 
 export async function findLeaveSalaryRunsByPeriod(period: string): Promise<LeaveSalaryRun[]> {
-  const rows = await getDb().select()
+  const rows = await (await getDb()).select()
     .from(leaveSalaryRuns)
     .where(eq(leaveSalaryRuns.paymentPeriod, period));
   return rows.map(mapLeaveSalaryRun);
@@ -149,7 +149,7 @@ export async function findLeaveSalaryRunByEmployeeAndPeriod(args: {
   employeeId: string;
   paymentPeriod: string;
 }): Promise<LeaveSalaryRun | undefined> {
-  const rows = await getDb().select()
+  const rows = await (await getDb()).select()
     .from(leaveSalaryRuns)
     .where(
       and(
@@ -167,7 +167,7 @@ export async function findLeaveSalaryRunByEmployeeLeaveTypeAndPeriod(args: {
   leaveTypeId: string;
   paymentPeriod: string;
 }): Promise<LeaveSalaryRun | undefined> {
-  const rows = await getDb().select()
+  const rows = await (await getDb()).select()
     .from(leaveSalaryRuns)
     .where(
       and(
@@ -187,7 +187,7 @@ export async function findLeaveSalaryRunByEmployeeLeaveTypeAndPeriod(args: {
 export async function createLeaveSalaryRun(
   data: Omit<LeaveSalaryRun, 'id' | 'createdAt' | 'updatedAt' | 'approvedBy'> & { approvedBy?: string | null }
 ): Promise<LeaveSalaryRun> {
-  const rows = await getDb().insert(leaveSalaryRuns).values({
+  const rows = await (await getDb()).insert(leaveSalaryRuns).values({
     payrollRunId: data.payrollRunId ?? null,
     employeeId: data.employeeId,
     leaveTypeId: data.leaveTypeId,
@@ -212,7 +212,7 @@ export async function updateLeaveSalaryRunStatus(
   approvedByUserId?: string,
   tx?: any
 ): Promise<LeaveSalaryRun> {
-  const client = tx || getDb();
+  const client = tx || (await getDb());
   const updateData: Record<string, unknown> = {
     status,
     updatedAt: new Date(),
@@ -241,7 +241,7 @@ export async function updateLeaveSalaryRunDraft(
     encashmentType: EncashmentType;
   }
 ): Promise<LeaveSalaryRun> {
-  const rows = await getDb().update(leaveSalaryRuns)
+  const rows = await (await getDb()).update(leaveSalaryRuns)
     .set({
       leaveDays: data.leaveDays,
       perDayRate: data.perDayRate,
@@ -258,5 +258,5 @@ export async function updateLeaveSalaryRunDraft(
 }
 
 export async function deleteLeaveSalaryRun(id: string): Promise<void> {
-  await getDb().delete(leaveSalaryRuns).where(eq(leaveSalaryRuns.id, id));
+  await (await getDb()).delete(leaveSalaryRuns).where(eq(leaveSalaryRuns.id, id));
 }

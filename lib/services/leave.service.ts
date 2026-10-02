@@ -76,7 +76,7 @@ export async function getLeaveApplications(filter: LeaveFilter) {
   const employeeMap = new Map(employees.map((e) => [e.id, e.fullName]));
 
   // Fetch all users to resolve reviewer names (users.id -> users.employeeId -> employees.id)
-  const userList = await getDb().select({
+  const userList = await (await getDb()).select({
     id: users.id,
     employeeId: users.employeeId,
     email: users.email,
@@ -117,7 +117,7 @@ export async function getLeaveApplicationById(id: string) {
   const employeeMap = new Map(employees.map((e) => [e.id, e.fullName]));
 
   // Fetch all users to resolve reviewer names (users.id -> users.employeeId -> employees.id)
-  const userList = await getDb().select({
+  const userList = await (await getDb()).select({
     id: users.id,
     employeeId: users.employeeId,
     email: users.email,

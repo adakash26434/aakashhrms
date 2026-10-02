@@ -13,7 +13,7 @@ import { findAllDesignations } from './designation.repository';
 import { findAllEmploymentTypes } from './employment-type.repository';
 
 export async function getCompanyWorkSchedule(): Promise<CompanyWorkSchedule> {
-  const db = getDb();
+  const db = (await getDb());
   const rows = await db.select().from(systemConfig);
   const configMap = new Map(rows.map((r) => [r.key, r.value]));
 
@@ -37,7 +37,7 @@ export async function getCompanyWorkSchedule(): Promise<CompanyWorkSchedule> {
 }
 
 export async function saveCompanyWorkSchedule(data: CompanyWorkSchedule): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   const entries: Array<{ key: string; value: string }> = [
     { key: 'workSchedule.workingDaysPerWeek', value: String(data.workingDaysPerWeek) },
     { key: 'workSchedule.weeklyOffDays', value: JSON.stringify(data.weeklyOffDays) },
@@ -71,7 +71,7 @@ export async function saveCompanyWorkSchedule(data: CompanyWorkSchedule): Promis
 }
 
 export async function getCompanyProfileSetup(): Promise<CompanyProfileSetupData> {
-  const db = getDb();
+  const db = (await getDb());
   const [rows, branchList] = await Promise.all([
     db.select().from(systemConfig),
     db.select().from(branches).limit(5),
@@ -99,7 +99,7 @@ export async function getCompanyProfileSetup(): Promise<CompanyProfileSetupData>
 }
 
 export async function saveCompanyProfileSetup(data: CompanyProfileSetupData): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   // Only Tier 2 fields are self-service editable by tenant
   const entries: Array<{ key: string; value: string }> = [
     { key: 'company_display_name', value: (data.displayName || data.legalName).trim() },

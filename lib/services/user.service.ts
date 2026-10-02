@@ -439,7 +439,7 @@ export async function createSecureUserAccount(
 
   // Auto-repair: ensure the canonical self-service role + grants exist
   if (!role) {
-    const ensured = await ensureEmployeeSelfServiceRole(getDb());
+    const ensured = await ensureEmployeeSelfServiceRole((await getDb()));
     if (ensured) {
       role = ensured;
     }

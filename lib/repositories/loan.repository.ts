@@ -77,7 +77,7 @@ function mapRepayment(row: typeof loanRepayments.$inferSelect): LoanRepayment {
 // ---------------------------------------------------------------------------
 
 export async function findAllLoanTypes(): Promise<LoanType[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(loanTypes)
     .orderBy(desc(loanTypes.createdAt));
@@ -85,7 +85,7 @@ export async function findAllLoanTypes(): Promise<LoanType[]> {
 }
 
 export async function findLoanTypeById(id: string): Promise<LoanType | null> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(loanTypes)
     .where(eq(loanTypes.id, id));
@@ -95,7 +95,7 @@ export async function findLoanTypeById(id: string): Promise<LoanType | null> {
 export async function createLoanType(
   data: Omit<LoanType, "id" | "createdAt" | "updatedAt">,
 ): Promise<LoanType> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .insert(loanTypes)
     .values({
       name: data.name,
@@ -119,7 +119,7 @@ export async function updateLoanType(
   if (data.interestRate !== undefined) updateVals.interestRate = data.interestRate.toString();
   if (data.isActive !== undefined) updateVals.isActive = data.isActive;
 
-  const rows = await getDb()
+  const rows = await (await getDb())
     .update(loanTypes)
     .set(updateVals)
     .where(eq(loanTypes.id, id))
@@ -128,7 +128,7 @@ export async function updateLoanType(
 }
 
 export async function deleteLoanType(id: string): Promise<boolean> {
-  const res = await getDb()
+  const res = await (await getDb())
     .delete(loanTypes)
     .where(eq(loanTypes.id, id))
     .returning({ id: loanTypes.id });
@@ -140,7 +140,7 @@ export async function deleteLoanType(id: string): Promise<boolean> {
 // ---------------------------------------------------------------------------
 
 export async function findAllLoans(): Promise<Loan[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       loan: loans,
       employee: {
@@ -167,7 +167,7 @@ export async function findAllLoans(): Promise<Loan[]> {
 }
 
 export async function findLoanById(id: string): Promise<Loan | null> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       loan: loans,
       employee: {
@@ -194,7 +194,7 @@ export async function findLoanById(id: string): Promise<Loan | null> {
 }
 
 export async function findActiveLoansByEmployee(employeeId: string): Promise<Loan[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       loan: loans,
       employee: {
@@ -232,7 +232,7 @@ export async function createLoan(data: {
   noOfInstallments: number;
   remainingAmount: string;
 }): Promise<Loan> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .insert(loans)
     .values({
       employeeId: data.employeeId,
@@ -258,7 +258,7 @@ export async function createLoan(data: {
 // ---------------------------------------------------------------------------
 
 export async function findRepaymentsByLoan(loanId: string): Promise<LoanRepayment[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(loanRepayments)
     .where(eq(loanRepayments.loanId, loanId))
@@ -302,7 +302,7 @@ export async function createRepayment(data: {
   newRemainingAmount: string;
   newStatus: string;
 }) {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     const [repayment] = await tx
       .insert(loanRepayments)
       .values({

@@ -23,12 +23,12 @@ function mapRowToFiscalYear(row: FiscalYearRow): FiscalYear {
 }
 
 export async function findAllFiscalYears(): Promise<FiscalYear[]> {
-  const rows = await getDb().select().from(fiscalYears);
+  const rows = await (await getDb()).select().from(fiscalYears);
   return rows.map(mapRowToFiscalYear);
 }
 
 export async function findFiscalYearById(id: string): Promise<FiscalYear | undefined> {
-  const rows = await getDb().select().from(fiscalYears).where(eq(fiscalYears.id, id));
+  const rows = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.id, id));
   if (!rows.length) return undefined;
   return mapRowToFiscalYear(rows[0]);
 }
@@ -43,7 +43,7 @@ export async function createFiscalYear(data: CreateFiscalYearPayload): Promise<F
   const endDateBS = formatBSDate(data.endDateAD, "numeric");
   const targetStatus = data.status || "Active";
 
-  const db = getDb();
+  const db = (await getDb());
   if (targetStatus === "Active") {
     // If activating this FY, mark all other existing FYs as Inactive to ensure single active cycle
     await db.update(fiscalYears).set({ status: "Inactive", updatedAt: new Date() }).where(eq(fiscalYears.status, "Active"));
@@ -70,7 +70,7 @@ export async function updateFiscalYear(id: string, data: CreateFiscalYearPayload
   const startDateBS = formatBSDate(data.startDateAD, "numeric");
   const endDateBS = formatBSDate(data.endDateAD, "numeric");
 
-  const db = getDb();
+  const db = (await getDb());
   const updateSet: Record<string, any> = {
     label,
     slug: data.slug,
@@ -102,7 +102,7 @@ export async function updateFiscalYear(id: string, data: CreateFiscalYearPayload
 }
 
 export async function setFiscalYearStatus(id: string, status: "Active" | "Inactive"): Promise<FiscalYear> {
-  const db = getDb();
+  const db = (await getDb());
   if (status === "Active") {
     // Single active FY rule: deactivate other FYs
     await db.update(fiscalYears).set({ status: "Inactive", updatedAt: new Date() }).where(ne(fiscalYears.id, id));
@@ -126,7 +126,7 @@ export async function unlockFiscalYear(id: string, newStatus: "Active" | "Inacti
 }
 
 export async function lockFiscalYear(id: string): Promise<FiscalYear> {
-  const rows = await getDb().update(fiscalYears)
+  const rows = await (await getDb()).update(fiscalYears)
     .set({
       status: 'Locked',
       payslipsGenerated: true,
@@ -138,5 +138,5 @@ export async function lockFiscalYear(id: string): Promise<FiscalYear> {
 }
 
 export async function deleteFiscalYear(id: string): Promise<void> {
-  await getDb().delete(fiscalYears).where(eq(fiscalYears.id, id));
+  await (await getDb()).delete(fiscalYears).where(eq(fiscalYears.id, id));
 }

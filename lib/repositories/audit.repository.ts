@@ -48,7 +48,7 @@ export async function findAuditLogs(filter?: AuditLogFilter): Promise<{
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [rows, countRes] = await Promise.all([
-    getDb()
+    (await getDb())
       .select({
         id: auditLogs.id,
         userId: auditLogs.userId,
@@ -73,7 +73,7 @@ export async function findAuditLogs(filter?: AuditLogFilter): Promise<{
       .limit(limit)
       .offset(offset),
 
-    getDb()
+    (await getDb())
       .select({ count: sql<number>`count(*)` })
       .from(auditLogs)
       .leftJoin(users, eq(auditLogs.userId, users.id))
@@ -114,7 +114,7 @@ export async function findAuditLogs(filter?: AuditLogFilter): Promise<{
 export async function findPermissionChangeLogs(filter?: AuditLogFilter): Promise<PermissionChangeLogEntry[]> {
   const limit = filter?.limit || 50;
 
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: rolePermissionChangeLog.id,
       changedByUserId: rolePermissionChangeLog.changedByUserId,
@@ -157,10 +157,10 @@ export async function countAuditLogKPIs(): Promise<AuditLogKPIs> {
   startOfToday.setHours(0, 0, 0, 0);
 
   const [totalRes, todayRes, deniedRes, permChangesRes] = await Promise.all([
-    getDb().select({ count: sql<number>`count(*)` }).from(auditLogs),
-    getDb().select({ count: sql<number>`count(*)` }).from(auditLogs).where(gte(auditLogs.createdAt, startOfToday)),
-    getDb().select({ count: sql<number>`count(*)` }).from(auditLogs).where(ilike(auditLogs.result, "%DENIED%")),
-    getDb().select({ count: sql<number>`count(*)` }).from(rolePermissionChangeLog),
+    (await getDb()).select({ count: sql<number>`count(*)` }).from(auditLogs),
+    (await getDb()).select({ count: sql<number>`count(*)` }).from(auditLogs).where(gte(auditLogs.createdAt, startOfToday)),
+    (await getDb()).select({ count: sql<number>`count(*)` }).from(auditLogs).where(ilike(auditLogs.result, "%DENIED%")),
+    (await getDb()).select({ count: sql<number>`count(*)` }).from(rolePermissionChangeLog),
   ]);
 
   return {

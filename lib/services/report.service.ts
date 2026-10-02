@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb, getCurrentTenantSlug } from "@/lib/db";
 import {
   payrollRuns,
   payrollSlips,
@@ -20,7 +20,6 @@ import {
   attendanceRecords,
   systemConfig,
 } from "@/lib/db/schema";
-import { getCurrentTenantContext, getRequestScopeTenantDb } from "@/lib/db/tenant-context";
 import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
 import { companies } from "@/lib/platform/schema";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
@@ -59,27 +58,7 @@ import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 // ─── Filter Lookups ────────────────────────────────────────────────────────
 
 export async function getCompanyReportInfo(): Promise<CompanyReportInfo> {
-  const currentCtx = getCurrentTenantContext();
-  const reqScope = getRequestScopeTenantDb();
-  let slug = currentCtx?.tenantSlug || reqScope?.slug;
-
-  if (!slug) {
-    try {
-      const imp = await getImpersonationSession();
-      if (imp?.companySlug) slug = imp.companySlug;
-    } catch {
-      // Ignore
-    }
-  }
-
-  if (!slug) {
-    try {
-      const session = await auth();
-      if (session?.user?.tenantSlug) slug = session.user.tenantSlug;
-    } catch {
-      // Ignore
-    }
-  }
+  const slug = await getCurrentTenantSlug();
 
   // 1. Resolve from platform companies table by slug
   if (slug) {
@@ -109,7 +88,7 @@ export async function getCompanyReportInfo(): Promise<CompanyReportInfo> {
 
   // 2. Fallback: check tenantDb systemConfig & branches
   try {
-    const db = getDb();
+    const db = (await getDb());
     const [configs, branchList] = await Promise.all([
       db.select().from(systemConfig).catch(() => []),
       db.select().from(branches).limit(1).catch(() => []),
@@ -166,7 +145,7 @@ export async function getCompanyReportInfo(): Promise<CompanyReportInfo> {
 
 export async function getReportFilterLookupData(): Promise<ReportFilterLookupData> {
   const [fyList, branchList, deptList, desigList, lockedRuns, lTypes, lnTypes, empList, companyInfo] = await Promise.all([
-    getDb()
+    (await getDb())
       .select({
         id: fiscalYears.id,
         label: fiscalYears.label,
@@ -175,22 +154,22 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
       .from(fiscalYears)
       .orderBy(desc(fiscalYears.label)),
 
-    getDb()
+    (await getDb())
       .select({ id: branches.id, name: branches.name })
       .from(branches)
       .orderBy(branches.name),
 
-    getDb()
+    (await getDb())
       .select({ id: departments.id, name: departments.name })
       .from(departments)
       .orderBy(departments.name),
 
-    getDb()
+    (await getDb())
       .select({ id: designations.id, name: designations.name })
       .from(designations)
       .orderBy(designations.name),
 
-    getDb()
+    (await getDb())
       .select({
         id: payrollRuns.id,
         payPeriodMonth: payrollRuns.payPeriodMonth,
@@ -203,17 +182,17 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
       .where(eq(payrollRuns.status, "LOCKED"))
       .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth)),
 
-    getDb()
+    (await getDb())
       .select({ id: leaveTypes.id, name: leaveTypes.name, code: leaveTypes.code })
       .from(leaveTypes)
       .orderBy(leaveTypes.name),
 
-    getDb()
+    (await getDb())
       .select({ id: loanTypes.id, name: loanTypes.name })
       .from(loanTypes)
       .orderBy(loanTypes.name),
 
-    getDb()
+    (await getDb())
       .select({
         id: employees.id,
         fullName: employees.fullName,
@@ -267,7 +246,7 @@ export async function getSalarySheetData(
   }
 
   // 1. Load run details
-  const [runRecord] = await getDb()
+  const [runRecord] = await (await getDb())
     .select()
     .from(payrollRuns)
     .where(eq(payrollRuns.id, filter.payrollRunId))
@@ -290,7 +269,7 @@ export async function getSalarySheetData(
   };
 
   // 2. Load slips for this run with optional branch/department/employee search filtering
-  const slipRecords = await getDb()
+  const slipRecords = await (await getDb())
     .select({
       slip: payrollSlips,
       branchId: employees.branchId,
@@ -333,7 +312,7 @@ export async function getSalarySheetData(
 
   // 3. Batch query all slip heads to avoid N+1 queries
   const slipIds = targetSlips.map((s) => s.id);
-  const allHeads = await getDb()
+  const allHeads = await (await getDb())
     .select()
     .from(payrollSlipHeads)
     .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
@@ -426,7 +405,7 @@ export async function getPayslipPrintData(
   }
 
   // Load run
-  const [runRecord] = await getDb()
+  const [runRecord] = await (await getDb())
     .select()
     .from(payrollRuns)
     .where(eq(payrollRuns.id, filter.payrollRunId))
@@ -449,7 +428,7 @@ export async function getPayslipPrintData(
   };
 
   // Load slips
-  const rawSlips = await getDb()
+  const rawSlips = await (await getDb())
     .select()
     .from(payrollSlips)
     .where(eq(payrollSlips.payrollRunId, filter.payrollRunId));
@@ -464,7 +443,7 @@ export async function getPayslipPrintData(
 
   // Batch query heads
   const slipIds = targetSlips.map((s) => s.id);
-  const allHeads = await getDb()
+  const allHeads = await (await getDb())
     .select()
     .from(payrollSlipHeads)
     .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
@@ -492,7 +471,7 @@ export async function getPayslipHeadSummaryData(
     throw new Error("Payroll Run ID is required.");
   }
 
-  const [runRecord] = await getDb()
+  const [runRecord] = await (await getDb())
     .select()
     .from(payrollRuns)
     .where(eq(payrollRuns.id, filter.payrollRunId))
@@ -505,7 +484,7 @@ export async function getPayslipHeadSummaryData(
   const runLabel = `${monthName} ${runRecord.payPeriodYear}`;
 
   // Get all slips for the run
-  const slips = await getDb()
+  const slips = await (await getDb())
     .select({ id: payrollSlips.id })
     .from(payrollSlips)
     .where(eq(payrollSlips.payrollRunId, filter.payrollRunId));
@@ -513,7 +492,7 @@ export async function getPayslipHeadSummaryData(
   if (slips.length === 0) return { rows: [], runLabel };
 
   const slipIds = slips.map((s) => s.id);
-  const heads = await getDb()
+  const heads = await (await getDb())
     .select()
     .from(payrollSlipHeads)
     .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
@@ -578,7 +557,7 @@ export async function getAttendanceReportData(
     throw new Error("Fiscal Year and BS Month are required for Attendance Report.");
   }
 
-  const [fy] = await getDb()
+  const [fy] = await (await getDb())
     .select()
     .from(fiscalYears)
     .where(eq(fiscalYears.id, filter.fiscalYearId))
@@ -620,7 +599,7 @@ export async function getAttendanceReportData(
   });
 
   // Query daily punches for details
-  const dailyPunches = await getDb()
+  const dailyPunches = await (await getDb())
     .select({
       empId: attendanceRecords.employeeId,
       attendanceDate: attendanceRecords.attendanceDate,
@@ -640,7 +619,7 @@ export async function getAttendanceReportData(
   }
 
   // Query leaveOtCalculations join employees, departments & designations
-  const records = await getDb()
+  const records = await (await getDb())
     .select({
       calc: leaveOtCalculations,
       empId: employees.id,
@@ -847,7 +826,7 @@ export async function getAttendanceReportData(
     });
   } else {
     // Fallback 1: Query generated payrollSlips for this period
-    const slips = await getDb()
+    const slips = await (await getDb())
       .select({
         slip: payrollSlips,
         run: payrollRuns,
@@ -908,7 +887,7 @@ export async function getAttendanceReportData(
       });
     } else {
       // Fallback 2: Query all active employees in company
-      const activeEmps = await getDb()
+      const activeEmps = await (await getDb())
         .select({
           empId: employees.id,
           empCode: employees.employeeCode,
@@ -983,7 +962,7 @@ export async function getTDSReportData(
     throw new Error("Fiscal Year is required for TDS/IRD Report.");
   }
 
-  const [fy] = await getDb()
+  const [fy] = await (await getDb())
     .select()
     .from(fiscalYears)
     .where(eq(fiscalYears.id, filter.fiscalYearId))
@@ -992,7 +971,7 @@ export async function getTDSReportData(
   const fiscalYearLabel = fy ? fy.label : "N/A";
 
   // Join payrollSlips -> payrollRuns (for fiscalYearId & payPeriodMonth) -> employees -> employeePersonal
-  const rawResults = await getDb()
+  const rawResults = await (await getDb())
     .select({
       slip: payrollSlips,
       run: payrollRuns,
@@ -1101,7 +1080,7 @@ export async function getLeaveReportData(
     throw new Error("Fiscal Year is required for Leave Report.");
   }
 
-  const [fy] = await getDb()
+  const [fy] = await (await getDb())
     .select()
     .from(fiscalYears)
     .where(eq(fiscalYears.id, filter.fiscalYearId))
@@ -1110,7 +1089,7 @@ export async function getLeaveReportData(
   const fiscalYearLabel = fy ? fy.label : "N/A";
 
   // 1. Fetch Leave Balances
-  const balancesRaw = await getDb()
+  const balancesRaw = await (await getDb())
     .select({
       bal: employeeLeaveBalances,
       empCode: employees.employeeCode,
@@ -1163,7 +1142,7 @@ export async function getLeaveReportData(
   }));
 
   // 2. Fetch Leave Applications Log
-  const appsRaw = await getDb()
+  const appsRaw = await (await getDb())
     .select({
       app: leaveApplications,
       empCode: employees.employeeCode,
@@ -1242,7 +1221,7 @@ export async function getLoanReportData(
   filter: LoanReportFilter
 ): Promise<LoanReportData> {
   // 1. Fetch Loan Disbursements / Summaries
-  const loansRaw = await getDb()
+  const loansRaw = await (await getDb())
     .select({
       loan: loans,
       empCode: employees.employeeCode,
@@ -1295,7 +1274,7 @@ export async function getLoanReportData(
   }));
 
   // 2. Fetch Loan Repayments Ledger
-  const repaymentsRaw = await getDb()
+  const repaymentsRaw = await (await getDb())
     .select({
       rep: loanRepayments,
       loanTypeId: loans.loanTypeId,

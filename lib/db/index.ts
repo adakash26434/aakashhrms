@@ -1,8 +1,8 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from 'postgres';
 import fs from 'fs';
 import path from 'path';
-import { getCurrentTenantContext, getRequestScopeTenantDb, setRequestScopeTenantDb } from './tenant-context';
+import { getCurrentTenantContext } from './tenant-context';
 import { getTenantDb } from './tenant-pool-manager';
 import * as schema from './schema';
 
@@ -46,6 +46,10 @@ const conn =
     connect_timeout: 10,
   });
 
+/**
+ * Primary (DATABASE_URL) connection. In multi-tenant mode this is NOT a tenant
+ * database — only use it directly from scripts or single-tenant code paths.
+ */
 export const db = globalForDb.db ?? drizzle(conn, { schema });
 
 if (process.env.NODE_ENV !== 'production') {
@@ -53,165 +57,136 @@ if (process.env.NODE_ENV !== 'production') {
   globalForDb.db = db;
 }
 
+export type TenantDb = PostgresJsDatabase<typeof schema>;
+
 /**
- * Returns the active database instance asynchronously.
- * In Multi-Tenant mode, resolves the active tenant's isolated database.
- * In Single-Tenant mode or fallback, returns the primary singleton DB connection.
- *
- * Resolution order:
- *   1. Explicitly provided slug parameter
- *   2. AsyncLocalStorage tenant context (set by dashboard layout wrapper)
- *   3. Request-scope fallback (set by ensureTenantContext or runWithTenantContext)
- *   4. Impersonation cookie
- *   5. Session JWT tenantSlug (resolved via Company Code at login)
- *   6. Primary DB fallback
+ * Thrown when a tenant database is required but none can be resolved from the
+ * current request (no valid impersonation token and no tenant in the session).
+ * Multi-tenant mode fails closed: we never fall back to the primary database.
  */
-export async function getDbAsync(slug?: string | null) {
-  const isSingleTenant = process.env.SINGLE_TENANT_MODE === 'true';
-  if (isSingleTenant) {
-    return db;
+export class TenantContextError extends Error {
+  constructor(message = 'Unauthorized: No tenant context for this request') {
+    super(message);
+    this.name = 'TenantContextError';
+  }
+}
+
+const isSingleTenantMode = () => process.env.SINGLE_TENANT_MODE === 'true';
+
+interface ResolvedTenant {
+  slug: string;
+  db: TenantDb;
+}
+
+// Per-request memo. Keyed by the request's own cookie store object, so entries
+// can never be shared between requests (unlike a process-wide global) and are
+// garbage-collected with the request.
+const requestTenantMemo = new WeakMap<object, Promise<ResolvedTenant | null>>();
+
+async function resolveTenantFromRequest(): Promise<ResolvedTenant | null> {
+  // 1. Super Admin "View company workspace" (signed impersonation token)
+  try {
+    const { getImpersonationSession } = await import('@/lib/platform/impersonation');
+    const impersonation = await getImpersonationSession();
+    if (impersonation?.companySlug) {
+      const tenantDb = await getTenantDb(impersonation.companySlug);
+      if (tenantDb) return { slug: impersonation.companySlug, db: tenantDb };
+    }
+  } catch {
+    // Not in a request scope, or token invalid — fall through
   }
 
-  // 1. Check explicitly provided tenant slug
+  // 2. Tenant user session (tenantSlug carried in the signed NextAuth JWT)
+  try {
+    const { auth } = await import('@/lib/auth');
+    const session = await auth();
+    const slug = session?.user?.tenantSlug;
+    if (slug) {
+      const tenantDb = await getTenantDb(slug);
+      if (tenantDb) return { slug, db: tenantDb };
+    }
+  } catch {
+    // Outside request scope or unauthenticated
+  }
+
+  return null;
+}
+
+async function resolveRequestTenant(): Promise<ResolvedTenant | null> {
+  // Explicit AsyncLocalStorage scope (runWithTenantContext) wins.
+  const ctx = getCurrentTenantContext();
+  if (ctx?.db) return { slug: ctx.tenantSlug, db: ctx.db };
+
+  let key: object | null = null;
+  try {
+    const { cookies } = await import('next/headers');
+    key = (await cookies()) as unknown as object;
+  } catch {
+    key = null; // Not inside a Next.js request (scripts, tests)
+  }
+
+  if (!key) return resolveTenantFromRequest();
+
+  let pending = requestTenantMemo.get(key);
+  if (!pending) {
+    pending = resolveTenantFromRequest();
+    requestTenantMemo.set(key, pending);
+  }
+  return pending;
+}
+
+/**
+ * Returns the database for the current request.
+ *
+ * - Single-tenant mode: the primary database.
+ * - Multi-tenant mode: the tenant resolved from this request (impersonation
+ *   token, then session). Throws {@link TenantContextError} when none —
+ *   never falls back to the primary database.
+ */
+export async function getDb(): Promise<TenantDb> {
+  if (isSingleTenantMode()) return db;
+
+  const resolved = await resolveRequestTenant();
+  if (!resolved) throw new TenantContextError();
+  return resolved.db;
+}
+
+/**
+ * Like {@link getDb}, but an explicit tenant slug (e.g. resolved from the
+ * company code during login) takes precedence over the request.
+ */
+export async function getDbAsync(slug?: string | null): Promise<TenantDb> {
+  if (isSingleTenantMode()) return db;
+
   if (slug) {
     const tenantDb = await getTenantDb(slug);
-    if (tenantDb) {
-      setRequestScopeTenantDb(slug, tenantDb);
-      return tenantDb;
-    }
+    if (!tenantDb) throw new TenantContextError(`Unknown or inactive tenant: ${slug}`);
+    return tenantDb;
   }
 
-  // 2. Check AsyncLocalStorage tenant context (set by layout wrapper during SSR)
-  const tenantCtx = getCurrentTenantContext();
-  if (tenantCtx?.db) {
-    setRequestScopeTenantDb(tenantCtx.tenantSlug, tenantCtx.db);
-    return tenantCtx.db;
-  }
-
-  // 3. Check request-scope fallback (set per-request for server actions / components)
-  const reqScope = getRequestScopeTenantDb();
-  if (reqScope?.db) {
-    return reqScope.db;
-  }
-
-  // 4. Check impersonation cookie
-  try {
-    const { getImpersonationSession } = await import('@/lib/platform/impersonation');
-    const impersonation = await getImpersonationSession();
-    if (impersonation?.companySlug) {
-      const tenantDb = await getTenantDb(impersonation.companySlug);
-      if (tenantDb) {
-        setRequestScopeTenantDb(impersonation.companySlug, tenantDb);
-        return tenantDb;
-      }
-    }
-  } catch {
-    // Ignore
-  }
-
-  // 5. Check session JWT for tenantSlug (company-code login flow)
-  try {
-    const { auth } = await import('@/lib/auth');
-    const session = await auth();
-    if (session?.user?.tenantSlug) {
-      const tenantDb = await getTenantDb(session.user.tenantSlug);
-      if (tenantDb) {
-        setRequestScopeTenantDb(session.user.tenantSlug, tenantDb);
-        return tenantDb;
-      }
-    }
-  } catch {
-    // Ignore auth session resolution failures (e.g., during login itself)
-  }
-
-  return db;
+  return getDb();
 }
 
 /**
- * Synchronous accessor wrapper.
- * Checks in order:
- *   1. AsyncLocalStorage tenant context (layout render)
- *   2. Request-scope fallback (server actions / RSC)
- *   3. Falls back to primary DB
+ * Returns the tenant slug for the current request, or null (single-tenant mode
+ * or no tenant context).
  */
-export function getDb() {
-  const isSingleTenant = process.env.SINGLE_TENANT_MODE === 'true';
-  if (isSingleTenant) {
-    return db;
-  }
-
-  // 1. AsyncLocalStorage context (set during layout render)
-  const tenantCtx = getCurrentTenantContext();
-  if (tenantCtx?.db) {
-    setRequestScopeTenantDb(tenantCtx.tenantSlug, tenantCtx.db);
-    return tenantCtx.db;
-  }
-
-  // 2. Request-scope fallback (set by ensureTenantContext in server actions)
-  const reqScope = getRequestScopeTenantDb();
-  if (reqScope?.db) {
-    return reqScope.db;
-  }
-
-  // 3. Fallback to primary DB
-  return db;
+export async function getCurrentTenantSlug(): Promise<string | null> {
+  if (isSingleTenantMode()) return null;
+  const resolved = await resolveRequestTenant();
+  return resolved?.slug ?? null;
 }
 
 /**
- * Call this at the top of server actions or server components to ensure tenant context is initialized.
- * Checks: Explicit slug -> AsyncLocalStorage -> Request-scope -> Impersonation -> Session JWT tenantSlug
- * and caches the tenant DB in the request-scope fallback so that all subsequent
- * getDb() calls within the same request lifecycle use the correct tenant database.
+ * Resolves (and memoises) the tenant for the current request. Kept for the
+ * existing call sites at the top of pages and server actions. It does not
+ * throw: access is enforced by getDb() (fails closed) and checkPermission().
  */
-export async function ensureTenantContext(explicitSlug?: string | null): Promise<void> {
-  const isSingleTenant = process.env.SINGLE_TENANT_MODE === 'true';
-  if (isSingleTenant) return;
-
-  if (explicitSlug) {
-    const tenantDb = await getTenantDb(explicitSlug);
-    if (tenantDb) {
-      setRequestScopeTenantDb(explicitSlug, tenantDb);
-      return;
-    }
-  }
-
-  // Already have context from layout or a previous call
-  const tenantCtx = getCurrentTenantContext();
-  if (tenantCtx?.db) {
-    setRequestScopeTenantDb(tenantCtx.tenantSlug, tenantCtx.db);
-    return;
-  }
-
-  const reqScope = getRequestScopeTenantDb();
-  if (reqScope?.db) return;
-
-  // Check impersonation cookie
+export async function ensureTenantContext(_explicitSlug?: string | null): Promise<void> {
+  if (isSingleTenantMode()) return;
   try {
-    const { getImpersonationSession } = await import('@/lib/platform/impersonation');
-    const impersonation = await getImpersonationSession();
-    if (impersonation?.companySlug) {
-      const tenantDb = await getTenantDb(impersonation.companySlug);
-      if (tenantDb) {
-        setRequestScopeTenantDb(impersonation.companySlug, tenantDb);
-        return;
-      }
-    }
+    await resolveRequestTenant();
   } catch {
-    // Ignore
-  }
-
-  // Resolve from session JWT (company-code login flow)
-  try {
-    const { auth } = await import('@/lib/auth');
-    const session = await auth();
-    if (session?.user?.tenantSlug) {
-      const tenantDb = await getTenantDb(session.user.tenantSlug);
-      if (tenantDb) {
-        setRequestScopeTenantDb(session.user.tenantSlug, tenantDb);
-        return;
-      }
-    }
-  } catch {
-    // Outside request scope or during unauthenticated flows
+    // Resolution errors surface on the first getDb() call
   }
 }

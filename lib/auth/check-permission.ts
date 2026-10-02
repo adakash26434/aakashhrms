@@ -1,6 +1,5 @@
 import { auth } from '@/lib/auth';
 import { getDbAsync } from '@/lib/db';
-import { setRequestScopeTenantDb } from '@/lib/db/tenant-context';
 import { userRoles, rolePermissions, permissions, roles, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { resolveUserScope, type ScopeFilter } from './scope-filter';
@@ -61,11 +60,8 @@ async function verifyPermission(
     throw new Error('Unauthorized: Not authenticated');
   }
 
-  // Pass session.user.tenantSlug so tenant database is directly resolved
+  // Resolve the tenant DB from the signed session (fails closed if none)
   const activeDb = await getDbAsync(session.user.tenantSlug);
-  if (session.user.tenantSlug) {
-    setRequestScopeTenantDb(session.user.tenantSlug, activeDb);
-  }
 
   // 1. Re-verify active user status from database on every check (protects against deactivated active JWTs)
   const userRows = await activeDb

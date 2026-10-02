@@ -65,30 +65,30 @@ function mapApp(row: typeof leaveApplications.$inferSelect): LeaveApplication {
 }
 
 export async function findAllLeaveTypes(): Promise<LeaveTypeRecord[]> {
-  const rows = await getDb().select().from(leaveTypes).orderBy(desc(leaveTypes.createdAt));
+  const rows = await (await getDb()).select().from(leaveTypes).orderBy(desc(leaveTypes.createdAt));
   return rows.map(mapLeaveType);
 }
 
 export async function findAllActiveLeaveTypes(): Promise<LeaveTypeRecord[]> {
-  const rows = await getDb().select().from(leaveTypes).where(eq(leaveTypes.isActive, true)).orderBy(desc(leaveTypes.createdAt));
+  const rows = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.isActive, true)).orderBy(desc(leaveTypes.createdAt));
   return rows.map(mapLeaveType);
 }
 
 export async function findEncashableLeaveTypes(): Promise<LeaveTypeRecord[]> {
-  const rows = await getDb().select().from(leaveTypes)
+  const rows = await (await getDb()).select().from(leaveTypes)
     .where(and(eq(leaveTypes.isEncashable, true), eq(leaveTypes.isActive, true)))
     .orderBy(desc(leaveTypes.createdAt));
   return rows.map(mapLeaveType);
 }
 
 export async function findLeaveTypeById(id: string): Promise<LeaveTypeRecord | null> {
-  const rows = await getDb().select().from(leaveTypes).where(eq(leaveTypes.id, id));
+  const rows = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.id, id));
   if (!rows.length) return null;
   return mapLeaveType(rows[0]);
 }
 
 export async function findLeaveTypeByStatutoryCode(code: StatutoryCode): Promise<LeaveTypeRecord | undefined> {
-  const rows = await getDb().select().from(leaveTypes).where(eq(leaveTypes.statutoryCode, code));
+  const rows = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.statutoryCode, code));
   if (!rows.length) return undefined;
   return mapLeaveType(rows[0]);
 }
@@ -113,7 +113,7 @@ export async function createLeaveType(data: {
   applicableDesignations?: string[];
   isActive?: boolean;
 }): Promise<LeaveTypeRecord> {
-  const rows = await getDb().insert(leaveTypes).values({
+  const rows = await (await getDb()).insert(leaveTypes).values({
     name: data.name,
     code: data.code,
     leaveType: data.leaveType,
@@ -137,7 +137,7 @@ export async function createLeaveType(data: {
 }
 
 export async function updateLeaveType(id: string, data: Partial<Omit<LeaveTypeRecord, "id" | "createdAt" | "updatedAt">>): Promise<LeaveTypeRecord> {
-  const existing = await getDb().select().from(leaveTypes).where(eq(leaveTypes.id, id)).limit(1);
+  const existing = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.id, id)).limit(1);
   if (!existing.length) {
     throw new Error("Leave type not found");
   }
@@ -147,17 +147,17 @@ export async function updateLeaveType(id: string, data: Partial<Omit<LeaveTypeRe
   if (data.accumulationCap !== undefined) updateVals.accumulationCap = data.accumulationCap?.toString() ?? null;
   if (data.maxPaidDays !== undefined) updateVals.maxPaidDays = data.maxPaidDays?.toString() ?? null;
 
-  const rows = await getDb().update(leaveTypes).set(updateVals).where(eq(leaveTypes.id, id)).returning();
+  const rows = await (await getDb()).update(leaveTypes).set(updateVals).where(eq(leaveTypes.id, id)).returning();
   return mapLeaveType(rows[0]);
 }
 
 export async function deleteLeaveType(id: string): Promise<boolean> {
-  const existing = await getDb().select().from(leaveTypes).where(eq(leaveTypes.id, id)).limit(1);
+  const existing = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.id, id)).limit(1);
   if (existing.length > 0 && (existing[0].isPlatformLocked || existing[0].isStatutory)) {
     throw new Error("Statutory Nepal Labour Act leave types are platform-locked and cannot be deleted by company administrators.");
   }
 
-  const res = await getDb().delete(leaveTypes).where(eq(leaveTypes.id, id)).returning({ id: leaveTypes.id });
+  const res = await (await getDb()).delete(leaveTypes).where(eq(leaveTypes.id, id)).returning({ id: leaveTypes.id });
   return res.length > 0;
 }
 
@@ -166,13 +166,13 @@ export async function findLeaveBalances(employeeId: string, fiscalYearId?: strin
   if (fiscalYearId) {
     conditions.push(eq(employeeLeaveBalances.fiscalYearId, fiscalYearId));
   } else {
-    const activeFys = await getDb().select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
+    const activeFys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
     if (activeFys.length) {
       conditions.push(eq(employeeLeaveBalances.fiscalYearId, activeFys[0].id));
     }
   }
 
-  const rows = await getDb().select().from(employeeLeaveBalances).where(and(...conditions));
+  const rows = await (await getDb()).select().from(employeeLeaveBalances).where(and(...conditions));
   return rows.map(mapBalance);
 }
 
@@ -185,7 +185,7 @@ export async function createLeaveBalance(data: {
   carriedForward: number;
   balance: number;
 }): Promise<EmployeeLeaveBalance> {
-  const rows = await getDb().insert(employeeLeaveBalances).values({
+  const rows = await (await getDb()).insert(employeeLeaveBalances).values({
     employeeId: data.employeeId,
     leaveTypeId: data.leaveTypeId,
     fiscalYearId: data.fiscalYearId,
@@ -226,7 +226,7 @@ export async function findAllLeaveApplications(filter?: LeaveFilter): Promise<Le
     }
   }
 
-  const query = getDb()
+  const query = (await getDb())
     .select({ app: leaveApplications })
     .from(leaveApplications)
     .innerJoin(employees, eq(leaveApplications.employeeId, employees.id));
@@ -240,7 +240,7 @@ export async function findAllLeaveApplications(filter?: LeaveFilter): Promise<Le
 }
 
 export async function findLeaveApplicationById(id: string): Promise<LeaveApplication | undefined> {
-  const rows = await getDb().select().from(leaveApplications).where(eq(leaveApplications.id, id));
+  const rows = await (await getDb()).select().from(leaveApplications).where(eq(leaveApplications.id, id));
   if (!rows.length) return undefined;
   return mapApp(rows[0]);
 }
@@ -248,11 +248,11 @@ export async function findLeaveApplicationById(id: string): Promise<LeaveApplica
 export async function createLeaveApplication(data: any): Promise<LeaveApplication> {
   let fyId = data.fiscalYearId;
   if (!fyId || fyId === "fy-1") {
-    const activeFys = await getDb().select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
+    const activeFys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
     if (activeFys.length) {
       fyId = activeFys[0].id;
     } else {
-      const allFys = await getDb().select().from(fiscalYears);
+      const allFys = await (await getDb()).select().from(fiscalYears);
       if (allFys.length) fyId = allFys[0].id;
       else throw new Error("Cannot create leave application: No Fiscal Year found in database.");
     }
@@ -261,7 +261,7 @@ export async function createLeaveApplication(data: any): Promise<LeaveApplicatio
   const effectiveFromStr = data.startDate instanceof Date ? data.startDate.toISOString().split('T')[0] : String(data.startDate || data.effectiveFrom || '');
   const effectiveToStr = data.endDate instanceof Date ? data.endDate.toISOString().split('T')[0] : String(data.endDate || data.effectiveTo || '');
 
-  const rows = await getDb().insert(leaveApplications).values({
+  const rows = await (await getDb()).insert(leaveApplications).values({
     employeeId: data.employeeId,
     leaveTypeId: data.leaveTypeId,
     fiscalYearId: fyId,
@@ -282,12 +282,12 @@ export async function updateLeaveApplication(id: string, data: Partial<Omit<Leav
   const updateVals: any = { ...data, updatedAt: new Date() };
   if (data.noOfDays !== undefined) updateVals.noOfDays = data.noOfDays.toString();
 
-  const rows = await getDb().update(leaveApplications).set(updateVals).where(eq(leaveApplications.id, id)).returning();
+  const rows = await (await getDb()).update(leaveApplications).set(updateVals).where(eq(leaveApplications.id, id)).returning();
   return rows.length ? mapApp(rows[0]) : null;
 }
 
 export async function deleteLeaveApplication(id: string): Promise<boolean> {
-  const res = await getDb().delete(leaveApplications).where(eq(leaveApplications.id, id)).returning({ id: leaveApplications.id });
+  const res = await (await getDb()).delete(leaveApplications).where(eq(leaveApplications.id, id)).returning({ id: leaveApplications.id });
   return res.length > 0;
 }
 
@@ -302,7 +302,7 @@ export async function updateLeaveBalance(
   balance: number,
   tx?: any
 ): Promise<EmployeeLeaveBalance | null> {
-  const client = tx || getDb();
+  const client = tx || (await getDb());
   const rows = await client.update(employeeLeaveBalances)
     .set({ taken: taken.toString(), balance: balance.toString(), updatedAt: new Date() })
     .where(eq(employeeLeaveBalances.id, id))

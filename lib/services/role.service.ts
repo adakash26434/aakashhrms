@@ -113,7 +113,7 @@ export async function createCustomRole(data: CreateRoleInput, changedByUserId: s
   }
 
   // Record audit log
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId: changedByUserId,
     action: 'ADD',
     module: 'USERS_ROLES',
@@ -164,7 +164,7 @@ export async function updateCustomRole(
   if (!updated) throw new RoleNotFoundError(roleId);
 
   // Record audit log
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId: changedByUserId,
     action: 'EDIT',
     module: 'USERS_ROLES',
@@ -244,7 +244,7 @@ export async function deleteCustomRole(roleId: string, changedByUserId: string):
   const deleted = await repository.deleteRole(roleId);
 
   if (deleted) {
-    await getDb().insert(auditLogs).values({
+    await (await getDb()).insert(auditLogs).values({
       userId: changedByUserId,
       action: 'DELETE',
       module: 'USERS_ROLES',

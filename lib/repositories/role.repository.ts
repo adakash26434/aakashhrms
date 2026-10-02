@@ -14,7 +14,7 @@ export interface RoleWithStats extends RoleRow {
 
 export async function findAllRoles(): Promise<RoleRow[]> {
   try {
-    return await getDb().select().from(roles).orderBy(roles.createdAt);
+    return await (await getDb()).select().from(roles).orderBy(roles.createdAt);
   } catch (error) {
     console.error('[ROLE_REPOSITORY] Failed to fetch roles:', error);
     return [];
@@ -23,10 +23,10 @@ export async function findAllRoles(): Promise<RoleRow[]> {
 
 export async function findAllRolesWithStats(): Promise<RoleWithStats[]> {
   try {
-    const allRoles = await getDb().select().from(roles).orderBy(roles.createdAt);
+    const allRoles = await (await getDb()).select().from(roles).orderBy(roles.createdAt);
     
     // Aggregate user counts
-    const userCountRows = await getDb()
+    const userCountRows = await (await getDb())
       .select({
         roleId: userRoles.roleId,
         count: sql<number>`count(*)`,
@@ -37,7 +37,7 @@ export async function findAllRolesWithStats(): Promise<RoleWithStats[]> {
     const userCountMap = new Map(userCountRows.map((r) => [r.roleId, Number(r.count || 0)]));
 
     // Aggregate permission counts
-    const permCountRows = await getDb()
+    const permCountRows = await (await getDb())
       .select({
         roleId: rolePermissions.roleId,
         count: sql<number>`count(*)`,
@@ -60,7 +60,7 @@ export async function findAllRolesWithStats(): Promise<RoleWithStats[]> {
 
 export async function findAllPermissions(): Promise<PermissionRow[]> {
   try {
-    return await getDb().select().from(permissions);
+    return await (await getDb()).select().from(permissions);
   } catch (error) {
     console.error('[ROLE_REPOSITORY] Failed to fetch permissions:', error);
     return [];
@@ -69,7 +69,7 @@ export async function findAllPermissions(): Promise<PermissionRow[]> {
 
 export async function findRoleById(id: string): Promise<RoleRow | null> {
   try {
-    const result = await getDb().select().from(roles).where(eq(roles.id, id));
+    const result = await (await getDb()).select().from(roles).where(eq(roles.id, id));
     return result.length > 0 ? result[0] : null;
   } catch (error) {
     console.error('[ROLE_REPOSITORY] Failed to find role by id:', error);
@@ -79,7 +79,7 @@ export async function findRoleById(id: string): Promise<RoleRow | null> {
 
 export async function findRoleBySlug(slug: string): Promise<RoleRow | null> {
   try {
-    const result = await getDb().select().from(roles).where(eq(roles.slug, slug));
+    const result = await (await getDb()).select().from(roles).where(eq(roles.slug, slug));
     return result.length > 0 ? result[0] : null;
   } catch (error) {
     console.error('[ROLE_REPOSITORY] Failed to find role by slug:', error);
@@ -89,7 +89,7 @@ export async function findRoleBySlug(slug: string): Promise<RoleRow | null> {
 
 export async function findRoleByName(name: string): Promise<RoleRow | null> {
   try {
-    const result = await getDb().select().from(roles).where(eq(roles.name, name));
+    const result = await (await getDb()).select().from(roles).where(eq(roles.name, name));
     return result.length > 0 ? result[0] : null;
   } catch (error) {
     console.error('[ROLE_REPOSITORY] Failed to find role by name:', error);
@@ -105,7 +105,7 @@ export async function createRole(data: {
   isSystemRole?: boolean;
   isProtected?: boolean;
 }): Promise<RoleRow> {
-  const [newRole] = await getDb()
+  const [newRole] = await (await getDb())
     .insert(roles)
     .values({
       name: data.name,
@@ -136,7 +136,7 @@ export async function updateRole(
   if (data.scopeType !== undefined) updatePayload.scopeType = data.scopeType;
   if (data.description !== undefined) updatePayload.description = data.description;
 
-  const [updated] = await getDb()
+  const [updated] = await (await getDb())
     .update(roles)
     .set(updatePayload)
     .where(eq(roles.id, id))
@@ -147,7 +147,7 @@ export async function updateRole(
 
 export async function countUsersAssignedToRole(roleId: string): Promise<number> {
   try {
-    const res = await getDb()
+    const res = await (await getDb())
       .select({ count: sql<number>`count(*)` })
       .from(userRoles)
       .where(eq(userRoles.roleId, roleId));
@@ -160,7 +160,7 @@ export async function countUsersAssignedToRole(roleId: string): Promise<number> 
 
 export async function getRolePermissions(roleId: string) {
   try {
-    return await getDb()
+    return await (await getDb())
       .select({
         id: permissions.id,
         action: permissions.action,
@@ -180,7 +180,7 @@ export async function assignPermissionsToRole(
   permissionIds: string[],
   changedByUserId: string
 ) {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     // Get existing permissions for diffing
     const oldPermissions = await tx
       .select({ permissionId: rolePermissions.permissionId })
@@ -256,7 +256,7 @@ export async function cloneRole(
   },
   changedByUserId: string
 ): Promise<RoleRow> {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     // 1. Fetch source role permissions
     const sourcePerms = await tx
       .select({ permissionId: rolePermissions.permissionId })
@@ -306,12 +306,12 @@ export async function cloneRole(
 }
 
 export async function deleteRole(id: string): Promise<boolean> {
-  const res = await getDb().delete(roles).where(eq(roles.id, id)).returning({ id: roles.id });
+  const res = await (await getDb()).delete(roles).where(eq(roles.id, id)).returning({ id: roles.id });
   return res.length > 0;
 }
 
 export async function findUsersByRoleId(roleId: string) {
-  return await getDb()
+  return await (await getDb())
     .select({
       id: users.id,
       name: users.name,
@@ -333,7 +333,7 @@ export async function assignUsersToRole(
   userIdsToRemove: string[],
   changedByUserId: string
 ) {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     // 1. Resolve fallback employee role for users being removed from this role
     let fallbackRoleId: string | null = null;
     if (userIdsToRemove.length > 0) {

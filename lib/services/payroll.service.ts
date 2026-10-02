@@ -191,7 +191,7 @@ export async function generatePayrollRun(
     if (payload.recreateIfExists) {
       for (const run of existingRuns) {
         await repository.deletePayrollRun(run.id);
-        await getDb().insert(auditLogs).values({
+        await (await getDb()).insert(auditLogs).values({
           userId,
           action: 'DELETE',
           module: 'PAYROLL_GENERATE',
@@ -210,7 +210,7 @@ export async function generatePayrollRun(
   const systemControl = await systemControlRepository.findSettings();
   
   // Find active fiscal year
-  const activeFys = await getDb().select().from(fiscalYears).where(eq(fiscalYears.status, 'Active'));
+  const activeFys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, 'Active'));
   if (!activeFys.length) throw new Error("No active fiscal year found in system");
   const activeFy = activeFys[0] as { id: string; label: string };
 
@@ -256,7 +256,7 @@ export async function generatePayrollRun(
 
   // 5. Batch-load or dynamically calculate Leave/OT calculations for all employees
   const empIds = scopedEmployees.map(e => e.id);
-  const allLeaveOtCalcs = await getDb().select().from(leaveOtCalculations).where(
+  const allLeaveOtCalcs = await (await getDb()).select().from(leaveOtCalculations).where(
     and(
       inArray(leaveOtCalculations.employeeId, empIds),
       eq(leaveOtCalculations.bsMonth, payPeriodMonth),
@@ -285,7 +285,7 @@ export async function generatePayrollRun(
   }
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
-  const pendingLeaves = await getDb().select({ count: sql`count(*)` }).from(leaveApplications).where(
+  const pendingLeaves = await (await getDb()).select({ count: sql`count(*)` }).from(leaveApplications).where(
     and(
       inArray(leaveApplications.employeeId, empIds),
       eq(leaveApplications.status, 'Pending'),
@@ -311,7 +311,7 @@ export async function generatePayrollRun(
   }));
 
   // Fetch detailed pay heads configurations to evaluate isFestivalAllowance / isRemoteAllowance
-  const allPayHeads = await getDb().select().from(payHeads);
+  const allPayHeads = await (await getDb()).select().from(payHeads);
   const payHeadMap = new Map(allPayHeads.map((h) => [h.id, h]));
 
   const isFestivalChecked = occasionalAllowanceHeadIds?.some(id => {
@@ -326,7 +326,7 @@ export async function generatePayrollRun(
 
   // BATCH PREFETCH: Load all active loans for scoped employees at once (disbursed on or before period end)
   const allActiveLoans = new Map<string, { installmentAmount: number; remainingAmount: number }[]>();
-  const activeLoansRaw = await getDb()
+  const activeLoansRaw = await (await getDb())
     .select()
     .from(loans)
     .where(
@@ -351,7 +351,7 @@ export async function generatePayrollRun(
   }
 
   // BATCH PREFETCH: Load all bank details for scoped employees
-  const allBankDetails = await getDb().select().from(employeeBank).where(
+  const allBankDetails = await (await getDb()).select().from(employeeBank).where(
     and(
       inArray(employeeBank.employeeId, empIds),
       eq(employeeBank.isPrimary, true)
@@ -363,8 +363,8 @@ export async function generatePayrollRun(
   }
 
   // BATCH PREFETCH: Load department and designation names upfront
-  const deptList = await getDb().select().from(departments);
-  const desigList = await getDb().select().from(designations);
+  const deptList = await (await getDb()).select().from(departments);
+  const desigList = await (await getDb()).select().from(designations);
   const deptMap = new Map(deptList.map(d => [d.id, d.name]));
   const desigMap = new Map(desigList.map(d => [d.id, d.name]));
 
@@ -397,7 +397,7 @@ export async function generatePayrollRun(
     tdsThisMonth: string;
   }>>();
   if (isYearEndMonth) {
-    const allPastSlips = await getDb().select()
+    const allPastSlips = await (await getDb()).select()
       .from(payrollSlips)
       .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
       .where(
@@ -611,7 +611,7 @@ export async function generatePayrollRun(
   // Department/designation names already resolved via batch-loaded maps above
 
   // Create the top-level batch record, slips and audit logs in a single atomic transaction
-  const runRecord = await getDb().transaction(async (tx) => {
+  const runRecord = await (await getDb()).transaction(async (tx) => {
     const run = await repository.createPayrollRun({
       fiscalYearId: activeFy.id,
       payPeriodMonth,
@@ -701,7 +701,7 @@ export async function overridePayslipAllowanceDeduction(
   const oldSlipSnapshot = { ...slip };
 
   // 1. Execute override & recalculation within an atomic transaction
-  await getDb().transaction(async (tx) => {
+  await (await getDb()).transaction(async (tx) => {
     // Update basic fields on the slip directly if provided
     const updatedSlipFields: Record<string, any> = {};
     if (bankName !== undefined) updatedSlipFields.bankName = bankName;
@@ -971,7 +971,7 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
 
   await repository.deletePayrollRun(runId);
 
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId,
     action: 'DELETE',
     module: 'PAYROLL_GENERATE',
@@ -1023,14 +1023,14 @@ export async function deleteEmployeePayslip(slipId: string, userId: string): Pro
   });
 
   // Update employeeCount on the run
-  await getDb().update(payrollRuns)
+  await (await getDb()).update(payrollRuns)
     .set({
       employeeCount: remainingSlips.length,
       updatedAt: new Date()
     })
     .where(eq(payrollRuns.id, run.id));
 
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId,
     action: 'DELETE',
     module: 'PAYROLL_GENERATE',
@@ -1065,7 +1065,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   }
 
   // Load Leave/OT calculation for this month
-  const [leaveOtCalc] = await getDb().select().from(leaveOtCalculations).where(
+  const [leaveOtCalc] = await (await getDb()).select().from(leaveOtCalculations).where(
     and(
       eq(leaveOtCalculations.employeeId, emp.id),
       eq(leaveOtCalculations.bsMonth, run.payPeriodMonth),
@@ -1078,7 +1078,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   };
 
   // Resolve active loans (disbursed on or before period end)
-  const empLoans = await getDb()
+  const empLoans = await (await getDb())
     .select()
     .from(loans)
     .where(
@@ -1122,7 +1122,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   const systemControl = await systemControlRepository.findSettings();
 
   // Load all pay heads
-  const allPayHeads = await getDb().select().from(payHeads);
+  const allPayHeads = await (await getDb()).select().from(payHeads);
 
   const isFestivalChecked = run.occasionalAllowanceHeadIds?.some(id => {
     const h = allPayHeads.find(dbH => dbH.id === id);
@@ -1206,7 +1206,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   const isYearEnd = isAshadh(run.payPeriodMonth);
   let historicalSlips: Array<{ grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }> = [];
   if (isYearEnd) {
-    const pastSlips = await getDb().select()
+    const pastSlips = await (await getDb()).select()
       .from(payrollSlips)
       .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
       .where(
@@ -1252,7 +1252,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   });
 
   // Transactionally update slip and replace heads
-  await getDb().transaction(async (tx) => {
+  await (await getDb()).transaction(async (tx) => {
     await tx.update(payrollSlips)
       .set({
         basicSalary: salaryMap.basicSalary.toString(),
@@ -1355,7 +1355,7 @@ export async function addPayHeadToPayslip(
     throw new PayrollLockedError();
   }
 
-  const allPayHeads = await getDb().select().from(payHeads);
+  const allPayHeads = await (await getDb()).select().from(payHeads);
   const targetHead = allPayHeads.find(h => h.id === payHeadId);
   if (!targetHead) throw new Error("Pay head not found");
 
@@ -1421,7 +1421,7 @@ export async function transitionPayrollRun(
   // 1. Separation of Duties Check for final LOCK
   //    System Admins are explicitly exempt — they can generate AND lock.
   if (toStatus === 'LOCKED' && run.generatedBy === actionByUserId) {
-    const actorRoles = await getDb()
+    const actorRoles = await (await getDb())
       .select({ slug: roles.slug })
       .from(userRoles)
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
@@ -1438,7 +1438,7 @@ export async function transitionPayrollRun(
 
   // 2. On LOCK: Atomic loan repayment amortisation and period sealing
   if (toStatus === 'LOCKED') {
-    await getDb().transaction(async (tx) => {
+    await (await getDb()).transaction(async (tx) => {
       await repository.lockAllSlipsForRun(runId);
 
       const slips = await repository.findSlipsByRunId(runId);
@@ -1710,7 +1710,7 @@ export async function transitionPayrollRun(
   }
 
   // Log transition to audit_logs
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId: actionByUserId,
     action: toStatus === 'LOCKED' ? 'LOCK' : 'APPROVE',
     module: 'PAYROLL_REVIEW',

@@ -277,7 +277,7 @@ export async function createMapping(data: SalaryMappingFormData): Promise<Salary
 
   // Sync basic salary and grade back to Employee master
   try {
-    const db = getDb();
+    const db = (await getDb());
     await db
       .update(employeesTable)
       .set({
@@ -362,7 +362,7 @@ export async function updateMapping(
 
   // Sync basic salary and grade back to Employee master
   try {
-    const db = getDb();
+    const db = (await getDb());
     await db
       .update(employeesTable)
       .set({

@@ -117,7 +117,7 @@ const DEFAULT_EMPLOYMENT_TYPES: EmploymentTypeFormData[] = [
  * Auto-seeds with standard Nepal Labour Act categories if table is empty.
  */
 export async function findAllEmploymentTypes(): Promise<EmploymentType[]> {
-  const db = getDb();
+  const db = (await getDb());
   let rows: EmploymentTypeRow[] = [];
 
   try {
@@ -176,7 +176,7 @@ export async function findAllEmploymentTypes(): Promise<EmploymentType[]> {
 }
 
 export async function createEmploymentType(data: EmploymentTypeFormData): Promise<EmploymentType> {
-  const db = getDb();
+  const db = (await getDb());
   const code = data.code.trim().toUpperCase();
 
   const [row] = await db
@@ -204,7 +204,7 @@ export async function updateEmploymentType(
   id: string,
   data: Partial<EmploymentTypeFormData>
 ): Promise<EmploymentType> {
-  const db = getDb();
+  const db = (await getDb());
   const updates: Record<string, unknown> = {
     updatedAt: new Date(),
   };
@@ -232,7 +232,7 @@ export async function updateEmploymentType(
 }
 
 export async function deleteEmploymentType(id: string): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   const [target] = await db.select().from(employmentTypes).where(eq(employmentTypes.id, id)).limit(1);
   if (!target) return;
 

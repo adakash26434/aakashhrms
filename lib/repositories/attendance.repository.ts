@@ -49,9 +49,9 @@ type AttendanceRowJoined = {
  */
 export async function resolveFiscalYearId(givenId?: string | null): Promise<string> {
   if (givenId && givenId.trim()) return givenId;
-  const fys = await getDb().select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
+  const fys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
   if (fys.length) return fys[0].id;
-  const allFys = await getDb().select().from(fiscalYears);
+  const allFys = await (await getDb()).select().from(fiscalYears);
   if (allFys.length) return allFys[0].id;
   throw new Error("Cannot save attendance: No Fiscal Year exists in the database. Please create an Active Fiscal Year first!");
 }
@@ -89,7 +89,7 @@ function mapJoinedRowToRecord(row: AttendanceRowJoined): AttendanceRecord {
  * Fetch all attendance records for a specific date (or date range), joined with employee organizational metadata.
  */
 export async function findAttendanceByDate(targetDate: string): Promise<AttendanceRecord[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: attendanceRecords.id,
       employeeId: attendanceRecords.employeeId,
@@ -129,7 +129,7 @@ export async function findAttendanceByDate(targetDate: string): Promise<Attendan
  * Fetch a single attendance record by ID.
  */
 export async function findById(id: string): Promise<AttendanceRecord | null> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: attendanceRecords.id,
       employeeId: attendanceRecords.employeeId,
@@ -182,7 +182,7 @@ export async function findByEmployeeAndMonthPrefix(
     whereConditions.push(sql`${attendanceRecords.attendanceDate}::text LIKE ${datePrefix + "%"}`);
   }
 
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       id: attendanceRecords.id,
       employeeId: attendanceRecords.employeeId,
@@ -241,13 +241,13 @@ export async function saveRecord(
 
   // Check if record is locked
   if (id) {
-    const existing = await getDb().select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
+    const existing = await (await getDb()).select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
     if (existing.length && existing[0].isLocked) {
       throw new Error("Cannot update attendance: This record is locked because payroll has already been generated for this period.");
     }
   } else {
     // Check if an entry already exists for this employee on this date
-    const dup = await getDb().select().from(attendanceRecords).where(
+    const dup = await (await getDb()).select().from(attendanceRecords).where(
       and(
         eq(attendanceRecords.employeeId, data.employeeId),
         eq(attendanceRecords.attendanceDate, data.attendanceDate)
@@ -267,7 +267,7 @@ export async function saveRecord(
       throw new Error("Cannot update attendance: This record is locked for pre-payroll / payroll processing.");
     }
 
-    await getDb()
+    await (await getDb())
       .update(attendanceRecords)
       .set({
         status: data.status,
@@ -286,7 +286,7 @@ export async function saveRecord(
     const updated = await findById(id);
     return updated!;
   } else {
-    const inserted = await getDb()
+    const inserted = await (await getDb())
       .insert(attendanceRecords)
       .values({
         employeeId: data.employeeId,
@@ -341,7 +341,7 @@ export async function saveBulkAttendance(
 ): Promise<AttendanceRecord[]> {
   const fyId = await resolveFiscalYearId(fiscalYearId);
 
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     for (const item of items) {
         // Check existing
         const dup = await tx.select().from(attendanceRecords).where(
@@ -419,14 +419,14 @@ export async function saveBulkAttendance(
  * Delete an attendance record.
  */
 export async function remove(id: string): Promise<boolean> {
-    const existing = await getDb().select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
+    const existing = await (await getDb()).select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
     if (!existing.length) {
       throw new Error(`Attendance record not found: ${id}`);
     }
     if (existing[0].isLocked) {
       throw new Error("Cannot delete attendance: This record is locked for payroll.");
     }
-    const res = await getDb().delete(attendanceRecords).where(eq(attendanceRecords.id, id)).returning({ id: attendanceRecords.id });
+    const res = await (await getDb()).delete(attendanceRecords).where(eq(attendanceRecords.id, id)).returning({ id: attendanceRecords.id });
     return res.length > 0;
 }
 
@@ -451,7 +451,7 @@ export async function saveCalculationLock(data: {
 }): Promise<LeaveOtCalculation> {
   const fyId = await resolveFiscalYearId(data.fiscalYearId);
 
-  const existing = await getDb().select().from(leaveOtCalculations).where(
+  const existing = await (await getDb()).select().from(leaveOtCalculations).where(
     and(
       eq(leaveOtCalculations.employeeId, data.employeeId),
       eq(leaveOtCalculations.bsMonth, data.bsMonth),
@@ -461,7 +461,7 @@ export async function saveCalculationLock(data: {
 
   // If sealing/locking, strictly lock attendance punches for this specific BS month date range
   if (data.isLocked) {
-    const [fy] = await getDb().select().from(fiscalYears).where(eq(fiscalYears.id, fyId)).limit(1);
+    const [fy] = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.id, fyId)).limit(1);
     const startBsYear = fy?.startDateBS
       ? parseInt(fy.startDateBS.split("-")[0], 10)
       : (fy?.label ? parseInt(fy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
@@ -470,7 +470,7 @@ export async function saveCalculationLock(data: {
     const startStr = formatADDate(start, "iso");
     const endStr = formatADDate(end, "iso");
 
-    await getDb()
+    await (await getDb())
       .update(attendanceRecords)
       .set({ isLocked: true })
       .where(
@@ -484,7 +484,7 @@ export async function saveCalculationLock(data: {
   }
 
   if (existing.length) {
-    const rows = await getDb()
+    const rows = await (await getDb())
       .update(leaveOtCalculations)
       .set({
         totalWorkingDays: data.totalWorkingDays.toString(),
@@ -528,7 +528,7 @@ export async function saveCalculationLock(data: {
       updatedAt: rows[0].updatedAt.toISOString(),
     };
   } else {
-    const rows = await getDb()
+    const rows = await (await getDb())
       .insert(leaveOtCalculations)
       .values({
         employeeId: data.employeeId,

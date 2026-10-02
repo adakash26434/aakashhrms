@@ -18,7 +18,7 @@ export async function deduplicateStatutoryLeaves(): Promise<void> {
   if (isStatutoryCleanupDone) return;
 
   try {
-    const db = getDb();
+    const db = (await getDb());
     const allTypes = await db.select().from(leaveTypes);
 
     const hasLegacyStatCodes = allTypes.some((t) => t.code.startsWith('STAT_'));

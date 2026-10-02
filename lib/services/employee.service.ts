@@ -46,7 +46,7 @@ export interface EmployeeLookupData {
 
 export async function getEmployeeLookupData(scope?: ScopeFilter) {
   const scopeCondition = scope ? buildEmployeeScopeCondition(scope) : undefined;
-  const db = getDb();
+  const db = (await getDb());
   const [branches, departments, designations, allEmployees, shreniLevels, systemControl, industryRow] = await Promise.all([
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
@@ -309,7 +309,7 @@ export async function saveEmployee(
     // Preserves all existing assigned allowances, deductions, and loans.
     // =======================================================================
     try {
-      const db = getDb();
+      const db = (await getDb());
       const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
       const activeFy = fiscalYears.find((fy) => fy.status === 'Active') || fiscalYears[0];
 
@@ -542,12 +542,12 @@ export async function saveEmployee(
 
 export async function deleteEmployee(id: string) {
   // Query outstanding tasks/dues from multiple modules to construct a status checklist
-  const activeMappings = await getDb()
+  const activeMappings = await (await getDb())
     .select()
     .from(employeeSalaryMap)
     .where(and(eq(employeeSalaryMap.employeeId, id), eq(employeeSalaryMap.isActive, true)));
 
-  const activeLoans = await getDb()
+  const activeLoans = await (await getDb())
     .select({
       loan: loans,
       typeName: loanTypes.name,
@@ -556,12 +556,12 @@ export async function deleteEmployee(id: string) {
     .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
     .where(and(eq(loans.employeeId, id), eq(loans.status, "ACTIVE")));
 
-  const pendingLeaves = await getDb()
+  const pendingLeaves = await (await getDb())
     .select()
     .from(leaveApplications)
     .where(and(eq(leaveApplications.employeeId, id), eq(leaveApplications.status, "Pending")));
 
-  const unlockedCalcs = await getDb()
+  const unlockedCalcs = await (await getDb())
     .select()
     .from(leaveOtCalculations)
     .where(and(eq(leaveOtCalculations.employeeId, id), eq(leaveOtCalculations.isLocked, false)));
@@ -612,7 +612,7 @@ export async function deleteEmployee(id: string) {
   }
 
   // P1 FIX: Check for existing payroll history (hard delete would destroy financial records)
-  const existingSlips = await getDb()
+  const existingSlips = await (await getDb())
     .select({ id: payrollSlips.id })
     .from(payrollSlips)
     .where(eq(payrollSlips.employeeId, id))
@@ -624,7 +624,7 @@ export async function deleteEmployee(id: string) {
   }
 
   // P1 FIX: Check for leave salary PAID records
-  const existingLeaveSalary = await getDb()
+  const existingLeaveSalary = await (await getDb())
     .select({ id: leaveSalaryRuns.id })
     .from(leaveSalaryRuns)
     .where(and(eq(leaveSalaryRuns.employeeId, id), eq(leaveSalaryRuns.status, 'PAID')))

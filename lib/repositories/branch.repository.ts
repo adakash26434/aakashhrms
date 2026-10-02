@@ -20,18 +20,18 @@ function mapRowToBranch(row: BranchRow): Branch {
 }
 
 export async function findAllBranches(): Promise<Branch[]> {
-  const rows = await getDb().select().from(branches);
+  const rows = await (await getDb()).select().from(branches);
   return rows.map(mapRowToBranch);
 }
 
 export async function findBranchById(id: string): Promise<Branch | undefined> {
-  const rows = await getDb().select().from(branches).where(eq(branches.id, id));
+  const rows = await (await getDb()).select().from(branches).where(eq(branches.id, id));
   if (!rows.length) return undefined;
   return mapRowToBranch(rows[0]);
 }
 
 export async function createBranch(data: Omit<Branch, "id" | "createdAt" | "updatedAt">): Promise<Branch> {
-  const rows = await getDb().insert(branches).values({
+  const rows = await (await getDb()).insert(branches).values({
     code: data.code,
     name: data.name,
     location: data.location,
@@ -43,7 +43,7 @@ export async function createBranch(data: Omit<Branch, "id" | "createdAt" | "upda
 }
 
 export async function updateBranch(id: string, data: Partial<Omit<Branch, "id" | "createdAt" | "updatedAt">>): Promise<Branch> {
-  const rows = await getDb().update(branches)
+  const rows = await (await getDb()).update(branches)
     .set({ ...data, updatedAt: new Date() })
     .where(eq(branches.id, id))
     .returning();
@@ -51,5 +51,5 @@ export async function updateBranch(id: string, data: Partial<Omit<Branch, "id" |
 }
 
 export async function deleteBranch(id: string): Promise<void> {
-  await getDb().delete(branches).where(eq(branches.id, id));
+  await (await getDb()).delete(branches).where(eq(branches.id, id));
 }

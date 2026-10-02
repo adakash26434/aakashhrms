@@ -86,7 +86,7 @@ export async function updateUserPassword(
   passwordHash: string,
   setMustChangePasswordFalse = true
 ): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   await db
     .update(users)
     .set({
@@ -98,7 +98,7 @@ export async function updateUserPassword(
 }
 
 export async function clearMustChangePasswordFlag(userId: string): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   await db
     .update(users)
     .set({
@@ -109,7 +109,7 @@ export async function clearMustChangePasswordFlag(userId: string): Promise<void>
 }
 
 export async function saveCompanyProfile(data: OnboardingStep2CompanyInput): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
 
   // Protect company_industry_type: Super Admin exclusively controls this.
   // If already set in tenant system_config, preserve it strictly.
@@ -187,7 +187,7 @@ export async function saveCompanyProfile(data: OnboardingStep2CompanyInput): Pro
 }
 
 export async function bootstrapOrgStructure(data: OnboardingStep3OrgInput): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
 
   // 1. Insert or update Primary Branch
   let primaryBranchId: string;
@@ -309,7 +309,7 @@ export async function bootstrapOrgStructure(data: OnboardingStep3OrgInput): Prom
 export async function bootstrapStatutoryLeavesAndOT(
   data: OnboardingStep4LeaveOtInput
 ): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
 
   // 1. Insert Leave Types and matching Statutory Leave Rules
   for (const lt of data.leaveTypes) {
@@ -389,7 +389,7 @@ export async function bootstrapStatutoryLeavesAndOT(
 }
 
 export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   const [allDepts, allDesigs] = await Promise.all([
     db.select({ id: departments.id }).from(departments),
     db.select({ id: designations.id }).from(designations),
@@ -433,7 +433,7 @@ export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Pro
 }
 
 export async function completeOnboarding(changedByUserId: string): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   const now = new Date().toISOString();
 
   await db

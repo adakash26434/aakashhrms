@@ -262,7 +262,7 @@ export async function syncActiveLoansToSalaryMapping(
   employeeId: string,
   tx?: any
 ): Promise<void> {
-  const db = tx || getDb();
+  const db = tx || (await getDb());
 
   // 1. Fetch active loans with remaining balance > 0
   const activeLoans = await db

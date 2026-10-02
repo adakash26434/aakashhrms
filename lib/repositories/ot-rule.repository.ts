@@ -17,22 +17,22 @@ function mapOtRule(row: typeof otRules.$inferSelect): OtRule {
 }
 
 export async function findAllOtRules(): Promise<OtRule[]> {
-  const rows = await getDb().select().from(otRules).orderBy(desc(otRules.createdAt));
+  const rows = await (await getDb()).select().from(otRules).orderBy(desc(otRules.createdAt));
   return rows.map(mapOtRule);
 }
 
 export async function findActiveOtRules(): Promise<OtRule[]> {
-  const rows = await getDb().select().from(otRules).where(eq(otRules.isActive, true)).orderBy(desc(otRules.createdAt));
+  const rows = await (await getDb()).select().from(otRules).where(eq(otRules.isActive, true)).orderBy(desc(otRules.createdAt));
   return rows.map(mapOtRule);
 }
 
 export async function findOtRuleById(id: string): Promise<OtRule | null> {
-  const rows = await getDb().select().from(otRules).where(eq(otRules.id, id));
+  const rows = await (await getDb()).select().from(otRules).where(eq(otRules.id, id));
   return rows.length ? mapOtRule(rows[0]) : null;
 }
 
 export async function createOtRule(data: Partial<OtRule>): Promise<OtRule> {
-  const rows = await getDb().insert(otRules).values({
+  const rows = await (await getDb()).insert(otRules).values({
     ruleType: data.ruleType || "Hourly",
     ruleName: data.ruleName || "Standard OT",
     rateOfficeDay: (data.rateOfficeDay ?? 0).toString(),
@@ -43,7 +43,7 @@ export async function createOtRule(data: Partial<OtRule>): Promise<OtRule> {
 }
 
 export async function updateOtRule(id: string, data: Partial<OtRule>): Promise<OtRule | null> {
-  const existing = await getDb().select().from(otRules).where(eq(otRules.id, id)).limit(1);
+  const existing = await (await getDb()).select().from(otRules).where(eq(otRules.id, id)).limit(1);
   if (existing.length > 0 && existing[0].isPlatformLocked) {
     throw new Error("Standard Nepal Labour Act Overtime rules are platform-locked and cannot be modified by company administrators.");
   }
@@ -55,16 +55,16 @@ export async function updateOtRule(id: string, data: Partial<OtRule>): Promise<O
   if (data.rateOffDay !== undefined) updateVals.rateOffDay = data.rateOffDay.toString();
   if (data.isActive !== undefined) updateVals.isActive = data.isActive;
 
-  const rows = await getDb().update(otRules).set(updateVals).where(eq(otRules.id, id)).returning();
+  const rows = await (await getDb()).update(otRules).set(updateVals).where(eq(otRules.id, id)).returning();
   return rows.length ? mapOtRule(rows[0]) : null;
 }
 
 export async function removeOtRule(id: string): Promise<boolean> {
-  const existing = await getDb().select().from(otRules).where(eq(otRules.id, id)).limit(1);
+  const existing = await (await getDb()).select().from(otRules).where(eq(otRules.id, id)).limit(1);
   if (existing.length > 0 && existing[0].isPlatformLocked) {
     throw new Error("Standard Nepal Labour Act Overtime rules are platform-locked and cannot be deleted by company administrators.");
   }
 
-  const res = await getDb().delete(otRules).where(eq(otRules.id, id)).returning({ id: otRules.id });
+  const res = await (await getDb()).delete(otRules).where(eq(otRules.id, id)).returning({ id: otRules.id });
   return res.length > 0;
 }

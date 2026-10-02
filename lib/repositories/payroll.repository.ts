@@ -39,12 +39,12 @@ function mapPayrollSlipHead(row: DBPayrollSlipHead): PayrollSlipHead {
 // -----------------------------------------------------------------------------
 
 export async function findAllPayrollRuns(): Promise<PayrollRun[]> {
-  const rows = await getDb().select().from(payrollRuns).orderBy(payrollRuns.createdAt);
+  const rows = await (await getDb()).select().from(payrollRuns).orderBy(payrollRuns.createdAt);
   return rows.map(mapPayrollRun);
 }
 
 export async function findPayrollRunById(id: string): Promise<PayrollRun | undefined> {
-  const rows = await getDb().select().from(payrollRuns).where(eq(payrollRuns.id, id));
+  const rows = await (await getDb()).select().from(payrollRuns).where(eq(payrollRuns.id, id));
   if (!rows.length) return undefined;
   return mapPayrollRun(rows[0]);
 }
@@ -55,7 +55,7 @@ export async function findPayrollRunByPeriodAndBranch(args: {
   branchIds: string[];
 }): Promise<PayrollRun[]> {
   // Query to find existing runs with overlapping branch sets and same month/year
-  const allRuns = await getDb().select().from(payrollRuns).where(
+  const allRuns = await (await getDb()).select().from(payrollRuns).where(
     and(
       eq(payrollRuns.payPeriodMonth, args.payPeriodMonth),
       eq(payrollRuns.payPeriodYear, args.payPeriodYear)
@@ -92,7 +92,7 @@ export async function createPayrollRun(data: {
   employeeCount: number;
   generatedBy: string;
 }, tx?: any): Promise<PayrollRun> {
-  const client = tx || getDb();
+  const client = tx || (await getDb());
   const rows = await client.insert(payrollRuns).values({
     fiscalYearId: data.fiscalYearId,
     payPeriodMonth: data.payPeriodMonth,
@@ -147,7 +147,7 @@ export async function updatePayrollRunStatus(
     updateData.notes = notes;
   }
 
-  const rows = await getDb().update(payrollRuns)
+  const rows = await (await getDb()).update(payrollRuns)
     .set(updateData)
     .where(eq(payrollRuns.id, id))
     .returning();
@@ -166,7 +166,7 @@ export async function updatePayrollRunTotals(
     totalSsf: string;
   }
 ): Promise<void> {
-  await getDb().update(payrollRuns)
+  await (await getDb()).update(payrollRuns)
     .set({
       ...totals,
       updatedAt: new Date(),
@@ -219,25 +219,25 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
     await runInsert(tx);
   } else {
     // Wrap in atomic transaction
-    await getDb().transaction(async (tx) => {
+    await (await getDb()).transaction(async (tx) => {
       await runInsert(tx);
     });
   }
 }
 
 export async function findSlipsByRunId(runId: string): Promise<PayrollSlip[]> {
-  const rows = await getDb().select().from(payrollSlips).where(eq(payrollSlips.payrollRunId, runId));
+  const rows = await (await getDb()).select().from(payrollSlips).where(eq(payrollSlips.payrollRunId, runId));
   return rows.map(mapPayrollSlip);
 }
 
 export async function findSlipById(id: string): Promise<PayrollSlip | undefined> {
-  const rows = await getDb().select().from(payrollSlips).where(eq(payrollSlips.id, id));
+  const rows = await (await getDb()).select().from(payrollSlips).where(eq(payrollSlips.id, id));
   if (!rows.length) return undefined;
   return mapPayrollSlip(rows[0]);
 }
 
 export async function findSlipHeadsBySlipId(slipId: string): Promise<PayrollSlipHead[]> {
-  const rows = await getDb().select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
+  const rows = await (await getDb()).select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
   return rows.map(mapPayrollSlipHead);
 }
 
@@ -261,7 +261,7 @@ export async function updateSlipOverrideAndRecalculate(
     reason: string;
   }
 ): Promise<void> {
-  await getDb().transaction(async (tx) => {
+  await (await getDb()).transaction(async (tx) => {
     // 1. Update the main slip values
     await tx.update(payrollSlips)
       .set({
@@ -287,7 +287,7 @@ export async function updateSlipOverrideAndRecalculate(
 }
 
 export async function lockAllSlipsForRun(runId: string): Promise<void> {
-  await getDb().update(payrollSlips)
+  await (await getDb()).update(payrollSlips)
     .set({
       status: 'LOCKED',
       updatedAt: new Date(),
@@ -297,12 +297,12 @@ export async function lockAllSlipsForRun(runId: string): Promise<void> {
 
 export async function deletePayrollRun(id: string): Promise<void> {
   // Cascades to slips and slip heads automatically via DB foreign key onDelete: cascade
-  await getDb().delete(payrollRuns).where(eq(payrollRuns.id, id));
+  await (await getDb()).delete(payrollRuns).where(eq(payrollRuns.id, id));
 }
 
 export async function deletePayrollSlip(slipId: string): Promise<void> {
   // Cascades to slip heads automatically via DB foreign key onDelete: cascade
-  await getDb().delete(payrollSlips).where(eq(payrollSlips.id, slipId));
+  await (await getDb()).delete(payrollSlips).where(eq(payrollSlips.id, slipId));
 }
 
 export async function replaceSlipHeads(
@@ -317,7 +317,7 @@ export async function replaceSlipHeads(
     overrideReason?: string | null;
   }>
 ): Promise<void> {
-  await getDb().transaction(async (tx) => {
+  await (await getDb()).transaction(async (tx) => {
     await tx.delete(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
     const validHeads = heads
       .filter((h) => UUID_REGEX.test(h.payHeadId))
@@ -352,7 +352,7 @@ export async function addSlipHead(
   if (!UUID_REGEX.test(head.payHeadId)) {
     throw new Error(`Cannot add slip head with non-UUID payHeadId: ${head.payHeadId}`);
   }
-  await getDb().insert(payrollSlipHeads).values({
+  await (await getDb()).insert(payrollSlipHeads).values({
     payrollSlipId: slipId,
     payHeadId: head.payHeadId,
     payHeadName: head.payHeadName,

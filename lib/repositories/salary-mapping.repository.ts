@@ -16,7 +16,7 @@ async function resolveDbFiscalYearId(givenId?: string | null, fallbackExistingId
   if (fallbackExistingId && UUID_REGEX.test(fallbackExistingId)) {
     return fallbackExistingId;
   }
-  const db = getDb();
+  const db = (await getDb());
   const activeFys = await db.select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
   if (activeFys.length > 0) return activeFys[0].id;
   const allFys = await db.select().from(fiscalYears);
@@ -92,7 +92,7 @@ function mapRowsToSalaryMappings(mapRows: SalaryMapRow[], headRows: SalaryHeadRo
 
 async function fetchHeadsForMaps(mapIds: string[]): Promise<SalaryHeadRowJoined[]> {
   if (mapIds.length === 0) return [];
-  return await getDb()
+  return await (await getDb())
     .select({
       id: employeeSalaryHeads.id,
       salaryMapId: employeeSalaryHeads.salaryMapId,
@@ -113,21 +113,21 @@ export async function findAllSalaryMappings(filter?: any): Promise<SalaryMapping
   if (filter?.fiscalYearId) conditions.push(eq(employeeSalaryMap.fiscalYearId, filter.fiscalYearId));
   if (filter?.isActive !== undefined) conditions.push(eq(employeeSalaryMap.isActive, filter.isActive));
 
-  const mapRows = await getDb().select().from(employeeSalaryMap).where(and(...conditions)).orderBy(desc(employeeSalaryMap.createdAt));
+  const mapRows = await (await getDb()).select().from(employeeSalaryMap).where(and(...conditions)).orderBy(desc(employeeSalaryMap.createdAt));
   if (mapRows.length === 0) return [];
   const headRows = await fetchHeadsForMaps(mapRows.map((r) => r.id));
   return mapRowsToSalaryMappings(mapRows, headRows);
 }
 
 export async function findSalaryMappingById(id: string): Promise<SalaryMapping | null> {
-  const mapRows = await getDb().select().from(employeeSalaryMap).where(eq(employeeSalaryMap.id, id));
+  const mapRows = await (await getDb()).select().from(employeeSalaryMap).where(eq(employeeSalaryMap.id, id));
   if (!mapRows.length) return null;
   const heads = await fetchHeadsForMaps([id]);
   return mapRowsToSalaryMappings(mapRows, heads)[0];
 }
 
 export async function findActiveSalaryMappingByEmployeeId(employeeId: string): Promise<SalaryMapping | null> {
-  const mapRows = await getDb().select().from(employeeSalaryMap).where(and(eq(employeeSalaryMap.employeeId, employeeId), eq(employeeSalaryMap.isActive, true)));
+  const mapRows = await (await getDb()).select().from(employeeSalaryMap).where(and(eq(employeeSalaryMap.employeeId, employeeId), eq(employeeSalaryMap.isActive, true)));
   if (!mapRows.length) return null;
   const heads = await fetchHeadsForMaps([mapRows[0].id]);
   return mapRowsToSalaryMappings(mapRows, heads)[0];
@@ -135,7 +135,7 @@ export async function findActiveSalaryMappingByEmployeeId(employeeId: string): P
 
 export async function findActiveSalaryMappingsByEmployeeIds(employeeIds: string[]): Promise<SalaryMapping[]> {
   if (employeeIds.length === 0) return [];
-  const mapRows = await getDb().select().from(employeeSalaryMap).where(and(inArray(employeeSalaryMap.employeeId, employeeIds), eq(employeeSalaryMap.isActive, true)));
+  const mapRows = await (await getDb()).select().from(employeeSalaryMap).where(and(inArray(employeeSalaryMap.employeeId, employeeIds), eq(employeeSalaryMap.isActive, true)));
   if (mapRows.length === 0) return [];
   const mapIds = mapRows.map((r) => r.id);
   const heads = await fetchHeadsForMaps(mapIds);
@@ -143,14 +143,14 @@ export async function findActiveSalaryMappingsByEmployeeIds(employeeIds: string[
 }
 
 export async function findSalaryMappingByEmployeeId(employeeId: string): Promise<SalaryMapping | null> {
-  const mapRows = await getDb().select().from(employeeSalaryMap).where(and(eq(employeeSalaryMap.employeeId, employeeId), eq(employeeSalaryMap.isActive, true)));
+  const mapRows = await (await getDb()).select().from(employeeSalaryMap).where(and(eq(employeeSalaryMap.employeeId, employeeId), eq(employeeSalaryMap.isActive, true)));
   if (!mapRows.length) return null;
   const heads = await fetchHeadsForMaps([mapRows[0].id]);
   return mapRowsToSalaryMappings(mapRows, heads)[0];
 }
 
 export async function findAllActiveSalaryMappings(): Promise<SalaryMapping[]> {
-  const mapRows = await getDb().select().from(employeeSalaryMap).where(eq(employeeSalaryMap.isActive, true)).orderBy(desc(employeeSalaryMap.createdAt));
+  const mapRows = await (await getDb()).select().from(employeeSalaryMap).where(eq(employeeSalaryMap.isActive, true)).orderBy(desc(employeeSalaryMap.createdAt));
   if (mapRows.length === 0) return [];
   const headRows = await fetchHeadsForMaps(mapRows.map((r) => r.id));
   return mapRowsToSalaryMappings(mapRows, headRows);
@@ -171,7 +171,7 @@ export async function saveSalaryMapping(data: {
   netAmount: number;
   isActive?: boolean;
 }): Promise<SalaryMapping> {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     let mapId = data.id;
 
     if (data.isActive !== false) {
@@ -240,12 +240,12 @@ export async function saveSalaryMapping(data: {
 }
 
 export async function deleteSalaryMapping(id: string): Promise<boolean> {
-  const res = await getDb().delete(employeeSalaryMap).where(eq(employeeSalaryMap.id, id)).returning({ id: employeeSalaryMap.id });
+  const res = await (await getDb()).delete(employeeSalaryMap).where(eq(employeeSalaryMap.id, id)).returning({ id: employeeSalaryMap.id });
   return res.length > 0;
 }
 
 export async function deactivateSalaryMapping(id: string): Promise<boolean> {
-  const res = await getDb().update(employeeSalaryMap).set({ isActive: false, updatedAt: new Date() }).where(eq(employeeSalaryMap.id, id)).returning({ id: employeeSalaryMap.id });
+  const res = await (await getDb()).update(employeeSalaryMap).set({ isActive: false, updatedAt: new Date() }).where(eq(employeeSalaryMap.id, id)).returning({ id: employeeSalaryMap.id });
   return res.length > 0;
 }
 

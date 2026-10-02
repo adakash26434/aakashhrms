@@ -28,7 +28,7 @@ function mapLeaveRule(
 }
 
 export async function findAllLeaveRules(): Promise<LeaveRule[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       rule: leaveRules,
       leaveTypeName: leaveTypes.name,
@@ -42,7 +42,7 @@ export async function findAllLeaveRules(): Promise<LeaveRule[]> {
 }
 
 export async function findActiveLeaveRules(): Promise<LeaveRule[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       rule: leaveRules,
       leaveTypeName: leaveTypes.name,
@@ -57,7 +57,7 @@ export async function findActiveLeaveRules(): Promise<LeaveRule[]> {
 }
 
 export async function findLeaveRuleById(id: string): Promise<LeaveRule | null> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       rule: leaveRules,
       leaveTypeName: leaveTypes.name,
@@ -71,7 +71,7 @@ export async function findLeaveRuleById(id: string): Promise<LeaveRule | null> {
 }
 
 export async function findLeaveRuleByLeaveTypeId(leaveTypeId: string): Promise<LeaveRule | null> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       rule: leaveRules,
       leaveTypeName: leaveTypes.name,
@@ -96,7 +96,7 @@ export async function createLeaveRule(data: {
   minServiceDaysForEligibility?: number;
   isActive?: boolean;
 }): Promise<LeaveRule> {
-  const rows = await getDb().insert(leaveRules).values({
+  const rows = await (await getDb()).insert(leaveRules).values({
     leaveTypeId: data.leaveTypeId,
     fiscalYearId: data.fiscalYearId || null,
     ruleName: data.ruleName,
@@ -138,13 +138,13 @@ export async function updateLeaveRule(id: string, data: Partial<{
   if (data.minServiceDaysForEligibility !== undefined) updateVals.minServiceDaysForEligibility = data.minServiceDaysForEligibility;
   if (data.isActive !== undefined) updateVals.isActive = data.isActive;
 
-  const rows = await getDb().update(leaveRules).set(updateVals).where(eq(leaveRules.id, id)).returning();
+  const rows = await (await getDb()).update(leaveRules).set(updateVals).where(eq(leaveRules.id, id)).returning();
   if (!rows.length) return null;
 
   return findLeaveRuleById(rows[0].id);
 }
 
 export async function removeLeaveRule(id: string): Promise<boolean> {
-  const res = await getDb().delete(leaveRules).where(eq(leaveRules.id, id)).returning({ id: leaveRules.id });
+  const res = await (await getDb()).delete(leaveRules).where(eq(leaveRules.id, id)).returning({ id: leaveRules.id });
   return res.length > 0;
 }

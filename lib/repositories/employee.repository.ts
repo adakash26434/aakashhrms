@@ -122,7 +122,7 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
 
   let rows: any[] = [];
   try {
-    rows = await getDb()
+    rows = await (await getDb())
       .select()
       .from(employees)
       .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
@@ -147,7 +147,7 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
 }
 
 export async function findById(id: string): Promise<Employee | undefined> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(employees)
     .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
@@ -165,7 +165,7 @@ export async function findById(id: string): Promise<Employee | undefined> {
 // ---------------------------------------------------------------------------
 
 export async function create(data: Partial<Employee>): Promise<Employee> {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     const empInsert = await tx.insert(employees).values({
       employeeCode: data.employeeCode ?? '',
       attendanceCode: data.attendanceCode ?? '',
@@ -264,7 +264,7 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
 }
 
 export async function update(id: string, data: Partial<Employee>): Promise<Employee> {
-  return await getDb().transaction(async (tx) => {
+  return await (await getDb()).transaction(async (tx) => {
     const oldEmp = await tx.select({ deptId: employees.departmentId, desigId: employees.designationId }).from(employees).where(eq(employees.id, id));
     
     await tx.update(employees).set({
@@ -386,7 +386,7 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
 }
 
 export async function remove(id: string): Promise<void> {
-  await getDb().transaction(async (tx) => {
+  await (await getDb()).transaction(async (tx) => {
     const oldEmp = await tx.select({ deptId: employees.departmentId, desigId: employees.designationId }).from(employees).where(eq(employees.id, id));
     if (oldEmp.length > 0) {
       if (oldEmp[0].deptId) {

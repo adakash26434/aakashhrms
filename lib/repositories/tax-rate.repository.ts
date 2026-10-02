@@ -20,7 +20,7 @@ function mapRowToTaxSlab(row: {
 }
 
 export async function findAllSlabs(): Promise<TaxSlab[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(taxRateSlabs)
     .innerJoin(fiscalYears, eq(taxRateSlabs.fiscalYearId, fiscalYears.id));
@@ -32,7 +32,7 @@ export async function findSlabsByFYAndCategory(args: {
   fiscalYearId: string;
   category: TaxCategory;
 }): Promise<TaxSlab[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(taxRateSlabs)
     .innerJoin(fiscalYears, eq(taxRateSlabs.fiscalYearId, fiscalYears.id))
@@ -48,7 +48,7 @@ export async function findSlabsByFYAndCategory(args: {
 }
 
 export async function findSlabById(id: string): Promise<TaxSlab | undefined> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(taxRateSlabs)
     .innerJoin(fiscalYears, eq(taxRateSlabs.fiscalYearId, fiscalYears.id))
@@ -61,7 +61,7 @@ export async function findSlabById(id: string): Promise<TaxSlab | undefined> {
 type CreatePayload = Omit<TaxSlab, "id" | "fiscalYearLabel">;
 
 export async function createSlab(data: CreatePayload): Promise<TaxSlab> {
-  const inserted = await getDb().insert(taxRateSlabs).values({
+  const inserted = await (await getDb()).insert(taxRateSlabs).values({
     fiscalYearId: data.fiscalYearId,
     category: data.category,
     amountFrom: data.amountFrom.toString(),
@@ -79,7 +79,7 @@ export async function createSlab(data: CreatePayload): Promise<TaxSlab> {
 type UpdatePayload = Partial<Omit<TaxSlab, "id" | "fiscalYearId" | "fiscalYearLabel" | "category">>;
 
 export async function updateSlab(id: string, data: UpdatePayload): Promise<TaxSlab> {
-  await getDb().update(taxRateSlabs)
+  await (await getDb()).update(taxRateSlabs)
     .set({
       amountFrom: data.amountFrom?.toString(),
       amountTo: data.amountTo === null ? null : data.amountTo?.toString(),
@@ -95,5 +95,5 @@ export async function updateSlab(id: string, data: UpdatePayload): Promise<TaxSl
 }
 
 export async function deleteSlab(id: string): Promise<void> {
-  await getDb().delete(taxRateSlabs).where(eq(taxRateSlabs.id, id));
+  await (await getDb()).delete(taxRateSlabs).where(eq(taxRateSlabs.id, id));
 }

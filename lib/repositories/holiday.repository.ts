@@ -22,12 +22,12 @@ function mapRowToHoliday(row: HolidayRow): Holiday {
 }
 
 export async function findAllHolidays(): Promise<Holiday[]> {
-  const rows = await getDb().select().from(holidays);
+  const rows = await (await getDb()).select().from(holidays);
   return rows.map(mapRowToHoliday);
 }
 
 export async function findHolidayById(id: string): Promise<Holiday | undefined> {
-  const rows = await getDb().select().from(holidays).where(eq(holidays.id, id));
+  const rows = await (await getDb()).select().from(holidays).where(eq(holidays.id, id));
   if (!rows.length) return undefined;
   return mapRowToHoliday(rows[0]);
 }
@@ -42,7 +42,7 @@ export async function createHoliday(data: CreatePayload): Promise<Holiday> {
     throw new Error("Invalid BS dates provided to holiday repository.");
   }
 
-  const rows = await getDb().insert(holidays).values({
+  const rows = await (await getDb()).insert(holidays).values({
     name: data.name,
     category: data.category,
     startDate: data.startDate,
@@ -63,7 +63,7 @@ export async function updateHoliday(id: string, data: CreatePayload): Promise<Ho
     throw new Error("Invalid BS dates provided to holiday repository.");
   }
 
-  const rows = await getDb().update(holidays).set({
+  const rows = await (await getDb()).update(holidays).set({
     name: data.name,
     category: data.category,
     startDate: data.startDate,
@@ -78,5 +78,5 @@ export async function updateHoliday(id: string, data: CreatePayload): Promise<Ho
 }
 
 export async function deleteHoliday(id: string): Promise<void> {
-  await getDb().delete(holidays).where(eq(holidays.id, id));
+  await (await getDb()).delete(holidays).where(eq(holidays.id, id));
 }

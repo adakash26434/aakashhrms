@@ -72,7 +72,7 @@ export async function recordAuditLog(params: {
       }
     }
 
-    await getDb().insert(auditLogs).values({
+    await (await getDb()).insert(auditLogs).values({
       userId: finalUserId,
       roleIdAtTime: finalRoleId,
       action: params.action,

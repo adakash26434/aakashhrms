@@ -35,12 +35,12 @@ function mapRowToPayHead(row: PayHeadRow): PayHead {
 }
 
 export async function findAllPayHeads(): Promise<PayHead[]> {
-  const rows = await getDb().select().from(payHeads);
+  const rows = await (await getDb()).select().from(payHeads);
   return rows.map(mapRowToPayHead);
 }
 
 export async function findPayHeadById(id: string): Promise<PayHead | undefined> {
-  const rows = await getDb().select().from(payHeads).where(eq(payHeads.id, id));
+  const rows = await (await getDb()).select().from(payHeads).where(eq(payHeads.id, id));
   if (!rows.length) return undefined;
   return mapRowToPayHead(rows[0]);
 }
@@ -50,7 +50,7 @@ type CreatePayload = Omit<PayHead, "id" | "code" | "createdAt" | "updatedAt">;
 export async function createPayHead(data: CreatePayload): Promise<PayHead> {
   const code = `PH-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
 
-  const rows = await getDb().insert(payHeads).values({
+  const rows = await (await getDb()).insert(payHeads).values({
     code,
     name: data.name,
     type: data.type,
@@ -76,7 +76,7 @@ export async function createPayHead(data: CreatePayload): Promise<PayHead> {
 }
 
 export async function updatePayHead(id: string, data: CreatePayload): Promise<PayHead> {
-  const rows = await getDb().update(payHeads).set({
+  const rows = await (await getDb()).update(payHeads).set({
     name: data.name,
     type: data.type,
     effectOnTax: data.effectOnTax,
@@ -107,7 +107,7 @@ export interface PayHeadSalaryMappingUsage {
 }
 
 export async function getPayHeadSalaryMappingUsage(payHeadId: string): Promise<PayHeadSalaryMappingUsage> {
-  const db = getDb();
+  const db = (await getDb());
 
   const countRows = await db
     .select({ total: sql<number>`count(distinct ${employeeSalaryMap.employeeId})::int` })
@@ -138,7 +138,7 @@ export async function getPayHeadSalaryMappingUsage(payHeadId: string): Promise<P
 }
 
 export async function getPayHeadPayslipUsage(payHeadId: string): Promise<{ count: number }> {
-  const countRows = await getDb()
+  const countRows = await (await getDb())
     .select({ total: sql<number>`count(*)::int` })
     .from(payrollSlipHeads)
     .where(eq(payrollSlipHeads.payHeadId, payHeadId));
@@ -149,5 +149,5 @@ export async function getPayHeadPayslipUsage(payHeadId: string): Promise<{ count
 }
 
 export async function deletePayHead(id: string): Promise<void> {
-  await getDb().delete(payHeads).where(eq(payHeads.id, id));
+  await (await getDb()).delete(payHeads).where(eq(payHeads.id, id));
 }

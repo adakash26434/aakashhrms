@@ -170,7 +170,7 @@ export async function createLeaveSalary(
   });
 
   // Log to audit trail
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId,
     action: 'ADD',
     module: 'LEAVE_SALARY',
@@ -251,7 +251,7 @@ export async function updateLeaveSalaryDraft(
     encashmentType: data.encashmentType,
   });
 
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId,
     action: 'EDIT',
     module: 'LEAVE_SALARY',
@@ -284,7 +284,7 @@ export async function payLeaveSalary(
   }
 
   // P0 FIX: Atomic transaction — status update + balance deduction must succeed together
-  const updated = await getDb().transaction(async (tx) => {
+  const updated = await (await getDb()).transaction(async (tx) => {
     // 1. Re-verify balance inside transaction to prevent race conditions
     const balances = await leaveRepository.findLeaveBalancesByEmployee(record.employeeId);
     const targetBalance = balances.find(b => b.leaveTypeId === record.leaveTypeId);
@@ -342,7 +342,7 @@ export async function deleteLeaveSalaryDraft(
   await repository.deleteLeaveSalaryRun(id);
 
   // Log to audit trail
-  await getDb().insert(auditLogs).values({
+  await (await getDb()).insert(auditLogs).values({
     userId,
     action: 'DELETE',
     module: 'LEAVE_SALARY',

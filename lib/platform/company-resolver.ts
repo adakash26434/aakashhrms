@@ -37,7 +37,7 @@ export async function resolvePlatformCompanyForTenant(tenantSlug?: string | null
 
   // 2. Lookup via tenant DB systemConfig (company_code or company_legal_name)
   try {
-    const tenantDb = getDb();
+    const tenantDb = (await getDb());
     const configRows = await tenantDb.select().from(systemConfig);
     const configMap = new Map(configRows.map((r) => [r.key, r.value]));
 

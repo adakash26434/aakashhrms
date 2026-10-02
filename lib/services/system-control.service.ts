@@ -63,7 +63,7 @@ export async function saveSystemControlSettings(
 export async function syncAllEmployeeGradesWithPolicy(
   policy?: GradePolicySettings,
 ): Promise<GradeSyncResult> {
-  const db = getDb();
+  const db = (await getDb());
   const effectivePolicy =
     policy || (await repository.findSettings()).gradePolicy || DEFAULT_GRADE_POLICY;
 

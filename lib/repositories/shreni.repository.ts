@@ -28,7 +28,7 @@ function mapRowToItem(row: ShreniRow): ShreniLevelItem {
  * Auto-seeds with standard universal presets if table is empty.
  */
 export async function findAllShreniLevels(): Promise<ShreniLevelItem[]> {
-  const db = getDb();
+  const db = (await getDb());
   let rows: ShreniRow[] = [];
 
   try {
@@ -108,7 +108,7 @@ export async function findAllShreniLevels(): Promise<ShreniLevelItem[]> {
  * Find single level by ID or code
  */
 export async function findShreniLevelByCode(code: string): Promise<ShreniLevelItem | undefined> {
-  const db = getDb();
+  const db = (await getDb());
   const rows = await db
     .select()
     .from(shreniLevels)
@@ -123,7 +123,7 @@ export async function findShreniLevelByCode(code: string): Promise<ShreniLevelIt
  * Creates a new custom Shreni level
  */
 export async function createShreniLevel(data: ShreniLevelFormData): Promise<ShreniLevelItem> {
-  const db = getDb();
+  const db = (await getDb());
   const code = data.code.trim().toUpperCase();
 
   const [row] = await db
@@ -151,7 +151,7 @@ export async function updateShreniLevel(
   id: string,
   data: Partial<ShreniLevelFormData>
 ): Promise<ShreniLevelItem> {
-  const db = getDb();
+  const db = (await getDb());
   const updates: Record<string, unknown> = {
     updatedAt: new Date(),
   };
@@ -179,7 +179,7 @@ export async function updateShreniLevel(
  * Deletes a Shreni level with check for employee usage
  */
 export async function deleteShreniLevel(id: string): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
 
   const [level] = await db.select().from(shreniLevels).where(eq(shreniLevels.id, id)).limit(1);
   if (!level) return;
@@ -205,7 +205,7 @@ export async function deleteShreniLevel(id: string): Promise<void> {
  * Replaces existing empty or resets levels with confirmation.
  */
 export async function seedShreniPreset(presetKey: string): Promise<ShreniLevelItem[]> {
-  const db = getDb();
+  const db = (await getDb());
   const presetLevels = getPresetLevels(presetKey);
 
   for (let i = 0; i < presetLevels.length; i++) {
