@@ -86,8 +86,8 @@ export function TopHeader({
         </button>
       )}
 
-      {/* Clean Workspace Breadcrumb */}
-      <div className="flex min-w-0 items-center gap-2">
+      {/* Clean Workspace Breadcrumb (hidden on phones: the sidebar shows the company) */}
+      <div className="hidden min-w-0 items-center gap-2 sm:flex">
         <div className="flex items-center gap-2 text-xs text-zinc-900">
           <div className="flex h-7.5 w-7.5 items-center justify-center rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/60 shadow-2xs shrink-0">
             <Building2 className="h-4 w-4" />
@@ -99,7 +99,7 @@ export function TopHeader({
             >
               {companyName}
             </span>
-            <span className="text-2xs text-zinc-400 font-mono block">
+            <span className="text-2xs text-zinc-400 font-mono block truncate max-w-44 sm:max-w-64">
               {branchName} ({companyCode})
             </span>
           </div>

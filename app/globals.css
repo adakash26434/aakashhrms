@@ -318,8 +318,14 @@
      back to the OS font until Noto Sans Devanagari arrives with E8. */
   --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     "Nirmala UI", "Noto Sans Devanagari", sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono",
+  /* Legacy `font-mono` (551 uses, many on amounts, dates and counts) renders
+     as Inter with tabular figures + slashed zero (see @layer utilities), so
+     figures stop wrapping and codes stay legible. True monospace is
+     `font-code`, for PAN / bank account entry, and for <code>, <kbd>, <pre>. */
+  --font-mono: var(--font-inter), "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-code: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono",
     monospace;
+  --default-mono-font-family: var(--font-code);
 
   /* Scale (px): 11 caption · 12 secondary · 13 body · 14 emphasis · 16 title.
      text-2xs is new; text-sm drops 14 → 13 so body copy matches desktop density.
@@ -487,6 +493,12 @@ table tbody tr + tr {
   }
   .payroll-input:focus {
     border-color: var(--focus);
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-variant-numeric: tabular-nums slashed-zero;
   }
 }
 

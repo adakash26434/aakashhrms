@@ -81,7 +81,8 @@ export function KitGallery() {
             <p className="text-sm text-ink">Body 13 — End-to-end payroll for FY 2082/83 with SSF 31% (11% + 20%).</p>
             <p className="text-xs text-ink-muted">Secondary 12 — Last calculated 2082-06-16 BS · 2 Oct 2026</p>
             <p className="text-2xs text-ink-faint">Caption 11 — Pay heads are applied in display order.</p>
-            <p className="font-mono text-xs text-ink-muted">Mono (codes only) — EMP-0001 · PAN 601234567</p>
+            <p className="font-mono text-xs text-ink-muted">font-mono (figures, codes) — EMP-0001 · 2083/84 · 0O0O</p>
+            <p className="font-code text-xs text-ink-muted">font-code (true monospace) — PAN 601234567 · A/C 0010012345678</p>
           </div>
         </Section>
 

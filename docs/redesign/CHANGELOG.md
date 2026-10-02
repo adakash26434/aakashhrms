@@ -13,6 +13,28 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — Phase 1.7 screenshot tour (signed in) + fixes
+Branch: `redesign/1-foundation`
+
+Tour: you signed in to the Playwright browser as Office Administrator.
+- 36 routes were checked at 1440px. Dashboard, Employees, Payroll review and Company setup were also checked at 1024 and 390px.
+- Salary-sheet print preview was rendered.
+- Result: 0 CSP violations, 0 console errors, 0 horizontal page overflow. Screenshots are in `Payroll_System/.playwright-mcp/tour/`.
+
+Fixes:
+- `font-mono` now renders as Inter with tabular figures and a slashed zero. Large amounts had wrapped onto two lines (for example "NPR / 84,718.75"). True monospace is the new `font-code`.
+- Below 1024px a pinned sidebar shows as the 72px icon rail; the stored preference is unchanged. Before this, 390px phones got a ~120px-wide workspace. This is interim until Phase 2.9.
+- Workspace padding is 16px on small screens. The header company block is hidden on phones, where it overlapped the BS/AD switch.
+- Toasts are hidden in print; one had printed over the salary sheet.
+
+Logged for Phase 4 (pre-existing, not caused by the reskin):
+- "NPR" repeated in every grid cell and big KPI amounts wrapping (Salary Structure).
+- Narrow code columns wrap (`EMP-` / `002`).
+- Heavy dark permission chips (Roles).
+- Wide salary-sheet grid needs a sticky first column.
+
+Not yet verified: restricted-role pass (sign in as a BRANCH or DEPARTMENT scoped user).
+
 ## 2026-10-02 — Phase 1 steps 1.1–1.6: design foundation (sign-off 1.7 pending)
 Branch: `redesign/1-foundation` (from `redesign/0-security` @ `d47fcb2`; not merged or pushed)
 Commits:

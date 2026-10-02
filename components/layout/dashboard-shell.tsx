@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopHeader } from "@/components/layout/top-header";
 import { DateFormatProvider } from "@/lib/contexts/date-format-context";
 import { WorkspaceContextProvider } from "@/lib/contexts/workspace-context";
 import type { WorkspaceContext } from "@/lib/services/workspace-context.service";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 
 import { SidebarProvider, useSidebar } from "@/lib/contexts/sidebar-context";
 
@@ -22,8 +22,14 @@ function DashboardContent({
   children: React.ReactNode;
   context?: WorkspaceContext;
 }) {
-  const { isPinned, isHovered, isExpanded, setIsHovered, togglePin } =
+  const { isPinned: pinnedPreference, isHovered, setIsHovered, togglePin } =
     useSidebar();
+  // Below 1024px a pinned 256px sidebar crushes the workspace, so it shows as
+  // the icon rail (hover / tap still expands it). Interim until the Phase 2.9
+  // responsive frame; the stored pin preference is left untouched.
+  const isCompactViewport = useMediaQuery("(max-width: 1023px)");
+  const isPinned = pinnedPreference && !isCompactViewport;
+  const isExpanded = isPinned || isHovered;
 
   return (
     <div className="flex h-screen overflow-hidden bg-payroll-cream print:h-auto print:overflow-visible print:bg-white print:block">
@@ -66,10 +72,10 @@ function DashboardContent({
           <TopHeader
             context={context}
             onToggleSidebar={togglePin}
-            isSidebarCollapsed={!isPinned}
+            isSidebarCollapsed={!pinnedPreference}
           />
         </div>
-        <main className="flex-1 overflow-y-auto bg-white p-6 print:p-0 print:bg-white print:overflow-visible print:block">
+        <main className="flex-1 overflow-y-auto bg-white p-4 lg:p-6 print:p-0 print:bg-white print:overflow-visible print:block">
           {children}
         </main>
       </div>

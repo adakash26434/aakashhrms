@@ -140,8 +140,10 @@ are designed so it only needs new values.
 
 - **UI font: Inter**, self-hosted through `next/font` (no Google CSS `@import`).
   Use `font-feature-settings: "tnum", "cv11"` so numbers line up.
-- **Mono: JetBrains Mono**, used only for codes (employee ID, PAN, account
-  numbers), never for amounts.
+- **Figures and codes:** Inter with tabular figures and a slashed zero.
+  - The legacy `font-mono` class (551 uses, often on amounts and dates) is remapped to this.
+  - **True monospace (JetBrains Mono)** is `font-code`. Use it only where character alignment matters (PAN or bank-account entry), and in `<code>`, `<kbd>` and `<pre>`.
+  - Never use it for amounts.
 - Scale (px): **11** caption/labels · **12** secondary/grid meta · **13** body
   and grid cells (base) · **14** emphasis/section titles · **16** page
   title · **20** dashboard figures.

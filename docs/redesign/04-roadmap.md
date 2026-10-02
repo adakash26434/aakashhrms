@@ -61,7 +61,17 @@ Goal: the whole app shifts to the new look with no component rewrites.
 - [x] 1.4 Type scale and density: body 13px (`text-sm` 14→13), new `text-2xs` (11) and `text-3xs` (10, badges only). **1,072 arbitrary `text-[Npx]` replaced across 174 files.** Removed every `!important` outside print and reduced motion: the global rules now use cascade layers. One focus style, one table header style. Themed thin scrollbars, brand `accent-color` on native controls, `::selection` and visible `:focus-visible` rings.
 - [x] 1.5 Decorative motion: unused aura/beam/glow animations deleted. The remaining ambient glow is limited to the entry pages (login, marketing), and a test keeps it off app screens. Chart colours are centralised (`CHART_THEME`), and hard-coded hex colours were removed from the dashboard charts, error pages, onboarding and date picker.
 - [x] 1.6 **S6**: nonce-based CSP plus header clean-up. **S13** (found here): request headers were dropped on NextAuth routes. **S11**: `npm run verify`.
-- [ ] 1.7 Screenshot tour of every route. **Sign-off.** The gallery `/dev/kit` (dev only, roadmap 3.9 started early) and the entry pages were checked at 1440 and 390px. Signed-in screens need a sign-in by you (credentials stay in `.env`).
+- [ ] 1.7 Screenshot tour of every route. **Sign-off.**
+  - **Done (signed in as Office Administrator):**
+    - All 36 module routes at 1440px. Key screens also at 1024 and 390px.
+    - Salary-sheet print preview.
+    - 0 CSP violations, 0 console errors, no horizontal page overflow.
+  - **Fixes from the tour:**
+    - `font-mono` → tabular Inter, so amounts no longer wrap.
+    - Pinned sidebar collapses to the icon rail below 1024px (interim, until 2.9).
+    - Header company block hidden on phones.
+    - Toasts hidden in print.
+  - **Remaining:** restricted-role (BRANCH/DEPARTMENT) pass, and your sign-off.
 
 ## Phase 2 — Application frame (desktop shell)
 Goal: the app looks and behaves like installed software.
