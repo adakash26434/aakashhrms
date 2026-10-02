@@ -40,6 +40,7 @@ These come from Phase 0 (`docs/redesign/03-security-plan.md`). `tests/security-i
 - **Tenant DB:** always `await getDb()` / `await getDbAsync(slug?)` from `@/lib/db`. They resolve the tenant **per request** and throw `TenantContextError` when none. Never cache a tenant DB in module scope or on `globalThis`. Never fall back to the primary `db` export in request code (scripts only).
 - **Authorization lives on the server.** Every page and server action calls `checkPermission` / `checkPermissionWithScope`. Use `requireAuthenticatedUser()` when there is no single module. Hiding UI is never access control.
 - **No `'use server'` in `lib/` or `components/`.** Every export of such a file becomes a public endpoint. Server actions live only in `app/actions/`.
+- **Session updates:** the browser can trigger NextAuth JWT updates with any payload. Anything that relaxes a restriction must use a server-signed grant (`signSessionGrant` in `lib/auth/session-updates.ts`). New auth helpers must call `assertSessionUsable()`, because actions can be POSTed from `/locked` and `/change-password`.
 - **Never persist or return plaintext passwords.** A temporary password may appear once in the response that issued it; `users.temp_password` is always NULL.
 - **Client IP:** use `getClientIp()` (`lib/auth/client-ip.ts`), never `x-forwarded-for.split(',')[0]`.
 - **Raw SQL:** no `sql.raw()` with interpolated values; use Drizzle operators (`inArray`, `eq`) or `sql` template params.
@@ -74,6 +75,7 @@ Workflow:
 UI conventions for new code:
 - Use semantic tokens: `bg-brand`, `bg-surface`, `bg-canvas`, `text-ink` / `text-ink-muted` / `text-ink-faint`, `border-line`, `text-danger`, and so on. The full map is in `02-design-system.md` §3. No raw hex, no new `zinc-NNN`, no arbitrary `text-[Npx]` (use `text-2xs`/`xs`/`sm`). `tests/design-foundation.test.ts` enforces this outside the entry pages.
 - Preview components at `/dev/kit` (dev only; 404 in production).
+- App frame: `components/frame/`. Navigation lives in `lib/frame/navigation.ts`: add a section there, never in a component. Shortcuts live in `lib/frame/shortcuts.ts`, which also feeds the `?` overlay. New pages use `PageBar` + `CommandToolbar`.
 - Lists use `DataGrid`, dialogs `Window`, forms `PropertyForm` (component kit, Phase 3).
 - Money is right-aligned with tabular numerals and lakh grouping; dates are BS-first.
 

@@ -61,7 +61,7 @@ Goal: the whole app shifts to the new look with no component rewrites.
 - [x] 1.4 Type scale and density: body 13px (`text-sm` 14→13), new `text-2xs` (11) and `text-3xs` (10, badges only). **1,072 arbitrary `text-[Npx]` replaced across 174 files.** Removed every `!important` outside print and reduced motion: the global rules now use cascade layers. One focus style, one table header style. Themed thin scrollbars, brand `accent-color` on native controls, `::selection` and visible `:focus-visible` rings.
 - [x] 1.5 Decorative motion: unused aura/beam/glow animations deleted. The remaining ambient glow is limited to the entry pages (login, marketing), and a test keeps it off app screens. Chart colours are centralised (`CHART_THEME`), and hard-coded hex colours were removed from the dashboard charts, error pages, onboarding and date picker.
 - [x] 1.6 **S6**: nonce-based CSP plus header clean-up. **S13** (found here): request headers were dropped on NextAuth routes. **S11**: `npm run verify`.
-- [ ] 1.7 Screenshot tour of every route. **Sign-off.**
+- [x] 1.7 Screenshot tour of every route. **Signed off by you on 2026-10-02.** The restricted-role pass moves to the Phase 2 sign-off, because the frame changes what restricted users see.
   - **Done (signed in as Office Administrator):**
     - All 36 module routes at 1440px. Key screens also at 1024 and 390px.
     - Salary-sheet print preview.
@@ -76,16 +76,39 @@ Goal: the whole app shifts to the new look with no component rewrites.
 ## Phase 2 — Application frame (desktop shell)
 Goal: the app looks and behaves like installed software.
 
-- [ ] 2.1 Restructure `lib/constants/navigation.ts` into **modules → sections** with icons, shortcuts and permission metadata.
-- [ ] 2.2 `TitleBar` (logo mark + wordmark, green→red brand strip, menus, palette trigger, BS/AD, **working period selector (E1)**, FY selector, notifications, user menu).
-- [ ] 2.3 `ModuleRail` (dark, `Alt+1…7`) and `SectionNav` (collapsible, counts, recent records).
-- [ ] 2.4 `StatusBar` (tenant, branch, FY, BS+AD date, role, connection, version).
-- [ ] 2.5 `PageBar` + `CommandToolbar` (declarative actions with shortcuts and permission).
-- [ ] 2.6 `CommandPalette` (`Ctrl K`, plus `Alt G` alias for Tally users, E6): pages, employee search, actions.
-- [ ] 2.7 Global shortcut manager plus `?` help overlay.
-- [ ] 2.8 Idle **session lock** screen (S4 UX part).
-- [ ] 2.9 Responsive behaviour (navigator auto-collapse, drawer < 1024px).
-- [ ] 2.10 Replace `DashboardShell` and impersonation banner placement. **Sign-off.**
+- [x] 2.1 Navigation model `lib/frame/navigation.ts`: 7 **modules → sections** with icons, `Alt+1…7`, permission metadata (`requires`, any-of), path aliases, palette keywords and counters. Pure helpers (`visibleModules`, `findActiveLocation`) are unit-tested. A test checks that every section points at a real page.
+- [x] 2.2 `TitleBar`:
+  - logo mark and Aakash**HRMS** wordmark, plus the green→red brand strip
+  - company name and the palette trigger
+  - BS/AD switch and FY pill
+  - approvals bell, shown only to approvers (S15)
+  - shortcut help and the user menu (self-service, profile, shortcuts, lock, sign out)
+  - *E1 working-period selector moved to 4.8.* No screen reads it yet, and a selector nobody honours would mislead users.
+- [x] 2.3 `ModuleRail` (56px, active tile + green edge, tooltips with hotkeys) and `SectionNav` (224px, module header, active edge, pending-approvals counter, **Recent pages** stored in localStorage as paths and labels only).
+- [x] 2.4 `StatusBar`: connection, company (code) · branch, FY, today in BS and AD, role, version, super-admin indicator and a **lock countdown** during the final minute.
+- [x] 2.5 `PageBar` + `CommandToolbar`:
+  - breadcrumb from the navigation model, plus title, status and actions
+  - fixed group order: Create · Selection · Output · Refresh
+  - per-action shortcuts, `hidden` and `disabled` with a reason
+  - shown in `/dev/kit`; pages adopt them in Phase 4
+- [x] 2.6 `CommandPalette` (`Ctrl K`, `Alt G`):
+  - ranked page search, plus recent pages
+  - permission- and scope-checked **employee search** (display fields only), which opens the register filtered by `?q=`
+  - commands: BS/AD, navigator, shortcuts, lock, self-service, sign out
+  - full keyboard and ARIA combobox behaviour
+- [x] 2.7 Shortcut registry `lib/frame/shortcuts.ts`, which drives both the key handler and the `?` help overlay. Plain keys never fire while typing.
+- [x] 2.8 **Idle session lock, enforced on the server**:
+  - After 15 minutes without input in any tab, plus a 60-second countdown, the session is locked.
+  - `Ctrl Shift L` and the user menu lock it straight away.
+  - The lock is a flag in the signed JWT. The route guard sends every page and action to `/locked`, and the permission helpers refuse locked sessions.
+  - Unlocking needs the password: 5 tries, then sign-out. A server-signed grant then releases that specific lock.
+  - It is not a client overlay that can be bypassed.
+- [x] 2.9 Responsive:
+  - ≥1280px: docked navigator.
+  - 1024–1279px: the navigator floats on demand.
+  - <1024px: rail and navigator move into a drawer.
+  - The status bar condenses, and pages have no horizontal overflow.
+- [x] 2.10 `AppFrame` replaces `DashboardShell`, `Sidebar` and `TopHeader` (deleted). The impersonation banner is a slim strip inside the frame. **Sign-off pending.**
 
 ## Phase 3 — Component kit v2
 Goal: building blocks so modules don't re-invent tables and forms.
@@ -113,7 +136,7 @@ per-module **definition of done** below.
 | 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process |
 | 4.6 | **Time: Leaves** | A | applications, approvals, balances drawer |
 | 4.7 | **Time: Policies** | A + E | leave types, leave rules, OT rules |
-| 4.8 | **Payroll run** | C | generate → pre-flight → calculate → review grid → approve → lock; payslip modal |
+| 4.8 | **Payroll run** | C | generate → pre-flight → calculate → review grid → approve → lock; payslip modal; **E1 working-period selector** (first consumer) |
 | 4.9 | **Leave salary** | C | setup + run table |
 | 4.10 | **Loans** | A | register, disbursement, repayment, loan types |
 | 4.11 | **Reports** | D | salary sheet, payslip, attendance, tax/IRD, leave, loan + print/PDF styles |
@@ -173,6 +196,7 @@ attendance and review grids.
 
 ## Current status
 See `CHANGELOG.md`.
-- **Phase 0 complete** on `redesign/0-security`.
-- **Phase 1 steps 1.1–1.6 complete** on `redesign/1-foundation`, which branches from `redesign/0-security`. Neither branch is merged or pushed.
-- **Waiting at the Phase 1 sign-off (1.7)** before Phase 2.
+- **Phase 0** is complete on `redesign/0-security`.
+- **Phase 1** is complete and signed off on `redesign/1-foundation`.
+- **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
+- **Waiting at the Phase 2 sign-off**, which includes the restricted-role pass.

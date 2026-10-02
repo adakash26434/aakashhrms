@@ -217,6 +217,19 @@ Each one is scheduled in the roadmap.
 | E11 | **Skeleton loading that matches the template layout** (grid rows, form rows) | Feels instant, no layout jump | 3 |
 | E12 | Optional **dark theme** using the same token names | Late-evening payroll work | 9 |
 
+### Implemented frame (Phase 2)
+
+The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:
+
+| Region | Size |
+|---|---|
+| Title bar | 2px brand strip + 44px |
+| Rail | 56px |
+| Navigator | 224px |
+| Status bar | 26px |
+
+Pages render inside a white workspace with 24px padding (16px below 1024px). The working-period selector (E1) arrives with its first consumer in 4.8.
+
 ## 6. Keyboard map (initial)
 
 | Keys | Action |
@@ -224,6 +237,7 @@ Each one is scheduled in the roadmap.
 | `Ctrl K` / `Alt G` | Command palette ("Go To") |
 | `Alt 1…7` | Switch module |
 | `Ctrl B` | Toggle section navigator |
+| `Ctrl Shift L` | Lock the session (implemented in Phase 2) |
 | `Ctrl N` | New record (current register) |
 | `Enter` / `F2` | Open / edit selected row |
 | `Del` | Delete selected (with confirm) |

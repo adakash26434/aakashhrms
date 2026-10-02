@@ -13,6 +13,51 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — Phase 2: application frame (sign-off pending)
+Branch: `redesign/2-app-frame` (from `redesign/1-foundation` @ `a2fccfc`; not merged or pushed). Phase 1 was signed off by you on this date.
+
+Changed:
+- **Frame** (`components/frame/`):
+  - title bar with the brand strip, palette trigger, BS/AD, FY, approvals bell, help and user menu
+  - module rail (Alt+1…7) and section navigator (active edge, counters, recent pages)
+  - status bar (connection, company, FY, BS+AD date, role, version, lock countdown)
+  - responsive: docked navigator ≥1280px, floating 1024–1279px, drawer below that
+  - skip link and ARIA landmarks
+- **Replaced:** `DashboardShell`, `Sidebar`, `TopHeader` and `lib/constants/navigation.ts` are deleted. The impersonation banner is now a slim strip inside the frame.
+- **Navigation model** `lib/frame/navigation.ts`: 7 modules, 24 sections, permission metadata, aliases, keywords.
+- **Command palette:** pages, recent pages and commands, plus **employee search** checked for permission and scope (`searchEmployeesForPaletteAction`, `quickSearch`: name, code and department only, LIKE wildcards escaped). The Employees register accepts `?q=`.
+- **Shortcuts:** one registry drives both the handler and the `?` overlay.
+- **`PageBar` + `CommandToolbar`** are ready for Phase 4 and shown in `/dev/kit`.
+- **Idle lock (2.8):**
+  - 15 minutes without input in any tab, shared through localStorage timestamps.
+  - 60-second countdown in the status bar; `Ctrl Shift L` locks straight away.
+  - A JWT `locked` flag, enforced by the route guard (`/locked?returnTo=`) and by the permission helpers.
+  - Unlocking takes the password: 5 tries, then sign-out. A signed grant then releases that specific lock.
+  - `safeReturnTo()` blocks open redirects.
+- **Security:**
+  - **S14 (Medium, new):** a browser could clear the forced password change via `POST /api/auth/session`. Session updates now accept only server-signed grants, and `assertSessionUsable()` stops actions from locked or password-pending sessions (actions can be POSTed from any page).
+  - **S15 (Low, new):** the approvals count is computed only for approvers, within their scope.
+- **Version:** shown in the status bar (`NEXT_PUBLIC_APP_VERSION` from package.json).
+
+Verified:
+- `tsc` exit 0.
+- **294/294 tests**, including 32 new (`frame-navigation`, `security-session-lock`). The S14 and lock tests fail on the old callback.
+- No lint errors in new or touched files. The React 19 set-state-in-effect rule is satisfied without suppressions; the only suppressions are for the deliberate full-page navigation in the lock.
+- Production build succeeded (`/locked` compiled).
+- Live in the browser as Office Administrator:
+  - frame at 1440, 1100 and 390px; Ctrl+B, floating navigator and drawer; no horizontal overflow; 0 page errors
+  - palette page ranking, employee search → `/workforce/employees?q=EMP-001`, Alt+4, `?` overlay
+  - Ctrl+Shift+L locks: `/dashboard`, `/workforce/employees` and `/reports/salary-sheet` all redirect to `/locked`; a wrong password gives "4 attempts left"
+
+Not yet verified:
+- Unlocking with the real password (needs you).
+- Restricted-role pass.
+- Super-admin (impersonation) view of the new frame.
+
+Deployment notes:
+1. Users signed in before this deploy get the new frame on their next page load. No new environment variables are needed.
+2. Sessions now lock after 15 minutes idle. People must re-enter their password, and 5 wrong tries sign them out.
+
 ## 2026-10-02 — Phase 1.7 screenshot tour (signed in) + fixes
 Branch: `redesign/1-foundation`
 
