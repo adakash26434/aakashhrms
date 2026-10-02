@@ -13,7 +13,10 @@ import { ComplianceCenter } from "@/components/dashboard/compliance-center";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events";
 import { getDashboardSnapshot } from "@/lib/services/dashboard.service";
+import { redactDashboardForAccess } from "@/lib/services/dashboard-access";
 import { ensureTenantContext } from "@/lib/db";
+import { hasPermission, requireAuthenticatedUser } from "@/lib/auth/check-permission";
+import { redirect } from "next/navigation";
 
 // Dynamic chart imports to ensure smooth hydration with Recharts
 const MonthlyPayrollTrend = dynamicImport(
@@ -48,7 +51,27 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   await ensureTenantContext();
 
-  const data = await getDashboardSnapshot();
+  // S3: signed-in, active user only; then strip data by module permission
+  try {
+    await requireAuthenticatedUser();
+  } catch {
+    redirect("/login");
+  }
+
+  const [canGenerate, canReview, approvals, loans, audit] = await Promise.all([
+    hasPermission("VIEW", "PAYROLL_GENERATE"),
+    hasPermission("VIEW", "PAYROLL_REVIEW"),
+    hasPermission("VIEW", "LEAVE_APPROVALS"),
+    hasPermission("VIEW", "LOANS"),
+    hasPermission("VIEW", "AUDIT_LOG"),
+  ]);
+
+  const data = redactDashboardForAccess(await getDashboardSnapshot(), {
+    payroll: canGenerate || canReview,
+    approvals,
+    loans,
+    audit,
+  });
   const headcountTotal = data.headcount.reduce((sum, d) => sum + d.count, 0);
   const employeeCount =
     Number(data.metrics.find((m) => m.id === "employees")?.value) || 0;

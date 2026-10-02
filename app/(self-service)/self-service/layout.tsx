@@ -14,6 +14,11 @@ export default async function SelfServiceLayout({
 
   const session = await auth();
 
+  // Defense in depth (S8): never render self-service without a session
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
   // 1. Force password change check
   if (session?.user?.mustChangePassword) {
     redirect("/change-password");

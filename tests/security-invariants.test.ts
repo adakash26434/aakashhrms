@@ -67,6 +67,14 @@ describe('Security invariants', () => {
     assert.deepEqual(offenders, []);
   });
 
+  it('S8: library modules are never "use server" (every export would become a public action)', () => {
+    const offenders = files
+      .filter((f) => f.path.startsWith('lib/') || f.path.startsWith('components/'))
+      .filter((f) => /^\s*['"]use server['"]/.test(f.src))
+      .map((f) => f.path);
+    assert.deepEqual(offenders, []);
+  });
+
   it('S1: route guard does not authorize on impersonation cookie presence', () => {
     const cfg = files.find((f) => f.path === 'lib/auth/auth.config.ts')!;
     assert.doesNotMatch(cfg.src, /cookies\??\.get\??\.\(['"]platform_impersonation['"]\)/);

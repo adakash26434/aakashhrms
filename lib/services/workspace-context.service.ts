@@ -4,7 +4,7 @@ import { getImpersonationSession } from '@/lib/platform/impersonation';
 import { getDbAsync } from '@/lib/db';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
-import { users, roles, userRoles, employees, employeePersonal, fiscalYears, leaveApplications, branches } from '@/lib/db/schema';
+import { users, roles, userRoles, employees, fiscalYears, leaveApplications, branches } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { getFiscalYear } from '@/lib/utils/bs-calendar';
 
@@ -180,7 +180,8 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 
   // 2. Handle Normal Authenticated User mode
   const tenantSlug = session?.user?.tenantSlug;
-  const userEmail = session?.user?.email || 'admin@aakashhrms.com';
+  // S12: no placeholder identities; the dashboard layout guarantees a session.
+  const userEmail = session?.user?.email || '';
   const userId = session?.user?.id || '';
 
   let companyName = 'Company Workspace';
@@ -234,20 +235,18 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
       if (tenantDb) {
         // Run User query, FY query, Branch query, and Pending leaves count concurrently
         const userDetailsPromise = (async () => {
+          if (!userId) return;
           const [userRecord] = await tenantDb
             .select()
             .from(users)
-            .where(eq(users.email, userEmail))
+            .where(eq(users.id, userId))
             .limit(1);
 
           if (userRecord) {
-            const [personalResult, roleResult] = await Promise.all([
-              tenantDb
-                .select({ employeeId: employeePersonal.employeeId })
-                .from(employeePersonal)
-                .where(eq(employeePersonal.personalEmail, userEmail))
-                .limit(1)
-                .catch(() => []),
+            if (userRecord.name) {
+              userName = userRecord.name;
+            }
+            const [roleResult] = await Promise.all([
               tenantDb
                 .select({ roleName: roles.name })
                 .from(userRoles)
@@ -261,11 +260,11 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
               userRoleName = roleResult[0].roleName;
             }
 
-            if (personalResult[0]?.employeeId) {
+            if (!userName && userRecord.employeeId) {
               const [emp] = await tenantDb
                 .select({ fullName: employees.fullName })
                 .from(employees)
-                .where(eq(employees.id, personalResult[0].employeeId))
+                .where(eq(employees.id, userRecord.employeeId))
                 .limit(1)
                 .catch(() => []);
 
@@ -275,7 +274,7 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
             }
           }
 
-          if (!userName) {
+          if (!userName && userEmail) {
             const prefix = userEmail.split('@')[0];
             userName = prefix
               .split(/[\._]/)

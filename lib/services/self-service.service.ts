@@ -1,8 +1,9 @@
-'use server';
-
+// SECURITY: this is a plain server module, not a 'use server' file. Clients
+// reach it only through app/actions/self-service.actions.ts or server pages.
 import { getDbAsync } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import {
+  users,
   employees, employeePersonal, employeeFamily, employeeBank,
   payrollSlips, payrollSlipHeads, payrollRuns,
   leaveApplications, employeeLeaveBalances, leaveTypes,
@@ -28,12 +29,24 @@ async function getSessionEmployeeId(): Promise<{ employeeId: string; userId: str
     throw new Error('Unauthorized: Not authenticated');
   }
 
-  const employeeId = session.user.employeeId;
-  if (!employeeId) {
+  // S8: re-check the account on every call instead of trusting the JWT. A
+  // deactivated or re-linked user loses access immediately.
+  const db = await getDbAsync(session.user.tenantSlug);
+  const [account] = await db
+    .select({ isActive: users.isActive, employeeId: users.employeeId })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  if (!account || !account.isActive) {
+    throw new Error('Unauthorized: User account is inactive or disabled');
+  }
+
+  if (!account.employeeId) {
     throw new Error('Self-Service unavailable: Your user account is not linked to an employee record. Please contact your HR administrator.');
   }
 
-  return { employeeId, userId: session.user.id };
+  return { employeeId: account.employeeId, userId: session.user.id };
 }
 
 // ---------------------------------------------------------------------------

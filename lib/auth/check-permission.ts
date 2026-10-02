@@ -123,6 +123,37 @@ async function verifyPermission(
 }
 
 /**
+ * Requires a signed-in, active tenant user (or a verified super-admin
+ * impersonation). Use on pages that have no single permission module, such as
+ * the dashboard. Returns the acting user id.
+ * @throws Error if not authenticated, inactive, or no tenant context.
+ */
+export async function requireAuthenticatedUser(): Promise<{ userId: string; isImpersonation: boolean }> {
+  const impersonation = await getImpersonationSession();
+  if (impersonation) {
+    return { userId: impersonation.actorId, isImpersonation: true };
+  }
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Unauthorized: Not authenticated');
+  }
+
+  const activeDb = await getDbAsync(session.user.tenantSlug);
+  const userRows = await activeDb
+    .select({ isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  if (userRows.length === 0 || !userRows[0].isActive) {
+    throw new Error('Unauthorized: User account is inactive or disabled');
+  }
+
+  return { userId: session.user.id, isImpersonation: false };
+}
+
+/**
  * Checks if the currently authenticated user has permission to perform a specific action on a module.
  * Performs a fresh database lookup rather than relying on stale JWT tokens, and verifies user isActive status.
  * 
