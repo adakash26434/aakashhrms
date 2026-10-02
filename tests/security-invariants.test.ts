@@ -58,9 +58,9 @@ describe('Security invariants', () => {
       .filter((f) => {
         const src = f.src.replace(/\/\/.*$/gm, '');
         return (
-          /createUser\(\s*\{[^}]*\btempPassword\b/s.test(src) ||
+          /createUser\(\s*\{[^}]*\btempPassword\b/.test(src) ||
           /\.tempPassword\s*=(?!\s*null\b)/.test(src) ||
-          /\.(set|values)\(\s*\{[^}]*\btempPassword\s*(?:,|\}|:(?!\s*null\b))/s.test(src)
+          /\.(set|values)\(\s*\{[^}]*\btempPassword\s*(?:,|\}|:(?!\s*null\b))/.test(src)
         );
       })
       .map((f) => f.path);
