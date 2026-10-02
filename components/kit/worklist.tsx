@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronUp, Loader2, PartyPopper, X } from "lucide-react";
 import { isTypingTarget } from "@/lib/frame/shortcuts";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,10 @@ export interface WorklistProps<T> {
 
 /**
  * Worklist (E3, SAP Fiori style): work through approvals one at a time.
- * Keys: J / K next and previous · A approve · R reject (asks for a reason).
+ * Keys: J / K next and previous · A approve · R reject (asks for a reason) ·
+ * Ctrl+Enter confirm the rejection · Esc cancel it.
+ * Keys only act while focus is inside this worklist, so a stray "A" typed
+ * elsewhere on the page (a grid, another queue) can never approve anything.
  * Decided items leave the queue; the next one opens automatically.
  */
 export function Worklist<T>({
@@ -42,6 +45,11 @@ export function Worklist<T>({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Keep the stored index in range as the queue shrinks (adjusted during render),
+  // so a queue that empties and refills starts again at the first item.
+  const maxIndex = Math.max(items.length - 1, 0);
+  if (index > maxIndex) setIndex(maxIndex);
   const current = items[Math.min(index, items.length - 1)];
   const position = Math.min(index, items.length - 1);
 
@@ -62,6 +70,8 @@ export function Worklist<T>({
       else await onReject(current, reason.trim());
       setRejecting(false);
       setReason("");
+      // Keep the keys live for the next item (the clicked control may unmount).
+      rootRef.current?.focus({ preventScroll: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "That did not go through. Try again.");
     } finally {
@@ -69,21 +79,34 @@ export function Worklist<T>({
     }
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target as HTMLElement)) return;
-      if (document.querySelector('[aria-modal="true"]')) return;
-      const k = e.key.toLowerCase();
-      if (k === "j") setIndex((i) => Math.min(i + 1, items.length - 1));
-      else if (k === "k") setIndex((i) => Math.max(i - 1, 0));
-      else if (k === "a") void decide("approve");
-      else if (k === "r") void decide("reject");
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+  const cancelReject = () => {
+    setRejecting(false);
+    setError(null);
+    rootRef.current?.focus({ preventScroll: true });
+  };
+
+  // Scoped to this worklist (React onKeyDown on the root), never window-wide.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (rejecting && e.target instanceof HTMLTextAreaElement) {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        void decide("reject");
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelReject();
+      }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTypingTarget(e.target as HTMLElement)) return;
+    const k = e.key.toLowerCase();
+    if (k === "j") setIndex((i) => Math.min(i + 1, items.length - 1));
+    else if (k === "k") setIndex((i) => Math.max(i - 1, 0));
+    else if (k === "a") void decide("approve");
+    else if (k === "r") void decide("reject");
+    else return;
+    e.preventDefault();
+  };
 
   if (items.length === 0) {
     return (
@@ -94,7 +117,15 @@ export function Worklist<T>({
   }
 
   return (
-    <div className="grid overflow-hidden rounded-lg border border-line bg-surface md:grid-cols-[260px_minmax(0,1fr)]">
+    <div
+      ref={rootRef}
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+      role="region"
+      aria-label={title}
+      aria-keyshortcuts="J K A R"
+      className="grid overflow-hidden rounded-lg border border-line bg-surface outline-none focus-within:border-focus focus-within:shadow-[0_0_0_1px_var(--focus)] md:grid-cols-[260px_minmax(0,1fr)]"
+    >
       <div className="border-b border-line md:border-b-0 md:border-r">
         <div className="flex h-10 items-center justify-between border-b border-line px-3">
           <p className="text-xs font-semibold text-ink">{title}</p>
@@ -156,11 +187,19 @@ export function Worklist<T>({
               </button>
             </div>
             <span className="hidden text-2xs text-ink-faint sm:inline">
-              <kbd>J</kbd>/<kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>R</kbd> reject
+              {rejecting ? (
+                <>
+                  <kbd>Ctrl</kbd>+<kbd>Enter</kbd> reject · <kbd>Esc</kbd> cancel
+                </>
+              ) : (
+                <>
+                  <kbd>J</kbd>/<kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>R</kbd> reject
+                </>
+              )}
             </span>
             <div className="ml-auto flex items-center gap-2">
               {rejecting && (
-                <button type="button" onClick={() => setRejecting(false)} className="h-8 rounded-md px-3 text-xs font-medium text-ink-muted hover:bg-surface cursor-pointer">
+                <button type="button" onClick={cancelReject} className="h-8 rounded-md px-3 text-xs font-medium text-ink-muted hover:bg-surface cursor-pointer">
                   Cancel
                 </button>
               )}

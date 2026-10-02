@@ -9,6 +9,8 @@ import { formatAmount } from "@/lib/kit/amount";
 import { ROW_HEIGHT, useDensity } from "@/lib/kit/density";
 import {
   clampWidth,
+  MAX_COL_WIDTH,
+  MIN_COL_WIDTH,
   moveActiveRow,
   nextSort,
   parseGridPrefs,
@@ -241,6 +243,9 @@ export function DataGrid<T>({
       left += widthOf(c);
     }
   }
+  // Freeze-pane divider on the last pinned column (content scrolls under it).
+  const lastStickyId = Object.keys(stickyLeft).at(-1);
+  const FREEZE_EDGE = "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-line-strong";
 
   // Close the column menu on outside click.
   useEffect(() => {
@@ -356,6 +361,12 @@ export function DataGrid<T>({
     e.preventDefault();
     const delta = (e.key === "ArrowRight" ? 1 : -1) * (e.shiftKey ? 48 : 16);
     savePrefs({ hidden: [...hiddenIds], widths: { ...prefs.widths, [c.id]: clampWidth(widthOf(c) + delta) } });
+  };
+
+  const resetWidth = (c: GridColumn<T>) => {
+    const widths = { ...prefs.widths };
+    delete widths[c.id];
+    savePrefs({ hidden: [...hiddenIds], widths });
   };
 
   const toggleColumn = (columnId: string) => {
@@ -488,7 +499,7 @@ export function DataGrid<T>({
                       key={c.id}
                       scope="col"
                       aria-sort={isSorted ? (sort!.direction === "asc" ? "ascending" : "descending") : sortable ? "none" : undefined}
-                      className={cn("group relative bg-surface-sunken text-left", c.id in stickyLeft && "sticky z-10")}
+                      className={cn("group relative bg-surface-sunken text-left", c.id in stickyLeft && "sticky z-10", c.id === lastStickyId && FREEZE_EDGE)}
                       style={{ height: rowHeight + 2, left: stickyLeft[c.id] }}
                     >
                       {sortable ? (
@@ -520,9 +531,16 @@ export function DataGrid<T>({
                         aria-orientation="vertical"
                         aria-label={`Resize ${c.header}`}
                         aria-valuenow={widthOf(c)}
+                        aria-valuemin={MIN_COL_WIDTH}
+                        aria-valuemax={MAX_COL_WIDTH}
+                        title="Drag to resize · double-click to reset"
                         tabIndex={0}
                         onPointerDown={(e) => startResize(c, e)}
                         onKeyDown={(e) => keyResize(c, e)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          resetWidth(c);
+                        }}
                         className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize touch-none bg-transparent hover:bg-brand/40 focus-visible:bg-brand/60 focus-visible:outline-none"
                       />
                     </th>
@@ -571,8 +589,11 @@ export function DataGrid<T>({
                             cellPad,
                             align === "right" && "text-right",
                             align === "center" && "text-center",
+                            ci === 0 && tone && cn("relative before:absolute before:inset-y-0 before:left-0 before:w-[3px]", TONE_EDGE[tone]),
+                            // After the tone classes: tailwind-merge keeps the last position utility,
+                            // and a frozen cell must stay sticky (sticky also anchors the edge marker).
                             c.id in stickyLeft && "sticky z-[1]",
-                            ci === 0 && tone && cn("relative before:absolute before:inset-y-0 before:left-0 before:w-[3px]", TONE_EDGE[tone])
+                            c.id === lastStickyId && FREEZE_EDGE
                           )}
                           style={{ height: rowHeight, left: stickyLeft[c.id] }}
                         >
@@ -599,7 +620,7 @@ export function DataGrid<T>({
                     return (
                       <td
                         key={c.id}
-                        className={cn("truncate border-t border-line-strong bg-surface-sunken", cellPad, align === "right" && "text-right", c.id in stickyLeft && "sticky")}
+                        className={cn("truncate border-t border-line-strong bg-surface-sunken", cellPad, align === "right" && "text-right", c.id in stickyLeft && "sticky", c.id === lastStickyId && FREEZE_EDGE)}
                         style={{ height: rowHeight + 2, left: stickyLeft[c.id] }}
                       >
                         {content}

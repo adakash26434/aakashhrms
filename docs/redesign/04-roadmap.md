@@ -139,8 +139,9 @@ Goal: building blocks so modules don't re-invent tables and forms. The code is i
   - `Confirm`: **typed confirmation**
   - `Skeleton`, `GridSkeleton`, `FormSkeleton`, `EmptyState`, `ErrorState`
 - [x] 3.7 Safe export (`lib/export/csv.ts`, `authorizeExportAction`): formula neutralising, BOM for Excel, the EXPORT permission check and an audit entry. **Every existing CSV export migrated (S16)**, including the bank file.
-- [x] 3.8 `FactBox` (E2), `Worklist` (E3: J/K/A/R, reason required to reject), density toggle (E5, in the user menu and palette), status-edge rows (E9), layout-matched skeletons (E11).
+- [x] 3.8 `FactBox` (E2), `Worklist` (E3: J/K/A/R scoped to the focused worklist, reason required to reject), density toggle (E5, in the user menu and palette), status-edge rows (E9), layout-matched skeletons (E11).
 - [x] 3.9 `/dev/kit` gallery with realistic sample data for every component (dev only).
+- [x] 3.10 Hands-on browser pass of `/dev/kit` before Phase 4: 4 defects fixed (worklist keys leaking page-wide, frozen column lost on flagged rows, focus escaping Window during async actions, Confirm failing silently). Details in the CHANGELOG.
 - [x] Extra: `toActionError()` / `UserFacingError` (S9 helper; modules adopt it in Phase 4).
 
 ## Phase 4 — Module migrations (one branch each)

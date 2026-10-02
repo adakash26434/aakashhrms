@@ -13,6 +13,34 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — Phase 3 hands-on pass of `/dev/kit` (gate before Phase 4)
+Branch: `redesign/3-component-kit` (not merged or pushed)
+
+Every interaction was driven in a real browser (Playwright, 1440 and 390px): row clicks, grid keyboard, column drag, the employee window and dirty guard, typed confirmation, and the approval queue.
+
+Fixed (found by the pass):
+- **Worklist shortcuts leaked page-wide (safety, High for 4.1):** with a grid row focused, pressing A approved a leave request in another panel. Keys now act only while focus is inside that worklist (scoped `onKeyDown` on a focusable region with a visible focus ring). Focus stays in the queue after each decision.
+- **Frozen column dropped on flagged rows:** `cn()` (tailwind-merge) keeps the last position class, and the row-tone `relative` came after `sticky`. Rows with an orange or red edge lost their pinned Code cell when scrolled sideways, and amounts showed through. Sticky is now applied last.
+- **Focus escaped Window during async actions:** a focused button that disables itself while running dropped focus to `<body>`, so Esc did nothing and Tab left the dialog. Window now catches Esc and Tab for the topmost dialog when focus has fallen out. Every Phase 4 Save button needs this.
+- **Confirm threw on failure:** a failed action was an unhandled rejection with no message. It now stays open, shows the error inline (`role="alert"`) and puts focus back in the field.
+- Worklist: a queue that empties and refills starts again at item 1.
+- Gallery: the employee window showed a hardcoded `EMP-001`, PAN and department; it now uses the selected row.
+
+Enhanced:
+- Freeze-pane divider on the last pinned grid column.
+- Double-click a column edge to reset its width; the resize handle announces min/max to screen readers.
+- An "Unsaved" marker appears in the window title bar as soon as a field changes.
+- Worklist reason box: Ctrl+Enter confirms the rejection, Esc cancels; the key hint switches to match.
+- Gallery: "Simulate a server refusal" switch to exercise the Confirm error path.
+
+Verified:
+- `tsc` exit 0 and eslint clean on `components/kit` and `components/dev`.
+- **325/325 tests** (5 new in `kit-hands-on-regressions`).
+- Production build OK.
+- Browser:
+  - 0 console errors or warnings, no horizontal overflow at 390px.
+  - Every scenario above re-run after the fixes.
+
 ## 2026-10-02 — Phase 3: component kit v2
 Branch: `redesign/3-component-kit` (from `redesign/2-app-frame` @ `7f61f53`; not merged or pushed)
 

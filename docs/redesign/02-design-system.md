@@ -225,7 +225,7 @@ Each one is scheduled in the roadmap.
 |---|---|---|---|
 | E1 | **Working period selector** in the title bar (BS month + year), shared by payroll, attendance and reports, persisted per user | Tally-style "current period" removes re-picking the month on every screen | 2 |
 | E2 | **FactBox pane** (Business Central): a right-hand context panel on registers and cards (e.g. YTD gross/TDS/SSF, leave balance, loans, pending changes) | Answers the next question without navigating | 3 |
-| E3 | **Worklist template** (SAP Fiori) for approvals and payroll exceptions: one item at a time, `A`/`R` to approve/reject, `J`/`K` to move | Faster than modal-per-row approval | 3 |
+| E3 | **Worklist template** (SAP Fiori) for approvals and payroll exceptions: one item at a time, `A`/`R` to approve/reject, `J`/`K` to move. Keys act only while the worklist has focus (never page-wide) | Faster than modal-per-row approval | 3 |
 | E4 | **Problems panel**: an IDE-style docked list of blocking issues in the payroll wizard, with click-to-jump | Pre-flight and variance issues become actionable | 4.8 |
 | E5 | **Density toggle** (Comfortable 32px / Compact 28px rows) in the user menu | Finance users with big tables want compact; occasional users want comfortable | 3 |
 | E6 | **Alt+G alias** for the command palette, plus `F`-key hints in tooltips | Familiar to Tally users in Nepal | 2 |

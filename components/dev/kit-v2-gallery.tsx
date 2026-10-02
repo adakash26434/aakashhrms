@@ -115,6 +115,7 @@ function GalleryBody() {
     setEditing(true);
   };
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmFails, setConfirmFails] = useState(false);
   const [queue, setQueue] = useState(LEAVES);
 
   const rows = useMemo(() => {
@@ -283,6 +284,10 @@ function GalleryBody() {
           <WindowButton variant="danger" onClick={() => setConfirmOpen(true)}>
             Typed confirmation
           </WindowButton>
+          <label className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
+            <input type="checkbox" checked={confirmFails} onChange={(e) => setConfirmFails(e.target.checked)} />
+            Simulate a server refusal
+          </label>
         </div>
         <div className="rounded-lg border border-line bg-surface p-4">
           <p className="mb-3 text-xs text-ink-muted">Form skeleton (E11):</p>
@@ -290,7 +295,7 @@ function GalleryBody() {
         </div>
       </Section>
 
-      <Section title="Worklist (E3)" note="Approve with A, reject with R (asks for a reason), move with J / K.">
+      <Section title="Worklist (E3)" note="Click into the queue, then approve with A, reject with R (asks for a reason; Ctrl+Enter confirms), move with J / K. Keys only act while the queue has focus.">
         <Worklist
           title="Leave approvals"
           items={queue}
@@ -366,14 +371,14 @@ function GalleryBody() {
                   <input className={inputClass} defaultValue="2012-02-30" />
                 </FieldRow>
                 <FieldRow label="Employee code" readOnly>
-                  <input className={inputClass} defaultValue="EMP-001" />
+                  <input className={inputClass} defaultValue={active?.code ?? "(assigned on save)"} />
                 </FieldRow>
               </FieldGroup>
             )}
             {tab === "job" && (
               <FieldGroup title="Position">
                 <FieldRow label="Department" required>
-                  <select className={inputClass} defaultValue="Finance">
+                  <select className={inputClass} defaultValue={active?.dept ?? DEPTS[0]}>
                     {DEPTS.map((d) => (
                       <option key={d}>{d}</option>
                     ))}
@@ -387,7 +392,7 @@ function GalleryBody() {
             {tab === "bank" && (
               <FieldGroup title="Bank & tax">
                 <FieldRow label="PAN" help="9 digits, issued by the IRD.">
-                  <input className={`${inputClass} font-code`} defaultValue="601234567" />
+                  <input className={`${inputClass} font-code`} defaultValue={active?.pan ?? ""} />
                 </FieldRow>
                 <FieldRow label="Account number">
                   <input className={`${inputClass} font-code`} defaultValue="0010012345678" />
@@ -411,6 +416,7 @@ function GalleryBody() {
         }
         onConfirm={async () => {
           await new Promise((r) => setTimeout(r, 600));
+          if (confirmFails) throw new Error("Payroll for Ashwin 2083 is already paid and cannot be unlocked. (Ref ERR-7F3A)");
           setConfirmOpen(false);
         }}
         onCancel={() => setConfirmOpen(false)}

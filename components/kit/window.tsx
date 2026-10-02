@@ -65,7 +65,8 @@ function WindowSurface({ onClose, title, description, size = "md", children, foo
     return () => restoreTo?.focus?.();
   }, [initialFocusRef, restoreTo]);
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
+  type KeyLike = Pick<KeyboardEvent, "key" | "shiftKey" | "preventDefault" | "stopPropagation">;
+  const handleKey = (e: KeyLike) => {
     if (e.key === "Escape") {
       e.stopPropagation();
       if (confirmingDiscard) setConfirmingDiscard(false);
@@ -84,6 +85,26 @@ function WindowSurface({ onClose, title, description, size = "md", children, foo
       items[next]?.focus();
     }
   };
+  const onKeyDown = (e: React.KeyboardEvent) => handleKey(e);
+
+  // Focus can fall out of the panel without the user moving it: a focused
+  // button that becomes disabled while an action runs drops focus to <body>.
+  // Esc and Tab must still reach the topmost window, or the trap leaks.
+  const handleKeyRef = useRef(handleKey);
+  useEffect(() => {
+    handleKeyRef.current = handleKey;
+  });
+  useEffect(() => {
+    const onDocKey = (e: KeyboardEvent) => {
+      const panel = panelRef.current;
+      if (!panel || panel.contains(document.activeElement)) return; // the panel's own handler runs
+      const modals = document.querySelectorAll('[aria-modal="true"]');
+      if (modals[modals.length - 1] !== panel) return; // only the topmost window
+      if (e.key === "Escape" || e.key === "Tab") handleKeyRef.current(e);
+    };
+    document.addEventListener("keydown", onDocKey);
+    return () => document.removeEventListener("keydown", onDocKey);
+  }, []);
 
   return (
     <div
@@ -106,8 +127,14 @@ function WindowSurface({ onClose, title, description, size = "md", children, foo
       >
         <div className="flex shrink-0 items-start gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="truncate text-sm font-semibold text-ink">
-              {title}
+            <h2 id={titleId} className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
+              <span className="truncate">{title}</span>
+              {dirty && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-subtle px-1.5 py-px text-3xs font-medium text-warning">
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-warning" />
+                  Unsaved
+                </span>
+              )}
             </h2>
             {description && (
               <p id={descId} className="mt-0.5 text-xs text-ink-muted">

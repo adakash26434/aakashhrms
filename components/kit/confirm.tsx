@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { Window, WindowButton } from "./window";
 
@@ -28,13 +28,22 @@ export function Confirm(props: ConfirmProps) {
 function ConfirmWindow({ title, message, confirmLabel = "Confirm", tone = "default", requireText, onConfirm, onCancel }: ConfirmProps) {
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const matches = !requireText || typed.trim() === requireText;
 
   const run = async () => {
     if (!matches || pending) return;
     setPending(true);
+    setError(null);
     try {
       await onConfirm();
+    } catch (e) {
+      // Keep the dialog open and say why. Callers throw with the user-facing text
+      // from toActionError (S9); Next.js redacts raw server errors in production.
+      setError(e instanceof Error && e.message ? e.message : "That did not go through. Try again.");
+      // The disabled button dropped focus; put it back in the dialog.
+      requestAnimationFrame(() => inputRef.current?.focus());
     } finally {
       setPending(false);
     }
@@ -66,6 +75,11 @@ function ConfirmWindow({ title, message, confirmLabel = "Confirm", tone = "defau
         )}
         <div className="min-w-0 flex-1 text-sm text-ink-muted">{message}</div>
       </div>
+      {error && (
+        <p role="alert" className="mt-3 rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1.5 text-xs text-danger">
+          {error}
+        </p>
+      )}
       {requireText && (
         <form
           className="mt-4"
@@ -77,6 +91,7 @@ function ConfirmWindow({ title, message, confirmLabel = "Confirm", tone = "defau
           <label className="block text-xs font-medium text-ink">
             Type <span className="rounded bg-surface-sunken px-1 font-code text-ink">{requireText}</span> to confirm
             <input
+              ref={inputRef}
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               autoComplete="off"
