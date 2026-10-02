@@ -1,6 +1,5 @@
 export type * from "./attendance";
 export type * from "./branch";
-export type * from "./dashboard";
 export type * from "./department";
 export type * from "./designation";
 export type * from "./employee";

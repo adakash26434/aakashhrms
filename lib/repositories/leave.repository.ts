@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import { leaveTypes, employeeLeaveBalances, leaveApplications, fiscalYears, employees } from "@/lib/db/schema";
-import { eq, and, desc, or, ilike, gte, lte, SQL } from "drizzle-orm";
+import { eq, and, desc, or, ilike, gte, lte, SQL, sql } from "drizzle-orm";
 import type { EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveStatus, LeaveFilter } from "@/lib/types/leave";
 import type { LeaveTypeRecord, LeavePayType, GenderApplicable, StatutoryCode } from "@/lib/types/leave-type";
 
@@ -308,4 +308,61 @@ export async function updateLeaveBalance(
     .where(eq(employeeLeaveBalances.id, id))
     .returning();
   return rows.length ? mapBalance(rows[0]) : null;
+}
+/**
+ * S17: decide a leave application atomically. The status only changes if the
+ * application is still in `expectedStatus` (so two reviewers cannot both
+ * approve and deduct the balance twice), and the balance moves in the same
+ * transaction with SQL arithmetic (no read-modify-write).
+ * Returns null when the application was already decided by someone else.
+ */
+export async function transitionLeaveApplication(args: {
+  id: string;
+  expectedStatus: LeaveStatus;
+  status: LeaveStatus;
+  reviewedById: string;
+  reviewRemarks: string | null;
+}): Promise<LeaveApplication | null> {
+  return await (await getDb()).transaction(async (tx) => {
+    const rows = await tx
+      .update(leaveApplications)
+      .set({
+        status: args.status,
+        reviewedById: args.reviewedById,
+        reviewedAt: new Date(),
+        reviewRemarks: args.reviewRemarks,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(leaveApplications.id, args.id), eq(leaveApplications.status, args.expectedStatus)))
+      .returning();
+    if (!rows.length) return null;
+    const app = rows[0];
+
+    const days = app.noOfDays;
+    const balanceRow = and(
+      eq(employeeLeaveBalances.employeeId, app.employeeId),
+      eq(employeeLeaveBalances.leaveTypeId, app.leaveTypeId),
+      eq(employeeLeaveBalances.fiscalYearId, app.fiscalYearId)
+    );
+    if (args.status === "Approved" && args.expectedStatus !== "Approved") {
+      await tx
+        .update(employeeLeaveBalances)
+        .set({
+          taken: sql`${employeeLeaveBalances.taken} + ${days}`,
+          balance: sql`${employeeLeaveBalances.balance} - ${days}`,
+          updatedAt: new Date(),
+        })
+        .where(balanceRow);
+    } else if ((args.status === "Rejected" || args.status === "Cancelled") && args.expectedStatus === "Approved") {
+      await tx
+        .update(employeeLeaveBalances)
+        .set({
+          taken: sql`GREATEST(0, ${employeeLeaveBalances.taken} - ${days})`,
+          balance: sql`${employeeLeaveBalances.balance} + ${days}`,
+          updatedAt: new Date(),
+        })
+        .where(balanceRow);
+    }
+    return mapApp(app);
+  });
 }

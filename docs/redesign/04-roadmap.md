@@ -48,7 +48,7 @@ Goal: a safe baseline before any visual work.
       of hard lockout, contact form throttling and honeypot.
 - [x] 0.7 **S7**: parameterise the scope-filter subqueries.
 - [x] 0.8 Secret separation startup check. Add `npm audit` to CI (gate at `critical` until the next-auth → nodemailer chain has a non-breaking fix; then `high`). Next.js patched 16.3.0 → 16.3.8 (critical RCE advisory).
-- [x] 0.9 Add `tests/security-*.test.ts` for guards, scope filter and rate limiter. Seven suites: auth-guard, invariants, dashboard-access, login-throttling, scope-filter, secrets, plus the existing rate-limiter suite. The invariant and guard tests were confirmed to **fail on the old code**.
+- [x] 0.9 Add `tests/security-*.test.ts` for guards, scope filter and rate limiter. Seven suites: auth-guard, invariants, dashboard-access (replaced in 4.1 by `security-leave-decision`, with the old dashboard), login-throttling, scope-filter, secrets, plus the existing rate-limiter suite. The invariant and guard tests were confirmed to **fail on the old code**.
 
 > **Known debt (not Phase 0):** `npm run lint` reports 225 pre-existing errors (mostly `no-explicit-any` in services/repositories), so the CI *Lint* step was already failing on `main`. This branch adds none (verified per file against `main`). They're cleaned up module by module in Phase 4 and finished in Phase 8.
 
@@ -150,7 +150,7 @@ per-module **definition of done** below.
 
 | Step | Module | Template | Screens |
 |---|---|---|---|
-| 4.1 | **Home** | F | `/dashboard` (work queues instead of hero) — **sign-off** |
+| 4.1 | **Home** | F | `/dashboard` (work queues instead of hero) — **sign-off**. **Built on `redesign/4.1-home`, awaiting your sign-off** |
 | 4.2 | **Workforce: Employees** | A + B | list + split detail, create flow, edit tabs (`employee-form-tabs` 2k lines) |
 | 4.3 | **Workforce: Organization** | A | departments, designations, branches, organization view |
 | 4.4 | **Salary structure** | A + B | salary mapping list, mapping editor, bulk actions |
@@ -222,4 +222,4 @@ See `CHANGELOG.md`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
 - **Phase 2 is signed off.**
 - **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
-- Next is Phase 4.1 (Home dashboard, the first module migration and a sign-off point).
+- Phase 4.1 (Home) is built and waiting for sign-off; 4.2 Employees follows once you approve the design.

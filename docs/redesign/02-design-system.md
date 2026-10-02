@@ -216,6 +216,22 @@ The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.
 | **E. Settings** | System control, Payroll rules, Fiscal year, Tax rates, Company profile | Category list on the left, form on the right, change summary before save |
 | **F. Home / Work queue** | `/dashboard` | Tiles of *actionable* queues (pending approvals, payroll status, compliance deadlines, attendance exceptions), plus compact charts. No hero banner. |
 
+### Implemented Home (Phase 4.1, template F)
+
+`/dashboard`, built from `components/workspace-home/` on the kit, data from `lib/services/home.service.ts` (pure logic in `lib/home/`):
+
+| Region | What it shows | Rules |
+|---|---|---|
+| Page bar | "Home", greeting, BS date, "Updated hh:mm", scope badge for restricted users | Toolbar: Add employee · Run payroll (only with permission) · Refresh |
+| Cue strip | Up to 6 cues: Approvals, Payroll, Next deposit, Records to fix, Attendance, Loans | Number = queue size; 3px top edge = needs action (amber) / overdue (red) / done (green), always with a text hint |
+| Leave approvals | `Worklist` with balance before → after, waiting days, unpaid-leave flag, colleagues off at the same time | View-only list without APPROVE; keys only while focused |
+| Payroll | Latest period across all branch runs, step rail, gross / deductions / net / employees, the one next action, "Start <next month>" | Period status = slowest branch |
+| Net pay by period | CSS bars, last 6 periods, ±10% swings flagged | From two periods; screen-reader table |
+| Recent activity | Last 8 audit entries, denials highlighted | AUDIT_LOG only |
+| Side column | Today (attendance, on leave), Statutory deadlines (TDS 25 / SSF 15 days after BS month end, passed ones kept 7 days), Payroll readiness (PAN, bank, basic), Headcount | Employee data scoped |
+
+New kit part: `Panel` (`components/kit/panel.tsx`), the titled group box with count, meta and "open" link, used by every Home section. A section that fails to load stays in place as an error panel; a user with no queues gets a pointer to self-service. `/dev/home` previews every state with sample data (dev only).
+
 ## 5b. Design enhancements (beyond the base frame)
 
 These came out of the reference research (`05-functional-research.md`).

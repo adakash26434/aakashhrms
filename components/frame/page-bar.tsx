@@ -28,7 +28,8 @@ export function PageBar({
   const pathname = usePathname();
   const location = findActiveLocation(pathname);
   const trail = [
-    ...(location ? [{ label: location.module.label }] : []),
+    // A lone crumb that only repeats the title (e.g. Home) adds nothing.
+    ...(location && location.module.label !== title ? [{ label: location.module.label }] : []),
     ...(location?.section && location.section.label !== title ? [{ label: location.section.label, href: location.section.href }] : []),
     ...(crumbs ?? []),
   ];

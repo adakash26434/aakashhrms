@@ -185,6 +185,12 @@ export async function checkPermissionWithScope(
   action: PermissionAction,
   module: PermissionModule
 ): Promise<ScopeFilter> {
+  // Impersonation is full access (see verifyPermission); the platform actor is
+  // not a tenant user, so it has no row to resolve a scope from.
+  const impersonation = await getImpersonationSession();
+  if (impersonation) {
+    return { scopeType: 'GLOBAL', branchIds: [], departmentIds: [], employeeId: null, userId: impersonation.actorId };
+  }
   const session = await auth();
   const userId = await verifyPermission(action, module);
   return resolveUserScope(userId, session?.user?.tenantSlug);

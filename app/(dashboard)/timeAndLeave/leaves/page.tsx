@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import { ensureTenantContext } from "@/lib/db";
-import { hasPermission } from "@/lib/auth/check-permission";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 import { getLeaveApplications } from "@/lib/services/leave.service";
 import * as reportService from "@/lib/services/report.service";
 import { LeavesHubClient, type LeaveTab } from "@/components/time-and-leave/leaves-hub-client";
@@ -46,13 +46,18 @@ export default async function LeavesPage({ searchParams }: LeavesPageProps) {
   let balancesData = null;
 
   if (activeTab === "requests") {
-    requestsData = await getLeaveApplications({
-      search: "",
-      status: "all",
-      leaveTypeId: "all",
-      dateFrom: "",
-      dateTo: "",
-    });
+    // S17: only applications from employees inside the user's scope.
+    const scope = await checkPermissionWithScope("VIEW", "LEAVE_APPLICATIONS");
+    requestsData = await getLeaveApplications(
+      {
+        search: "",
+        status: "all",
+        leaveTypeId: "all",
+        dateFrom: "",
+        dateTo: "",
+      },
+      scope
+    );
   } else if (activeTab === "balances") {
     const lookups = await reportService.getReportFilterLookupData();
     const defaultFyId = lookups.fiscalYears[0]?.id || "";

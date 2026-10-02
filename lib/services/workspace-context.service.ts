@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { auth } from '@/lib/auth';
 import { getUserAllowedModulesArray } from '@/lib/auth/get-user-permissions';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
@@ -60,7 +61,13 @@ function getDefaultFiscalYearName(): string {
   }
 }
 
-export async function getWorkspaceContext(): Promise<WorkspaceContext> {
+/**
+ * Per-request cached: the layout, the frame and pages (Home) share one lookup.
+ * Outside a React render (server actions) `cache` simply calls through.
+ */
+export const getWorkspaceContext = cache(loadWorkspaceContext);
+
+async function loadWorkspaceContext(): Promise<WorkspaceContext> {
   const [impersonation, session] = await Promise.all([
     getImpersonationSession(),
     auth(),

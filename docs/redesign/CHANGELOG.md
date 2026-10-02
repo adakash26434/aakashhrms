@@ -13,6 +13,45 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-02 — 4.1 Home: work queues (sign-off pending)
+Branch: `redesign/4.1-home` (from `redesign/3-component-kit` @ `d78817c`; not merged or pushed)
+
+Changed:
+- **`/dashboard` rebuilt as Home (template F).** The hero, KPI cards and the 13 old `components/dashboard/*` files are gone, with `dashboard.service`, `dashboard-access`, `types/dashboard` and the mock data. New: `components/workspace-home/*`, `lib/services/home.service.ts`, pure logic in `lib/home/*`, kit `Panel`, layout-matched `loading.tsx`.
+- Layout: page bar (greeting, BS date, updated time, scope badge, permission-aware toolbar) → **cue strip** → leave approvals worklist + payroll + trend + activity | today, deadlines, readiness, headcount.
+- **Data fixed while rebuilding** (the old Home showed wrong numbers):
+  - every *active loan* was listed as a "pending approval"; loans are now a cue with the outstanding total;
+  - "Compliance 100%" was hard-coded; replaced by real statutory deadlines;
+  - the attendance chart repeated today's numbers for Mon–Fri, and "present" was guessed when nothing was recorded; Home now says "not recorded yet";
+  - "latest run" was the newest-created branch run; Home now combines every branch run of the latest BS period (status = slowest branch, decimal-safe totals);
+  - "today" now follows Kathmandu time, not the server's (cPanel runs UTC).
+- **S17 (Medium, new): leave decisions.** Scope, self-approval, transition rules, a server-side rejection reason, an atomic status change (no double deduction), an audit entry for every decision and denial, scoped leave lists, impersonation scope. Details in the security plan.
+- Nav: the Home section is labelled "Home"; the page bar drops a crumb that only repeats the title. `getWorkspaceContext()` is cached per request (the layout called it twice; Home reuses it).
+
+Enhanced (beyond the plan):
+- Approval context in the queue: balance before → after (red if over balance), "waiting N days", unpaid-leave flag ("reduces salary"), colleagues in the same department off on overlapping days.
+- Payroll: one next action per status, "Start <next month>" once the last period is locked and the month has begun, branch progress ("1 in review, 1 approved").
+- Net pay trend with ±10% swing flags (an early look at F1 variance review).
+- Statutory deadlines (TDS 25 days, SSF 15 days after BS month end) with the withheld amount; a passed deadline stays for 7 days as "was due · check it was deposited".
+- Payroll readiness: missing or invalid PAN (9 digits), no bank account, zero basic, each with the first five employees linked to their record.
+- Sections that fail stay in place as error panels with Try again; users with no queues get a pointer to self-service; support view is read-only.
+- `/dev/home`: sample-data preview of every state (admin, branch manager, employee, failed), with a switch to send decisions to the real server.
+
+Verified:
+- `tsc` exit 0; no new lint errors (the 4 in `leave.repository.ts` are pre-existing).
+- **343/343 tests** (24 new: `home-logic`, `security-leave-decision`; the old `security-dashboard-access` suite went with the old dashboard).
+- Production build OK.
+- Browser, signed in (1440, 1024, 390px), 0 console errors, no horizontal overflow:
+  - real data: greeting, cues, the passed SSF deposit, "Start Bhadra 2083", locked Shrawan, readiness clean;
+  - the leave tabs still load through the scoped lists;
+  - `/dev/home`: stray A does nothing; J / A / R / Ctrl+Enter work; toast and count update; the real server refuses sample ids with "Leave request not found."; branch, employee and failed variants checked.
+
+Notes:
+- The deadline rules are the common defaults. Confirm them with your tax advisor; they become company settings with F10.
+- Self-approval is now blocked for everyone, admins included. A company with a single approver needs a second person (or an admin) to decide that approver's own leave.
+- Rejecting now requires a reason on the server too (the Approvals modal already asked for one).
+- Not yet checked on real data: approving a real pending request (none exist), and a real branch-scoped login. See the 4.1 sign-off notes.
+
 ## 2026-10-02 — Phase 3 hands-on pass of `/dev/kit` (gate before Phase 4)
 Branch: `redesign/3-component-kit` (not merged or pushed)
 

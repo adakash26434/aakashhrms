@@ -14,6 +14,8 @@ import type {
 import { findAll, findById as findEmployeeById } from "@/lib/repositories/employee.repository";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import type { ScopeFilter } from "@/lib/auth/scope-filter";
+import { employeeInScope } from "@/lib/leave/decision";
 
 export class LeaveValidationError extends Error {
   constructor(public errors: LeaveApplicationValidationErrors) {
@@ -62,9 +64,13 @@ export async function getLeaveLookupData(): Promise<LeaveLookupData> {
   };
 }
 
-export async function getLeaveApplications(filter: LeaveFilter) {
-  const applications = await repository.findAllLeaveApplications(filter);
-  const kpis = engine.calculateLeaveKPIs(applications);
+/**
+ * Lists leave applications. Pass the caller's scope (S17) so BRANCH /
+ * DEPARTMENT / SELF reviewers only see applications from their own employees;
+ * the KPIs are computed on the scoped list.
+ */
+export async function getLeaveApplications(filter: LeaveFilter, scope?: ScopeFilter) {
+  const allApplications = await repository.findAllLeaveApplications(filter);
   // Fetch employee names to enrich the data
   const employees = await findAll({
     search: "",
@@ -74,6 +80,14 @@ export async function getLeaveApplications(filter: LeaveFilter) {
     status: "all",
   });
   const employeeMap = new Map(employees.map((e) => [e.id, e.fullName]));
+  const employeeById = new Map(employees.map((e) => [e.id, e]));
+  const applications = scope
+    ? allApplications.filter((app) => {
+        const emp = employeeById.get(app.employeeId);
+        return !!emp && employeeInScope(scope, emp);
+      })
+    : allApplications;
+  const kpis = engine.calculateLeaveKPIs(applications);
 
   // Fetch all users to resolve reviewer names (users.id -> users.employeeId -> employees.id)
   const userList = await (await getDb()).select({
