@@ -27,8 +27,7 @@ import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { auth } from "@/lib/auth";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import * as engine from "@/lib/engines/report.engine";
-import { BS_MONTHS_EN, bsToAD } from "@/lib/utils/bs-calendar";
-import { NepaliDate } from "nepali-date-library";
+import { BS_MONTHS_EN, bsToAD, getDaysInBSMonth, getTodayBS } from "@/lib/utils/bs-calendar";
 import type {
   CompanyReportInfo,
   ReportFilterLookupData,
@@ -593,8 +592,10 @@ export async function getAttendanceReportData(
   const monthLabel = engine.formatBSMonthLabel(filter.bsMonth, bsYear);
   const reportFormat = filter.reportFormat || "STATUTORY_SUMMARY";
 
-  // Build 30 date headers for month with exact AD date mapping and day name resolution
-  const dateHeaders = Array.from({ length: 30 }, (_, idx) => {
+  const daysInMonth = getDaysInBSMonth(bsYear, filter.bsMonth) || 30;
+
+  // Build date headers for month with exact AD date mapping and day name resolution
+  const dateHeaders = Array.from({ length: daysInMonth }, (_, idx) => {
     const dayNum = idx + 1;
     const dateStr = `${bsYear}-${String(filter.bsMonth).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
     const adDate = bsToAD(bsYear, filter.bsMonth, dayNum);
@@ -676,23 +677,40 @@ export async function getAttendanceReportData(
     filtered = filtered.filter((r) => r.empId === filter.employeeId);
   }
 
-  const todayBS = new NepaliDate();
-  const currentBsYear = todayBS.getYear();
-  const currentBsMonth = todayBS.getMonth() + 1;
-  const currentBsDay = todayBS.getDate();
+  const todayBS = getTodayBS();
+  const currentBsYear = todayBS.year;
+  const currentBsMonth = todayBS.month;
+  const currentBsDay = todayBS.day;
   const isFutureMonth = bsYear > currentBsYear || (bsYear === currentBsYear && filter.bsMonth > currentBsMonth);
 
   // Helper to build real daily attendance details without synthesizing fake default punches
   const generateDailyDetails = (empId?: string | null): AttendanceDailyDetail[] => {
     const empPunches = empId ? (empPunchesMap.get(empId) || []) : [];
     return dateHeaders.map((dh) => {
-      // Check if an explicit manual punch record exists for this employee on this date
-      const found = empPunches.find(
-        (p) =>
-          p.attendanceDate === dh.dateStr ||
-          p.attendanceDate === dh.adDateStr ||
-          p.attendanceDate.endsWith(`-${String(dh.dayNum).padStart(2, "0")}`)
-      );
+      // Check if this is a future day (days past today in current month or future months)
+      const isFutureDay =
+        isFutureMonth ||
+        (bsYear === currentBsYear && filter.bsMonth === currentBsMonth && dh.dayNum > currentBsDay);
+
+      if (isFutureDay) {
+        return {
+          dateStr: dh.dateStr,
+          dayNum: dh.dayNum,
+          inTime: "-",
+          outTime: "-",
+          workHours: "00:00",
+          statusCode: "-",
+        };
+      }
+
+      // Check if an explicit manual punch record exists for this employee on this exact date
+      const found = empPunches.find((p) => {
+        const pDate =
+          typeof p.attendanceDate === "string"
+            ? p.attendanceDate.split("T")[0]
+            : (p.attendanceDate as any)?.toISOString?.()?.split("T")[0];
+        return pDate === dh.adDateStr || pDate === dh.dateStr;
+      });
 
       if (found) {
         let code = "P";
@@ -710,22 +728,6 @@ export async function getAttendanceReportData(
           outTime: found.outTime || (code === "P" || code === "HD" ? "05:00 PM" : "-"),
           workHours: found.workHours ? String(found.workHours) : (code === "P" ? "08:00" : code === "HD" ? "04:00" : "00:00"),
           statusCode: code,
-        };
-      }
-
-      // Check if this is a future day (days past today in current month or future months)
-      const isFutureDay =
-        isFutureMonth ||
-        (bsYear === currentBsYear && filter.bsMonth === currentBsMonth && dh.dayNum > currentBsDay);
-
-      if (isFutureDay) {
-        return {
-          dateStr: dh.dateStr,
-          dayNum: dh.dayNum,
-          inTime: "-",
-          outTime: "-",
-          workHours: "00:00",
-          statusCode: "-",
         };
       }
 
@@ -753,6 +755,49 @@ export async function getAttendanceReportData(
     });
   };
 
+  const computeMetricsFromDaily = (dailyDetails: AttendanceDailyDetail[]) => {
+    let presentDays = 0;
+    let payLeaveDays = 0;
+    let nonPayLeaveDays = 0;
+    let absentDays = 0;
+    let totalWorkMins = 0;
+
+    for (const d of dailyDetails) {
+      const st = d.statusCode;
+      if (st === "P") {
+        presentDays += 1;
+      } else if (st === "HD") {
+        presentDays += 0.5;
+        absentDays += 0.5;
+      } else if (st === "L" || st === "HO") {
+        payLeaveDays += 1;
+      } else if (st === "LWOP") {
+        nonPayLeaveDays += 1;
+      } else if (st === "A") {
+        absentDays += 1;
+      }
+
+      if (d.workHours && d.workHours !== "00:00" && d.workHours !== "-") {
+        const parts = d.workHours.split(":");
+        const hrs = parseInt(parts[0] || "0", 10);
+        const mins = parseInt(parts[1] || "0", 10);
+        totalWorkMins += hrs * 60 + mins;
+      }
+    }
+
+    const totalWorkingDays = presentDays + absentDays + payLeaveDays + nonPayLeaveDays;
+    const totalWorkHours = `${Math.floor(totalWorkMins / 60)}:${String(totalWorkMins % 60).padStart(2, "0")}`;
+
+    return {
+      totalWorkingDays: String(totalWorkingDays),
+      presentDays: String(presentDays),
+      payLeaveDays: String(payLeaveDays),
+      nonPayLeaveDays: String(nonPayLeaveDays),
+      absentDays: String(absentDays),
+      totalWorkHours,
+    };
+  };
+
   let isLocked = false;
   let rows: AttendanceReportRow[] = [];
 
@@ -760,32 +805,43 @@ export async function getAttendanceReportData(
     isLocked = filtered.every((r) => r.calc.isLocked);
     rows = filtered.map((r) => {
       const dailyDetails = generateDailyDetails(r.empId);
+      const metrics = computeMetricsFromDaily(dailyDetails);
 
-      const totalWorkMins = dailyDetails.reduce((sum, d) => {
-        if (!d.workHours || d.workHours === "00:00" || d.workHours === "-") return sum;
-        const parts = d.workHours.split(":");
-        const hrs = parseInt(parts[0] || "0", 10);
-        const mins = parseInt(parts[1] || "0", 10);
-        return sum + (hrs * 60 + mins);
-      }, 0);
-
-      const totalWorkHours = `${Math.floor(totalWorkMins / 60)}:${String(totalWorkMins % 60).padStart(2, "0")}`;
+      if (r.calc.isLocked) {
+        return {
+          employeeCode: r.empCode,
+          employeeName: r.empName,
+          departmentName: r.deptName || "Unassigned",
+          designationName: r.desigName || "Staff",
+          totalWorkingDays: String(r.calc.totalWorkingDays ?? metrics.totalWorkingDays),
+          presentDays: String(r.calc.presentDays ?? metrics.presentDays),
+          payLeaveDays: String(r.calc.payLeaveDays ?? metrics.payLeaveDays),
+          nonPayLeaveDays: String(r.calc.nonPayLeaveDays ?? metrics.nonPayLeaveDays),
+          absentDays: String(r.calc.absentDays ?? metrics.absentDays),
+          totalOtHoursOffice: String(r.calc.totalOtHoursOffice ?? 0),
+          totalOtHoursOff: String(r.calc.totalOtHoursOff ?? 0),
+          otEarnedAmount: String(r.calc.otEarnedAmount ?? "0.00"),
+          leaveDeductionAmount: String(r.calc.leaveDeductionAmount ?? "0.00"),
+          totalWorkHours: metrics.totalWorkHours,
+          dailyDetails,
+        };
+      }
 
       return {
         employeeCode: r.empCode,
         employeeName: r.empName,
         departmentName: r.deptName || "Unassigned",
         designationName: r.desigName || "Staff",
-        totalWorkingDays: String(r.calc.totalWorkingDays ?? 30),
-        presentDays: String(r.calc.presentDays ?? 30),
-        payLeaveDays: String(r.calc.payLeaveDays ?? 0),
-        nonPayLeaveDays: String(r.calc.nonPayLeaveDays ?? 0),
-        absentDays: String(r.calc.absentDays ?? 0),
+        totalWorkingDays: metrics.totalWorkingDays,
+        presentDays: metrics.presentDays,
+        payLeaveDays: metrics.payLeaveDays,
+        nonPayLeaveDays: metrics.nonPayLeaveDays,
+        absentDays: metrics.absentDays,
         totalOtHoursOffice: String(r.calc.totalOtHoursOffice ?? 0),
         totalOtHoursOff: String(r.calc.totalOtHoursOff ?? 0),
         otEarnedAmount: String(r.calc.otEarnedAmount ?? "0.00"),
         leaveDeductionAmount: String(r.calc.leaveDeductionAmount ?? "0.00"),
-        totalWorkHours,
+        totalWorkHours: metrics.totalWorkHours,
         dailyDetails,
       };
     });
@@ -829,35 +885,24 @@ export async function getAttendanceReportData(
     if (filteredSlips.length > 0) {
       isLocked = filteredSlips.every((s) => s.run.status === "LOCKED" || s.run.status === "APPROVED");
       rows = filteredSlips.map((s) => {
-        const absentDed = Number(s.slip.absentDeduction || 0);
-        const absentCount = absentDed > 0 ? Math.ceil(absentDed / (Number(s.slip.basicSalary) / 30)) : 0;
-        const presentCount = Math.max(0, 30 - absentCount);
-
         const dailyDetails = generateDailyDetails(s.empId);
-        const totalWorkMins = dailyDetails.reduce((sum, d) => {
-          if (!d.workHours || d.workHours === "00:00" || d.workHours === "-") return sum;
-          const parts = d.workHours.split(":");
-          const hrs = parseInt(parts[0] || "0", 10);
-          const mins = parseInt(parts[1] || "0", 10);
-          return sum + (hrs * 60 + mins);
-        }, 0);
-        const totalWorkHours = `${Math.floor(totalWorkMins / 60)}:${String(totalWorkMins % 60).padStart(2, "0")}`;
+        const metrics = computeMetricsFromDaily(dailyDetails);
 
         return {
           employeeCode: s.slip.employeeCode,
           employeeName: s.slip.employeeName,
           departmentName: s.slip.departmentName || "Unassigned",
           designationName: s.desigName || s.slip.designationName || "Staff",
-          totalWorkingDays: "30",
-          presentDays: String(presentCount),
-          payLeaveDays: "0",
-          nonPayLeaveDays: "0",
-          absentDays: String(absentCount),
+          totalWorkingDays: metrics.totalWorkingDays,
+          presentDays: metrics.presentDays,
+          payLeaveDays: metrics.payLeaveDays,
+          nonPayLeaveDays: metrics.nonPayLeaveDays,
+          absentDays: metrics.absentDays,
           totalOtHoursOffice: String(Number(s.slip.otAmount) > 0 ? (Number(s.slip.otAmount) / 250).toFixed(1) : "0"),
           totalOtHoursOff: "0",
           otEarnedAmount: String(s.slip.otAmount || "0.00"),
           leaveDeductionAmount: String(s.slip.absentDeduction || "0.00"),
-          totalWorkHours,
+          totalWorkHours: metrics.totalWorkHours,
           dailyDetails,
         };
       });
@@ -895,30 +940,23 @@ export async function getAttendanceReportData(
 
       rows = filteredEmps.map((e) => {
         const dailyDetails = generateDailyDetails(e.empId);
-        const totalWorkMins = dailyDetails.reduce((sum, d) => {
-          if (!d.workHours || d.workHours === "00:00" || d.workHours === "-") return sum;
-          const parts = d.workHours.split(":");
-          const hrs = parseInt(parts[0] || "0", 10);
-          const mins = parseInt(parts[1] || "0", 10);
-          return sum + (hrs * 60 + mins);
-        }, 0);
-        const totalWorkHours = `${Math.floor(totalWorkMins / 60)}:${String(totalWorkMins % 60).padStart(2, "0")}`;
+        const metrics = computeMetricsFromDaily(dailyDetails);
 
         return {
           employeeCode: e.empCode,
           employeeName: e.empName,
           departmentName: e.deptName || "Unassigned",
           designationName: e.desigName || "Staff",
-          totalWorkingDays: "30",
-          presentDays: "30",
-          payLeaveDays: "0",
-          nonPayLeaveDays: "0",
-          absentDays: "0",
+          totalWorkingDays: metrics.totalWorkingDays,
+          presentDays: metrics.presentDays,
+          payLeaveDays: metrics.payLeaveDays,
+          nonPayLeaveDays: metrics.nonPayLeaveDays,
+          absentDays: metrics.absentDays,
           totalOtHoursOffice: "0",
           totalOtHoursOff: "0",
           otEarnedAmount: "0.00",
           leaveDeductionAmount: "0.00",
-          totalWorkHours,
+          totalWorkHours: metrics.totalWorkHours,
           dailyDetails,
         };
       });
@@ -1260,6 +1298,7 @@ export async function getLoanReportData(
   const repaymentsRaw = await getDb()
     .select({
       rep: loanRepayments,
+      loanTypeId: loans.loanTypeId,
       empCode: employees.employeeCode,
       empName: employees.fullName,
       deptName: departments.name,
@@ -1279,7 +1318,7 @@ export async function getLoanReportData(
 
   let filteredRepayments = repaymentsRaw;
   if (filter.loanTypeId) {
-    filteredRepayments = filteredRepayments.filter((r) => r.rep.loanId === filter.loanTypeId);
+    filteredRepayments = filteredRepayments.filter((r) => r.loanTypeId === filter.loanTypeId);
   }
   if (filter.branchId) {
     filteredRepayments = filteredRepayments.filter((r) => r.branchId === filter.branchId);

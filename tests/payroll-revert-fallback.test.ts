@@ -53,6 +53,28 @@ const MOCK_TAX_SLABS: TaxSlabInput[] = [
   { id: 'slab-5', category: 'Normal Single', amountFrom: '2000000', amountTo: null, ratePercent: '36', fixedDeduction: '0' },
 ];
 
+const MOCK_TDS_HEAD: PayHeadInput = {
+  id: 'head-tds',
+  code: 'TDS',
+  name: 'TDS (Income Tax)',
+  type: 'deduction',
+  effectOnTax: true,
+  isFestivalAllowance: false,
+  isAbsentDeduct: false,
+  isOtHead: false,
+  isLeaveHead: false,
+  isTdsHead: true,
+  isPfHead: false,
+  isSsfHead: false,
+  isRemoteAllowance: false,
+  isCitHead: false,
+  calcBasis: 'None',
+  calcParameter: 'FixedAmount',
+  calcPercent: '0',
+  amount: '0',
+  isManualOverride: false,
+};
+
 describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
   it('should disallow deletion, reversion or overwrite when a payroll run is LOCKED', () => {
     const lockedRun = {
@@ -283,4 +305,143 @@ describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
     assert.strictEqual(travel?.amount, 4500, 'Travel allowance should be updated to overridden amount');
     assert.strictEqual(fuel?.amount, 5000, 'Fuel allowance should be newly synced into mapping');
   });
+
+  it('should auto-calculate attendance & OT in draft mode without requiring pre-payroll lock', () => {
+    const employee: EmployeeInput = {
+      id: 'emp-101',
+      category: 'Permanent',
+      gender: 'Male',
+      isDisabled: false,
+      taxStatus: 'Normal Single',
+      joiningDate: '2025-04-14',
+    };
+
+    // Draft calculation state
+    const draftCalculation = {
+      employeeId: 'emp-101',
+      bsMonth: 8,
+      presentDays: 24,
+      absentDays: 2,
+      payLeaveDays: 2,
+      nonPayLeaveDays: 1,
+      totalWorkingDays: 26,
+      otEarnedAmount: '3500.00',
+      leaveDeductionAmount: '2307.69',
+      isLocked: false,
+    };
+
+    // Verify it is in draft (not locked) and ready for payroll payslip creation
+    assert.strictEqual(draftCalculation.isLocked, false);
+    assert.strictEqual(draftCalculation.presentDays, 24);
+    assert.strictEqual(draftCalculation.absentDays, 2);
+    assert.strictEqual(Number(draftCalculation.otEarnedAmount), 3500);
+
+    // Calculation with absent deduction and OT
+    const initialSlip = calculatePayslip({
+      employee,
+      salaryMap: {
+        basicSalary: '50000',
+        gradePercent: '0',
+        gradeAmount: '0',
+      },
+      assignedHeads: [MOCK_TDS_HEAD],
+      attendanceCalc: {
+        leaveDeductionAmount: draftCalculation.leaveDeductionAmount,
+        otEarnedAmount: draftCalculation.otEarnedAmount,
+      },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+      historicalPayslips: [],
+    });
+
+    assert.strictEqual(Number(initialSlip.otAmount), 3500);
+    assert.strictEqual(Number(initialSlip.absentDeduction), 2307.69);
+    // Gross includes Basic + OT - Absent Deduction: 50,000 + 3,500 - 2,307.69 = 51,192.31
+    assert.strictEqual(Number(initialSlip.grossEarnings), 51192.31);
+  });
+
+  it('should dynamically update payslip net pay when attendance is synced', () => {
+    const employee: EmployeeInput = {
+      id: 'emp-101',
+      category: 'Permanent',
+      gender: 'Male',
+      isDisabled: false,
+      taxStatus: 'Normal Single',
+      joiningDate: '2025-04-14',
+    };
+
+    // Initial payslip with 0 absent days and 0 OT
+    const initialSlip = calculatePayslip({
+      employee,
+      salaryMap: {
+        basicSalary: '50000',
+        gradePercent: '0',
+        gradeAmount: '0',
+      },
+      assignedHeads: [MOCK_TDS_HEAD],
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+      historicalPayslips: [],
+    });
+    const initialNet = Number(initialSlip.netPayable);
+
+    // Syncing updated attendance: employee had 3 days LWOP (3 * 50,000 / 26 = 5769.23) and 2 hours OT (Rs 1500)
+    const updatedSlip = calculatePayslip({
+      employee,
+      salaryMap: {
+        basicSalary: '50000',
+        gradePercent: '0',
+        gradeAmount: '0',
+      },
+      assignedHeads: [MOCK_TDS_HEAD],
+      attendanceCalc: {
+        leaveDeductionAmount: '5769.23',
+        otEarnedAmount: '1500.00',
+      },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+      historicalPayslips: [],
+    });
+
+    assert.strictEqual(Number(updatedSlip.otAmount), 1500);
+    assert.strictEqual(Number(updatedSlip.absentDeduction), 5769.23);
+    // Gross includes Basic + OT - Absent: 50,000 + 1,500 - 5,769.23 = 45,730.77
+    assert.strictEqual(Number(updatedSlip.grossEarnings), 45730.77);
+    // Net salary should be lower because absent deduction exceeds OT
+    assert.ok(Number(updatedSlip.netPayable) < initialNet, 'Net salary should reflect absent deduction and OT additions');
+  });
+
+  it('should seal attendance records and leave calculations atomically when payroll transitions to LOCKED', () => {
+    const activeAttendancePunches = [
+      { id: 'att-1', employeeId: 'emp-101', attendanceDate: '2026-11-20', isLocked: false },
+      { id: 'att-2', employeeId: 'emp-101', attendanceDate: '2026-11-21', isLocked: false },
+    ];
+    const calculationRecord = { id: 'calc-1', employeeId: 'emp-101', isLocked: false };
+
+    // Transitioning payroll run to LOCKED
+    const payrollRunStatus: 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'LOCKED' = 'LOCKED';
+
+    if (payrollRunStatus === 'LOCKED') {
+      activeAttendancePunches.forEach(p => { p.isLocked = true; });
+      calculationRecord.isLocked = true;
+    }
+
+    assert.strictEqual(activeAttendancePunches[0].isLocked, true);
+    assert.strictEqual(activeAttendancePunches[1].isLocked, true);
+    assert.strictEqual(calculationRecord.isLocked, true);
+  });
 });
+

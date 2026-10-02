@@ -15,6 +15,7 @@ import {
   DEFAULT_GRADE_POLICY,
   calculateTotalGradeAmount,
 } from "@/lib/engines/grade-policy.engine";
+import { getActiveLoansByEmployeeAction } from "@/app/actions/loan.actions";
 
 interface SalaryMappingFormModalProps {
   open: boolean;
@@ -193,6 +194,32 @@ export function SalaryMappingFormModal({
     setErrors({});
   }, [editingMapping, open, defaultFyId]);
 
+  const [activeEmployeeLoans, setActiveEmployeeLoans] = useState<
+    Array<{ id: string; loanTypeName: string; installmentAmount: number; remainingAmount: number }>
+  >([]);
+
+  useEffect(() => {
+    const targetEmpId = form.employeeId || editingMapping?.employeeId;
+    if (targetEmpId && open) {
+      getActiveLoansByEmployeeAction(targetEmpId).then((res) => {
+        if (res.success && res.data) {
+          setActiveEmployeeLoans(
+            res.data.map((l) => ({
+              id: l.id,
+              loanTypeName: l.loanTypeName,
+              installmentAmount: l.installmentAmount,
+              remainingAmount: l.remainingAmount,
+            }))
+          );
+        } else {
+          setActiveEmployeeLoans([]);
+        }
+      });
+    } else {
+      setActiveEmployeeLoans([]);
+    }
+  }, [form.employeeId, editingMapping?.employeeId, open]);
+
   const selectedEmployee = employees.find((e) => e.id === form.employeeId);
 
   // Computed net salary preview
@@ -342,6 +369,22 @@ export function SalaryMappingFormModal({
 
       return next;
     });
+
+    if (!isEdit) {
+      getActiveLoansByEmployeeAction(id).then((res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          const l1 = res.data[0];
+          const l2 = res.data[1];
+          const l1Deduct = l1 ? Math.min(l1.installmentAmount, l1.remainingAmount) : 0;
+          const l2Deduct = l2 ? Math.min(l2.installmentAmount, l2.remainingAmount) : 0;
+          setForm((prev) => ({
+            ...prev,
+            loan1Deduction: String(l1Deduct),
+            loan2Deduction: String(l2Deduct),
+          }));
+        }
+      });
+    }
   }
 
   function addAllowance() {
@@ -791,6 +834,41 @@ export function SalaryMappingFormModal({
               Monthly installment deductions applied towards active company advance facilities.
             </p>
           </div>
+
+          {activeEmployeeLoans.length > 0 && (
+            <div className="rounded-md border border-emerald-200/70 bg-emerald-50/50 p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-emerald-950 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 inline-block" />
+                  Active Staff Loans ({activeEmployeeLoans.length} active)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const l1 = activeEmployeeLoans[0];
+                    const l2 = activeEmployeeLoans[1];
+                    setForm((f) => ({
+                      ...f,
+                      loan1Deduction: String(l1 ? Math.min(l1.installmentAmount, l1.remainingAmount) : 0),
+                      loan2Deduction: String(l2 ? Math.min(l2.installmentAmount, l2.remainingAmount) : 0),
+                    }));
+                  }}
+                  className="text-[10px] font-semibold text-emerald-800 hover:text-emerald-950 hover:underline cursor-pointer"
+                >
+                  Auto-fill Contract EMIs
+                </button>
+              </div>
+              <div className="text-[10px] text-emerald-800 space-y-0.5">
+                {activeEmployeeLoans.map((l, idx) => (
+                  <div key={l.id} className="flex justify-between font-mono">
+                    <span>Loan {idx + 1}: {l.loanTypeName} (EMI: NPR {l.installmentAmount.toLocaleString()})</span>
+                    <span>Remaining Balance: NPR {l.remainingAmount.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>

@@ -141,6 +141,7 @@ export interface PayrollSlipOverridePayload {
   gradeAmount?: string;
   otAmount?: string;
   absentDeduction?: string;
+  loanDeduction?: string;
   bankName?: string;
   bankAccountNumber?: string;
 }

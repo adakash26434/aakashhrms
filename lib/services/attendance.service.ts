@@ -13,6 +13,7 @@ import {
   evaluateLateArrival,
   calculateAttendanceKPIs,
 } from "@/lib/engines/attendance.engine";
+import { getBSMonthRange, formatADDate } from "@/lib/utils/bs-calendar";
 import type {
   AttendanceData,
   AttendanceFormData,
@@ -122,16 +123,32 @@ export async function deleteAttendanceRecord(id: string): Promise<void> {
 
 /**
  * PRE-PAYROLL CALCULATION ENGINE:
- * Aggregates monthly working days, computes statutory LWOP deductions & earned OT,
- * and locks the record for Phase 6 payroll payslip generation.
+ * Aggregates monthly working days, computes statutory LWOP deductions & earned OT.
+ * Can be run in draft (lock = false) during payroll generation, or sealed (lock = true).
  */
-export async function runAndLockMonthlyCalculation(
+export async function calculateMonthlyAttendanceAndOt(
   employeeId: string,
   bsMonth: number,
-  datePrefix: string
+  lock: boolean = false,
+  dateRangeParam?: { start: string; end: string }
 ) {
-  // 1. Fetch all attendance punches for the month
-  const records = await repository.findByEmployeeAndMonthPrefix(employeeId, datePrefix);
+  let dateRange = dateRangeParam;
+  if (!dateRange) {
+    const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
+    const activeFy = fiscalYears.find((f) => f.status === "Active");
+    const startBsYear = activeFy?.startDateBS
+      ? parseInt(activeFy.startDateBS.split("-")[0], 10)
+      : (activeFy?.label ? parseInt(activeFy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
+    const bsYear = bsMonth >= 4 ? startBsYear : startBsYear + 1;
+    const { start, end } = getBSMonthRange(bsYear, bsMonth);
+    dateRange = {
+      start: formatADDate(start, "iso"),
+      end: formatADDate(end, "iso"),
+    };
+  }
+
+  // Fetch all attendance punches for the exact BS month date range
+  const records = await repository.findByEmployeeAndMonthPrefix(employeeId, undefined, dateRange);
 
   let presentDays = 0;
   let absentDays = 0;
@@ -219,7 +236,7 @@ export async function runAndLockMonthlyCalculation(
     .toDecimalPlaces(2)
     .toNumber();
 
-  // 5. Save and lock
+  // 5. Save calculation (locked or draft)
   return await repository.saveCalculationLock({
     employeeId,
     bsMonth,
@@ -233,6 +250,17 @@ export async function runAndLockMonthlyCalculation(
     otEarnedAmount,
     leaveDeductionAmount,
     otWarnings,
-    isLocked: true,
+    isLocked: lock,
   });
+}
+
+/**
+ * Pre-payroll calculation lock (legacy or explicit confirmation).
+ */
+export async function runAndLockMonthlyCalculation(
+  employeeId: string,
+  bsMonth: number,
+  datePrefix?: string
+) {
+  return await calculateMonthlyAttendanceAndOt(employeeId, bsMonth, true);
 }

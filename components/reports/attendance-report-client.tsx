@@ -17,6 +17,7 @@ import type {
 import { getAttendanceReportAction } from "@/app/actions/report.actions";
 import { AlertCircle, CalendarCheck, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { getTodayBS } from "@/lib/utils/bs-calendar";
 
 interface AttendanceReportClientProps {
   lookupData: ReportFilterLookupData;
@@ -25,7 +26,7 @@ interface AttendanceReportClientProps {
 export function AttendanceReportClient({ lookupData }: AttendanceReportClientProps) {
   const [filterState, setFilterState] = useState<ReportFilterState>({
     fiscalYearId: lookupData.fiscalYears[0]?.id || "",
-    bsMonth: 8, // Mangsir
+    bsMonth: getTodayBS().month,
   });
   const [reportData, setReportData] = useState<AttendanceReportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -258,7 +259,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
                       : "border-amber-200/80 bg-amber-50 text-amber-800"
                   }`}
                 >
-                  {reportData?.isLocked ? "Locked payroll data" : "Draft pre-payroll data"}
+                  {reportData?.isLocked ? "Locked payroll period" : "Active live attendance"}
                 </span>
               </div>
             ) : undefined

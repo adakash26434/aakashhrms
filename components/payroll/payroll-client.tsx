@@ -33,6 +33,7 @@ import {
   transitionPayrollRunAction,
   getPayrollRunDetailsAction,
   deletePayrollRunAction,
+  syncPayrollRunAttendanceAction,
 } from "@/app/actions/payroll.actions";
 import { useToast } from "@/components/ui/toast";
 import { PageFrame } from "@/components/layout/page-frame";
@@ -108,6 +109,7 @@ export default function PayrollClient({
   const [error, setError] = useState<string | null>(null);
   const [confirmDiscardRun, setConfirmDiscardRun] = useState<PayrollRun | null>(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const [isSyncingAttendance, setIsSyncingAttendance] = useState(false);
 
   const getBSMonthName = (m: number) => {
     return BS_MONTHS_EN[m] ?? "Unknown";
@@ -195,6 +197,29 @@ export default function PayrollClient({
       }
     } catch (err) {
       console.error("Failed to refresh run details", err);
+    }
+  };
+
+  const handleSyncAttendance = async () => {
+    if (!selectedRun) return;
+    setError(null);
+    setIsSyncingAttendance(true);
+    try {
+      const res = await syncPayrollRunAttendanceAction(selectedRun.id);
+      if (!res.success || !res.data) {
+        const msg = res.error || "Failed to sync attendance.";
+        setError(msg);
+        toast.error(msg);
+        return;
+      }
+      toast.success("Attendance, unpaid leaves, and OT synced successfully!");
+      await handleRefreshCurrentRun();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sync attendance error.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSyncingAttendance(false);
     }
   };
 
@@ -299,15 +324,28 @@ export default function PayrollClient({
         >
           <div className="flex flex-wrap items-center gap-2">
             {selectedRun.status === "DRAFT" && (
-              <Button
-                type="button"
-                onClick={() => handleStatusChange("UNDER_REVIEW")}
-                className="bg-payroll-primary text-white hover:bg-payroll-navy cursor-pointer font-semibold shadow-payroll-xs"
-                size="sm"
-              >
-                <ClipboardList className="h-4 w-4 mr-1.5" />
-                Submit for Review
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  onClick={handleSyncAttendance}
+                  disabled={isSyncingAttendance}
+                  variant="outline"
+                  className="border-emerald-600/30 bg-emerald-50/50 text-emerald-900 hover:bg-emerald-100 cursor-pointer font-medium text-xs shadow-payroll-xs"
+                  size="sm"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", isSyncingAttendance && "animate-spin")} />
+                  {isSyncingAttendance ? "Syncing..." : "Sync Attendance"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => handleStatusChange("UNDER_REVIEW")}
+                  className="bg-emerald-950 text-white hover:bg-emerald-900 cursor-pointer font-semibold shadow-payroll-xs"
+                  size="sm"
+                >
+                  <ClipboardList className="h-4 w-4 mr-1.5" />
+                  Submit for Review
+                </Button>
+              </>
             )}
             {selectedRun.status === "LOCKED" && (
               <BankExportButton

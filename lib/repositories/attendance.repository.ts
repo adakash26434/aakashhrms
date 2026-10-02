@@ -8,7 +8,7 @@ import {
   departments,
   branches,
 } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -16,6 +16,7 @@ import type {
   AttendanceBulkItem,
 } from "@/lib/types/attendance";
 import { parseTimeToMinutes, evaluateLateArrival } from "@/lib/engines/attendance.engine";
+import { getBSMonthRange, formatADDate } from "@/lib/utils/bs-calendar";
 
 type AttendanceRowJoined = {
   id: string;
@@ -168,8 +169,19 @@ export async function findById(id: string): Promise<AttendanceRecord | null> {
  */
 export async function findByEmployeeAndMonthPrefix(
   employeeId: string,
-  datePrefix: string
+  datePrefix?: string,
+  dateRange?: { start: string; end: string }
 ): Promise<AttendanceRecord[]> {
+  const whereConditions = [eq(attendanceRecords.employeeId, employeeId)];
+  if (dateRange?.start && dateRange?.end) {
+    whereConditions.push(
+      gte(attendanceRecords.attendanceDate, dateRange.start),
+      lte(attendanceRecords.attendanceDate, dateRange.end)
+    );
+  } else if (datePrefix) {
+    whereConditions.push(sql`${attendanceRecords.attendanceDate}::text LIKE ${datePrefix + "%"}`);
+  }
+
   const rows = await getDb()
     .select({
       id: attendanceRecords.id,
@@ -200,12 +212,7 @@ export async function findByEmployeeAndMonthPrefix(
     .innerJoin(employees, eq(attendanceRecords.employeeId, employees.id))
     .leftJoin(departments, eq(employees.departmentId, departments.id))
     .leftJoin(branches, eq(employees.branchId, branches.id))
-    .where(
-      and(
-        eq(attendanceRecords.employeeId, employeeId),
-        sql`${attendanceRecords.attendanceDate}::text LIKE ${datePrefix + "%"}`
-      )
-    )
+    .where(and(...whereConditions))
     .orderBy(desc(attendanceRecords.attendanceDate));
 
   return rows.map(mapJoinedRowToRecord);
@@ -452,16 +459,29 @@ export async function saveCalculationLock(data: {
     )
   );
 
-  // Lock or unlock all daily attendance punch records for this employee in this fiscal year
-  await getDb()
-    .update(attendanceRecords)
-    .set({ isLocked: data.isLocked })
-    .where(
-      and(
-        eq(attendanceRecords.employeeId, data.employeeId),
-        eq(attendanceRecords.fiscalYearId, fyId)
-      )
-    );
+  // If sealing/locking, strictly lock attendance punches for this specific BS month date range
+  if (data.isLocked) {
+    const [fy] = await getDb().select().from(fiscalYears).where(eq(fiscalYears.id, fyId)).limit(1);
+    const startBsYear = fy?.startDateBS
+      ? parseInt(fy.startDateBS.split("-")[0], 10)
+      : (fy?.label ? parseInt(fy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
+    const bsYear = data.bsMonth >= 4 ? startBsYear : startBsYear + 1;
+    const { start, end } = getBSMonthRange(bsYear, data.bsMonth);
+    const startStr = formatADDate(start, "iso");
+    const endStr = formatADDate(end, "iso");
+
+    await getDb()
+      .update(attendanceRecords)
+      .set({ isLocked: true })
+      .where(
+        and(
+          eq(attendanceRecords.employeeId, data.employeeId),
+          eq(attendanceRecords.fiscalYearId, fyId),
+          gte(attendanceRecords.attendanceDate, startStr),
+          lte(attendanceRecords.attendanceDate, endStr)
+        )
+      );
+  }
 
   if (existing.length) {
     const rows = await getDb()

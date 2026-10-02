@@ -87,6 +87,9 @@ export async function disburseLoanAction(formData: DisburseLoanFormData) {
     await checkPermission('ADD', 'LOANS');
     const result = await loanService.disburseLoan(formData);
     revalidatePath('/loans');
+    revalidatePath('/salary-mapping');
+    revalidatePath('/reports');
+    revalidatePath('/payroll');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -109,6 +112,9 @@ export async function recordRepaymentAction(formData: RepaymentFormData) {
     await checkPermission('EDIT', 'LOANS');
     const result = await loanService.recordRepayment(formData);
     revalidatePath('/loans');
+    revalidatePath('/salary-mapping');
+    revalidatePath('/reports');
+    revalidatePath('/payroll');
     return { success: true, data: result };
   } catch (error: unknown) {
     if (error instanceof Error) {

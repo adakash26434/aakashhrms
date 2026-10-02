@@ -219,7 +219,7 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
 
       <PageHeader
         title="Attendance & OT Engine"
-        description={`Active Fiscal Year: ${data.activeFiscalYear.label}. Track daily attendance punches, evaluate grace windows, and lock calculations for Phase 6 payroll.`}
+        description={`Active Fiscal Year: ${data.activeFiscalYear.label}. Track daily attendance punches, evaluate grace windows, and manage overtime. Attendance calculations automatically sync with payroll runs.`}
       >
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
@@ -235,10 +235,10 @@ export function AttendanceClient({ initialData }: { initialData: AttendanceData 
           </Button>
           <Button
             variant="outline"
-            className="border-amber-600 text-amber-700 hover:bg-amber-50 font-semibold"
+            className="border-amber-600/40 text-amber-800 hover:bg-amber-50 font-medium"
             onClick={() => setIsLockOpen(true)}
           >
-            <Lock className="h-4 w-4 mr-1 text-amber-600" /> Run Pre-Payroll Lock
+            <Lock className="h-4 w-4 mr-1 text-amber-600" /> Manual Seal (Optional)
           </Button>
         </div>
       </PageHeader>

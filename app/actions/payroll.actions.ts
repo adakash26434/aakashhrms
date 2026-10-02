@@ -182,6 +182,23 @@ export async function recalculateEmployeePayslipAction(slipId: string) {
   }
 }
 
+export async function syncPayrollRunAttendanceAction(runId: string) {
+  await ensureTenantContext();
+  try {
+    await checkPermission('EDIT', 'PAYROLL_GENERATE');
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    const data = await service.syncPayrollRunAttendance(runId, session.user.id);
+    revalidatePath('/payroll/generate');
+    revalidatePath('/payroll/review');
+    return { success: true, data };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "unknown error";
+    return { success: false, error: msg };
+  }
+}
+
 export async function addPayHeadToPayslipAction(payload: AddSlipHeadPayload) {
   await ensureTenantContext();
   try {
@@ -198,4 +215,6 @@ export async function addPayHeadToPayslipAction(payload: AddSlipHeadPayload) {
     return { success: false, error: msg };
   }
 }
+
+
 

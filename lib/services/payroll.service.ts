@@ -20,15 +20,17 @@ import {
   userRoles,
   roles,
   employeeSalaryMap,
-  employeeSalaryHeads
+  employeeSalaryHeads,
+  attendanceRecords
 } from "@/lib/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
 import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
 import * as loanRepository from "@/lib/repositories/loan.repository";
+import * as loanService from "@/lib/services/loan.service";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
@@ -40,6 +42,7 @@ import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
+import { calculateMonthlyAttendanceAndOt } from "@/lib/services/attendance.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -251,7 +254,7 @@ export async function generatePayrollRun(
     throw new SalaryMappingMissingError(missingSalaryMappings);
   }
 
-  // 5. Batch-load Leave/OT calculations for all employees at once (performance fix)
+  // 5. Batch-load or dynamically calculate Leave/OT calculations for all employees
   const empIds = scopedEmployees.map(e => e.id);
   const allLeaveOtCalcs = await getDb().select().from(leaveOtCalculations).where(
     and(
@@ -261,16 +264,23 @@ export async function generatePayrollRun(
     )
   );
 
-  // Build lookup map and validate all are locked
+  // Build lookup map
   const leaveOtByEmployeeId = new Map<string, typeof allLeaveOtCalcs[0]>();
   for (const calc of allLeaveOtCalcs) {
     leaveOtByEmployeeId.set(calc.employeeId, calc);
   }
 
+  // Auto-calculate attendance & OT metrics on the fly for any employees without a pre-locked calculation
   for (const emp of scopedEmployees) {
-    const calc = leaveOtByEmployeeId.get(emp.id);
-    if (!calc || !calc.isLocked) {
-      throw new LeaveOtCalculationNotLockedError(payPeriodMonth, payPeriodYear);
+    const existing = leaveOtByEmployeeId.get(emp.id);
+    if (!existing || !existing.isLocked) {
+      const draftCalc = await calculateMonthlyAttendanceAndOt(
+        emp.id,
+        payPeriodMonth,
+        false, // draft mode — not locked until payroll run is locked
+        { start: startStr, end: endStr }
+      );
+      leaveOtByEmployeeId.set(emp.id, draftCalc as any);
     }
   }
 
@@ -314,15 +324,29 @@ export async function generatePayrollRun(
     return h?.isRemoteAllowance;
   }) ?? false;
 
-  // BATCH PREFETCH: Load all active loans for scoped employees at once
+  // BATCH PREFETCH: Load all active loans for scoped employees at once (disbursed on or before period end)
   const allActiveLoans = new Map<string, { installmentAmount: number; remainingAmount: number }[]>();
-  for (const empId of empIds) {
-    const empLoans = await loanRepository.findActiveLoansByEmployee(empId);
-    if (empLoans.length > 0) {
-      allActiveLoans.set(empId, empLoans.map(l => ({
-        installmentAmount: l.installmentAmount,
-        remainingAmount: l.remainingAmount
-      })));
+  const activeLoansRaw = await getDb()
+    .select()
+    .from(loans)
+    .where(
+      and(
+        inArray(loans.employeeId, empIds),
+        eq(loans.status, "ACTIVE"),
+        lte(loans.givenDate, endStr)
+      )
+    )
+    .orderBy(asc(loans.createdAt));
+
+  for (const l of activeLoansRaw) {
+    if (Number(l.remainingAmount) > 0) {
+      if (!allActiveLoans.has(l.employeeId)) {
+        allActiveLoans.set(l.employeeId, []);
+      }
+      allActiveLoans.get(l.employeeId)!.push({
+        installmentAmount: Number(l.installmentAmount),
+        remainingAmount: Number(l.remainingAmount)
+      });
     }
   }
 
@@ -661,6 +685,7 @@ export async function overridePayslipAllowanceDeduction(
     gradeAmount,
     otAmount,
     absentDeduction,
+    loanDeduction,
     bankName,
     bankAccountNumber
   } = payload;
@@ -685,6 +710,7 @@ export async function overridePayslipAllowanceDeduction(
     if (gradeAmount !== undefined) updatedSlipFields.gradeAmount = gradeAmount;
     if (otAmount !== undefined) updatedSlipFields.otAmount = otAmount;
     if (absentDeduction !== undefined) updatedSlipFields.absentDeduction = absentDeduction;
+    if (loanDeduction !== undefined) updatedSlipFields.loanDeduction = loanDeduction;
 
     if (Object.keys(updatedSlipFields).length > 0) {
       await tx.update(payrollSlips)
@@ -814,7 +840,7 @@ export async function overridePayslipAllowanceDeduction(
         leaveDeductionAmount: currentSlip.absentDeduction,
         otEarnedAmount: currentSlip.otAmount
       },
-      loanDeduction: currentSlip.loanDeduction,
+      loanDeduction: loanDeduction !== undefined ? loanDeduction : currentSlip.loanDeduction,
       systemControl,
       taxSlabs: taxSlabInputs,
       isFestivalMonth: isFestivalChecked,
@@ -902,6 +928,39 @@ export async function overridePayslipAllowanceDeduction(
 // -----------------------------------------------------------------------------
 // Fallback, Revert & Recalculation Methods
 // -----------------------------------------------------------------------------
+
+/**
+ * Synchronize and recalculate attendance for a draft payroll run.
+ * Re-reads latest punches & leaves and refreshes payslip deductions and net amounts.
+ */
+export async function syncPayrollRunAttendance(
+  runId: string,
+  userId: string
+): Promise<PayrollRun> {
+  const run = await repository.findPayrollRunById(runId);
+  if (!run) throw new Error("Payroll run not found");
+  if (run.status === 'LOCKED') {
+    throw new PayrollLockedError();
+  }
+
+  const slips = await repository.findSlipsByRunId(runId);
+  for (const s of slips) {
+    const calc = await calculateMonthlyAttendanceAndOt(
+      s.employeeId,
+      run.payPeriodMonth,
+      false,
+      { start: run.payPeriodStartDate, end: run.payPeriodEndDate }
+    );
+
+    await overridePayslipAllowanceDeduction({
+      slipId: s.id,
+      absentDeduction: String(calc.leaveDeductionAmount || "0"),
+      otAmount: String(calc.otEarnedAmount || "0"),
+    }, userId);
+  }
+
+  return (await repository.findPayrollRunById(runId))!;
+}
 
 export async function deletePayrollRun(runId: string, userId: string): Promise<void> {
   const run = await repository.findPayrollRunById(runId);
@@ -1018,17 +1077,37 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     otEarnedAmount: leaveOtCalc?.otEarnedAmount || "0"
   };
 
-  // Resolve active loans
-  const empLoans = await loanRepository.findActiveLoansByEmployee(emp.id);
-  let totalInstallment = new Decimal(0);
-  for (const loan of empLoans) {
-    const installment = Decimal.min(
-      new Decimal(loan.installmentAmount),
-      new Decimal(loan.remainingAmount)
-    );
-    totalInstallment = totalInstallment.plus(installment);
+  // Resolve active loans (disbursed on or before period end)
+  const empLoans = await getDb()
+    .select()
+    .from(loans)
+    .where(
+      and(
+        eq(loans.employeeId, emp.id),
+        eq(loans.status, "ACTIVE"),
+        lte(loans.givenDate, run.payPeriodEndDate)
+      )
+    )
+    .orderBy(asc(loans.createdAt));
+
+  let activeLoanDeduction = "0";
+  if (empLoans && empLoans.length > 0) {
+    let totalInstallment = new Decimal(0);
+    for (const loan of empLoans) {
+      const installment = Decimal.min(
+        new Decimal(loan.installmentAmount),
+        new Decimal(loan.remainingAmount)
+      );
+      totalInstallment = totalInstallment.plus(installment);
+    }
+    activeLoanDeduction = totalInstallment.toDecimalPlaces(2).toString();
+  } else {
+    // Fallback to loan deductions configured in employee salary mapping
+    const mappedLoan = new Decimal(salaryMap.loan1Deduction || 0).plus(new Decimal(salaryMap.loan2Deduction || 0));
+    if (mappedLoan.gt(0)) {
+      activeLoanDeduction = mappedLoan.toDecimalPlaces(2).toString();
+    }
   }
-  const activeLoanDeduction = totalInstallment.toDecimalPlaces(2).toString();
 
   // Load tax slabs & system control
   const slabs = await taxRateRepository.findAllSlabs();
@@ -1357,22 +1436,47 @@ export async function transitionPayrollRun(
   // Perform status transition
   const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes);
 
-  // 2. On LOCK: Atomic loan repayment amortisation across all active loans
+  // 2. On LOCK: Atomic loan repayment amortisation and period sealing
   if (toStatus === 'LOCKED') {
     await getDb().transaction(async (tx) => {
       await repository.lockAllSlipsForRun(runId);
 
       const slips = await repository.findSlipsByRunId(runId);
+      const slipEmpIds = slips.map((s) => s.employeeId);
+
+      // Atomically seal attendance punches and leave/OT calculations for this pay period
+      if (slipEmpIds.length > 0 && run.payPeriodStartDate && run.payPeriodEndDate) {
+        await tx.update(attendanceRecords)
+          .set({ isLocked: true, updatedAt: new Date() })
+          .where(
+            and(
+              inArray(attendanceRecords.employeeId, slipEmpIds),
+              gte(attendanceRecords.attendanceDate, run.payPeriodStartDate),
+              lte(attendanceRecords.attendanceDate, run.payPeriodEndDate)
+            )
+          );
+
+        await tx.update(leaveOtCalculations)
+          .set({ isLocked: true, updatedAt: new Date() })
+          .where(
+            and(
+              inArray(leaveOtCalculations.employeeId, slipEmpIds),
+              eq(leaveOtCalculations.bsMonth, run.payPeriodMonth),
+              eq(leaveOtCalculations.fiscalYearId, run.fiscalYearId)
+            )
+          );
+      }
       for (const slip of slips) {
         const loanAmt = new Decimal(slip.loanDeduction);
         if (loanAmt.gt(0)) {
-          // Find all active loans for employee
+          // Find all active loans for employee disbursed on or before period end
           const activeLoans = await tx.select().from(loans).where(
             and(
               eq(loans.employeeId, slip.employeeId),
-              eq(loans.status, 'ACTIVE')
+              eq(loans.status, 'ACTIVE'),
+              lte(loans.givenDate, run.payPeriodEndDate)
             )
-          );
+          ).orderBy(asc(loans.createdAt));
 
           let remainingToDeduct = loanAmt;
 
@@ -1404,7 +1508,7 @@ export async function transitionPayrollRun(
               await tx.insert(loanRepayments).values({
                 loanId: loan.id,
                 employeeId: slip.employeeId,
-                repaymentDate: new Date().toISOString().split('T')[0],
+                repaymentDate: run.payPeriodEndDate || new Date().toISOString().split('T')[0],
                 amountPaid: portionToDeduct.toString(),
                 paymentMethod: "SALARY_DEDUCTION",
                 payrollSlipId: slip.id,
@@ -1414,6 +1518,9 @@ export async function transitionPayrollRun(
               remainingToDeduct = remainingToDeduct.minus(portionToDeduct);
             }
           }
+
+          // Synchronize updated active loan balances into employee salary mapping
+          await loanService.syncActiveLoansToSalaryMapping(slip.employeeId, tx);
         }
       }
 

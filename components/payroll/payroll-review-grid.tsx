@@ -18,7 +18,8 @@ import {
   updatePayrollSlipOverrideAction,
   recalculateEmployeePayslipAction,
   deleteEmployeePayslipAction,
-  addPayHeadToPayslipAction
+  addPayHeadToPayslipAction,
+  syncPayrollRunAttendanceAction
 } from "@/app/actions/payroll.actions";
 
 import { TableShell } from "@/components/ui/table-shell";
@@ -63,6 +64,7 @@ export function PayrollReviewGrid({
   const [isDeletingSlip, setIsDeletingSlip] = useState(false);
   const [confirmDeleteBatch, setConfirmDeleteBatch] = useState(false);
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+  const [isSyncingAttendance, setIsSyncingAttendance] = useState(false);
 
   // Extract unique departments for filtering
   const departments = Array.from(new Set(slips.map((s) => s.departmentName)));
@@ -107,6 +109,8 @@ export function PayrollReviewGrid({
       payload.otAmount = amount;
     } else if (headId === "absent-deduction") {
       payload.absentDeduction = amount;
+    } else if (headId === "loan-deduction") {
+      payload.loanDeduction = amount;
     } else if (headId === "bank-details") {
       const [bName, bAcc] = amount.split("||");
       payload.bankName = bName;
@@ -143,6 +147,24 @@ export function PayrollReviewGrid({
       setError(error instanceof Error ? error.message : `Failed to change status to ${toStatus}.`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSyncAttendance = async () => {
+    setError(null);
+    setIsSyncingAttendance(true);
+    try {
+      const res = await syncPayrollRunAttendanceAction(run.id);
+      if (!res.success || !res.data) {
+        throw new Error(res.error || "Failed to sync attendance.");
+      }
+      if (onRunUpdated) {
+        await onRunUpdated();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Calculation sync error.");
+    } finally {
+      setIsSyncingAttendance(false);
     }
   };
 
@@ -266,20 +288,34 @@ export function PayrollReviewGrid({
                 className="w-full rounded-md border border-zinc-200 bg-white pl-8 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors"
               />
             </div>
-            {departments.length > 0 && (
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors cursor-pointer"
-              >
-                <option value="all">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            )}
+            <div className="flex items-center gap-2">
+              {isDraft && (
+                <button
+                  type="button"
+                  onClick={handleSyncAttendance}
+                  disabled={isSyncingAttendance}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-600/30 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 transition-colors cursor-pointer"
+                  title="Re-aggregate attendance punches, unpaid leaves, and OT calculations for this batch"
+                >
+                  <RefreshCw className={isSyncingAttendance ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                  {isSyncingAttendance ? "Syncing..." : "Sync Attendance"}
+                </button>
+              )}
+              {departments.length > 0 && (
+                <select
+                  value={deptFilter}
+                  onChange={(e) => setDeptFilter(e.target.value)}
+                  className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-800 outline-none focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary transition-colors cursor-pointer"
+                >
+                  <option value="all">All Departments</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         }
       >
@@ -421,14 +457,25 @@ export function PayrollReviewGrid({
           <div className="flex flex-wrap gap-2.5">
             {/* HR / Admin submits draft to auditor */}
             {isDraft && isHR && (
-              <button
-                onClick={() => handleStatusTransition("UNDER_REVIEW")}
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                Submit for Review
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleSyncAttendance}
+                  disabled={isSyncingAttendance || isSubmitting}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-600/30 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={isSyncingAttendance ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                  {isSyncingAttendance ? "Syncing Attendance..." : "Sync Latest Attendance"}
+                </button>
+                <button
+                  onClick={() => handleStatusTransition("UNDER_REVIEW")}
+                  disabled={isSubmitting || isSyncingAttendance}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Submit for Review
+                </button>
+              </>
             )}
 
             {/* Auditor reviews and approves */}

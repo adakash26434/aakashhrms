@@ -15,7 +15,7 @@ import {
   Coins,
 } from "lucide-react";
 import type { ReportFilterLookupData } from "@/lib/types/report";
-import { BS_MONTHS_LIST } from "@/lib/utils/bs-calendar";
+import { BS_MONTHS_LIST, getTodayBS } from "@/lib/utils/bs-calendar";
 import { cn } from "@/lib/utils";
 
 export interface ReportFilterState {
@@ -76,7 +76,7 @@ export function ReportFilterBar({
 
   const [payrollRunId, setPayrollRunId] = useState<string>(defaultRun);
   const [fiscalYearId, setFiscalYearId] = useState<string>(defaultFy);
-  const [bsMonth, setBsMonth] = useState<number>(8); // Default Mangsir
+  const [bsMonth, setBsMonth] = useState<number>(() => getTodayBS().month);
   const [reportType, setReportType] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [reportFormat, setReportFormat] = useState<
     "DEVICE_PUNCH" | "STATUS_MATRIX" | "STATUTORY_SUMMARY"

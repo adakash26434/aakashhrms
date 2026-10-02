@@ -537,9 +537,44 @@ export function PayslipDetailModal({
                 </div>
 
                 {/* Loan Deduction */}
-                <div className="flex justify-between items-center text-xs text-gray-600 font-medium border-b border-gray-100 pb-3">
-                  <span>Loan Deduction</span>
-                  <span className="tabular-nums text-red-600 font-semibold">Rs. {Number(slip.loanDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                <div className="border-b border-gray-100 pb-3">
+                  {editingHeadId === "loan-deduction" ? (
+                    <div className="space-y-2 mt-1 bg-gray-50 p-2.5 rounded border border-payroll-light">
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase block">Loan Deduction</label>
+                      <input
+                        type="number"
+                        value={overrideAmount}
+                        onChange={(e) => setOverrideAmount(e.target.value)}
+                        className="w-full rounded border border-payroll-light bg-white px-2 py-1.5 text-xs text-payroll-navy"
+                        placeholder="Loan Deduction Amount"
+                      />
+                      <input
+                        type="text"
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        className="w-full rounded border border-payroll-light bg-white px-2 py-1.5 text-xs text-payroll-navy"
+                        placeholder="Override Justification"
+                      />
+                      <div className="flex gap-1.5 justify-end">
+                        <button onClick={cancelEdit} className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 rounded hover:bg-gray-100">Cancel</button>
+                        <button onClick={() => handleSave("loan-deduction")} disabled={isSaving} className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-[10px] font-semibold rounded hover:bg-payroll-navy">
+                          <Save className="h-3 w-3" /> Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center text-xs text-gray-600 font-medium">
+                      <span>Loan Deduction</span>
+                      <div className="flex items-center gap-2">
+                        <span className="tabular-nums text-red-600 font-semibold">Rs. {Number(slip.loanDeduction).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                        {isEditable && onOverride && (
+                          <button onClick={() => { setEditingHeadId("loan-deduction"); setOverrideAmount(slip.loanDeduction); setOverrideReason("Manual Override"); setError(null); }} className="text-gray-400 hover:text-payroll-primary p-0.5">
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {deductions.map((head) => (

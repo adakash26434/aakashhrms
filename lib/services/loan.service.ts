@@ -7,6 +7,11 @@ import * as repository from "@/lib/repositories/loan.repository";
 import * as engine from "@/lib/engines/loan.engine";
 import { findAll } from "@/lib/repositories/employee.repository";
 import Decimal from "decimal.js";
+import { getDb } from "@/lib/db";
+import { loans, employeeSalaryMap } from "@/lib/db/schema";
+import { eq, and, asc } from "drizzle-orm";
+import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
+import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import type {
   LoanType,
   Loan,
@@ -188,7 +193,7 @@ export async function disburseLoan(data: DisburseLoanFormData): Promise<Loan> {
   );
 
   // 4. Persist
-  return repository.createLoan({
+  const newLoan = await repository.createLoan({
     employeeId: data.employeeId,
     loanTypeId: data.loanTypeId,
     givenDate: data.givenDate,
@@ -197,6 +202,11 @@ export async function disburseLoan(data: DisburseLoanFormData): Promise<Loan> {
     noOfInstallments: data.noOfInstallments,
     remainingAmount: new Decimal(totalPayable).toDecimalPlaces(2).toString(),
   });
+
+  // 5. Automatically synchronize active loan installments into employee's salary mapping
+  await syncActiveLoansToSalaryMapping(data.employeeId);
+
+  return newLoan;
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +232,7 @@ export async function recordRepayment(data: RepaymentFormData): Promise<LoanRepa
   const newStatus = newRemaining.lte(0) ? "CLOSED" : "ACTIVE";
 
   // 4. Persist atomically via transactional repo call
-  return repository.createRepayment({
+  const repayment = await repository.createRepayment({
     loanId: data.loanId,
     employeeId: loan.employeeId,
     repaymentDate: data.repaymentDate,
@@ -232,4 +242,80 @@ export async function recordRepayment(data: RepaymentFormData): Promise<LoanRepa
     newRemainingAmount: newRemaining.toString(),
     newStatus,
   });
+
+  // 5. Synchronize active loan installments with employee's salary mapping
+  await syncActiveLoansToSalaryMapping(loan.employeeId);
+
+  return repayment;
+}
+
+// ---------------------------------------------------------------------------
+// Synchronization: Active Loans → Employee Salary Mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Synchronize active loan installments with employee's active salary mapping.
+ * Computes Loan 1 & Loan 2 monthly deductions from active loans table, updates net salary,
+ * and commits directly to employeeSalaryMap.
+ */
+export async function syncActiveLoansToSalaryMapping(
+  employeeId: string,
+  tx?: any
+): Promise<void> {
+  const db = tx || getDb();
+
+  // 1. Fetch active loans with remaining balance > 0
+  const activeLoans = await db
+    .select()
+    .from(loans)
+    .where(
+      and(
+        eq(loans.employeeId, employeeId),
+        eq(loans.status, "ACTIVE")
+      )
+    )
+    .orderBy(asc(loans.createdAt));
+
+  const validActiveLoans = activeLoans.filter(
+    (l: typeof loans.$inferSelect) => Number(l.remainingAmount) > 0
+  );
+
+  // Loan 1 EMI capped at remaining amount
+  const loan1 = validActiveLoans[0];
+  const loan1Deduction = loan1
+    ? Math.min(Number(loan1.installmentAmount), Number(loan1.remainingAmount))
+    : 0;
+
+  // Loan 2 EMI capped at remaining amount
+  const loan2 = validActiveLoans[1];
+  const loan2Deduction = loan2
+    ? Math.min(Number(loan2.installmentAmount), Number(loan2.remainingAmount))
+    : 0;
+
+  // 2. Fetch active salary mapping for this employee
+  const salaryMap = await salaryMappingRepository.findSalaryMappingByEmployeeId(employeeId);
+  if (!salaryMap) {
+    return;
+  }
+
+  // 3. Recalculate net salary with updated loan deductions
+  const newNet = calculateNetSalary({
+    basicSalary: Number(salaryMap.basicSalary),
+    gradePercent: Number(salaryMap.gradePercent || 0),
+    gradeAmount: Number(salaryMap.gradeAmount || 0),
+    salaryHeads: salaryMap.salaryHeads,
+    loan1Deduction,
+    loan2Deduction,
+  });
+
+  // 4. Update the employee salary mapping record
+  await db
+    .update(employeeSalaryMap)
+    .set({
+      loan1Deduction: loan1Deduction.toString(),
+      loan2Deduction: loan2Deduction.toString(),
+      netAmount: newNet.toString(),
+      updatedAt: new Date(),
+    })
+    .where(eq(employeeSalaryMap.id, salaryMap.id));
 }

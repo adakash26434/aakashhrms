@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Lock, AlertTriangle, Calculator } from "lucide-react";
+import { getTodayBS } from "@/lib/utils/bs-calendar";
 
 interface AttendanceLockModalProps {
   open: boolean;
@@ -18,20 +19,20 @@ export function AttendanceLockModal({
   onRunEngine,
   employeesCount,
 }: AttendanceLockModalProps) {
-  const [bsMonth, setBsMonth] = useState(4); // Default Shrawan
+  const [bsMonth, setBsMonth] = useState(() => getTodayBS().month);
   const [datePrefix, setDatePrefix] = useState(new Date().toISOString().substring(0, 7)); // e.g. "2026-07"
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title="Pre-Payroll Calculation Engine"
-      description="Aggregate attendances, compute unpaid leave deductions (LWOP) and overtime, and seal the period."
+      title="Monthly Attendance Calculation & Sealing"
+      description="Aggregate attendances, compute unpaid leave deductions (LWOP), and review overtime."
       size="lg"
       footer={
         <div className="flex w-full items-center justify-between">
           <span className="text-xs text-zinc-500 font-medium">
-            Locking: {employeesCount} employees
+            Scope: {employeesCount} employees
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -48,10 +49,10 @@ export function AttendanceLockModal({
                 onRunEngine(bsMonth, datePrefix);
                 onClose();
               }}
-              className="rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm flex items-center gap-1.5"
+              className="rounded-md bg-emerald-950 hover:bg-emerald-900 text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm flex items-center gap-1.5"
             >
               <Lock className="h-4 w-4" />
-              Run Engine & Lock Period
+              Calculate & Seal Period
             </Button>
           </div>
         </div>
@@ -59,10 +60,17 @@ export function AttendanceLockModal({
     >
       <div className="space-y-4">
         <p className="text-xs text-zinc-600 leading-relaxed">
-          Running this engine aggregates present days, calculates statutory unpaid leave deductions (<span className="font-mono font-semibold text-zinc-900">LWOP</span>) 
-          against salary mappings, computes earned overtime from assigned OT rules, and 
-          <span className="font-semibold text-amber-800"> locks the period</span> for payroll batch generation.
+          Aggregates present days, calculates statutory unpaid leave deductions (<span className="font-mono font-semibold text-zinc-900">LWOP</span>) 
+          against salary mappings, and computes earned overtime from assigned OT rules.
         </p>
+
+        <div className="rounded-md border border-emerald-200 bg-emerald-50/50 p-3 text-xs text-emerald-900 flex items-start gap-2.5">
+          <Calculator className="h-4 w-4 shrink-0 text-emerald-700 mt-0.5" />
+          <div className="leading-relaxed">
+            <strong className="block font-semibold text-emerald-950">Automated Payroll Integration:</strong>
+            Payroll runs now automatically calculate attendance, leaves, and overtime dynamically in real time and seal records upon final approval. Running manual seal here is optional if you wish to review or lock records beforehand.
+          </div>
+        </div>
 
         <div className="space-y-4 pt-1">
           <div>

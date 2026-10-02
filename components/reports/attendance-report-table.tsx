@@ -20,8 +20,16 @@ export function AttendanceReportTable({
   const { rows, reportFormat, dateHeaders } = data;
   const [calendarType, setCalendarType] = useState<"BS" | "AD">("BS");
   const [searchTerm, setSearchTerm] = useState("");
+  const totalDays = dateHeaders && dateHeaders.length > 0 ? dateHeaders.length : 30;
   const [fromDay, setFromDay] = useState<number>(1);
-  const [toDay, setToDay] = useState<number>(30);
+  const [toDay, setToDay] = useState<number>(totalDays);
+
+  React.useEffect(() => {
+    if (dateHeaders && dateHeaders.length > 0) {
+      setToDay(dateHeaders.length);
+      setFromDay(1);
+    }
+  }, [dateHeaders]);
 
   // Default view: STATUS_MATRIX for matrix format, SUMMARY for everything else
   const defaultView = reportFormat === "STATUS_MATRIX" || reportFormat === "DEVICE_PUNCH" ? "MATRIX" : "SUMMARY";
@@ -105,9 +113,9 @@ export function AttendanceReportTable({
           {/* Quick presets */}
           <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-50 p-0.5">
             {[
-              { label: "Full", from: 1, to: 30 },
+              { label: "Full", from: 1, to: totalDays },
               { label: "1–15", from: 1, to: 15 },
-              { label: "16–30", from: 16, to: 30 },
+              { label: `16–${totalDays}`, from: 16, to: totalDays },
             ].map((p) => (
               <button
                 key={p.label}
