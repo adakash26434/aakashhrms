@@ -32,22 +32,25 @@ the app working.
 Goal: a safe baseline before any visual work.
 
 - [x] 0.1a Commit current WIP: `9c4b7d5 feat(payroll): sync attendance, unpaid leave, OT and loans into payroll runs` (type-check clean, 192/192 tests pass)
-- [ ] 0.1b Commit `docs/redesign/`. Create the `redesign/0-security` branch.
-- [ ] 0.2 **S1**: fix the impersonation-cookie presence bypass (proxy +
+- [x] 0.1b Commit `docs/redesign/`. Create the `redesign/0-security` branch.
+- [x] 0.2a **S0 (new, critical)**: tenant DB was a process-wide global → per-request resolution, fail closed
+- [x] 0.2 **S1**: fix the impersonation-cookie presence bypass (proxy +
       `authorized()`), redirect in the dashboard layout when there is no
       session, make `getDb()` fail closed in multi-tenant mode, and treat an
       empty `allowedModules` as no access.
-- [ ] 0.3 **S2**: stop storing plaintext temp passwords. Drop them from
+- [x] 0.3 **S2**: stop storing plaintext temp passwords. Drop them from
       list/detail queries. Add a migration to null existing values. Show
       temp passwords once only.
-- [ ] 0.4 **S3 / S8 / S12**: add auth guards to the dashboard, reports index
+- [x] 0.4 **S3 / S8 / S12**: add auth guards to the dashboard, reports index
       and self-service actions, and remove placeholder identity fallbacks.
-- [ ] 0.5 **S4**: session `maxAge` 8h and `updateAge` 15m.
-- [ ] 0.6 **S5 / S10**: trusted client IP, IP-level limiter, backoff instead
+- [x] 0.5 **S4**: session `maxAge` 8h and `updateAge` 15m.
+- [x] 0.6 **S5 / S10**: trusted client IP, IP-level limiter, backoff instead
       of hard lockout, contact form throttling and honeypot.
-- [ ] 0.7 **S7**: parameterise the scope-filter subqueries.
-- [ ] 0.8 Secret separation startup check. Add `npm audit --audit-level=high` to CI.
-- [ ] 0.9 Add `tests/security-*.test.ts` for guards, scope filter and rate limiter.
+- [x] 0.7 **S7**: parameterise the scope-filter subqueries.
+- [x] 0.8 Secret separation startup check. Add `npm audit` to CI (gate at `critical` until the next-auth → nodemailer chain has a non-breaking fix; then `high`). Next.js patched 16.3.0 → 16.3.8 (critical RCE advisory).
+- [x] 0.9 Add `tests/security-*.test.ts` for guards, scope filter and rate limiter. Seven suites: auth-guard, invariants, dashboard-access, login-throttling, scope-filter, secrets, plus the existing rate-limiter suite. The invariant and guard tests were confirmed to **fail on the old code**.
+
+> **Known debt (not Phase 0):** `npm run lint` reports 225 pre-existing errors (mostly `no-explicit-any` in services/repositories), so the CI *Lint* step was already failing on `main`. This branch adds none (verified per file against `main`). They're cleaned up module by module in Phase 4 and finished in Phase 8.
 
 ## Phase 1 — Design foundation (global reskin)
 Goal: the whole app shifts to the new look with no component rewrites.
@@ -159,4 +162,4 @@ attendance and review grids.
 ---
 
 ## Current status
-See `CHANGELOG.md`. **Next step: 0.1b** (commit the docs, branch, then start the security fixes 0.2–0.9).
+See `CHANGELOG.md`. **Phase 0 complete** on branch `redesign/0-security` (not merged or pushed). **Paused before Phase 1** at the user's request; additions to Phase 1 are pending from the user.
