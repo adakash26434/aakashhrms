@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { FOCUSABLE_SELECTOR, nextTrapIndex } from "@/lib/kit/focus";
 import { cn } from "@/lib/utils";
+import { DiscardBar } from "./discard-bar";
 
 export type WindowSize = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -156,20 +157,7 @@ function WindowSurface({ onClose, title, description, size = "md", children, foo
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
 
         {confirmingDiscard ? (
-          <div role="alertdialog" aria-label="Discard changes?" className="flex shrink-0 items-center gap-2 border-t border-warning/30 bg-warning-subtle px-4 py-2.5">
-            <p className="flex-1 text-xs font-medium text-warning">You have unsaved changes. Discard them?</p>
-            <button
-              type="button"
-              autoFocus
-              onClick={() => setConfirmingDiscard(false)}
-              className="h-8 rounded-md border border-line bg-surface px-3 text-xs font-medium text-ink hover:bg-surface-sunken cursor-pointer"
-            >
-              Keep editing
-            </button>
-            <button type="button" onClick={onClose} className="h-8 rounded-md bg-danger px-3 text-xs font-medium text-white hover:opacity-90 cursor-pointer">
-              Discard
-            </button>
-          </div>
+          <DiscardBar onKeep={() => setConfirmingDiscard(false)} onDiscard={onClose} />
         ) : (
           footer && <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-surface-sunken px-4 py-2.5">{footer}</div>
         )}

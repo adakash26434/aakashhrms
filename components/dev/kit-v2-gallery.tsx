@@ -20,6 +20,7 @@ import { StatusChip } from "@/components/kit/status-chip";
 import { Tabs } from "@/components/kit/tabs";
 import { Window, WindowButton } from "@/components/kit/window";
 import { Worklist } from "@/components/kit/worklist";
+import { KitEnterNavDemo } from "./kit-enter-nav-demo";
 
 // Sample data only (deterministic, no real records).
 const FIRST = ["Sita", "Ram", "Anita", "Bikash", "Sumina", "Pramod", "Kushal", "Nirmala", "Hari", "Gita", "Suresh", "Asha"];
@@ -293,6 +294,13 @@ function GalleryBody() {
           <p className="mb-3 text-xs text-ink-muted">Form skeleton (E11):</p>
           <FormSkeleton fields={3} />
         </div>
+      </Section>
+
+      <Section
+        title="Enter navigation, combobox, date field, section index (4.2)"
+        note="Click Full name and keep pressing Enter: each field is checked, then focus moves on (an empty required field stays put). Shift+Enter goes back. In District type “kath” and press Enter. Type something, then click a link in the sidebar: the unsaved-changes bar asks first."
+      >
+        <KitEnterNavDemo />
       </Section>
 
       <Section title="Worklist (E3)" note="Click into the queue, then approve with A, reject with R (asks for a reason; Ctrl+Enter confirms), move with J / K. Keys only act while the queue has focus.">

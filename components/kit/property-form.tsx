@@ -1,36 +1,48 @@
 "use client";
 
-import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useId, useRef, type ReactElement, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { FormNavContext, useEnterNavigation, type EnterNavigationOptions } from "./use-enter-navigation";
 
 /**
  * Property form (3.5): desktop-style "label left, value right" layout from
  * 768px, stacked below. Groups give long forms a scannable structure.
+ *
+ * `enterNavigation` (4.2) turns on Enter-to-next: Enter checks the field and
+ * moves on, Shift+Enter goes back, and the form never submits on Enter.
  */
 export function PropertyForm({
   children,
   className,
   onSubmit,
   id,
+  enterNavigation,
 }: {
   children: ReactNode;
   className?: string;
   onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
   id?: string;
+  enterNavigation?: boolean | EnterNavigationOptions;
 }) {
-  return (
+  const formRef = useRef<HTMLFormElement>(null);
+  const { onKeyDown, nav } = useEnterNavigation(formRef, typeof enterNavigation === "object" ? enterNavigation : {});
+  const form = (
     <form
+      ref={formRef}
       id={id}
       noValidate
+      onKeyDown={enterNavigation ? onKeyDown : undefined}
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit?.(e);
       }}
-      className={cn("space-y-5", className)}
+      // Keep a field clear of sticky headers and footers when Enter scrolls to it.
+      className={cn("space-y-5 [&_input]:scroll-my-24 [&_select]:scroll-my-24 [&_textarea]:scroll-my-24", className)}
     >
       {children}
     </form>
   );
+  return enterNavigation ? <FormNavContext.Provider value={nav}>{form}</FormNavContext.Provider> : form;
 }
 
 export function FieldGroup({
