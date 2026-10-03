@@ -245,3 +245,99 @@ export interface EmployeeValidationErrors {
   terminationRemarks?: string;
   [key: string]: string | undefined;
 }
+
+// ---------------------------------------------------------------------------
+// Record page (4.2): /workforce/employees/[id]
+// ---------------------------------------------------------------------------
+
+export type EmployeeRecordTab = "profile" | "leave" | "attendance" | "payslips" | "loans" | "history";
+
+/** The employee as the record page shows it: names resolved, bank masked (S18). */
+export interface EmployeeProfile extends Omit<Employee, "bankAccountNumber"> {
+  bankAccountMasked: string;
+  departmentName: string;
+  designationName: string;
+  branchName: string;
+  supervisor: { id: string; name: string } | null;
+  gaps: EmployeeRecordGap[];
+  access: {
+    email: string;
+    roleName: string | null;
+    state: "active" | "pending" | "disabled";
+    lastLoginAt: Date | null;
+  } | null;
+}
+
+export interface EmployeeLeaveTabData {
+  fiscalYearLabel: string | null;
+  balances: { leaveTypeName: string; allotted: number; carriedForward: number; taken: number; balance: number }[];
+  requests: { id: string; leaveTypeName: string; from: string; to: string; days: number; status: string; appliedDate: string }[];
+}
+
+export interface EmployeeAttendanceDay {
+  date: string;
+  bsDay: number;
+  weekday: number;
+  status: string | null;
+  inTime: string | null;
+  outTime: string | null;
+  workHours: number;
+  isLate: boolean;
+}
+
+export interface EmployeeAttendanceTabData {
+  monthLabel: string;
+  days: EmployeeAttendanceDay[];
+  totals: { present: number; absent: number; leave: number; halfDay: number; other: number; notRecorded: number };
+}
+
+export interface EmployeePayslipRow {
+  id: string;
+  year: number;
+  month: number;
+  periodLabel: string;
+  gross: number;
+  deductions: number;
+  tds: number;
+  ssf: number;
+  net: number;
+  status: string;
+}
+
+export interface EmployeeLoanRow {
+  id: string;
+  loanTypeName: string;
+  givenDate: string;
+  amount: number;
+  installment: number;
+  installments: number;
+  returned: number;
+  remaining: number;
+  status: string;
+}
+
+export interface EmployeeHistoryRow {
+  id: string;
+  at: Date;
+  userName: string | null;
+  action: string;
+  result: string;
+  summary: string;
+}
+
+export type EmployeeRecordTabData =
+  | { tab: "profile" }
+  | { tab: "leave"; data: EmployeeLeaveTabData }
+  | { tab: "attendance"; data: EmployeeAttendanceTabData }
+  | { tab: "payslips"; data: EmployeePayslipRow[] }
+  | { tab: "loans"; data: EmployeeLoanRow[] }
+  | { tab: "history"; data: EmployeeHistoryRow[] };
+
+export interface EmployeeRecordData {
+  profile: EmployeeProfile;
+  tabs: EmployeeRecordTab[];
+  active: EmployeeRecordTabData;
+  /** A tab whose data could not be loaded (shown as an error, not a crash). */
+  failed: boolean;
+  permissions: { edit: boolean; remove: boolean };
+}

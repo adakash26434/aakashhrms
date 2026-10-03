@@ -387,3 +387,47 @@ export async function sumApprovedLeaveDaysByType(employeeCondition?: SQL): Promi
   };
 }
 
+// ---------------------------------------------------------------------------
+// Employee record page (4.2): one employee's balances and recent requests.
+// ---------------------------------------------------------------------------
+
+export async function findLeaveBalancesWithTypes(employeeId: string, fiscalYearId: string) {
+  const rows = await (await getDb())
+    .select({
+      leaveTypeName: leaveTypes.name,
+      allotted: employeeLeaveBalances.allotted,
+      carriedForward: employeeLeaveBalances.carriedForward,
+      taken: employeeLeaveBalances.taken,
+      balance: employeeLeaveBalances.balance,
+    })
+    .from(employeeLeaveBalances)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, employeeLeaveBalances.leaveTypeId))
+    .where(and(eq(employeeLeaveBalances.employeeId, employeeId), eq(employeeLeaveBalances.fiscalYearId, fiscalYearId)))
+    .orderBy(leaveTypes.name);
+  return rows.map((r) => ({
+    leaveTypeName: r.leaveTypeName,
+    allotted: Number(r.allotted),
+    carriedForward: Number(r.carriedForward),
+    taken: Number(r.taken),
+    balance: Number(r.balance),
+  }));
+}
+
+export async function findRecentLeaveByEmployee(employeeId: string, limit = 10) {
+  const rows = await (await getDb())
+    .select({
+      id: leaveApplications.id,
+      leaveTypeName: leaveTypes.name,
+      from: leaveApplications.effectiveFrom,
+      to: leaveApplications.effectiveTo,
+      days: leaveApplications.noOfDays,
+      status: leaveApplications.status,
+      appliedDate: leaveApplications.appliedDate,
+    })
+    .from(leaveApplications)
+    .innerJoin(leaveTypes, eq(leaveTypes.id, leaveApplications.leaveTypeId))
+    .where(eq(leaveApplications.employeeId, employeeId))
+    .orderBy(desc(leaveApplications.effectiveFrom))
+    .limit(limit);
+  return rows.map((r) => ({ ...r, from: String(r.from), to: String(r.to), appliedDate: String(r.appliedDate), days: Number(r.days) }));
+}

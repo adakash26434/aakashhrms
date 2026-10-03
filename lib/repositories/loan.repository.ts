@@ -329,3 +329,30 @@ export async function createRepayment(data: {
   });
 }
 
+/** Every loan of one employee, newest first (record page, 4.2). */
+export async function findLoansByEmployee(employeeId: string) {
+  const rows = await (await getDb())
+    .select({
+      id: loans.id,
+      loanTypeName: loanTypes.name,
+      givenDate: loans.givenDate,
+      amount: loans.loanAmount,
+      installment: loans.installmentAmount,
+      installments: loans.noOfInstallments,
+      returned: loans.totalReturned,
+      remaining: loans.remainingAmount,
+      status: loans.status,
+    })
+    .from(loans)
+    .innerJoin(loanTypes, eq(loanTypes.id, loans.loanTypeId))
+    .where(eq(loans.employeeId, employeeId))
+    .orderBy(desc(loans.givenDate));
+  return rows.map((r) => ({
+    ...r,
+    givenDate: String(r.givenDate),
+    amount: Number(r.amount),
+    installment: Number(r.installment),
+    returned: Number(r.returned),
+    remaining: Number(r.remaining),
+  }));
+}

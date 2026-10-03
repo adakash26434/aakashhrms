@@ -1,4 +1,13 @@
-import type { Employee, EmployeeFormData, EmployeeValidationErrors, EmployeeRecordGap, EmployeeListRow } from "@/lib/types/employee";
+import type {
+  Employee,
+  EmployeeAttendanceTabData,
+  EmployeeFormData,
+  EmployeeListRow,
+  EmployeeRecordGap,
+  EmployeeRecordTab,
+  EmployeeValidationErrors,
+} from "@/lib/types/employee";
+import { fieldLabel } from "@/lib/constants/employee-form";
 import { maskAccountNumber } from "@/lib/utils/mask";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { validatePhoneNumber } from "@/lib/utils/phone";
@@ -577,3 +586,90 @@ export function changedEmployeeFields(before: Partial<Employee>, after: Partial<
   });
 }
 
+// ---------------------------------------------------------------------------
+// Record page (4.2)
+// ---------------------------------------------------------------------------
+
+export const RECORD_TABS: readonly EmployeeRecordTab[] = ["profile", "leave", "attendance", "payslips", "loans", "history"];
+
+/** The tab to show: the requested one if the user may see it, else Profile. */
+export function resolveRecordTab(requested: unknown, allowed: readonly EmployeeRecordTab[]): EmployeeRecordTab {
+  return typeof requested === "string" && (allowed as readonly string[]).includes(requested) ? (requested as EmployeeRecordTab) : "profile";
+}
+
+type AttendanceBucket = keyof EmployeeAttendanceTabData["totals"];
+
+function attendanceBucket(status: string | null): AttendanceBucket {
+  if (!status) return "notRecorded";
+  const s = status.toLowerCase();
+  if (s.includes("half")) return "halfDay";
+  if (s.includes("leave")) return "leave";
+  if (s === "present" || s === "late") return "present";
+  if (s === "absent") return "absent";
+  return "other";
+}
+
+/**
+ * This month's attendance for one employee: one entry per day so far (BS day
+ * numbers), with totals. A day without a record counts as "not recorded",
+ * never as absent.
+ */
+export function attendanceMonth(
+  monthLabel: string,
+  days: { date: string; bsDay: number; weekday: number }[],
+  records: { date: string; status: string; inTime: string | null; outTime: string | null; workHours: number; isLate: boolean }[]
+): EmployeeAttendanceTabData {
+  const byDate = new Map(records.map((r) => [r.date, r]));
+  const totals: EmployeeAttendanceTabData["totals"] = { present: 0, absent: 0, leave: 0, halfDay: 0, other: 0, notRecorded: 0 };
+  const out = days.map((d) => {
+    const r = byDate.get(d.date);
+    totals[attendanceBucket(r?.status ?? null)] += 1;
+    return {
+      ...d,
+      status: r?.status ?? null,
+      inTime: r?.inTime ?? null,
+      outTime: r?.outTime ?? null,
+      workHours: r?.workHours ?? 0,
+      isLate: r?.isLate ?? false,
+    };
+  });
+  return { monthLabel, days: out, totals };
+}
+
+/** One line for an audit entry on the record's History tab (field names only, never values). */
+export function historySummary(entry: { action: string; result: string; newValues: unknown }): string {
+  const values = (entry.newValues && typeof entry.newValues === "object" ? entry.newValues : {}) as Record<string, unknown>;
+  if (entry.result !== "SUCCESS") {
+    return entry.result === "DENIED_SCOPE" ? "Refused: outside the user's branch or department" : `Refused (${entry.result.toLowerCase().replace(/_/g, " ")})`;
+  }
+  if (values.credentials === "resent") return "Sign-in details sent again";
+  if (values.credentials === "reset") return "Password reset and sent";
+  switch (entry.action) {
+    case "ADD":
+      return values.loginCreated ? "Record created, with a self-service login" : "Record created";
+    case "DELETE":
+      return "Record deleted";
+    case "EDIT": {
+      const fields = Array.isArray(values.changedFields) ? (values.changedFields as string[]) : [];
+      if (fields.length === 0) return "Saved with no changes";
+      const labels = fields.map(fieldLabel);
+      return labels.length > 4 ? `Changed ${labels.slice(0, 4).join(", ")} and ${labels.length - 4} more` : `Changed ${labels.join(", ")}`;
+    }
+    default:
+      return entry.action.charAt(0) + entry.action.slice(1).toLowerCase();
+  }
+}
+
+
+/** Length of service from the joining date, e.g. "2 yr 3 mo"; "Not started" for a future date. */
+export function tenureLabel(joining: Date | string | null | undefined, today: Date): string {
+  const j = joining ? new Date(joining) : null;
+  if (!j || isNaN(j.getTime())) return "";
+  let months = (today.getFullYear() - j.getFullYear()) * 12 + (today.getMonth() - j.getMonth());
+  if (today.getDate() < j.getDate()) months -= 1;
+  if (months < 0) return "Not started";
+  if (months === 0) return "Less than a month";
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  return [years ? `${years} yr` : "", rest ? `${rest} mo` : ""].filter(Boolean).join(" ");
+}

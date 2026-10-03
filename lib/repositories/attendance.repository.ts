@@ -600,3 +600,18 @@ export async function findAttendanceMarksInRange(
   return rows.map((r) => ({ employeeId: r.employeeId, date: String(r.date), status: r.status }));
 }
 
+/** One employee's attendance rows between two AD dates (record page, 4.2). */
+export async function findAttendanceForEmployee(employeeId: string, fromDate: string, toDate: string) {
+  const rows = await (await getDb())
+    .select({
+      date: attendanceRecords.attendanceDate,
+      status: attendanceRecords.status,
+      inTime: attendanceRecords.inTime,
+      outTime: attendanceRecords.outTime,
+      workHours: attendanceRecords.workHours,
+      isLate: attendanceRecords.isLate,
+    })
+    .from(attendanceRecords)
+    .where(and(eq(attendanceRecords.employeeId, employeeId), gte(attendanceRecords.attendanceDate, fromDate), lte(attendanceRecords.attendanceDate, toDate)));
+  return rows.map((r) => ({ ...r, date: String(r.date), workHours: Number(r.workHours) }));
+}

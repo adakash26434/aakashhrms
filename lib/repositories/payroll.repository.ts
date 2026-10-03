@@ -436,3 +436,35 @@ export async function sumSlipsByDepartment(args: { fromKey: number; toKey: numbe
   return rows.map((r) => ({ name: r.name || "Unassigned", cost: Number(r.cost), employees: Number(r.employees) }));
 }
 
+/** One employee's payslips, newest first (record page, 4.2). Bank details are not selected. */
+export async function findSlipsByEmployee(employeeId: string, limit = 12) {
+  const rows = await (await getDb())
+    .select({
+      id: payrollSlips.id,
+      year: payrollRuns.payPeriodYear,
+      month: payrollRuns.payPeriodMonth,
+      gross: payrollSlips.grossEarnings,
+      deductions: payrollSlips.totalDeductions,
+      tds: payrollSlips.tdsThisMonth,
+      ssfEmployee: payrollSlips.ssfEmployee,
+      ssfEmployer: payrollSlips.ssfEmployer,
+      net: payrollSlips.netPayable,
+      runStatus: payrollRuns.status,
+    })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollRuns.id, payrollSlips.payrollRunId))
+    .where(eq(payrollSlips.employeeId, employeeId))
+    .orderBy(sql`${payrollRuns.payPeriodYear} desc, ${payrollRuns.payPeriodMonth} desc`)
+    .limit(limit);
+  return rows.map((r) => ({
+    id: r.id,
+    year: r.year,
+    month: r.month,
+    gross: Number(r.gross),
+    deductions: Number(r.deductions),
+    tds: Number(r.tds),
+    ssf: Number(r.ssfEmployee) + Number(r.ssfEmployer),
+    net: Number(r.net),
+    status: String(r.runStatus),
+  }));
+}

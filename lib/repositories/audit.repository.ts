@@ -170,3 +170,23 @@ export async function countAuditLogKPIs(): Promise<AuditLogKPIs> {
     permissionChangesCount: Number(permChangesRes[0]?.count || 0),
   };
 }
+
+/** Audit entries for one record (e.g. an employee's change history, 4.2), newest first. */
+export async function findAuditTrailForRecord(module: string, recordId: string, limit = 50) {
+  return (await getDb())
+    .select({
+      id: auditLogs.id,
+      at: auditLogs.createdAt,
+      userName: users.name,
+      action: auditLogs.action,
+      result: auditLogs.result,
+      oldValues: auditLogs.oldValues,
+      newValues: auditLogs.newValues,
+    })
+    .from(auditLogs)
+    .leftJoin(users, eq(users.id, auditLogs.userId))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- module is a pgEnum column
+    .where(and(eq(auditLogs.module, module as any), eq(auditLogs.recordId, recordId)))
+    .orderBy(sql`${auditLogs.createdAt} desc`)
+    .limit(limit);
+}
