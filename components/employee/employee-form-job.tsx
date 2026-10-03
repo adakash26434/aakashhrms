@@ -8,6 +8,7 @@ import { GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { DEFAULT_GRADE_POLICY, calculateTotalGradeAmount, gradeBreakdown } from "@/lib/engines/grade-policy.engine";
+import { departmentOpenToBranch } from "@/lib/engines/organization.engine";
 import { cn } from "@/lib/utils";
 import { ChoiceField, FormSection, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
 
@@ -25,7 +26,8 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
   const options = useMemo(
     () => ({
       branches: ctx.branches.map((b) => ({ value: b.id, label: b.name })),
-      departments: ctx.departments.map((d) => ({ value: d.id, label: d.name })),
+      // Departments are company-wide, or limited to some branches (4.3).
+      departments: ctx.departments.filter((d) => departmentOpenToBranch(d, form.branchId) || d.id === form.departmentId).map((d) => ({ value: d.id, label: d.name })),
       designations: ctx.designations
         .filter((d) => !form.departmentId || d.departmentId === form.departmentId)
         .map((d) => ({ value: d.id, label: d.name })),
@@ -37,7 +39,7 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
       })(),
       supervisors: ctx.supervisors.map((s) => ({ value: s.id, label: s.name, hint: s.employeeCode })),
     }),
-    [ctx, form.departmentId, form.shreni]
+    [ctx, form.branchId, form.departmentId, form.shreni]
   );
 
   const grade = (basic: number, count: number) => (manualGrade || basic <= 0 ? null : calculateTotalGradeAmount(basic, count, policy));
@@ -72,7 +74,21 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
   return (
     <>
       <FormSection id="job" title="Job & placement">
-        <GridField label={label("departmentId")} required error={errors.departmentId} size="md">
+        <GridField label={label("branchId")} required error={errors.branchId} size="md">
+          <Combobox
+            name="branchId"
+            options={options.branches}
+            value={form.branchId}
+            onChange={(v) => {
+              // A department not open to the new branch is cleared (with its designation).
+              const dept = ctx.departments.find((d) => d.id === form.departmentId);
+              const keep = !dept || departmentOpenToBranch(dept, v);
+              patch({ branchId: v, ...(keep ? {} : { departmentId: "", designationId: "" }) });
+            }}
+            placeholder="Search branch"
+          />
+        </GridField>
+        <GridField label={label("departmentId")} required error={errors.departmentId} help="Departments open to the chosen branch." size="md">
           <Combobox
             name="departmentId"
             options={options.departments}
@@ -87,10 +103,6 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
         <GridField label={label("designationId")} required error={errors.designationId} help="Pick the department first to narrow this list." size="md">
           <Combobox name="designationId" options={options.designations} value={form.designationId} onChange={(v) => set("designationId", v)} placeholder="Search designation" />
         </GridField>
-        <GridField label={label("branchId")} required error={errors.branchId} size="md">
-          <Combobox name="branchId" options={options.branches} value={form.branchId} onChange={(v) => set("branchId", v)} placeholder="Search branch" />
-        </GridField>
-
         <GridField
           label={label("shreni")}
           required

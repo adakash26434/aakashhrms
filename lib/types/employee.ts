@@ -373,7 +373,8 @@ export interface EmployeeFormContext {
   employeeId: string | null;
   initial: EmployeeFormData;
   branches: { id: string; name: string }[];
-  departments: { id: string; name: string }[];
+  /** Active departments (plus the current one); branchIds empty = open to every branch (4.3). */
+  departments: { id: string; name: string; branchIds: string[] }[];
   designations: { id: string; name: string; departmentId: string }[];
   categories: { value: string; label: string }[];
   shreniLevels: { code: string; name: string; labelNepali?: string; minSalary?: number }[];

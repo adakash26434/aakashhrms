@@ -27,8 +27,13 @@ export const departments = pgTable('departments', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   code: varchar('code', { length: 50 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
-  branchId: uuid('branch_id').references(() => branches.id).notNull(),
-  headName: varchar('head_name', { length: 255 }).notNull(),
+  // 4.3: departments are company-wide. branch_id is no longer used (kept for old rows);
+  // branch_ids limits a department to some branches (empty = all branches).
+  branchId: uuid('branch_id').references(() => branches.id),
+  branchIds: text('branch_ids').array().notNull().default(sql`ARRAY[]::text[]`),
+  // Head picked from employees; head_name is the older typed name, kept as a fallback.
+  headEmployeeId: uuid('head_employee_id'),
+  headName: varchar('head_name', { length: 255 }),
   description: text('description').notNull(),
   status: varchar('status', { length: 20 }).default('active').notNull(), // "active" | "inactive"
   designationCount: integer('designation_count').default(0).notNull(),

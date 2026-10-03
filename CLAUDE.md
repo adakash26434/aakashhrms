@@ -105,6 +105,7 @@ UI conventions for new code:
 - `npm audit`: the nodemailer advisory via next-auth needs a major upgrade, so CI gates on `critical` for now.
 - Employees: there is no bulk import yet (the old Import button only showed a message and was removed in 4.2). The old `components/ui` pickers (`NepaliDatePicker`, `BSDatePicker`, district / bank / shreni comboboxes, address picker, phone input) are still used by other modules; replace them with the kit `DateField` / `Combobox` as those modules are migrated.
 - Migration `0035_grade_manual` adds `employees.grade_manual`; company databases get it from `ensureTenantSchema` when a pool opens (restart the dev server after pulling). The app reads the column, so the employee screens need it before they load.
+- Organization (4.3): `departments.employee_count` / `designation_count` and `departments.branch_id` are no longer used (counts are live; departments use `branch_ids`); drop them in Phase 8. Employment-type eligibility (PF / SSF / festival / leave / OT) and the branch remote-area category are stored but not yet used by payroll (4.8).
 - Stored payroll run totals (`payroll_runs.total_*`) can lag behind the payslips (Shrawan 2083: run net 62,068.75 vs payslips and salary sheet 68,068.75). Reports and the dashboard read the payslips; fix the run-total update in 4.8 (Payroll run).
 
 ## Git

@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
-import { employmentTypes, employees } from '@/lib/db/schema';
-import { eq, asc, sql } from 'drizzle-orm';
+import { employmentTypes } from '@/lib/db/schema';
+import { asc } from 'drizzle-orm';
 import type { EmploymentType, EmploymentTypeFormData } from '@/lib/types/company-setup';
 
 type EmploymentTypeRow = typeof employmentTypes.$inferSelect;
@@ -173,81 +173,4 @@ export async function findAllEmploymentTypes(): Promise<EmploymentType[]> {
   }
 
   return rows.map(mapRowToType);
-}
-
-export async function createEmploymentType(data: EmploymentTypeFormData): Promise<EmploymentType> {
-  const db = (await getDb());
-  const code = data.code.trim().toUpperCase();
-
-  const [row] = await db
-    .insert(employmentTypes)
-    .values({
-      code,
-      name: data.name.trim(),
-      nameNepali: data.nameNepali?.trim() || null,
-      isPfEligible: data.isPfEligible ?? true,
-      isSsfEligible: data.isSsfEligible ?? true,
-      isFestivalEligible: data.isFestivalEligible ?? true,
-      isLeaveEligible: data.isLeaveEligible ?? true,
-      isOtEligible: data.isOtEligible ?? true,
-      noticePeriodDays: Number(data.noticePeriodDays) || 30,
-      probationMonths: Number(data.probationMonths) || 0,
-      rankOrder: data.rankOrder !== undefined ? data.rankOrder : 99,
-      isActive: data.isActive ?? true,
-    })
-    .returning();
-
-  return mapRowToType(row);
-}
-
-export async function updateEmploymentType(
-  id: string,
-  data: Partial<EmploymentTypeFormData>
-): Promise<EmploymentType> {
-  const db = (await getDb());
-  const updates: Record<string, unknown> = {
-    updatedAt: new Date(),
-  };
-
-  if (data.code !== undefined) updates.code = data.code.trim().toUpperCase();
-  if (data.name !== undefined) updates.name = data.name.trim();
-  if (data.nameNepali !== undefined) updates.nameNepali = data.nameNepali?.trim() || null;
-  if (data.isPfEligible !== undefined) updates.isPfEligible = data.isPfEligible;
-  if (data.isSsfEligible !== undefined) updates.isSsfEligible = data.isSsfEligible;
-  if (data.isFestivalEligible !== undefined) updates.isFestivalEligible = data.isFestivalEligible;
-  if (data.isLeaveEligible !== undefined) updates.isLeaveEligible = data.isLeaveEligible;
-  if (data.isOtEligible !== undefined) updates.isOtEligible = data.isOtEligible;
-  if (data.noticePeriodDays !== undefined) updates.noticePeriodDays = Number(data.noticePeriodDays);
-  if (data.probationMonths !== undefined) updates.probationMonths = Number(data.probationMonths);
-  if (data.rankOrder !== undefined) updates.rankOrder = data.rankOrder;
-  if (data.isActive !== undefined) updates.isActive = data.isActive;
-
-  const [row] = await db
-    .update(employmentTypes)
-    .set(updates)
-    .where(eq(employmentTypes.id, id))
-    .returning();
-
-  return mapRowToType(row);
-}
-
-export async function deleteEmploymentType(id: string): Promise<void> {
-  const db = (await getDb());
-  const [target] = await db.select().from(employmentTypes).where(eq(employmentTypes.id, id)).limit(1);
-  if (!target) return;
-
-  // Check if any employee has this category
-  const inUse = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(employees)
-    .where(eq(employees.category, target.name));
-
-  const usageCount = inUse[0]?.count ?? 0;
-  if (usageCount > 0) {
-    throw new Error(
-      `Cannot delete category "${target.name}" because it is currently assigned to ${usageCount} employee(s).`
-    );
-  }
-
-  await db.delete(employmentTypes).where(eq(employmentTypes.id, id));
 }

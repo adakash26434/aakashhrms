@@ -76,14 +76,14 @@ export function CompanySetupInnerNav({
         {
           id: "employment_types",
           label: "Employment types",
-          sublabel: "Contracts & statutory eligibility",
+          sublabel: "Moved to Workforce → Organization",
           icon: FileBadge2,
           badge: sectionCounts?.employmentTypesCount ?? null,
         },
         {
           id: "shreni",
           label: "Shreni grades",
-          sublabel: "Hierarchy & career progression",
+          sublabel: "Moved to Workforce → Organization",
           icon: Layers,
           badge: sectionCounts?.shreniCount ?? null,
         },
@@ -128,7 +128,7 @@ export function CompanySetupInnerNav({
         {
           id: "organization",
           label: "Organization units",
-          sublabel: "Branches, departments & designations",
+          sublabel: "Opens Workforce → Organization",
           icon: Network,
           badge: null,
         },

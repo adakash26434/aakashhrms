@@ -4,17 +4,13 @@ import { BriefcaseBusiness, CalendarCheck, CircleCheck, Contact, FileText, KeyRo
 import { Amount } from "@/components/kit/amount";
 import { DateCell } from "@/components/kit/date-cell";
 import { DescriptionList, InfoCard, StatTile } from "@/components/kit/description-list";
-import { formatStructuredAddress, findProvinceByDistrict, parseStructuredAddress } from "@/lib/constants/nepal-locations";
+import { addressLine } from "@/lib/constants/nepal-locations";
 import { RECORD_GAP_LABEL } from "@/lib/engines/employee.engine";
 import type { EmployeeFacts, EmployeeProfile, EmployeeRecordTab } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
 import { formatPhoneNumber } from "@/lib/utils/phone";
 
-export function addressText(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const a = parseStructuredAddress(raw);
-  return formatStructuredAddress({ ...a, province: a.province || findProvinceByDistrict(a.district)?.id || "" }) || null;
-}
+export const addressText = addressLine;
 
 /**
  * Overview tab (as in Zoho Payroll's employee overview): the headline figures

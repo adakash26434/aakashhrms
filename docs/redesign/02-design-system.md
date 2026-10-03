@@ -459,6 +459,35 @@ Each one is scheduled in the roadmap.
 | E11 | **Skeleton loading that matches the template layout** (grid rows, form rows) | Feels instant, no layout jump | 3 |
 | E12 | Optional **dark theme** using the same token names | Late-evening payroll work | 9 |
 
+### Implemented organization (Phase 4.3, template A + Window editors)
+
+`/workforce/organization` holds every workforce master in one module, as
+payroll software keeps its masters together (TallyPrime: employee groups and
+categories; Zoho Payroll / Keka: departments, designations, locations). Folder
+tabs in the URL (`?tab=`): **Structure · Reporting · Branches · Departments ·
+Designations · Levels · Employment types**. Old links
+(`/workforce/departments`, Company setup's branches / departments /
+designations / shreni / employment types) open the matching tab.
+
+| Tab | Layout and rules |
+|---|---|
+| Structure | Branch × department matrix of **active headcount** (counts only, no names; a number opens the employee register filtered to that branch and department; cells where the department is not open to the branch are hatched, and people placed there anyway are flagged) beside a department → designation **ARIA tree** (↑/↓, → opens, ← closes, Home/End) with the head and counts. After SAP's Company Structure Overview. |
+| Reporting | Who reports to whom, built from each employee's "Reports to" (Sage HR / Keka org tree): initials, name, designation · branch, code, "N below"; find a person, expand / collapse, Print. Lists loops, people reporting to someone who has left, and people with no supervisor and no team. Needs Employees → View and follows that scope. |
+| Registers (5) | PageBar (New Ctrl+N, Edit F2, Make inactive / active, Delete, Refresh; counts in the description, no KPI cards) · FilterStrip (search, status defaulting to Active, plus branch or department) · DataGrid (code and name pinned, live headcount with total, status chip, Actions: Edit and Active/Inactive switch) · SplitView **FactBox** detail (facts, "Used by" counts, people with links, whether it can be deleted). Enter / double-click edits. |
+| Editors | Kit `Window` with a two-column `FormGrid` on the grey panel, Enter to the next field with the server's rules, Save at the end, unsaved-changes guard. Branch: code, name, head office (moves the flag), remote area, location (kit `AddressField`, shared with the employee form), phone (`PhoneField`), email. Department: code ("DEPT-00n" suggested), name, head (employees, supervisors first), All branches Yes/No or a branch checklist, description. Designation: name, department, description. Level: code, number, name, Nepali label, starting / maximum salary, order, plus "Load an industry scale". Employment type: code, names, SSF / PF / festival / leave / OT eligibility, notice, probation, order. |
+
+- **Never deleted while in use.** Delete is offered only when nothing has
+  used the record (employees of any status, designations, user access scopes,
+  branch holidays, payroll runs, departments limited to a branch); otherwise
+  the answer is **Make inactive**, which keeps it on existing records and
+  history and drops it from pickers for new choices. Delete asks for the typed
+  name.
+- **Renames keep links.** Employees hold a level by code and an employment
+  type by name, so a rename moves them in the same transaction.
+- **Company-wide departments.** A department is open to all branches or to
+  chosen ones; the employee form lists branch first and offers only the
+  departments open to it (the save checks it too).
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

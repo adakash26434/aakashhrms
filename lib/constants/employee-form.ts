@@ -25,8 +25,8 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
   {
     id: "job",
     label: "Job & placement",
-    fields: ["departmentId", "designationId", "branchId", "shreni", "category", "supervisorId", "joiningDate", "confirmationDate", "isSupervisor"],
-    required: ["departmentId", "designationId", "branchId", "shreni", "category", "joiningDate"],
+    fields: ["branchId", "departmentId", "designationId", "shreni", "category", "supervisorId", "joiningDate", "confirmationDate", "isSupervisor"],
+    required: ["branchId", "departmentId", "designationId", "shreni", "category", "joiningDate"],
   },
   {
     id: "pay",

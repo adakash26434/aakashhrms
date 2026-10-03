@@ -6,7 +6,7 @@ import { getDbAsync } from '@/lib/db';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
 import { users, roles, userRoles, employees, fiscalYears, leaveApplications, branches } from '@/lib/db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, asc, desc } from 'drizzle-orm';
 import { buildEmployeeIdScopeCondition, resolveUserScope } from '@/lib/auth/scope-filter';
 import { getFiscalYear } from '@/lib/utils/bs-calendar';
 
@@ -128,6 +128,8 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
             tenantDb
               .select({ name: branches.name })
               .from(branches)
+              // The head office names the company in the status bar (4.3), not whichever row comes first.
+              .orderBy(desc(branches.isHeadOffice), asc(branches.name))
               .limit(1),
             tenantDb
               .select({ count: sql<number>`count(*)::int` })
@@ -300,6 +302,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
         const branchPromise = tenantDb
           .select({ name: branches.name })
           .from(branches)
+          .orderBy(desc(branches.isHeadOffice), asc(branches.name))
           .limit(1);
 
         const [, fyResult, branchResult] = await Promise.all([

@@ -44,6 +44,8 @@ export interface ShreniLevelItem {
   category?: string;
   minSalary?: number;
   maxSalary?: number;
+  /** Inactive levels stay on existing employees but are not offered for new choices (4.3). */
+  isActive?: boolean;
 }
 
 export type ShreniPresetItem = ShreniLevelItem;

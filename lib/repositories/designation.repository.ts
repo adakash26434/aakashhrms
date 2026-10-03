@@ -1,108 +1,26 @@
 import { getDb } from '@/lib/db';
-import { eq, sql } from 'drizzle-orm';
-import { designations, departments, employees } from '@/lib/db/schema';
-import type { Designation, DesignationStatus } from '@/lib/types/designation';
-import type { DesignationWriteInput } from '@/lib/data/mock-designations';
+import { sql } from 'drizzle-orm';
+import { designations, employees } from '@/lib/db/schema';
+import type { Designation } from '@/lib/types/designation';
 
-type DesignationRow = typeof designations.$inferSelect;
-
-function mapRowToDesignation(row: DesignationRow): Designation {
-  return {
-    id: row.id,
-    name: row.name,
-    departmentId: row.departmentId,
-    description: row.description,
-    status: row.status as DesignationStatus,
-    employeeCount: row.employeeCount,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
+// Read model for other modules, with live counts. Writes live in
+// organization.repository.ts (4.3).
 
 export async function findAllDesignations(): Promise<Designation[]> {
-  const db = (await getDb());
-  const [desigRows, empRows] = await Promise.all([
+  const db = await getDb();
+  const [rows, empRows] = await Promise.all([
     db.select().from(designations),
-    db.select({ designationId: employees.designationId, count: sql<number>`count(*)::int` })
-      .from(employees)
-      .groupBy(employees.designationId),
+    db.select({ designationId: employees.designationId, count: sql<number>`count(*)::int` }).from(employees).groupBy(employees.designationId),
   ]);
-
-  const empCountByDesig = new Map(empRows.map((r) => [r.designationId, Number(r.count)]));
-
-  return desigRows.map((row) => ({
+  const emp = new Map(empRows.map((r) => [r.designationId, Number(r.count)]));
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
     departmentId: row.departmentId,
-    description: row.description,
-    status: row.status as DesignationStatus,
-    employeeCount: empCountByDesig.get(row.id) ?? 0,
+    description: row.description ?? '',
+    employeeCount: emp.get(row.id) ?? 0,
+    status: row.status === 'inactive' ? 'inactive' : 'active',
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }));
-}
-
-export async function findDesignationById(id: string): Promise<Designation | undefined> {
-  const db = (await getDb());
-  const [desigRows, empRows] = await Promise.all([
-    db.select().from(designations).where(eq(designations.id, id)),
-    db.select({ count: sql<number>`count(*)::int` })
-      .from(employees)
-      .where(eq(employees.designationId, id)),
-  ]);
-
-  if (!desigRows.length) return undefined;
-  const row = desigRows[0];
-  return {
-    id: row.id,
-    name: row.name,
-    departmentId: row.departmentId,
-    description: row.description,
-    status: row.status as DesignationStatus,
-    employeeCount: empRows[0]?.count ?? 0,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-export async function createDesignation(data: DesignationWriteInput): Promise<Designation> {
-  const rows = await (await getDb()).insert(designations).values({
-    name: data.name,
-    departmentId: data.departmentId,
-    description: data.description,
-    status: data.status,
-    employeeCount: 0,
-  }).returning();
-
-  await (await getDb()).update(departments)
-    .set({ designationCount: sql`${departments.designationCount} + 1` })
-    .where(eq(departments.id, data.departmentId));
-
-  return mapRowToDesignation(rows[0]);
-}
-
-export async function updateDesignation(id: string, data: DesignationWriteInput): Promise<Designation> {
-  const rows = await (await getDb()).update(designations)
-    .set({
-      name: data.name,
-      departmentId: data.departmentId,
-      description: data.description,
-      status: data.status,
-      updatedAt: new Date(),
-    })
-    .where(eq(designations.id, id))
-    .returning();
-  return mapRowToDesignation(rows[0]);
-}
-
-export async function deleteDesignation(id: string): Promise<void> {
-  const designation = await findDesignationById(id);
-  
-  if (designation) {
-    await (await getDb()).delete(designations).where(eq(designations.id, id));
-    
-    await (await getDb()).update(departments)
-      .set({ designationCount: sql`${departments.designationCount} - 1` })
-      .where(eq(departments.id, designation.departmentId));
-  }
 }

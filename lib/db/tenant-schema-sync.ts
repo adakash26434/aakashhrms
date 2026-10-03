@@ -183,6 +183,25 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     }
   }
 
+  // Organization (4.3, migration 0036): company-wide departments and a head picked from
+  // employees. When head_employee_id is new, link typed head names that match one employee.
+  try {
+    await sql.unsafe(`ALTER TABLE "departments" ALTER COLUMN "branch_id" DROP NOT NULL`);
+    await sql.unsafe(`ALTER TABLE "departments" ALTER COLUMN "head_name" DROP NOT NULL`);
+    await sql.unsafe(`ALTER TABLE "departments" ADD COLUMN IF NOT EXISTS "branch_ids" text[] DEFAULT ARRAY[]::text[] NOT NULL`);
+    const head = await sql.unsafe(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'departments' AND column_name = 'head_employee_id'`
+    );
+    if (head.length === 0) {
+      await sql.unsafe(`ALTER TABLE "departments" ADD COLUMN IF NOT EXISTS "head_employee_id" uuid`);
+      await sql.unsafe(`UPDATE "departments" d SET "head_employee_id" = m.id
+        FROM (SELECT lower(trim(full_name)) AS name, (array_agg(id))[1] AS id FROM "employees" GROUP BY lower(trim(full_name)) HAVING count(*) = 1) m
+        WHERE d."head_employee_id" IS NULL AND d."head_name" IS NOT NULL AND lower(trim(d."head_name")) = m.name`);
+    }
+  } catch {
+    // Ignored if the departments table does not exist yet
+  }
+
   // grade_manual (4.2, migration 0035): when the column is new, mark the grades that were
   // typed by hand before it existed (an amount with no grade count), as the migration does.
   try {

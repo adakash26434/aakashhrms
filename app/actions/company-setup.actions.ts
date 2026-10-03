@@ -14,16 +14,9 @@ import {
   saveCompanyWorkSchedule,
   saveCompanyProfileSetup,
 } from '@/lib/repositories/company-setup.repository';
-import {
-  createEmploymentType,
-  updateEmploymentType,
-  deleteEmploymentType,
-  findAllEmploymentTypes,
-} from '@/lib/repositories/employment-type.repository';
 import type {
   CompanyWorkSchedule,
   CompanyProfileSetupData,
-  EmploymentTypeFormData,
 } from '@/lib/types/company-setup';
 
 export async function getCompanyMasterSetupAction() {
@@ -64,63 +57,6 @@ export async function saveCompanyProfileAction(data: CompanyProfileSetupData) {
     return { success: true };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to update company profile';
-    return { success: false, error: msg };
-  }
-}
-
-export async function createEmploymentTypeAction(data: EmploymentTypeFormData) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('ADD', 'ORG_STRUCTURE');
-    if (!data.name?.trim()) {
-      return { success: false, error: 'Employment type name is required' };
-    }
-    const created = await createEmploymentType(data);
-    revalidatePath('/setup/company-setup');
-    revalidatePath('/workforce/employees');
-    return { success: true, data: created };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to create employment type';
-    return { success: false, error: msg };
-  }
-}
-
-export async function updateEmploymentTypeAction(id: string, data: Partial<EmploymentTypeFormData>) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('EDIT', 'ORG_STRUCTURE');
-    const updated = await updateEmploymentType(id, data);
-    revalidatePath('/setup/company-setup');
-    revalidatePath('/workforce/employees');
-    return { success: true, data: updated };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to update employment type';
-    return { success: false, error: msg };
-  }
-}
-
-export async function deleteEmploymentTypeAction(id: string) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('DELETE', 'ORG_STRUCTURE');
-    await deleteEmploymentType(id);
-    revalidatePath('/setup/company-setup');
-    revalidatePath('/workforce/employees');
-    return { success: true };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to delete employment type';
-    return { success: false, error: msg };
-  }
-}
-
-export async function getEmploymentTypesAction() {
-  await ensureTenantContext();
-  try {
-    await checkPermission('VIEW', 'ORG_STRUCTURE');
-    const types = await findAllEmploymentTypes();
-    return { success: true, data: types };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to load employment types';
     return { success: false, error: msg };
   }
 }

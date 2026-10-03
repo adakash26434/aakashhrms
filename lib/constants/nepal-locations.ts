@@ -1212,3 +1212,10 @@ export function serializeStructuredAddress(addr: StructuredAddress): string {
     formatted: formatStructuredAddress(addr),
   });
 }
+
+/** One display line for a stored address (structured JSON or older free text); null when empty. */
+export function addressLine(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const a = parseStructuredAddress(raw);
+  return formatStructuredAddress({ ...a, province: a.province || findProvinceByDistrict(a.district)?.id || "" }) || null;
+}

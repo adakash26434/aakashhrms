@@ -38,13 +38,14 @@ export class EmployeeValidationError extends Error {
 import * as shreniRepository from "@/lib/repositories/shreni.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import { resolvePay } from "@/lib/engines/grade-policy.engine";
+import { pickable, placementErrors } from "@/lib/engines/organization.engine";
 
 const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
 
 export interface EmployeeLookupData {
-  branches: { id: string; name: string }[];
-  departments: { id: string; name: string }[];
-  designations: { id: string; name: string; departmentId: string }[];
+  branches: { id: string; name: string; status: "active" | "inactive" }[];
+  departments: { id: string; name: string; branchIds: string[]; status: "active" | "inactive" }[];
+  designations: { id: string; name: string; departmentId: string; status: "active" | "inactive" }[];
 }
 
 export async function getEmployeeLookupData(scope?: ScopeFilter) {
@@ -65,9 +66,9 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
       .catch(() => []),
   ]);
   return {
-    branches: branches.map((b) => ({ id: b.id, name: b.name })),
-    departments: departments.map((d) => ({ id: d.id, name: d.name })),
-    designations: designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId })),
+    branches: branches.map((b) => ({ id: b.id, name: b.name, status: b.status })),
+    departments: departments.map((d) => ({ id: d.id, name: d.name, branchIds: d.branchIds, status: d.status })),
+    designations: designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId, status: d.status })),
     shreniLevels,
     gradePolicy: systemControl.gradePolicy,
     employees: allEmployees.map((e) => ({
@@ -288,10 +289,19 @@ export async function saveEmployee(
   payAccess: { canEditPay: boolean } = { canEditPay: false }
 ): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
+  const [allCodes, orgBranches, orgDepartments, orgDesignations, stored] = await Promise.all([
+    repository.findAllCodes(),
+    branchRepository.findAllBranches(),
+    departmentRepository.findAllDepartments(),
+    designationRepository.findAllDesignations(),
+    id ? repository.findById(id) : Promise.resolve(null),
+  ]);
   const errors = {
     ...engine.validateEmployee(formData),
     // Codes are unique company-wide; say so on the field instead of failing on the constraint.
-    ...engine.codeConflicts(await repository.findAllCodes(), formData, id),
+    ...engine.codeConflicts(allCodes, formData, id),
+    // Placement (4.3): active records only (unless unchanged), and a department open to the branch.
+    ...placementErrors(formData, stored ?? null, { branches: orgBranches, departments: orgDepartments, designations: orgDesignations }),
   };
   if (Object.keys(errors).length > 0) {
     throw new EmployeeValidationError(errors);
@@ -299,7 +309,7 @@ export async function saveEmployee(
 
   // Status changes only through setEmployeeStatus (login switched off with it);
   // new employees always start Active.
-  const current = id ? await repository.findById(id) : null;
+  const current = stored ?? null;
   if (current) formData = { ...formData, status: current.status };
   else if (!id) formData = { ...formData, status: "Active" };
 
@@ -780,14 +790,19 @@ export async function getEmployeeFormContext(
   ]);
 
   // GLOBAL users see everything; BRANCH / DEPARTMENT users only what they can place into (plus the current value).
-  const branches =
+  // Inactive organization records are not offered for new choices (4.3), except the record's current value.
+  const activeBranches = pickable(lookups.branches, employee?.branchId);
+  const activeDepartments = pickable(lookups.departments, employee?.departmentId);
+  const branches = (
     scope.scopeType === "GLOBAL" || scope.scopeType === "DEPARTMENT"
-      ? lookups.branches
-      : lookups.branches.filter((b) => b.id === employee?.branchId || scope.branchIds.includes(b.id));
-  const departments =
+      ? activeBranches
+      : activeBranches.filter((b) => b.id === employee?.branchId || scope.branchIds.includes(b.id))
+  ).map((b) => ({ id: b.id, name: b.name }));
+  const departments = (
     scope.scopeType === "GLOBAL" || scope.scopeType === "BRANCH"
-      ? lookups.departments
-      : lookups.departments.filter((d) => d.id === employee?.departmentId || scope.departmentIds.includes(d.id));
+      ? activeDepartments
+      : activeDepartments.filter((d) => d.id === employee?.departmentId || scope.departmentIds.includes(d.id))
+  ).map((d) => ({ id: d.id, name: d.name, branchIds: d.branchIds }));
 
   const initial: EmployeeFormData = employee
     ? employeeToForm(employee)
@@ -800,7 +815,7 @@ export async function getEmployeeFormContext(
       };
 
   const categories = employmentTypes.length
-    ? employmentTypes.map((t) => ({ value: t.name, label: t.name }))
+    ? employmentTypes.filter((t) => t.isActive || t.name === employee?.category).map((t) => ({ value: t.name, label: t.name }))
     : EMPLOYEE_CATEGORIES.map((c) => ({ value: c as string, label: c === "OutSource" ? "Outsourced" : c }));
   if (initial.category && !categories.some((c) => c.value === initial.category)) {
     categories.unshift({ value: initial.category, label: initial.category });
@@ -811,9 +826,11 @@ export async function getEmployeeFormContext(
     initial,
     branches,
     departments,
-    designations: lookups.designations,
+    designations: pickable(lookups.designations, employee?.designationId).map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId })),
     categories,
-    shreniLevels: (lookups.shreniLevels ?? []).map((l) => ({ code: l.code, name: l.name, labelNepali: l.labelNepali, minSalary: l.minSalary })),
+    shreniLevels: (lookups.shreniLevels ?? [])
+      .filter((l) => l.isActive !== false || l.code === employee?.shreni || l.name === employee?.shreni)
+      .map((l) => ({ code: l.code, name: l.name, labelNepali: l.labelNepali, minSalary: l.minSalary })),
     gradePolicy: lookups.gradePolicy ?? null,
     canEditPay,
     supervisors: lookups.employees

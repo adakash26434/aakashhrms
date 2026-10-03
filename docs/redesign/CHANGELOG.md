@@ -13,6 +13,29 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.3 Workforce: Organization
+Branch: `redesign/4.3-organization` (stacked on `redesign/4.2-employees`)
+
+Your decisions: departments are company-wide (optionally limited to some branches); both a structure view and a reporting chart; grade levels and employment types move into Organization; the department head is picked from employees.
+
+- **One module, seven tabs:** Structure (branch × department headcount, department → designation tree), Reporting (who reports to whom), and registers for Branches, Departments, Designations, Levels, Employment types, each with a FactBox detail pane and a Window editor (Enter to next, unsaved-changes guard). The old hub (hero, KPI cards, modals) is gone, and Company setup's branches / departments / designations / Shreni / employment types now open these tabs.
+- **Never deleted while in use:** delete only for unused records; otherwise Make inactive (kept on records, hidden from new choices). Renames of levels and employment types move the employees holding them.
+- **Department model (migration `0036`, also applied by the company-database schema sync):** `branch_ids` (empty = all branches) and `head_employee_id`; existing departments become company-wide; typed head names matching exactly one employee are linked. The employee form lists Branch first and offers only departments open to it; the save checks placement.
+- **Security S19:** company-wide role required for changes; audit of every change; no raw errors; no writes on page load (the name-guessing designation sync and the level-name reset are removed).
+
+Also: the status bar named whichever branch the database returned first; it now names the head office.
+
+Verified: tsc 0 · eslint: nothing new · 448/448 tests (new `tests/organization.test.ts`: delete blockers, company-wide departments and placement checks, matrix totals, reporting tree with loops / inactive supervisors / unassigned, validation for all five masters, server-side input reshaping, rename cascades in a transaction, one head office, S19 authorisation / audit / no raw errors, no writes on read) · `next build` · Playwright on your data (nothing saved or deleted):
+- Structure: Finance & Accounts 2 and Human Resources 1 at Head Office, total 3 (matches the employee register)
+- Reporting: Kushal under Pramod; Sumina flagged as having no supervisor and no team
+- Branches: Pokhara Side Branch shows "Not used anywhere yet", so Delete is offered; Head Office keeps Delete and Make inactive off
+- New department Window by Enter only: code (DEPT-001 suggested) → name → head → All branches → branch boxes → description → Save; Esc asks to discard
+- Branch Window: address row fits (two rows inside the Window, one row on the employee form)
+- Employee form: Branch → Department → Designation; departments offered for the chosen branch
+- old links (`/workforce/departments`, Company setup Shreni) open the right tab; no page overflow at 390 / 1024 / 1440 px; 0 console errors
+
+---
+
 ## 2026-10-03 — 4.2 Employees: country code, province, permission-controlled grade, "Is supervisor"
 Branch: `redesign/4.2-employees`
 

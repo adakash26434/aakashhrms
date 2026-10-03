@@ -1,30 +1,32 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
-import { DepartmentClient } from "@/components/department/department-client";
-import { getDepartmentData } from "@/lib/services/department.service";
+import { OrganizationClient } from "@/components/organization/organization-client";
+import { getOrganizationData } from "@/lib/services/organization.service";
+import { canChangeMasters, resolveOrgTab } from "@/lib/engines/organization.engine";
 import { ensureTenantContext } from "@/lib/db";
-import { checkPermission } from "@/lib/auth/check-permission";
-import type { OrgTab } from "@/components/department/department-tabs";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
-  title: "Organization Hub | AakashHRMS",
-  description:
-    "Task-first organization hub for managing branches, departments, and designations.",
+  title: "Organization | AakashHRMS",
+  description: "Branches, departments, designations, grade levels and employment types, the structure matrix and the reporting chart.",
 };
 
-interface PageProps {
-  searchParams?: Promise<{ tab?: string }> | { tab?: string };
-}
-
-export default async function OrganizationPage({ searchParams }: PageProps) {
+export default async function OrganizationPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await ensureTenantContext();
-  await checkPermission("VIEW", "ORG_STRUCTURE");
-
-  const resolvedParams =
-    searchParams instanceof Promise ? await searchParams : searchParams;
-  const initialTab = (resolvedParams?.tab as OrgTab) || "branches";
-
-  const data = await getDepartmentData();
-
-  return <DepartmentClient initialData={data} initialTab={initialTab} />;
+  const scope = await checkPermissionWithScope("VIEW", "ORG_STRUCTURE");
+  const { tab } = await searchParams;
+  const [add, edit, remove, viewPeople] = await Promise.all([
+    hasPermission("ADD", "ORG_STRUCTURE"),
+    hasPermission("EDIT", "ORG_STRUCTURE"),
+    hasPermission("DELETE", "ORG_STRUCTURE"),
+    hasPermission("VIEW", "EMPLOYEES"),
+  ]);
+  // Names of people (reporting chart, department heads) follow the Employees permission and scope.
+  const peopleScope = viewPeople ? await checkPermissionWithScope("VIEW", "EMPLOYEES") : null;
+  const data = await getOrganizationData({
+    tab: resolveOrgTab(tab),
+    peopleScope,
+    permissions: { add, edit, delete: remove, companyWide: canChangeMasters(scope) },
+  });
+  return <OrganizationClient data={data} />;
 }
