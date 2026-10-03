@@ -74,3 +74,18 @@ export function formatPhoneNumber(raw?: string | null, defaultCountry: CountryCo
   const res = validatePhoneNumber(raw, false, defaultCountry);
   return res.formatted || (raw ? raw.trim() : '');
 }
+
+/**
+ * Stored form of a phone number: E.164 ("+9779841123456") when it parses,
+ * otherwise the trimmed input (validation reports the problem separately).
+ */
+export function toE164Phone(raw?: string | null, defaultCountry: CountryCode = 'NP'): string {
+  const clean = (raw ?? '').trim();
+  if (!clean) return '';
+  try {
+    const parsed = parsePhoneNumberFromString(clean, metadata) || parsePhoneNumberFromString(clean, defaultCountry, metadata);
+    return parsed && parsed.isValid() ? parsed.number : clean;
+  } catch {
+    return clean;
+  }
+}

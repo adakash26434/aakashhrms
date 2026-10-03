@@ -4,7 +4,12 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as designationRepository from "@/lib/repositories/designation.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as engine from "@/lib/engines/employee.engine";
-import type { Employee, EmployeeFormData, EmployeeRegisterData, EmployeeValidationErrors } from "@/lib/types/employee";
+import type { Employee, EmployeeFormContext, EmployeeFormData, EmployeeRegisterData, EmployeeValidationErrors } from "@/lib/types/employee";
+import { toE164Phone } from "@/lib/utils/phone";
+import { EMPLOYEE_CATEGORIES } from "@/lib/types/system-control";
+import { findAllEmploymentTypes } from "@/lib/repositories/employment-type.repository";
+import * as roleService from "@/lib/services/role.service";
+import * as userService from "@/lib/services/user.service";
 import { getDb } from "@/lib/db";
 import { employeeSalaryMap, employeeSalaryHeads, payHeads, loans, loanTypes, leaveApplications, leaveOtCalculations, payrollSlips, leaveSalaryRuns, systemConfig } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -287,7 +292,11 @@ export async function saveEmployee(
   accessOptions?: EmployeeAccessOptions
 ): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
-  const errors = engine.validateEmployee(formData);
+  const errors = {
+    ...engine.validateEmployee(formData),
+    // Codes are unique company-wide; say so on the field instead of failing on the constraint.
+    ...engine.codeConflicts(await repository.findAllCodes(), formData, id),
+  };
   if (Object.keys(errors).length > 0) {
     throw new EmployeeValidationError(errors);
   }
@@ -324,8 +333,8 @@ export async function saveEmployee(
     votersId: formData.votersId || null,
     voterIdIssuingDistrict: formData.voterIdIssuingDistrict || null,
     panNumber: formData.panNumber || null,
-    phoneHome: formData.phoneHome || null,
-    mobileNo: formData.mobileNo,
+    phoneHome: toE164Phone(formData.phoneHome) || null,
+    mobileNo: toE164Phone(formData.mobileNo),
     email: formData.companyEmail || formData.email,
     companyEmail: formData.companyEmail || formData.email,
     personalEmail: formData.personalEmail || null,
@@ -686,3 +695,149 @@ export async function deleteEmployee(id: string) {
 
   return repository.remove(id);
 }
+
+// ---------------------------------------------------------------------------
+// Full-page form (4.2)
+// ---------------------------------------------------------------------------
+
+function toDateValue(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export const EMPTY_EMPLOYEE_FORM: EmployeeFormData = {
+  attendanceCode: "", employeeCode: "", fullName: "", gender: "Male", dateOfBirth: "", taxStatus: "Normal Single", isDisabled: false,
+  category: "Permanent", shreni: "", departmentId: "", designationId: "", branchId: "", isSupervisor: false, supervisorId: "",
+  joiningDate: "", confirmationDate: "", status: "Active", basicSalary: 0, gradePercent: 0, gradeCount: 0, gradeAmount: 0,
+  citizenshipNo: "", issuingDistrict: "", nidNo: "", nidIssuingDistrict: "", passportNo: "", passportIssuingDistrict: "",
+  votersId: "", voterIdIssuingDistrict: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
+  personalEmail: "", permanentAddress: "", temporaryAddress: "", fatherName: "", motherName: "", spouseName: "",
+  grandfatherName: "", bankName: "", bankBranch: "", bankAccountNumber: "", informedDate: "", terminationDate: "",
+  terminationType: "", terminationReason: "", terminationPlan: "", terminationRemarks: "",
+};
+
+export function employeeToForm(emp: Employee): EmployeeFormData {
+  return {
+    ...EMPTY_EMPLOYEE_FORM,
+    attendanceCode: emp.attendanceCode,
+    employeeCode: emp.employeeCode,
+    fullName: emp.fullName,
+    gender: emp.gender,
+    dateOfBirth: toDateValue(emp.dateOfBirth),
+    taxStatus: emp.taxStatus,
+    isDisabled: emp.isDisabled,
+    category: emp.category,
+    shreni: emp.shreni,
+    departmentId: emp.departmentId,
+    designationId: emp.designationId,
+    branchId: emp.branchId,
+    isSupervisor: !!emp.isSupervisor,
+    supervisorId: emp.supervisorId || "",
+    joiningDate: toDateValue(emp.joiningDate),
+    confirmationDate: toDateValue(emp.confirmationDate),
+    status: emp.status,
+    basicSalary: emp.basicSalary ?? 0,
+    gradePercent: emp.gradePercent,
+    gradeCount: emp.gradeCount ?? 0,
+    gradeAmount: emp.gradeAmount,
+    citizenshipNo: emp.citizenshipNo,
+    issuingDistrict: emp.issuingDistrict,
+    nidNo: emp.nidNo || "",
+    nidIssuingDistrict: emp.nidIssuingDistrict || "",
+    passportNo: emp.passportNo || "",
+    passportIssuingDistrict: emp.passportIssuingDistrict || "",
+    votersId: emp.votersId || "",
+    voterIdIssuingDistrict: emp.voterIdIssuingDistrict || "",
+    panNumber: emp.panNumber || "",
+    phoneHome: emp.phoneHome || "",
+    mobileNo: emp.mobileNo,
+    email: emp.companyEmail || emp.email || "",
+    companyEmail: emp.companyEmail || emp.email || "",
+    personalEmail: emp.personalEmail || "",
+    permanentAddress: emp.permanentAddress || "",
+    temporaryAddress: emp.temporaryAddress || "",
+    fatherName: emp.fatherName || "",
+    motherName: emp.motherName || "",
+    spouseName: emp.spouseName || "",
+    grandfatherName: emp.grandfatherName || "",
+    bankName: emp.bankName,
+    bankBranch: emp.bankBranch,
+    bankAccountNumber: emp.bankAccountNumber,
+    informedDate: toDateValue(emp.informedDate),
+    terminationDate: toDateValue(emp.terminationDate),
+    terminationType: emp.terminationType || "",
+    terminationReason: emp.terminationReason || "",
+    terminationPlan: emp.terminationPlan || "",
+    terminationRemarks: emp.terminationRemarks || "",
+  };
+}
+
+/**
+ * Everything the full-page form needs (4.2). Branch and department choices are
+ * limited to the user's scope (the save re-checks, S18). Codes for the whole
+ * company are included (codes only) so suggestions and duplicate hints are
+ * right for branch-scoped users too.
+ */
+export async function getEmployeeFormContext(scope: ScopeFilter, employee: Employee | null): Promise<EmployeeFormContext> {
+  const [lookups, codes, employmentTypes, roles, access] = await Promise.all([
+    getEmployeeLookupData(scope),
+    repository.findAllCodes(),
+    findAllEmploymentTypes().catch(() => []),
+    roleService.getAllRoles(),
+    employee ? userService.getEmployeeAccess(employee.id) : Promise.resolve(null),
+  ]);
+
+  // GLOBAL users see everything; BRANCH / DEPARTMENT users only what they can place into (plus the current value).
+  const branches =
+    scope.scopeType === "GLOBAL" || scope.scopeType === "DEPARTMENT"
+      ? lookups.branches
+      : lookups.branches.filter((b) => b.id === employee?.branchId || scope.branchIds.includes(b.id));
+  const departments =
+    scope.scopeType === "GLOBAL" || scope.scopeType === "BRANCH"
+      ? lookups.departments
+      : lookups.departments.filter((d) => d.id === employee?.departmentId || scope.departmentIds.includes(d.id));
+
+  const initial: EmployeeFormData = employee
+    ? employeeToForm(employee)
+    : {
+        ...EMPTY_EMPLOYEE_FORM,
+        employeeCode: engine.getNextEmployeeCode(codes.map((c) => c.employeeCode)),
+        attendanceCode: engine.getNextAttendanceCode(codes.map((c) => c.attendanceCode), "ATD-"),
+        branchId: branches.length === 1 ? branches[0].id : "",
+        departmentId: departments.length === 1 ? departments[0].id : "",
+      };
+
+  const categories = employmentTypes.length
+    ? employmentTypes.map((t) => ({ value: t.name, label: t.name }))
+    : EMPLOYEE_CATEGORIES.map((c) => ({ value: c as string, label: c === "OutSource" ? "Outsourced" : c }));
+  if (initial.category && !categories.some((c) => c.value === initial.category)) {
+    categories.unshift({ value: initial.category, label: initial.category });
+  }
+
+  return {
+    employeeId: employee?.id ?? null,
+    initial,
+    branches,
+    departments,
+    designations: lookups.designations,
+    categories,
+    shreniLevels: (lookups.shreniLevels ?? []).map((l) => ({ code: l.code, name: l.name, labelNepali: l.labelNepali, minSalary: l.minSalary })),
+    gradePolicy: lookups.gradePolicy ?? null,
+    supervisors: lookups.employees
+      .filter((e) => e.isSupervisor && e.id !== employee?.id)
+      .map((e) => ({ id: e.id, name: e.name, employeeCode: e.employeeCode })),
+    codes,
+    roles: roles.map((r) => ({ id: r.id, name: r.name, slug: r.slug })),
+    access: access
+      ? {
+          email: access.email,
+          roleId: access.roleId ?? null,
+          roleName: access.roleName ?? null,
+          state: !access.isActive ? "disabled" : access.mustChangePassword ? "pending" : "active",
+        }
+      : null,
+  };
+}
+

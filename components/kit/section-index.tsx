@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { ENTER_FIELD_SELECTOR } from "@/lib/kit/form-nav";
 import { cn } from "@/lib/utils";
+import { scrollIntoContainer } from "./scroll-into-view";
 
 export interface SectionIndexItem {
   /** The id of the section element on the page. */
@@ -17,7 +18,7 @@ export interface SectionIndexItem {
 function jumpTo(id: string) {
   const section = document.getElementById(id);
   if (!section) return;
-  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  scrollIntoContainer(section, { block: "start" });
   // Start typing straight away, as in a desktop form.
   const first = Array.from(section.querySelectorAll<HTMLElement>(ENTER_FIELD_SELECTOR)).find(
     (el) => !(el as HTMLInputElement).disabled && !(el as HTMLInputElement).readOnly

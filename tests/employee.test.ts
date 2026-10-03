@@ -1,8 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { attendanceMonth, historySummary, registerCounts, resolveRecordTab, tenureLabel, toEmployeeListRow, type RegisterNames } from '../lib/engines/employee.engine';
+import { attendanceMonth, codeConflicts, historySummary, registerCounts, resolveRecordTab, sectionProgress, tenureLabel, toEmployeeListRow, validateEmployeeField, type RegisterNames } from '../lib/engines/employee.engine';
+import { EMPTY_EMPLOYEE_FORM } from '../lib/services/employee.service';
+import { EMPLOYEE_FORM_SECTIONS, EMPLOYEE_FIELD_LABELS } from '../lib/constants/employee-form';
+import type { EmployeeFormData } from '../lib/types/employee';
 import type { Employee } from '../lib/types/employee';
 
 const names: RegisterNames = {
@@ -120,5 +123,56 @@ describe('Employee record page (4.2)', () => {
     const payroll = readFileSync(join(root, 'lib/repositories/payroll.repository.ts'), 'utf8');
     const slips = payroll.slice(payroll.indexOf('export async function findSlipsByEmployee('));
     assert.ok(!/bankAccountNumber/.test(slips.slice(0, slips.indexOf('\n}\n'))));
+  });
+});
+
+describe('Employee form (4.2)', () => {
+  const filled: EmployeeFormData = {
+    ...EMPTY_EMPLOYEE_FORM,
+    employeeCode: 'EMP-010', attendanceCode: 'ATD-010', fullName: 'Sita Rai', dateOfBirth: '1995-04-14',
+    departmentId: 'd1', designationId: 'g1', branchId: 'b1', shreni: 'L5', joiningDate: '2023-07-17', basicSalary: 30000,
+    citizenshipNo: '27-01-75-12345', issuingDistrict: 'Kaski', companyEmail: 'sita@example.test', mobileNo: '+9779841123456',
+    permanentAddress: JSON.stringify({ province: 'P4', district: 'Kaski', localLevel: 'Pokhara Metropolitan City', wardNo: '4', tole: '' }),
+    fatherName: 'A', motherName: 'B', grandfatherName: 'C', bankName: 'Nabil Bank Limited', bankBranch: 'Lakeside', bankAccountNumber: '001122',
+  };
+
+  it('checks one field with the same rules the server uses', () => {
+    assert.equal(validateEmployeeField(filled, 'fullName'), null);
+    assert.equal(validateEmployeeField({ ...filled, fullName: ' ' }, 'fullName'), 'Full name is required');
+    assert.match(validateEmployeeField({ ...filled, panNumber: '12345' }, 'panNumber') ?? '', /9 digits/);
+    assert.equal(validateEmployeeField({ ...filled, panNumber: '' }, 'panNumber'), null);
+    assert.match(validateEmployeeField({ ...filled, dateOfBirth: '2015-01-01' }, 'dateOfBirth') ?? '', /18/);
+    assert.equal(validateEmployeeField({ ...filled, spouseName: '' }, 'spouseName'), null);
+    assert.match(validateEmployeeField({ ...filled, taxStatus: 'Married', spouseName: '' }, 'spouseName') ?? '', /Spouse/);
+    assert.equal(validateEmployeeField(filled, 'gender'), null); // no rule
+  });
+
+  it('finds duplicate codes company-wide, case-insensitively, ignoring the record itself', () => {
+    const codes = [{ id: 'x', employeeCode: 'EMP-010', attendanceCode: 'atd-010' }];
+    assert.deepEqual(Object.keys(codeConflicts(codes, filled, null)).sort(), ['attendanceCode', 'employeeCode']);
+    assert.deepEqual(codeConflicts(codes, filled, 'x'), {});
+  });
+
+  it('reports section progress for the section index', () => {
+    const empty = sectionProgress(EMPTY_EMPLOYEE_FORM, {});
+    assert.equal(empty.find((p) => p.id === 'identification')?.state, 'todo');
+    assert.equal(empty.find((p) => p.id === 'access')?.state, 'optional');
+    const done = sectionProgress(filled, {});
+    assert.ok(done.filter((p) => p.id !== 'access' && p.id !== 'separation').every((p) => p.state === 'complete'), JSON.stringify(done));
+    assert.equal(sectionProgress({ ...filled, taxStatus: 'Married' }, {}).find((p) => p.id === 'family')?.state, 'todo');
+    assert.deepEqual(sectionProgress(filled, { panNumber: 'x', citizenshipNo: 'y' }).find((p) => p.id === 'documents'), { id: 'documents', label: 'Identity documents', state: 'error', errors: 2 });
+  });
+
+  it('labels every field the form lays out', () => {
+    for (const section of EMPLOYEE_FORM_SECTIONS) for (const f of section.fields) assert.ok(EMPLOYEE_FIELD_LABELS[f], f);
+  });
+
+  it('keeps PII out of browser storage (standing measure 3, S18)', () => {
+    const root = join(__dirname, '..');
+    for (const file of readdirSync(join(root, 'components/employee'))) {
+      const src = readFileSync(join(root, 'components/employee', file), 'utf8');
+      assert.ok(!/sessionStorage/.test(src), file);
+      assert.ok(!/localStorage\.setItem\((?!QUICK_VIEW_KEY)/.test(src), file);
+    }
   });
 });

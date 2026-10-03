@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
+import { scrollIntoContainer } from "./scroll-into-view";
 import { ENTER_FIELD_SELECTOR, enterIntent, isEnterStop, selectsOnArrival, stepFieldIndex } from "@/lib/kit/form-nav";
 
 export interface EnterNavigationOptions {
@@ -43,7 +44,7 @@ function stops(form: HTMLElement): HTMLElement[] {
 
 function arrive(el: HTMLElement) {
   el.focus({ preventScroll: true });
-  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  scrollIntoContainer(el);
   if (el instanceof HTMLInputElement && selectsOnArrival(el.type)) el.select();
 }
 
@@ -75,7 +76,7 @@ export function useEnterNavigation(formRef: RefObject<HTMLFormElement | null>, o
         const end = optionsRef.current.end?.();
         if (end) {
           end.focus();
-          end.scrollIntoView({ block: "nearest" });
+          scrollIntoContainer(end);
           return true;
         }
       }

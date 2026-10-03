@@ -171,7 +171,7 @@ export function WindowButton({
   children,
   variant = "default",
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "primary" | "danger" }) {
+}: React.ComponentProps<"button"> & { variant?: "default" | "primary" | "danger" }) {
   return (
     <button
       type="button"

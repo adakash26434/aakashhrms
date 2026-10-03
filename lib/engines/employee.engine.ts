@@ -7,7 +7,7 @@ import type {
   EmployeeRecordTab,
   EmployeeValidationErrors,
 } from "@/lib/types/employee";
-import { fieldLabel } from "@/lib/constants/employee-form";
+import { EMPLOYEE_FORM_SECTIONS, fieldLabel, type EmployeeField, type EmployeeFormSection } from "@/lib/constants/employee-form";
 import { maskAccountNumber } from "@/lib/utils/mask";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { validatePhoneNumber } from "@/lib/utils/phone";
@@ -673,3 +673,80 @@ export function tenureLabel(joining: Date | string | null | undefined, today: Da
   const rest = months % 12;
   return [years ? `${years} yr` : "", rest ? `${rest} mo` : ""].filter(Boolean).join(" ");
 }
+
+// ---------------------------------------------------------------------------
+// Full-page form (4.2): per-field checks for Enter-to-next, duplicate codes,
+// and section progress for the section index.
+// ---------------------------------------------------------------------------
+
+/** Which of the existing rule groups checks each field. */
+const FIELD_RULE_GROUP: Partial<Record<EmployeeField, number>> = {
+  employeeCode: 0, attendanceCode: 0, fullName: 0, dateOfBirth: 0,
+  departmentId: 1, branchId: 1, designationId: 1, shreni: 1, gradeCount: 1, gradeAmount: 1, joiningDate: 1, confirmationDate: 1,
+  citizenshipNo: 2, issuingDistrict: 2, nidNo: 2, nidIssuingDistrict: 2, passportNo: 2, passportIssuingDistrict: 2,
+  votersId: 2, voterIdIssuingDistrict: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2,
+  fatherName: 3, motherName: 3, grandfatherName: 3, spouseName: 3,
+  bankName: 4, bankBranch: 4, bankAccountNumber: 4, informedDate: 4, terminationDate: 4, terminationType: 4, terminationReason: 4,
+};
+
+/**
+ * The error for one field, using exactly the rules the server applies on save
+ * (validateEmployeeTab). Null when the field is fine or has no rule.
+ */
+export function validateEmployeeField(data: EmployeeFormData, field: EmployeeField): string | null {
+  const group = FIELD_RULE_GROUP[field];
+  if (group === undefined) return null;
+  return validateEmployeeTab(data, group)[field] ?? null;
+}
+
+/** Duplicate employee / attendance codes against every code in the company (codes only). */
+export function codeConflicts(
+  codes: readonly { id: string; employeeCode: string; attendanceCode: string }[],
+  data: Pick<EmployeeFormData, "employeeCode" | "attendanceCode">,
+  excludeId: string | null
+): EmployeeValidationErrors {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const others = codes.filter((c) => c.id !== excludeId);
+  const errors: EmployeeValidationErrors = {};
+  if (data.employeeCode?.trim() && others.some((c) => same(c.employeeCode, data.employeeCode))) {
+    errors.employeeCode = `Employee code ${data.employeeCode.trim()} is already used`;
+  }
+  if (data.attendanceCode?.trim() && others.some((c) => same(c.attendanceCode, data.attendanceCode))) {
+    errors.attendanceCode = `Attendance code ${data.attendanceCode.trim()} is already used`;
+  }
+  return errors;
+}
+
+function isFilled(data: EmployeeFormData, field: EmployeeField): boolean {
+  const value = data[field];
+  if (typeof value === "number") return value > 0;
+  if (typeof value === "boolean") return true;
+  if (field === "permanentAddress") {
+    const a = parseStructuredAddress(String(value ?? ""));
+    return !!(a.province && a.district && a.localLevel);
+  }
+  return typeof value === "string" && value.trim() !== "";
+}
+
+export interface SectionProgress {
+  id: string;
+  label: string;
+  state: "complete" | "error" | "todo" | "optional";
+  errors: number;
+}
+
+/** Done / errors / still to fill, per form section (section index and error summary). */
+export function sectionProgress(
+  data: EmployeeFormData,
+  errors: EmployeeValidationErrors,
+  sections: readonly EmployeeFormSection[] = EMPLOYEE_FORM_SECTIONS
+): SectionProgress[] {
+  return sections.map((section) => {
+    const count = section.fields.filter((f) => errors[f]).length;
+    const required = [...section.required];
+    if (section.id === "family" && data.taxStatus === "Married") required.push("spouseName");
+    const state = count > 0 ? "error" : required.length === 0 ? "optional" : required.every((f) => isFilled(data, f)) ? "complete" : "todo";
+    return { id: section.id, label: section.label, state, errors: count };
+  });
+}
+

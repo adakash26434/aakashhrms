@@ -1,4 +1,4 @@
-import type { EmployeeCategory } from "./system-control";
+import type { EmployeeCategory, GradePolicySettings } from "./system-control";
 
 export type EmployeeStatus = "Active" | "Inactive";
 /**
@@ -340,4 +340,26 @@ export interface EmployeeRecordData {
   /** A tab whose data could not be loaded (shown as an error, not a crash). */
   failed: boolean;
   permissions: { edit: boolean; remove: boolean };
+}
+
+
+// ---------------------------------------------------------------------------
+// Full-page form (4.2): /workforce/employees/new and /[id]/edit
+// ---------------------------------------------------------------------------
+
+export interface EmployeeFormContext {
+  /** Present when editing. The form holds the full bank account: it needs EDIT permission. */
+  employeeId: string | null;
+  initial: EmployeeFormData;
+  branches: { id: string; name: string }[];
+  departments: { id: string; name: string }[];
+  designations: { id: string; name: string; departmentId: string }[];
+  categories: { value: string; label: string }[];
+  shreniLevels: { code: string; name: string; labelNepali?: string; minSalary?: number }[];
+  gradePolicy: GradePolicySettings | null;
+  supervisors: { id: string; name: string; employeeCode: string }[];
+  /** Every code in the company, for the next-code suggestion and duplicate hints. */
+  codes: { id: string; employeeCode: string; attendanceCode: string }[];
+  roles: { id: string; name: string; slug: string }[];
+  access: { email: string; roleId: string | null; roleName: string | null; state: "active" | "pending" | "disabled" } | null;
 }

@@ -1,59 +1,23 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { EmployeeCreateFlow } from "@/components/employee/employee-create-flow";
-import {
-  getEmployeeInScope,
-  getEmployeeLookupData,
-} from "@/lib/services/employee.service";
+import { EmployeeForm } from "@/components/employee/employee-form";
+import { getEmployeeFormContext, getEmployeeInScope } from "@/lib/services/employee.service";
 import { ensureTenantContext } from "@/lib/db";
 import { checkPermissionWithScope } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
-  title: "Edit Employee | AakashHRMS",
-  description: "Update employee record and workforce details.",
+  title: "Edit employee | AakashHRMS",
+  description: "Update an employee record.",
 };
 
-interface EditEmployeePageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default async function EditEmployeePage({
-  params,
-}: EditEmployeePageProps) {
-  const { id } = await params;
+export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("EDIT", "EMPLOYEES");
-
-  let employee = null;
-  let lookupData = null;
-
-  try {
-    const [emp, lookups] = await Promise.all([
-      getEmployeeInScope(id, scope, "EDIT"),
-      getEmployeeLookupData(scope),
-    ]);
-    employee = emp;
-    lookupData = lookups;
-  } catch {
-    notFound();
-  }
-
-  if (!employee || !lookupData) {
-    notFound();
-  }
-
-  return (
-    <EmployeeCreateFlow
-      editingId={id}
-      initialEmployee={employee}
-      branches={lookupData.branches}
-      departments={lookupData.departments}
-      designations={lookupData.designations}
-      employees={lookupData.employees}
-      industryType={lookupData.industryType}
-      shreniLevels={lookupData.shreniLevels}
-      gradePolicy={lookupData.gradePolicy}
-    />
-  );
+  const { id } = await params;
+  // Missing, malformed and out-of-scope ids all read as not found (S18).
+  const employee = await getEmployeeInScope(id, scope, "EDIT");
+  if (!employee) notFound();
+  const ctx = await getEmployeeFormContext(scope, employee);
+  return <EmployeeForm ctx={ctx} />;
 }

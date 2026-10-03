@@ -23,6 +23,7 @@ export interface ComboboxProps {
   /** Text when nothing matches. */
   emptyText?: string;
   className?: string;
+  "aria-label"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
   "aria-required"?: boolean;
@@ -62,7 +63,12 @@ export function Combobox({
   // Keep the highlighted option in view while arrowing through a long list.
   useEffect(() => {
     if (!open || highlight < 0) return;
-    listRef.current?.querySelector<HTMLElement>(`[data-index="${highlight}"]`)?.scrollIntoView({ block: "nearest" });
+    // Scroll the list only (never the page around it).
+    const list = listRef.current;
+    const item = list?.querySelector<HTMLElement>(`[data-index="${highlight}"]`);
+    if (!list || !item) return;
+    if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop;
+    else if (item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight;
   }, [open, highlight]);
 
   const openList = () => {

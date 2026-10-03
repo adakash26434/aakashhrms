@@ -190,6 +190,17 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
   return Array.from(uniqueEmpsMap.values()).map(mapRowToEmployee);
 }
 
+/**
+ * Every employee and attendance code in the company (codes only). Used to
+ * suggest the next code and to catch duplicates across branches, which a
+ * branch-scoped user cannot otherwise see.
+ */
+export async function findAllCodes(): Promise<{ id: string; employeeCode: string; attendanceCode: string }[]> {
+  return (await getDb())
+    .select({ id: employees.id, employeeCode: employees.employeeCode, attendanceCode: employees.attendanceCode })
+    .from(employees);
+}
+
 export async function findById(id: string): Promise<Employee | undefined> {
   const rows = await (await getDb())
     .select()
