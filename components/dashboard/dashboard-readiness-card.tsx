@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClipboardCheck, ShieldCheck } from "lucide-react";
 import { Panel } from "@/components/kit/panel";
+import { EmptyState } from "@/components/kit/empty-state";
 import { TONE_CLASSES } from "@/components/kit/status-chip";
 import type { ReadinessIssue } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
@@ -9,7 +10,7 @@ import { cn } from "@/lib/utils";
 export function DashboardReadinessCard({ checked, issues }: { checked: number; issues: ReadinessIssue[] }) {
   const affected = issues.reduce((n, i) => n + i.count, 0);
   return (
-    <Panel level={3}
+    <Panel level={3} bodyMaxHeight="max-h-80"
       id="dashboard-readiness"
       title="Records to fix"
       icon={<ClipboardCheck />}
@@ -20,9 +21,7 @@ export function DashboardReadinessCard({ checked, issues }: { checked: number; i
       hrefLabel="Employees"
     >
       {issues.length === 0 ? (
-        <p className="flex items-center gap-2 p-4 text-xs text-success">
-          <ShieldCheck className="h-4 w-4 shrink-0" /> Every active employee has a PAN, a bank account and a basic salary.
-        </p>
+        <EmptyState className="h-full py-6" icon={<ShieldCheck className="h-5 w-5 text-success" />} title="All records ready" description="Every active employee has a PAN, a bank account and a basic salary." />
       ) : (
         <ul className="divide-y divide-line">
           {issues.map((issue) => (

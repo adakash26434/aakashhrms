@@ -13,6 +13,21 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.1 dashboard: equal-height cards, scrolling lists, empty states (sign-off pending)
+Branch: `redesign/4.1-home`
+
+Changed (your review: cards in a row had different heights, which looked untidy with little data or long lists):
+- **Rows line up:** every card row stretches to its tallest card (department + liabilities, the three attention cards, attendance + leave, headcount + coming up + activity).
+- **Height cap with scrolling:** new kit `Panel` option `bodyMaxHeight`.
+  - A row grows with its content up to 320px of body; longer lists scroll inside the card.
+  - Thin quiet scrollbar (`scroll-thin` utility); the title bar and the department table header stay fixed.
+  - The scroll area is focusable and labelled, so PageDown and the arrow keys work.
+- **Empty states:** a centred icon, title and line in every list card ("All caught up", "All records ready", "Nothing coming up", "No payroll in this period"…), instead of a sentence at the top of an empty box.
+- The deadlines note sits at the bottom of its card, so its height matches its neighbours.
+- **Attendance rate** is now present ÷ (present + absent). Approved leave and days off are excused, so a company with only leave recorded shows no rate instead of 0%.
+
+Verified: `tsc` 0, lint clean on touched files, 359/359 tests, build OK. In the browser, cards in each row measured equal on real data (233 / 234 / 275 px rows), the preview (338–362) and the empty company. A 20-row list scrolls inside a 320px body by mouse and keyboard while its neighbour keeps the same height. No overflow at 390px, 0 console errors.
+
 ## 2026-10-03 — 4.1 dashboard enhancements: pay run banner, liabilities, coming up (sign-off pending)
 Branch: `redesign/4.1-home`
 

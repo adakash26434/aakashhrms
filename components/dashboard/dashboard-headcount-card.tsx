@@ -1,5 +1,6 @@
 import { UsersRound } from "lucide-react";
 import { Panel } from "@/components/kit/panel";
+import { EmptyState } from "@/components/kit/empty-state";
 
 /** Active employees by department (scoped). */
 export function DashboardHeadcountCard({ headcount }: { headcount: { name: string; count: number }[] }) {
@@ -8,9 +9,9 @@ export function DashboardHeadcountCard({ headcount }: { headcount: { name: strin
   const shown = headcount.slice(0, 7);
   const rest = headcount.slice(7).reduce((n, d) => n + d.count, 0);
   return (
-    <Panel level={3} id="dashboard-headcount" title="Headcount" icon={<UsersRound />} meta={`${total.toLocaleString("en-IN")} active`} href="/workforce/organization" hrefLabel="Organisation">
+    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-headcount" title="Headcount" icon={<UsersRound />} meta={`${total.toLocaleString("en-IN")} active`} href="/workforce/organization" hrefLabel="Organisation">
       {total === 0 ? (
-        <p className="p-4 text-xs text-ink-muted">No active employees yet.</p>
+        <EmptyState className="h-full py-6" icon={<UsersRound className="h-5 w-5" />} title="No active employees" description="Add employees to see them by department." />
       ) : (
         <ul className="space-y-1.5 p-4">
           {shown.map((d) => (

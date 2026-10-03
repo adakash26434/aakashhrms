@@ -245,6 +245,14 @@ always darker than its rows. The page is grouped into labelled sections
 (Payroll · Needs attention · People) 32px apart, with 20px between cards and
 16px card padding.
 
+Card heights: every row of cards stretches to its tallest card, so cards side
+by side always line up. List cards use `Panel bodyMaxHeight="max-h-80"`: the
+row grows with content up to 320px of body, then the list scrolls inside the
+card (thin scrollbar, title bar fixed, focusable and labelled so the keyboard
+can scroll it). Lists stay short: latest 8 activity entries, 5 oldest
+approvals, 8 upcoming events, with the rest a link away. Empty cards show a
+centred icon, title and one line, never a lone sentence at the top of a box.
+
 Chart colours: `CHART_COLORS` / `CHART_THEME` in `lib/constants/colors.ts`;
 series and legends in `components/dashboard/dashboard-chart-series.ts`.
 Figures come from payslips (as the salary sheet does), not from stored run

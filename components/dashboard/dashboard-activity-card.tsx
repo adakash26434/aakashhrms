@@ -2,6 +2,7 @@
 
 import { History } from "lucide-react";
 import { Panel } from "@/components/kit/panel";
+import { EmptyState } from "@/components/kit/empty-state";
 import { DateCell } from "@/components/kit/date-cell";
 import { TONE_CLASSES } from "@/components/kit/status-chip";
 import type { DashboardActivity } from "@/lib/types/dashboard";
@@ -20,9 +21,9 @@ function timeLabel(iso: string, todayIso: string) {
 /** The latest audit-log entries (AUDIT_LOG permission only); denials are highlighted. */
 export function DashboardActivityCard({ activity, todayIso }: { activity: DashboardActivity[]; todayIso: string }) {
   return (
-    <Panel level={3} id="dashboard-activity" title="Recent activity" icon={<History />} href="/admin/audit-log" hrefLabel="Audit log">
+    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-activity" title="Recent activity" icon={<History />} href="/admin/audit-log" hrefLabel="Audit log">
       {activity.length === 0 ? (
-        <p className="p-4 text-xs text-ink-muted">Changes people make will be listed here.</p>
+        <EmptyState className="h-full py-6" icon={<History className="h-5 w-5" />} title="No activity yet" description="Changes people make will be listed here." />
       ) : (
         <table className="w-full text-xs">
           <caption className="sr-only">Latest audit log entries</caption>

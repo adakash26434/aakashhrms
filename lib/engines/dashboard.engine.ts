@@ -590,15 +590,19 @@ export function statutorySummary(t: CostTotals): StatutorySummary {
   return { total: t.statutory, rows: rows.filter((r) => r.amount > 0) };
 }
 
-/** Present (incl. half days) as a share of recorded working attendance; null when nothing was recorded. */
+/**
+ * Attendance rate: present (incl. half days) ÷ (present + absent). Approved
+ * leave and days off are excused, so they count neither way; null when no
+ * presence or absence was recorded.
+ */
 export function attendanceRate(days: AttendanceDayCounts[]): number | null {
   let present = 0;
-  let worked = 0;
+  let expected = 0;
   for (const d of days) {
     present += d.present;
-    worked += d.present + d.absent + d.leave;
+    expected += d.present + d.absent;
   }
-  return worked > 0 ? Math.round((present / worked) * 1000) / 10 : null;
+  return expected > 0 ? Math.round((present / expected) * 1000) / 10 : null;
 }
 
 /** Which month of the Nepal fiscal year (Shrawan = 1) a BS month is. */

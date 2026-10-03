@@ -270,9 +270,9 @@ describe('Dashboard: statutory, attendance rate, fiscal progress', () => {
     assert.deepEqual(s.rows.map((r) => r.id), ['tds', 'ssfEmployee', 'ssfEmployer', 'cit']); // zero PF rows dropped
   });
 
-  it('attendance rate is present over recorded working days, null when nothing recorded', () => {
-    assert.equal(attendanceRate([{ date: 'x', day: 1, present: 8, leave: 1, absent: 1, off: 5, notRecorded: 3 }]), 80);
-    assert.equal(attendanceRate([{ date: 'x', day: 1, present: 0, leave: 0, absent: 0, off: 2, notRecorded: 9 }]), null);
+  it('attendance rate is present over present + absent; leave and days off are excused', () => {
+    assert.equal(attendanceRate([{ date: 'x', day: 1, present: 8, leave: 1, absent: 2, off: 5, notRecorded: 3 }]), 80);
+    assert.equal(attendanceRate([{ date: 'x', day: 1, present: 0, leave: 1, absent: 0, off: 2, notRecorded: 9 }]), null);
   });
 
   it('counts fiscal-year months from Shrawan', () => {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarCheck2, CheckCircle2 } from "lucide-react";
 import { Panel } from "@/components/kit/panel";
+import { EmptyState } from "@/components/kit/empty-state";
 import { DateCell } from "@/components/kit/date-cell";
 import type { ApprovalPreviewItem } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ export const APPROVALS_HREF = "/timeAndLeave/leaves?tab=approvals";
  */
 export function DashboardApprovalsCard({ total, items, scopeLabel }: { total: number; items: ApprovalPreviewItem[]; scopeLabel: string | null }) {
   return (
-    <Panel level={3}
+    <Panel level={3} bodyMaxHeight="max-h-80"
       id="dashboard-approvals"
       title="Pending approvals"
       icon={<CalendarCheck2 />}
@@ -27,9 +28,7 @@ export function DashboardApprovalsCard({ total, items, scopeLabel }: { total: nu
       hrefLabel={total > 0 ? "Review" : "Open"}
     >
       {total === 0 ? (
-        <p className="flex items-center gap-2 p-4 text-xs text-ink-muted">
-          <CheckCircle2 className="h-4 w-4 text-success" /> No leave requests are waiting.
-        </p>
+        <EmptyState className="h-full py-6" icon={<CheckCircle2 className="h-5 w-5 text-success" />} title="All caught up" description="No leave requests are waiting for a decision." />
       ) : (
         <ul className="divide-y divide-line">
           {items.map((item) => (

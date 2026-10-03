@@ -224,7 +224,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 </div>
               )}
               {(data.departmentCost || data.statutory) && (
-                <div className="grid items-start gap-5 xl:grid-cols-3">
+                <div className="grid items-stretch gap-5 xl:grid-cols-3">
                   {data.departmentCost && (
                     <div className={data.statutory ? "xl:col-span-2" : "xl:col-span-3"}>
                       <DashboardDepartmentCostCard departments={data.departmentCost} periodLabel={filters.period.label} />
@@ -238,14 +238,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
           {attentionCards.length > 0 && (
             <DashboardSection title="Needs attention" description="Deposits, approvals and records to fix">
-              <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">{attentionCards}</div>
+              <div className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">{attentionCards}</div>
             </DashboardSection>
           )}
 
           {hasPeople && (
             <DashboardSection title="People" description={data.attendance?.monthLabel}>
               {(data.attendance || attendanceFailed || hasLeave) && (
-                <div className="grid items-start gap-5 xl:grid-cols-3">
+                <div className="grid items-stretch gap-5 xl:grid-cols-3">
                   {data.attendance && (
                     <Panel
                       level={3}
@@ -278,7 +278,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 </div>
               )}
               {(data.headcount || data.upcoming || data.activity || activityFailed) && (
-                <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                <div className="grid items-stretch gap-5 lg:grid-cols-2 xl:grid-cols-3">
                   {data.headcount && <DashboardHeadcountCard headcount={data.headcount} />}
                   {data.upcoming && <DashboardUpcomingCard events={data.upcoming} />}
                   {data.activity && <DashboardActivityCard activity={data.activity} todayIso={data.todayIso} />}

@@ -2,6 +2,7 @@
 
 import { CalendarClock } from "lucide-react";
 import { Panel } from "@/components/kit/panel";
+import { EmptyState } from "@/components/kit/empty-state";
 import { Amount } from "@/components/kit/amount";
 import { DateCell } from "@/components/kit/date-cell";
 import { TONE_CLASSES } from "@/components/kit/status-chip";
@@ -12,10 +13,11 @@ import { cn } from "@/lib/utils";
 /** Statutory deposit dates (TDS, SSF) with the amount from payroll when known. */
 export function DashboardDeadlinesCard({ deadlines }: { deadlines: DashboardDeadline[] }) {
   return (
-    <Panel level={3} id="dashboard-deadlines" title="Statutory deadlines" icon={<CalendarClock />} href="/reports/tax-ird" hrefLabel="Tax reports">
+    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-deadlines" title="Statutory deadlines" icon={<CalendarClock />} href="/reports/tax-ird" hrefLabel="Tax reports">
       {deadlines.length === 0 ? (
-        <p className="p-4 text-xs text-ink-muted">Nothing statutory is due in the next month.</p>
+        <EmptyState className="h-full py-6" icon={<CalendarClock className="h-5 w-5" />} title="Nothing due" description="No statutory deposits are due in the next month." />
       ) : (
+        <div className="flex min-h-full flex-col">
         <ul className="divide-y divide-line">
           {deadlines.map((d) => {
             const tone = deadlineTone(d.daysLeft);
@@ -44,8 +46,9 @@ export function DashboardDeadlinesCard({ deadlines }: { deadlines: DashboardDead
             );
           })}
         </ul>
+        <p className="mt-auto border-t border-line px-4 py-2 text-3xs text-ink-faint">Standard deposit dates. Confirm with your tax advisor.</p>
+        </div>
       )}
-      <p className="border-t border-line px-4 py-1.5 text-3xs text-ink-faint">Standard deposit dates. Confirm with your tax advisor.</p>
     </Panel>
   );
 }
