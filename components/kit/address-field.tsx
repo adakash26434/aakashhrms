@@ -15,7 +15,9 @@ import {
 } from "@/lib/constants/nepal-locations";
 import { cn } from "@/lib/utils";
 
-const PROVINCE_OPTIONS = PROVINCES.map((p) => ({ value: p.id, label: p.name, hint: p.nameNepali }));
+// English only for now (design system: "Language"); Nepali comes with the later translation pass.
+const PROVINCE_OPTIONS = PROVINCES.map((p) => ({ value: p.id, label: p.name }));
+const provinceShort = (id: string) => PROVINCES.find((p) => p.id === id)?.name.replace(/ Province$/, "") ?? "";
 
 /**
  * One address, as in the original form: province, district (narrowed to the
@@ -46,7 +48,7 @@ export function AddressField({
     () =>
       getAllDistricts()
         .filter((d) => !address.province || d.provinceId === address.province)
-        .map((d) => ({ value: d.name, label: d.name, hint: d.nameNepali })),
+        .map((d) => ({ value: d.name, label: d.name, hint: address.province ? undefined : provinceShort(d.provinceId) })),
     [address.province]
   );
   const palikas = useMemo(() => getPalikasByDistrict(address.district).map((p) => ({ value: p, label: p })), [address.district]);

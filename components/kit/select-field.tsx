@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { moveHighlight, typeaheadIndex } from "@/lib/kit/combobox";
 import { useFormNav } from "./use-enter-navigation";
+import { usePopupPosition } from "./use-popup-position";
 import { inputClass } from "./property-form";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +62,9 @@ export function SelectField({
 
   const items: SelectOption[] = allowEmpty ? [{ value: "", label: placeholder }, ...options] : [...options];
   const currentIndex = items.findIndex((o) => o.value === value);
+  // On the screen, so a scrolling Window or grid never clips the list; at least as wide as the field.
+  const placed = usePopupPosition(wrapRef, open, { height: Math.min(256, items.length * 32 + 8), matchWidth: true, maxWidth: 384 });
+  const popupStyle = placed && { ...placed, width: undefined, minWidth: placed.width };
   const selected = options.find((o) => o.value === value) ?? null;
 
   useEffect(() => {
@@ -178,7 +182,8 @@ export function SelectField({
           id={listId}
           role="listbox"
           aria-label={aria["aria-label"] ?? placeholder}
-          className="absolute left-0 top-full z-30 mt-1 max-h-64 min-w-full overflow-y-auto rounded-md border border-line-strong bg-surface py-1 shadow-lg scroll-thin"
+          style={popupStyle}
+          className="fixed z-[90] overflow-y-auto rounded-md border border-line-strong bg-surface py-1 shadow-lg scroll-thin"
         >
           {items.map((option, index) => {
             const isSelected = option.value === value;

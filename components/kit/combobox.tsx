@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { Check, ChevronDown, X } from "lucide-react";
 import { filterOptions, moveHighlight, type ComboOption } from "@/lib/kit/combobox";
 import { useFormNav } from "./use-enter-navigation";
+import { usePopupPosition } from "./use-popup-position";
 import { inputClass } from "./property-form";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,10 @@ export function Combobox({
   const [highlight, setHighlight] = useState(-1);
 
   const matches = useMemo(() => filterOptions(options, query ?? ""), [options, query]);
+  // On the screen, so a scrolling Window or grid never clips the list (lib/kit/popup.ts).
+  const placed = usePopupPosition(inputRef, open, { height: Math.min(256, Math.max(1, matches.length) * 32 + 8), matchWidth: true, maxWidth: 384 });
+  // At least as wide as the field, wider for long names (up to 24rem).
+  const popupStyle = placed && { ...placed, width: undefined, minWidth: placed.width, maxWidth: "min(24rem, calc(100vw - 1rem))" };
   const text = query ?? selected?.label ?? "";
 
   // Keep the highlighted option in view while arrowing through a long list.
@@ -197,7 +202,8 @@ export function Combobox({
           id={listId}
           role="listbox"
           aria-label={placeholder}
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-line-strong bg-surface py-1 shadow-lg scroll-thin"
+          style={popupStyle}
+          className="fixed z-[90] overflow-y-auto rounded-md border border-line-strong bg-surface py-1 shadow-lg scroll-thin"
         >
           {matches.length === 0 ? (
             <li className="px-3 py-2 text-xs text-ink-faint">{emptyText}</li>

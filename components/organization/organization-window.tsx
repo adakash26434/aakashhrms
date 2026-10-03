@@ -244,7 +244,7 @@ function EditorBody({ target, data, onClose, onSaved }: { target: EditTarget; da
           {failure}
         </p>
       )}
-      <PropertyForm onSubmit={save} enterNavigation={{ validate, end: () => saveRef.current }} className="-mx-4 -mb-4 space-y-0">
+      <PropertyForm onSubmit={save} enterNavigation={{ validate, end: () => saveRef.current }} className="-mx-4 -my-4 space-y-0">
         <div className="bg-surface-panel">
           <FormGrid columns={2}>{fields}</FormGrid>
         </div>

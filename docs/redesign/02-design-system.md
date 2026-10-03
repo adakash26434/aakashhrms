@@ -524,6 +524,16 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
 
 ## 7. Rules for contributors
 
+- **Language: English only for now (decided 2026-10-03).** Screens show no
+  Nepali (Devanagari) text: no Nepali labels, hints, column headers, form
+  fields or placeholders, in any module. Nepali names already stored (grade
+  levels' Nepali label, employment types' Nepali name, provinces and
+  districts) stay in the database but are not shown or edited. After the
+  whole system is finished in English, a separate translation pass adds
+  Nepali across the system. Use Nepali text only where something genuinely
+  requires it (for example a statutory form that must be printed in Nepali),
+  and **ask before adding it**. Typing Nepali digits into date and number
+  fields still works (they are converted); BS dates use English month names.
 - Never hard-code hex colours or `zinc-NNN` in **new** code. Use the semantic
   tokens (`bg-surface`, `text-ink-muted`, `border-line`, `bg-brand`…). See the
   token map in §3. Preview everything at `/dev/kit`, the development-only
@@ -531,6 +541,9 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
 - No arbitrary font sizes. Use the type scale.
 - New lists must use `DataGrid`, new dialogs `Window`, new forms
   `PropertyForm`.
+- Pop-ups (lists, calendars, pickers) use `usePopupPosition` (screen
+  position, flips up, never clipped by a Window or grid). Never place a pop-up
+  with `absolute top-full` inside a scrolling area.
 - Every toolbar action declares its permission. Hidden is preferred to
   disabled when the user can never perform it.
 - **File structure:** use the domain name in every layer: `app/(dashboard)/<route>`,

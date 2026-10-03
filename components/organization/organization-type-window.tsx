@@ -47,22 +47,21 @@ export function TypeFields({ form, set, errors, data, id }: FieldsProps<TypeForm
       <Row label="Name" required error={errors.name} size="md">
         <TextInput name="name" value={form.name} onChange={(v) => set("name", v)} maxLength={50} placeholder="e.g. Contract" />
       </Row>
-      <Row label="Nepali name" error={errors.nameNepali} size="lg">
-        <TextInput name="nameNepali" value={form.nameNepali} onChange={(v) => set("nameNepali", v)} placeholder="e.g. करार रोजगारी" />
-      </Row>
-      <Row label="Sort order" error={errors.rankOrder} size="xs">
-        <NumberField name="rankOrder" decimals={0} value={form.rankOrder} onChange={(v) => set("rankOrder", v)} />
-      </Row>
+      <p className="col-span-full border-t border-line pt-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted md:col-span-2">Eligible for</p>
       {FLAGS.map((f) => (
         <Row key={f.key} label={f.label} size="md" help={f.help}>
           <YesNoField name={f.key} value={form[f.key]} onChange={(v) => set(f.key, v)} />
         </Row>
       ))}
+      <p className="col-span-full border-t border-line pt-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted md:col-span-2">Terms</p>
       <Row label="Notice period" required error={errors.noticePeriodDays} size="xs" suffix="days">
-        <NumberField name="noticePeriodDays" decimals={0} value={form.noticePeriodDays} onChange={(v) => set("noticePeriodDays", v)} />
+        <NumberField name="noticePeriodDays" decimals={0} value={form.noticePeriodDays} onChange={(v) => set("noticePeriodDays", v)} showZero />
       </Row>
       <Row label="Probation" error={errors.probationMonths} size="xs" suffix="months" help="Usual probation for new employees of this type (0 = none).">
-        <NumberField name="probationMonths" decimals={0} value={form.probationMonths} onChange={(v) => set("probationMonths", v)} />
+        <NumberField name="probationMonths" decimals={0} value={form.probationMonths} onChange={(v) => set("probationMonths", v)} showZero />
+      </Row>
+      <Row label="Sort order" error={errors.rankOrder} size="xs" help="Order in lists (lowest first).">
+        <NumberField name="rankOrder" decimals={0} value={form.rankOrder} onChange={(v) => set("rankOrder", v)} showZero />
       </Row>
     </>
   );

@@ -9,6 +9,7 @@ import { nepalDateIso, toLocalDate } from "@/lib/utils/nepal-time";
 import { DATE_YEARS, dayToIso, isoToDay, isoToDisplay, monthLayout, shiftIsoDays, shiftIsoMonths } from "@/lib/kit/date-field";
 import { useFormNav } from "./use-enter-navigation";
 import { inputClass } from "./property-form";
+import { usePopupPosition } from "./use-popup-position";
 import { cn } from "@/lib/utils";
 
 const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -58,6 +59,8 @@ export function DateField({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [typed, setTyped] = useState<string | null>(null); // null = showing the stored value
   const [open, setOpen] = useState(false);
+  // On the screen (never clipped by a Window); opens upwards or shifts left when there is no room.
+  const popupStyle = usePopupPosition(wrapRef, open, { width: 288, height: 340, gap: 2 });
   const [cursor, setCursor] = useState<string>(""); // AD iso of the highlighted day
   // The calendar picks on Enter only once the user moved in it (or a date is already set),
   // so opening it by mouse and pressing Enter never fills in today by accident.
@@ -65,7 +68,6 @@ export function DateField({
   // Enter on a half-typed date shows this instead of moving on.
   const [unfinished, setUnfinished] = useState(false);
   // Open the calendar to the left when there is no room on the right (fields in the last column).
-  const [alignRight, setAlignRight] = useState(false);
   const text = typed ?? isoToDisplay(value, isBS);
   const today = useMemo(() => nepalDateIso(), []);
 
@@ -86,8 +88,6 @@ export function DateField({
     if (disabled || readOnly) return;
     setCursor(value || today);
     setMoved(false);
-    const rect = wrapRef.current?.getBoundingClientRect();
-    setAlignRight(!!rect && rect.left + 300 > window.innerWidth - 12);
     setOpen(true);
   };
 
@@ -250,7 +250,8 @@ export function DateField({
         <div
           role="dialog"
           aria-label="Choose a date"
-          className={cn("absolute top-full z-50 mt-1.5 w-72 rounded-lg border border-line-strong bg-white p-2.5 shadow-2xl", alignRight ? "right-0" : "left-0")}
+          style={popupStyle}
+          className="fixed z-[90] w-72 overflow-y-auto rounded-lg border border-line-strong bg-white p-2.5 shadow-2xl"
         >
           {/* Green header with round buttons and Month / Year drop-downs (the original design). */}
           <div className="flex items-center justify-between rounded-md bg-brand px-2.5 py-1.5 text-white shadow-xs" onMouseDown={(e) => e.target === e.currentTarget && e.preventDefault()}>

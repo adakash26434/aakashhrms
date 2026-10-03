@@ -87,7 +87,6 @@ export function OrganizationDetail({ kind, id, data, onEdit }: { kind: OrgKind; 
       return (
         <div>
           <FactBox
-            title={b.name}
             sections={[
               {
                 title: "Branch",
@@ -117,7 +116,6 @@ export function OrganizationDetail({ kind, id, data, onEdit }: { kind: OrgKind; 
       return (
         <div>
           <FactBox
-            title={d.name}
             sections={[
               {
                 title: "Department",
@@ -152,7 +150,6 @@ export function OrganizationDetail({ kind, id, data, onEdit }: { kind: OrgKind; 
       return (
         <div>
           <FactBox
-            title={g.name}
             sections={[
               { title: "Designation", facts: [{ label: "Department", value: dept?.name ?? "—" }] },
               usageSection(g.usage, href, g.headcount),
@@ -169,14 +166,12 @@ export function OrganizationDetail({ kind, id, data, onEdit }: { kind: OrgKind; 
       if (!l) return null;
       return (
         <FactBox
-          title={l.name}
           sections={[
             {
               title: "Grade level",
               facts: [
                 { label: "Code", value: <span className="font-code">{l.code}</span> },
                 { label: "Level number", value: l.levelNumber },
-                { label: "Nepali label", value: l.labelNepali || "—" },
                 { label: "Starting salary", value: <Amount value={l.minSalary} prefix="NPR" /> },
                 { label: "Maximum salary", value: l.maxSalary ? <Amount value={l.maxSalary} prefix="NPR" /> : "Not set" },
               ],
@@ -192,13 +187,11 @@ export function OrganizationDetail({ kind, id, data, onEdit }: { kind: OrgKind; 
       if (!t) return null;
       return (
         <FactBox
-          title={t.name}
           sections={[
             {
               title: "Employment type",
               facts: [
                 { label: "Code", value: <span className="font-code">{t.code}</span> },
-                { label: "Nepali name", value: t.nameNepali || "—" },
                 { label: "Eligible for", value: eligibility(t) || "None" },
                 { label: "Notice period", value: `${t.noticePeriodDays} days` },
                 { label: "Probation", value: t.probationMonths ? `${t.probationMonths} months` : "None" },

@@ -26,7 +26,7 @@ export function levelForm(l: OrgLevel | undefined, data: OrganizationData): Leve
   };
 }
 
-/** Grade level (Shreni / तह): the pay scale step; its starting salary seeds a new employee's basic. */
+/** Grade level (Shreni): the pay scale step; its starting salary seeds a new employee's basic. */
 export function LevelFields({ form, set, errors, data, id, onDone }: FieldsProps<LevelForm>) {
   const record = data.levels.find((l) => l.id === id);
   const [preset, setPreset] = useState("");
@@ -59,23 +59,20 @@ export function LevelFields({ form, set, errors, data, id, onDone }: FieldsProps
       <Row label="Level number" required error={errors.levelNumber} size="xs" help="1 = lowest step.">
         <NumberField name="levelNumber" decimals={0} value={form.levelNumber} onChange={(v) => set("levelNumber", v)} />
       </Row>
-      <Row label="Name" required error={errors.name} size="lg">
+      <Row label="Name" required error={errors.name} size="lg" span={2}>
         <TextInput name="name" value={form.name} onChange={(v) => set("name", v)} placeholder="e.g. Officer Level 6" />
       </Row>
-      <Row label="Nepali label" error={errors.labelNepali} size="lg">
-        <TextInput name="labelNepali" value={form.labelNepali} onChange={(v) => set("labelNepali", v)} placeholder="e.g. तह ६ (अधिकृत)" />
-      </Row>
-      <Row label="Starting salary" error={errors.minSalary} size="amount" help="Filled in as a new employee's basic salary when this level is chosen.">
+      <Row label="Starting salary" error={errors.minSalary} size="amount" help="Filled in as a new employee's basic salary when this level is chosen (blank = not set).">
         <NumberField name="minSalary" prefix="NPR" value={form.minSalary} onChange={(v) => set("minSalary", v)} />
       </Row>
-      <Row label="Maximum salary" error={errors.maxSalary} size="amount" help="Top of the scale (0 = not set).">
+      <Row label="Maximum salary" error={errors.maxSalary} size="amount" help="Top of the scale (blank = not set).">
         <NumberField name="maxSalary" prefix="NPR" value={form.maxSalary} onChange={(v) => set("maxSalary", v)} />
-      </Row>
-      <Row label="Sort order" error={errors.rankOrder} size="xs" help="Order in lists (lowest first).">
-        <NumberField name="rankOrder" decimals={0} value={form.rankOrder} onChange={(v) => set("rankOrder", v)} />
       </Row>
       <Row label="Description" error={errors.description} size="lg">
         <TextInput name="description" value={form.description} onChange={(v) => set("description", v)} maxLength={500} placeholder="Optional" />
+      </Row>
+      <Row label="Sort order" error={errors.rankOrder} size="xs" help="Order in lists (lowest first).">
+        <NumberField name="rankOrder" decimals={0} value={form.rankOrder} onChange={(v) => set("rankOrder", v)} showZero />
       </Row>
 
       {!id && (
@@ -98,7 +95,7 @@ export function LevelFields({ form, set, errors, data, id, onDone }: FieldsProps
           <Confirm
             open={confirming}
             title="Load this scale?"
-            message="Levels in the scale are added. A level whose code already exists gets the scale's name, Nepali label and order; your salaries stay. Nothing is removed."
+            message="Levels in the scale are added. A level whose code already exists gets the scale's name and order; your salaries stay. Nothing is removed."
             confirmLabel="Load scale"
             onConfirm={loadPreset}
             onCancel={() => setConfirming(false)}

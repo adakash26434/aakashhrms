@@ -16,14 +16,16 @@ export interface NumberFieldProps {
   readOnly?: boolean;
   /** Shown before the number, e.g. "NPR". */
   prefix?: string;
+  /** Show 0 instead of an empty box (when 0 is a real answer, not "not set"). */
+  showZero?: boolean;
   className?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
   "aria-required"?: boolean;
 }
 
-function display(value: number, decimals: number, readOnly?: boolean): string {
-  if (!value) return readOnly ? "0" : "";
+function display(value: number, decimals: number, showZero?: boolean): string {
+  if (!value) return showZero ? "0" : "";
   return decimals > 0 ? value.toFixed(decimals).replace(/\.?0+$/, "") : String(Math.trunc(value));
 }
 
@@ -32,7 +34,7 @@ function display(value: number, decimals: number, readOnly?: boolean): string {
  * digits and one decimal point only, and partial input ("30000.") kept while
  * typing. Empty means 0.
  */
-export function NumberField({ value, onChange, decimals = 2, min = 0, prefix, className, readOnly, ...rest }: NumberFieldProps) {
+export function NumberField({ value, onChange, decimals = 2, min = 0, prefix, className, readOnly, showZero, ...rest }: NumberFieldProps) {
   const [text, setText] = useState<string | null>(null); // null = show the stored value
   const pattern = decimals > 0 ? new RegExp(`^\\d*(\\.\\d{0,${decimals}})?$`) : /^\d*$/;
 
@@ -44,7 +46,7 @@ export function NumberField({ value, onChange, decimals = 2, min = 0, prefix, cl
         inputMode={decimals > 0 ? "decimal" : "numeric"}
         autoComplete="off"
         readOnly={readOnly}
-        value={text ?? display(value, decimals, readOnly)}
+        value={text ?? display(value, decimals, readOnly || showZero)}
         onChange={(e) => {
           const next = e.target.value.replace(/,/g, "");
           if (!pattern.test(next)) return;

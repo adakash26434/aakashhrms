@@ -8,6 +8,7 @@ import { ALL_COUNTRIES, COUNTRY_SEARCH_OPTIONS, DEFAULT_PHONE_COUNTRY } from "@/
 import { filterOptions, moveHighlight } from "@/lib/kit/combobox";
 import { countryOfTyped, joinPhone, splitPhone } from "@/lib/utils/phone";
 import { inputClass } from "./property-form";
+import { usePopupPosition } from "./use-popup-position";
 import { cn } from "@/lib/utils";
 
 export interface PhoneFieldProps {
@@ -46,6 +47,7 @@ export function PhoneField({ value, onChange, name, id, placeholder, disabled, c
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(-1);
   const matches = useMemo(() => filterOptions(COUNTRY_SEARCH_OPTIONS, query, COUNTRY_SEARCH_OPTIONS.length), [query]);
+  const popupStyle = usePopupPosition(wrapRef, open, { width: 288, height: 310 });
 
   // A value set from outside (load, "Save & add another") is split again; our own edits are not.
   useEffect(() => {
@@ -189,7 +191,7 @@ export function PhoneField({ value, onChange, name, id, placeholder, disabled, c
       />
 
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-md border border-line-strong bg-surface shadow-lg">
+        <div style={popupStyle} className="fixed z-[90] flex w-72 max-w-[calc(100vw-1rem)] flex-col rounded-md border border-line-strong bg-surface shadow-lg">
           <div className="relative border-b border-line p-1.5">
             <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
             <input
@@ -213,7 +215,7 @@ export function PhoneField({ value, onChange, name, id, placeholder, disabled, c
               className={cn(inputClass, "h-7.5 max-w-none pl-7 text-xs")}
             />
           </div>
-          <ul ref={listRef} id={listId} role="listbox" aria-label="Countries" className="max-h-64 overflow-y-auto py-1 scroll-thin">
+          <ul ref={listRef} id={listId} role="listbox" aria-label="Countries" className="min-h-0 flex-1 overflow-y-auto py-1 scroll-thin">
             {matches.length === 0 ? (
               <li className="px-3 py-2 text-xs text-ink-faint">No country matches</li>
             ) : (

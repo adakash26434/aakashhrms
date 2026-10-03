@@ -33,7 +33,7 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
         .map((d) => ({ value: d.id, label: d.name })),
       shreni: (() => {
         // Older records may hold a level name, or a level no longer in the scale: keep showing it.
-        const list = ctx.shreniLevels.map((l) => ({ value: form.shreni === l.name ? l.name : l.code, label: l.name, hint: l.labelNepali }));
+        const list = ctx.shreniLevels.map((l) => ({ value: form.shreni === l.name ? l.name : l.code, label: l.name, hint: l.code }));
         if (form.shreni && !list.some((o) => o.value === form.shreni)) list.unshift({ value: form.shreni, label: form.shreni, hint: "current, not in the scale" });
         return list;
       })(),

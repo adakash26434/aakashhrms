@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Copy } from "lucide-react";
 import { Combobox } from "@/components/kit/combobox";
 import { inputClass } from "@/components/kit/property-form";
-import { getAllDistricts } from "@/lib/constants/nepal-locations";
+import { findProvinceByDistrict, getAllDistricts } from "@/lib/constants/nepal-locations";
 import type { EmployeeField } from "@/lib/constants/employee-form";
 import { cn } from "@/lib/utils";
 import { FormSection, TextField, label, type EmployeeFormApi } from "./employee-form-fields";
@@ -22,7 +22,7 @@ const DOCUMENTS: { no: EmployeeField; district: EmployeeField; required?: boolea
  */
 export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
   const { form, errors, set, patch } = api;
-  const districts = useMemo(() => getAllDistricts().map((d) => ({ value: d.name, label: d.name, hint: d.nameNepali })), []);
+  const districts = useMemo(() => getAllDistricts().map((d) => ({ value: d.name, label: d.name, hint: findProvinceByDistrict(d.name)?.name.replace(/ Province$/, "") })), []);
 
   const copyDistrict = () => {
     const from = form.issuingDistrict;

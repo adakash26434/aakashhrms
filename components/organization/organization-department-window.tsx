@@ -57,14 +57,13 @@ export function DepartmentFields({ form, set, errors, data, id }: FieldsProps<De
         error={errors.headEmployeeId}
         size="md"
         help={data.people ? "The employee who leads this department. Supervisors are listed first." : "You need Employees → View to pick the head."}
-        suffix={!form.headEmployeeId && record?.headName ? <span className="text-warning">typed: {record.headName}</span> : undefined}
       >
         <Combobox
           name="headEmployeeId"
           options={heads}
           value={form.headEmployeeId ?? ""}
           onChange={(v) => set("headEmployeeId", v || null)}
-          placeholder={data.people ? "Search employee" : "Not available"}
+          placeholder={!data.people ? "Not available" : record?.headName ? `${record.headName} (typed) – pick an employee` : "Search employee"}
           disabled={!data.people}
           allowClear
         />

@@ -315,12 +315,11 @@ export function OrganizationRegisters({
           kind="level"
           rows={data.levels}
           searchPlaceholder="Code or name"
-          matches={(r, q) => !q || lower(r.code).includes(q) || lower(r.name).includes(q) || r.labelNepali.includes(q)}
+          matches={(r, q) => !q || lower(r.code).includes(q) || lower(r.name).includes(q)}
           columns={[
             { id: "code", header: "Code", type: "code", sticky: true, width: 90, value: (r) => r.code },
             { id: "number", header: "Level", type: "number", width: 70, value: (r) => r.levelNumber },
             { id: "name", header: "Name", sticky: true, width: 200, value: (r) => r.name, cell: (r) => <span className="font-medium text-ink">{r.name}</span> },
-            { id: "nepali", header: "Nepali label", width: 180, value: (r) => r.labelNepali },
             { id: "min", header: "Starting salary", type: "amount", width: 130, value: (r) => r.minSalary },
             { id: "max", header: "Maximum salary", type: "amount", width: 130, value: (r) => r.maxSalary || null },
             { id: "headcount", header: "Employees", type: "number", width: 96, value: (r) => r.headcount, total: "sum" },
@@ -336,11 +335,10 @@ export function OrganizationRegisters({
           kind="type"
           rows={data.types}
           searchPlaceholder="Code or name"
-          matches={(r, q) => !q || lower(r.code).includes(q) || lower(r.name).includes(q) || r.nameNepali.includes(q)}
+          matches={(r, q) => !q || lower(r.code).includes(q) || lower(r.name).includes(q)}
           columns={[
             { id: "code", header: "Code", type: "code", sticky: true, width: 110, value: (r) => r.code },
             { id: "name", header: "Employment type", sticky: true, width: 180, value: (r) => r.name, cell: (r) => <span className="font-medium text-ink">{r.name}</span> },
-            { id: "nepali", header: "Nepali name", width: 180, defaultHidden: true, value: (r) => r.nameNepali },
             {
               id: "eligible",
               header: "Eligible for",

@@ -25,11 +25,11 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const REMOTE_CATEGORIES: { value: string; label: string }[] = [
   { value: "NONE", label: "Not a remote area" },
-  { value: "A", label: "Remote area A (क)" },
-  { value: "B", label: "Remote area B (ख)" },
-  { value: "C", label: "Remote area C (ग)" },
-  { value: "D", label: "Remote area D (घ)" },
-  { value: "E", label: "Remote area E (ङ)" },
+  { value: "A", label: "Remote area A" },
+  { value: "B", label: "Remote area B" },
+  { value: "C", label: "Remote area C" },
+  { value: "D", label: "Remote area D" },
+  { value: "E", label: "Remote area E" },
 ];
 
 export const ORG_KIND_LABEL: Record<OrgKind, string> = {

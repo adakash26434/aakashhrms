@@ -1,10 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { enterIntent, isEnterStop, selectsOnArrival, stepFieldIndex } from '../lib/kit/form-nav';
 import { filterOptions, moveHighlight, typeaheadIndex } from '../lib/kit/combobox';
 import { dayToIso, isoToDay, isoToDisplay, monthLayout, shiftIsoDays, shiftIsoMonths } from '../lib/kit/date-field';
+import { placePopup } from '../lib/kit/popup';
 
 const key = (k: Partial<Parameters<typeof enterIntent>[0]> = {}) => ({ key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...k });
 const input = (type = 'text') => ({ tagName: 'INPUT', type });
@@ -195,5 +196,52 @@ describe('Form legibility (4.2 polish)', () => {
     const field = readFileSync(join(__dirname, '..', 'components/kit/date-field.tsx'), 'utf8');
     assert.match(field, /pb-4 keeps room for the equivalent line/);
     assert.match(field, /absolute bottom-0 right-0/);
+  });
+});
+
+describe('Pop-up placement (4.3 review)', () => {
+  const vp = { width: 1300, height: 560 };
+  const field = (top: number, left = 300, width = 200) => ({ top, bottom: top + 30, left, right: left + width, width });
+
+  it('opens below the field when the list fits', () => {
+    const p = placePopup(field(100), vp, { height: 230, matchWidth: true });
+    assert.equal(p.above, false);
+    assert.equal(p.top, 134);
+    assert.equal(p.width, 200);
+  });
+
+  it('opens above when it does not fit below and there is more room above (a short list sits right on the field)', () => {
+    const p = placePopup(field(390), vp, { height: 310 });
+    assert.equal(p.above, true);
+    assert.equal(p.bottom, 560 - 390 + 4);
+    assert.ok(p.maxHeight <= 390 - 12);
+  });
+
+  it("near the right edge, lines up with the field's right edge so it stays on screen", () => {
+    const p = placePopup(field(100, 1106, 142), vp, { height: 200, matchWidth: true, maxWidth: 384 });
+    assert.equal(p.left, undefined);
+    assert.equal(p.right, 1300 - 1248);
+    const q = placePopup(field(100, 300, 142), vp, { height: 200, matchWidth: true, maxWidth: 384 });
+    assert.equal(q.left, 300);
+  });
+
+  it('every kit pop-up uses it, so a scrolling Window never clips a list', () => {
+    for (const file of ['combobox.tsx', 'select-field.tsx', 'phone-field.tsx', 'date-field.tsx']) {
+      const src = readFileSync(join(__dirname, '..', 'components/kit', file), 'utf8');
+      assert.match(src, /usePopupPosition\(/, file);
+      assert.ok(!/absolute (left-0 )?(right-0 )?top-full/.test(src), `${file} has no clipped absolute pop-up`);
+    }
+  });
+});
+
+describe('English-only screens (design system §7 "Language")', () => {
+  it('the redesigned Organization and Employee screens show no Nepali text', () => {
+    const dirs = ['components/organization', 'components/employee'];
+    const files = dirs.flatMap((d) => readdirSync(join(__dirname, '..', d)).map((f) => `${d}/${f}`)).concat(['components/kit/address-field.tsx', 'lib/engines/organization.engine.ts']);
+    for (const file of files) {
+      const src = readFileSync(join(__dirname, '..', file), 'utf8');
+      assert.ok(!/[ऀ-ॿ]/.test(src), `${file} contains Devanagari`);
+      assert.ok(!/hint: [a-z.]*(nameNepali|labelNepali)/.test(src), `${file} shows a Nepali hint`);
+    }
   });
 });

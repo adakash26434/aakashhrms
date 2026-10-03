@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.3 Organization: review fixes (pop-ups, layout, English only)
+Branch: `redesign/4.3-organization`
+
+Your review: the Province list was cut off inside the New branch window; check the whole module for other UI / UX issues; no Nepali text for now (recorded as a design rule).
+
+- **Pop-ups never clipped (kit-wide):** Combobox, SelectField, PhoneField and DateField lists are placed on the screen (`lib/kit/popup.ts`, `usePopupPosition`) instead of inside the field, so a Window's scrolling body or a grid can't cut them off. They open upwards when they don't fit below, sit right on the field, are at least as wide as the field (wider for long names such as "Sudurpashchim Province"), and line up with the field's right edge near the right side of the screen.
+- **Windows:** the white strip between the title and the grey form panel is gone; the department Head shows a typed older name as the placeholder ("Chief Accountant (typed) – pick an employee") instead of a wrapping note; the Level window pairs Code / Level number, Name across, Starting / Maximum salary; the Employment type window groups SSF / PF / festival / leave / OT under "Eligible for" and notice / probation / order under "Terms", and shows 0 instead of an empty box (`NumberField showZero`).
+- **Detail pane:** the record's name was shown twice; once now.
+- **English only (design system §7 "Language"):** no Nepali on screens: removed the Nepali label / Nepali name columns, fields and facts from Levels and Employment types, Nepali hints from province / district / level pickers (a district now shows its province), and Devanagari from remote-area categories. Stored Nepali values are kept for the later translation pass. Other modules drop theirs when they are migrated; Nepali is added only where required, after asking.
+
+Verified: tsc 0 · eslint: nothing new · 453/453 tests (new: pop-up placement below / above / right edge, every kit pop-up uses it, no Devanagari in the Organization and Employee screens) · `next build` · Playwright at 1300×560 (your screen): Province, Remote area and country lists fully visible from the New branch window; Level, Employment type and Department windows checked; employee form lists and calendar placed correctly; 0 console errors on a fresh load.
+
+---
+
 ## 2026-10-03 — 4.3 Workforce: Organization
 Branch: `redesign/4.3-organization` (stacked on `redesign/4.2-employees`)
 
