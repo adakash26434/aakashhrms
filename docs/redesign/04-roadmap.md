@@ -151,8 +151,8 @@ per-module **definition of done** below.
 | Step | Module | Template | Screens |
 |---|---|---|---|
 | 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version. **Signed off by you on 2026-10-03** (`redesign/4.1-home`) |
-| 4.2 | **Workforce: Employees** | A + B | Register + quick view, full record page with related-history tabs, full-page editor with Enter-to-next; security S18. **Built on `redesign/4.2-employees`, awaiting your sign-off** |
-| 4.3 | **Workforce: Organization** | A | departments, designations, branches, organization view |
+| 4.2 | **Workforce: Employees** | A + B | Register + quick view, full record page with related-history tabs, full-page editor with Enter-to-next; security S18. **Signed off by you on 2026-10-03** (`redesign/4.2-employees`) |
+| 4.3 | **Workforce: Organization** | A | Branches, departments (company-wide), designations, grade levels, employment types, structure matrix and reporting chart; security S19. **In progress on `redesign/4.3-organization`** |
 | 4.4 | **Salary structure** | A + B | salary mapping list, mapping editor, bulk actions |
 | 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process |
 | 4.6 | **Time: Leaves** | A | applications, approvals, balances drawer |
@@ -222,4 +222,4 @@ See `CHANGELOG.md`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
 - **Phase 2 is signed off.**
 - **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
-- Phase 4.1 (Dashboard) is signed off. Phase 4.2 (Employees) is built on `redesign/4.2-employees` and waiting for sign-off; 4.3 Organization follows once you approve it.
+- Phases 4.1 (Dashboard) and 4.2 (Employees) are signed off. 4.3 Organization is in progress on `redesign/4.3-organization`, stacked on 4.2.
