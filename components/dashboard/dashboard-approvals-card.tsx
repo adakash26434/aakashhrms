@@ -17,7 +17,7 @@ export const APPROVALS_HREF = "/timeAndLeave/leaves?tab=approvals";
  */
 export function DashboardApprovalsCard({ total, items, scopeLabel }: { total: number; items: ApprovalPreviewItem[]; scopeLabel: string | null }) {
   return (
-    <Panel level={3} bodyMaxHeight="max-h-80"
+    <Panel level={3}
       id="dashboard-approvals"
       title="Pending approvals"
       icon={<CalendarCheck2 />}
@@ -28,7 +28,7 @@ export function DashboardApprovalsCard({ total, items, scopeLabel }: { total: nu
       hrefLabel={total > 0 ? "Review" : "Open"}
     >
       {total === 0 ? (
-        <EmptyState className="h-full py-6" icon={<CheckCircle2 className="h-5 w-5 text-success" />} title="All caught up" description="No leave requests are waiting for a decision." />
+        <EmptyState className="flex-1 py-6" icon={<CheckCircle2 className="h-5 w-5 text-success" />} title="All caught up" description="No leave requests are waiting for a decision." />
       ) : (
         <ul className="divide-y divide-line">
           {items.map((item) => (

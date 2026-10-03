@@ -13,11 +13,11 @@ import { cn } from "@/lib/utils";
 /** Statutory deposit dates (TDS, SSF) with the amount from payroll when known. */
 export function DashboardDeadlinesCard({ deadlines }: { deadlines: DashboardDeadline[] }) {
   return (
-    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-deadlines" title="Statutory deadlines" icon={<CalendarClock />} href="/reports/tax-ird" hrefLabel="Tax reports">
+    <Panel level={3} id="dashboard-deadlines" title="Statutory deadlines" icon={<CalendarClock />} href="/reports/tax-ird" hrefLabel="Tax reports">
       {deadlines.length === 0 ? (
-        <EmptyState className="h-full py-6" icon={<CalendarClock className="h-5 w-5" />} title="Nothing due" description="No statutory deposits are due in the next month." />
+        <EmptyState className="flex-1 py-6" icon={<CalendarClock className="h-5 w-5" />} title="Nothing due" description="No statutory deposits are due in the next month." />
       ) : (
-        <div className="flex min-h-full flex-col">
+        <div className="flex flex-1 flex-col">
         <ul className="divide-y divide-line">
           {deadlines.map((d) => {
             const tone = deadlineTone(d.daysLeft);

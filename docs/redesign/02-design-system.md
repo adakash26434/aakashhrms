@@ -239,19 +239,23 @@ sparkline, insight within ~10 seconds, thresholds, role-based views).
 | Actions | Pay run (step rail, next action), statutory deadlines, pending approvals (5 oldest, decided on the Approvals page), records to fix | Compact cards |
 | Workforce | Leave taken this FY by type + on leave today, headcount by department, recent activity | Activity needs AUDIT_LOG |
 
-Spacing and separation: cards (`Panel`, KPI cards) have a `line-strong`
-outline and `shadow-sm`; lines inside a card stay `line`, so the box edge is
-always darker than its rows. The page is grouped into labelled sections
+Spacing and separation: cards (`Panel`, KPI cards, pay run banner) have a
+`line-card` outline and `shadow-sm`; lines inside a card stay `line`, so the
+box edge is always darker than its rows. The page is grouped into labelled sections
 (Payroll · Needs attention · People) 32px apart, with 20px between cards and
 16px card padding.
 
 Card heights: every row of cards stretches to its tallest card, so cards side
-by side always line up. List cards use `Panel bodyMaxHeight="max-h-80"`: the
-row grows with content up to 320px of body, then the list scrolls inside the
-card (thin scrollbar, title bar fixed, focusable and labelled so the keyboard
-can scroll it). Lists stay short: latest 8 activity entries, 5 oldest
-approvals, 8 upcoming events, with the rest a link away. Empty cards show a
-centred icon, title and one line, never a lone sentence at the top of a box.
+by side always line up. **Dashboard cards never scroll inside**: they show only
+the latest items that fit (6 activity entries, 5 oldest approvals, 6 upcoming
+events, top 6 departments, 5 leave types) and link to the full list, so the
+page scrollbar is the only one and the mouse wheel works everywhere. (`Panel`
+still offers `bodyMaxHeight` for registers that need a scrolling list; it does
+not trap the wheel.) Empty cards show a centred icon, title and one line.
+
+Card framing: cards use the `line-card` outline (`--border-card`, darker than
+`line-strong`), a title bar tinted `bg-canvas/70` with a `line-strong` rule
+under it, and a white body; dividers inside stay `line`.
 
 Chart colours: `CHART_COLORS` / `CHART_THEME` in `lib/constants/colors.ts`;
 series and legends in `components/dashboard/dashboard-chart-series.ts`.

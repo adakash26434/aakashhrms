@@ -56,10 +56,11 @@ export function Panel({
   const headingId = id ? `${id}-title` : undefined;
   const Heading = level === 3 ? "h3" : "h2";
   return (
-    // Outline one step darker than the dividers inside (line-strong vs line), so
-    // boxes separate clearly from the canvas while rows inside stay quiet.
-    <section id={id} aria-labelledby={headingId} className={cn("flex h-full min-w-0 flex-col rounded-lg border border-line-strong bg-surface shadow-sm", className)}>
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-4">
+    // A framed box: card outline (line-card) darker than the dividers inside
+    // (line), and a lightly tinted title bar like a desktop window, so each
+    // card reads as its own unit against the canvas.
+    <section id={id} aria-labelledby={headingId} className={cn("flex h-full min-w-0 flex-col rounded-lg border border-line-card bg-surface shadow-sm", className)}>
+      <header className="flex h-11 shrink-0 items-center gap-2 rounded-t-lg border-b border-line-strong bg-canvas/70 px-4">
         {icon && <span className="text-ink-faint [&>svg]:h-4 [&>svg]:w-4">{icon}</span>}
         <Heading id={headingId} className="truncate text-sm font-semibold text-ink">
           {title}
@@ -94,12 +95,14 @@ export function Panel({
           tabIndex={0}
           role="region"
           aria-label={`${title} list`}
-          className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-thin outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus", bodyMaxHeight, padded && "p-4", bodyClassName)}
+          // No overscroll containment: when the list is at its end (or has nothing
+          // to scroll) the wheel moves the page, so the main scrollbar never stalls.
+          className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus", bodyMaxHeight, padded && "p-4", bodyClassName)}
         >
           {children}
         </div>
       ) : (
-        <div className={cn("min-h-0 flex-1", padded && "p-4", bodyClassName)}>{children}</div>
+        <div className={cn("flex min-h-0 flex-1 flex-col", padded && "p-4", bodyClassName)}>{children}</div>
       )}
       {footer && <footer className="border-t border-line px-4 py-2">{footer}</footer>}
     </section>

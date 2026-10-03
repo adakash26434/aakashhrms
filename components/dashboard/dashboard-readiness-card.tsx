@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export function DashboardReadinessCard({ checked, issues }: { checked: number; issues: ReadinessIssue[] }) {
   const affected = issues.reduce((n, i) => n + i.count, 0);
   return (
-    <Panel level={3} bodyMaxHeight="max-h-80"
+    <Panel level={3}
       id="dashboard-readiness"
       title="Records to fix"
       icon={<ClipboardCheck />}
@@ -21,7 +21,7 @@ export function DashboardReadinessCard({ checked, issues }: { checked: number; i
       hrefLabel="Employees"
     >
       {issues.length === 0 ? (
-        <EmptyState className="h-full py-6" icon={<ShieldCheck className="h-5 w-5 text-success" />} title="All records ready" description="Every active employee has a PAN, a bank account and a basic salary." />
+        <EmptyState className="flex-1 py-6" icon={<ShieldCheck className="h-5 w-5 text-success" />} title="All records ready" description="Every active employee has a PAN, a bank account and a basic salary." />
       ) : (
         <ul className="divide-y divide-line">
           {issues.map((issue) => (

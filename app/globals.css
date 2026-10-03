@@ -77,6 +77,9 @@
   --surface-sunken: var(--neutral-50);
   --border: var(--neutral-200);
   --border-strong: var(--neutral-300);
+  /* Card outline: darker than dividers so framed boxes (dashboard cards,
+     panels) stand clearly apart from the canvas; between neutral-300 and 400. */
+  --border-card: #ADB8A8;
 
   /* Text */
   --text: var(--neutral-900);
@@ -156,6 +159,7 @@
   --color-surface-sunken: var(--surface-sunken);
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
+  --color-line-card: var(--border-card);
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
   --color-ink-faint: var(--text-faint);
@@ -518,7 +522,7 @@ table tbody tr + tr {
 /* Thin, quiet scrollbar for scrolling areas inside cards. */
 @utility scroll-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: var(--border-card) transparent;
   &::-webkit-scrollbar {
     width: 8px;
     height: 8px;

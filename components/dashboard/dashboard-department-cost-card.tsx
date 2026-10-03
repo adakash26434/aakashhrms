@@ -9,13 +9,13 @@ export function DashboardDepartmentCostCard({ departments, periodLabel }: { depa
   const max = Math.max(...departments.map((d) => d.cost), 1);
   const total = departments.reduce((n, d) => n + d.cost, 0);
   return (
-    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-department-cost" title="Cost by department" icon={<Network />} meta={periodLabel} href="/reports/salary-sheet" hrefLabel="Salary sheet">
+    <Panel level={3} id="dashboard-department-cost" title="Cost by department" icon={<Network />} meta={periodLabel} href="/reports/salary-sheet" hrefLabel="Salary sheet">
       {departments.length === 0 ? (
-        <EmptyState className="h-full py-6" icon={<Network className="h-5 w-5" />} title="No payroll in this period" description="Cost by department appears once payroll is calculated." />
+        <EmptyState className="flex-1 py-6" icon={<Network className="h-5 w-5" />} title="No payroll in this period" description="Cost by department appears once payroll is calculated." />
       ) : (
         <table className="w-full text-xs">
           <caption className="sr-only">Payroll cost and employees paid by department</caption>
-          <thead className="sticky top-0 z-[1] bg-surface text-3xs uppercase tracking-wide text-ink-faint">
+          <thead className="text-3xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th scope="col" className="px-4 pb-1 pt-2.5 text-left font-medium">Department</th>
               <th scope="col" className="hidden w-[40%] px-1 pb-1 pt-2.5 text-left font-medium sm:table-cell">

@@ -93,7 +93,7 @@ export function DashboardKpiCards({ kpis, compareLabel }: { kpis: DashboardKpi[]
           <li key={kpi.id} className="min-w-0 last:col-span-2 md:last:col-span-1">
             <Link
               href={kpi.href}
-              className="group flex h-full min-w-0 flex-col rounded-lg border border-line-strong bg-surface px-4 pb-3.5 pt-4 shadow-sm transition-[border-color,box-shadow] hover:border-brand/40 hover:shadow-md"
+              className="group flex h-full min-w-0 flex-col rounded-lg border border-line-card bg-surface px-4 pb-3.5 pt-4 shadow-sm transition-[border-color,box-shadow] hover:border-brand/40 hover:shadow-md"
             >
               <span className="flex items-center gap-2 text-xs font-medium text-ink-muted">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand-strong">

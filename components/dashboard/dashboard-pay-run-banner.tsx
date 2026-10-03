@@ -69,7 +69,7 @@ export function DashboardPayRunBanner({ payRun, access, fiscal }: { payRun: Dash
   return (
     <section
       aria-label="Current pay run"
-      className="relative overflow-hidden rounded-lg border border-line-strong bg-surface shadow-sm before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-brand"
+      className="relative overflow-hidden rounded-lg border border-line-card bg-surface shadow-sm before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-brand"
     >
       <div className="flex flex-col gap-4 py-4 pl-5 pr-4 lg:flex-row lg:items-center lg:gap-6">
         <div className="flex min-w-0 items-start gap-3 lg:w-80 lg:shrink-0">

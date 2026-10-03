@@ -13,6 +13,26 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.1 dashboard: page scroll fix, latest-only cards, framed cards (sign-off pending)
+Branch: `redesign/4.1-home`
+
+Fixed (your review: the page scrollbar stopped working with the mouse over a card):
+- **Cause:** the card scroll areas used `overscroll-behavior: contain`. An `overflow:auto` box is a scroll container even when nothing overflows, so the wheel was swallowed and the page never moved.
+- **Fix:** dashboard cards no longer scroll inside. Each shows the latest items that fit, with a link to the full list:
+  - activity 6 (was 8) and upcoming 6 (was 8)
+  - departments top 6 + "Other" (was 8), headcount 6, leave types 5, on leave today 4
+  - approvals 5, unchanged
+  
+  The kit `Panel` scroll option keeps no wheel containment, for registers that need it later. The department table header is no longer sticky.
+- **Verified:** the wheel over every card scrolls the page (activity, coming up, approvals, department cost, both charts); 0 inner scroll areas on the dashboard.
+
+Changed (darker separation):
+- **New token `--border-card` (#ADB8A8)**, used via `border-line-card`. It sits between `line-strong` and `neutral-400` and outlines every card, KPI card and the pay run banner.
+- **Card title bars** are tinted (`bg-canvas/70`) with a `line-strong` rule underneath. Like a desktop window, each card reads as a framed unit; the dividers inside stay light.
+- The thin scrollbar uses the card outline colour. The loading skeleton matches.
+
+Verified: `tsc` 0, lint clean on touched files, 359/359 tests, build OK. Rows equal on real data (233 / 234 / 352 / 218 px) and the preview. No overflow at 390px, 0 console errors.
+
 ## 2026-10-03 — 4.1 dashboard: equal-height cards, scrolling lists, empty states (sign-off pending)
 Branch: `redesign/4.1-home`
 

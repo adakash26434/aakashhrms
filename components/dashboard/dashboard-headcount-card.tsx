@@ -6,12 +6,12 @@ import { EmptyState } from "@/components/kit/empty-state";
 export function DashboardHeadcountCard({ headcount }: { headcount: { name: string; count: number }[] }) {
   const total = headcount.reduce((n, d) => n + d.count, 0);
   const max = Math.max(...headcount.map((d) => d.count), 1);
-  const shown = headcount.slice(0, 7);
-  const rest = headcount.slice(7).reduce((n, d) => n + d.count, 0);
+  const shown = headcount.slice(0, 6);
+  const rest = headcount.slice(6).reduce((n, d) => n + d.count, 0);
   return (
-    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-headcount" title="Headcount" icon={<UsersRound />} meta={`${total.toLocaleString("en-IN")} active`} href="/workforce/organization" hrefLabel="Organisation">
+    <Panel level={3} id="dashboard-headcount" title="Headcount" icon={<UsersRound />} meta={`${total.toLocaleString("en-IN")} active`} href="/workforce/organization" hrefLabel="Organisation">
       {total === 0 ? (
-        <EmptyState className="h-full py-6" icon={<UsersRound className="h-5 w-5" />} title="No active employees" description="Add employees to see them by department." />
+        <EmptyState className="flex-1 py-6" icon={<UsersRound className="h-5 w-5" />} title="No active employees" description="Add employees to see them by department." />
       ) : (
         <ul className="space-y-1.5 p-4">
           {shown.map((d) => (

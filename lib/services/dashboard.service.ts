@@ -32,7 +32,8 @@ import { nepalDateIso, nepalToday, toIsoDate, toLocalDate } from "@/lib/utils/ne
 import type { Employee } from "@/lib/types/employee";
 import type { DashboardAccess, DashboardActivity, DashboardData } from "@/lib/types/dashboard";
 
-const ACTIVITY_LIMIT = 8;
+/** Latest entries that fit a dashboard card; the full history is one click away. */
+const ACTIVITY_LIMIT = 6;
 const GLOBAL_SCOPE = (userId: string): ScopeFilter => ({ scopeType: "GLOBAL", branchIds: [], departmentIds: [], employeeId: null, userId });
 
 export interface DashboardParams {
@@ -230,6 +231,7 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
           holidays: holidays.filter((h) => !visibleBranches || h.branchIds.length === 0 || h.branchIds.some((b) => visibleBranches.includes(b))),
           // Personal dates only for users who may see employee records.
           employees: employees ? scopedEmployees : [],
+          limit: 6,
         })
       : null;
 

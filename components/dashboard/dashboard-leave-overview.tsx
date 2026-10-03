@@ -27,7 +27,7 @@ export function DashboardLeaveOverview({
               <p className="text-xs text-ink-muted">No approved leave this fiscal year yet.</p>
             ) : (
               <ul className="space-y-1.5">
-                {types.slice(0, 6).map((t) => (
+                {types.slice(0, 5).map((t) => (
                   <li key={t.name} className="grid grid-cols-[minmax(0,8rem)_1fr_3rem] items-center gap-2 text-xs">
                     <span className="truncate text-ink-muted">{t.name}</span>
                     <span className="h-2 overflow-hidden rounded-full bg-surface-sunken" aria-hidden>
@@ -47,7 +47,7 @@ export function DashboardLeaveOverview({
               <p className="text-xs text-ink-muted">Everyone is in.</p>
             ) : (
               <ul className="space-y-1">
-                {onLeaveToday.slice(0, 5).map((p, i) => (
+                {onLeaveToday.slice(0, 4).map((p, i) => (
                   <li key={`${p.name}-${i}`} className="flex items-baseline justify-between gap-2 text-xs">
                     <span className="truncate text-ink">{p.name}</span>
                     <span className="shrink-0 text-2xs text-ink-muted">
@@ -55,7 +55,7 @@ export function DashboardLeaveOverview({
                     </span>
                   </li>
                 ))}
-                {onLeaveToday.length > 5 && <li className="text-2xs text-ink-muted">and {onLeaveToday.length - 5} more</li>}
+                {onLeaveToday.length > 4 && <li className="text-2xs text-ink-muted">and {onLeaveToday.length - 4} more</li>}
               </ul>
             )}
           </div>

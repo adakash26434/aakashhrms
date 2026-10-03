@@ -275,7 +275,7 @@ export function buildKpis({ rows, period, activeHeadcount, joiners, leavers, nex
 }
 
 /** Largest departments first; the rest merge into one "Other" row. */
-export function topDepartments(rows: DepartmentCost[], limit = 8): DepartmentCost[] {
+export function topDepartments(rows: DepartmentCost[], limit = 6): DepartmentCost[] {
   const sorted = [...rows].filter((r) => r.cost > 0 || r.employees > 0).sort((a, b) => b.cost - a.cost);
   if (sorted.length <= limit) return sorted;
   const head = sorted.slice(0, limit - 1);

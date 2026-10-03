@@ -2,8 +2,8 @@ import { Skeleton } from "@/components/kit/skeleton";
 
 function PanelSkeleton({ body }: { body: string }) {
   return (
-    <div className="rounded-lg border border-line-strong bg-surface shadow-sm">
-      <div className="flex h-10 items-center gap-2 border-b border-line px-3">
+    <div className="rounded-lg border border-line-card bg-surface shadow-sm">
+      <div className="flex h-11 items-center gap-2 rounded-t-lg border-b border-line-strong bg-canvas/70 px-4">
         <Skeleton className="h-3 w-3" />
         <Skeleton className="h-2.5 w-32" />
       </div>
@@ -25,7 +25,7 @@ export default function DashboardLoading() {
       <Skeleton className="mb-4 h-8 w-80" />
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="space-y-2 rounded-lg border border-line-strong bg-surface shadow-sm px-3.5 py-3">
+          <div key={i} className="space-y-2 rounded-lg border border-line-card bg-surface shadow-sm px-3.5 py-3">
             <Skeleton className="h-2 w-20" />
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-8 w-full" />

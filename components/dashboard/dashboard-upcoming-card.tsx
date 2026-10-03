@@ -22,9 +22,9 @@ function when(daysAway: number) {
 /** Holidays, birthdays and work anniversaries in the next 30 days (BS dates). */
 export function DashboardUpcomingCard({ events }: { events: UpcomingEvent[] }) {
   return (
-    <Panel level={3} bodyMaxHeight="max-h-80" id="dashboard-upcoming" title="Coming up" icon={<CalendarDays />} meta="Next 30 days" href="/setup/holidays" hrefLabel="Holidays">
+    <Panel level={3} id="dashboard-upcoming" title="Coming up" icon={<CalendarDays />} meta="Next 30 days" href="/setup/holidays" hrefLabel="Holidays">
       {events.length === 0 ? (
-        <EmptyState className="h-full py-6" icon={<CalendarDays className="h-5 w-5" />} title="Nothing coming up" description="No holidays, birthdays or work anniversaries in the next 30 days." />
+        <EmptyState className="flex-1 py-6" icon={<CalendarDays className="h-5 w-5" />} title="Nothing coming up" description="No holidays, birthdays or work anniversaries in the next 30 days." />
       ) : (
         <ul className="divide-y divide-line">
           {events.map((e) => {
