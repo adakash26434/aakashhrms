@@ -8,8 +8,6 @@ import { GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { DEFAULT_GRADE_POLICY, calculateTotalGradeAmount } from "@/lib/engines/grade-policy.engine";
-import { tenureLabel } from "@/lib/engines/employee.engine";
-import { nepalToday } from "@/lib/utils/nepal-time";
 import { ChoiceField, FormSection, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
 
 /** Job & placement, then Pay (basic salary, grades). */
@@ -60,7 +58,6 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
 
   const minSalary = minFor(form.shreni);
   const belowScale = minSalary > 0 && (form.basicSalary ?? 0) > 0 && (form.basicSalary ?? 0) < minSalary;
-  const tenure = form.joiningDate ? tenureLabel(form.joiningDate, nepalToday()) : "";
   const total = (form.basicSalary || 0) + (gradesOff ? 0 : form.gradeAmount || 0);
 
   return (
@@ -106,7 +103,7 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
           />
         </GridField>
 
-        <GridField label={label("joiningDate")} required error={errors.joiningDate} size="date" suffix={tenure || undefined}>
+        <GridField label={label("joiningDate")} required error={errors.joiningDate} size="date">
           <DateField name="joiningDate" value={form.joiningDate} onChange={(v) => set("joiningDate", v)} />
         </GridField>
         <GridField label={label("confirmationDate")} error={errors.confirmationDate} help="When probation ended, if it has." size="date">

@@ -250,7 +250,7 @@ export interface EmployeeValidationErrors {
 // Record page (4.2): /workforce/employees/[id]
 // ---------------------------------------------------------------------------
 
-export type EmployeeRecordTab = "profile" | "leave" | "attendance" | "payslips" | "loans" | "history";
+export type EmployeeRecordTab = "overview" | "profile" | "leave" | "attendance" | "payslips" | "loans" | "history";
 
 /** The employee as the record page shows it: names resolved, bank masked (S18). */
 export interface EmployeeProfile extends Omit<Employee, "bankAccountNumber"> {
@@ -326,6 +326,7 @@ export interface EmployeeHistoryRow {
 }
 
 export type EmployeeRecordTabData =
+  | { tab: "overview" }
   | { tab: "profile" }
   | { tab: "leave"; data: EmployeeLeaveTabData }
   | { tab: "attendance"; data: EmployeeAttendanceTabData }

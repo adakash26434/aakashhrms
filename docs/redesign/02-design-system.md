@@ -275,13 +275,65 @@ record page → full-page editor**:
 | Editor | `/workforce/employees/new`, `/[id]/edit` | One scrolling `PropertyForm` with a **SectionIndex** on the left (✓ done, red count for errors, click to jump; a "Jump to section" select below 1024px). Each section is a **compact `FormGrid`** (see below). Error summary on top with links to each field; sticky footer whose **status line shows the focused field's hint**; unsaved-changes guard. Status is not edited here. |
 | Status | list switch, record page | `EmployeeStatusWindow`: Make inactive asks for last working day, separation type, reason (notice date and retirement benefit optional), switches the self-service login off and is audited; Make active clears the separation and turns the login back on. Not allowed on your own record. |
 
+**Form legibility (4.2 review).** Research behind it: eye-tracking studies of
+label placement (Wroblewski, NN/g, UXmatters) favour labels right-aligned
+beside the field for dense multi-column forms that people use every day;
+WCAG 1.4.11 asks for 3:1 contrast on the outline of every form field; the
+classic Windows / SAP dialog puts white edit boxes on a grey control surface.
+
+| Token | Value | Use |
+|---|---|---|
+| `--border-input` (`border-line-input`) | `#7F8A79` | Outline of editable fields: 3.6:1 on white, 3.3:1 on the panel |
+| `--border-input-hover` | neutral-500 | Hover |
+| `--text-label` (`text-ink-label`) | neutral-700 | Field labels (medium weight) |
+| `--surface-panel` (`bg-surface-panel`) | `#F3F5F1` | Grey dialog surface behind the fields |
+
+- Group box: white header (number, bold title, progress) over a grey panel;
+  fields are white with the dark outline; focus = brand outline + ring;
+  invalid = danger outline + tint; read-only text boxes = dashed grey (buttons
+  are excluded: they also match `:read-only`).
+- Rows 30px; labels wrap rather than truncate; the current row gets a brand
+  tint and a 3px marker on its left.
+- A test computes the outline contrast from the hex values in `globals.css`.
+
+**Date field (original design restored).** The kit `DateField` draws the
+original AakashHRMS picker: a box with an attached eraser (clears the date);
+under it, on one line, "AD Equivalent: 14 Apr 1995 · B.S. CALENDAR" (or the BS
+equivalent in AD mode); the calendar opens on click with a green header,
+round ‹ › buttons, Month / Year drop-downs, Su–Sa row, solid-green chosen day
+and green-ringed today. It opens to the left near the right edge. All keyboard
+behaviour stays (Alt+↓, arrows, PgUp/PgDn, Enter picks and moves on, Esc,
+"Finish the date", no accidental "today").
+
+**Record page: payroll-software profile layout.** Research: BambooHR (fixed
+left column with photo, contact, time off), greytHR (profile card + topic
+cards), Keka (Profile tab of cards: primary details, contact, addresses,
+identity), Zoho Payroll (Overview, then salary, payslips, loans), Sage 50
+(tabs by subject). Shared pattern: an identity column always visible, topic
+cards, and values as bold text under small labels (not input boxes).
+
+- **Identity column** (left, sticky): avatar, name, designation, status and
+  codes; mobile and email with copy buttons; reports to, joined + service,
+  department · branch, category · level; records to fix; record navigator.
+- **Tabs:** Overview (default) · Profile · Leave · Attendance · Payslips ·
+  Loans · History.
+- **Overview:** headline tiles (monthly base pay, last net pay, leave left,
+  loans outstanding; each opens its tab) and cards for Job, Contact,
+  this month's Attendance, Records & login.
+- **Profile:** topic cards (`InfoCard` + `DescriptionList`): Primary details,
+  Job & placement, Pay, Bank (masked), Identity documents, Contact &
+  addresses, Family, Self-service access, Separation. Each card's **Edit**
+  opens the editor at that section (`/edit#section-…`).
+- Kit: `InfoCard`, `DescriptionList` (label above value, copy buttons),
+  `StatTile`. KPI-style tiles appear only on the dashboard and on a single
+  record's Overview; module registers stay tables.
+
 **Card page layout (record and editor, 4.2 polish).** Patterns taken from
 desktop ERP card pages (Business Central, SAP Business One master data):
 
-- **View mode mirrors edit mode.** The record's Profile tab uses the same
-  numbered group boxes, columns and field widths as the editor, with values
-  in read-only boxes (`ViewField`), so a field is in the same place whether
-  you read or edit it.
+- (Superseded by the payroll-software profile layout above: the record page
+  now shows values as bold text in topic cards; `ViewField` remains in the
+  kit for read-only fields inside forms.)
 - **Group boxes are numbered** (`FormGroup`): "1 General", "2 Job &
   placement"… with a "4 of 6 required" chip (green "Complete", red "n to
   fix"); the section index repeats the numbers and counts.
@@ -293,10 +345,7 @@ desktop ERP card pages (Business Central, SAP Business One master data):
   meter.
 - **Folder tabs** (`Tabs variant="folder"`): tabs joined to a framed panel,
   the active one marked by a brand line on top.
-- **FactBox pane** beside every tab (from 1280px; below the tabs on smaller
-  screens): records to fix, last payslip, this month's attendance, leave
-  left, loans, self-service login. Each part needs its module's permission and
-  links to its tab.
+- (FactBox pane replaced by the identity column and the Overview tiles.)
 - **Status bar** in the editor footer (`StatusBar`): focused field's hint ·
   required fields left · save state · key reminders.
 - **Current row highlight**: the row being edited is tinted and its caption

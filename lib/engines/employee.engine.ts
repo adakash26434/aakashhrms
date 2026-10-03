@@ -590,11 +590,11 @@ export function changedEmployeeFields(before: Partial<Employee>, after: Partial<
 // Record page (4.2)
 // ---------------------------------------------------------------------------
 
-export const RECORD_TABS: readonly EmployeeRecordTab[] = ["profile", "leave", "attendance", "payslips", "loans", "history"];
+export const RECORD_TABS: readonly EmployeeRecordTab[] = ["overview", "profile", "leave", "attendance", "payslips", "loans", "history"];
 
-/** The tab to show: the requested one if the user may see it, else Profile. */
+/** The tab to show: the requested one if the user may see it, else Overview. */
 export function resolveRecordTab(requested: unknown, allowed: readonly EmployeeRecordTab[]): EmployeeRecordTab {
-  return typeof requested === "string" && (allowed as readonly string[]).includes(requested) ? (requested as EmployeeRecordTab) : "profile";
+  return typeof requested === "string" && (allowed as readonly string[]).includes(requested) ? (requested as EmployeeRecordTab) : "overview";
 }
 
 type AttendanceBucket = keyof EmployeeAttendanceTabData["totals"];

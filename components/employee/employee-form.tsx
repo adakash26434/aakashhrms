@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Save, SaveAll, TriangleAlert, X } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
@@ -73,6 +73,18 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       : { createLogin: true, roleId: defaultRole?.id, roleSlug: defaultRole?.slug ?? "employee" }
   );
   const saveRef = useRef<HTMLButtonElement>(null);
+
+  // Arriving from a record card's "Edit" (…/edit#section-bank): open at that section, first field focused.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id.startsWith("section-")) return;
+    const section = document.getElementById(id);
+    if (!section) return;
+    requestAnimationFrame(() => {
+      scrollIntoContainer(section, { block: "start", behavior: "auto" });
+      section.querySelector<HTMLElement>("input:not([readonly]), button[data-enter-field], textarea")?.focus({ preventScroll: true });
+    });
+  }, []);
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(baseline), [form, baseline]);
   const leave = useUnsavedGuard(dirty && saving === null);

@@ -80,11 +80,12 @@ describe('Employee register rows (4.2)', () => {
 });
 
 describe('Employee record page (4.2)', () => {
-  it('opens only tabs the user may see, falling back to Profile', () => {
+  it('opens only tabs the user may see, falling back to Overview', () => {
     assert.equal(resolveRecordTab('payslips', ['profile', 'payslips']), 'payslips');
-    assert.equal(resolveRecordTab('payslips', ['profile', 'leave']), 'profile');
-    assert.equal(resolveRecordTab(['leave'], ['profile', 'leave']), 'profile');
-    assert.equal(resolveRecordTab(undefined, ['profile']), 'profile');
+    assert.equal(resolveRecordTab('payslips', ['overview', 'profile', 'leave']), 'overview');
+    assert.equal(resolveRecordTab(['leave'], ['overview', 'profile', 'leave']), 'overview');
+    assert.equal(resolveRecordTab(undefined, ['overview', 'profile']), 'overview');
+    assert.equal(resolveRecordTab('profile', ['overview', 'profile']), 'profile');
   });
 
   it('counts a month of attendance without treating missing days as absent', () => {

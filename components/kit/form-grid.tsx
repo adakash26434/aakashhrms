@@ -13,10 +13,10 @@ export function FormGrid({ children, className, columns = 3 }: { children: React
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-x-8 gap-y-2.5 px-4 py-3 md:grid-cols-2",
+        "grid grid-cols-1 gap-x-8 gap-y-3 px-4 py-4 md:grid-cols-2",
         columns === 3 && "xl:grid-cols-3",
         // Dense desktop rows: every text-like control is 28px high in a form grid.
-        "[&_input:not([type=checkbox])]:h-7 [&_button[data-enter-field]]:h-7",
+        "[&_input:not([type=checkbox])]:h-7.5 [&_button[data-enter-field]]:h-7.5",
         className
       )}
     >
@@ -29,7 +29,7 @@ export function FormGrid({ children, className, columns = 3 }: { children: React
 const SIZE = {
   xs: "w-20", // ward no., grade count
   code: "w-36", // codes, PAN, mobile
-  date: "w-40", // dates
+  date: "w-full max-w-52", // dates (room for the other-calendar line under them)
   amount: "w-44", // money
   md: "w-full max-w-60", // choices, short names
   lg: "w-full max-w-96", // names, emails
@@ -90,8 +90,8 @@ export function GridField({
     <div
       data-field-help={help || undefined}
       className={cn(
-        // The row being edited is highlighted, as desktop forms mark the current field.
-        "group -mx-1.5 grid min-w-0 grid-cols-1 gap-1 rounded-md px-1.5 py-0.5 transition-colors focus-within:bg-selection/60 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
+        // The row being edited is tinted with a brand marker on its left, as desktop forms mark the current field.
+        "group -mx-2 grid min-w-0 grid-cols-1 gap-1 rounded-md px-2 py-1 transition-colors focus-within:bg-brand-subtle focus-within:shadow-[inset_3px_0_0_var(--color-brand)] sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
         span === 2 && "md:col-span-2",
         span === 3 && "md:col-span-2 xl:col-span-3",
         className
@@ -99,7 +99,7 @@ export function GridField({
     >
       <label
         htmlFor={id}
-        className="truncate pt-1 text-xs text-ink-muted group-focus-within:font-medium group-focus-within:text-brand-strong sm:text-right"
+        className="pt-1.5 text-xs font-medium leading-tight text-ink-label group-focus-within:text-brand-strong sm:text-right"
         title={label}
       >
         {label}
@@ -112,7 +112,7 @@ export function GridField({
       <div className="min-w-0">
         {/* Same element tree with or without a suffix: switching trees would remount the
             control and drop focus while the user types (e.g. when "Age 31" appears). */}
-        <div className="flex items-start gap-2">
+        <div className="flex flex-wrap items-start gap-x-2">
           <div className={cn("min-w-0 max-w-full [&>*]:max-w-none", SIZE[size], size !== "full" && "shrink-0")}>{control}</div>
           {suffix ? <div className="shrink-0 whitespace-nowrap pt-1.5 text-2xs text-ink-faint">{suffix}</div> : null}
         </div>
@@ -135,8 +135,8 @@ export function GridField({
 export function GridValue({ label, children, span = 1 }: { label: string; children: ReactNode; span?: 1 | 2 | 3 }) {
   return (
     <div className={cn("grid grid-cols-1 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-center sm:gap-3", span === 2 && "md:col-span-2", span === 3 && "md:col-span-2 xl:col-span-3")}>
-      <span className="text-xs text-ink-muted sm:text-right">{label}</span>
-      <div className="min-w-0 text-sm">{children}</div>
+      <span className="text-xs font-medium text-ink-label sm:text-right">{label}</span>
+      <div className="min-w-0 text-sm text-ink">{children}</div>
     </div>
   );
 }
@@ -191,7 +191,7 @@ export function FormGroup({
   const done = progress && progress.required > 0 && progress.filled === progress.required && !progress.errors;
   return (
     <section id={id} aria-label={title} className="scroll-mt-4 rounded-lg border border-line-card bg-surface shadow-sm">
-      <header className="flex items-center gap-3 rounded-t-lg border-b border-line-strong bg-canvas/70 px-4 py-2">
+      <header className="flex items-center gap-3 rounded-t-lg border-b border-line-card bg-surface px-4 py-2.5">
         {index !== undefined && (
           <span
             aria-hidden
@@ -204,7 +204,7 @@ export function FormGroup({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <h3 className="text-xs font-semibold text-ink">{title}</h3>
+          <h3 className="text-sm font-semibold text-ink">{title}</h3>
           {description && <p className="truncate text-3xs text-ink-faint">{description}</p>}
         </div>
         {aside}
@@ -219,7 +219,10 @@ export function FormGroup({
           </span>
         )}
       </header>
-      <FormGrid columns={columns}>{children}</FormGrid>
+      {/* Grey dialog surface: white, outlined fields stand out from their labels at a glance. */}
+      <div className="rounded-b-lg bg-surface-panel">
+        <FormGrid columns={columns}>{children}</FormGrid>
+      </div>
     </section>
   );
 }
@@ -255,13 +258,11 @@ export function ViewField({
         span === 3 && "md:col-span-2 xl:col-span-3"
       )}
     >
-      <span className="truncate pt-1 text-xs text-ink-muted sm:text-right" title={label}>
-        {label}
-      </span>
+      <span className="pt-1.5 text-xs font-medium leading-tight text-ink-label sm:text-right">{label}</span>
       <div className="flex min-w-0 items-start gap-2">
         <div
           className={cn(
-            "flex min-h-7 max-w-full items-center rounded-md border border-line bg-surface-sunken/60 px-2 py-1 text-sm leading-tight",
+            "flex min-h-7.5 max-w-full items-center rounded-md border border-line bg-white px-2.5 py-1 text-sm font-medium leading-tight text-ink",
             SIZE[size],
             size !== "full" && "shrink-0",
             mono && "font-code tabular-nums",

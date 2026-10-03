@@ -52,7 +52,7 @@ export function YesNoField({ value, onChange, name, id, yesLabel = "Yes", noLabe
       onClick={onClick}
       title="Y = yes · N = no · Space switches"
       className={cn(
-        "inline-grid h-8 w-28 cursor-pointer grid-cols-2 rounded-md border border-line-strong bg-white p-0.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-grid h-8 w-28 cursor-pointer grid-cols-2 rounded-md border border-line-input bg-white p-0.5 hover:border-line-input-hover text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-60",
         className
       )}
       {...aria}

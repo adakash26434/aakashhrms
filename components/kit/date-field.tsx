@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Eraser } from "lucide-react";
 import { useDateFormat } from "@/lib/contexts/date-format-context";
 import { formatDateInput } from "@/lib/utils/date-input-formatter";
-import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
-import { nepalDateIso } from "@/lib/utils/nepal-time";
+import { BS_MONTHS_EN, formatADDate } from "@/lib/utils/bs-calendar";
+import { nepalDateIso, toLocalDate } from "@/lib/utils/nepal-time";
 import { DATE_YEARS, dayToIso, isoToDay, isoToDisplay, monthLayout, shiftIsoDays, shiftIsoMonths } from "@/lib/kit/date-field";
 import { useFormNav } from "./use-enter-navigation";
 import { inputClass } from "./property-form";
@@ -31,10 +31,14 @@ export interface DateFieldProps {
 }
 
 /**
- * Date field (4.2). Type the date (slashes are added for you) or pick it.
+ * Date field (4.2) in the design of the original AakashHRMS date picker:
+ * a text box with an attached eraser, the other-calendar equivalent under it,
+ * and a calendar with a green header, round ‹ › buttons and Month / Year
+ * drop-downs. Type the date (slashes are added for you) or pick it.
  * Keyboard: Alt+↓ opens the calendar, arrows move a day / week, PageUp and
  * PageDown move a month, Enter picks and moves to the next field, Esc closes.
- * With the calendar closed, Enter moves on like any other field.
+ * With the calendar closed, Enter moves on like any other field; clicking the
+ * box opens the calendar, as before.
  */
 export function DateField({
   value,
@@ -60,6 +64,8 @@ export function DateField({
   const [moved, setMoved] = useState(false);
   // Enter on a half-typed date shows this instead of moving on.
   const [unfinished, setUnfinished] = useState(false);
+  // Open the calendar to the left when there is no room on the right (fields in the last column).
+  const [alignRight, setAlignRight] = useState(false);
   const text = typed ?? isoToDisplay(value, isBS);
   const today = useMemo(() => nepalDateIso(), []);
 
@@ -80,6 +86,8 @@ export function DateField({
     if (disabled || readOnly) return;
     setCursor(value || today);
     setMoved(false);
+    const rect = wrapRef.current?.getBoundingClientRect();
+    setAlignRight(!!rect && rect.left + 300 > window.innerWidth - 12);
     setOpen(true);
   };
 
@@ -147,115 +155,174 @@ export function DateField({
   };
 
   const months = isBS ? BS_MONTHS_EN : AD_MONTHS;
-  const otherCalendar = value ? `${isBS ? "AD" : "BS"} ${isoToDisplay(value, !isBS)}` : "";
+  const valueDate = toLocalDate(value || null);
+  // The original picker's line under the field: the other calendar's date, and which calendar this is.
+  const equivalent = valueDate
+    ? isBS
+      ? `AD Equivalent: ${formatADDate(valueDate, "long")}`
+      : (() => {
+          const bs = isoToDay(value, true);
+          return bs ? `BS Equivalent: ${isoToDisplay(value, true)} (${BS_MONTHS_EN[bs.month]})` : "";
+        })()
+    : "";
+
+  /** Jump the calendar to another month or year from the header drop-downs, keeping the day where possible. */
+  const showMonth = (year: number, month: number) => {
+    const { days } = monthLayout(year, month, isBS);
+    const iso = dayToIso({ year, month, day: Math.min(view.day, days) }, isBS);
+    if (iso) {
+      setCursor(iso);
+      setMoved(true);
+    }
+    // Back to the field so the keyboard (and Enter) keep working.
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+  const yearOptions = Array.from({ length: years.max - years.min + 1 }, (_, i) => years.min + i);
+
+  const roundButton = "flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 active:scale-95";
+  const headerSelect =
+    "cursor-pointer appearance-none rounded-md border border-white/40 bg-white py-0.5 pl-2 pr-5 text-xs font-semibold text-ink shadow-xs focus:outline-none focus:ring-1 focus:ring-white";
 
   return (
-    <div ref={wrapRef} className={cn("relative w-full max-w-md", className)}>
-      <input
-        ref={inputRef}
-        id={id}
-        name={name}
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        placeholder={`YYYY/MM/DD (${isBS ? "BS" : "AD"})`}
-        disabled={disabled}
-        readOnly={readOnly}
-        value={text}
-        onChange={(e) => onType(e.target.value)}
-        onKeyDown={onKeyDown}
-        data-incomplete={unfinished || undefined}
-        onBlur={() => {
-          setTyped(null); // an unfinished date falls back to the stored one
-          setUnfinished(false);
-        }}
-        className={cn(inputClass, "max-w-none pr-8 font-code tabular-nums", unfinished && "border-danger")}
-        {...aria}
-      />
-      <span className="absolute inset-y-0 right-0 flex items-center gap-1 pr-1">
+    // pb-4 keeps room for the equivalent line, which is drawn on one line under the box and may
+    // extend to the left (under the field's label) so it never stretches the row.
+    <div ref={wrapRef} className={cn("relative w-full max-w-md pb-4", className)}>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          id={id}
+          name={name}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="YYYY/MM/DD"
+          disabled={disabled}
+          readOnly={readOnly}
+          value={text}
+          onChange={(e) => onType(e.target.value)}
+          onKeyDown={onKeyDown}
+          onClick={() => !open && openCalendar()}
+          data-incomplete={unfinished || undefined}
+          onBlur={() => {
+            setTyped(null); // an unfinished date falls back to the stored one
+            setUnfinished(false);
+          }}
+          className={cn(inputClass, "max-w-none pr-10 font-code font-medium tabular-nums", unfinished && "border-danger", open && "border-brand ring-2 ring-brand/20")}
+          {...aria}
+        />
+        {/* Attached eraser, as on the original picker: clears the date (mouse only; Backspace clears by keyboard). */}
         {!readOnly && (
           <button
             type="button"
             tabIndex={-1}
             data-enter-skip
             disabled={disabled}
-            aria-label="Open calendar"
-            title="Open calendar (Alt+↓)"
+            aria-label="Clear date"
+            title="Clear date"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
+              setTyped(null);
+              setOpen(false);
+              if (value) onChange("");
               inputRef.current?.focus();
-              if (open) setOpen(false);
-              else openCalendar();
             }}
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-ink-faint hover:bg-surface-sunken hover:text-ink"
+            className="absolute inset-y-px right-px flex w-8 cursor-pointer items-center justify-center rounded-r-[5px] border-l border-line-input bg-surface-sunken text-ink-muted transition-colors hover:bg-canvas hover:text-ink disabled:cursor-not-allowed"
           >
-            <CalendarDays aria-hidden className="h-4 w-4" />
+            <Eraser aria-hidden className="h-3.5 w-3.5" />
           </button>
         )}
-      </span>
+      </div>
 
       {unfinished ? (
-        <p role="alert" className="mt-0.5 text-3xs font-medium text-danger">
+        <p role="alert" className="absolute bottom-0 right-0 w-max max-w-[22rem] whitespace-nowrap text-3xs font-medium text-danger">
           Finish the date as YYYY/MM/DD ({isBS ? "BS" : "AD"}).
         </p>
       ) : (
-        otherCalendar && <p className="mt-0.5 text-3xs tabular-nums text-ink-faint">{otherCalendar}</p>
+        equivalent && (
+          <p className="absolute bottom-0 right-0 flex w-max items-center gap-2 whitespace-nowrap font-code text-3xs text-ink-muted">
+            <span>{equivalent}</span>
+            <span className="shrink-0 font-sans text-3xs font-bold uppercase tracking-wider text-brand">{isBS ? "B.S. Calendar" : "A.D. Calendar"}</span>
+          </p>
+        )
       )}
 
       {open && (
         <div
           role="dialog"
           aria-label="Choose a date"
-          onMouseDown={(e) => e.preventDefault()} // keep focus (and the keyboard) in the field
-          className="absolute left-0 top-full z-30 mt-1 w-72 rounded-md border border-line-strong bg-surface p-2 shadow-lg"
+          className={cn("absolute top-full z-50 mt-1.5 w-72 rounded-lg border border-line-strong bg-white p-2.5 shadow-2xl", alignRight ? "right-0" : "left-0")}
         >
-          <div className="mb-1 flex items-center justify-between">
+          {/* Green header with round buttons and Month / Year drop-downs (the original design). */}
+          <div className="flex items-center justify-between rounded-md bg-brand px-2.5 py-1.5 text-white shadow-xs" onMouseDown={(e) => e.target === e.currentTarget && e.preventDefault()}>
             <button
               type="button"
               tabIndex={-1}
               aria-label="Previous month"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setMoved(true);
                 setCursor((c) => shiftIsoMonths(c || today, -1, isBS));
                 inputRef.current?.focus();
               }}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded hover:bg-surface-sunken"
+              className={roundButton}
             >
               <ChevronLeft aria-hidden className="h-4 w-4" />
             </button>
-            <p className="text-xs font-semibold text-ink">
-              {months[view.month]} {view.year} <span className="font-normal text-ink-faint">{isBS ? "BS" : "AD"}</span>
-            </p>
+            <div className="flex items-center gap-1.5">
+              <span className="relative">
+                <select aria-label="Month" tabIndex={-1} value={view.month} onChange={(e) => showMonth(view.year, Number(e.target.value))} className={headerSelect}>
+                  {months.slice(1, 13).map((m, i) => (
+                    <option key={m} value={i + 1}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-faint" />
+              </span>
+              <span className="relative">
+                <select aria-label="Year" tabIndex={-1} value={view.year} onChange={(e) => showMonth(Number(e.target.value), view.month)} className={cn(headerSelect, "font-code")}>
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-faint" />
+              </span>
+            </div>
             <button
               type="button"
               tabIndex={-1}
               aria-label="Next month"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setMoved(true);
                 setCursor((c) => shiftIsoMonths(c || today, 1, isBS));
                 inputRef.current?.focus();
               }}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded hover:bg-surface-sunken"
+              className={roundButton}
             >
               <ChevronRight aria-hidden className="h-4 w-4" />
             </button>
           </div>
-          <div className="grid grid-cols-7 text-center text-3xs font-medium uppercase text-ink-faint">
+
+          <div className="grid grid-cols-7 pb-1 pt-2 text-center text-2xs font-semibold text-ink-muted" onMouseDown={(e) => e.preventDefault()}>
             {WEEKDAYS.map((d) => (
-              <span key={d} className="py-1">
+              <span key={d} className="py-0.5">
                 {d}
               </span>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-0.5">
+          <div className="grid grid-cols-7 gap-1 text-center" onMouseDown={(e) => e.preventDefault()}>
             {Array.from({ length: layout.firstWeekday }, (_, i) => (
-              <span key={`blank-${i}`} />
+              <span key={`blank-${i}`} className="h-7" />
             ))}
             {Array.from({ length: layout.days }, (_, i) => {
               const day = i + 1;
               const iso = dayToIso({ year: view.year, month: view.month, day }, isBS) ?? "";
-              const isCursor = iso === cursor;
+              const isCursor = iso === cursor && moved;
               const isValue = iso === value;
+              const isToday = iso === today;
               return (
                 <button
                   key={day}
@@ -269,10 +336,10 @@ export function DateField({
                     inputRef.current?.focus();
                   }}
                   className={cn(
-                    "h-7 cursor-pointer rounded text-xs tabular-nums text-ink hover:bg-surface-sunken",
-                    iso === today && "font-semibold text-brand-strong",
-                    isValue && "bg-brand text-white hover:bg-brand",
-                    isCursor && !isValue && "ring-2 ring-inset ring-focus"
+                    "flex h-7 w-full cursor-pointer select-none items-center justify-center rounded-sm text-xs font-medium tabular-nums transition-colors",
+                    isValue ? "z-10 bg-brand font-bold text-white shadow-xs" : "text-ink hover:bg-surface-sunken",
+                    isToday && !isValue && "font-bold text-brand ring-1 ring-brand",
+                    isCursor && !isValue && "bg-brand-subtle ring-2 ring-inset ring-focus"
                   )}
                 >
                   {day}
@@ -280,7 +347,7 @@ export function DateField({
               );
             })}
           </div>
-          <p className="mt-1.5 border-t border-line pt-1.5 text-3xs text-ink-faint">Arrows move · PgUp/PgDn month · Enter picks · Esc closes</p>
+          <p className="mt-2 border-t border-line pt-1.5 text-center text-3xs text-ink-faint">Arrows move · PgUp/PgDn month · Enter picks · Esc closes</p>
         </div>
       )}
     </div>

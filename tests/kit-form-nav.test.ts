@@ -163,3 +163,37 @@ describe('Form kit hardening (4.2 review)', () => {
     assert.ok(!/suffix \? \(\s*<div className="flex/.test(grid));
   });
 });
+
+describe('Form legibility (4.2 polish)', () => {
+  const css = readFileSync(join(__dirname, '..', 'app/globals.css'), 'utf8');
+  const token = (name: string) => {
+    const m = new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(css);
+    assert.ok(m, `--${name} must be a hex colour`);
+    return m![1];
+  };
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => {
+    const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+  };
+
+  it('editable field outlines meet the 3:1 non-text contrast rule (WCAG 1.4.11) on white and on the dialog panel', () => {
+    assert.ok(contrast(token('border-input'), '#FFFFFF') >= 3, 'against white');
+    assert.ok(contrast(token('border-input'), token('surface-panel')) >= 3, 'against the grey panel');
+  });
+
+  it('the shared input style uses the input outline, and read-only styling never applies to buttons', () => {
+    const form = readFileSync(join(__dirname, '..', 'components/kit/property-form.tsx'), 'utf8');
+    assert.match(form, /border-line-input/);
+    assert.ok(!/ read-only:/.test(form), 'read-only variants must be scoped with [&:not(button):read-only]');
+  });
+
+  it('the date field keeps one element tree (the hint line is absolutely placed, never wrapping the input)', () => {
+    const field = readFileSync(join(__dirname, '..', 'components/kit/date-field.tsx'), 'utf8');
+    assert.match(field, /pb-4 keeps room for the equivalent line/);
+    assert.match(field, /absolute bottom-0 right-0/);
+  });
+});

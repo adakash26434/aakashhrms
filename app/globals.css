@@ -80,6 +80,12 @@
   /* Card outline: darker than dividers so framed boxes (dashboard cards,
      panels) stand clearly apart from the canvas; between neutral-300 and 400. */
   --border-card: #ADB8A8;
+  /* Form legibility (4.2): editable fields need a 3:1 outline (WCAG 1.4.11)
+     against both white and the grey dialog panel; labels are darker than muted text. */
+  --border-input: #7F8A79;
+  --border-input-hover: var(--neutral-500);
+  --text-label: var(--neutral-700);
+  --surface-panel: #F3F5F1;
 
   /* Text */
   --text: var(--neutral-900);
@@ -160,6 +166,10 @@
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
   --color-line-card: var(--border-card);
+  --color-line-input: var(--border-input);
+  --color-line-input-hover: var(--border-input-hover);
+  --color-ink-label: var(--text-label);
+  --color-surface-panel: var(--surface-panel);
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
   --color-ink-faint: var(--text-faint);

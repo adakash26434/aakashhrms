@@ -92,6 +92,8 @@ async function loadTab(tab: EmployeeRecordTab, employeeId: string): Promise<Empl
         })),
       };
     }
+    case "overview":
+      return { tab: "overview" }; // built from the profile and facts already loaded
     default:
       return { tab: "profile" };
   }
@@ -170,7 +172,7 @@ export async function getEmployeeRecord(
   const employee = await getEmployeeInScope(id, scope);
   if (!employee) return null;
 
-  const tabs: EmployeeRecordTab[] = ["profile"];
+  const tabs: EmployeeRecordTab[] = ["overview", "profile"];
   if (access.leave) tabs.push("leave");
   if (access.attendance) tabs.push("attendance");
   if (access.payslips) tabs.push("payslips");
@@ -184,6 +186,6 @@ export async function getEmployeeRecord(
     return { profile, facts, navigator, tabs, active, failed: false, permissions };
   } catch (error) {
     console.error(`[employee-record] tab "${tab}" failed`, error instanceof Error ? error.message : error);
-    return { profile, facts, navigator, tabs, active: { tab: "profile" }, failed: true, permissions };
+    return { profile, facts, navigator, tabs, active: { tab: "overview" }, failed: true, permissions };
   }
 }

@@ -148,6 +148,12 @@ export function FieldRow({
   );
 }
 
-/** Standard text-like input styling for kit forms. */
+/**
+ * Standard text-like input styling for kit forms (4.2 legibility rules):
+ * white box with a 3:1 outline (WCAG 1.4.11), darker on hover, brand outline
+ * and ring on focus, danger outline and tint when invalid, and a dashed grey
+ * box when read-only so calculated values never look editable (text boxes
+ * only: buttons such as drop-downs also match :read-only).
+ */
 export const inputClass =
-  "h-8 w-full max-w-md rounded-md border border-line-strong bg-white px-2.5 text-sm text-ink placeholder:text-ink-faint read-only:cursor-default read-only:border-line aria-[invalid=true]:border-danger";
+  "h-8 w-full max-w-md rounded-md border border-line-input bg-white px-2.5 text-sm text-ink shadow-[inset_0_1px_1px_rgb(0_0_0/0.04)] outline-none transition-colors placeholder:text-ink-faint hover:border-line-input-hover focus:border-brand focus:ring-2 focus:ring-brand/20 [&:not(button):read-only]:cursor-default [&:not(button):read-only]:border-dashed [&:not(button):read-only]:border-line-strong [&:not(button):read-only]:bg-surface-sunken [&:not(button):read-only]:text-ink-muted [&:not(button):read-only]:shadow-none [&:not(button):read-only]:hover:border-line-strong [&:not(button):read-only]:focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger aria-[invalid=true]:bg-danger-subtle/40";

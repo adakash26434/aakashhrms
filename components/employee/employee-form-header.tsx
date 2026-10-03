@@ -1,7 +1,8 @@
 "use client";
 
 import { StatusChip } from "@/components/kit/status-chip";
-import type { SectionProgress } from "@/lib/engines/employee.engine";
+import { calculateAgeInYears, parseLocalDateParts, tenureLabel, type SectionProgress } from "@/lib/engines/employee.engine";
+import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeFormContext, EmployeeFormData } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
 import { initials } from "./employee-quick-view";
@@ -27,6 +28,12 @@ export function EmployeeFormHeader({
   const errors = progress.reduce((n, p) => n + p.errors, 0);
   const pct = required ? Math.round((filled / required) * 100) : 100;
   const name = form.fullName.trim();
+  // Live facts worked out from what has been typed: age and length of service.
+  const today = nepalToday();
+  const dob = parseLocalDateParts(form.dateOfBirth);
+  const age = dob ? calculateAgeInYears(dob, today) : null;
+  const service = form.joiningDate ? tenureLabel(form.joiningDate, today) : "";
+  const live = [age !== null && age >= 0 && age < 120 ? `Age ${age}` : null, service ? `Service ${service}` : null].filter(Boolean);
   const placement = [
     ctx.designations.find((d) => d.id === form.designationId)?.name,
     ctx.departments.find((d) => d.id === form.departmentId)?.name,
@@ -53,7 +60,10 @@ export function EmployeeFormHeader({
           <p className="truncate font-code text-2xs text-ink-muted">
             {form.employeeCode || "—"} · Att. {form.attendanceCode || "—"}
           </p>
-          <p className="truncate text-2xs text-ink-muted">{placement.length ? placement.join(" · ") : "Department, designation and branch not chosen yet"}</p>
+          <p className="truncate text-2xs text-ink-muted">
+            {placement.length ? placement.join(" · ") : "Department, designation and branch not chosen yet"}
+            {live.length > 0 && <span className="ml-2 font-medium text-ink">· {live.join(" · ")}</span>}
+          </p>
         </div>
       </div>
 

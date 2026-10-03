@@ -13,6 +13,26 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.2 Employees: legibility, original date picker, payroll-style record page
+Branch: `redesign/4.2-employees`
+
+Your review: bring back your original date picker; make label vs field clear at first glance; research a better, eye-catching detail layout like payroll software.
+
+- **Why fields were hard to see:** their outline was `#C6D0C2` on white, about 1.5:1, under WCAG 1.4.11's 3:1, and labels were small grey text close in weight to values.
+- **Desktop-dialog legibility (your choice):** labels right-aligned, darker, medium weight, on a grey panel; white fields with a `#7F8A79` outline (3.6:1 on white, 3.3:1 on the panel); brand outline and ring on focus; 30px rows; current row tinted with a left marker. The read-only style no longer hits drop-downs (buttons match `:read-only`).
+- **Original date picker restored:** eraser, "AD Equivalent … B.S. CALENDAR" line, green-header calendar with Month / Year drop-downs; opens left near the edge; keyboard behaviour kept. Age and service moved to the form's record card so date rows stay one line.
+- **Record page:** identity column (BambooHR / greytHR), Overview tab with headline tiles (Zoho Payroll), Profile tab as topic cards with bold values under small labels (Keka / greytHR), Edit link per card opening the editor at that section. Header strip and FactBox pane removed (content moved).
+
+Verified: tsc 0 · eslint clean · 406/406 tests (new: outline contrast computed from the tokens, read-only scoping, date field tree) · `next build` · Playwright on your data:
+- the full keyboard flow from Full name to Save
+- date picker by mouse (click opens, Month drop-down to September keeps focus, day click then Enter moves on, eraser clears)
+- Overview tiles (Pramod: base 30,000, last net 27,700, leave left 72 days)
+- Profile cards
+- Bank card "Edit" opens the form at Bank with the field focused
+- no overflow at 390 / 1024 / 1440 px; 0 console errors
+
+---
+
 ## 2026-10-03 — 4.2 Employees: card-page polish (form and record page)
 Branch: `redesign/4.2-employees`
 

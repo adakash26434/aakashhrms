@@ -4,8 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { DateField } from "@/components/kit/date-field";
 import { GridField } from "@/components/kit/form-grid";
 import { inputClass } from "@/components/kit/property-form";
-import { calculateAgeInYears, codeConflicts, getNextAttendanceCode, getNextEmployeeCode, parseLocalDateParts } from "@/lib/engines/employee.engine";
-import { nepalToday } from "@/lib/utils/nepal-time";
+import { codeConflicts, getNextAttendanceCode, getNextEmployeeCode } from "@/lib/engines/employee.engine";
 import { ChoiceField, FormSection, TextField, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
 
 const GENDERS = ["Male", "Female", "Other"].map((g) => ({ value: g, label: g }));
@@ -20,8 +19,6 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
   const { form, errors, set, ctx, isNew } = api;
   // Live duplicate hint against every code in the company (the save re-checks).
   const live = codeConflicts(ctx.codes, form, ctx.employeeId);
-  const dob = parseLocalDateParts(form.dateOfBirth);
-  const age = dob ? calculateAgeInYears(dob, nepalToday()) : null;
 
   return (
     <FormSection id="general" title="General" description="Codes are filled with the next free ones and are unique across the company.">
@@ -50,7 +47,7 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
           onNext={() => set("attendanceCode", getNextAttendanceCode(ctx.codes.map((c) => c.attendanceCode), "ATD-"))}
         />
       </GridField>
-      <GridField label={label("dateOfBirth")} required error={errors.dateOfBirth} help="Must be 18 or older (Labour Act). Type YYYY/MM/DD or press Alt+↓." size="date" suffix={age !== null && age >= 0 && age < 120 ? `Age ${age}` : undefined}>
+      <GridField label={label("dateOfBirth")} required error={errors.dateOfBirth} help="Must be 18 or older (Labour Act). Type YYYY/MM/DD or press Alt+↓." size="date">
         <DateField name="dateOfBirth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} />
       </GridField>
 

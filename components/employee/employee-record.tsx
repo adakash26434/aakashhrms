@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, CalendarCheck, FileText, History, KeyRound, Landmark, Pencil, Plane, Printer, UserCheck, UserRound, UserX } from "lucide-react";
+import { ArrowLeft, CalendarCheck, FileText, History, KeyRound, Landmark, LayoutDashboard, Pencil, Plane, Printer, UserCheck, UserRound, UserX } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { ErrorState } from "@/components/kit/empty-state";
 import { StatusChip } from "@/components/kit/status-chip";
@@ -11,8 +11,8 @@ import { Window, WindowButton } from "@/components/kit/window";
 import { resendEmployeeCredentialsAction } from "@/app/actions/employee.actions";
 import { isTypingTarget } from "@/lib/frame/shortcuts";
 import type { EmployeeRecordData, EmployeeRecordTab } from "@/lib/types/employee";
-import { EmployeeRecordHeader } from "./employee-record-header";
-import { EmployeeRecordFactBox } from "./employee-record-factbox";
+import { EmployeeRecordIdentity } from "./employee-record-identity";
+import { EmployeeRecordOverview } from "./employee-record-overview";
 import { EmployeeRecordProfile } from "./employee-record-profile";
 import { EmployeeRecordLeave } from "./employee-record-leave";
 import { EmployeeRecordAttendance } from "./employee-record-attendance";
@@ -22,6 +22,7 @@ import { EmployeeRecordHistory } from "./employee-record-history";
 import { EmployeeStatusWindow } from "./employee-status-window";
 
 const TAB_META: Record<EmployeeRecordTab, Omit<TabItem, "id">> = {
+  overview: { label: "Overview", icon: LayoutDashboard },
   profile: { label: "Profile", icon: UserRound },
   leave: { label: "Leave", icon: Plane },
   attendance: { label: "Attendance", icon: CalendarCheck },
@@ -33,8 +34,11 @@ const TAB_META: Record<EmployeeRecordTab, Omit<TabItem, "id">> = {
 type CredentialResult = { email: string; tempPassword: string; deliveredVia: string } | { error: string };
 
 /**
- * Employee record page (4.2): header strip, tabs for the person's own data and
- * related history. Tabs live in the URL (?tab=) and load on the server.
+ * Employee record page (4.2), laid out like the profile pages of payroll and
+ * HR software: an identity column always on the left (BambooHR / greytHR),
+ * and tabs on the right: Overview with the headline figures (Zoho Payroll),
+ * Profile as topic cards (Keka), then related history. Tabs live in the URL
+ * (?tab=) and load on the server.
  */
 export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
   const router = useRouter();
@@ -52,7 +56,7 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
 
   const switchTab = (next: string) => {
     setTab(next as EmployeeRecordTab);
-    startTransition(() => router.push(next === "profile" ? pathname : `${pathname}?tab=${next}`, { scroll: false }));
+    startTransition(() => router.push(next === "overview" ? pathname : `${pathname}?tab=${next}`, { scroll: false }));
   };
 
   const back = () => {
@@ -86,7 +90,7 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
     <div>
       <PageBar
         title={profile.fullName}
-        description={`${profile.employeeCode} · Att. ${profile.attendanceCode} · Employee card`}
+        description={[profile.designationName, profile.departmentName, profile.branchName].filter(Boolean).join(" · ")}
         status={<StatusChip status={profile.status} />}
         crumbs={[{ label: profile.fullName }]}
         actions={[
@@ -114,38 +118,38 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
         ]}
       />
 
-      <EmployeeRecordHeader profile={profile} navigator={record.navigator} />
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
-      <Tabs
-        variant="folder"
-        className="min-w-0"
-        label="Employee record"
-        items={tabs.map((id) => ({ id, ...TAB_META[id] }))}
-        value={tab}
-        onChange={switchTab}
-      >
-        <div aria-busy={pending} className={pending ? "pointer-events-none opacity-60 transition-opacity" : undefined}>
-          {record.failed ? (
-            <ErrorState message="This tab could not be loaded. Nothing has changed in the employee's data." onRetry={() => router.refresh()} />
-          ) : tab !== active.tab ? null : active.tab === "profile" ? (
-            <EmployeeRecordProfile profile={profile} />
-          ) : active.tab === "leave" ? (
-            <EmployeeRecordLeave data={active.data} />
-          ) : active.tab === "attendance" ? (
-            <EmployeeRecordAttendance data={active.data} />
-          ) : active.tab === "payslips" ? (
-            <EmployeeRecordPayslips rows={active.data} />
-          ) : active.tab === "loans" ? (
-            <EmployeeRecordLoans rows={active.data} />
-          ) : (
-            <EmployeeRecordHistory rows={active.data} />
-          )}
+      <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[18.5rem_minmax(0,1fr)]">
+        <div className="lg:sticky lg:top-0 lg:self-start">
+          <EmployeeRecordIdentity profile={profile} navigator={record.navigator} canEdit={permissions.edit} />
         </div>
-      </Tabs>
-      <div className="xl:sticky xl:top-0 xl:self-start xl:pt-9">
-        <EmployeeRecordFactBox profile={profile} facts={record.facts} canEdit={permissions.edit} onOpenTab={switchTab} />
-      </div>
+        <Tabs
+          variant="folder"
+          className="min-w-0"
+          label="Employee record"
+          items={tabs.map((id) => ({ id, ...TAB_META[id] }))}
+          value={tab}
+          onChange={switchTab}
+        >
+          <div aria-busy={pending} className={pending ? "pointer-events-none opacity-60 transition-opacity" : undefined}>
+            {record.failed ? (
+              <ErrorState message="This tab could not be loaded. Nothing has changed in the employee's data." onRetry={() => router.refresh()} />
+            ) : tab !== active.tab ? null : active.tab === "overview" ? (
+              <EmployeeRecordOverview profile={profile} facts={record.facts} canEdit={permissions.edit} onOpenTab={switchTab} />
+            ) : active.tab === "profile" ? (
+              <EmployeeRecordProfile profile={profile} canEdit={permissions.edit} />
+            ) : active.tab === "leave" ? (
+              <EmployeeRecordLeave data={active.data} />
+            ) : active.tab === "attendance" ? (
+              <EmployeeRecordAttendance data={active.data} />
+            ) : active.tab === "payslips" ? (
+              <EmployeeRecordPayslips rows={active.data} />
+            ) : active.tab === "loans" ? (
+              <EmployeeRecordLoans rows={active.data} />
+            ) : (
+              <EmployeeRecordHistory rows={active.data} />
+            )}
+          </div>
+        </Tabs>
       </div>
 
       <EmployeeStatusWindow
