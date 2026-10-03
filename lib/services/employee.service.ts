@@ -20,6 +20,9 @@ import {
   updateUser as updateUserRepository,
 } from "@/lib/repositories/user.repository";
 import { EMPLOYEE_ROLE_SLUG } from "@/lib/auth/employee-self-service-role";
+import { employeeInScope } from "@/lib/engines/leave.engine";
+import { recordAuditLog } from "@/lib/services/audit.service";
+import { isUuid } from "@/lib/utils/uuid";
 
 export class EmployeeValidationError extends Error {
   constructor(public errors: EmployeeValidationErrors) {
@@ -91,6 +94,29 @@ export async function getEmployees(filter: EmployeeFilter, scope?: ScopeFilter) 
 export async function getEmployeeById(id: string) {
   const employee = await repository.findById(id);
   if (!employee) throw new Error("Employee not found");
+  return employee;
+}
+
+type EmployeeAuditAction = "VIEW" | "ADD" | "EDIT" | "DELETE";
+
+/**
+ * Loads one employee for a user with this scope (S18). A malformed id, a
+ * missing record and a record outside the user's branch / department / self
+ * scope all return null, so callers show the same "not found" for each; the
+ * out-of-scope attempt is audited.
+ */
+export async function getEmployeeInScope(
+  id: unknown,
+  scope: ScopeFilter,
+  action: EmployeeAuditAction = "VIEW"
+): Promise<Employee | null> {
+  if (!isUuid(id)) return null;
+  const employee = await repository.findById(id);
+  if (!employee) return null;
+  if (!employeeInScope(scope, employee)) {
+    await recordAuditLog({ userId: scope.userId, action, module: "EMPLOYEES", recordId: id, result: "DENIED_SCOPE" });
+    return null;
+  }
   return employee;
 }
 

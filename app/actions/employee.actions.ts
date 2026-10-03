@@ -5,50 +5,98 @@ import * as empService from '@/lib/services/employee.service';
 import * as userService from '@/lib/services/user.service';
 import * as roleService from '@/lib/services/role.service';
 import { revalidatePath } from 'next/cache';
-import type { EmployeeFormData, EmployeeFilter } from '@/lib/types/employee';
-import { checkPermission, checkPermissionWithScope } from '@/lib/auth/check-permission';
+import type { EmployeeFormData, EmployeeFilter, EmployeeValidationErrors } from '@/lib/types/employee';
+import { checkPermissionWithScope } from '@/lib/auth/check-permission';
+import { recordAuditLog } from '@/lib/services/audit.service';
+import { canPlaceInScope, changedEmployeeFields } from '@/lib/engines/employee.engine';
+import { UserFacingError, toActionError } from '@/lib/errors/action-error';
+
+// Security plan S18: every employee action resolves the caller's scope. A
+// record outside it reads as "not found" (and the attempt is audited); new or
+// moved employees must land inside it; every change is audited by field name.
+const NOT_FOUND = 'Employee not found.';
+const OUTSIDE_SCOPE = 'You can only place employees in a branch or department you manage.';
+
+export type SaveEmployeeActionResult =
+  | { success: true; data: empService.SaveEmployeeResult }
+  | { success: false; error: string; ref?: string; validationErrors?: EmployeeValidationErrors };
 
 export async function saveEmployeeAction(
   id: string | null,
   formData: EmployeeFormData,
   accessOptions?: empService.EmployeeAccessOptions
-) {
+): Promise<SaveEmployeeActionResult> {
   await ensureTenantContext();
   try {
-    if (id) {
-      await checkPermission('EDIT', 'EMPLOYEES');
-    } else {
-      await checkPermission('ADD', 'EMPLOYEES');
+    const action = id ? 'EDIT' : 'ADD';
+    const scope = await checkPermissionWithScope(action, 'EMPLOYEES');
+    const before = id ? await empService.getEmployeeInScope(id, scope, 'EDIT') : null;
+    if (id && !before) throw new UserFacingError(NOT_FOUND);
+
+    if (!canPlaceInScope(scope, { branchId: formData?.branchId, departmentId: formData?.departmentId })) {
+      await recordAuditLog({
+        userId: scope.userId,
+        action,
+        module: 'EMPLOYEES',
+        recordId: id,
+        result: 'DENIED_SCOPE',
+        newValues: { branchId: formData?.branchId ?? null, departmentId: formData?.departmentId ?? null },
+      });
+      throw new UserFacingError(OUTSIDE_SCOPE);
     }
+
     const result = await empService.saveEmployee(id, formData, accessOptions);
+    await recordAuditLog({
+      userId: scope.userId,
+      action,
+      module: 'EMPLOYEES',
+      recordId: result.employee.id,
+      result: 'SUCCESS',
+      newValues: before
+        ? { changedFields: changedEmployeeFields(before, formData) }
+        : {
+            employeeCode: result.employee.employeeCode,
+            branchId: result.employee.branchId,
+            departmentId: result.employee.departmentId,
+            loginCreated: !!result.provisionedAccess,
+          },
+    });
     revalidatePath('/workforce/employees');
-    return { success: true, data: result };
+    revalidatePath('/dashboard');
+    return { success: true as const, data: result };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'EmployeeValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
+    if (error instanceof empService.EmployeeValidationError) {
+      return { success: false as const, error: 'Some fields need attention.', validationErrors: error.errors };
     }
-    return { success: false, error: 'An unexpected error occurred' };
+    return toActionError(error, 'employee.save');
   }
 }
 
 export async function deleteEmployeeAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('DELETE', 'EMPLOYEES');
-    await empService.deleteEmployee(id);
+    const scope = await checkPermissionWithScope('DELETE', 'EMPLOYEES');
+    const employee = await empService.getEmployeeInScope(id, scope, 'DELETE');
+    if (!employee) throw new UserFacingError(NOT_FOUND);
+
+    await empService.deleteEmployee(employee.id);
+    await recordAuditLog({
+      userId: scope.userId,
+      action: 'DELETE',
+      module: 'EMPLOYEES',
+      recordId: employee.id,
+      result: 'SUCCESS',
+      oldValues: { employeeCode: employee.employeeCode, branchId: employee.branchId, departmentId: employee.departmentId },
+    });
     revalidatePath('/workforce/employees');
-    return { success: true };
+    revalidatePath('/dashboard');
+    return { success: true as const };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'EmployeeInUseError') {
-        return { success: false, error: error.message };
-      }
-      return { success: false, error: error.message };
+    // The blocker checklist (active salary map, loans, payslips...) is written for users.
+    if (error instanceof empService.EmployeeInUseError) {
+      return { success: false as const, error: error.message };
     }
-    return { success: false, error: 'An unexpected error occurred' };
+    return toActionError(error, 'employee.delete');
   }
 }
 
@@ -57,10 +105,9 @@ export async function getEmployeesAction(filter: EmployeeFilter) {
   try {
     const scope = await checkPermissionWithScope('VIEW', 'EMPLOYEES');
     const data = await empService.getEmployees(filter, scope);
-    return { success: true, data };
+    return { success: true as const, data };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "unknown error";
-    return { success: false, error: msg };
+    return toActionError(error, 'employee.list');
   }
 }
 
@@ -69,22 +116,21 @@ export async function getEmployeeLookupDataAction() {
   try {
     const scope = await checkPermissionWithScope('VIEW', 'EMPLOYEES');
     const data = await empService.getEmployeeLookupData(scope);
-    return { success: true, data };
+    return { success: true as const, data };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "unknown error";
-    return { success: false, error: msg };
+    return toActionError(error, 'employee.lookups');
   }
 }
 
 export async function getEmployeeByIdAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('VIEW', 'EMPLOYEES');
-    const data = await empService.getEmployeeById(id);
-    return { success: true, data };
+    const scope = await checkPermissionWithScope('VIEW', 'EMPLOYEES');
+    const data = await empService.getEmployeeInScope(id, scope);
+    if (!data) throw new UserFacingError(NOT_FOUND);
+    return { success: true as const, data };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "unknown error";
-    return { success: false, error: msg };
+    return toActionError(error, 'employee.getById');
   }
 }
 
@@ -96,15 +142,17 @@ export async function getEmployeeByIdAction(id: string) {
 export async function getEmployeeAccessAction(employeeId: string | null) {
   await ensureTenantContext();
   try {
-    await checkPermission('VIEW', 'EMPLOYEES');
+    const scope = await checkPermissionWithScope('VIEW', 'EMPLOYEES');
+    if (employeeId && !(await empService.getEmployeeInScope(employeeId, scope))) {
+      throw new UserFacingError(NOT_FOUND);
+    }
     const [access, roles] = await Promise.all([
       employeeId ? userService.getEmployeeAccess(employeeId) : Promise.resolve(null),
       roleService.getAllRoles(),
     ]);
-    return { success: true, data: { access, roles } };
+    return { success: true as const, data: { access, roles } };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "unknown error";
-    return { success: false, error: msg };
+    return toActionError(error, 'employee.getAccess');
   }
 }
 
@@ -117,22 +165,17 @@ export async function getEmployeeAccessAction(employeeId: string | null) {
 export async function resendEmployeeCredentialsAction(employeeId: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'EMPLOYEES');
-    const employee = await empService.getEmployeeById(employeeId);
-    if (!employee) {
-      return { success: false, error: 'Employee not found.' };
-    }
+    const scope = await checkPermissionWithScope('EDIT', 'EMPLOYEES');
+    const employee = await empService.getEmployeeInScope(employeeId, scope, 'EDIT');
+    if (!employee) throw new UserFacingError(NOT_FOUND);
 
     const access = await userService.getEmployeeAccess(employeeId);
     if (!access) {
-      return { success: false, error: 'No self-service account is linked to this employee.' };
+      throw new UserFacingError('No self-service account is linked to this employee.');
     }
 
     if (!access.mustChangePassword) {
-      return {
-        success: false,
-        error: 'The employee has already set a permanent password. Use "Reset Password" in Admin → Users to issue a new temporary credential.',
-      };
+      throw new UserFacingError('The employee has already set a permanent password. Use "Reset Password" in Admin → Users to issue a new temporary credential.');
     }
 
     const resetResult = await userService.resetUserPassword(access.userId);
@@ -145,15 +188,22 @@ export async function resendEmployeeCredentialsAction(employeeId: string) {
       isReset: false,
     });
 
+    await recordAuditLog({
+      userId: scope.userId,
+      action: 'EDIT',
+      module: 'EMPLOYEES',
+      recordId: employee.id,
+      result: 'SUCCESS',
+      newValues: { credentials: 'resent', deliveredVia: emailResult.deliveredVia },
+    });
     return {
-      success: true,
+      success: true as const,
       email: access.email,
       tempPassword: resetResult.tempPassword,
       deliveredVia: emailResult.deliveredVia,
     };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to resend credentials.';
-    return { success: false, error: msg };
+    return toActionError(error, 'employee.resendCredentials');
   }
 }
 
@@ -164,15 +214,13 @@ export async function resendEmployeeCredentialsAction(employeeId: string) {
 export async function resetEmployeePasswordAction(employeeId: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'EMPLOYEES');
-    const employee = await empService.getEmployeeById(employeeId);
-    if (!employee) {
-      return { success: false, error: 'Employee not found.' };
-    }
+    const scope = await checkPermissionWithScope('EDIT', 'EMPLOYEES');
+    const employee = await empService.getEmployeeInScope(employeeId, scope, 'EDIT');
+    if (!employee) throw new UserFacingError(NOT_FOUND);
 
     const access = await userService.getEmployeeAccess(employeeId);
     if (!access) {
-      return { success: false, error: 'No self-service account is linked to this employee.' };
+      throw new UserFacingError('No self-service account is linked to this employee.');
     }
 
     // Reset password in user service
@@ -187,15 +235,22 @@ export async function resetEmployeePasswordAction(employeeId: string) {
       isReset: true,
     });
 
+    await recordAuditLog({
+      userId: scope.userId,
+      action: 'EDIT',
+      module: 'EMPLOYEES',
+      recordId: employee.id,
+      result: 'SUCCESS',
+      newValues: { credentials: 'reset', deliveredVia: emailResult.deliveredVia },
+    });
     revalidatePath('/workforce/employees');
     return {
-      success: true,
+      success: true as const,
       email: access.email,
       tempPassword: resetResult.tempPassword,
       deliveredVia: emailResult.deliveredVia,
     };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to reset employee password.';
-    return { success: false, error: msg };
+    return toActionError(error, 'employee.resetPassword');
   }
 }

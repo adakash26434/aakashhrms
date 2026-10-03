@@ -1,4 +1,5 @@
-import type { Employee, EmployeeFormData, EmployeeValidationErrors, EmployeeKPIs } from "@/lib/types/employee";
+import type { Employee, EmployeeFormData, EmployeeValidationErrors, EmployeeKPIs, EmployeeRecordGap } from "@/lib/types/employee";
+import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { validatePhoneNumber } from "@/lib/utils/phone";
 import {
   validateCitizenshipNo,
@@ -433,5 +434,101 @@ export function getNextAttendanceCode(existingCodes: string[], defaultPrefix = "
   const numStr = String(nextNum).padStart(padLength, "0");
   const prefix = detectedPrefix ?? defaultPrefix;
   return `${prefix}${numStr}`;
+}
+
+// ---------------------------------------------------------------------------
+// Record completeness: shared by the register, the record page and the
+// dashboard's "Records to fix" card.
+// ---------------------------------------------------------------------------
+
+/** Nepal PAN: 9 digits. */
+export function isValidPan(pan: string | null | undefined): boolean {
+  return !!pan && /^\d{9}$/.test(pan.trim());
+}
+
+export interface RecordCheckSubject {
+  panNumber?: string | null;
+  bankAccountNumber?: string | null;
+  basicSalary?: number | null;
+}
+
+export const EMPLOYEE_RECORD_CHECKS: {
+  id: EmployeeRecordGap;
+  label: string;
+  impact: string;
+  failing: (e: RecordCheckSubject) => boolean;
+}[] = [
+  { id: "pan", label: "PAN missing or invalid", impact: "TDS cannot be reported against the employee", failing: (e) => !isValidPan(e.panNumber) },
+  { id: "bank", label: "No bank account", impact: "Left out of the bank transfer file", failing: (e) => !e.bankAccountNumber || e.bankAccountNumber.trim() === "" },
+  { id: "basic", label: "Basic salary is zero", impact: "Payslip will calculate as nil", failing: (e) => !(Number(e.basicSalary) > 0) },
+];
+
+export function missingRecords(e: RecordCheckSubject): EmployeeRecordGap[] {
+  return EMPLOYEE_RECORD_CHECKS.filter((c) => c.failing(e)).map((c) => c.id);
+}
+
+export const RECORD_GAP_LABEL: Record<EmployeeRecordGap, string> = {
+  pan: "PAN missing or invalid",
+  bank: "No bank account",
+  basic: "Basic salary is zero",
+};
+
+// ---------------------------------------------------------------------------
+// Scope and audit (security plan S18)
+// ---------------------------------------------------------------------------
+
+/**
+ * May a user with this scope place an employee in this branch / department?
+ * Used on create and on every update, so a branch manager cannot add someone
+ * to, or move someone into, a branch they do not manage. SELF scope never
+ * places employees. Fails closed for unknown scopes.
+ */
+export function canPlaceInScope(
+  scope: Pick<ScopeFilter, "scopeType" | "branchIds" | "departmentIds">,
+  placement: { branchId: string | null | undefined; departmentId: string | null | undefined }
+): boolean {
+  switch (scope.scopeType) {
+    case "GLOBAL":
+      return true;
+    case "BRANCH":
+      return !!placement.branchId && scope.branchIds.includes(placement.branchId);
+    case "DEPARTMENT":
+      return !!placement.departmentId && scope.departmentIds.includes(placement.departmentId);
+    default:
+      return false;
+  }
+}
+
+/** Form fields compared for the audit trail of an update. */
+const AUDITED_FIELDS: readonly (keyof EmployeeFormData & keyof Employee)[] = [
+  "employeeCode", "attendanceCode", "fullName", "gender", "dateOfBirth", "taxStatus", "isDisabled",
+  "category", "shreni", "departmentId", "designationId", "branchId", "supervisorId", "isSupervisor",
+  "joiningDate", "confirmationDate", "status", "basicSalary", "gradeCount", "gradeAmount",
+  "citizenshipNo", "issuingDistrict", "nidNo", "nidIssuingDistrict", "passportNo", "passportIssuingDistrict",
+  "votersId", "voterIdIssuingDistrict", "panNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
+  "permanentAddress", "temporaryAddress", "fatherName", "motherName", "spouseName", "grandfatherName",
+  "bankName", "bankBranch", "bankAccountNumber", "informedDate", "terminationDate", "terminationType",
+  "terminationReason", "terminationPlan", "terminationRemarks",
+];
+
+function comparable(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return isNaN(value.getTime()) ? "" : value.toISOString().slice(0, 10);
+  if (typeof value === "number") return String(Number(value));
+  if (typeof value === "boolean") return value ? "1" : "0";
+  const text = String(value).trim();
+  // Form dates arrive as YYYY-MM-DD; stored dates as full ISO strings.
+  return /^\d{4}-\d{2}-\d{2}T/.test(text) ? text.slice(0, 10) : text;
+}
+
+/**
+ * Names of the fields an update changes. Only names go into the audit log:
+ * never the values, so PAN, bank and salary figures stay out of it.
+ */
+export function changedEmployeeFields(before: Partial<Employee>, after: Partial<EmployeeFormData>): string[] {
+  return AUDITED_FIELDS.filter((field) => {
+    if (!(field in after)) return false;
+    return comparable(before[field]) !== comparable(after[field]);
+  });
 }
 

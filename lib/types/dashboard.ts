@@ -3,6 +3,7 @@
 // data; every section is null when the user may not see it (S3).
 
 import type { PayrollRunStatus } from "./payroll";
+import type { EmployeeRecordGap } from "./employee";
 
 /** Period filter: latest pay month, fiscal year to date, last 12 months. */
 export type DashboardPeriodOption = "latest" | "fy" | "12m";
@@ -164,7 +165,7 @@ export interface DashboardDeadline extends Deadline {
   amount: number | null;
 }
 
-export type ReadinessIssueId = "pan" | "bank" | "basic";
+export type ReadinessIssueId = EmployeeRecordGap;
 
 export interface ReadinessIssue {
   id: ReadinessIssueId;

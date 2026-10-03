@@ -179,7 +179,7 @@ export function EmployeeClient({
       const result = await saveEmployeeAction(editingEmpId, formData);
       if (!result.success) {
         const errorMsg = result.validationErrors
-          ? Object.values(result.validationErrors)[0]
+          ? Object.values(result.validationErrors)[0] ?? result.error
           : result.error || "Failed to save employee";
         toast.error(errorMsg);
         return {

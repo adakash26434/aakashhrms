@@ -148,7 +148,7 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
   const conditions: SQL<unknown>[] = [];
   
   if (filter.search && filter.search.trim() !== "") {
-    const term = `%${filter.search.trim()}%`;
+    const term = likeTerm(filter.search.trim());
     const searchCondition = or(
       ilike(employees.fullName, term),
       ilike(employees.employeeCode, term),

@@ -149,6 +149,40 @@ export interface EmployeeFilter {
   status: EmployeeStatus | "all";
 }
 
+/** A record gap that stops the employee being paid or reported correctly. */
+export type EmployeeRecordGap = "pan" | "bank" | "basic";
+
+/**
+ * One register row (S18): list columns only. Identity documents, family,
+ * address and bank details never leave the server for the list.
+ */
+export interface EmployeeListRow {
+  id: string;
+  employeeCode: string;
+  attendanceCode: string;
+  fullName: string;
+  gender: Employee["gender"];
+  category: EmployeeCategory;
+  status: EmployeeStatus;
+  departmentId: string;
+  departmentName: string;
+  designationId: string;
+  designationName: string;
+  branchId: string;
+  branchName: string;
+  shreni: string;
+  supervisorName: string | null;
+  joiningDate: string;
+  mobileNo: string;
+  companyEmail: string;
+  basicSalary: number;
+  gradeAmount: number;
+  /** Masked, e.g. "••••4821"; empty when there is no account. */
+  bankAccountMasked: string;
+  bankName: string;
+  gaps: EmployeeRecordGap[];
+}
+
 export interface EmployeeKPIs {
   total: number;
   active: number;

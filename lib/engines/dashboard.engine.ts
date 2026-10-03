@@ -7,6 +7,7 @@ import { adToBS, bsToAD, getDaysInBSMonth, BS_MONTHS_EN } from "@/lib/utils/bs-c
 import { addDays, daysBetween, toIsoDate, toLocalDate } from "@/lib/utils/nepal-time";
 import { RECENTLY_PASSED_DAYS, STATUTORY_RULES, VARIANCE_FLAG_PCT, type StatutoryRule } from "@/lib/constants/statutory-deadlines";
 import type { PayrollRunStatus } from "@/lib/types/payroll";
+import { EMPLOYEE_RECORD_CHECKS, isValidPan } from "@/lib/engines/employee.engine";
 import type {
   ApprovalPreviewItem,
   AttendanceDayCounts,
@@ -21,7 +22,6 @@ import type {
   PeriodRef,
   PeriodWindow,
   ReadinessIssue,
-  ReadinessIssueId,
   ResolvedPeriod,
   RunPeriodSummary,
   FiscalProgress,
@@ -499,21 +499,14 @@ export interface ReadinessEmployee {
   basicSalary?: number | null;
 }
 
-/** Nepal PAN: 9 digits. */
-export function isValidPan(pan: string | null | undefined): boolean {
-  return !!pan && /^\d{9}$/.test(pan.trim());
-}
-
-const READINESS_CHECKS: { id: ReadinessIssueId; label: string; impact: string; failing: (e: ReadinessEmployee) => boolean }[] = [
-  { id: "pan", label: "PAN missing or invalid", impact: "TDS cannot be reported against the employee", failing: (e) => !isValidPan(e.panNumber) },
-  { id: "bank", label: "No bank account", impact: "Left out of the bank transfer file", failing: (e) => !e.bankAccountNumber || e.bankAccountNumber.trim() === "" },
-  { id: "basic", label: "Basic salary is zero", impact: "Payslip will calculate as nil", failing: (e) => !(Number(e.basicSalary) > 0) },
-];
+// The per-employee checks live with the employee rules so the register,
+// the record page and this card always agree.
+export { isValidPan };
 
 export const READINESS_SAMPLE_SIZE = 5;
 
 export function payrollReadiness(employees: ReadinessEmployee[], sampleSize = READINESS_SAMPLE_SIZE): ReadinessIssue[] {
-  return READINESS_CHECKS.map((check) => {
+  return EMPLOYEE_RECORD_CHECKS.map((check) => {
     const failing = employees.filter(check.failing);
     return {
       id: check.id,

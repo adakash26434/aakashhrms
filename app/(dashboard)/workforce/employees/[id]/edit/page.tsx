@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EmployeeCreateFlow } from "@/components/employee/employee-create-flow";
 import {
-  getEmployeeById,
+  getEmployeeInScope,
   getEmployeeLookupData,
 } from "@/lib/services/employee.service";
 import { ensureTenantContext } from "@/lib/db";
@@ -30,7 +30,7 @@ export default async function EditEmployeePage({
 
   try {
     const [emp, lookups] = await Promise.all([
-      getEmployeeById(id),
+      getEmployeeInScope(id, scope, "EDIT"),
       getEmployeeLookupData(scope),
     ]);
     employee = emp;
