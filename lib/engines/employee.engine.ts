@@ -1,4 +1,5 @@
-import type { Employee, EmployeeFormData, EmployeeValidationErrors, EmployeeKPIs, EmployeeRecordGap } from "@/lib/types/employee";
+import type { Employee, EmployeeFormData, EmployeeValidationErrors, EmployeeRecordGap, EmployeeListRow } from "@/lib/types/employee";
+import { maskAccountNumber } from "@/lib/utils/mask";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { validatePhoneNumber } from "@/lib/utils/phone";
 import {
@@ -309,16 +310,53 @@ export function validateEmployee(data: EmployeeFormData): EmployeeValidationErro
   };
 }
 
-export function calculateEmployeeKPIs(employees: Employee[], departmentsCount: number): EmployeeKPIs {
-  const active = employees.filter((e) => e.status === "Active").length;
-  const inactive = employees.filter((e) => (e.status as any) === "Inactive" || (e.status as any) === "Terminated").length;
+export interface RegisterNames {
+  department: Map<string, string>;
+  designation: Map<string, string>;
+  branch: Map<string, string>;
+  employee: Map<string, string>;
+}
+
+/**
+ * One register row (S18): list columns only, with the bank account masked and
+ * the payroll record gaps worked out on the server.
+ */
+export function toEmployeeListRow(e: Employee, names: RegisterNames): EmployeeListRow {
+  const iso = (d: Date | null | undefined) => (d && !isNaN(new Date(d).getTime()) ? new Date(d).toISOString().slice(0, 10) : "");
   return {
-    total: employees.length,
-    active,
-    inactive,
-    onLeave: employees.filter((e) => (e.status as any) === "On Leave").length,
-    terminated: inactive,
-    departmentsCount,
+    id: e.id,
+    employeeCode: e.employeeCode,
+    attendanceCode: e.attendanceCode,
+    fullName: e.fullName,
+    gender: e.gender,
+    category: e.category,
+    status: e.status,
+    departmentId: e.departmentId,
+    departmentName: names.department.get(e.departmentId) ?? "",
+    designationId: e.designationId,
+    designationName: names.designation.get(e.designationId) ?? "",
+    branchId: e.branchId,
+    branchName: names.branch.get(e.branchId) ?? "",
+    shreni: e.shreni,
+    supervisorName: e.supervisorId ? (names.employee.get(e.supervisorId) ?? null) : null,
+    joiningDate: iso(e.joiningDate),
+    mobileNo: e.mobileNo,
+    companyEmail: e.companyEmail,
+    basicSalary: Number(e.basicSalary) || 0,
+    gradeAmount: Number(e.gradeAmount) || 0,
+    bankAccountMasked: maskAccountNumber(e.bankAccountNumber),
+    bankName: e.bankName,
+    gaps: missingRecords(e),
+  };
+}
+
+/** Header counts for the register ("128 active · 5 inactive"). */
+export function registerCounts(rows: Pick<EmployeeListRow, "status" | "gaps">[]) {
+  return {
+    total: rows.length,
+    active: rows.filter((r) => r.status === "Active").length,
+    inactive: rows.filter((r) => r.status !== "Active").length,
+    toFix: rows.filter((r) => r.status === "Active" && r.gaps.length > 0).length,
   };
 }
 
@@ -471,6 +509,13 @@ export const RECORD_GAP_LABEL: Record<EmployeeRecordGap, string> = {
   pan: "PAN missing or invalid",
   bank: "No bank account",
   basic: "Basic salary is zero",
+};
+
+/** Short form for the register's Records column. */
+export const RECORD_GAP_SHORT: Record<EmployeeRecordGap, string> = {
+  pan: "PAN",
+  bank: "Bank",
+  basic: "Basic salary",
 };
 
 // ---------------------------------------------------------------------------

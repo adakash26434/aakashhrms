@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { isTypingTarget } from "@/lib/frame/shortcuts";
 import { Bookmark, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +100,22 @@ export function FilterStrip({
 
   const set = (filterId: string, value: string) => onChange({ ...values, [filterId]: value });
   const knownIds = new Set(filters.map((f) => f.id));
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" jumps to the search box (design system §6), unless the user is typing or a window is open.
+  const hasSearch = !!search;
+  useEffect(() => {
+    if (!hasSearch) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target as HTMLElement)) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hasSearch]);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -108,7 +125,10 @@ export function FilterStrip({
             <span className="sr-only">Search</span>
             <Search aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
             <input
+              ref={searchRef}
               type="search"
+              aria-keyshortcuts="/"
+              title="Search (/)"
               value={search.value}
               onChange={(e) => search.onChange(e.target.value)}
               placeholder={search.placeholder ?? "Search"}

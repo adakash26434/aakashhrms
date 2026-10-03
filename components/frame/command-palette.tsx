@@ -225,7 +225,7 @@ function PaletteDialog({ modules, recent, canSearchEmployees, isImpersonating }:
       description: [e.employeeCode, e.departmentName].filter(Boolean).join(" · "),
       icon: User,
       hint: e.status !== "Active" ? <span className="text-2xs text-ink-faint">{e.status}</span> : undefined,
-      run: () => go(`/workforce/employees?q=${encodeURIComponent(e.employeeCode || e.fullName)}`),
+      run: () => go(`/workforce/employees/${e.id}`),
     }));
     return [
       ...rankCandidates(pageItems, q, 8),

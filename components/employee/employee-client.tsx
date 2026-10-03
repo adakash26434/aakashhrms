@@ -1,370 +1,240 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Download, Upload } from "lucide-react";
+import { ExternalLink, PanelRight, Pencil, Plus, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { PageBar } from "@/components/frame/page-bar";
+import { Confirm } from "@/components/kit/confirm";
+import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
+import { SplitView } from "@/components/kit/split-view";
+import { WindowButton } from "@/components/kit/window";
+import { deleteEmployeeAction } from "@/app/actions/employee.actions";
+import { EMPLOYEE_CATEGORIES } from "@/lib/types/system-control";
+import type { EmployeeListRow, EmployeeRegisterData } from "@/lib/types/employee";
+import { EmployeeQuickView } from "./employee-quick-view";
+import { EmployeeRegister } from "./employee-register";
 
-import type {
-  EmployeeKPIs,
-  Employee,
-  EmployeeFilter,
-  EmployeeFormData,
-  EmployeeValidationErrors,
-} from "@/lib/types/employee";
-import {
-  buildEmployeeLookups,
-  resolveBranchName,
-  resolveDepartmentName,
-  resolveDesignationName,
-  type RawLookupData,
-} from "@/lib/constants/employee-lookups";
+const QUICK_VIEW_KEY = "aakash.employees.quickView";
+const REGISTER_FILTERS = ["dept", "branch", "category", "status"] as const;
 
-import {
-  saveEmployeeAction,
-  deleteEmployeeAction,
-  getEmployeesAction,
-  getEmployeeLookupDataAction,
-} from "@/app/actions/employee.actions";
-
-import dynamic from "next/dynamic";
-import { EmployeeKPIsGrid } from "./employee-kpi-cards";
-import { EmployeeFilters } from "./employee-filters";
-import { EmployeeTable } from "./employee-table";
-import { Button } from "@/components/ui/button";
-import { PageFrame } from "@/components/layout/page-frame";
-
-const EmployeeDetailPanel = dynamic(
-  () => import("./employee-detail-panel").then((m) => m.EmployeeDetailPanel),
-  { ssr: false },
-);
-
-const EmployeeFormModal = dynamic(
-  () => import("./employee-form-modal").then((m) => m.EmployeeFormModal),
-  { ssr: false },
-);
-
-const ConfirmDeleteEmployeeDialog = dynamic(
-  () =>
-    import("./confirm-delete-dialog").then(
-      (m) => m.ConfirmDeleteEmployeeDialog,
-    ),
-  { ssr: false },
-);
-
-import { useToast } from "@/components/ui/toast";
-import { authorizeExportAction } from "@/app/actions/export.actions";
-import { toCsv } from "@/lib/export/csv";
-import { downloadTextFile } from "@/lib/export/download";
-
-interface EmployeeClientProps {
-  initialEmployees: Employee[];
-  initialKpis: EmployeeKPIs;
-  initialLookupData?: RawLookupData | null;
-  /** Pre-filled search text (from ?q=, e.g. the command palette). */
-  initialSearch?: string;
+function readQuickView(): boolean {
+  try {
+    return localStorage.getItem(QUICK_VIEW_KEY) !== "off";
+  } catch {
+    return true;
+  }
 }
 
+/** Filter ids (never search text or names) go in the URL, so Back from a record returns to the same list. */
+function syncUrl(values: FilterValues) {
+  const params = new URLSearchParams();
+  for (const key of REGISTER_FILTERS) if (values[key]) params.set(key, values[key]);
+  const text = params.toString();
+  window.history.replaceState(null, "", `${window.location.pathname}${text ? `?${text}` : ""}`);
+}
+
+/**
+ * Employees register (4.2, template A): toolbar, filters, the grid and a quick
+ * view. Enter or double-click opens the full record page.
+ */
 export function EmployeeClient({
-  initialEmployees,
-  initialKpis,
-  initialLookupData,
-  initialSearch = "",
-}: EmployeeClientProps) {
+  data,
+  initialFilters,
+  initialSearch,
+}: {
+  data: EmployeeRegisterData;
+  initialFilters: FilterValues;
+  initialSearch: string;
+}) {
   const router = useRouter();
-  const [employees, setEmployees] = useState(initialEmployees);
-  const [kpis, setKpis] = useState(initialKpis);
-  const [loading, setLoading] = useState(false);
-  const [lookupData, setLookupData] = useState<RawLookupData | null>(
-    initialLookupData ?? null,
-  );
-  const toast = useToast();
+  const [refreshing, startRefresh] = useTransition();
+  const { rows, counts, permissions } = data;
+  const [filters, setFilters] = useState<FilterValues>(initialFilters);
+  const [search, setSearch] = useState(initialSearch);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [quickView, setQuickView] = useState(true);
+  const [deleting, setDeleting] = useState<EmployeeListRow | null>(null);
 
-  const [filters, setFilters] = useState<EmployeeFilter>({
-    search: initialSearch,
-    departmentId: "all",
-    branchId: "all",
-    category: "all",
-    status: "all",
-  });
+  // Browser storage is only readable after hydration.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setQuickView(readQuickView()), []);
 
-  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEmpId, setEditingEmpId] = useState<string | null>(null);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-
-  const lookups = useMemo(
-    () => buildEmployeeLookups(employees, lookupData ?? undefined),
-    [employees, lookupData],
-  );
-
-  const deleteTarget = useMemo(
-    () => employees.find((e) => e.id === deleteTargetId) ?? null,
-    [employees, deleteTargetId],
-  );
-
-  const modalEmployees = useMemo(() => {
-    return employees.length > 0
-      ? employees.map((e) => ({
-          id: e.id,
-          name: e.fullName,
-          employeeCode: e.employeeCode,
-          attendanceCode: e.attendanceCode,
-          isSupervisor: e.isSupervisor,
-        }))
-      : lookupData?.employees ?? [];
-  }, [employees, lookupData?.employees]);
-
-  // Fetch lookup data on mount if not already present
-  useEffect(() => {
-    async function fetchLookups() {
-      const result = await getEmployeeLookupDataAction();
-      if (result.success && result.data) {
-        setLookupData(result.data);
-      }
-    }
-    if (!initialLookupData) {
-      fetchLookups();
-    }
-  }, [initialLookupData]);
-
-  // Fetch filtered employees when filters change
-  useEffect(() => {
-    async function fetchFiltered() {
-      setLoading(true);
-      const result = await getEmployeesAction(filters);
-      if (result.success && result.data) {
-        setEmployees(result.data.employees);
-        setKpis(result.data.kpis);
-      }
-      setLoading(false);
-    }
-    if (lookupData !== null) {
-      fetchFiltered();
-    }
-  }, [filters, lookupData]);
-
-  // Quick export all filtered employees to CSV (EXPORT permission + audit, S16-safe CSV)
-  async function handleExportAll() {
-    if (employees.length === 0) {
-      toast.info("No employees to export");
-      return;
-    }
-    const gate = await authorizeExportAction({ module: "EMPLOYEES", label: "Employee register (CSV)", rowCount: employees.length });
-    if (!gate.allowed) {
-      toast.error(gate.error ?? "Export not allowed");
-      return;
-    }
-
-    const csv = toCsv<Employee>(
-      [
-        { header: "Employee Code", value: (e) => e.employeeCode },
-        { header: "Attendance Code", value: (e) => e.attendanceCode },
-        { header: "Name", value: (e) => e.fullName },
-        { header: "Department", value: (e) => resolveDepartmentName(e.departmentId, lookups.departmentNameById) },
-        { header: "Designation", value: (e) => resolveDesignationName(e.designationId, lookups.designationNameById) },
-        { header: "Branch", value: (e) => resolveBranchName(e.branchId, lookups.branchNameById) },
-        { header: "Category", value: (e) => e.category },
-        { header: "Status", value: (e) => e.status },
-        { header: "Email", value: (e) => e.email },
-        { header: "Mobile", value: (e) => e.mobileNo },
-      ],
-      employees
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter(
+      (r) =>
+        (!filters.dept || r.departmentId === filters.dept) &&
+        (!filters.branch || r.branchId === filters.branch) &&
+        (!filters.category || r.category === filters.category) &&
+        (!filters.status || r.status === filters.status) &&
+        (!q || r.fullName.toLowerCase().includes(q) || r.employeeCode.toLowerCase().includes(q) || r.attendanceCode.toLowerCase().includes(q))
     );
-    downloadTextFile(`employees_export_${new Date().toISOString().split("T")[0]}.csv`, csv);
-    toast.success("Employee list exported successfully");
-  }
+  }, [rows, filters, search]);
 
-  async function handleSaveEmployee(formData: EmployeeFormData) {
+  const active = visible.find((r) => r.id === activeId) ?? null;
+  const open = (row: EmployeeListRow | null) => row && router.push(`/workforce/employees/${row.id}`);
+  const edit = (row: EmployeeListRow | null) => row && router.push(`/workforce/employees/${row.id}/edit`);
+
+  const toggleQuickView = () => {
+    const next = !quickView;
+    setQuickView(next);
     try {
-      const result = await saveEmployeeAction(editingEmpId, formData);
-      if (!result.success) {
-        const errorMsg = result.validationErrors
-          ? Object.values(result.validationErrors)[0] ?? result.error
-          : result.error || "Failed to save employee";
-        toast.error(errorMsg);
-        return {
-          success: false,
-          validationErrors: result.validationErrors as
-            | EmployeeValidationErrors
-            | undefined,
-          error: result.error,
-        };
-      }
-
-      toast.success(
-        editingEmpId
-          ? "Employee updated successfully!"
-          : "Employee added successfully!",
-      );
-      setIsModalOpen(false);
-      setEditingEmpId(null);
-
-      // Refresh list
-      const refresh = await getEmployeesAction(filters);
-      if (refresh.success && refresh.data) {
-        setEmployees(refresh.data.employees);
-        setKpis(refresh.data.kpis);
-      }
-      return { success: true };
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to save employee";
-      toast.error(msg);
-      return { success: false, error: msg };
+      localStorage.setItem(QUICK_VIEW_KEY, next ? "on" : "off");
+    } catch {
+      /* preference only */
     }
-  }
+  };
 
-  async function confirmDeleteEmployee() {
-    if (!deleteTargetId) return;
-    try {
-      const result = await deleteEmployeeAction(deleteTargetId);
-      if (!result.success) {
-        toast.error(result.error || "Could not delete employee");
-        return;
-      }
+  const changeFilters = (next: FilterValues) => {
+    setFilters(next);
+    syncUrl(next);
+  };
 
-      toast.success("Employee removed successfully");
-      setSelectedEmpId(null);
-      setDeleteTargetId(null);
-
-      // Refresh list
-      const refresh = await getEmployeesAction(filters);
-      if (refresh.success && refresh.data) {
-        setEmployees(refresh.data.employees);
-        setKpis(refresh.data.kpis);
-      }
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Could not delete employee";
-      toast.error(msg);
-    }
-  }
+  const filtered = Object.values(filters).some(Boolean) || search.trim() !== "";
+  const summary = [`${counts.active} active`, counts.inactive ? `${counts.inactive} inactive` : null, counts.toFix ? `${counts.toFix} with records to fix` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <PageFrame size="wide" spacing="none" className="space-y-4 sm:space-y-5">
-      {/* Page Header matching mockup */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-payroll-ink">
-            Employee Directory
-          </h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">
-            Manage your workforce — search, review, and update employee records.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Export Button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleExportAll}
-            className="h-9 gap-1.5 rounded-lg border-payroll-border bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-2xs"
-          >
-            <Download className="h-3.5 w-3.5 text-gray-500" />
-            <span>Export</span>
-          </Button>
-
-          {/* Import Button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => toast.info("Employee CSV import wizard is available in Company Setup.")}
-            className="h-9 gap-1.5 rounded-lg border-payroll-border bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-2xs"
-          >
-            <Upload className="h-3.5 w-3.5 text-gray-500" />
-            <span>Import</span>
-          </Button>
-
-          {/* Primary + Add Employee Button (routes to full-page flow) */}
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => router.push("/workforce/employees/new")}
-            className="h-9 gap-1.5 rounded-lg bg-payroll-primary hover:bg-payroll-primary-hover text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Employee</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Strip */}
-      <EmployeeKPIsGrid kpis={kpis} />
-
-      {/* Filter Row */}
-      <EmployeeFilters
-        filters={filters}
-        setFilters={setFilters}
-        branches={lookupData?.branches ?? []}
-        departments={lookupData?.departments ?? []}
-        count={employees.length}
+    <div>
+      <PageBar
+        title="Employees"
+        description={counts.total ? summary : "No employees yet"}
+        actions={[
+          {
+            id: "new",
+            label: "New employee",
+            icon: Plus,
+            group: "create",
+            primary: true,
+            shortcut: "Ctrl+N",
+            hidden: !permissions.add,
+            onClick: () => router.push("/workforce/employees/new"),
+          },
+          {
+            id: "open",
+            label: "Open",
+            icon: ExternalLink,
+            group: "selection",
+            disabled: !active,
+            disabledReason: "Select an employee first",
+            onClick: () => open(active),
+          },
+          {
+            id: "edit",
+            label: "Edit",
+            icon: Pencil,
+            group: "selection",
+            shortcut: "F2",
+            hidden: !permissions.edit,
+            disabled: !active,
+            disabledReason: "Select an employee first",
+            onClick: () => edit(active),
+          },
+          {
+            id: "delete",
+            label: "Delete",
+            icon: Trash2,
+            group: "selection",
+            shortcut: "Delete",
+            hidden: !permissions.remove,
+            disabled: !active,
+            disabledReason: "Select an employee first",
+            onClick: () => setDeleting(active),
+          },
+          { id: "quick", label: quickView ? "Hide quick view" : "Show quick view", icon: PanelRight, group: "output", onClick: toggleQuickView },
+          {
+            id: "refresh",
+            label: refreshing ? "Refreshing…" : "Refresh",
+            icon: RefreshCw,
+            group: "refresh",
+            disabled: refreshing,
+            onClick: () => startRefresh(() => router.refresh()),
+          },
+        ]}
       />
 
-      {/* Employee Table */}
-      <EmployeeTable
-        employees={employees}
-        isLoading={loading}
-        lookups={lookups}
-        onSelect={(id) => setSelectedEmpId(id)}
-        onEdit={(id) => router.push(`/workforce/employees/${id}/edit`)}
-        onDelete={(id) => setDeleteTargetId(id)}
-        onClearFilters={() =>
-          setFilters({
-            search: "",
-            departmentId: "all",
-            branchId: "all",
-            category: "all",
-            status: "all",
-          })
+      <FilterStrip
+        id="employees"
+        className="mb-3"
+        values={filters}
+        onChange={changeFilters}
+        search={{ value: search, onChange: setSearch, placeholder: "Name, code or attendance code" }}
+        filters={[
+          { id: "dept", label: "Department", allLabel: "All departments", options: data.departments.map((d) => ({ value: d.id, label: d.name })) },
+          { id: "branch", label: "Branch", allLabel: "All branches", options: data.branches.map((b) => ({ value: b.id, label: b.name })) },
+          { id: "category", label: "Category", allLabel: "All categories", options: EMPLOYEE_CATEGORIES.map((c) => ({ value: c, label: c === "OutSource" ? "Outsourced" : c })) },
+          { id: "status", label: "Status", allLabel: "All statuses", options: [{ value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }] },
+        ]}
+      />
+
+      <SplitView
+        id="employees"
+        detailTitle={active ? `${active.fullName} · ${active.employeeCode}` : undefined}
+        onCloseDetail={() => setActiveId(null)}
+        detail={quickView && active ? <EmployeeQuickView row={active} canEdit={permissions.edit} /> : null}
+        master={
+          <EmployeeRegister
+            rows={visible}
+            activeId={activeId}
+            onActive={(r) => setActiveId(r.id)}
+            onOpen={open}
+            selected={selected}
+            onSelectedChange={setSelected}
+            canExport={permissions.export}
+            empty={
+              filtered
+                ? {
+                    title: "No employees match",
+                    description: "Clear the filters or search to see everyone.",
+                    action: (
+                      <WindowButton
+                        onClick={() => {
+                          changeFilters({});
+                          setSearch("");
+                        }}
+                      >
+                        Clear filters
+                      </WindowButton>
+                    ),
+                  }
+                : {
+                    title: "No employees yet",
+                    description: "Add your first employee to start running payroll.",
+                    action: permissions.add ? (
+                      <WindowButton variant="primary" onClick={() => router.push("/workforce/employees/new")}>
+                        <UserPlus className="h-3.5 w-3.5" /> Add employee
+                      </WindowButton>
+                    ) : undefined,
+                  }
+            }
+          />
         }
-        hasActiveFilters={Boolean(
-          (filters.search && filters.search.trim()) ||
-            filters.departmentId !== "all" ||
-            filters.branchId !== "all" ||
-            filters.category !== "all" ||
-            filters.status !== "all",
-        )}
       />
 
-      {/* Record Inspection Side Panel Drawer */}
-      <EmployeeDetailPanel
-        open={!!selectedEmpId}
-        employeeId={selectedEmpId}
-        lookups={lookups}
-        onClose={() => setSelectedEmpId(null)}
-        onEdit={(id) => {
-          setSelectedEmpId(null);
-          router.push(`/workforce/employees/${id}/edit`);
+      <Confirm
+        open={!!deleting}
+        tone="danger"
+        title={deleting ? `Delete ${deleting.fullName}?` : ""}
+        confirmLabel="Delete permanently"
+        requireText={deleting?.employeeCode}
+        message={
+          <>
+            This removes the employee and their login for good. Employees with payroll, loans or pending leave cannot be deleted; set their
+            status to Inactive with a separation date instead.
+          </>
+        }
+        onConfirm={async () => {
+          if (!deleting) return;
+          const result = await deleteEmployeeAction(deleting.id);
+          if (!result.success) throw new Error(result.error);
+          setDeleting(null);
+          setActiveId(null);
+          router.refresh();
         }}
+        onCancel={() => setDeleting(null)}
       />
-
-      {/* Modal Fallback for Backward Compatibility */}
-      <EmployeeFormModal
-        key={editingEmpId ? `edit-${editingEmpId}` : "new-employee"}
-        open={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingEmpId(null);
-        }}
-        editingId={editingEmpId}
-        onSave={handleSaveEmployee}
-        branches={lookupData?.branches ?? []}
-        departments={lookupData?.departments ?? []}
-        designations={lookupData?.designations ?? []}
-        industryType={lookupData?.industryType}
-        employees={modalEmployees}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDeleteEmployeeDialog
-        open={!!deleteTargetId}
-        employee={deleteTarget}
-        onClose={() => setDeleteTargetId(null)}
-        onConfirm={confirmDeleteEmployee}
-      />
-    </PageFrame>
+    </div>
   );
 }

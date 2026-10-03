@@ -1,20 +1,23 @@
-export default function EmployeeLoading() {
+import { GridSkeleton, Skeleton } from "@/components/kit/skeleton";
+
+/** Register skeleton (E11): page bar, filter strip and grid in the page's own layout. */
+export default function EmployeesLoading() {
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <div className="h-8 w-48 rounded bg-payroll-border/80" />
-          <div className="h-4 w-64 rounded bg-payroll-border/40" />
+    <div role="status" aria-label="Loading employees">
+      <div className="mb-4 flex items-end justify-between gap-4 border-b border-line pb-3">
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-2.5 w-64" />
         </div>
-        <div className="h-9 w-32 rounded-lg bg-payroll-border/80" />
+        <Skeleton className="h-8 w-72" />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-24 rounded-xl bg-payroll-border/40" />
-        ))}
+      <div className="mb-3 flex gap-2">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-8 w-32" />
       </div>
-      <div className="h-12 w-full rounded-lg bg-payroll-border/40" />
-      <div className="h-96 w-full rounded-xl bg-payroll-border/40" />
+      <GridSkeleton rows={12} columns={8} />
     </div>
   );
 }

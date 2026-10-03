@@ -5,7 +5,7 @@ import * as empService from '@/lib/services/employee.service';
 import * as userService from '@/lib/services/user.service';
 import * as roleService from '@/lib/services/role.service';
 import { revalidatePath } from 'next/cache';
-import type { EmployeeFormData, EmployeeFilter, EmployeeValidationErrors } from '@/lib/types/employee';
+import type { EmployeeFormData, EmployeeValidationErrors } from '@/lib/types/employee';
 import { checkPermissionWithScope } from '@/lib/auth/check-permission';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { canPlaceInScope, changedEmployeeFields } from '@/lib/engines/employee.engine';
@@ -97,17 +97,6 @@ export async function deleteEmployeeAction(id: string) {
       return { success: false as const, error: error.message };
     }
     return toActionError(error, 'employee.delete');
-  }
-}
-
-export async function getEmployeesAction(filter: EmployeeFilter) {
-  await ensureTenantContext();
-  try {
-    const scope = await checkPermissionWithScope('VIEW', 'EMPLOYEES');
-    const data = await empService.getEmployees(filter, scope);
-    return { success: true as const, data };
-  } catch (error: unknown) {
-    return toActionError(error, 'employee.list');
   }
 }
 

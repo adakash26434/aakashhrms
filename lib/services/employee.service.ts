@@ -3,9 +3,8 @@ import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
-import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as engine from "@/lib/engines/employee.engine";
-import type { Employee, EmployeeFormData, EmployeeFilter, EmployeeKPIs, EmployeeValidationErrors } from "@/lib/types/employee";
+import type { Employee, EmployeeFormData, EmployeeRegisterData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { getDb } from "@/lib/db";
 import { employeeSalaryMap, employeeSalaryHeads, payHeads, loans, loanTypes, leaveApplications, leaveOtCalculations, payrollSlips, leaveSalaryRuns, systemConfig } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -41,6 +40,8 @@ export class EmployeeInUseError extends Error {
 import * as shreniRepository from "@/lib/repositories/shreni.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 
+const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
+
 export interface EmployeeLookupData {
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];
@@ -54,7 +55,7 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
-    repository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "all" }, scopeCondition),
+    repository.findAll(ALL_EMPLOYEES, scopeCondition),
     shreniRepository.findAllShreniLevels(),
     systemControlRepository.findSettings(),
     db
@@ -72,7 +73,7 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
     gradePolicy: systemControl.gradePolicy,
     employees: allEmployees.map((e) => ({
       id: e.id,
-      name: e.fullName || `${(e as any).firstName || ''} ${(e as any).lastName || ''}`.trim(),
+      name: e.fullName, // the repository already falls back to legacy first/last names
       employeeCode: e.employeeCode,
       attendanceCode: e.attendanceCode,
       isSupervisor: e.isSupervisor,
@@ -81,14 +82,36 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
   };
 }
 
-export async function getEmployees(filter: EmployeeFilter, scope?: ScopeFilter) {
-  const scopeCondition = scope ? buildEmployeeScopeCondition(scope) : undefined;
-  const [employees, deptCount] = await Promise.all([
-    repository.findAll(filter, scopeCondition),
-    departmentRepository.countActive(),
+/**
+ * The register (4.2): every employee in the user's scope as slim list rows
+ * (S18), plus the filter choices. Filtering happens in the browser.
+ */
+export async function getEmployeeRegister(
+  scope: ScopeFilter,
+  permissions: EmployeeRegisterData["permissions"]
+): Promise<EmployeeRegisterData> {
+  const [employees, branches, departments, designations] = await Promise.all([
+    repository.findAll(ALL_EMPLOYEES, buildEmployeeScopeCondition(scope)),
+    branchRepository.findAllBranches(),
+    departmentRepository.findAllDepartments(),
+    designationRepository.findAllDesignations(),
   ]);
-  const kpis = engine.calculateEmployeeKPIs(employees, deptCount);
-  return { employees, kpis };
+  const names: engine.RegisterNames = {
+    department: new Map(departments.map((d) => [d.id, d.name])),
+    designation: new Map(designations.map((d) => [d.id, d.name])),
+    branch: new Map(branches.map((b) => [b.id, b.name])),
+    employee: new Map(employees.map((e) => [e.id, e.fullName])),
+  };
+  const rows = employees.map((e) => engine.toEmployeeListRow(e, names)).sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const used = (ids: Set<string>, list: { id: string; name: string }[]) =>
+    list.filter((x) => ids.has(x.id)).map((x) => ({ id: x.id, name: x.name })).sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    rows,
+    counts: engine.registerCounts(rows),
+    departments: used(new Set(rows.map((r) => r.departmentId)), departments),
+    branches: used(new Set(rows.map((r) => r.branchId)), branches),
+    permissions,
+  };
 }
 
 export async function getEmployeeById(id: string) {

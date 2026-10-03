@@ -183,13 +183,12 @@ export interface EmployeeListRow {
   gaps: EmployeeRecordGap[];
 }
 
-export interface EmployeeKPIs {
-  total: number;
-  active: number;
-  inactive: number;
-  onLeave?: number;
-  terminated?: number;
-  departmentsCount: number;
+export interface EmployeeRegisterData {
+  rows: EmployeeListRow[];
+  counts: { total: number; active: number; inactive: number; toFix: number };
+  departments: { id: string; name: string }[];
+  branches: { id: string; name: string }[];
+  permissions: { add: boolean; edit: boolean; remove: boolean; export: boolean };
 }
 
 export interface EmployeeValidationErrors {

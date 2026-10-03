@@ -41,7 +41,7 @@ export function DashboardReadinessCard({ checked, issues }: { checked: number; i
                 <ul className="mt-1.5 space-y-1 pl-9">
                   {issue.sample.map((e) => (
                     <li key={e.id} className="flex items-baseline justify-between gap-2 text-xs">
-                      <Link href={`/workforce/employees/${e.id}/edit`} className="truncate text-ink hover:text-brand-strong hover:underline">
+                      <Link href={`/workforce/employees/${e.id}`} className="truncate text-ink hover:text-brand-strong hover:underline">
                         {e.name}
                       </Link>
                       <span className="shrink-0 font-code text-2xs text-ink-faint">{e.code}</span>

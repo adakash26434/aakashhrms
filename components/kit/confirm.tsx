@@ -76,7 +76,7 @@ function ConfirmWindow({ title, message, confirmLabel = "Confirm", tone = "defau
         <div className="min-w-0 flex-1 text-sm text-ink-muted">{message}</div>
       </div>
       {error && (
-        <p role="alert" className="mt-3 rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1.5 text-xs text-danger">
+        <p role="alert" className="mt-3 whitespace-pre-line rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1.5 text-xs text-danger">
           {error}
         </p>
       )}
