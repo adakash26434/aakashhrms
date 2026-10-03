@@ -6,7 +6,7 @@ import { useDateFormat } from "@/lib/contexts/date-format-context";
 import { formatDateInput } from "@/lib/utils/date-input-formatter";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
-import { dayToIso, isoToDay, isoToDisplay, monthLayout, shiftIsoDays, shiftIsoMonths } from "@/lib/kit/date-field";
+import { DATE_YEARS, dayToIso, isoToDay, isoToDisplay, monthLayout, shiftIsoDays, shiftIsoMonths } from "@/lib/kit/date-field";
 import { useFormNav } from "./use-enter-navigation";
 import { inputClass } from "./property-form";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,11 @@ export function DateField({
   const [typed, setTyped] = useState<string | null>(null); // null = showing the stored value
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState<string>(""); // AD iso of the highlighted day
+  // The calendar picks on Enter only once the user moved in it (or a date is already set),
+  // so opening it by mouse and pressing Enter never fills in today by accident.
+  const [moved, setMoved] = useState(false);
+  // Enter on a half-typed date shows this instead of moving on.
+  const [unfinished, setUnfinished] = useState(false);
   const text = typed ?? isoToDisplay(value, isBS);
   const today = useMemo(() => nepalDateIso(), []);
 
@@ -74,6 +79,7 @@ export function DateField({
   const openCalendar = () => {
     if (disabled || readOnly) return;
     setCursor(value || today);
+    setMoved(false);
     setOpen(true);
   };
 
@@ -83,8 +89,10 @@ export function DateField({
     setOpen(false);
   };
 
+  const years = isBS ? DATE_YEARS.BS : DATE_YEARS.AD;
   const onType = (raw: string) => {
-    const result = formatDateInput({ raw, prevValue: text, isBS });
+    setUnfinished(false);
+    const result = formatDateInput({ raw, prevValue: text, isBS, minYear: years.min, maxYear: years.max });
     setTyped(result.formatted);
     if (!result.formatted) {
       if (value) onChange("");
@@ -105,15 +113,29 @@ export function DateField({
       e.preventDefault();
       return open ? setOpen(false) : openCalendar();
     }
-    if (!open) return;
+    if (!open) {
+      // A half-typed date: say so and stay, rather than moving on with the old value.
+      if (e.key === "Enter" && !e.shiftKey && typed && typed !== isoToDisplay(value, isBS)) {
+        e.preventDefault();
+        setUnfinished(true);
+      }
+      return;
+    }
     const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
     if (e.key in step) {
       e.preventDefault();
+      setMoved(true);
       setCursor((c) => shiftIsoDays(c || today, step[e.key]));
     } else if (e.key === "PageUp" || e.key === "PageDown") {
       e.preventDefault();
+      setMoved(true);
       setCursor((c) => shiftIsoMonths(c || today, e.key === "PageUp" ? -1 : 1, isBS));
     } else if (e.key === "Enter" && !e.shiftKey) {
+      if (!moved && !value) {
+        // Nothing chosen yet: close and let the form check the field.
+        setOpen(false);
+        return;
+      }
       e.preventDefault();
       commit(cursor || today);
       nav?.advanceFrom(inputRef.current);
@@ -142,12 +164,15 @@ export function DateField({
         value={text}
         onChange={(e) => onType(e.target.value)}
         onKeyDown={onKeyDown}
-        onBlur={() => setTyped(null)} // an unfinished date falls back to the stored one
-        className={cn(inputClass, "max-w-none pr-28 font-code tabular-nums")}
+        data-incomplete={unfinished || undefined}
+        onBlur={() => {
+          setTyped(null); // an unfinished date falls back to the stored one
+          setUnfinished(false);
+        }}
+        className={cn(inputClass, "max-w-none pr-8 font-code tabular-nums", unfinished && "border-danger")}
         {...aria}
       />
       <span className="absolute inset-y-0 right-0 flex items-center gap-1 pr-1">
-        {otherCalendar && <span className="hidden text-2xs tabular-nums text-ink-faint sm:inline">{otherCalendar}</span>}
         {!readOnly && (
           <button
             type="button"
@@ -169,6 +194,14 @@ export function DateField({
         )}
       </span>
 
+      {unfinished ? (
+        <p role="alert" className="mt-0.5 text-3xs font-medium text-danger">
+          Finish the date as YYYY/MM/DD ({isBS ? "BS" : "AD"}).
+        </p>
+      ) : (
+        otherCalendar && <p className="mt-0.5 text-3xs tabular-nums text-ink-faint">{otherCalendar}</p>
+      )}
+
       {open && (
         <div
           role="dialog"
@@ -181,7 +214,11 @@ export function DateField({
               type="button"
               tabIndex={-1}
               aria-label="Previous month"
-              onClick={() => setCursor((c) => shiftIsoMonths(c || today, -1, isBS))}
+              onClick={() => {
+                setMoved(true);
+                setCursor((c) => shiftIsoMonths(c || today, -1, isBS));
+                inputRef.current?.focus();
+              }}
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded hover:bg-surface-sunken"
             >
               <ChevronLeft aria-hidden className="h-4 w-4" />
@@ -193,7 +230,11 @@ export function DateField({
               type="button"
               tabIndex={-1}
               aria-label="Next month"
-              onClick={() => setCursor((c) => shiftIsoMonths(c || today, 1, isBS))}
+              onClick={() => {
+                setMoved(true);
+                setCursor((c) => shiftIsoMonths(c || today, 1, isBS));
+                inputRef.current?.focus();
+              }}
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded hover:bg-surface-sunken"
             >
               <ChevronRight aria-hidden className="h-4 w-4" />
@@ -222,7 +263,11 @@ export function DateField({
                   tabIndex={-1}
                   aria-label={isoToDisplay(iso, isBS)}
                   aria-pressed={isValue}
-                  onClick={() => commit(iso)}
+                  onClick={() => {
+                    commit(iso);
+                    // Keep the keyboard in the field so Enter moves on next.
+                    inputRef.current?.focus();
+                  }}
                   className={cn(
                     "h-7 cursor-pointer rounded text-xs tabular-nums text-ink hover:bg-surface-sunken",
                     iso === today && "font-semibold text-brand-strong",

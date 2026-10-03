@@ -1,9 +1,11 @@
 "use client";
 
-import { FieldRow, inputClass } from "@/components/kit/property-form";
+import { GridField, GridValue } from "@/components/kit/form-grid";
+import { SelectField } from "@/components/kit/select-field";
 import { StatusChip } from "@/components/kit/status-chip";
+import { YesNoField } from "@/components/kit/yes-no-field";
 import type { EmployeeAccessOptions } from "@/lib/services/employee.service";
-import { CheckBox, FormSection, type EmployeeFormApi } from "./employee-form-fields";
+import { FormSection, type EmployeeFormApi } from "./employee-form-fields";
 
 const ACCESS_STATE = { active: "Active", pending: "Waiting for first sign-in", disabled: "Disabled" } as const;
 
@@ -19,53 +21,42 @@ export function EmployeeFormAccess({
 }) {
   const { ctx, form } = api;
   const linked = ctx.access;
-  const roleSelect = (
-    <select
-      name="accessRole"
-      value={options.roleId ?? ""}
-      onChange={(e) => {
-        const role = ctx.roles.find((r) => r.id === e.target.value);
-        onOptions({ ...options, roleId: role?.id, roleSlug: role?.slug });
-      }}
-      className={inputClass}
-    >
-      {ctx.roles.map((r) => (
-        <option key={r.id} value={r.id}>
-          {r.name}
-        </option>
-      ))}
-    </select>
+  const roleField = (
+    <GridField label="Role" help="What this person can do after signing in. Most employees get the standard Employee role." size="md">
+      <SelectField
+        name="accessRole"
+        options={ctx.roles.map((r) => ({ value: r.id, label: r.name }))}
+        value={options.roleId ?? ""}
+        onChange={(id) => {
+          const role = ctx.roles.find((r) => r.id === id);
+          onOptions({ ...options, roleId: role?.id, roleSlug: role?.slug });
+        }}
+      />
+    </GridField>
   );
 
   return (
     <FormSection id="access" title="Self-service access" description="Lets the employee see payslips and apply for leave.">
       {linked ? (
         <>
-          <FieldRow label="Login">
-            <p className="flex flex-wrap items-center gap-2 pt-1.5 text-sm text-ink">
+          <GridValue label="Login">
+            <span className="flex flex-wrap items-center gap-2">
               {linked.email}
               <StatusChip status={linked.state === "active" ? "active" : linked.state === "pending" ? "pending" : "inactive"} label={ACCESS_STATE[linked.state]} />
-            </p>
-          </FieldRow>
-          <FieldRow label="Role" help="What this person can do after signing in.">
-            {roleSelect}
-          </FieldRow>
+            </span>
+          </GridValue>
+          {roleField}
         </>
       ) : (
         <>
-          <FieldRow label="Create a login" help={form.companyEmail ? `A temporary password is emailed to ${form.companyEmail}.` : "Needs the company email above."}>
-            <CheckBox
-              name="accessCreate"
-              checked={options.createLogin !== false}
-              onChange={(on) => onOptions({ ...options, createLogin: on })}
-              text="Yes, create a self-service login"
-            />
-          </FieldRow>
-          {options.createLogin !== false && (
-            <FieldRow label="Role" help="Most employees get the standard Employee role.">
-              {roleSelect}
-            </FieldRow>
-          )}
+          <GridField
+            label="Create a login"
+            help={form.companyEmail ? `A temporary password is emailed to ${form.companyEmail}.` : "Needs the company email under Contact."}
+            size="md"
+          >
+            <YesNoField name="accessCreate" value={options.createLogin !== false} onChange={(on) => onOptions({ ...options, createLogin: on })} />
+          </GridField>
+          {options.createLogin !== false && roleField}
         </>
       )}
     </FormSection>

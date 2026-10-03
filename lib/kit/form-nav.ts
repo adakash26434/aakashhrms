@@ -28,6 +28,8 @@ export interface EnterKeyLike {
 export interface FieldTargetLike {
   tagName?: string;
   type?: string;
+  /** A custom control (kit SelectField, YesNoField) marked data-enter-field: behaves like an input. */
+  enterField?: boolean;
 }
 
 /** Input types that are actions, not values: Enter keeps its native meaning. */
@@ -35,7 +37,7 @@ const ACTION_INPUT_TYPES = new Set(["button", "submit", "reset", "image", "file"
 
 export function enterIntent(e: EnterKeyLike, target: FieldTargetLike | null | undefined): EnterIntent {
   if (e.key !== "Enter" || e.isComposing || e.defaultPrevented || e.altKey) return null;
-  const tag = (target?.tagName ?? "").toUpperCase();
+  const tag = target?.enterField ? "INPUT" : (target?.tagName ?? "").toUpperCase();
   const mod = e.ctrlKey || e.metaKey;
 
   if (tag === "TEXTAREA") {
@@ -44,7 +46,7 @@ export function enterIntent(e: EnterKeyLike, target: FieldTargetLike | null | un
   }
   if (tag === "SELECT") return e.shiftKey ? "prev" : mod ? null : "next";
   if (tag === "INPUT") {
-    if (ACTION_INPUT_TYPES.has((target?.type ?? "text").toLowerCase())) return null;
+    if (!target?.enterField && ACTION_INPUT_TYPES.has((target?.type ?? "text").toLowerCase())) return null;
     if (mod) return null;
     return e.shiftKey ? "prev" : "next";
   }
@@ -63,6 +65,7 @@ export const ENTER_FIELD_SELECTOR = [
   "input:not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='file'])",
   "select",
   "textarea",
+  "[data-enter-field]",
 ].join(",");
 
 export interface FieldStateLike {

@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { attendanceMonth, codeConflicts, historySummary, registerCounts, resolveRecordTab, sectionProgress, tenureLabel, toEmployeeListRow, validateEmployeeField, type RegisterNames } from '../lib/engines/employee.engine';
+import { attendanceMonth, codeConflicts, separationErrors, historySummary, registerCounts, resolveRecordTab, sectionProgress, tenureLabel, toEmployeeListRow, validateEmployeeField, type RegisterNames } from '../lib/engines/employee.engine';
 import { EMPTY_EMPLOYEE_FORM } from '../lib/services/employee.service';
 import { EMPLOYEE_FORM_SECTIONS, EMPLOYEE_FIELD_LABELS } from '../lib/constants/employee-form';
 import type { EmployeeFormData } from '../lib/types/employee';
@@ -155,7 +155,7 @@ describe('Employee form (4.2)', () => {
 
   it('reports section progress for the section index', () => {
     const empty = sectionProgress(EMPTY_EMPLOYEE_FORM, {});
-    assert.equal(empty.find((p) => p.id === 'identification')?.state, 'todo');
+    assert.equal(empty.find((p) => p.id === 'general')?.state, 'todo');
     assert.equal(empty.find((p) => p.id === 'access')?.state, 'optional');
     const done = sectionProgress(filled, {});
     assert.ok(done.filter((p) => p.id !== 'access' && p.id !== 'separation').every((p) => p.state === 'complete'), JSON.stringify(done));
@@ -175,4 +175,14 @@ describe('Employee form (4.2)', () => {
       assert.ok(!/localStorage\.setItem\((?!QUICK_VIEW_KEY)/.test(src), file);
     }
   });
+
+  it('checks separation details for the status change', () => {
+    const base = { ...EMPTY_EMPLOYEE_FORM, joiningDate: '2023-07-17' };
+    const missing = separationErrors(base);
+    assert.ok(missing.terminationDate && missing.terminationType && missing.terminationReason);
+    assert.deepEqual(separationErrors({ ...base, terminationDate: '2026-10-03', terminationType: 'Resignation', terminationReason: 'Moving abroad' }), {});
+    assert.ok(separationErrors({ ...base, terminationDate: '2020-01-01', terminationType: 'Resignation', terminationReason: 'x' }).terminationDate, 'before joining');
+    assert.ok(separationErrors({ ...base, terminationDate: '2026-10-03', terminationType: 'Fired' as never, terminationReason: 'x' }).terminationType);
+  });
 });
+

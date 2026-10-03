@@ -13,6 +13,31 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.2 Employees: review round (no delete, status switch, compact form, Enter fixes)
+Branch: `redesign/4.2-employees`
+
+Your review: table good, but add View / Edit / Active-Inactive actions and never allow deleting an employee; the form wastes space on the right and its fields are too wide; Enter does not work properly on drop-downs, dates and checkboxes.
+
+Research: SAP Fiori form layout (responsive 12-column form grid, label/field ratio, empty columns so inputs do not stretch) and Business Central FastTabs (fields flow into two or more columns, captions left). The banking form you shared (multi-column label/field pairs, Yes/No drop-downs, tabs) informed the density and the Yes/No answers; the section index stays instead of tabs so Enter can run through the whole record.
+
+Changed:
+- **No delete, status switch:** the Actions column (View, Edit, Active/Inactive switch) and the toolbar / record page "Make inactive / Make active" open a status window. Inactive records the separation and switches the login off; active clears it and switches the login on. Delete is gone from the UI, action, service and repository. Status left the edit form (S18 updated).
+- **Compact form:** `FormGrid` / `GridField` (1-2-3 columns, captions left, 28px rows, widths by data), documents as a small table, the address on one row (two below 1280px), help in the footer status line, live hints beside fields (age, service length, below-scale salary), "Grade by hand" and "Temporary address: Same / Different" as Yes/No.
+- **Enter fixes (reproduced first):**
+  - a valid date made "Age 31" appear, which remounted the date input and dropped focus, so the next Enter went nowhere: GridField now keeps one element tree;
+  - typing some dates crashed the whole form (the BS library throws outside its range): conversions are guarded and typing is limited to BS 1976–2099 / AD 1920–2042;
+  - native drop-downs opened with the mouse swallowed Enter: replaced by the kit `SelectField`;
+  - clicking an empty searchable list and pressing Enter silently picked the first option: now it only highlights the current value;
+  - clicking a calendar day lost focus: focus returns to the field;
+  - checkboxes replaced by `YesNoField`;
+  - Enter on a half-typed date now says "Finish the date" instead of moving on with the old value; opening the calendar and pressing Enter no longer fills in today.
+
+Verified: tsc 0 · eslint clean on new code · 403/403 tests (new: no-delete and status-action invariants, separation rules, type-ahead, out-of-range dates, stable grid tree) · `next build` · Playwright on your data: the whole new-employee form by keyboard from Full name to Save, all sections ticked; mouse-then-Enter on every control type; the status window by keyboard (opened and cancelled, not submitted); no overflow at 390 / 1024 / 1280 / 1440 px; 0 console errors.
+
+Not done (needs you): actually making someone inactive and active again, and saving a new employee (both change your real data; a login email is sent unless "Create a login" is No).
+
+---
+
 ## 2026-10-03 — 4.2 Employees: register, record page, full-page editor (sign-off pending)
 Branch: `redesign/4.2-employees` (stacked on `redesign/4.1-home`)
 

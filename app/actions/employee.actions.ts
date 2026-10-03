@@ -72,31 +72,47 @@ export async function saveEmployeeAction(
   }
 }
 
-export async function deleteEmployeeAction(id: string) {
+/**
+ * Employees are never deleted (4.2). Leaving is recorded here: Inactive with
+ * separation details, which also switches the self-service login off;
+ * Active again switches it back on. Needs EDIT, the employee in scope, and
+ * not the user's own record.
+ */
+export async function setEmployeeStatusAction(
+  id: string,
+  status: 'Active' | 'Inactive',
+  separation?: empService.EmployeeSeparationInput
+): Promise<{ success: true } | { success: false; error: string; ref?: string; validationErrors?: EmployeeValidationErrors }> {
   await ensureTenantContext();
   try {
-    const scope = await checkPermissionWithScope('DELETE', 'EMPLOYEES');
-    const employee = await empService.getEmployeeInScope(id, scope, 'DELETE');
+    if (status !== 'Active' && status !== 'Inactive') throw new UserFacingError('That is not a valid status.');
+    const scope = await checkPermissionWithScope('EDIT', 'EMPLOYEES');
+    const employee = await empService.getEmployeeInScope(id, scope, 'EDIT');
     if (!employee) throw new UserFacingError(NOT_FOUND);
+    if (scope.employeeId && scope.employeeId === employee.id) {
+      await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employee.id, result: 'DENIED_SELF', newValues: { status } });
+      throw new UserFacingError("You can't change your own employment status. Ask another administrator.");
+    }
+    if (employee.status === status) throw new UserFacingError(`This employee is already ${status.toLowerCase()}.`);
 
-    await empService.deleteEmployee(employee.id);
+    await empService.setEmployeeStatus(employee, status, separation ?? null);
     await recordAuditLog({
       userId: scope.userId,
-      action: 'DELETE',
+      action: 'EDIT',
       module: 'EMPLOYEES',
       recordId: employee.id,
       result: 'SUCCESS',
-      oldValues: { employeeCode: employee.employeeCode, branchId: employee.branchId, departmentId: employee.departmentId },
+      oldValues: { status: employee.status, terminationDate: employee.terminationDate ?? null, terminationType: employee.terminationType ?? null },
+      newValues: { status, terminationDate: separation?.terminationDate ?? null, terminationType: separation?.terminationType ?? null, loginActive: status === 'Active' },
     });
     revalidatePath('/workforce/employees');
     revalidatePath('/dashboard');
-    return { success: true as const };
+    return { success: true };
   } catch (error: unknown) {
-    // The blocker checklist (active salary map, loans, payslips...) is written for users.
-    if (error instanceof empService.EmployeeInUseError) {
-      return { success: false as const, error: error.message };
+    if (error instanceof empService.EmployeeValidationError) {
+      return { success: false, error: 'Some fields need attention.', validationErrors: error.errors };
     }
-    return toActionError(error, 'employee.delete');
+    return toActionError(error, 'employee.setStatus');
   }
 }
 

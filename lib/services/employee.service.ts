@@ -11,7 +11,7 @@ import { findAllEmploymentTypes } from "@/lib/repositories/employment-type.repos
 import * as roleService from "@/lib/services/role.service";
 import * as userService from "@/lib/services/user.service";
 import { getDb } from "@/lib/db";
-import { employeeSalaryMap, employeeSalaryHeads, payHeads, loans, loanTypes, leaveApplications, leaveOtCalculations, payrollSlips, leaveSalaryRuns, systemConfig } from "@/lib/db/schema";
+import { employeeSalaryMap, employeeSalaryHeads, payHeads, systemConfig } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import Decimal from "decimal.js";
 import * as leaveRepository from "@/lib/repositories/leave.repository";
@@ -32,13 +32,6 @@ export class EmployeeValidationError extends Error {
   constructor(public errors: EmployeeValidationErrors) {
     super("Employee validation failed");
     this.name = "EmployeeValidationError";
-  }
-}
-
-export class EmployeeInUseError extends Error {
-  constructor(message = "Employee cannot be deleted because they have existing payroll records") {
-    super(message);
-    this.name = "EmployeeInUseError";
   }
 }
 
@@ -299,6 +292,15 @@ export async function saveEmployee(
   };
   if (Object.keys(errors).length > 0) {
     throw new EmployeeValidationError(errors);
+  }
+
+  // Status changes only through setEmployeeStatus (login switched off with it);
+  // new employees always start Active.
+  if (id) {
+    const current = await repository.findById(id);
+    if (current) formData = { ...formData, status: current.status };
+  } else {
+    formData = { ...formData, status: "Active" };
   }
 
   // 2. Transform FormData (strings) -> Employee Entity (Dates)
@@ -598,102 +600,49 @@ export async function saveEmployee(
   }
 }
 
-export async function deleteEmployee(id: string) {
-  // Query outstanding tasks/dues from multiple modules to construct a status checklist
-  const activeMappings = await (await getDb())
-    .select()
-    .from(employeeSalaryMap)
-    .where(and(eq(employeeSalaryMap.employeeId, id), eq(employeeSalaryMap.isActive, true)));
+export interface EmployeeSeparationInput {
+  terminationDate: string;
+  terminationType: string;
+  terminationReason: string;
+  terminationPlan?: string;
+  informedDate?: string;
+  terminationRemarks?: string;
+}
 
-  const activeLoans = await (await getDb())
-    .select({
-      loan: loans,
-      typeName: loanTypes.name,
-    })
-    .from(loans)
-    .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
-    .where(and(eq(loans.employeeId, id), eq(loans.status, "ACTIVE")));
-
-  const pendingLeaves = await (await getDb())
-    .select()
-    .from(leaveApplications)
-    .where(and(eq(leaveApplications.employeeId, id), eq(leaveApplications.status, "Pending")));
-
-  const unlockedCalcs = await (await getDb())
-    .select()
-    .from(leaveOtCalculations)
-    .where(and(eq(leaveOtCalculations.employeeId, id), eq(leaveOtCalculations.isLocked, false)));
-
-  const blockers: string[] = [];
-  const cleared: string[] = [];
-
-  // Salary Mappings status check
-  if (activeMappings.length > 0) {
-    blockers.push("Salary Mapping: ACTIVE (must be deactivated first)");
-  } else {
-    cleared.push("Salary Mapping: CLEARED");
-  }
-
-  // Loan status check
-  if (activeLoans.length > 0) {
-    activeLoans.forEach((item) => {
-      blockers.push(`Loan Dues: ${item.typeName} (NPR ${item.loan.remainingAmount} remaining)`);
+/**
+ * Makes an employee Inactive (with the separation details the rules require)
+ * or Active again. Validation reuses the form rules, so the same dates and
+ * reasons are enforced everywhere.
+ */
+export async function setEmployeeStatus(
+  employee: Employee,
+  status: "Active" | "Inactive",
+  separation: EmployeeSeparationInput | null
+): Promise<void> {
+  if (status === "Inactive") {
+    const data = {
+      ...employeeToForm(employee),
+      status: "Inactive" as const,
+      terminationDate: separation?.terminationDate ?? "",
+      terminationType: (separation?.terminationType ?? "") as EmployeeFormData["terminationType"],
+      terminationReason: (separation?.terminationReason ?? "").trim().slice(0, 500),
+      terminationPlan: (separation?.terminationPlan ?? "") as EmployeeFormData["terminationPlan"],
+      informedDate: separation?.informedDate ?? "",
+      terminationRemarks: (separation?.terminationRemarks ?? "").trim().slice(0, 1000),
+    };
+    const errors = engine.separationErrors(data);
+    if (Object.keys(errors).length > 0) throw new EmployeeValidationError(errors);
+    await repository.setStatus(employee.id, "Inactive", {
+      informedDate: data.informedDate || null,
+      terminationDate: data.terminationDate,
+      type: data.terminationType,
+      plan: data.terminationPlan || null,
+      reason: data.terminationReason,
+      remarks: data.terminationRemarks || null,
     });
   } else {
-    cleared.push("Loan Dues: CLEARED");
+    await repository.setStatus(employee.id, "Active", null);
   }
-
-  // Leave Applications status check
-  if (pendingLeaves.length > 0) {
-    blockers.push(`Leave Requests: ${pendingLeaves.length} pending application(s) awaiting approval`);
-  } else {
-    cleared.push("Leave Requests: CLEARED");
-  }
-
-  // Attendance/OT Calculations status check
-  if (unlockedCalcs.length > 0) {
-    const months = unlockedCalcs.map((c) => c.bsMonth).join(", ");
-    blockers.push(`Attendance/OT Calculations: Pending for Month(s) [${months}]`);
-  } else {
-    cleared.push("Attendance/OT Calculations: CLEARED");
-  }
-
-  if (blockers.length > 0) {
-    const errorMsg = [
-      "Cannot delete employee due to outstanding items:",
-      ...blockers.map((b) => `❌ ${b}`),
-      "",
-      "Cleared modules:",
-      ...cleared.map((c) => `✅ ${c}`),
-    ].join("\n");
-    throw new EmployeeInUseError(errorMsg);
-  }
-
-  // P1 FIX: Check for existing payroll history (hard delete would destroy financial records)
-  const existingSlips = await (await getDb())
-    .select({ id: payrollSlips.id })
-    .from(payrollSlips)
-    .where(eq(payrollSlips.employeeId, id))
-    .limit(1);
-  if (existingSlips.length > 0) {
-    throw new EmployeeInUseError(
-      "Cannot delete employee: Payroll slips exist for this employee. Use Terminate instead to preserve financial history."
-    );
-  }
-
-  // P1 FIX: Check for leave salary PAID records
-  const existingLeaveSalary = await (await getDb())
-    .select({ id: leaveSalaryRuns.id })
-    .from(leaveSalaryRuns)
-    .where(and(eq(leaveSalaryRuns.employeeId, id), eq(leaveSalaryRuns.status, 'PAID')))
-    .limit(1);
-  if (existingLeaveSalary.length > 0) {
-    throw new EmployeeInUseError(
-      "Cannot delete employee: Paid leave salary records exist. Use Terminate instead to preserve financial history."
-    );
-  }
-
-  return repository.remove(id);
 }
 
 // ---------------------------------------------------------------------------

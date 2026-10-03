@@ -17,14 +17,13 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<Params> }) {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("VIEW", "EMPLOYEES");
-  const [add, edit, remove, exportOk, params] = await Promise.all([
+  const [add, edit, exportOk, params] = await Promise.all([
     hasPermission("ADD", "EMPLOYEES"),
     hasPermission("EDIT", "EMPLOYEES"),
-    hasPermission("DELETE", "EMPLOYEES"),
     hasPermission("EXPORT", "EMPLOYEES"),
     searchParams,
   ]);
-  const data = await getEmployeeRegister(scope, { add, edit, remove, export: exportOk });
+  const data = await getEmployeeRegister(scope, { add, edit, export: exportOk });
 
   // Filters come from the URL (ids only); anything unknown is dropped.
   const dept = one(params.dept);

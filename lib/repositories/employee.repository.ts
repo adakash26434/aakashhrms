@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/db';
 import { 
   employees, employeePersonal, employeeFamily, employeeBank, employeeTermination, departments, designations,
-  users, loans, loanRepayments
+  users
 } from '@/lib/db/schema';
 import { eq, and, ilike, or, SQL, sql } from 'drizzle-orm';
 import type { Employee, EmployeeFilter, EmployeeStatus } from '@/lib/types/employee';
@@ -440,25 +440,43 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
   });
 }
 
-export async function remove(id: string): Promise<void> {
+/**
+ * Employees are never deleted (4.2): payroll, tax and audit history must stay
+ * linked to the person. Leaving is recorded as Inactive with a separation
+ * record, and the self-service login is switched off in the same transaction
+ * (on again when the employee is reactivated).
+ */
+export async function setStatus(
+  id: string,
+  status: EmployeeStatus,
+  separation: {
+    informedDate: string | null;
+    terminationDate: string;
+    type: string;
+    plan: string | null;
+    reason: string;
+    remarks: string | null;
+  } | null
+): Promise<void> {
   await (await getDb()).transaction(async (tx) => {
-    const oldEmp = await tx.select({ deptId: employees.departmentId, desigId: employees.designationId }).from(employees).where(eq(employees.id, id));
-    if (oldEmp.length > 0) {
-      if (oldEmp[0].deptId) {
-        await tx.update(departments).set({ employeeCount: sql`${departments.employeeCount} - 1` }).where(eq(departments.id, oldEmp[0].deptId));
-      }
-      if (oldEmp[0].desigId) {
-        await tx.update(designations).set({ employeeCount: sql`${designations.employeeCount} - 1` }).where(eq(designations.id, oldEmp[0].desigId));
-      }
+    await tx.update(employees).set({ status, updatedAt: new Date() }).where(eq(employees.id, id));
+    if (status === 'Inactive' && separation) {
+      const values = {
+        informedDate: separation.informedDate,
+        terminationDate: separation.terminationDate,
+        type: separation.type,
+        plan: separation.plan,
+        reason: separation.reason,
+        remarks: separation.remarks,
+      };
+      const existing = await tx.select({ id: employeeTermination.employeeId }).from(employeeTermination).where(eq(employeeTermination.employeeId, id));
+      if (existing.length > 0) await tx.update(employeeTermination).set(values).where(eq(employeeTermination.employeeId, id));
+      else await tx.insert(employeeTermination).values({ employeeId: id, ...values });
+    } else if (status === 'Active') {
+      // Rejoining: the old separation no longer applies (the audit log keeps the dates).
+      await tx.delete(employeeTermination).where(eq(employeeTermination.employeeId, id));
     }
-    
-    // Delete associated login user accounts, loan repayments, and loans to clear RESTRICT constraints
-    await tx.delete(users).where(eq(users.employeeId, id));
-    await tx.delete(loanRepayments).where(eq(loanRepayments.employeeId, id));
-    await tx.delete(loans).where(eq(loans.employeeId, id));
-    
-    // Finally, remove the employee
-    await tx.delete(employees).where(eq(employees.id, id));
+    await tx.update(users).set({ isActive: status === 'Active', updatedAt: new Date() }).where(eq(users.employeeId, id));
   });
 }
 

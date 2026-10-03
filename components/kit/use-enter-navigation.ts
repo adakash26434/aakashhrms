@@ -34,8 +34,8 @@ function isVisible(el: HTMLElement): boolean {
 function stops(form: HTMLElement): HTMLElement[] {
   return Array.from(form.querySelectorAll<HTMLElement>(ENTER_FIELD_SELECTOR)).filter((el) =>
     isEnterStop({
-      disabled: (el as HTMLInputElement).disabled,
-      readOnly: (el as HTMLInputElement).readOnly,
+      disabled: (el as HTMLInputElement).disabled || el.getAttribute("aria-disabled") === "true",
+      readOnly: (el as HTMLInputElement).readOnly === true,
       skip: el.closest("[data-enter-skip]") !== null,
       visible: isVisible(el),
     })
@@ -98,7 +98,7 @@ export function useEnterNavigation(formRef: RefObject<HTMLFormElement | null>, o
           isComposing: e.nativeEvent.isComposing,
           defaultPrevented: e.defaultPrevented,
         },
-        { tagName: target.tagName, type: (target as HTMLInputElement).type }
+        { tagName: target.tagName, type: (target as HTMLInputElement).type, enterField: target.hasAttribute("data-enter-field") }
       );
       if (!intent) return;
       // Enter never submits the form, whatever happens next.

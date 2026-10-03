@@ -37,3 +37,22 @@ export function moveHighlight(count: number, current: number, delta: 1 | -1): nu
   if (current < 0) return delta === 1 ? 0 : count - 1;
   return (current + delta + count) % count;
 }
+
+/**
+ * Type-ahead for a closed select (as in Windows lists): the next option after
+ * `current` whose label starts with `query`, wrapping; repeating one letter
+ * cycles through the options that start with it. -1 when nothing matches.
+ */
+export function typeaheadIndex(labels: readonly string[], query: string, current: number): number {
+  const q = query.toLowerCase();
+  if (!q || labels.length === 0) return -1;
+  const cycling = q.length > 1 && [...q].every((c) => c === q[0]);
+  const needle = cycling ? q[0] : q;
+  // A longer query keeps the current match if it still fits; a single (or repeated) letter moves on.
+  const start = current < 0 ? 0 : current + (needle.length > 1 ? 0 : 1);
+  for (let i = 0; i < labels.length; i++) {
+    const index = (start + i) % labels.length;
+    if (labels[index].toLowerCase().startsWith(needle)) return index;
+  }
+  return -1;
+}

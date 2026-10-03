@@ -188,7 +188,7 @@ export interface EmployeeRegisterData {
   counts: { total: number; active: number; inactive: number; toFix: number };
   departments: { id: string; name: string }[];
   branches: { id: string; name: string }[];
-  permissions: { add: boolean; edit: boolean; remove: boolean; export: boolean };
+  permissions: { add: boolean; edit: boolean; export: boolean };
 }
 
 export interface EmployeeValidationErrors {
@@ -339,7 +339,7 @@ export interface EmployeeRecordData {
   active: EmployeeRecordTabData;
   /** A tab whose data could not be loaded (shown as an error, not a crash). */
   failed: boolean;
-  permissions: { edit: boolean; remove: boolean };
+  permissions: { edit: boolean };
 }
 
 

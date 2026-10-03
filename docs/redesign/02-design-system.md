@@ -270,9 +270,34 @@ record page → full-page editor**:
 
 | Screen | Route | Layout and rules |
 |---|---|---|
-| Register | `/workforce/employees` | PageBar (counts in the description, no KPI cards) · FilterStrip (department, branch, category, status; ids kept in the URL, never the search text) · DataGrid (Code and Employee pinned, Records column, amber edge for active people missing PAN / bank / basic salary). Single click shows the **quick view** beside the grid (built from the row, no request); Enter or double-click opens the record. Ctrl+N new · F2 edit · Del delete (typed confirmation with the employee code) · `/` search. |
+| Register | `/workforce/employees` | PageBar (counts in the description, no KPI cards) · FilterStrip (department, branch, category, status; ids kept in the URL, never the search text) · DataGrid (Code and Employee pinned, Records column, amber edge for active people missing PAN / bank / basic salary, **Actions column: View · Edit · Active/Inactive switch**). Single click shows the **quick view** beside the grid (built from the row, no request); Enter or double-click opens the record. Ctrl+N new · F2 edit · `/` search. **No delete**: employees are kept for ever; leaving is "Make inactive". |
 | Record | `/workforce/employees/[id]` | PageBar (Back, Edit F2, Resend sign-in, Delete, Print Ctrl+P) · summary strip (codes, designation, department, branch, joined + tenure, supervisor link, "records to fix" bar) · tabs in the URL, loaded on the server one at a time: Profile (read-only property sheets, bank masked), Leave, Attendance (BS month to date; missing days are "not recorded", never absent), Payslips (last 12, totals), Loans, History (audit trail by field label). Each related tab needs its own module's VIEW. Missing, malformed and out-of-scope ids show the same in-frame "Employee not found". |
-| Editor | `/workforce/employees/new`, `/[id]/edit` | One scrolling `PropertyForm` with a **SectionIndex** on the left (✓ done, red count for errors, click to jump; a "Jump to section" select below 1024px), error summary on top with links to each field, sticky footer (Cancel · Save & add another · Save), unsaved-changes guard. |
+| Editor | `/workforce/employees/new`, `/[id]/edit` | One scrolling `PropertyForm` with a **SectionIndex** on the left (✓ done, red count for errors, click to jump; a "Jump to section" select below 1024px). Each section is a **compact `FormGrid`** (see below). Error summary on top with links to each field; sticky footer whose **status line shows the focused field's hint**; unsaved-changes guard. Status is not edited here. |
+| Status | list switch, record page | `EmployeeStatusWindow`: Make inactive asks for last working day, separation type, reason (notice date and retirement benefit optional), switches the self-service login off and is audited; Make active clears the separation and turns the login back on. Not allowed on your own record. |
+
+**Compact form grid (`FormGrid` + `GridField`).** After SAP Fiori's
+responsive form grid (12-column grid, fixed label/field ratio, empty space
+after fields so inputs do not stretch) and Business Central FastTabs
+(captions left of fields, fields flow into two or more columns on wide
+screens):
+
+- 1 column on phones (label above), 2 from 768px, 3 from 1280px; captions
+  right-aligned in a 8.5rem column; rows 28px high.
+- Fields are sized by their data, not by the column: `xs` (ward, grade
+  count), `code` (codes, PAN, mobile), `date`, `amount`, `md` (choices),
+  `lg` (names, emails), `full` (addresses, reasons). `span` widens a field
+  across columns.
+- Help text is not printed under fields (rows would jump); it shows in the
+  footer status line for the focused field, like the hint bar of desktop
+  accounting software. Errors always show under the field.
+- A `suffix` shows a live hint beside a field (age next to date of birth,
+  service length next to joining date, "Below scale" next to basic salary).
+- Repeating groups use a small table (identity documents: number + issuing
+  district per row); an address is one row: district, local level, ward, tole,
+  with the province filled in.
+- Choices use the kit `SelectField` (not the native `<select>`, whose open
+  list swallows Enter on Windows); yes/no answers use `YesNoField` (Y / N /
+  Space; Enter moves on) instead of checkboxes.
 
 **Full-page editor vs window.** A record with more than about 15 fields, or
 one people type in for long stretches (employees, company setup), gets a full
@@ -285,8 +310,11 @@ type) keep the `Window` editor.
 |---|---|
 | Enter on an input, select, checkbox or date | Checks that field with the same rules the server uses; if it is wrong the error shows and focus stays, otherwise focus moves to the next editable field, across sections |
 | Shift+Enter | Previous field, never blocked |
-| Enter in a combobox with its list open | Picks the highlighted option and moves on |
-| Enter in a date field with the calendar open | Picks the highlighted day and moves on (Alt+↓ opens, arrows move, PgUp/PgDn change month, Esc closes) |
+| Enter in a combobox with its list open | Picks the highlighted option and moves on. Opening the list with the mouse highlights only the current value, so click + Enter never picks an option you did not choose |
+| Drop-down (`SelectField`) | Closed: ↑/↓ change the value, letters jump (type-ahead), Alt+↓ / F4 / Space open, Enter moves on. Open: Enter picks and moves on. Picking with the mouse keeps focus on the field |
+| Yes / No (`YesNoField`) | Y or N answers, Space or ←/→ switch, Enter moves on; clicking either half chooses it |
+| Enter in a date field with the calendar open | Picks the highlighted day and moves on (Alt+↓ opens, arrows move, PgUp/PgDn change month, Esc closes). Without moving in an empty calendar, Enter just closes it (no "today" by accident) |
+| Enter on a half-typed date | Stays and says "Finish the date as YYYY/MM/DD" instead of moving on with the old value |
 | Textarea | Enter is a new line; Ctrl+Enter moves on |
 | Last field | Focus moves to Save; Enter never submits the form by itself |
 | Ctrl+S / Ctrl+Shift+S | Save / save and add another |
@@ -298,9 +326,13 @@ district. Scrolling to a field uses `scrollIntoContainer` (never
 `scrollIntoView`, which also moves the app frame) and keeps the field clear of
 the sticky footer.
 
-Form kit added in 4.2: `Combobox`, `DateField` (BS/AD typed or picked, stored
-as AD), `NumberField` (right-aligned amounts), `SectionIndex`,
-`useUnsavedGuard` + `DiscardBar` (shared with `Window`), `scrollIntoContainer`.
+Form kit added in 4.2: `FormGrid` / `GridField` / `GridValue` / `useFieldHelp`,
+`SelectField`, `YesNoField`, `Combobox`, `DateField` (BS/AD typed or picked,
+stored as AD, limited to the years the calendar library supports),
+`NumberField` (right-aligned amounts), `SectionIndex`, `useUnsavedGuard` +
+`DiscardBar` (shared with `Window`), `scrollIntoContainer`. Rule: a control
+must keep the same element tree while the user types (a wrapper that appears
+or disappears remounts the input and drops focus).
 Field labels and the section layout live in `lib/constants/employee-form.ts`.
 
 ## 5b. Design enhancements (beyond the base frame)

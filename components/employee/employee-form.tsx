@@ -6,6 +6,8 @@ import { Loader2, Save, SaveAll, TriangleAlert, X } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { DiscardBar } from "@/components/kit/discard-bar";
 import { PropertyForm } from "@/components/kit/property-form";
+import { useFieldHelp } from "@/components/kit/form-grid";
+import { StatusChip } from "@/components/kit/status-chip";
 import { SectionIndex } from "@/components/kit/section-index";
 import { useUnsavedGuard } from "@/components/kit/use-unsaved-guard";
 import { scrollIntoContainer } from "@/components/kit/scroll-into-view";
@@ -73,7 +75,9 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(baseline), [form, baseline]);
   const leave = useUnsavedGuard(dirty && saving === null);
   const needsConfirm = !!form.bankAccountNumber && form.bankAccountNumber !== baseline.bankAccountNumber;
-  const showSeparation = form.status === "Inactive" || !!baseline.terminationDate || !!form.terminationDate;
+  // Status is changed with the Active / Inactive switch (it also turns the login off), not in this form.
+  const showSeparation = ctx.initial.status === "Inactive";
+  const fieldHelp = useFieldHelp();
   const sections = EMPLOYEE_FORM_SECTIONS.filter((s) => s.id !== "separation" || showSeparation);
   const progress = sectionProgress(form, errors, sections);
 
@@ -223,13 +227,16 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
         title={title}
         description={isNew ? "Press Enter to move from field to field. Ctrl+S saves." : `${ctx.initial.employeeCode} · Enter moves on, Ctrl+S saves.`}
         status={
-          dirty ? (
+          <span className="inline-flex items-center gap-2">
+            {!isNew && <StatusChip status={ctx.initial.status} />}
+            {dirty ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-warning-subtle px-2 py-0.5 text-3xs font-medium text-warning">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-warning" /> Unsaved
             </span>
           ) : savedCount > 0 ? (
             <span className="text-2xs text-success">{savedCount} saved this session</span>
-          ) : undefined
+          ) : null}
+          </span>
         }
         crumbs={isNew ? [{ label: "New" }] : [{ label: ctx.initial.fullName, href: `/workforce/employees/${ctx.employeeId}` }, { label: "Edit" }]}
         actions={[
@@ -261,7 +268,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[168px_minmax(0,1fr)]">
         <SectionIndex
           className="sticky top-0 self-start"
           items={progress.map((p) => ({ id: `section-${p.id}`, label: p.label, state: p.state, errors: p.errors }))}
@@ -287,12 +294,15 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
           </PropertyForm>
 
           {/* Sticky footer: Enter on the last field lands on Save. It reaches into the page padding so nothing shows beneath it. */}
-          <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-6 pb-4 lg:-bottom-6 lg:-mx-6 lg:-mb-6 lg:pb-6 bg-surface-sunken">
+          <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-6 bg-surface-sunken lg:-bottom-6 lg:-mx-6 lg:-mb-6">
             {leave.pending ? (
               <DiscardBar onKeep={leave.keep} onDiscard={leave.discard} />
             ) : (
               <div className="flex items-center justify-end gap-2 border-t border-line bg-surface-sunken/95 px-4 py-2.5 backdrop-blur lg:px-6">
-                <p className="mr-auto hidden text-2xs text-ink-faint sm:block">Enter: next field · Shift+Enter: back · Ctrl+S: save</p>
+                {/* Status line: the focused field's hint, as in desktop accounting software. */}
+                <p aria-live="polite" className="mr-auto hidden min-w-0 truncate text-2xs text-ink-muted sm:block">
+                  {fieldHelp || "Enter: next field · Shift+Enter: back · Ctrl+S: save"}
+                </p>
                 <WindowButton onClick={cancel} disabled={!!saving}>
                   Cancel
                 </WindowButton>

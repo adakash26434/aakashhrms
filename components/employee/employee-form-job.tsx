@@ -4,15 +4,13 @@ import { useMemo, useState } from "react";
 import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
 import { DateField } from "@/components/kit/date-field";
+import { GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
-import { FieldRow } from "@/components/kit/property-form";
+import { YesNoField } from "@/components/kit/yes-no-field";
 import { DEFAULT_GRADE_POLICY, calculateTotalGradeAmount } from "@/lib/engines/grade-policy.engine";
-import { CheckBox, CheckRow, FormSection, SelectRow, label, type EmployeeFormApi } from "./employee-form-fields";
-
-const STATUSES = [
-  { value: "Active", label: "Active" },
-  { value: "Inactive", label: "Inactive (separated)" },
-];
+import { tenureLabel } from "@/lib/engines/employee.engine";
+import { nepalToday } from "@/lib/utils/nepal-time";
+import { ChoiceField, FormSection, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
 
 /** Job & placement, then Pay (basic salary, grades). */
 export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
@@ -62,11 +60,13 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
 
   const minSalary = minFor(form.shreni);
   const belowScale = minSalary > 0 && (form.basicSalary ?? 0) > 0 && (form.basicSalary ?? 0) < minSalary;
+  const tenure = form.joiningDate ? tenureLabel(form.joiningDate, nepalToday()) : "";
+  const total = (form.basicSalary || 0) + (gradesOff ? 0 : form.gradeAmount || 0);
 
   return (
     <>
       <FormSection id="job" title="Job & placement">
-        <FieldRow label={label("departmentId")} required error={errors.departmentId}>
+        <GridField label={label("departmentId")} required error={errors.departmentId} size="md">
           <Combobox
             name="departmentId"
             options={options.departments}
@@ -77,18 +77,25 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
             }}
             placeholder="Search department"
           />
-        </FieldRow>
-        <FieldRow label={label("designationId")} required error={errors.designationId} help={form.departmentId ? undefined : "Pick the department first to narrow this list."}>
+        </GridField>
+        <GridField label={label("designationId")} required error={errors.designationId} help="Pick the department first to narrow this list." size="md">
           <Combobox name="designationId" options={options.designations} value={form.designationId} onChange={(v) => set("designationId", v)} placeholder="Search designation" />
-        </FieldRow>
-        <FieldRow label={label("branchId")} required error={errors.branchId}>
+        </GridField>
+        <GridField label={label("branchId")} required error={errors.branchId} size="md">
           <Combobox name="branchId" options={options.branches} value={form.branchId} onChange={(v) => set("branchId", v)} placeholder="Search branch" />
-        </FieldRow>
-        <FieldRow label={label("shreni")} required error={errors.shreni} help={minSalary ? `Starting salary for this level: NPR ${minSalary.toLocaleString("en-IN")}` : undefined}>
+        </GridField>
+
+        <GridField
+          label={label("shreni")}
+          required
+          error={errors.shreni}
+          help={minSalary ? `Starting salary for this level: NPR ${minSalary.toLocaleString("en-IN")}` : "The grade level (tah) on the salary scale."}
+          size="md"
+        >
           <Combobox name="shreni" options={options.shreni} value={form.shreni} onChange={changeShreni} placeholder="Search level" />
-        </FieldRow>
-        <SelectRow api={api} field="category" options={ctx.categories} required />
-        <FieldRow label={label("supervisorId")} help="Approves this person's leave.">
+        </GridField>
+        <ChoiceField api={api} field="category" options={ctx.categories} required />
+        <GridField label={label("supervisorId")} help="Approves this person's leave." size="md">
           <Combobox
             name="supervisorId"
             options={options.supervisors}
@@ -97,69 +104,67 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
             placeholder={options.supervisors.length ? "Search supervisor" : "No supervisors yet"}
             allowClear
           />
-        </FieldRow>
-        <CheckRow api={api} field="isSupervisor" text="Yes, can approve leave for a team" />
-        <FieldRow label={label("joiningDate")} required error={errors.joiningDate}>
+        </GridField>
+
+        <GridField label={label("joiningDate")} required error={errors.joiningDate} size="date" suffix={tenure || undefined}>
           <DateField name="joiningDate" value={form.joiningDate} onChange={(v) => set("joiningDate", v)} />
-        </FieldRow>
-        <FieldRow label={label("confirmationDate")} error={errors.confirmationDate} help="When probation ended, if it has.">
+        </GridField>
+        <GridField label={label("confirmationDate")} error={errors.confirmationDate} help="When probation ended, if it has." size="date">
           <DateField name="confirmationDate" value={form.confirmationDate} onChange={(v) => set("confirmationDate", v)} />
-        </FieldRow>
-        <SelectRow
-          api={api}
-          field="status"
-          options={STATUSES}
-          required
-          help={form.status === "Inactive" ? "Fill in Separation below." : undefined}
-        />
+        </GridField>
+        <YesNo api={api} field="isSupervisor" help="Yes lets this person approve leave for a team and appear in the Supervisor list." />
       </FormSection>
 
-      <FormSection id="pay" title="Pay" description="Allowances and deductions are set in Salary mapping.">
-        <FieldRow
+      <FormSection
+        id="pay"
+        title="Pay"
+        description="Monthly, in NPR. Allowances and deductions are set in Salary mapping."
+        aside={
+          <p className="text-xs text-ink-muted">
+            Total base <Amount value={total} prefix="NPR" emphasis className="ml-1 text-ink" />
+          </p>
+        }
+      >
+        <GridField
           label={label("basicSalary")}
           required
           error={errors.basicSalary}
-          help={belowScale ? `Below this level's starting salary (NPR ${minSalary.toLocaleString("en-IN")}).` : "Monthly, in NPR."}
+          help={belowScale ? `Below this level's starting salary (NPR ${minSalary.toLocaleString("en-IN")}).` : "Monthly basic salary."}
+          size="amount"
+          suffix={belowScale ? <span className="text-warning">Below scale</span> : undefined}
         >
           <NumberField name="basicSalary" prefix="NPR" value={form.basicSalary ?? 0} onChange={changeBasic} />
-        </FieldRow>
+        </GridField>
         {!gradesOff && (
           <>
-            <FieldRow label={label("gradeCount")} error={errors.gradeCount} help="Number of grade steps earned.">
-              <NumberField name="gradeCount" decimals={0} value={form.gradeCount ?? 0} onChange={changeCount} className="max-w-28" />
-            </FieldRow>
-            <FieldRow
+            <GridField label={label("gradeCount")} error={errors.gradeCount} help="Number of grade steps earned." size="xs">
+              <NumberField name="gradeCount" decimals={0} value={form.gradeCount ?? 0} onChange={changeCount} />
+            </GridField>
+            {!manualPolicy && (
+              <GridField label="Grade by hand" help="Yes lets you type the grade amount instead of using the company grade policy." size="md">
+                <YesNoField
+                  name="gradeManual"
+                  value={manualGrade}
+                  onChange={(on) => {
+                    setManualGrade(on);
+                    if (!on) set("gradeAmount", calculateTotalGradeAmount(form.basicSalary || 0, form.gradeCount || 0, policy));
+                  }}
+                />
+              </GridField>
+            )}
+            <GridField
               label={label("gradeAmount")}
               required
               error={errors.gradeAmount}
-              help={manualGrade ? "Entered by hand." : "Worked out from the company grade policy."}
+              help={manualGrade ? "Type the total grade amount." : "Worked out from the company grade policy."}
+              size="amount"
+              suffix={manualGrade ? undefined : "auto"}
             >
-              <div className="flex flex-wrap items-center gap-3">
-                <NumberField name="gradeAmount" prefix="NPR" value={form.gradeAmount ?? 0} onChange={(v) => set("gradeAmount", v)} readOnly={!manualGrade} />
-                {!manualPolicy && (
-                  <CheckBox
-                    skip
-                    checked={manualGrade}
-                    onChange={(on) => {
-                      setManualGrade(on);
-                      if (!on) {
-                        const amount = calculateTotalGradeAmount(form.basicSalary || 0, form.gradeCount || 0, policy);
-                        set("gradeAmount", amount);
-                      }
-                    }}
-                    text="Enter by hand"
-                  />
-                )}
-              </div>
-            </FieldRow>
+              <NumberField name="gradeAmount" prefix="NPR" value={form.gradeAmount ?? 0} onChange={(v) => set("gradeAmount", v)} readOnly={!manualGrade} />
+            </GridField>
           </>
         )}
-        <FieldRow label="Total base pay">
-          <p className="pt-1.5 text-sm">
-            <Amount value={(form.basicSalary || 0) + (gradesOff ? 0 : form.gradeAmount || 0)} prefix="NPR" emphasis />
-            <span className="ml-2 text-2xs text-ink-faint">basic + grade, per month</span>
-          </p>
-        </FieldRow>
+        {gradesOff && <GridValue label="Grades">Not used by this company&apos;s grade policy</GridValue>}
       </FormSection>
     </>
   );

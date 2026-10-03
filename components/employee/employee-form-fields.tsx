@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { FieldGroup, FieldRow, inputClass } from "@/components/kit/property-form";
+import { FieldGroup, inputClass } from "@/components/kit/property-form";
+import { FormGrid, GridField, type GridFieldSize } from "@/components/kit/form-grid";
+import { SelectField, type SelectOption } from "@/components/kit/select-field";
+import { YesNoField } from "@/components/kit/yes-no-field";
 import { EMPLOYEE_FIELD_LABELS, type EmployeeField } from "@/lib/constants/employee-form";
 import type { EmployeeFormContext, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
@@ -16,12 +19,26 @@ export interface EmployeeFormApi {
   isNew: boolean;
 }
 
-/** One titled block of the form; the id is what the section index jumps to. */
-export function FormSection({ id, title, description, aside, children }: { id: string; title: string; description?: string; aside?: ReactNode; children: ReactNode }) {
+/** One titled block of the form (a "FastTab"); the id is what the section index jumps to. */
+export function FormSection({
+  id,
+  title,
+  description,
+  aside,
+  children,
+  columns = 3,
+}: {
+  id: string;
+  title: string;
+  description?: string;
+  aside?: ReactNode;
+  children: ReactNode;
+  columns?: 2 | 3;
+}) {
   return (
     <div id={`section-${id}`} className="scroll-mt-4">
       <FieldGroup title={title} description={description} aside={aside}>
-        {children}
+        <FormGrid columns={columns}>{children}</FormGrid>
       </FieldGroup>
     </div>
   );
@@ -32,7 +49,7 @@ export function label(field: EmployeeField): string {
 }
 
 /** A text field bound to the form by name (the name is what Enter validation checks). */
-export function TextRow({
+export function TextField({
   api,
   field,
   required,
@@ -43,8 +60,10 @@ export function TextRow({
   maxLength,
   transform,
   type = "text",
-  wide,
+  size = "md",
+  span,
   error,
+  autoFocus,
 }: {
   api: EmployeeFormApi;
   field: EmployeeField;
@@ -57,99 +76,70 @@ export function TextRow({
   maxLength?: number;
   transform?: (value: string) => string;
   type?: "text" | "email" | "tel";
-  wide?: boolean;
+  size?: GridFieldSize;
+  span?: 1 | 2 | 3;
   /** Overrides the form error (e.g. a live duplicate hint). */
   error?: string | null;
+  autoFocus?: boolean;
 }) {
-  const value = String(api.form[field] ?? "");
   return (
-    <FieldRow label={label(field)} required={required} help={help} error={error ?? api.errors[field]} wide={wide}>
+    <GridField label={label(field)} required={required} help={help} error={error ?? api.errors[field]} size={size} span={span}>
       <input
         name={field}
         type={type}
         inputMode={inputMode}
-        maxLength={maxLength}
+        maxLength={maxLength ?? 120}
         autoComplete="off"
         spellCheck={false}
         placeholder={placeholder}
-        value={value}
+        data-autofocus={autoFocus || undefined}
+        value={String(api.form[field] ?? "")}
         onChange={(e) => api.set(field, (transform ? transform(e.target.value) : e.target.value) as never)}
         className={cn(inputClass, code && "font-code")}
       />
-    </FieldRow>
+    </GridField>
   );
 }
 
-/** A native select bound to the form. Enter moves on; Alt+↓ or Space opens it. */
-export function SelectRow({
+/** A drop-down list bound to the form (kit SelectField: works the same with mouse and keyboard). */
+export function ChoiceField({
   api,
   field,
   options,
   required,
   help,
   placeholder,
+  allowEmpty,
+  size = "md",
 }: {
   api: EmployeeFormApi;
   field: EmployeeField;
-  options: { value: string; label: string }[];
+  options: readonly SelectOption[];
   required?: boolean;
   help?: string;
   placeholder?: string;
+  allowEmpty?: boolean;
+  size?: GridFieldSize;
 }) {
   return (
-    <FieldRow label={label(field)} required={required} help={help} error={api.errors[field]}>
-      <select name={field} value={String(api.form[field] ?? "")} onChange={(e) => api.set(field, e.target.value as never)} className={inputClass}>
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </FieldRow>
-  );
-}
-
-/** A checkbox row: Space toggles, Enter moves on. */
-export function CheckRow({ api, field, text, help }: { api: EmployeeFormApi; field: EmployeeField; text: string; help?: string }) {
-  return (
-    <FieldRow label={label(field)} help={help}>
-      <CheckBox name={field} checked={!!api.form[field]} onChange={(v) => api.set(field, v as never)} text={text} />
-    </FieldRow>
-  );
-}
-
-export function CheckBox({
-  name,
-  checked,
-  onChange,
-  text,
-  id,
-  skip,
-  ...aria
-}: {
-  name?: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  text: string;
-  id?: string;
-  /** Leave out of the Enter order (a helper toggle). */
-  skip?: boolean;
-  "aria-describedby"?: string;
-}) {
-  return (
-    <label className="inline-flex cursor-pointer items-center gap-2 pt-1.5 text-sm text-ink">
-      <input
-        id={id}
-        name={name}
-        type="checkbox"
-        data-enter-skip={skip || undefined}
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 cursor-pointer accent-(--color-brand)"
-        {...aria}
+    <GridField label={label(field)} required={required} help={help} error={api.errors[field]} size={size}>
+      <SelectField
+        name={field}
+        options={options}
+        value={String(api.form[field] ?? "")}
+        onChange={(v) => api.set(field, v as never)}
+        placeholder={placeholder}
+        allowEmpty={allowEmpty}
       />
-      {text}
-    </label>
+    </GridField>
+  );
+}
+
+/** A Yes / No answer bound to a boolean field. */
+export function YesNo({ api, field, help, labelText }: { api: EmployeeFormApi; field: EmployeeField; help?: string; labelText?: string }) {
+  return (
+    <GridField label={labelText ?? label(field)} help={help} size="md">
+      <YesNoField name={field} value={!!api.form[field]} onChange={(v) => api.set(field, v as never)} />
+    </GridField>
   );
 }

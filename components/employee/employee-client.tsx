@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, PanelRight, Pencil, Plus, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { ExternalLink, PanelRight, Pencil, Plus, RefreshCw, UserCheck, UserPlus, UserX } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
-import { Confirm } from "@/components/kit/confirm";
 import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { SplitView } from "@/components/kit/split-view";
 import { WindowButton } from "@/components/kit/window";
-import { deleteEmployeeAction } from "@/app/actions/employee.actions";
 import { EMPLOYEE_CATEGORIES } from "@/lib/types/system-control";
 import type { EmployeeListRow, EmployeeRegisterData } from "@/lib/types/employee";
 import { EmployeeQuickView } from "./employee-quick-view";
 import { EmployeeRegister } from "./employee-register";
+import { EmployeeStatusWindow, type StatusTarget } from "./employee-status-window";
 
 const QUICK_VIEW_KEY = "aakash.employees.quickView";
 const REGISTER_FILTERS = ["dept", "branch", "category", "status"] as const;
@@ -54,7 +53,8 @@ export function EmployeeClient({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [quickView, setQuickView] = useState(true);
-  const [deleting, setDeleting] = useState<EmployeeListRow | null>(null);
+  const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const toggleStatus = useCallback((row: EmployeeListRow) => setStatusTarget(row), []);
 
   // Browser storage is only readable after hydration.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -133,15 +133,15 @@ export function EmployeeClient({
             onClick: () => edit(active),
           },
           {
-            id: "delete",
-            label: "Delete",
-            icon: Trash2,
+            // Employees are never deleted; leaving is recorded as Inactive.
+            id: "status",
+            label: active?.status === "Inactive" ? "Make active" : "Make inactive",
+            icon: active?.status === "Inactive" ? UserCheck : UserX,
             group: "selection",
-            shortcut: "Delete",
-            hidden: !permissions.remove,
+            hidden: !permissions.edit,
             disabled: !active,
             disabledReason: "Select an employee first",
-            onClick: () => setDeleting(active),
+            onClick: () => active && setStatusTarget(active),
           },
           { id: "quick", label: quickView ? "Hide quick view" : "Show quick view", icon: PanelRight, group: "output", onClick: toggleQuickView },
           {
@@ -180,6 +180,8 @@ export function EmployeeClient({
             activeId={activeId}
             onActive={(r) => setActiveId(r.id)}
             onOpen={open}
+            onToggleStatus={toggleStatus}
+            canEdit={permissions.edit}
             selected={selected}
             onSelectedChange={setSelected}
             canExport={permissions.export}
@@ -213,27 +215,13 @@ export function EmployeeClient({
         }
       />
 
-      <Confirm
-        open={!!deleting}
-        tone="danger"
-        title={deleting ? `Delete ${deleting.fullName}?` : ""}
-        confirmLabel="Delete permanently"
-        requireText={deleting?.employeeCode}
-        message={
-          <>
-            This removes the employee and their login for good. Employees with payroll, loans or pending leave cannot be deleted; set their
-            status to Inactive with a separation date instead.
-          </>
-        }
-        onConfirm={async () => {
-          if (!deleting) return;
-          const result = await deleteEmployeeAction(deleting.id);
-          if (!result.success) throw new Error(result.error);
-          setDeleting(null);
-          setActiveId(null);
+      <EmployeeStatusWindow
+        target={statusTarget}
+        onClose={() => setStatusTarget(null)}
+        onDone={() => {
+          setStatusTarget(null);
           router.refresh();
         }}
-        onCancel={() => setDeleting(null)}
       />
     </div>
   );

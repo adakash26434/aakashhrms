@@ -1,4 +1,5 @@
-// Employee form layout (4.2): sections in Enter order, the fields in each,
+// Employee form layout (4.2): sections in Enter order, the fields in each
+// (in the order they appear),
 // and the label every field shows. The form, its section index, the error
 // summary and the record page's change history all read from here.
 
@@ -16,22 +17,16 @@ export interface EmployeeFormSection {
 
 export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
   {
-    id: "identification",
-    label: "Identification",
-    fields: ["employeeCode", "attendanceCode", "fullName"],
-    required: ["employeeCode", "attendanceCode", "fullName"],
-  },
-  {
-    id: "personal",
-    label: "Personal",
-    fields: ["dateOfBirth", "gender", "taxStatus", "isDisabled"],
-    required: ["dateOfBirth", "gender", "taxStatus"],
+    id: "general",
+    label: "General",
+    fields: ["fullName", "gender", "employeeCode", "attendanceCode", "dateOfBirth", "taxStatus", "isDisabled"],
+    required: ["fullName", "gender", "employeeCode", "attendanceCode", "dateOfBirth", "taxStatus"],
   },
   {
     id: "job",
     label: "Job & placement",
-    fields: ["departmentId", "designationId", "branchId", "shreni", "category", "supervisorId", "isSupervisor", "joiningDate", "confirmationDate", "status"],
-    required: ["departmentId", "designationId", "branchId", "shreni", "category", "joiningDate", "status"],
+    fields: ["departmentId", "designationId", "branchId", "shreni", "category", "supervisorId", "joiningDate", "confirmationDate", "isSupervisor"],
+    required: ["departmentId", "designationId", "branchId", "shreni", "category", "joiningDate"],
   },
   {
     id: "pay",
@@ -48,7 +43,7 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
   {
     id: "contact",
     label: "Contact & address",
-    fields: ["companyEmail", "personalEmail", "mobileNo", "phoneHome", "permanentAddress", "temporaryAddress"],
+    fields: ["mobileNo", "phoneHome", "companyEmail", "personalEmail", "permanentAddress", "temporaryAddress"],
     required: ["companyEmail", "mobileNo", "permanentAddress"],
   },
   {
@@ -79,14 +74,14 @@ export const EMPLOYEE_FIELD_LABELS: Partial<Record<EmployeeField, string>> = {
   dateOfBirth: "Date of birth",
   gender: "Gender",
   taxStatus: "Tax status",
-  isDisabled: "Person with disability",
+  isDisabled: "Disability relief",
   departmentId: "Department",
   designationId: "Designation",
   branchId: "Branch",
   shreni: "Shreni (level)",
   category: "Category",
   supervisorId: "Supervisor",
-  isSupervisor: "Is a supervisor",
+  isSupervisor: "Approves leave",
   joiningDate: "Joining date",
   confirmationDate: "Confirmation date",
   status: "Status",

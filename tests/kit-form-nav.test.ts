@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { enterIntent, isEnterStop, selectsOnArrival, stepFieldIndex } from '../lib/kit/form-nav';
-import { filterOptions, moveHighlight } from '../lib/kit/combobox';
+import { filterOptions, moveHighlight, typeaheadIndex } from '../lib/kit/combobox';
 import { dayToIso, isoToDay, isoToDisplay, monthLayout, shiftIsoDays, shiftIsoMonths } from '../lib/kit/date-field';
 
 const key = (k: Partial<Parameters<typeof enterIntent>[0]> = {}) => ({ key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...k });
@@ -125,5 +125,41 @@ describe('Date field (4.2)', () => {
     const bs = monthLayout(2083, 4, true);
     assert.ok(bs.days >= 29 && bs.days <= 32);
     assert.equal(bs.firstWeekday, new Date(2026, 6, 17).getDay());
+  });
+});
+
+describe('Form kit hardening (4.2 review)', () => {
+  it('custom controls marked data-enter-field behave like inputs for Enter', () => {
+    assert.equal(enterIntent(key(), { tagName: 'BUTTON', type: 'button', enterField: true }), 'next');
+    assert.equal(enterIntent(key({ shiftKey: true }), { tagName: 'BUTTON', type: 'button', enterField: true }), 'prev');
+    assert.equal(enterIntent(key(), { tagName: 'BUTTON', type: 'button' }), null);
+  });
+
+  it('dropdown type-ahead jumps and cycles like Windows lists', () => {
+    const labels = ['Single', 'Married (couple slab)', 'Widow / widower'];
+    assert.equal(typeaheadIndex(labels, 'w', -1), 2);
+    assert.equal(typeaheadIndex(labels, 'm', 0), 1);
+    assert.equal(typeaheadIndex(labels, 'ma', 1), 1);
+    assert.equal(typeaheadIndex(['Bank A', 'Bank B', 'City'], 'b', 0), 1);
+    assert.equal(typeaheadIndex(['Bank A', 'Bank B', 'City'], 'bb', 1), 0);
+    assert.equal(typeaheadIndex(labels, 'z', 0), -1);
+  });
+
+  it('dates outside the calendar range never throw (they used to crash the form)', () => {
+    for (const iso of ['0205-01-01', '1850-01-01', '2100-01-01', '1900-05-05']) {
+      assert.doesNotThrow(() => isoToDisplay(iso, true));
+      assert.equal(isoToDisplay(iso, true), '');
+      assert.equal(isoToDay(iso, true), null);
+    }
+    assert.equal(dayToIso({ year: 205, month: 1, day: 1 }, true), null);
+    assert.equal(dayToIso({ year: 2150, month: 1, day: 1 }, false), null);
+    assert.doesNotThrow(() => monthLayout(1900, 1, true));
+    assert.doesNotThrow(() => shiftIsoMonths('2042-12-31', 1, true));
+  });
+
+  it('a form grid keeps one element tree with or without a suffix (no remount, no lost focus)', () => {
+    const grid = readFileSync(join(__dirname, '..', 'components/kit/form-grid.tsx'), 'utf8');
+    assert.match(grid, /Same element tree with or without a suffix/);
+    assert.ok(!/suffix \? \(\s*<div className="flex/.test(grid));
   });
 });

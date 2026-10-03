@@ -2,9 +2,11 @@
 
 import { useMemo } from "react";
 import { Combobox } from "@/components/kit/combobox";
-import { FieldRow, inputClass } from "@/components/kit/property-form";
+import { GridField } from "@/components/kit/form-grid";
+import { inputClass } from "@/components/kit/property-form";
 import { NEPAL_BANKS } from "@/lib/constants/nepal-banks";
-import { FormSection, TextRow, label, type EmployeeFormApi } from "./employee-form-fields";
+import { cn } from "@/lib/utils";
+import { FormSection, TextField, label, type EmployeeFormApi } from "./employee-form-fields";
 
 /** Account numbers: digits, letters and hyphens only (no spaces). */
 export const cleanAccount = (v: string) => v.replace(/[^0-9A-Za-z-]/g, "").slice(0, 30);
@@ -12,7 +14,7 @@ export const cleanAccount = (v: string) => v.replace(/[^0-9A-Za-z-]/g, "").slice
 /**
  * Bank: where salary is paid. The account number is typed twice when it is
  * new or changed, as finance software does, so a slip of the finger does not
- * send salary to the wrong account.
+ * send salary to the wrong account. Pasting into the second box is blocked.
  */
 export function EmployeeFormBank({
   api,
@@ -35,13 +37,13 @@ export function EmployeeFormBank({
 
   return (
     <FormSection id="bank" title="Bank" description="Salary is paid to this account; it goes into the bank transfer file.">
-      <FieldRow label={label("bankName")} required error={errors.bankName}>
+      <GridField label={label("bankName")} required error={errors.bankName} size="lg">
         <Combobox name="bankName" options={banks} value={form.bankName} onChange={(v) => set("bankName", v)} placeholder="Search bank" />
-      </FieldRow>
-      <TextRow api={api} field="bankBranch" required placeholder="e.g. New Road" />
-      <TextRow api={api} field="bankAccountNumber" required code transform={cleanAccount} />
+      </GridField>
+      <TextField api={api} field="bankBranch" required size="md" placeholder="e.g. New Road" />
+      <TextField api={api} field="bankAccountNumber" required code size="md" transform={cleanAccount} />
       {needsConfirm && (
-        <FieldRow label="Re-enter account number" required error={errors.bankAccountConfirm} help="Type it again to catch typing mistakes.">
+        <GridField label="Re-enter account no." required error={errors.bankAccountConfirm} help="Type the account number again to catch typing mistakes." size="md">
           <input
             name="bankAccountConfirm"
             autoComplete="off"
@@ -49,9 +51,9 @@ export function EmployeeFormBank({
             value={confirm}
             onChange={(e) => onConfirm(cleanAccount(e.target.value))}
             onPaste={(e) => e.preventDefault()}
-            className={`${inputClass} font-code`}
+            className={cn(inputClass, "font-code")}
           />
-        </FieldRow>
+        </GridField>
       )}
     </FormSection>
   );

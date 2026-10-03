@@ -71,11 +71,16 @@ export function Combobox({
     else if (item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight;
   }, [open, highlight]);
 
-  const openList = () => {
+  /**
+   * Opening with the mouse highlights only the current value, so a click then
+   * Enter never picks an option the user did not choose. Opening with ↑/↓
+   * starts the highlight at the first option.
+   */
+  const openList = (by: "mouse" | "keyboard") => {
     if (disabled || readOnly) return;
     setOpen(true);
     const current = matches.findIndex((o) => o.value === value);
-    setHighlight(current >= 0 ? current : matches.length ? 0 : -1);
+    setHighlight(current >= 0 ? current : by === "keyboard" && matches.length ? 0 : -1);
   };
 
   const close = () => {
@@ -101,7 +106,7 @@ export function Combobox({
       case "ArrowDown":
       case "ArrowUp": {
         e.preventDefault();
-        if (!open) return openList();
+        if (!open) return openList("keyboard");
         setHighlight((h) => moveHighlight(matches.length, h, e.key === "ArrowDown" ? 1 : -1));
         return;
       }
@@ -157,7 +162,7 @@ export function Combobox({
           setOpen(true);
           setHighlight(e.target.value.trim() ? 0 : -1);
         }}
-        onClick={() => (open ? undefined : openList())}
+        onClick={() => (open ? undefined : openList("mouse"))}
         onKeyDown={onKeyDown}
         onBlur={() => {
           if (open || query !== null) commitTyped();
@@ -208,7 +213,10 @@ export function Combobox({
                   aria-selected={isSelected}
                   onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setHighlight(index)}
-                  onClick={() => pick(option)}
+                  onClick={() => {
+                    pick(option);
+                    inputRef.current?.focus(); // keep the keyboard here so Enter moves on next
+                  }}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-sm text-ink",
                     index === highlight && "bg-brand-subtle"

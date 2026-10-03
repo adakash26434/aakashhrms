@@ -3,19 +3,23 @@
 import { useMemo } from "react";
 import { Copy } from "lucide-react";
 import { Combobox } from "@/components/kit/combobox";
-import { FieldRow, inputClass } from "@/components/kit/property-form";
+import { inputClass } from "@/components/kit/property-form";
 import { getAllDistricts } from "@/lib/constants/nepal-locations";
 import type { EmployeeField } from "@/lib/constants/employee-form";
-import { FormSection, TextRow, label, type EmployeeFormApi } from "./employee-form-fields";
+import { cn } from "@/lib/utils";
+import { FormSection, TextField, label, type EmployeeFormApi } from "./employee-form-fields";
 
-const DOCUMENTS: { no: EmployeeField; district: EmployeeField; required?: boolean; help?: string }[] = [
-  { no: "citizenshipNo", district: "issuingDistrict", required: true },
-  { no: "nidNo", district: "nidIssuingDistrict", help: "Optional; 5 to 20 digits." },
-  { no: "passportNo", district: "passportIssuingDistrict", help: "Optional." },
-  { no: "votersId", district: "voterIdIssuingDistrict", help: "Optional." },
+const DOCUMENTS: { no: EmployeeField; district: EmployeeField; required?: boolean; note: string }[] = [
+  { no: "citizenshipNo", district: "issuingDistrict", required: true, note: "Required" },
+  { no: "nidNo", district: "nidIssuingDistrict", note: "5 to 20 digits" },
+  { no: "passportNo", district: "passportIssuingDistrict", note: "Optional" },
+  { no: "votersId", district: "voterIdIssuingDistrict", note: "Optional" },
 ];
 
-/** Identity documents: number and issuing district side by side, then PAN. */
+/**
+ * Identity documents as a small table, one row per document: number, then
+ * issuing district. An empty optional document skips its district on Enter.
+ */
 export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
   const { form, errors, set, patch } = api;
   const districts = useMemo(() => getAllDistricts().map((d) => ({ value: d.name, label: d.name, hint: d.nameNepali })), []);
@@ -32,7 +36,6 @@ export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
     <FormSection
       id="documents"
       title="Identity documents"
-      description="Enter the number, then its issuing district."
       aside={
         <button
           type="button"
@@ -46,42 +49,76 @@ export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
         </button>
       }
     >
-      {DOCUMENTS.map((d) => (
-        <FieldRow key={d.no} label={label(d.no)} required={d.required} help={d.help} error={errors[d.no] ?? errors[d.district]}>
-          <div className="grid max-w-xl gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <input
-              name={d.no}
-              aria-label={label(d.no)}
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={50}
-              value={String(form[d.no] ?? "")}
-              onChange={(e) => set(d.no, e.target.value as never)}
-              aria-invalid={errors[d.no] ? true : undefined}
-              className={`${inputClass} font-code`}
-            />
-            {/* An empty optional document skips its district on Enter. */}
-            <div data-enter-skip={!d.required && !String(form[d.no] ?? "").trim() ? "" : undefined}>
-            <Combobox
-              name={d.district}
-              aria-label={label(d.district)}
-              aria-invalid={errors[d.district] ? true : undefined}
-              options={districts}
-              value={String(form[d.district] ?? "")}
-              onChange={(v) => set(d.district, v as never)}
-              placeholder="Issuing district"
-              allowClear={!d.required}
-            />
-            </div>
-          </div>
-        </FieldRow>
-      ))}
-      <TextRow
+      <div className="md:col-span-2 xl:col-span-3">
+        <table className="w-full max-w-3xl border-separate border-spacing-y-1 text-xs">
+          <thead>
+            <tr className="text-left text-3xs uppercase tracking-wide text-ink-faint">
+              <th className="w-[8.5rem] pr-3 text-right font-medium">Document</th>
+              <th className="w-56 pr-3 font-medium">Number</th>
+              <th className="w-60 pr-3 font-medium">Issuing district</th>
+              <th className="font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {DOCUMENTS.map((d) => {
+              const empty = !String(form[d.no] ?? "").trim();
+              const error = errors[d.no] ?? errors[d.district];
+              return (
+                <tr key={d.no} className="align-top">
+                  <th scope="row" className="pr-3 pt-1.5 text-right font-normal text-ink-muted">
+                    {label(d.no)}
+                    {d.required && (
+                      <span aria-hidden className="ml-0.5 text-danger">
+                        *
+                      </span>
+                    )}
+                  </th>
+                  <td className="pr-3">
+                    <input
+                      name={d.no}
+                      aria-label={label(d.no)}
+                      aria-required={d.required || undefined}
+                      aria-invalid={errors[d.no] ? true : undefined}
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={50}
+                      value={String(form[d.no] ?? "")}
+                      onChange={(e) => set(d.no, e.target.value as never)}
+                      className={cn(inputClass, "h-7 max-w-none font-code")}
+                    />
+                  </td>
+                  <td className="pr-3">
+                    <div data-enter-skip={!d.required && empty ? "" : undefined}>
+                      <Combobox
+                        name={d.district}
+                        aria-label={label(d.district)}
+                        aria-invalid={errors[d.district] ? true : undefined}
+                        options={districts}
+                        value={String(form[d.district] ?? "")}
+                        onChange={(v) => set(d.district, v as never)}
+                        placeholder={!d.required && empty ? "—" : "District"}
+                        allowClear={!d.required}
+                        disabled={!d.required && empty && !form[d.district]}
+                        className="max-w-none"
+                      />
+                    </div>
+                  </td>
+                  <td className="pt-1.5 text-3xs">
+                    {error ? <span role="alert" className="font-medium text-danger">{error}</span> : <span className="text-ink-faint">{d.note}</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <TextField
         api={api}
         field="panNumber"
         code
         inputMode="numeric"
         maxLength={9}
+        size="code"
         transform={(v) => v.replace(/\D/g, "").slice(0, 9)}
         help="9 digits, issued by the Inland Revenue Department. Needed for TDS reporting."
       />

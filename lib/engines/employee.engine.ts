@@ -750,3 +750,19 @@ export function sectionProgress(
   });
 }
 
+
+const SEPARATION_FIELDS = ["informedDate", "terminationDate", "terminationType", "terminationReason", "terminationPlan", "terminationRemarks"] as const;
+
+/** Separation checks only (the Inactive rules of the form), for the status change. */
+export function separationErrors(data: EmployeeFormData): EmployeeValidationErrors {
+  const all = validateEmployeeTab({ ...data, status: "Inactive" }, 4);
+  const errors: EmployeeValidationErrors = {};
+  for (const f of SEPARATION_FIELDS) if (all[f]) errors[f] = all[f];
+  if (data.terminationType && !["Retirement", "Resignation", "Termination", "Contract End"].includes(data.terminationType)) {
+    errors.terminationType = "Choose a separation type";
+  }
+  if (data.terminationPlan && !["Upadan", "Gratuity", "Pension", "None"].includes(data.terminationPlan)) {
+    errors.terminationPlan = "Choose a retirement benefit";
+  }
+  return errors;
+}

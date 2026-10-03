@@ -73,7 +73,7 @@ describe('S18 employee records', () => {
     const actions = source('app/actions/employee.actions.ts');
     assert.ok(!/checkPermission\(/.test(actions), 'unscoped checkPermission() must not be used');
     assert.ok(!/getEmployeeById\(/.test(actions), 'unscoped getEmployeeById() must not be used');
-    for (const fn of ['saveEmployeeAction', 'deleteEmployeeAction', 'getEmployeeByIdAction', 'getEmployeeAccessAction', 'resendEmployeeCredentialsAction', 'resetEmployeePasswordAction']) {
+    for (const fn of ['saveEmployeeAction', 'setEmployeeStatusAction', 'getEmployeeByIdAction', 'getEmployeeAccessAction', 'resendEmployeeCredentialsAction', 'resetEmployeePasswordAction']) {
       const start = actions.indexOf(`export async function ${fn}(`);
       assert.ok(start >= 0, fn);
       const body = actions.slice(start, actions.indexOf('\nexport ', start + 1) === -1 ? undefined : actions.indexOf('\nexport ', start + 1));
@@ -99,4 +99,27 @@ describe('S18 employee records', () => {
     const findAll = repo.slice(repo.indexOf('export async function findAll('), repo.indexOf('export async function findById('));
     assert.match(findAll, /likeTerm\(filter\.search/);
   });
+
+  it('employees can never be deleted; leaving is a status change that switches the login off', () => {
+    const actions = source('app/actions/employee.actions.ts');
+    const service = source('lib/services/employee.service.ts');
+    const repo = source('lib/repositories/employee.repository.ts');
+    assert.ok(!/deleteEmployee/.test(actions) && !/export async function deleteEmployee/.test(service), 'no delete action or service');
+    assert.ok(!/tx\.delete\(employees\)/.test(repo), 'the repository never deletes employee rows');
+    const setStatus = repo.slice(repo.indexOf('export async function setStatus('));
+    assert.match(setStatus, /tx\.update\(users\)\.set\(\{ isActive: status === 'Active'/);
+    const status = actions.slice(actions.indexOf('export async function setEmployeeStatusAction('));
+    assert.match(status, /checkPermissionWithScope\('EDIT', 'EMPLOYEES'\)/);
+    assert.match(status, /getEmployeeInScope\(id, scope, 'EDIT'\)/);
+    assert.match(status, /DENIED_SELF/);
+    assert.match(status, /recordAuditLog\(/);
+  });
+
+  it('the edit form cannot change status (only the status action can)', () => {
+    const service = source('lib/services/employee.service.ts');
+    const save = service.slice(service.indexOf('export async function saveEmployee('));
+    assert.match(save, /formData = \{ \.\.\.formData, status: current\.status \}/);
+    assert.match(save, /formData = \{ \.\.\.formData, status: "Active" \}/);
+  });
 });
+

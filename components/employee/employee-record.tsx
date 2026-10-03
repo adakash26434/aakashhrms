@@ -2,14 +2,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, CalendarCheck, FileText, History, KeyRound, Landmark, Pencil, Plane, Printer, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarCheck, FileText, History, KeyRound, Landmark, Pencil, Plane, Printer, UserCheck, UserRound, UserX } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
-import { Confirm } from "@/components/kit/confirm";
 import { ErrorState } from "@/components/kit/empty-state";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Tabs, type TabItem } from "@/components/kit/tabs";
 import { Window, WindowButton } from "@/components/kit/window";
-import { deleteEmployeeAction, resendEmployeeCredentialsAction } from "@/app/actions/employee.actions";
+import { resendEmployeeCredentialsAction } from "@/app/actions/employee.actions";
 import { isTypingTarget } from "@/lib/frame/shortcuts";
 import type { EmployeeRecordData, EmployeeRecordTab } from "@/lib/types/employee";
 import { EmployeeRecordHeader } from "./employee-record-header";
@@ -19,6 +18,7 @@ import { EmployeeRecordAttendance } from "./employee-record-attendance";
 import { EmployeeRecordPayslips } from "./employee-record-payslips";
 import { EmployeeRecordLoans } from "./employee-record-loans";
 import { EmployeeRecordHistory } from "./employee-record-history";
+import { EmployeeStatusWindow } from "./employee-status-window";
 
 const TAB_META: Record<EmployeeRecordTab, Omit<TabItem, "id">> = {
   profile: { label: "Profile", icon: UserRound },
@@ -41,7 +41,7 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
   const [pending, startTransition] = useTransition();
   const { profile, tabs, active, permissions } = record;
   const [tab, setTab] = useState<EmployeeRecordTab>(active.tab);
-  const [deleting, setDeleting] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
   const [sending, setSending] = useState(false);
   const [credentials, setCredentials] = useState<CredentialResult | null>(null);
 
@@ -100,7 +100,15 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
             disabled: sending,
             onClick: resend,
           },
-          { id: "delete", label: "Delete", icon: Trash2, group: "selection", shortcut: "Delete", hidden: !permissions.remove, onClick: () => setDeleting(true) },
+          {
+            // Employees are never deleted; leaving is recorded as Inactive.
+            id: "status",
+            label: profile.status === "Active" ? "Make inactive" : "Make active",
+            icon: profile.status === "Active" ? UserX : UserCheck,
+            group: "selection",
+            hidden: !permissions.edit,
+            onClick: () => setChangingStatus(true),
+          },
           { id: "print", label: "Print", icon: Printer, group: "output", shortcut: "Ctrl+P", onClick: () => window.print() },
         ]}
       />
@@ -133,25 +141,13 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
         </div>
       </Tabs>
 
-      <Confirm
-        open={deleting}
-        tone="danger"
-        title={`Delete ${profile.fullName}?`}
-        confirmLabel="Delete permanently"
-        requireText={profile.employeeCode}
-        message={
-          <>
-            This removes the employee and their login for good. Employees with payroll, loans or pending leave cannot be deleted; set their status to
-            Inactive with a separation date instead.
-          </>
-        }
-        onConfirm={async () => {
-          const result = await deleteEmployeeAction(profile.id);
-          if (!result.success) throw new Error(result.error);
-          router.replace("/workforce/employees");
+      <EmployeeStatusWindow
+        target={changingStatus ? { id: profile.id, fullName: profile.fullName, employeeCode: profile.employeeCode, status: profile.status } : null}
+        onClose={() => setChangingStatus(false)}
+        onDone={() => {
+          setChangingStatus(false);
           router.refresh();
         }}
-        onCancel={() => setDeleting(false)}
       />
 
       <Window

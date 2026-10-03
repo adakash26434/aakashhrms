@@ -2,9 +2,11 @@
 
 import { RotateCcw } from "lucide-react";
 import { DateField } from "@/components/kit/date-field";
-import { FieldRow, inputClass } from "@/components/kit/property-form";
-import { codeConflicts, getNextAttendanceCode, getNextEmployeeCode } from "@/lib/engines/employee.engine";
-import { CheckRow, FormSection, SelectRow, TextRow, label, type EmployeeFormApi } from "./employee-form-fields";
+import { GridField } from "@/components/kit/form-grid";
+import { inputClass } from "@/components/kit/property-form";
+import { calculateAgeInYears, codeConflicts, getNextAttendanceCode, getNextEmployeeCode, parseLocalDateParts } from "@/lib/engines/employee.engine";
+import { nepalToday } from "@/lib/utils/nepal-time";
+import { ChoiceField, FormSection, TextField, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
 
 const GENDERS = ["Male", "Female", "Other"].map((g) => ({ value: g, label: g }));
 const TAX_STATUSES = [
@@ -13,57 +15,48 @@ const TAX_STATUSES = [
   { value: "Widow", label: "Widow / widower" },
 ];
 
-function NextCodeButton({ onClick, title }: { onClick: () => void; title: string }) {
-  return (
-    <button
-      type="button"
-      data-enter-skip
-      onClick={onClick}
-      title={title}
-      className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2 text-2xs font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
-    >
-      <RotateCcw aria-hidden className="h-3 w-3" /> Next free
-    </button>
-  );
-}
-
-/** Identification (codes, name) and Personal (birth date, gender, tax status). */
+/** General: name, codes and the personal details that decide tax. */
 export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
-  const { form, errors, set, ctx } = api;
+  const { form, errors, set, ctx, isNew } = api;
   // Live duplicate hint against every code in the company (the save re-checks).
   const live = codeConflicts(ctx.codes, form, ctx.employeeId);
+  const dob = parseLocalDateParts(form.dateOfBirth);
+  const age = dob ? calculateAgeInYears(dob, nepalToday()) : null;
 
   return (
-    <>
-      <FormSection id="identification" title="Identification" description="Codes are unique across the company.">
-        <FieldRow label={label("employeeCode")} required error={errors.employeeCode ?? live.employeeCode}>
-          <CodeInput
-            name="employeeCode"
-            value={form.employeeCode}
-            onChange={(v) => set("employeeCode", v)}
-            onNext={() => set("employeeCode", getNextEmployeeCode(ctx.codes.map((c) => c.employeeCode)))}
-          />
-        </FieldRow>
-        <FieldRow label={label("attendanceCode")} required error={errors.attendanceCode ?? live.attendanceCode} help="The code used on the attendance device.">
-          <CodeInput
-            name="attendanceCode"
-            value={form.attendanceCode}
-            onChange={(v) => set("attendanceCode", v)}
-            onNext={() => set("attendanceCode", getNextAttendanceCode(ctx.codes.map((c) => c.attendanceCode), "ATD-"))}
-          />
-        </FieldRow>
-        <TextRow api={api} field="fullName" required placeholder="As on the citizenship certificate" />
-      </FormSection>
+    <FormSection id="general" title="General" description="Codes are filled with the next free ones and are unique across the company.">
+      <TextField api={api} field="fullName" required size="lg" span={2} placeholder="As on the citizenship certificate" autoFocus={isNew} />
+      <ChoiceField api={api} field="gender" options={GENDERS} required size="code" />
 
-      <FormSection id="personal" title="Personal">
-        <FieldRow label={label("dateOfBirth")} required error={errors.dateOfBirth} help="Must be 18 or older (Labour Act).">
-          <DateField name="dateOfBirth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} />
-        </FieldRow>
-        <SelectRow api={api} field="gender" options={GENDERS} required />
-        <SelectRow api={api} field="taxStatus" options={TAX_STATUSES} required help="Decides the income tax slab. Married needs the spouse's name under Family." />
-        <CheckRow api={api} field="isDisabled" text="Yes, apply the disability tax relief" />
-      </FormSection>
-    </>
+      <GridField label={label("employeeCode")} required error={errors.employeeCode ?? live.employeeCode} size="md">
+        <CodeInput
+          name="employeeCode"
+          value={form.employeeCode}
+          onChange={(v) => set("employeeCode", v)}
+          onNext={() => set("employeeCode", getNextEmployeeCode(ctx.codes.map((c) => c.employeeCode)))}
+        />
+      </GridField>
+      <GridField
+        label={label("attendanceCode")}
+        required
+        error={errors.attendanceCode ?? live.attendanceCode}
+        help="The code used on the attendance device."
+        size="md"
+      >
+        <CodeInput
+          name="attendanceCode"
+          value={form.attendanceCode}
+          onChange={(v) => set("attendanceCode", v)}
+          onNext={() => set("attendanceCode", getNextAttendanceCode(ctx.codes.map((c) => c.attendanceCode), "ATD-"))}
+        />
+      </GridField>
+      <GridField label={label("dateOfBirth")} required error={errors.dateOfBirth} help="Must be 18 or older (Labour Act). Type YYYY/MM/DD or press Alt+↓." size="date" suffix={age !== null && age >= 0 && age < 120 ? `Age ${age}` : undefined}>
+        <DateField name="dateOfBirth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} />
+      </GridField>
+
+      <ChoiceField api={api} field="taxStatus" options={TAX_STATUSES} required help="Decides the income tax slab. Married needs the spouse's name under Family." />
+      <YesNo api={api} field="isDisabled" help="Yes applies the disability tax relief." />
+    </FormSection>
   );
 }
 
@@ -85,7 +78,7 @@ function CodeInput({
   "aria-required"?: boolean;
 }) {
   return (
-    <div className="flex max-w-md gap-2">
+    <div className="flex gap-1.5">
       <input
         id={id}
         name={name}
@@ -94,10 +87,18 @@ function CodeInput({
         maxLength={30}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} font-code`}
+        className={`${inputClass} w-36 max-w-none font-code`}
         {...aria}
       />
-      <NextCodeButton onClick={onNext} title="Use the next free code" />
+      <button
+        type="button"
+        data-enter-skip
+        onClick={onNext}
+        title="Use the next free code"
+        className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2 text-2xs font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
+      >
+        <RotateCcw aria-hidden className="h-3 w-3" /> Next free
+      </button>
     </div>
   );
 }
