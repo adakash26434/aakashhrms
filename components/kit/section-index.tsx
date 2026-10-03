@@ -13,6 +13,9 @@ export interface SectionIndexItem {
   /** complete: every required field filled · error: has errors · todo: required fields missing · optional: nothing required */
   state: "complete" | "error" | "todo" | "optional";
   errors?: number;
+  /** Required fields filled / required, shown as "4/6" while not complete. */
+  filled?: number;
+  required?: number;
 }
 
 function jumpTo(id: string) {
@@ -35,6 +38,23 @@ function jumpTo(id: string) {
 export function SectionIndex({ items, label = "Sections", className }: { items: SectionIndexItem[]; label?: string; className?: string }) {
   const [active, setActive] = useState(items[0]?.id ?? "");
   const ids = items.map((i) => i.id).join("|");
+
+  // F6 / Shift+F6 jump to the next / previous section (the desktop key for moving between panes).
+  useEffect(() => {
+    const list = ids.split("|");
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F6" || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('[aria-modal="true"]')) return;
+      const current = list.findIndex((id) => document.getElementById(id)?.contains(document.activeElement));
+      const from = current >= 0 ? current : list.indexOf(active);
+      const next = list[(from + (e.shiftKey ? -1 : 1) + list.length) % list.length];
+      if (!next) return;
+      e.preventDefault();
+      setActive(next);
+      jumpTo(next);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ids, active]);
 
   useEffect(() => {
     const sections = ids
@@ -96,11 +116,20 @@ export function SectionIndex({ items, label = "Sections", className }: { items: 
                 >
                   <StateMark state={item.state} errors={item.errors} />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {item.state === "todo" && item.required ? (
+                    <span className="shrink-0 text-3xs font-normal tabular-nums text-ink-faint">
+                      {item.filled ?? 0}/{item.required}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             );
           })}
         </ol>
+        <p className="mt-3 px-2 text-3xs leading-relaxed text-ink-faint">
+          <kbd className="rounded border border-line bg-surface px-1 font-sans">F6</kbd> next section ·{" "}
+          <kbd className="rounded border border-line bg-surface px-1 font-sans">Shift F6</kbd> back
+        </p>
       </nav>
     </>
   );

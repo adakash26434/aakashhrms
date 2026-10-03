@@ -14,8 +14,8 @@ import { attendanceMonth, historySummary, missingRecords, resolveRecordTab } fro
 import { bsMonthDaysToDate, periodLabel } from "@/lib/engines/dashboard.engine";
 import { maskAccountNumber } from "@/lib/utils/mask";
 import { nepalToday, toLocalDate } from "@/lib/utils/nepal-time";
-import type { ScopeFilter } from "@/lib/auth/scope-filter";
-import type { Employee, EmployeeProfile, EmployeeRecordData, EmployeeRecordTab, EmployeeRecordTabData } from "@/lib/types/employee";
+import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
+import type { Employee, EmployeeFacts, EmployeeProfile, EmployeeRecordData, EmployeeRecordTab, EmployeeRecordTabData } from "@/lib/types/employee";
 
 /** Which related tabs this user may open (each needs its own module's VIEW). */
 export interface RecordTabAccess {
@@ -97,6 +97,64 @@ async function loadTab(tab: EmployeeRecordTab, employeeId: string): Promise<Empl
   }
 }
 
+/** One fact for the FactBox: undefined without permission, null on failure or nothing yet. */
+async function fact<T>(allowed: boolean, load: () => Promise<T | null>): Promise<T | null | undefined> {
+  if (!allowed) return undefined;
+  try {
+    return await load();
+  } catch (error) {
+    console.error("[employee-record] fact failed", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/** The FactBox pane: small summaries of this employee across modules (each permission-gated). */
+async function loadFacts(employeeId: string, access: RecordTabAccess): Promise<EmployeeFacts> {
+  const [attendance, leave, lastPayslip, loans] = await Promise.all([
+    fact(access.attendance, async () => {
+      const month = bsMonthDaysToDate(nepalToday());
+      if (!month.days.length) return null;
+      const days = month.days.map((date, i) => ({ date, bsDay: i + 1, weekday: 0 }));
+      const records = await attendanceRepository.findAttendanceForEmployee(employeeId, days[0].date, days[days.length - 1].date);
+      const { totals } = attendanceMonth(month.label, days, records);
+      return { monthLabel: month.label, present: totals.present + totals.halfDay / 2, absent: totals.absent, leave: totals.leave, notRecorded: totals.notRecorded };
+    }),
+    fact(access.leave, async () => {
+      const active = (await fiscalYearRepository.findAllFiscalYears()).find((fy) => fy.status === "Active");
+      if (!active) return null;
+      const balances = await leaveRepository.findLeaveBalancesWithTypes(employeeId, active.id);
+      if (!balances.length) return null;
+      return {
+        fiscalYearLabel: active.label ?? null,
+        balance: balances.reduce((n, b) => n + b.balance, 0),
+        types: [...balances].sort((a, b) => b.balance - a.balance).slice(0, 3).map((b) => ({ name: b.leaveTypeName, balance: b.balance })),
+      };
+    }),
+    fact(access.payslips, async () => {
+      const [last] = await payrollRepository.findSlipsByEmployee(employeeId, 1);
+      return last ? { periodLabel: periodLabel(last.year, last.month), net: last.net, gross: last.gross, status: last.status } : null;
+    }),
+    fact(access.loans, async () => {
+      const loans = await loanRepository.findLoansByEmployee(employeeId);
+      const open = loans.filter((l) => l.status === "ACTIVE" && l.remaining > 0);
+      return { active: open.length, outstanding: open.reduce((n, l) => n + l.remaining, 0) };
+    }),
+  ]);
+  return { attendance, leave, lastPayslip, loans };
+}
+
+/** Where this record sits in the register order (by name), for "◀ 2 of 37 ▶". */
+async function loadNavigator(employeeId: string, scope: ScopeFilter): Promise<EmployeeRecordData["navigator"]> {
+  try {
+    const ids = await employeeRepository.findOrderedIdsInScope(buildEmployeeScopeCondition(scope));
+    const index = ids.indexOf(employeeId);
+    if (index < 0) return { position: 0, total: ids.length, prevId: null, nextId: null };
+    return { position: index + 1, total: ids.length, prevId: ids[index - 1] ?? null, nextId: ids[index + 1] ?? null };
+  } catch {
+    return { position: 0, total: 0, prevId: null, nextId: null };
+  }
+}
+
 /**
  * The record page (4.2): the employee (scoped, S18) and the requested tab's
  * data. Only the active tab is loaded; a tab the user may not see falls back
@@ -120,12 +178,12 @@ export async function getEmployeeRecord(
   if (access.history) tabs.push("history");
   const tab = resolveRecordTab(requestedTab, tabs);
 
-  const profile = await buildProfile(employee);
+  const [profile, facts, navigator] = await Promise.all([buildProfile(employee), loadFacts(employee.id, access), loadNavigator(employee.id, scope)]);
   try {
     const active = await loadTab(tab, employee.id);
-    return { profile, tabs, active, failed: false, permissions };
+    return { profile, facts, navigator, tabs, active, failed: false, permissions };
   } catch (error) {
     console.error(`[employee-record] tab "${tab}" failed`, error instanceof Error ? error.message : error);
-    return { profile, tabs, active: { tab: "profile" }, failed: true, permissions };
+    return { profile, facts, navigator, tabs, active: { tab: "profile" }, failed: true, permissions };
   }
 }

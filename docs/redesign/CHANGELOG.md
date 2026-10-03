@@ -13,6 +13,25 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.2 Employees: card-page polish (form and record page)
+Branch: `redesign/4.2-employees`
+
+Your ask: make the form and the full-page record more like desktop software, more structured, with proper design concepts.
+
+Patterns applied (desktop ERP card pages, Business Central / SAP Business One):
+- **View mode mirrors edit mode:** the Profile tab now uses the editor's numbered group boxes, columns and field widths, with values in read-only boxes, so every field sits in the same place when reading and editing.
+- **Numbered group boxes with progress** ("2 Job & placement · 1 of 6 required"), repeated in the section index.
+- **Record header:** the record page shows key facts (no repeated name) and a **record navigator** "◀ 2 of 3 ▶" (Alt+PgUp / Alt+PgDn, keeps the tab); the editor shows a live card (initials, name as typed, codes, placement) with a required-fields meter.
+- **Folder tabs** joined to the content frame.
+- **FactBox pane** beside every tab: records to fix, last payslip, attendance this month, leave left, loans, login; each permission-gated, each links to its tab.
+- **Status bar** in the editor footer: field hint · required left · save state · keys. **Current-row highlight.** **F6 / Shift+F6** between sections.
+
+Kit: `FormGroup`, `ViewField`, `StatusBar` + `Kbd`, `RecordNavigator`, `Tabs variant="folder"`, SectionIndex counts and F6. Server: register-order ids within scope for the navigator; FactBox summaries loaded with the page.
+
+Verified: tsc 0 · eslint clean on new code · 403/403 tests · `next build` · Playwright on your data: Profile view matches the editor; FactBox figures (Pramod: last payslip Shrawan 2083 net 27,700, attendance 6 present / 11 no entry, leave left 72 days); Alt+PgDn moved to the next employee on the same tab; Enter flow, F6 / Shift+F6 and the row highlight on the form; no overflow at 390 / 768 / 1024 / 1280 / 1440 px; 0 console errors.
+
+---
+
 ## 2026-10-03 — 4.2 Employees: review round (no delete, status switch, compact form, Enter fixes)
 Branch: `redesign/4.2-employees`
 

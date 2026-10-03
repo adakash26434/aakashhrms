@@ -333,7 +333,21 @@ export type EmployeeRecordTabData =
   | { tab: "loans"; data: EmployeeLoanRow[] }
   | { tab: "history"; data: EmployeeHistoryRow[] };
 
+/**
+ * At-a-glance facts for the record page's FactBox pane. A key is undefined
+ * when the user may not see that module, null when there is nothing yet.
+ */
+export interface EmployeeFacts {
+  attendance?: { monthLabel: string; present: number; absent: number; leave: number; notRecorded: number } | null;
+  leave?: { fiscalYearLabel: string | null; balance: number; types: { name: string; balance: number }[] } | null;
+  lastPayslip?: { periodLabel: string; net: number; gross: number; status: string } | null;
+  loans?: { active: number; outstanding: number } | null;
+}
+
 export interface EmployeeRecordData {
+  /** Position in the register order, for the record navigator. */
+  navigator: { position: number; total: number; prevId: string | null; nextId: string | null };
+  facts: EmployeeFacts;
   profile: EmployeeProfile;
   tabs: EmployeeRecordTab[];
   active: EmployeeRecordTabData;

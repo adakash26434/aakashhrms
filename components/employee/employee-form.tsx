@@ -8,6 +8,7 @@ import { DiscardBar } from "@/components/kit/discard-bar";
 import { PropertyForm } from "@/components/kit/property-form";
 import { useFieldHelp } from "@/components/kit/form-grid";
 import { StatusChip } from "@/components/kit/status-chip";
+import { Kbd, StatusBar } from "@/components/kit/status-bar";
 import { SectionIndex } from "@/components/kit/section-index";
 import { useUnsavedGuard } from "@/components/kit/use-unsaved-guard";
 import { scrollIntoContainer } from "@/components/kit/scroll-into-view";
@@ -19,7 +20,8 @@ import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 import type { EmployeeAccessOptions } from "@/lib/services/employee.service";
 import type { EmployeeFormContext, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
-import type { EmployeeFormApi } from "./employee-form-fields";
+import { SectionProgressContext, type EmployeeFormApi } from "./employee-form-fields";
+import { EmployeeFormHeader } from "./employee-form-header";
 import { EmployeeFormIdentification } from "./employee-form-identification";
 import { EmployeeFormJob } from "./employee-form-job";
 import { EmployeeFormDocuments } from "./employee-form-documents";
@@ -80,6 +82,8 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
   const fieldHelp = useFieldHelp();
   const sections = EMPLOYEE_FORM_SECTIONS.filter((s) => s.id !== "separation" || showSeparation);
   const progress = sectionProgress(form, errors, sections);
+  const progressById = Object.fromEntries(progress.map((p, i) => [p.id, { ...p, index: i + 1 }]));
+  const requiredLeft = progress.reduce((n, p) => n + (p.required - p.filled), 0);
 
   const clearError = (field: string) =>
     setErrors((e) => {
@@ -226,18 +230,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       <PageBar
         title={title}
         description={isNew ? "Press Enter to move from field to field. Ctrl+S saves." : `${ctx.initial.employeeCode} · Enter moves on, Ctrl+S saves.`}
-        status={
-          <span className="inline-flex items-center gap-2">
-            {!isNew && <StatusChip status={ctx.initial.status} />}
-            {dirty ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-warning-subtle px-2 py-0.5 text-3xs font-medium text-warning">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-warning" /> Unsaved
-            </span>
-          ) : savedCount > 0 ? (
-            <span className="text-2xs text-success">{savedCount} saved this session</span>
-          ) : null}
-          </span>
-        }
+        status={isNew ? undefined : <StatusChip status={ctx.initial.status} />}
         crumbs={isNew ? [{ label: "New" }] : [{ label: ctx.initial.fullName, href: `/workforce/employees/${ctx.employeeId}` }, { label: "Edit" }]}
         actions={[
           { id: "save", label: saving === "save" ? "Saving…" : "Save", icon: Save, group: "create", primary: true, shortcut: "Ctrl+S", disabled: !!saving, onClick: () => save(false) },
@@ -268,13 +261,16 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[168px_minmax(0,1fr)]">
+      <EmployeeFormHeader form={form} ctx={ctx} isNew={isNew} progress={progress} />
+
+      <div className="grid gap-5 lg:grid-cols-[196px_minmax(0,1fr)]">
         <SectionIndex
           className="sticky top-0 self-start"
-          items={progress.map((p) => ({ id: `section-${p.id}`, label: p.label, state: p.state, errors: p.errors }))}
+          items={progress.map((p, i) => ({ id: `section-${p.id}`, label: `${i + 1}. ${p.label}`, state: p.state, errors: p.errors, filled: p.filled, required: p.required }))}
         />
         <div className="min-w-0">
-          <PropertyForm onSubmit={() => save(false)} enterNavigation={{ validate, end: () => saveRef.current }}>
+          <SectionProgressContext.Provider value={progressById}>
+          <PropertyForm className="space-y-4" onSubmit={() => save(false)} enterNavigation={{ validate, end: () => saveRef.current }}>
             <EmployeeFormIdentification api={api} />
             <EmployeeFormJob api={api} />
             <EmployeeFormDocuments api={api} />
@@ -292,17 +288,35 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
             <EmployeeFormAccess api={api} options={access} onOptions={setAccess} />
             {showSeparation && <EmployeeFormSeparation api={api} />}
           </PropertyForm>
+          </SectionProgressContext.Provider>
 
           {/* Sticky footer: Enter on the last field lands on Save. It reaches into the page padding so nothing shows beneath it. */}
           <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-6 bg-surface-sunken lg:-bottom-6 lg:-mx-6 lg:-mb-6">
             {leave.pending ? (
               <DiscardBar onKeep={leave.keep} onDiscard={leave.discard} />
             ) : (
-              <div className="flex items-center justify-end gap-2 border-t border-line bg-surface-sunken/95 px-4 py-2.5 backdrop-blur lg:px-6">
-                {/* Status line: the focused field's hint, as in desktop accounting software. */}
-                <p aria-live="polite" className="mr-auto hidden min-w-0 truncate text-2xs text-ink-muted sm:block">
-                  {fieldHelp || "Enter: next field · Shift+Enter: back · Ctrl+S: save"}
-                </p>
+              <div className="flex items-center justify-end gap-2 border-t border-line bg-surface-sunken/95 px-4 py-2 backdrop-blur lg:px-6">
+                {/* Status bar, as in desktop accounting software: the focused field's hint, what is left, save state, keys. */}
+                <StatusBar
+                  className="mr-auto hidden min-w-0 flex-1 md:flex"
+                  segments={[
+                    { id: "hint", grow: true, content: fieldHelp || "Fill in the record; Enter moves to the next field." },
+                    {
+                      id: "left",
+                      tone: requiredLeft === 0 ? "success" : "default",
+                      content: requiredLeft === 0 ? "All required fields filled" : `${requiredLeft} required left`,
+                    },
+                    { id: "dirty", tone: dirty ? "warning" : "default", content: dirty ? "Unsaved changes" : savedCount ? `${savedCount} saved` : "No changes" },
+                    {
+                      id: "keys",
+                      content: (
+                        <span className="hidden items-center gap-1 xl:inline-flex">
+                          <Kbd>Enter</Kbd> next <Kbd>F6</Kbd> section <Kbd>Ctrl S</Kbd> save
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
                 <WindowButton onClick={cancel} disabled={!!saving}>
                   Cancel
                 </WindowButton>

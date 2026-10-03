@@ -1,12 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { FieldGroup, inputClass } from "@/components/kit/property-form";
-import { FormGrid, GridField, type GridFieldSize } from "@/components/kit/form-grid";
+import { createContext, useContext, type ReactNode } from "react";
+import { inputClass } from "@/components/kit/property-form";
+import { FormGroup, GridField, type GridFieldSize } from "@/components/kit/form-grid";
 import { SelectField, type SelectOption } from "@/components/kit/select-field";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { EMPLOYEE_FIELD_LABELS, type EmployeeField } from "@/lib/constants/employee-form";
 import type { EmployeeFormContext, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
+import type { SectionProgress } from "@/lib/engines/employee.engine";
 import { cn } from "@/lib/utils";
 
 /** What every form section receives from employee-form.tsx. */
@@ -19,7 +20,14 @@ export interface EmployeeFormApi {
   isNew: boolean;
 }
 
-/** One titled block of the form (a "FastTab"); the id is what the section index jumps to. */
+/** Section numbers and required-field progress, provided by employee-form.tsx. */
+export const SectionProgressContext = createContext<Record<string, SectionProgress & { index: number }>>({});
+
+/**
+ * One numbered group box of the form (a "FastTab"). Its number and
+ * "n of m required" chip come from SectionProgressContext; the id is what the
+ * section index jumps to.
+ */
 export function FormSection({
   id,
   title,
@@ -35,12 +43,19 @@ export function FormSection({
   children: ReactNode;
   columns?: 2 | 3;
 }) {
+  const progress = useContext(SectionProgressContext)[id];
   return (
-    <div id={`section-${id}`} className="scroll-mt-4">
-      <FieldGroup title={title} description={description} aside={aside}>
-        <FormGrid columns={columns}>{children}</FormGrid>
-      </FieldGroup>
-    </div>
+    <FormGroup
+      id={`section-${id}`}
+      index={progress?.index}
+      title={title}
+      description={description}
+      aside={aside}
+      columns={columns}
+      progress={progress ? { filled: progress.filled, required: progress.required, errors: progress.errors } : undefined}
+    >
+      {children}
+    </FormGroup>
   );
 }
 

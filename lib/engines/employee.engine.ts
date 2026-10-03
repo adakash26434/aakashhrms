@@ -733,9 +733,12 @@ export interface SectionProgress {
   label: string;
   state: "complete" | "error" | "todo" | "optional";
   errors: number;
+  /** Required fields filled / required fields in the section. */
+  filled: number;
+  required: number;
 }
 
-/** Done / errors / still to fill, per form section (section index and error summary). */
+/** Done / errors / still to fill, per form section (section index, group headers, status bar). */
 export function sectionProgress(
   data: EmployeeFormData,
   errors: EmployeeValidationErrors,
@@ -745,8 +748,9 @@ export function sectionProgress(
     const count = section.fields.filter((f) => errors[f]).length;
     const required = [...section.required];
     if (section.id === "family" && data.taxStatus === "Married") required.push("spouseName");
-    const state = count > 0 ? "error" : required.length === 0 ? "optional" : required.every((f) => isFilled(data, f)) ? "complete" : "todo";
-    return { id: section.id, label: section.label, state, errors: count };
+    const filled = required.filter((f) => isFilled(data, f)).length;
+    const state = count > 0 ? "error" : required.length === 0 ? "optional" : filled === required.length ? "complete" : "todo";
+    return { id: section.id, label: section.label, state, errors: count, filled, required: required.length };
   });
 }
 

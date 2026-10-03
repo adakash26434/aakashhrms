@@ -201,6 +201,16 @@ export async function findAllCodes(): Promise<{ id: string; employeeCode: string
     .from(employees);
 }
 
+/** Ids in register order (by name, then code) within a scope: the record navigator's sequence. */
+export async function findOrderedIdsInScope(scopeCondition?: SQL<unknown>): Promise<string[]> {
+  const rows = await (await getDb())
+    .select({ id: employees.id })
+    .from(employees)
+    .where(scopeCondition)
+    .orderBy(employees.fullName, employees.employeeCode);
+  return rows.map((r) => r.id);
+}
+
 export async function findById(id: string): Promise<Employee | undefined> {
   const rows = await (await getDb())
     .select()

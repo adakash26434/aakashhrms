@@ -25,7 +25,10 @@ export function Tabs({
   children,
   className,
   label,
+  variant = "line",
 }: {
+  /** "folder": desktop-style tabs joined to a framed panel (record pages). */
+  variant?: "line" | "folder";
   items: TabItem[];
   value: string;
   onChange: (id: string) => void;
@@ -39,6 +42,7 @@ export function Tabs({
   const listRef = useRef<HTMLDivElement>(null);
   const enabled = items.filter((t) => !t.disabled);
   const vertical = orientation === "vertical";
+  const folder = variant === "folder" && !vertical;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const index = enabled.findIndex((t) => t.id === value);
@@ -67,7 +71,9 @@ export function Tabs({
         className={cn(
           vertical
             ? "flex shrink-0 gap-1 overflow-x-auto md:w-52 md:flex-col md:overflow-visible"
-            : "flex gap-1 overflow-x-auto border-b border-line",
+            : folder
+              ? "relative z-[1] flex gap-0.5 overflow-x-auto pl-2"
+              : "flex gap-1 overflow-x-auto border-b border-line",
           "no-scrollbar"
         )}
       >
@@ -90,7 +96,14 @@ export function Tabs({
                 "relative flex shrink-0 items-center gap-2 whitespace-nowrap text-sm transition-colors disabled:opacity-40 cursor-pointer",
                 vertical
                   ? cn("h-8 rounded-md px-2.5 text-left", active ? "bg-selection font-medium text-brand-strong" : "text-ink-muted hover:bg-surface-sunken hover:text-ink")
-                  : cn("-mb-px h-9 border-b-2 px-3", active ? "border-brand font-medium text-ink" : "border-transparent text-ink-muted hover:text-ink")
+                  : folder
+                    ? cn(
+                        "-mb-px h-9 rounded-t-md border px-3.5",
+                        active
+                          ? "border-line-card border-b-surface bg-surface font-medium text-ink shadow-[inset_0_2px_0_var(--color-brand)]"
+                          : "border-line bg-surface-sunken/70 text-ink-muted hover:bg-surface hover:text-ink"
+                      )
+                    : cn("-mb-px h-9 border-b-2 px-3", active ? "border-brand font-medium text-ink" : "border-transparent text-ink-muted hover:text-ink")
               )}
             >
               {vertical && active && <span aria-hidden className="absolute left-0 top-1.5 bottom-1.5 hidden w-[3px] rounded-r bg-brand md:block" />}
@@ -106,7 +119,10 @@ export function Tabs({
         id={`${baseId}-panel`}
         aria-labelledby={`${baseId}-tab-${value}`}
         tabIndex={0}
-        className={cn("min-w-0 outline-none", vertical ? "flex-1" : "pt-4")}
+        className={cn(
+          "min-w-0 outline-none",
+          vertical ? "flex-1" : folder ? "rounded-lg rounded-tl-none border border-line-card bg-surface p-4 shadow-sm" : "pt-4"
+        )}
       >
         {children}
       </div>

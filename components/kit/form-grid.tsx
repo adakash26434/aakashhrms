@@ -90,13 +90,18 @@ export function GridField({
     <div
       data-field-help={help || undefined}
       className={cn(
-        "group grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
+        // The row being edited is highlighted, as desktop forms mark the current field.
+        "group -mx-1.5 grid min-w-0 grid-cols-1 gap-1 rounded-md px-1.5 py-0.5 transition-colors focus-within:bg-selection/60 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
         span === 2 && "md:col-span-2",
         span === 3 && "md:col-span-2 xl:col-span-3",
         className
       )}
     >
-      <label htmlFor={id} className="truncate pt-1 text-xs text-ink-muted sm:text-right" title={label}>
+      <label
+        htmlFor={id}
+        className="truncate pt-1 text-xs text-ink-muted group-focus-within:font-medium group-focus-within:text-brand-strong sm:text-right"
+        title={label}
+      >
         {label}
         {required && (
           <span aria-hidden className="ml-0.5 text-danger">
@@ -151,4 +156,125 @@ export function useFieldHelp(): string {
     return () => document.removeEventListener("focusin", onFocus);
   }, []);
   return help;
+}
+
+// ---------------------------------------------------------------------------
+// Group box and view mode
+// ---------------------------------------------------------------------------
+
+/**
+ * A numbered group box (a desktop "group box" / Business Central FastTab):
+ * title bar with its step number, a short description, a progress chip for
+ * required fields, and the fields in a FormGrid. `id` is what a section index
+ * jumps to.
+ */
+export function FormGroup({
+  id,
+  index,
+  title,
+  description,
+  aside,
+  progress,
+  columns = 3,
+  children,
+}: {
+  id?: string;
+  index?: number;
+  title: string;
+  description?: string;
+  aside?: ReactNode;
+  /** Required fields filled; omit for view mode or optional groups. */
+  progress?: { filled: number; required: number; errors?: number };
+  columns?: 2 | 3;
+  children: ReactNode;
+}) {
+  const done = progress && progress.required > 0 && progress.filled === progress.required && !progress.errors;
+  return (
+    <section id={id} aria-label={title} className="scroll-mt-4 rounded-lg border border-line-card bg-surface shadow-sm">
+      <header className="flex items-center gap-3 rounded-t-lg border-b border-line-strong bg-canvas/70 px-4 py-2">
+        {index !== undefined && (
+          <span
+            aria-hidden
+            className={cn(
+              "flex h-5 min-w-5 shrink-0 items-center justify-center rounded px-1 text-3xs font-semibold tabular-nums",
+              done ? "bg-success text-white" : progress?.errors ? "bg-danger text-white" : "bg-ink/80 text-white"
+            )}
+          >
+            {index}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <h3 className="text-xs font-semibold text-ink">{title}</h3>
+          {description && <p className="truncate text-3xs text-ink-faint">{description}</p>}
+        </div>
+        {aside}
+        {progress && progress.required > 0 && (
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-3xs font-medium tabular-nums",
+              progress.errors ? "bg-danger-subtle text-danger" : done ? "bg-success-subtle text-success" : "bg-surface-sunken text-ink-muted"
+            )}
+          >
+            {progress.errors ? `${progress.errors} to fix` : done ? "Complete" : `${progress.filled} of ${progress.required} required`}
+          </span>
+        )}
+      </header>
+      <FormGrid columns={columns}>{children}</FormGrid>
+    </section>
+  );
+}
+
+/**
+ * A value in view mode, drawn as a read-only box of the same width the field
+ * has in the editor, so a record looks the same viewed and edited (as desktop
+ * card pages do). Empty values show a dash.
+ */
+export function ViewField({
+  label,
+  value,
+  size = "md",
+  span = 1,
+  mono,
+  tone,
+  suffix,
+}: {
+  label: string;
+  value: ReactNode;
+  size?: GridFieldSize;
+  span?: 1 | 2 | 3;
+  mono?: boolean;
+  tone?: "warning" | "danger" | "success";
+  suffix?: ReactNode;
+}) {
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
+        span === 2 && "md:col-span-2",
+        span === 3 && "md:col-span-2 xl:col-span-3"
+      )}
+    >
+      <span className="truncate pt-1 text-xs text-ink-muted sm:text-right" title={label}>
+        {label}
+      </span>
+      <div className="flex min-w-0 items-start gap-2">
+        <div
+          className={cn(
+            "flex min-h-7 max-w-full items-center rounded-md border border-line bg-surface-sunken/60 px-2 py-1 text-sm leading-tight",
+            SIZE[size],
+            size !== "full" && "shrink-0",
+            mono && "font-code tabular-nums",
+            empty && "text-ink-faint",
+            tone === "warning" && "border-warning/40 bg-warning-subtle text-warning",
+            tone === "danger" && "border-danger/40 bg-danger-subtle text-danger",
+            tone === "success" && "text-success"
+          )}
+        >
+          <span className="min-w-0 break-words">{empty ? "—" : value}</span>
+        </div>
+        {suffix ? <div className="shrink-0 whitespace-nowrap pt-1.5 text-2xs text-ink-faint">{suffix}</div> : null}
+      </div>
+    </div>
+  );
 }

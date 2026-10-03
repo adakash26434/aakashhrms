@@ -275,6 +275,35 @@ record page → full-page editor**:
 | Editor | `/workforce/employees/new`, `/[id]/edit` | One scrolling `PropertyForm` with a **SectionIndex** on the left (✓ done, red count for errors, click to jump; a "Jump to section" select below 1024px). Each section is a **compact `FormGrid`** (see below). Error summary on top with links to each field; sticky footer whose **status line shows the focused field's hint**; unsaved-changes guard. Status is not edited here. |
 | Status | list switch, record page | `EmployeeStatusWindow`: Make inactive asks for last working day, separation type, reason (notice date and retirement benefit optional), switches the self-service login off and is audited; Make active clears the separation and turns the login back on. Not allowed on your own record. |
 
+**Card page layout (record and editor, 4.2 polish).** Patterns taken from
+desktop ERP card pages (Business Central, SAP Business One master data):
+
+- **View mode mirrors edit mode.** The record's Profile tab uses the same
+  numbered group boxes, columns and field widths as the editor, with values
+  in read-only boxes (`ViewField`), so a field is in the same place whether
+  you read or edit it.
+- **Group boxes are numbered** (`FormGroup`): "1 General", "2 Job &
+  placement"… with a "4 of 6 required" chip (green "Complete", red "n to
+  fix"); the section index repeats the numbers and counts.
+- **Record header.** Record page: key facts (designation, department,
+  branch, category and level, joined + service, supervisor, mobile, email)
+  under the page bar, without repeating the name, and the **record navigator**
+  "◀ 2 of 37 ▶" (Alt+PgUp / Alt+PgDn, keeps the current tab). Editor: a live
+  card (initials, name as typed, codes, placement) with a "required fields"
+  meter.
+- **Folder tabs** (`Tabs variant="folder"`): tabs joined to a framed panel,
+  the active one marked by a brand line on top.
+- **FactBox pane** beside every tab (from 1280px; below the tabs on smaller
+  screens): records to fix, last payslip, this month's attendance, leave
+  left, loans, self-service login. Each part needs its module's permission and
+  links to its tab.
+- **Status bar** in the editor footer (`StatusBar`): focused field's hint ·
+  required fields left · save state · key reminders.
+- **Current row highlight**: the row being edited is tinted and its caption
+  turns brand-coloured, as desktop forms mark the current field.
+- **F6 / Shift+F6** move to the next / previous section (the desktop key for
+  moving between panes).
+
 **Compact form grid (`FormGrid` + `GridField`).** After SAP Fiori's
 responsive form grid (12-column grid, fixed label/field ratio, empty space
 after fields so inputs do not stretch) and Business Central FastTabs
@@ -380,6 +409,8 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
 | `Enter` / `F2` | Open / edit selected row |
 | `Del` | Delete selected (with confirm) |
 | `Ctrl S` | Save form (`Ctrl Shift S`: save and add another, on new records) |
+| `F6` / `Shift F6` | Next / previous section of a long form |
+| `Alt PgUp` / `Alt PgDn` | Previous / next record on a record page |
 | `Enter` / `Shift Enter` (in a form) | Next / previous field (see "Implemented employees") |
 | `Esc` | Close window / clear selection / back from a record page |
 | `Ctrl P` | Print current report |

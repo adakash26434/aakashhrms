@@ -12,6 +12,7 @@ import { resendEmployeeCredentialsAction } from "@/app/actions/employee.actions"
 import { isTypingTarget } from "@/lib/frame/shortcuts";
 import type { EmployeeRecordData, EmployeeRecordTab } from "@/lib/types/employee";
 import { EmployeeRecordHeader } from "./employee-record-header";
+import { EmployeeRecordFactBox } from "./employee-record-factbox";
 import { EmployeeRecordProfile } from "./employee-record-profile";
 import { EmployeeRecordLeave } from "./employee-record-leave";
 import { EmployeeRecordAttendance } from "./employee-record-attendance";
@@ -85,7 +86,7 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
     <div>
       <PageBar
         title={profile.fullName}
-        description={[profile.employeeCode, profile.designationName, profile.departmentName].filter(Boolean).join(" · ")}
+        description={`${profile.employeeCode} · Att. ${profile.attendanceCode} · Employee card`}
         status={<StatusChip status={profile.status} />}
         crumbs={[{ label: profile.fullName }]}
         actions={[
@@ -113,11 +114,13 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
         ]}
       />
 
-      <EmployeeRecordHeader profile={profile} canEdit={permissions.edit} />
+      <EmployeeRecordHeader profile={profile} navigator={record.navigator} />
 
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
       <Tabs
+        variant="folder"
+        className="min-w-0"
         label="Employee record"
-        className="mt-4"
         items={tabs.map((id) => ({ id, ...TAB_META[id] }))}
         value={tab}
         onChange={switchTab}
@@ -140,6 +143,10 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
           )}
         </div>
       </Tabs>
+      <div className="xl:sticky xl:top-0 xl:self-start xl:pt-9">
+        <EmployeeRecordFactBox profile={profile} facts={record.facts} canEdit={permissions.edit} onOpenTab={switchTab} />
+      </div>
+      </div>
 
       <EmployeeStatusWindow
         target={changingStatus ? { id: profile.id, fullName: profile.fullName, employeeCode: profile.employeeCode, status: profile.status } : null}
