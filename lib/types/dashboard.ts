@@ -184,6 +184,31 @@ export interface ApprovalPreviewItem {
   waitingDays: number | null;
 }
 
+/** Amounts to deposit for the selected period, by statutory head. */
+export interface StatutorySummary {
+  total: number;
+  rows: { id: "tds" | "ssfEmployee" | "ssfEmployer" | "pfEmployee" | "pfEmployer" | "cit"; label: string; amount: number }[];
+}
+
+export type UpcomingKind = "holiday" | "birthday" | "anniversary";
+
+export interface UpcomingEvent {
+  id: string;
+  kind: UpcomingKind;
+  /** AD date, YYYY-MM-DD. */
+  date: string;
+  title: string;
+  detail: string;
+  /** 0 = today. */
+  daysAway: number;
+}
+
+export interface FiscalProgress {
+  label: string;
+  /** 1 = Shrawan … 12 = Asar. */
+  month: number;
+}
+
 export interface DashboardActivity {
   id: string;
   actor: string;
@@ -225,7 +250,10 @@ export interface DashboardData {
   costTrend: CostTrendPoint[] | null;
   costBreakdown: { total: number; segments: BreakdownSegment[] } | null;
   departmentCost: DepartmentCost[] | null;
-  attendance: { monthLabel: string; total: number; days: AttendanceDayCounts[] } | null;
+  attendance: { monthLabel: string; total: number; days: AttendanceDayCounts[]; ratePct: number | null } | null;
+  statutory: StatutorySummary | null;
+  upcoming: UpcomingEvent[] | null;
+  fiscalProgress: FiscalProgress;
   payRun: DashboardPayRun | null;
   deadlines: DashboardDeadline[] | null;
   approvals: { total: number; items: ApprovalPreviewItem[] } | null;

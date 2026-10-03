@@ -90,6 +90,8 @@ function buildData(variant: Variant, option: DashboardPeriodOption): DashboardDa
     { employeeId: "e9", from: nepalDateIso(), to: toIsoDate(addDays(today, 2)) },
   ];
 
+  const attendanceDays = engine.attendanceByDay(monthDays.days, roster, variant === "new" ? [] : marks, leaves);
+
   const data: DashboardData = {
     generatedAt: new Date().toISOString(),
     todayIso: nepalDateIso(),
@@ -111,7 +113,28 @@ function buildData(variant: Variant, option: DashboardPeriodOption): DashboardDa
             { name: "Administration", cost: 120000, employees: 2 },
           ].map((d) => ({ ...d, cost: d.cost * Math.max(current.length, 1) }))
     ),
-    attendance: { monthLabel: monthDays.label, total: roster.length, days: engine.attendanceByDay(monthDays.days, roster, variant === "new" ? [] : marks, leaves) },
+    attendance: { monthLabel: monthDays.label, total: roster.length, days: attendanceDays, ratePct: engine.attendanceRate(attendanceDays) },
+    statutory: current.length ? engine.statutorySummary(engine.sumCostRows(current)) : { total: 0, rows: [] },
+    upcoming: engine.upcomingEvents({
+      today,
+      holidays:
+        variant === "new"
+          ? []
+          : [
+              { id: "h1", name: "Ghatasthapana", category: "Public", startDateAD: addDays(today, 6), endDateAD: addDays(today, 6) },
+              { id: "h2", name: "Dashain (Fulpati to Kojagrat Purnima)", category: "Public", startDateAD: addDays(today, 12), endDateAD: addDays(today, 18) },
+              { id: "h3", name: "Tihar", category: "Public", startDateAD: addDays(today, 29), endDateAD: addDays(today, 32) },
+            ],
+      employees:
+        variant === "new"
+          ? []
+          : [
+              { id: "e1", fullName: "Sita Sharma", dateOfBirth: addDays(today, 2), joiningDate: addDays(today, 400) },
+              { id: "e2", fullName: "Ram Thapa", dateOfBirth: addDays(today, 140), joiningDate: addDays(today, -365 * 3 + 9) },
+              { id: "e3", fullName: "Gita Karki", dateOfBirth: addDays(today, 0), joiningDate: addDays(today, 30) },
+            ],
+    }),
+    fiscalProgress: engine.fiscalProgress(thisMonth),
     payRun: { latest: latestRun, next: engine.nextPeriodToRun(latestRun, thisMonth) },
     deadlines: deadlines.map((d) => {
       const row = rows.find((r) => r.year === d.forYear && r.month === d.forMonth);
@@ -176,6 +199,7 @@ function buildData(variant: Variant, option: DashboardPeriodOption): DashboardDa
       access: { ...FULL_ACCESS, employeesAdd: false, payroll: false, payrollGenerate: false, payrollReview: false, audit: false, scopeLabel: "Pokhara branch" },
       filters: { ...data.filters, branches: [] },
       kpis: null,
+      statutory: null,
       costTrend: null,
       costBreakdown: null,
       departmentCost: null,
@@ -193,12 +217,12 @@ function buildData(variant: Variant, option: DashboardPeriodOption): DashboardDa
       displayName: "Employee",
       access: { ...FULL_ACCESS, employees: false, employeesAdd: false, attendance: false, leaveApprovals: false, payroll: false, payrollGenerate: false, payrollReview: false, audit: false, scopeLabel: "Your own records" },
       filters: { ...data.filters, branches: [] },
-      kpis: null, costTrend: null, costBreakdown: null, departmentCost: null, attendance: null, payRun: null, deadlines: null,
+      kpis: null, costTrend: null, costBreakdown: null, departmentCost: null, attendance: null, payRun: null, deadlines: null, statutory: null, upcoming: null,
       approvals: null, readiness: null, leaveByType: null, onLeaveToday: null, headcount: null, activity: null,
     };
   }
   if (variant === "failed") {
-    return { ...data, kpis: null, costTrend: null, costBreakdown: null, departmentCost: null, activity: null, attendance: null, failed: ["payroll", "activity", "attendance"] };
+    return { ...data, kpis: null, costTrend: null, costBreakdown: null, departmentCost: null, statutory: null, activity: null, attendance: null, failed: ["payroll", "activity", "attendance"] };
   }
   return data;
 }

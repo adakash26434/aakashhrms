@@ -24,6 +24,9 @@ import type {
   ReadinessIssueId,
   ResolvedPeriod,
   RunPeriodSummary,
+  FiscalProgress,
+  StatutorySummary,
+  UpcomingEvent,
 } from "@/lib/types/dashboard";
 
 // ---------------------------------------------------------------------------
@@ -566,6 +569,116 @@ export function approvalsPreview(
     })
     .sort((a, b) => a.applied - b.applied)
     .slice(0, limit)
-    .map(({ applied: _applied, ...item }) => item);
+    .map(({ id, employeeName, leaveType, days, from, to, waitingDays }) => ({ id, employeeName, leaveType, days, from, to, waitingDays }));
   return { total: known.length, items };
 }
+
+// ---------------------------------------------------------------------------
+// Statutory liabilities, attendance rate, fiscal progress
+// ---------------------------------------------------------------------------
+
+/** What has to be deposited for the period, by head (employee and employer sides apart). */
+export function statutorySummary(t: CostTotals): StatutorySummary {
+  const rows: StatutorySummary["rows"] = [
+    { id: "tds", label: "TDS (income tax)", amount: t.tds },
+    { id: "ssfEmployee", label: "SSF, employee 11%", amount: t.ssfEmployee },
+    { id: "ssfEmployer", label: "SSF, employer 20%", amount: t.ssfEmployer },
+    { id: "pfEmployee", label: "PF, employee", amount: t.pfEmployee },
+    { id: "pfEmployer", label: "PF, employer", amount: t.pfEmployer },
+    { id: "cit", label: "CIT", amount: t.cit },
+  ];
+  return { total: t.statutory, rows: rows.filter((r) => r.amount > 0) };
+}
+
+/** Present (incl. half days) as a share of recorded working attendance; null when nothing was recorded. */
+export function attendanceRate(days: AttendanceDayCounts[]): number | null {
+  let present = 0;
+  let worked = 0;
+  for (const d of days) {
+    present += d.present;
+    worked += d.present + d.absent + d.leave;
+  }
+  return worked > 0 ? Math.round((present / worked) * 1000) / 10 : null;
+}
+
+/** Which month of the Nepal fiscal year (Shrawan = 1) a BS month is. */
+export function fiscalProgress(today: PeriodRef): FiscalProgress {
+  const startYear = today.month >= FISCAL_YEAR_START_MONTH ? today.year : today.year - 1;
+  const month = ((today.month - FISCAL_YEAR_START_MONTH + 12) % 12) + 1;
+  return { label: `FY ${startYear}/${String((startYear + 1) % 100).padStart(2, "0")}`, month };
+}
+
+// ---------------------------------------------------------------------------
+// Upcoming: holidays, birthdays, work anniversaries (Bikram Sambat dates)
+// ---------------------------------------------------------------------------
+
+export const UPCOMING_WINDOW_DAYS = 30;
+
+/**
+ * The next AD date on which a BS month/day recurs, on or after `today`.
+ * Days that do not exist in a shorter BS month fall on its last day.
+ */
+export function nextBsAnniversary(source: Date, today: Date): { date: Date; bsYear: number } | null {
+  const bs = adToBS(source);
+  if (!bs.year) return null;
+  const now = adToBS(today);
+  for (const year of [now.year, now.year + 1]) {
+    const days = getDaysInBSMonth(year, bs.month);
+    if (!days) continue;
+    const date = bsToAD(year, bs.month, Math.min(bs.day, days));
+    if (daysBetween(today, date) >= 0) return { date, bsYear: year };
+  }
+  return null;
+}
+
+export interface UpcomingInputs {
+  today: Date;
+  holidays: { id: string; name: string; category: string; startDateAD: Date; endDateAD: Date }[];
+  employees: { id: string; fullName: string; dateOfBirth?: Date | null; joiningDate?: Date | null }[];
+  windowDays?: number;
+  limit?: number;
+}
+
+/**
+ * The next few weeks at a glance. Birthdays show the day only (never the
+ * year or age); anniversaries count whole BS years since joining.
+ */
+export function upcomingEvents({ today, holidays, employees, windowDays = UPCOMING_WINDOW_DAYS, limit = 8 }: UpcomingInputs): UpcomingEvent[] {
+  const events: UpcomingEvent[] = [];
+  for (const h of holidays) {
+    const start = toLocalDate(h.startDateAD);
+    const end = toLocalDate(h.endDateAD) ?? start;
+    if (!start || !end) continue;
+    if (daysBetween(today, end) < 0) continue; // already over
+    const away = Math.max(0, daysBetween(today, start));
+    if (away > windowDays) continue;
+    const length = daysBetween(start, end) + 1;
+    events.push({
+      id: `holiday-${h.id}`,
+      kind: "holiday",
+      date: toIsoDate(daysBetween(today, start) < 0 ? today : start),
+      title: h.name,
+      detail: length > 1 ? `${length} days` : h.category,
+      daysAway: away,
+    });
+  }
+  for (const e of employees) {
+    const birthday = e.dateOfBirth ? nextBsAnniversary(e.dateOfBirth, today) : null;
+    if (birthday) {
+      const away = daysBetween(today, birthday.date);
+      if (away <= windowDays) events.push({ id: `birthday-${e.id}`, kind: "birthday", date: toIsoDate(birthday.date), title: e.fullName, detail: "Birthday", daysAway: away });
+    }
+    const joined = e.joiningDate ? toLocalDate(e.joiningDate) : null;
+    const anniversary = joined ? nextBsAnniversary(joined, today) : null;
+    if (joined && anniversary) {
+      const years = anniversary.bsYear - adToBS(joined).year;
+      const away = daysBetween(today, anniversary.date);
+      if (years > 0 && away <= windowDays) {
+        events.push({ id: `anniversary-${e.id}`, kind: "anniversary", date: toIsoDate(anniversary.date), title: e.fullName, detail: `${years} ${years === 1 ? "year" : "years"} with the company`, daysAway: away });
+      }
+    }
+  }
+  const order: Record<UpcomingEvent["kind"], number> = { holiday: 0, anniversary: 1, birthday: 2 };
+  return events.sort((a, b) => a.daysAway - b.daysAway || order[a.kind] - order[b.kind] || a.title.localeCompare(b.title)).slice(0, limit);
+}
+

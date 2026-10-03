@@ -5,6 +5,11 @@ import { RECENTLY_PASSED_DAYS } from '../lib/constants/statutory-deadlines';
 import {
   approvalsPreview,
   attendanceByDay,
+  attendanceRate,
+  fiscalProgress,
+  nextBsAnniversary,
+  statutorySummary,
+  upcomingEvents,
   buildKpis,
   costBreakdown,
   costTrend,
@@ -254,5 +259,66 @@ describe('Dashboard: readiness and approvals', () => {
     const out = approvalsPreview(pending, { employeeNames: new Map([['e1', 'Sita'], ['e2', 'Ram']]), leaveTypeNames: new Map([['t', 'Annual']]), today: new Date(2026, 9, 2) }, 5);
     assert.equal(out.total, 2);
     assert.deepEqual(out.items.map((i) => [i.employeeName, i.waitingDays]), [['Ram', 7], ['Sita', 4]]);
+  });
+});
+
+describe('Dashboard: statutory, attendance rate, fiscal progress', () => {
+  it('lists statutory heads with employee and employer sides apart, total = statutory', () => {
+    const t = sumCostRows([row(2083, 5, { pfEmployee: 0, pfEmployer: 0 })]);
+    const s = statutorySummary(t);
+    assert.equal(s.total, t.statutory);
+    assert.deepEqual(s.rows.map((r) => r.id), ['tds', 'ssfEmployee', 'ssfEmployer', 'cit']); // zero PF rows dropped
+  });
+
+  it('attendance rate is present over recorded working days, null when nothing recorded', () => {
+    assert.equal(attendanceRate([{ date: 'x', day: 1, present: 8, leave: 1, absent: 1, off: 5, notRecorded: 3 }]), 80);
+    assert.equal(attendanceRate([{ date: 'x', day: 1, present: 0, leave: 0, absent: 0, off: 2, notRecorded: 9 }]), null);
+  });
+
+  it('counts fiscal-year months from Shrawan', () => {
+    assert.deepEqual(fiscalProgress({ year: 2083, month: 4 }), { label: 'FY 2083/84', month: 1 });
+    assert.deepEqual(fiscalProgress({ year: 2083, month: 6 }), { label: 'FY 2083/84', month: 3 });
+    assert.deepEqual(fiscalProgress({ year: 2084, month: 3 }), { label: 'FY 2083/84', month: 12 });
+  });
+});
+
+describe('Dashboard: upcoming events', () => {
+  const today = bsToAD(2083, 6, 16);
+
+  it('finds the next BS recurrence of a date, clamping to short months', () => {
+    const dob = bsToAD(2050, 6, 20);
+    const next = nextBsAnniversary(dob, today)!;
+    assert.equal(toIsoDate(next.date), toIsoDate(bsToAD(2083, 6, 20)));
+    const passed = nextBsAnniversary(bsToAD(2050, 6, 10), today)!;
+    assert.equal(passed.bsYear, 2084);
+  });
+
+  it('merges holidays, birthdays and anniversaries within the window, soonest first, never showing age', () => {
+    const events = upcomingEvents({
+      today,
+      holidays: [
+        { id: 'h1', name: 'Dashain', category: 'Public', startDateAD: addDays(today, 5), endDateAD: addDays(today, 9) },
+        { id: 'h2', name: 'Over', category: 'Public', startDateAD: addDays(today, -5), endDateAD: addDays(today, -1) },
+        { id: 'h3', name: 'Far', category: 'Public', startDateAD: addDays(today, 60), endDateAD: addDays(today, 60) },
+      ],
+      employees: [
+        { id: 'e1', fullName: 'Sita', dateOfBirth: bsToAD(2050, 6, 18), joiningDate: bsToAD(2080, 6, 16) },
+        { id: 'e2', fullName: 'Ram', dateOfBirth: bsToAD(2050, 1, 1), joiningDate: bsToAD(2083, 6, 20) }, // joined this year: no anniversary
+      ],
+    });
+    assert.deepEqual(events.map((e) => [e.kind, e.title, e.daysAway]), [
+      ['anniversary', 'Sita', 0],
+      ['birthday', 'Sita', 2],
+      ['holiday', 'Dashain', 5],
+    ]);
+    assert.equal(events[0].detail, '3 years with the company');
+    assert.equal(events[1].detail, 'Birthday');
+    assert.equal(events[2].detail, '5 days');
+  });
+
+  it('keeps an ongoing holiday and shows it from today', () => {
+    const [e] = upcomingEvents({ today, holidays: [{ id: 'h', name: 'Tihar', category: 'Public', startDateAD: addDays(today, -1), endDateAD: addDays(today, 2) }], employees: [] });
+    assert.equal(e.daysAway, 0);
+    assert.equal(e.date, toIsoDate(today));
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CHART_AXIS_TICK, CHART_COLORS, CHART_THEME, CHART_TOOLTIP_STYLE } from "@/lib/constants/colors";
 import { formatAmount } from "@/lib/kit/amount";
 import { isSwing } from "@/lib/engines/dashboard.engine";
@@ -60,10 +60,12 @@ function TrendTooltip({ active, payload }: { active?: boolean; payload?: Tooltip
  * lighter; swings of 10% or more get a marker above the bar.
  */
 export function DashboardCostTrendChart({ points }: { points: CostTrendPoint[] }) {
+  const withData = points.filter((p) => p.hasData);
+  const average = withData.length > 1 ? withData.reduce((n, p) => n + p.employerCost, 0) / withData.length : null;
   return (
     <div className="h-72 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 480, height: 220 }}>
-        <BarChart data={points} margin={{ top: 16, right: 8, left: 0, bottom: 0 }} barCategoryGap="22%">
+        <BarChart data={points} margin={{ top: 16, right: 56, left: 0, bottom: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={CHART_THEME.grid} vertical={false} />
           <XAxis dataKey="shortLabel" tick={CHART_AXIS_TICK} axisLine={false} tickLine={false} />
           <YAxis tick={CHART_AXIS_TICK} axisLine={false} tickLine={false} tickFormatter={compactAxis} width={48} />
@@ -96,6 +98,15 @@ export function DashboardCostTrendChart({ points }: { points: CostTrendPoint[] }
               ))}
             </Bar>
           ))}
+          {average !== null && (
+            <ReferenceLine
+              y={average}
+              stroke={CHART_THEME.axisTick}
+              strokeDasharray="4 4"
+              ifOverflow="extendDomain"
+              label={{ value: `Avg ${formatAmount(average, { compact: true })}`, position: "right", fontSize: 10, fill: CHART_THEME.axisTick }}
+            />
+          )}
         </BarChart>
       </ResponsiveContainer>
     </div>

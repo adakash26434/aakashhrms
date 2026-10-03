@@ -17,7 +17,9 @@ import type { DashboardData } from "@/lib/types/dashboard";
 import { ATTENDANCE_SERIES, BREAKDOWN_COLORS, COST_TREND_SERIES, NOT_LOCKED_LEGEND } from "./dashboard-chart-series";
 import { DashboardFilters } from "./dashboard-filters";
 import { DashboardKpiCards } from "./dashboard-kpi-cards";
-import { DashboardPayRunCard } from "./dashboard-pay-run-card";
+import { DashboardPayRunBanner } from "./dashboard-pay-run-banner";
+import { DashboardStatutoryCard } from "./dashboard-statutory-card";
+import { DashboardUpcomingCard } from "./dashboard-upcoming-card";
 import { DashboardDeadlinesCard } from "./dashboard-deadlines-card";
 import { DashboardApprovalsCard } from "./dashboard-approvals-card";
 import { DashboardReadinessCard } from "./dashboard-readiness-card";
@@ -101,7 +103,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const todayCounts = data.attendance?.days[data.attendance.days.length - 1];
   const showFilters = access.payroll || filters.branches.length > 1;
 
-  const payRunCard = data.payRun && <DashboardPayRunCard payRun={data.payRun} access={access} />;
   const attentionCards = [
     data.deadlines && <DashboardDeadlinesCard key="deadlines" deadlines={data.deadlines} />,
     data.approvals && <DashboardApprovalsCard key="approvals" total={data.approvals.total} items={data.approvals.items} scopeLabel={access.scopeLabel} />,
@@ -110,12 +111,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   ].filter(Boolean);
 
   const payrollFailed = access.payroll && !data.kpis && failed("payroll");
-  const hasPayroll = !!(data.costTrend || data.departmentCost || payRunCard || payrollFailed);
+  const hasPayroll = !!(data.costTrend || data.departmentCost || data.statutory || payrollFailed);
   const hasLeave = !!(data.leaveByType || data.onLeaveToday);
   const attendanceFailed = failed("attendance") && !data.attendance;
   const activityFailed = failed("activity") && !data.activity;
-  const hasPeople = !!(data.attendance || attendanceFailed || hasLeave || data.headcount || data.activity || activityFailed);
-  const nothing = !data.kpis && !hasPayroll && attentionCards.length === 0 && !hasPeople;
+  const hasPeople = !!(data.attendance || attendanceFailed || hasLeave || data.headcount || data.upcoming || data.activity || activityFailed);
+  const nothing = !data.payRun && !data.kpis && !hasPayroll && attentionCards.length === 0 && !hasPeople;
 
   return (
     <PageFrame size="wide" spacing="none">
@@ -168,7 +169,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </div>
       ) : (
         <div className="space-y-8">
-          {data.kpis && <DashboardKpiCards kpis={data.kpis} compareLabel={filters.period.compareLabel} />}
+          {(data.payRun || data.kpis) && (
+            <div className="space-y-4">
+              {data.payRun && <DashboardPayRunBanner payRun={data.payRun} access={access} fiscal={data.fiscalProgress} />}
+              {data.kpis && <DashboardKpiCards kpis={data.kpis} compareLabel={filters.period.compareLabel} />}
+            </div>
+          )}
 
           {hasPayroll && (
             <DashboardSection title="Payroll" description={filters.period.label}>
@@ -217,14 +223,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   </Panel>
                 </div>
               )}
-              {(data.departmentCost || payRunCard) && (
+              {(data.departmentCost || data.statutory) && (
                 <div className="grid items-start gap-5 xl:grid-cols-3">
                   {data.departmentCost && (
-                    <div className="xl:col-span-2">
+                    <div className={data.statutory ? "xl:col-span-2" : "xl:col-span-3"}>
                       <DashboardDepartmentCostCard departments={data.departmentCost} periodLabel={filters.period.label} />
                     </div>
                   )}
-                  {payRunCard}
+                  {data.statutory && <DashboardStatutoryCard statutory={data.statutory} periodLabel={filters.period.label} />}
                 </div>
               )}
             </DashboardSection>
@@ -246,7 +252,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                       id="dashboard-attendance"
                       title="Attendance this month"
                       icon={<Clock3 />}
-                      meta={data.attendance.monthLabel}
+                      meta={data.attendance.ratePct === null ? data.attendance.monthLabel : `${data.attendance.monthLabel} · ${data.attendance.ratePct}% attendance`}
                       href="/timeAndLeave/attendance"
                       hrefLabel="Attendance"
                       className={hasLeave ? "xl:col-span-2" : "xl:col-span-3"}
@@ -271,9 +277,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   {hasLeave && <DashboardLeaveOverview leaveByType={data.leaveByType} onLeaveToday={data.onLeaveToday} />}
                 </div>
               )}
-              {(data.headcount || data.activity || activityFailed) && (
-                <div className="grid items-start gap-5 lg:grid-cols-2">
+              {(data.headcount || data.upcoming || data.activity || activityFailed) && (
+                <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
                   {data.headcount && <DashboardHeadcountCard headcount={data.headcount} />}
+                  {data.upcoming && <DashboardUpcomingCard events={data.upcoming} />}
                   {data.activity && <DashboardActivityCard activity={data.activity} todayIso={data.todayIso} />}
                   {activityFailed && <FailedPanel id="dashboard-activity" title="Recent activity" onRetry={refresh} />}
                 </div>

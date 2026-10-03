@@ -40,10 +40,16 @@ function Sparkline({ values, warning }: { values: (number | null)[]; warning: bo
     d += `${pen ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)} `;
     pen = true;
   });
-  const lastIndex = values.map((v, i) => (v === null ? -1 : i)).filter((i) => i >= 0).pop() ?? 0;
+  const indices = values.map((v, i) => (v === null ? -1 : i)).filter((i) => i >= 0);
+  const firstIndex = indices[0] ?? 0;
+  const lastIndex = indices[indices.length - 1] ?? 0;
   const lastY = h - 2 - (((values[lastIndex] as number) - min) / span) * (h - 4);
+  // Soft area under the line (only when the series has no gaps, so it never bridges a missing month).
+  const continuous = indices.length === lastIndex - firstIndex + 1;
+  const area = continuous ? `${d}L${(lastIndex * step).toFixed(1)},${h} L${(firstIndex * step).toFixed(1)},${h} Z` : null;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-8 w-full overflow-visible" aria-hidden>
+      {area && <path d={area} className={warning ? "fill-warning/10" : "fill-brand/10"} />}
       <path d={d} fill="none" strokeWidth={1.6} vectorEffect="non-scaling-stroke" className={warning ? "stroke-warning" : "stroke-brand"} />
       <circle cx={lastIndex * step} cy={lastY} r={2.2} className={warning ? "fill-warning" : "fill-brand"} />
     </svg>
@@ -55,13 +61,19 @@ function Change({ kpi, compareLabel }: { kpi: DashboardKpi; compareLabel: string
   if (kpi.changePct === null) return <span className="text-2xs text-ink-faint">No earlier figure to compare</span>;
   const Icon = kpi.changePct > 0 ? ArrowUpRight : kpi.changePct < 0 ? ArrowDownRight : ArrowRight;
   return (
-    <span
-      className={cn("inline-flex items-center gap-0.5 text-2xs font-medium tabular-nums", kpi.tone === "warning" ? "text-warning" : "text-ink-muted")}
-      title={kpi.tone === "warning" ? "A change of 10% or more: worth a second look" : undefined}
-    >
-      <Icon aria-hidden className="h-3 w-3" />
-      {kpi.changePct > 0 ? "+" : ""}
-      {kpi.changePct}% <span className="font-normal text-ink-faint">{compareLabel}</span>
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-2xs">
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px font-semibold tabular-nums",
+          kpi.tone === "warning" ? "bg-warning-subtle text-warning" : "bg-surface-sunken text-ink-muted"
+        )}
+        title={kpi.tone === "warning" ? "A change of 10% or more: worth a second look" : undefined}
+      >
+        <Icon aria-hidden className="h-3 w-3" />
+        {kpi.changePct > 0 ? "+" : ""}
+        {kpi.changePct}%
+      </span>
+      <span className="truncate text-ink-faint">{compareLabel}</span>
     </span>
   );
 }
@@ -89,10 +101,11 @@ export function DashboardKpiCards({ kpis, compareLabel }: { kpis: DashboardKpi[]
                 </span>
                 <span className="truncate">{kpi.label}</span>
               </span>
-              <span className="mt-3 truncate text-2xl font-semibold leading-tight tabular-nums text-ink" title={value.full}>
-                {value.text}
+              <span className="mt-3 flex min-w-0 items-baseline gap-1.5" title={value.full}>
+                {kpi.format === "amount" && kpi.value !== null && <span className="text-2xs font-medium text-ink-faint">NPR</span>}
+                <span className="truncate text-2xl font-semibold leading-tight tabular-nums text-ink">{value.text}</span>
               </span>
-              <span className="mt-0.5 min-h-4 truncate">
+              <span className="mt-1.5 flex min-h-5 min-w-0 items-center">
                 <Change kpi={kpi} compareLabel={compareLabel} />
               </span>
               <span className="mt-3">

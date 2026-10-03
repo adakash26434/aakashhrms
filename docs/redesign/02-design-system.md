@@ -229,10 +229,13 @@ sparkline, insight within ~10 seconds, thresholds, role-based views).
 | Row | Content | Rules |
 |---|---|---|
 | Page bar | Title, greeting, BS date, "Updated hh:mm", scope badge; Run payroll · Add employee · Refresh | Actions hidden without permission |
+| Pay run banner | Current month, fiscal-year month (Shrawan = 1), progress rail across branch runs, net payable, employees, the one next action | First thing on the page, as in Zoho / Gusto; replaces the old pay run card |
 | Filters | Period (latest month · fiscal year to date · last 12 months) and branch (company-wide users) | In the URL (`?period=&branch=`), validated on the server |
-| KPI cards | Payroll cost (gross + employer PF), net pay, statutory (TDS + SSF 31% + PF + CIT), active employees, cost per employee | Change vs comparison period; amber only for ±10% or more; never green/red for direction alone; 12-month sparkline |
-| Charts | Payroll cost by month (stacked net / deductions / employer PF, unlocked months lighter, swings flagged); where the money went (donut + table) | Recharts loaded after first paint; legends and tables outside the chart; empty states |
+| KPI cards | Payroll cost (gross + employer PF), net pay, statutory (TDS + SSF 31% + PF + CIT), active employees, cost per employee | "NPR" label on money; change as a pill vs comparison period; amber only for ±10% or more; never green/red for direction alone; 12-month sparkline with soft area |
+| Charts | Payroll cost by month (stacked net / deductions / employer PF, unlocked months lighter, swings flagged, dashed 12-month average); where the money went (donut + table) | Recharts loaded after first paint; legends and tables outside the chart; empty states |
 | Charts | Cost by department (bars + paid + %); attendance this month (daily present / leave / absent / off / not recorded) | Not recorded is shown, never counted as present |
+| Liabilities | Statutory liabilities for the period: TDS, SSF 11% / 20%, PF both sides, CIT, with total to deposit | Beside cost by department |
+| Coming up | Holidays (user's branches), birthdays and work anniversaries in the next 30 days, by BS date | Birthdays show the day only, never age; personal dates need EMPLOYEES permission |
 | Actions | Pay run (step rail, next action), statutory deadlines, pending approvals (5 oldest, decided on the Approvals page), records to fix | Compact cards |
 | Workforce | Leave taken this FY by type + on leave today, headcount by department, recent activity | Activity needs AUDIT_LOG |
 

@@ -25,6 +25,7 @@ import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as payrollRepository from "@/lib/repositories/payroll.repository";
 import * as attendanceRepository from "@/lib/repositories/attendance.repository";
 import * as auditRepository from "@/lib/repositories/audit.repository";
+import * as holidayRepository from "@/lib/repositories/holiday.repository";
 import * as engine from "@/lib/engines/dashboard.engine";
 import { adToBS } from "@/lib/utils/bs-calendar";
 import { nepalDateIso, nepalToday, toIsoDate, toLocalDate } from "@/lib/utils/nepal-time";
@@ -125,7 +126,7 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
   const monthDays = engine.bsMonthDaysToDate(today);
   const monthStart = monthDays.days[0] ?? todayIso;
 
-  const [scopedEmployees, departments, runs, pending, approved, leaveTypes, joinersLeavers, marks, leaveByType, activityLogs] = await Promise.all([
+  const [scopedEmployees, departments, runs, pending, approved, leaveTypes, joinersLeavers, marks, leaveByType, activityLogs, holidays] = await Promise.all([
     needsEmployees
       ? section("employees", failed, () =>
           employeeRepository.findAll({ search: "", departmentId: "all", branchId: branchId ?? "all", category: "all", status: "Active" }, buildEmployeeScopeCondition(scope))
@@ -140,6 +141,7 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     attendance ? section("attendance", failed, () => attendanceRepository.findAttendanceMarksInRange(monthStart, todayIso, byEmployeeId(attendanceRecords.employeeId))) : null,
     leaveApprovals || attendance ? section("leave by type", failed, () => leaveRepository.sumApprovedLeaveDaysByType(byEmployeeId(leaveApplications.employeeId))) : null,
     audit ? section("activity", failed, () => auditRepository.findAuditLogs({ limit: ACTIVITY_LIMIT })) : null,
+    employees || attendance ? section("upcoming", failed, () => holidayRepository.findAllHolidays()) : null,
   ]);
 
   const employeeMap = new Map((scopedEmployees ?? []).map((e: Employee) => [e.id, e]));
@@ -162,6 +164,7 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
   let costBreakdown: DashboardData["costBreakdown"] = null;
   let departmentCost: DashboardData["departmentCost"] = null;
   let deadlineRows: DashboardData["deadlines"] = deadlines ? deadlines.map((d) => ({ ...d, amount: null })) : null;
+  let statutory: DashboardData["statutory"] = null;
   // Pay-run figures come from the payslips (like the salary sheet): the stored
   // run totals can lag behind slip edits.
   let payRunLatest = latestRun;
@@ -190,7 +193,9 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
         nextDeadline: deadlines?.[0] ?? null,
       });
       costTrend = engine.costTrend(loaded.rows, period.current.to, 12);
-      costBreakdown = current.length ? engine.costBreakdown(engine.sumCostRows(current)) : { total: 0, segments: [] };
+      const currentTotals = engine.sumCostRows(current);
+      costBreakdown = current.length ? engine.costBreakdown(currentTotals) : { total: 0, segments: [] };
+      statutory = engine.statutorySummary(currentTotals);
       departmentCost = engine.topDepartments(loaded.departmentsCost);
       const latestRow = latestRun ? loaded.rows.find((r) => r.year === latestRun.year && r.month === latestRun.month) : undefined;
       if (latestRun && latestRow) payRunLatest = { ...latestRun, gross: latestRow.gross, net: latestRow.net, employees: latestRow.employees };
@@ -210,9 +215,22 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
       const to = toLocalDate(a.effectiveTo);
       return from && to ? [{ employeeId: a.employeeId, from: toIsoDate(from), to: toIsoDate(to), leaveTypeId: a.leaveTypeId }] : [];
     });
+  const attendanceDays = attendance && marks && scopedEmployees ? engine.attendanceByDay(monthDays.days, [...employeeMap.keys()], marks, approvedSpans) : null;
   const attendanceSection =
-    attendance && marks && scopedEmployees
-      ? { monthLabel: monthDays.label, total: scopedEmployees.length, days: engine.attendanceByDay(monthDays.days, [...employeeMap.keys()], marks, approvedSpans) }
+    attendanceDays && scopedEmployees
+      ? { monthLabel: monthDays.label, total: scopedEmployees.length, days: attendanceDays, ratePct: engine.attendanceRate(attendanceDays) }
+      : null;
+
+  // ---- Upcoming: holidays for the user's branches, birthdays and anniversaries in scope ----
+  const visibleBranches = branchId ? [branchId] : scope.scopeType === "GLOBAL" ? null : [...new Set((scopedEmployees ?? []).map((e) => e.branchId))];
+  const upcoming =
+    holidays && scopedEmployees
+      ? engine.upcomingEvents({
+          today,
+          holidays: holidays.filter((h) => !visibleBranches || h.branchIds.length === 0 || h.branchIds.some((b) => visibleBranches.includes(b))),
+          // Personal dates only for users who may see employee records.
+          employees: employees ? scopedEmployees : [],
+        })
       : null;
 
   // ---- Leave ------------------------------------------------------------------
@@ -267,6 +285,9 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     costBreakdown,
     departmentCost,
     attendance: attendanceSection,
+    statutory,
+    upcoming,
+    fiscalProgress: engine.fiscalProgress(thisMonth),
     payRun: payroll && runs ? { latest: payRunLatest, next: engine.nextPeriodToRun(latestRun, thisMonth) } : null,
     deadlines: deadlineRows,
     approvals,

@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.1 dashboard enhancements: pay run banner, liabilities, coming up (sign-off pending)
+Branch: `redesign/4.1-home`
+
+Patterns from payroll and HRMS dashboards, applied with real data only:
+- **Current pay run banner** at the top (Zoho "Process pay run", Gusto "Run payroll"): month and status, fiscal-year month (FY 2083/84 · month 3 of 12), a wide progress rail across branch runs, net payable, employees, and the one next action. It replaces the smaller pay run card.
+- **Statutory liabilities card** (Zoho "benefits and deductions summary"): TDS, SSF employee 11% / employer 20%, PF both sides and CIT for the selected period, with the total to deposit and each head's share. Real Shrawan 2083: 7,150 + 13,000 + 2,500 = 22,650, matching the salary sheet.
+- **Coming up card** (Keka / greytHR): holidays for the user's branches, birthdays and work anniversaries in the next 30 days, by BS date. A day that does not exist in a shorter BS month falls on the month's last day. Birthdays never show year or age, and personal dates need the EMPLOYEES permission. Real data shows Dashain (12 days, in 8 days).
+- **KPI polish:** "NPR" label on money, change as a pill, sparklines with a soft area that never bridges a missing month.
+- **Cost chart:** dashed 12-month average line, labelled at the right edge.
+- **Attendance:** the month's attendance rate in the card header (present ÷ recorded working attendance).
+- Engine: `statutorySummary`, `attendanceRate`, `fiscalProgress`, `nextBsAnniversary`, `upcomingEvents` (6 new tests).
+
+Verified: `tsc` 0, no lint errors or warnings in touched files, 359/359 tests, build OK. Browser 1440 / 1024 / 390px with no overflow and 0 console errors. Real-data figures checked before the overnight session expiry. The preview covers every state.
+
 ## 2026-10-02 — 4.1 dashboard polish: separation and breathing room (sign-off pending)
 Branch: `redesign/4.1-home`
 
