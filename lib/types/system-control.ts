@@ -57,6 +57,7 @@ export interface StatutoryDeductionLimitsSettings {
   retirementFundLimitNpr: number;
   handicappedDeductionPercent?: number;
   companyHasSsf: boolean;
+  /** What SSF's 11% (employee) and 20% (employer) are worked out on. Default: basic + grade. */
   ssfContributionBase?: "BasicSalary" | "BasicPlusGrade";
 }
 

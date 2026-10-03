@@ -34,6 +34,7 @@ const DEFAULT_SYSTEM_CONTROL: SystemControlData = {
     citLimitNpr: 300000,
     retirementFundLimitNpr: 500000,
     companyHasSsf: false,
+    ssfContributionBase: "BasicPlusGrade",
   },
   insuranceDiscounts: {
     medicalInsuranceNpr: 20000,
@@ -120,6 +121,8 @@ export async function findSettings(): Promise<SystemControlData> {
       retirementFundLimitNpr: getNumber('statutoryDeductionLimits.retirementFundLimitNpr', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.retirementFundLimitNpr),
       handicappedDeductionPercent: 0,
       companyHasSsf: getBoolean('statutoryDeductionLimits.companyHasSsf', DEFAULT_SYSTEM_CONTROL.statutoryDeductionLimits.companyHasSsf),
+      ssfContributionBase:
+        getString<string>('statutoryDeductionLimits.ssfContributionBase', 'BasicPlusGrade') === 'BasicSalary' ? 'BasicSalary' : 'BasicPlusGrade',
     },
     insuranceDiscounts: {
       medicalInsuranceNpr: getNumber('insuranceDiscounts.medicalInsuranceNpr', DEFAULT_SYSTEM_CONTROL.insuranceDiscounts.medicalInsuranceNpr),
@@ -159,6 +162,11 @@ export async function updateSettings(data: SystemControlData): Promise<SystemCon
     { key: 'statutoryDeductionLimits.citLimitNpr', value: String(data.statutoryDeductionLimits.citLimitNpr), dataType: 'number' },
     { key: 'statutoryDeductionLimits.retirementFundLimitNpr', value: String(data.statutoryDeductionLimits.retirementFundLimitNpr), dataType: 'number' },
     { key: 'statutoryDeductionLimits.companyHasSsf', value: String(data.statutoryDeductionLimits.companyHasSsf), dataType: 'boolean' },
+    {
+      key: 'statutoryDeductionLimits.ssfContributionBase',
+      value: data.statutoryDeductionLimits.ssfContributionBase === 'BasicSalary' ? 'BasicSalary' : 'BasicPlusGrade',
+      dataType: 'string',
+    },
     
     { key: 'insuranceDiscounts.medicalInsuranceNpr', value: String(data.insuranceDiscounts.medicalInsuranceNpr), dataType: 'number' },
     { key: 'insuranceDiscounts.houseInsuranceNpr', value: String(data.insuranceDiscounts.houseInsuranceNpr), dataType: 'number' },

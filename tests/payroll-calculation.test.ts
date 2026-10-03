@@ -5,6 +5,7 @@ import {
   calculatePayslip, 
   isSsfEmployerHead, 
   isSsfDeductionHead, 
+  ssfContribution,
   type PayHeadInput, 
   type TaxSlabInput, 
   type EmployeeInput 
@@ -1039,5 +1040,72 @@ describe('Payroll Calculation & Syncing Engine', () => {
     assert.ok(deductionHead, 'Deduction SSF head must use its real database UUID');
     // 31% of 35,000 = 10,850
     assert.equal(deductionHead.calculatedAmount, '10850');
+  });
+});
+
+describe('SSF contribution base (company setting, default basic + grade)', () => {
+  const head = (over: Partial<PayHeadInput>): PayHeadInput => ({
+    id: 'h', code: 'H', name: 'H', type: 'deduction', effectOnTax: false, isFestivalAllowance: false, isAbsentDeduct: false, isOtHead: false,
+    isLeaveHead: false, isTdsHead: false, isPfHead: false, isSsfHead: false, isSsfEmployerHead: false, isRemoteAllowance: false, isCitHead: false,
+    calcBasis: 'BasicSalary', calcParameter: 'BasicSalary', calcPercent: '0', amount: '0', ...over,
+  });
+  const heads = [
+    head({ id: 'head-ssf-er', code: 'SSF-ER', type: 'allowance', isSsfEmployerHead: true, effectOnTax: true, calcPercent: '20' }),
+    head({ id: 'head-ssf', code: 'SSF', isSsfHead: true, calcPercent: '31' }),
+  ];
+  const run = (base?: 'BasicSalary' | 'BasicPlusGrade') =>
+    calculatePayslip({
+      employee: BASE_EMPLOYEE,
+      salaryMap: { basicSalary: '40000', gradePercent: '0', gradeAmount: '5000' },
+      assignedHeads: heads,
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: {
+        ...MOCK_SYSTEM_CONTROL,
+        statutoryDeductionLimits: { ...MOCK_SYSTEM_CONTROL.statutoryDeductionLimits, companyHasSsf: true, ssfContributionBase: base },
+      },
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+
+  it('defaults to basic + grade: 11% and 20% of 45,000', () => {
+    const r = run(undefined);
+    assert.equal(r.ssfEmployee, '4950');
+    assert.equal(r.ssfEmployer, '9000');
+    assert.equal(r.heads.find((h) => h.payHeadId === 'head-ssf')?.calculatedAmount, '13950');
+    assert.equal(r.grossEarnings, '54000');
+    assert.deepEqual([run('BasicPlusGrade').ssfEmployee, run('BasicPlusGrade').ssfEmployer], ['4950', '9000']);
+  });
+
+  it('"Basic only" stays available for companies registered that way', () => {
+    const r = run('BasicSalary');
+    assert.equal(r.ssfEmployee, '4400');
+    assert.equal(r.ssfEmployer, '8000');
+  });
+
+  it('the SSF pay head\'s own base no longer decides it (one company rule)', () => {
+    const r = calculatePayslip({
+      employee: BASE_EMPLOYEE,
+      salaryMap: { basicSalary: '40000', gradePercent: '0', gradeAmount: '5000' },
+      assignedHeads: heads.map((h) => ({ ...h, calcBasis: 'BasicPlusGrade' })),
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: { ...MOCK_SYSTEM_CONTROL, statutoryDeductionLimits: { ...MOCK_SYSTEM_CONTROL.statutoryDeductionLimits, companyHasSsf: true, ssfContributionBase: 'BasicSalary' } },
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+    });
+    assert.equal(r.ssfEmployee, '4400');
+  });
+
+  it('ssfContribution() helper', () => {
+    const s = ssfContribution(30000, 3000, undefined);
+    assert.equal(s.employee.toString(), '3630');
+    assert.equal(s.employer.toString(), '6600');
+    assert.equal(s.total.toString(), '10230');
+    assert.equal(ssfContribution(30000, 3000, 'BasicSalary').employee.toString(), '3300');
   });
 });

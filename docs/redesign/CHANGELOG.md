@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — SSF on basic + grade (company setting)
+Branch: `redesign/4.4-salary-structure` (first commit of 4.4)
+
+Your rule (confirmed with seniors): SSF's 11% (employee) and 20% (employer), 31% deposited, are worked out on **basic + grade**, not basic only.
+
+- **Where:** SSF is calculated in one place, the payroll engine; payslips, TDS (SSF retirement deduction), dashboard liabilities and reports all follow it. It is not stored in the salary structure.
+- **Change:** new company setting **SSF contribution base** (Rules & controls → statutory limits): *Basic + grade (default)* or *Basic only*. The engine uses it for every employee (`ssfContribution()`), replacing the per-pay-head base. The fixed-amount SSF path is unchanged.
+- **Effect:** new and draft payroll runs only; locked runs and issued payslips are never recalculated. Example: basic 30,000 + grade 3,000 gives employee SSF 3,630 and employer 6,600 (was 3,300 / 6,000); net pay falls by the extra 11%.
+- The older hard-coded "basic × 20% / 31%" copies (employee save, old salary-mapping modal) are removed with the 4.4 rebuild.
+
+Verified: tsc 0 · 460/460 tests (new: default basic + grade 4,950 / 9,000 on 40,000 + 5,000; basic-only option; pay head base no longer decides; helper).
+
+---
+
 ## 2026-10-03 — Employee form: codes on one row; clearer "No"
 Branch: `redesign/4.3-organization`
 

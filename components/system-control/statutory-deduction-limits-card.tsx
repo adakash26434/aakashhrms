@@ -145,6 +145,30 @@ export function StatutoryDeductionLimitsCard({
           </div>
         </div>
       </div>
+
+      {/* SSF contribution base */}
+      <div className="rounded-lg border border-line bg-surface-sunken/60 p-4">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="space-y-0.5">
+            <label htmlFor="ssf-base" className="text-xs font-semibold text-ink">
+              SSF contribution base
+            </label>
+            <p className="max-w-xl text-xs leading-relaxed text-ink-muted">
+              What the employee&apos;s 11% and the employer&apos;s 20% (31% deposited) are worked out on. Applies to new and draft payroll runs; locked runs
+              are never recalculated.
+            </p>
+          </div>
+          <select
+            id="ssf-base"
+            value={value.ssfContributionBase === "BasicSalary" ? "BasicSalary" : "BasicPlusGrade"}
+            onChange={(e) => onChange({ ...value, ssfContributionBase: e.target.value === "BasicSalary" ? "BasicSalary" : "BasicPlusGrade" })}
+            className="h-9 shrink-0 rounded-md border border-line-input bg-white px-2 text-xs text-ink"
+          >
+            <option value="BasicPlusGrade">Basic + grade (default)</option>
+            <option value="BasicSalary">Basic only</option>
+          </select>
+        </div>
+      </div>
     </div>
   );
 }

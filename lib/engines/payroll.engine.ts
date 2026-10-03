@@ -53,6 +53,23 @@ export interface PayHeadInput {
 }
 
 /**
+ * SSF contributions (Contribution-Based Social Security Act 2074): the employee
+ * pays 11% and the employer 20% (31% deposited), worked out on the company's
+ * SSF contribution base: basic + grade (the default) or basic only.
+ */
+export function ssfContribution(
+  basicSalary: Decimal.Value,
+  gradeAmount: Decimal.Value,
+  base: "BasicSalary" | "BasicPlusGrade" | undefined
+): { base: Decimal; employee: Decimal; employer: Decimal; total: Decimal } {
+  const basic = new Decimal(basicSalary || 0);
+  const amount = base === "BasicSalary" ? basic : basic.plus(new Decimal(gradeAmount || 0));
+  const employee = amount.times(0.11).toDecimalPlaces(2);
+  const employer = amount.times(0.2).toDecimalPlaces(2);
+  return { base: amount, employee, employer, total: employee.plus(employer) };
+}
+
+/**
  * Helper to identify SSF employer contribution head from various database conventions:
  * - flag isSsfEmployerHead === true
  * - allowance type + code SSF-ER, SSF_ER, SSFER
@@ -289,18 +306,17 @@ export function calculatePayslip(args: {
     );
 
     if (hasSsfEnrolled) {
-      // SSF active: Employee 11% deduction on basic, Employer 20% addition on basic, Total 31% deduction
+      // SSF active: employee 11% deduction, employer 20% addition, 31% total deposited; worked out
+      // on the company's SSF contribution base (basic + grade by default), see ssfContribution().
       const ssfDeductHead = assignedHeads.find((h) => h.isSsfHead);
-      const ssfEmployerHead = assignedHeads.find((h) => h.isSsfEmployerHead);
-      const ssfHeadRef = ssfDeductHead || ssfEmployerHead;
-      const ssfBasis = (ssfHeadRef && ssfHeadRef.calcBasis === "BasicPlusGrade") ? basicPlusGrade : basic;
 
       if (ssfDeductHead && ssfDeductHead.calcParameter === "FixedAmount" && new Decimal(ssfDeductHead.amount || 0).gt(0)) {
         ssfEmployee = new Decimal(ssfDeductHead.amount).toDecimalPlaces(2);
         ssfEmployer = ssfEmployee.times(20 / 11).toDecimalPlaces(2);
       } else {
-        ssfEmployee = ssfBasis.times(0.11).toDecimalPlaces(2);
-        ssfEmployer = ssfBasis.times(0.20).toDecimalPlaces(2);
+        const ssf = ssfContribution(basic, basicPlusGrade.minus(basic), systemControl.statutoryDeductionLimits.ssfContributionBase);
+        ssfEmployee = ssf.employee;
+        ssfEmployer = ssf.employer;
       }
       ssfTotal = ssfEmployee.plus(ssfEmployer);
     } else {
