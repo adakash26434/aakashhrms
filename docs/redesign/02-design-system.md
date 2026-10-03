@@ -305,6 +305,32 @@ and green-ringed today. It opens to the left near the right edge. All keyboard
 behaviour stays (Alt+↓, arrows, PgUp/PgDn, Enter picks and moves on, Esc,
 "Finish the date", no accidental "today").
 
+**Phone field (4.2 follow-up).** The kit `PhoneField` brings back the
+original country picker as a desktop split field: a country button
+(`NP +977 ▾`) joined to the number box. Its popup has a search box (name, ISO
+code or dial code: "977", "india", "IN") over every country from
+libphonenumber-js, Nepal first (`lib/constants/countries.ts`). Typing
+"+91 …" in the number switches the country by itself; digits, spaces and
+dashes only. Enter in the number moves on; the country button is reached with
+Tab or the mouse (`data-enter-skip`), Alt+↓ / F4 in the number opens the list.
+It stores one E.164 string. Mobile must be a real mobile number
+(`validateMobileNumber`: Nepal 10 digits starting 96/97/98; other countries by
+the library's mobile metadata, kept in `lib/utils/phone-mobile.ts` so pages
+that only format numbers don't load it); Home phone accepts landlines.
+
+**Address row (4.2 follow-up).** Province → District (narrowed to the
+province) → Local level → Ward → Tole, as the original picker had. Picking a
+district first still fills its province; a new province clears a district
+outside it (`changeAddress`). One row from 1280px, two rows below. Ward 1–35.
+
+**Pay section (4.2 follow-up).** Basic salary, grade count and "Grade by hand"
+need Salary mapping → Edit; without it they are read-only values. Under them a
+calculation strip shows the grade policy in words, the value of one grade,
+the grades paid (with the cap warning), the grade amount with its formula
+(`30,000 ÷ 30 = 1,000 × 3 = 3,000`) and the total monthly base. An automatic
+grade always shows the policy's current value; a saved amount that no longer
+matches is pointed out ("Saving updates it").
+
 **Record page: payroll-software profile layout.** Research: BambooHR (fixed
 left column with photo, contact, time off), greytHR (profile card + topic
 cards), Keka (Profile tab of cards: primary details, contact, addresses,

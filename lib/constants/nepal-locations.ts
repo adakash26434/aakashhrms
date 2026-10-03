@@ -1093,6 +1093,34 @@ export function findProvinceByDistrict(districtName: string): Province | undefin
   return PROVINCES.find((p) => p.id === dist.provinceId);
 }
 
+/** A stored province (an id such as "P3", or an older full name) as its id; "" when unknown. */
+export function provinceIdOf(value: string | null | undefined): string {
+  if (!value) return "";
+  const v = value.trim().toLowerCase();
+  return PROVINCES.find((p) => p.id.toLowerCase() === v || p.name.toLowerCase() === v || p.nameNepali === value.trim())?.id ?? "";
+}
+
+/**
+ * One edit of an address row (4.2), with the original cascade: a new province
+ * clears a district outside it (and its local level); a new district fills
+ * its province and clears the local level.
+ */
+export function changeAddress(current: StructuredAddress, part: Partial<StructuredAddress>): StructuredAddress {
+  const next: StructuredAddress = { ...current, ...part, province: provinceIdOf(part.province ?? current.province) };
+  if (part.province !== undefined && next.district) {
+    const inside = DISTRICTS.some((d) => d.provinceId === next.province && (d.name === next.district || d.id === next.district));
+    if (!inside) {
+      next.district = "";
+      next.localLevel = "";
+    }
+  }
+  if (part.district !== undefined && part.district !== current.district) {
+    next.province = findProvinceByDistrict(part.district)?.id ?? next.province;
+    next.localLevel = "";
+  }
+  return next;
+}
+
 /**
  * Parses stored address string or JSON into a structured address object.
  */

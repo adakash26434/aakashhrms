@@ -7,6 +7,7 @@ import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { RECORD_GAP_SHORT } from "@/lib/engines/employee.engine";
 import type { EmployeeListRow } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
+import { formatPhoneNumber } from "@/lib/utils/phone";
 
 /** Clicks on row actions must not also select or open the row. */
 const stop = (e: SyntheticEvent) => e.stopPropagation();
@@ -91,7 +92,7 @@ export function EmployeeRegister({
       { id: "branch", header: "Branch", width: 120, value: (r) => r.branchName },
       { id: "category", header: "Category", width: 104, value: (r) => r.category, defaultHidden: true },
       { id: "joined", header: "Joined", type: "date", value: (r) => r.joiningDate || null },
-      { id: "mobile", header: "Mobile", type: "code", width: 130, defaultHidden: true, value: (r) => r.mobileNo },
+      { id: "mobile", header: "Mobile", type: "code", width: 130, defaultHidden: true, value: (r) => (r.mobileNo ? formatPhoneNumber(r.mobileNo) : "") },
       { id: "email", header: "Company email", width: 200, defaultHidden: true, value: (r) => r.companyEmail },
       {
         id: "records",

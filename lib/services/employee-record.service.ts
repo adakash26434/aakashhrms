@@ -9,6 +9,8 @@ import * as payrollRepository from "@/lib/repositories/payroll.repository";
 import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as auditRepository from "@/lib/repositories/audit.repository";
 import * as userService from "@/lib/services/user.service";
+import * as systemControlRepository from "@/lib/repositories/system-control.repository";
+import { gradeMethodLabel } from "@/lib/engines/grade-policy.engine";
 import { getEmployeeInScope } from "@/lib/services/employee.service";
 import { attendanceMonth, historySummary, missingRecords, resolveRecordTab } from "@/lib/engines/employee.engine";
 import { bsMonthDaysToDate, periodLabel } from "@/lib/engines/dashboard.engine";
@@ -27,14 +29,16 @@ export interface RecordTabAccess {
 }
 
 async function buildProfile(employee: Employee): Promise<EmployeeProfile> {
-  const [branches, departments, designations, supervisor, access] = await Promise.all([
+  const [branches, departments, designations, supervisor, access, settings] = await Promise.all([
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
     employee.supervisorId ? employeeRepository.findById(employee.supervisorId) : Promise.resolve(undefined),
     userService.getEmployeeAccess(employee.id),
+    systemControlRepository.findSettings().catch(() => null),
   ]);
   const { bankAccountNumber, ...rest } = employee;
+  const policy = settings?.gradePolicy;
   return {
     ...rest,
     bankAccountMasked: maskAccountNumber(bankAccountNumber),
@@ -42,6 +46,7 @@ async function buildProfile(employee: Employee): Promise<EmployeeProfile> {
     designationName: designations.find((d) => d.id === employee.designationId)?.name ?? "",
     branchName: branches.find((b) => b.id === employee.branchId)?.name ?? "",
     supervisor: supervisor ? { id: supervisor.id, name: supervisor.fullName } : null,
+    gradeBasis: employee.gradeManual && policy?.calculationMethod !== "MANUAL_INPUT" ? "Typed by hand" : gradeMethodLabel(policy ?? undefined),
     gaps: missingRecords(employee),
     access: access
       ? {

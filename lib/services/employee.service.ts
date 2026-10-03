@@ -37,6 +37,7 @@ export class EmployeeValidationError extends Error {
 
 import * as shreniRepository from "@/lib/repositories/shreni.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
+import { resolvePay } from "@/lib/engines/grade-policy.engine";
 
 const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
 
@@ -282,7 +283,9 @@ async function syncEmployeeUserAccess(
 export async function saveEmployee(
   id: string | null,
   formData: EmployeeFormData,
-  accessOptions?: EmployeeAccessOptions
+  accessOptions?: EmployeeAccessOptions,
+  /** Salary mapping → Edit, checked by the action: without it pay is never taken from the form. */
+  payAccess: { canEditPay: boolean } = { canEditPay: false }
 ): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
   const errors = {
@@ -296,12 +299,42 @@ export async function saveEmployee(
 
   // Status changes only through setEmployeeStatus (login switched off with it);
   // new employees always start Active.
-  if (id) {
-    const current = await repository.findById(id);
-    if (current) formData = { ...formData, status: current.status };
-  } else {
-    formData = { ...formData, status: "Active" };
-  }
+  const current = id ? await repository.findById(id) : null;
+  if (current) formData = { ...formData, status: current.status };
+  else if (!id) formData = { ...formData, status: "Active" };
+
+  // Pay (S18): worked out here from the grade policy and the user's Salary mapping
+  // permission; the grade amount the browser sent is used only when typed by hand.
+  const [settings, levels] = await Promise.all([
+    systemControlRepository.findSettings(),
+    payAccess.canEditPay || current ? Promise.resolve([]) : shreniRepository.findAllShreniLevels(),
+  ]);
+  const storedPay = current
+    ? {
+        basicSalary: Number(current.basicSalary) || 0,
+        gradeCount: current.gradeCount ?? 0,
+        gradeAmount: Number(current.gradeAmount) || 0,
+        gradeManual: !!current.gradeManual,
+      }
+    : null;
+  const pay = resolvePay({
+    submitted: {
+      basicSalary: Number(formData.basicSalary) || 0,
+      gradeCount: Number(formData.gradeCount) || 0,
+      gradeAmount: Number(formData.gradeAmount) || 0,
+      gradeManual: !!formData.gradeManual,
+    },
+    stored: storedPay,
+    policy: settings.gradePolicy,
+    canEditPay: payAccess.canEditPay,
+    levelStartingSalary: levels.find((l) => l.code === formData.shreni || l.name === formData.shreni)?.minSalary,
+  });
+  formData = { ...formData, ...pay };
+  const payChanged =
+    !storedPay ||
+    storedPay.basicSalary !== pay.basicSalary ||
+    storedPay.gradeCount !== pay.gradeCount ||
+    storedPay.gradeAmount !== pay.gradeAmount;
 
   // 2. Transform FormData (strings) -> Employee Entity (Dates)
   const employeeData: Partial<Employee> = {
@@ -326,6 +359,7 @@ export async function saveEmployee(
     gradePercent: formData.gradePercent,
     gradeCount: formData.gradeCount ?? 0,
     gradeAmount: formData.gradeAmount,
+    gradeManual: formData.gradeManual,
     citizenshipNo: formData.citizenshipNo,
     issuingDistrict: formData.issuingDistrict,
     nidNo: formData.nidNo || null,
@@ -367,8 +401,9 @@ export async function saveEmployee(
     // SALARY MAPPING SYNCHRONIZATION ON EMPLOYEE EDIT
     // Keep active salary mapping in sync with updated basic salary and grades.
     // Preserves all existing assigned allowances, deductions, and loans.
+    // Only when pay changed, so an edit of other details never rewrites the map.
     // =======================================================================
-    try {
+    if (payChanged) try {
       const db = (await getDb());
       const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
       const activeFy = fiscalYears.find((fy) => fy.status === 'Active') || fiscalYears[0];
@@ -659,7 +694,7 @@ function toDateValue(d: Date | string | null | undefined): string {
 export const EMPTY_EMPLOYEE_FORM: EmployeeFormData = {
   attendanceCode: "", employeeCode: "", fullName: "", gender: "Male", dateOfBirth: "", taxStatus: "Normal Single", isDisabled: false,
   category: "Permanent", shreni: "", departmentId: "", designationId: "", branchId: "", isSupervisor: false, supervisorId: "",
-  joiningDate: "", confirmationDate: "", status: "Active", basicSalary: 0, gradePercent: 0, gradeCount: 0, gradeAmount: 0,
+  joiningDate: "", confirmationDate: "", status: "Active", basicSalary: 0, gradePercent: 0, gradeCount: 0, gradeAmount: 0, gradeManual: false,
   citizenshipNo: "", issuingDistrict: "", nidNo: "", nidIssuingDistrict: "", passportNo: "", passportIssuingDistrict: "",
   votersId: "", voterIdIssuingDistrict: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
   personalEmail: "", permanentAddress: "", temporaryAddress: "", fatherName: "", motherName: "", spouseName: "",
@@ -691,6 +726,7 @@ export function employeeToForm(emp: Employee): EmployeeFormData {
     gradePercent: emp.gradePercent,
     gradeCount: emp.gradeCount ?? 0,
     gradeAmount: emp.gradeAmount,
+    gradeManual: !!emp.gradeManual,
     citizenshipNo: emp.citizenshipNo,
     issuingDistrict: emp.issuingDistrict,
     nidNo: emp.nidNo || "",
@@ -729,7 +765,12 @@ export function employeeToForm(emp: Employee): EmployeeFormData {
  * company are included (codes only) so suggestions and duplicate hints are
  * right for branch-scoped users too.
  */
-export async function getEmployeeFormContext(scope: ScopeFilter, employee: Employee | null): Promise<EmployeeFormContext> {
+export async function getEmployeeFormContext(
+  scope: ScopeFilter,
+  employee: Employee | null,
+  /** Salary mapping → Edit (the save checks it again). */
+  canEditPay = false
+): Promise<EmployeeFormContext> {
   const [lookups, codes, employmentTypes, roles, access] = await Promise.all([
     getEmployeeLookupData(scope),
     repository.findAllCodes(),
@@ -774,6 +815,7 @@ export async function getEmployeeFormContext(scope: ScopeFilter, employee: Emplo
     categories,
     shreniLevels: (lookups.shreniLevels ?? []).map((l) => ({ code: l.code, name: l.name, labelNepali: l.labelNepali, minSalary: l.minSalary })),
     gradePolicy: lookups.gradePolicy ?? null,
+    canEditPay,
     supervisors: lookups.employees
       .filter((e) => e.isSupervisor && e.id !== employee?.id)
       .map((e) => ({ id: e.id, name: e.name, employeeCode: e.employeeCode })),

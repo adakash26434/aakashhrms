@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EmployeeForm } from "@/components/employee/employee-form";
 import { getEmployeeFormContext, getEmployeeInScope } from "@/lib/services/employee.service";
 import { ensureTenantContext } from "@/lib/db";
-import { checkPermissionWithScope } from "@/lib/auth/check-permission";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
   title: "Edit employee | AakashHRMS",
@@ -18,6 +18,6 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
   // Missing, malformed and out-of-scope ids all read as not found (S18).
   const employee = await getEmployeeInScope(id, scope, "EDIT");
   if (!employee) notFound();
-  const ctx = await getEmployeeFormContext(scope, employee);
+  const ctx = await getEmployeeFormContext(scope, employee, await hasPermission("EDIT", "SALARY_MAPPING"));
   return <EmployeeForm ctx={ctx} />;
 }

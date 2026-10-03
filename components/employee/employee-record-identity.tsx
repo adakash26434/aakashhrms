@@ -11,6 +11,7 @@ import { RECORD_GAP_LABEL, tenureLabel } from "@/lib/engines/employee.engine";
 import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeProfile, EmployeeRecordData } from "@/lib/types/employee";
 import { initials } from "./employee-quick-view";
+import { formatPhoneNumber } from "@/lib/utils/phone";
 
 function ContactLine({ icon: Icon, value, href, label, mono }: { icon: typeof Phone; value: string; href: string; label: string; mono?: boolean }) {
   return (
@@ -67,7 +68,7 @@ export function EmployeeRecordIdentity({
 
       {/* Contact */}
       <div className="border-b border-line px-2 py-2">
-        {profile.mobileNo && <ContactLine icon={Phone} label="Mobile" value={profile.mobileNo} href={`tel:${profile.mobileNo}`} mono />}
+        {profile.mobileNo && <ContactLine icon={Phone} label="Mobile" value={formatPhoneNumber(profile.mobileNo)} href={`tel:${profile.mobileNo}`} mono />}
         {profile.companyEmail && <ContactLine icon={Mail} label="Email" value={profile.companyEmail} href={`mailto:${profile.companyEmail}`} />}
         {!profile.mobileNo && !profile.companyEmail && <p className="px-2 py-1.5 text-xs text-ink-faint">No contact details</p>}
       </div>

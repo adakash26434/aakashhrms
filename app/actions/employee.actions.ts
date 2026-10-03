@@ -6,7 +6,7 @@ import * as userService from '@/lib/services/user.service';
 import * as roleService from '@/lib/services/role.service';
 import { revalidatePath } from 'next/cache';
 import type { EmployeeFormData, EmployeeValidationErrors } from '@/lib/types/employee';
-import { checkPermissionWithScope } from '@/lib/auth/check-permission';
+import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { canPlaceInScope, changedEmployeeFields } from '@/lib/engines/employee.engine';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
@@ -45,7 +45,9 @@ export async function saveEmployeeAction(
       throw new UserFacingError(OUTSIDE_SCOPE);
     }
 
-    const result = await empService.saveEmployee(id, formData, accessOptions);
+    // Pay fields need Salary mapping → Edit as well (S18); without it they are kept / defaulted.
+    const canEditPay = await hasPermission('EDIT', 'SALARY_MAPPING');
+    const result = await empService.saveEmployee(id, formData, accessOptions, { canEditPay });
     await recordAuditLog({
       userId: scope.userId,
       action,
@@ -53,7 +55,16 @@ export async function saveEmployeeAction(
       recordId: result.employee.id,
       result: 'SUCCESS',
       newValues: before
-        ? { changedFields: changedEmployeeFields(before, formData) }
+        ? {
+            // Pay as saved (the server may have kept or recalculated it), not as sent.
+            changedFields: changedEmployeeFields(before, {
+              ...formData,
+              basicSalary: result.employee.basicSalary,
+              gradeCount: result.employee.gradeCount,
+              gradeAmount: result.employee.gradeAmount,
+              gradeManual: result.employee.gradeManual,
+            }),
+          }
         : {
             employeeCode: result.employee.employeeCode,
             branchId: result.employee.branchId,

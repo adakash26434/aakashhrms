@@ -36,6 +36,8 @@ export interface Employee {
   gradePercent: number;
   gradeCount?: number;
   gradeAmount: number;
+  /** Grade amount typed by hand instead of worked out by the grade policy. */
+  gradeManual?: boolean;
 
   // Personal Info
   citizenshipNo: string;
@@ -105,6 +107,8 @@ export interface EmployeeFormData {
   gradePercent: number;
   gradeCount: number;
   gradeAmount: number;
+  /** Grade amount typed by hand (needs Salary mapping → Edit); otherwise the policy works it out. */
+  gradeManual: boolean;
 
   citizenshipNo: string;
   issuingDistrict: string;
@@ -259,6 +263,8 @@ export interface EmployeeProfile extends Omit<Employee, "bankAccountNumber"> {
   designationName: string;
   branchName: string;
   supervisor: { id: string; name: string } | null;
+  /** How the grade amount is set: "Typed by hand" or the grade policy in words. */
+  gradeBasis: string;
   gaps: EmployeeRecordGap[];
   access: {
     email: string;
@@ -372,6 +378,8 @@ export interface EmployeeFormContext {
   categories: { value: string; label: string }[];
   shreniLevels: { code: string; name: string; labelNepali?: string; minSalary?: number }[];
   gradePolicy: GradePolicySettings | null;
+  /** Salary mapping → Edit: may change basic salary, grades and type a grade by hand (checked again on save). */
+  canEditPay: boolean;
   supervisors: { id: string; name: string; employeeCode: string }[];
   /** Every code in the company, for the next-code suggestion and duplicate hints. */
   codes: { id: string; employeeCode: string; attendanceCode: string }[];

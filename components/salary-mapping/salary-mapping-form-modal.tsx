@@ -14,6 +14,7 @@ import type { GradePolicySettings } from "@/lib/types/system-control";
 import {
   DEFAULT_GRADE_POLICY,
   calculateTotalGradeAmount,
+  gradeMethodLabel,
 } from "@/lib/engines/grade-policy.engine";
 import { getActiveLoansByEmployeeAction } from "@/app/actions/loan.actions";
 
@@ -30,6 +31,8 @@ interface SalaryMappingFormModalProps {
     gradePercent: number;
     gradeCount?: number;
     gradeAmount: number;
+    /** Typed by hand on the employee record: never recalculated here. */
+    gradeManual?: boolean;
   }[];
   allowanceHeads: {
     id: string;
@@ -307,7 +310,7 @@ export function SalaryMappingFormModal({
       if (key === "basicSalary") {
         const basicNum = Number(value) || 0;
         const currentEmp = employees.find((e) => e.id === next.employeeId);
-        if (currentEmp && currentEmp.gradeCount !== undefined && currentEmp.gradeCount > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
+        if (currentEmp && !currentEmp.gradeManual && currentEmp.gradeCount !== undefined && currentEmp.gradeCount > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
           const autoGrade = calculateTotalGradeAmount(basicNum, currentEmp.gradeCount, activeGradePolicy);
           next.gradeAmount = String(autoGrade);
         }
@@ -341,7 +344,7 @@ export function SalaryMappingFormModal({
     const gradeCountToUse = emp?.gradeCount ?? 0;
 
     let gradeAmt = emp ? emp.gradeAmount : 0;
-    if (gradeCountToUse > 0 && basicToUse > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
+    if (!emp?.gradeManual && gradeCountToUse > 0 && basicToUse > 0 && activeGradePolicy.calculationMethod !== "MANUAL_INPUT") {
       gradeAmt = calculateTotalGradeAmount(basicToUse, gradeCountToUse, activeGradePolicy);
     }
 
@@ -589,7 +592,7 @@ export function SalaryMappingFormModal({
               <div className="flex h-9.5 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-medium text-zinc-700">
                 {selectedEmployee?.gradeCount !== undefined && selectedEmployee.gradeCount > 0 ? (
                   <span className="text-emerald-800 font-semibold">
-                    {selectedEmployee.gradeCount} Grade Step(s) active · Basic / 30 rule
+                    {selectedEmployee.gradeCount} Grade Step(s) active · {selectedEmployee.gradeManual ? "amount typed by hand" : gradeMethodLabel(activeGradePolicy)}
                   </span>
                 ) : (
                   <span className="text-zinc-500">0 Steps (Initial baseline scale)</span>

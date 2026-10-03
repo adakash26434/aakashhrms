@@ -2,66 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import metadata from "libphonenumber-js/metadata.min.json";
-import {
-  parsePhoneNumberFromString,
-  getCountryCallingCode,
-  getCountries,
-  type CountryCode,
-} from "libphonenumber-js/core";
+import { parsePhoneNumberFromString, getCountryCallingCode, type CountryCode } from "libphonenumber-js/core";
+import { ALL_COUNTRIES } from "@/lib/constants/countries";
 import { cn } from "@/lib/utils";
-
-const regionNames =
-  typeof Intl !== "undefined" && Intl.DisplayNames
-    ? new Intl.DisplayNames(["en"], { type: "region" })
-    : null;
-
-function getCountryName(code: CountryCode): string {
-  try {
-    return regionNames?.of(code) || code;
-  } catch {
-    return code;
-  }
-}
-
-function getFlagEmoji(countryCode: string): string {
-  try {
-    const codePoints = countryCode
-      .toUpperCase()
-      .split("")
-      .map((char) => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-  } catch {
-    return "🌐";
-  }
-}
-
-export interface CountryOption {
-  code: CountryCode;
-  name: string;
-  callingCode: string;
-  flag: string;
-}
-
-export const ALL_COUNTRIES: CountryOption[] = (() => {
-  const countries = getCountries(metadata).map((code) => ({
-    code,
-    name: getCountryName(code),
-    callingCode: getCountryCallingCode(code, metadata),
-    flag: getFlagEmoji(code),
-  }));
-
-  // Sort alphabetically by country name
-  countries.sort((a, b) => a.name.localeCompare(b.name));
-
-  // Place Nepal (NP) at the very top as default
-  const nepalIndex = countries.findIndex((c) => c.code === "NP");
-  if (nepalIndex > -1) {
-    const [nepal] = countries.splice(nepalIndex, 1);
-    countries.unshift(nepal);
-  }
-
-  return countries;
-})();
 
 interface PhoneInputProps {
   value: string;

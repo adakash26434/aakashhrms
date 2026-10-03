@@ -8,6 +8,7 @@ import { formatStructuredAddress, findProvinceByDistrict, parseStructuredAddress
 import { RECORD_GAP_LABEL } from "@/lib/engines/employee.engine";
 import type { EmployeeFacts, EmployeeProfile, EmployeeRecordTab } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
+import { formatPhoneNumber } from "@/lib/utils/phone";
 
 export function addressText(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -88,8 +89,8 @@ export function EmployeeRecordOverview({
         <InfoCard title="Contact" icon={Contact} action={editHref("contact")}>
           <DescriptionList
             items={[
-              { label: "Mobile", value: p.mobileNo, mono: true, copy: p.mobileNo || undefined },
-              { label: "Home phone", value: p.phoneHome, mono: true },
+              { label: "Mobile", value: p.mobileNo ? formatPhoneNumber(p.mobileNo) : null, mono: true, copy: p.mobileNo || undefined },
+              { label: "Home phone", value: p.phoneHome ? formatPhoneNumber(p.phoneHome) : null, mono: true },
               { label: "Company email", value: p.companyEmail, copy: p.companyEmail || undefined },
               { label: "Personal email", value: p.personalEmail },
               { label: "Permanent address", value: addressText(p.permanentAddress), wide: true },

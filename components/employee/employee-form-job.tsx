@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
 import { DateField } from "@/components/kit/date-field";
 import { GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { YesNoField } from "@/components/kit/yes-no-field";
-import { DEFAULT_GRADE_POLICY, calculateTotalGradeAmount } from "@/lib/engines/grade-policy.engine";
+import { DEFAULT_GRADE_POLICY, calculateTotalGradeAmount, gradeBreakdown } from "@/lib/engines/grade-policy.engine";
+import { cn } from "@/lib/utils";
 import { ChoiceField, FormSection, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
 
 /** Job & placement, then Pay (basic salary, grades). */
@@ -16,8 +17,10 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
   const policy = ctx.gradePolicy ?? DEFAULT_GRADE_POLICY;
   const gradesOff = policy.calculationMethod === "DISABLED_NO_GRADES";
   const manualPolicy = policy.calculationMethod === "MANUAL_INPUT";
-  // Grade amount follows the company grade policy unless the user types it in.
-  const [manualGrade, setManualGrade] = useState(() => manualPolicy || (form.gradeAmount > 0 && !form.gradeCount));
+  // Pay is changed only with Salary mapping → Edit (the server checks it again).
+  const canEditPay = ctx.canEditPay;
+  // Grade amount follows the company grade policy unless it is typed by hand.
+  const manualGrade = manualPolicy || form.gradeManual;
 
   const options = useMemo(
     () => ({
@@ -58,7 +61,13 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
 
   const minSalary = minFor(form.shreni);
   const belowScale = minSalary > 0 && (form.basicSalary ?? 0) > 0 && (form.basicSalary ?? 0) < minSalary;
-  const total = (form.basicSalary || 0) + (gradesOff ? 0 : form.gradeAmount || 0);
+  const breakdown = gradeBreakdown(form.basicSalary || 0, form.gradeCount || 0, policy);
+  // Automatic grades always show what the policy gives now (the save stores that, S18);
+  // an older saved amount that differs is pointed out instead of silently changed.
+  const shownGrade = gradesOff ? 0 : manualGrade || !canEditPay ? form.gradeAmount || 0 : breakdown.amount;
+  const staleGrade =
+    canEditPay && !gradesOff && !manualGrade && !api.isNew && Math.abs((ctx.initial.gradeAmount || 0) - breakdown.amount) > 0.001 && form.gradeAmount === ctx.initial.gradeAmount;
+  const total = (form.basicSalary || 0) + shownGrade;
 
   return (
     <>
@@ -92,7 +101,7 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
           <Combobox name="shreni" options={options.shreni} value={form.shreni} onChange={changeShreni} placeholder="Search level" />
         </GridField>
         <ChoiceField api={api} field="category" options={ctx.categories} required />
-        <GridField label={label("supervisorId")} help="Approves this person's leave." size="md">
+        <GridField label={label("supervisorId")} help="This person's supervisor (line manager)." size="md">
           <Combobox
             name="supervisorId"
             options={options.supervisors}
@@ -109,13 +118,21 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
         <GridField label={label("confirmationDate")} error={errors.confirmationDate} help="When probation ended, if it has." size="date">
           <DateField name="confirmationDate" value={form.confirmationDate} onChange={(v) => set("confirmationDate", v)} />
         </GridField>
-        <YesNo api={api} field="isSupervisor" help="Yes lets this person approve leave for a team and appear in the Supervisor list." />
+        <YesNo
+          api={api}
+          field="isSupervisor"
+          help="Supervisor / line manager: can be chosen as other employees' supervisor (Reports to) and handles their team's requests, such as leave approvals."
+        />
       </FormSection>
 
       <FormSection
         id="pay"
         title="Pay"
-        description="Monthly, in NPR. Allowances and deductions are set in Salary mapping."
+        description={
+          canEditPay
+            ? "Monthly, in NPR. Allowances and deductions are set in Salary mapping."
+            : "Monthly, in NPR. Pay can be changed by users with Salary mapping → Edit."
+        }
         aside={
           <p className="text-xs text-ink-muted">
             Total base <Amount value={total} prefix="NPR" emphasis className="ml-1 text-ink" />
@@ -126,43 +143,128 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
           label={label("basicSalary")}
           required
           error={errors.basicSalary}
-          help={belowScale ? `Below this level's starting salary (NPR ${minSalary.toLocaleString("en-IN")}).` : "Monthly basic salary."}
+          help={
+            !canEditPay
+              ? api.isNew
+                ? "Starts at the level's starting salary; someone with Salary mapping → Edit can change it."
+                : "Set by users with Salary mapping → Edit."
+              : belowScale
+                ? `Below this level's starting salary (NPR ${minSalary.toLocaleString("en-IN")}).`
+                : "Monthly basic salary."
+          }
           size="amount"
           suffix={belowScale ? <span className="text-warning">Below scale</span> : undefined}
         >
-          <NumberField name="basicSalary" prefix="NPR" value={form.basicSalary ?? 0} onChange={changeBasic} />
+          <NumberField name="basicSalary" prefix="NPR" value={form.basicSalary ?? 0} onChange={changeBasic} readOnly={!canEditPay} />
         </GridField>
         {!gradesOff && (
           <>
-            <GridField label={label("gradeCount")} error={errors.gradeCount} help="Number of grade steps earned." size="xs">
-              <NumberField name="gradeCount" decimals={0} value={form.gradeCount ?? 0} onChange={changeCount} />
+            <GridField
+              label={label("gradeCount")}
+              error={errors.gradeCount}
+              help={breakdown.cap ? `Number of grade steps earned (the policy pays at most ${breakdown.cap}).` : "Number of grade steps earned."}
+              size="xs"
+            >
+              <NumberField name="gradeCount" decimals={0} value={form.gradeCount ?? 0} onChange={changeCount} readOnly={!canEditPay} />
             </GridField>
-            {!manualPolicy && (
-              <GridField label="Grade by hand" help="Yes lets you type the grade amount instead of using the company grade policy." size="md">
-                <YesNoField
-                  name="gradeManual"
-                  value={manualGrade}
-                  onChange={(on) => {
-                    setManualGrade(on);
-                    if (!on) set("gradeAmount", calculateTotalGradeAmount(form.basicSalary || 0, form.gradeCount || 0, policy));
-                  }}
-                />
+            {canEditPay && !manualPolicy && (
+              <GridField label={label("gradeManual")} help="Yes lets you type the grade amount instead of using the company grade policy; policy changes then leave it alone." size="md">
+                <YesNoField name="gradeManual" value={form.gradeManual} onChange={(on) => patch({ gradeManual: on, gradeAmount: on ? shownGrade : breakdown.amount })} />
               </GridField>
             )}
             <GridField
               label={label("gradeAmount")}
               required
               error={errors.gradeAmount}
-              help={manualGrade ? "Type the total grade amount." : "Worked out from the company grade policy."}
+              help={manualGrade && canEditPay ? "Type the total monthly grade amount." : manualGrade ? "Typed by hand." : "Worked out from the company grade policy."}
               size="amount"
-              suffix={manualGrade ? undefined : "auto"}
+              suffix={manualGrade ? (manualPolicy ? undefined : "by hand") : "auto"}
             >
-              <NumberField name="gradeAmount" prefix="NPR" value={form.gradeAmount ?? 0} onChange={(v) => set("gradeAmount", v)} readOnly={!manualGrade} />
+              <NumberField name="gradeAmount" prefix="NPR" value={shownGrade} onChange={(v) => set("gradeAmount", v)} readOnly={!manualGrade || !canEditPay} />
             </GridField>
           </>
         )}
         {gradesOff && <GridValue label="Grades">Not used by this company&apos;s grade policy</GridValue>}
+        <GradeBreakdownPanel
+          basic={form.basicSalary || 0}
+          breakdown={breakdown}
+          manual={manualGrade && !manualPolicy}
+          gradesOff={gradesOff}
+          gradeAmount={shownGrade}
+          staleAmount={staleGrade ? ctx.initial.gradeAmount || 0 : null}
+        />
       </FormSection>
     </>
+  );
+}
+
+/**
+ * How the pay adds up (the original form's breakdown card, as a calculation
+ * strip): the policy, the value of one grade, the grades paid after the cap,
+ * the grade amount with its formula, and the total monthly base.
+ */
+function GradeBreakdownPanel({
+  basic,
+  breakdown,
+  manual,
+  gradesOff,
+  gradeAmount,
+  staleAmount,
+}: {
+  basic: number;
+  breakdown: ReturnType<typeof gradeBreakdown>;
+  manual: boolean;
+  gradesOff: boolean;
+  gradeAmount: number;
+  staleAmount: number | null;
+}) {
+  const calculates = !gradesOff && !!breakdown.formula;
+  const cells: { label: string; value: ReactNode; sub?: ReactNode; warn?: boolean }[] = [{ label: "Grade policy", value: breakdown.methodLabel }];
+  if (calculates) {
+    cells.push(
+      { label: "One grade", value: <Amount value={breakdown.rate} prefix="NPR" />, sub: basic > 0 ? undefined : "Enter the basic salary first" },
+      {
+        label: "Grades paid",
+        value: (
+          <span className="tabular-nums">
+            {breakdown.counted}
+            {breakdown.cap ? <span className="font-normal text-ink-muted"> of max {breakdown.cap}</span> : null}
+          </span>
+        ),
+        sub: breakdown.capped ? `${breakdown.count} entered: only ${breakdown.cap} are paid` : undefined,
+        warn: breakdown.capped,
+      },
+      {
+        label: manual ? "Grade amount (by hand)" : "Grade amount",
+        value: <Amount value={gradeAmount} prefix="NPR" />,
+        sub: manual ? `Policy would give NPR ${breakdown.amount.toLocaleString("en-IN")}` : <span className="font-code">{breakdown.formula}</span>,
+      }
+    );
+  } else if (!gradesOff) {
+    cells.push({ label: "Grade amount", value: <Amount value={gradeAmount} prefix="NPR" />, sub: "Typed in" });
+  }
+  cells.push({ label: "Total monthly base", value: <Amount value={basic + gradeAmount} prefix="NPR" emphasis />, sub: gradesOff ? "Basic salary only" : "Basic + grade" });
+
+  return (
+    <div className="md:col-span-2 xl:col-span-3 sm:pl-[calc(8.5rem+0.75rem)]">
+      <dl
+        aria-label="How the pay is worked out"
+        className="grid grid-cols-1 divide-y divide-line overflow-hidden rounded-md border border-line-card bg-surface sm:grid-cols-2 sm:divide-y-0 xl:flex xl:divide-x"
+      >
+        {cells.map((c) => (
+          <div key={c.label} className="min-w-0 px-3 py-2 xl:flex-1">
+            <dt className="text-3xs font-medium uppercase tracking-wide text-ink-muted">{c.label}</dt>
+            <dd className={cn("mt-0.5 text-sm font-semibold text-ink", c.warn && "text-warning")}>{c.value}</dd>
+            {c.sub ? <dd className={cn("mt-0.5 truncate text-3xs text-ink-muted", c.warn && "font-medium text-warning")}>{c.sub}</dd> : null}
+          </div>
+        ))}
+      </dl>
+      {staleAmount !== null && (
+        <p role="status" className="mt-1.5 text-3xs font-medium text-warning">
+          The saved grade amount (NPR {staleAmount.toLocaleString("en-IN")}) no longer matches the grade policy. Saving updates it to NPR{" "}
+          {breakdown.amount.toLocaleString("en-IN")}.
+        </p>
+      )}
+    </div>
   );
 }

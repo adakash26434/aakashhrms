@@ -8,6 +8,7 @@ import { FactBox } from "@/components/kit/fact-box";
 import { StatusChip } from "@/components/kit/status-chip";
 import { RECORD_GAP_LABEL } from "@/lib/engines/employee.engine";
 import type { EmployeeListRow } from "@/lib/types/employee";
+import { formatPhoneNumber } from "@/lib/utils/phone";
 
 /**
  * Quick view beside the register: enough to recognise and check a person
@@ -46,7 +47,7 @@ export function EmployeeQuickView({ row, canEdit }: { row: EmployeeListRow; canE
           {
             title: "Contact",
             facts: [
-              { label: "Mobile", value: row.mobileNo ? <span className="font-code">{row.mobileNo}</span> : "—" },
+              { label: "Mobile", value: row.mobileNo ? <span className="font-code">{formatPhoneNumber(row.mobileNo)}</span> : "—" },
               { label: "Company email", value: row.companyEmail || "—" },
             ],
           },

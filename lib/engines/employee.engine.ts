@@ -11,6 +11,7 @@ import { EMPLOYEE_FORM_SECTIONS, fieldLabel, type EmployeeField, type EmployeeFo
 import { maskAccountNumber } from "@/lib/utils/mask";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { validatePhoneNumber } from "@/lib/utils/phone";
+import { validateMobileNumber } from "@/lib/utils/phone-mobile";
 import {
   validateCitizenshipNo,
   validateNIDNo,
@@ -19,6 +20,15 @@ import {
   validatePanNo,
 } from "@/lib/utils/nepal-docs";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
+
+const WARD_ERROR = "Ward number must be between 1 and 35";
+
+/** Ward numbers run 1–35 (the largest municipalities have 33); empty is allowed. */
+export function isValidWard(ward: string | undefined | null): boolean {
+  if (!ward || !ward.trim()) return true;
+  const n = Number(ward);
+  return Number.isInteger(n) && n >= 1 && n <= 35;
+}
 
 /**
  * Safely parses YYYY-MM-DD strings without UTC timezone drift.
@@ -205,16 +215,17 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     if (!data.mobileNo || !data.mobileNo.trim()) {
       errors.mobileNo = "Mobile number is required";
     } else {
-      const phoneRes = validatePhoneNumber(data.mobileNo.trim(), true);
+      // A real mobile: landlines belong in Home phone (4.2).
+      const phoneRes = validateMobileNumber(data.mobileNo.trim(), true);
       if (!phoneRes.isValid) {
-        errors.mobileNo = phoneRes.error || "Invalid mobile number for Nepal (+977)";
+        errors.mobileNo = phoneRes.error || "Enter a mobile number for the chosen country.";
       }
     }
 
     if (data.phoneHome && data.phoneHome.trim()) {
       const phoneRes = validatePhoneNumber(data.phoneHome.trim(), false);
       if (!phoneRes.isValid) {
-        errors.phoneHome = phoneRes.error || "Invalid home phone number";
+        errors.phoneHome = "Enter a valid phone number for the chosen country (landlines need the area code, e.g. 01-4412345).";
       }
     }
 
@@ -227,7 +238,12 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
       if (!parsedPerm.province || !parsedPerm.district || !parsedPerm.localLevel) {
         errors.permanentAddress = "Please select Province, District, and Local Level (Palika) for Permanent Address";
         errors.address1 = "Please select Province, District, and Local Level (Palika) for Permanent Address";
+      } else if (!isValidWard(parsedPerm.wardNo)) {
+        errors.permanentAddress = WARD_ERROR;
       }
+    }
+    if (data.temporaryAddress?.trim() && !isValidWard(parseStructuredAddress(data.temporaryAddress).wardNo)) {
+      errors.temporaryAddress = WARD_ERROR;
     }
   } else if (tabIndex === 3) {
     // 3: Family Information
@@ -557,7 +573,7 @@ export function canPlaceInScope(
 const AUDITED_FIELDS: readonly (keyof EmployeeFormData & keyof Employee)[] = [
   "employeeCode", "attendanceCode", "fullName", "gender", "dateOfBirth", "taxStatus", "isDisabled",
   "category", "shreni", "departmentId", "designationId", "branchId", "supervisorId", "isSupervisor",
-  "joiningDate", "confirmationDate", "status", "basicSalary", "gradeCount", "gradeAmount",
+  "joiningDate", "confirmationDate", "status", "basicSalary", "gradeCount", "gradeAmount", "gradeManual",
   "citizenshipNo", "issuingDistrict", "nidNo", "nidIssuingDistrict", "passportNo", "passportIssuingDistrict",
   "votersId", "voterIdIssuingDistrict", "panNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
   "permanentAddress", "temporaryAddress", "fatherName", "motherName", "spouseName", "grandfatherName",
@@ -684,7 +700,7 @@ const FIELD_RULE_GROUP: Partial<Record<EmployeeField, number>> = {
   employeeCode: 0, attendanceCode: 0, fullName: 0, dateOfBirth: 0,
   departmentId: 1, branchId: 1, designationId: 1, shreni: 1, gradeCount: 1, gradeAmount: 1, joiningDate: 1, confirmationDate: 1,
   citizenshipNo: 2, issuingDistrict: 2, nidNo: 2, nidIssuingDistrict: 2, passportNo: 2, passportIssuingDistrict: 2,
-  votersId: 2, voterIdIssuingDistrict: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2,
+  votersId: 2, voterIdIssuingDistrict: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
   fatherName: 3, motherName: 3, grandfatherName: 3, spouseName: 3,
   bankName: 4, bankBranch: 4, bankAccountNumber: 4, informedDate: 4, terminationDate: 4, terminationType: 4, terminationReason: 4,
 };

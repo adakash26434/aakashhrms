@@ -399,6 +399,8 @@ export const employees = pgTable('employees', {
   gradePercent: integer('grade_percent').default(0),
   gradeCount: integer('grade_count').default(0).notNull(),
   gradeAmount: numeric('grade_amount', { precision: 15, scale: 2 }).default('0'),
+  // The grade amount was typed by hand (Salary mapping → Edit); policy re-syncs leave it alone.
+  gradeManual: boolean('grade_manual').default(false).notNull(),
   
   status: varchar('status', { length: 50 }).default('Active').notNull(),
   

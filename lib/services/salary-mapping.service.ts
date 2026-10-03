@@ -108,6 +108,7 @@ export async function getSalaryMappingData(): Promise<SalaryMappingData> {
     gradePercent: e.gradePercent,
     gradeCount: e.gradeCount ?? 0,
     gradeAmount: e.gradeAmount,
+    gradeManual: !!e.gradeManual,
   }));
 
   // Group pay heads by type
@@ -181,6 +182,7 @@ export async function getLookupData() {
         gradeCount: e.gradeCount ?? 0,
         gradePercent: e.gradePercent,
         gradeAmount: e.gradeAmount,
+        gradeManual: !!e.gradeManual,
       })),
     allowanceHeads: payHeads
       .filter((h) => h.type === "allowance")

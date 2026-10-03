@@ -6,7 +6,7 @@ import {
 import type { SystemControlData, GradePolicySettings } from "@/lib/types/system-control";
 import {
   DEFAULT_GRADE_POLICY,
-  calculateTotalGradeAmount,
+  policySyncedGradeAmount,
 } from "@/lib/engines/grade-policy.engine";
 import { recordAuditLog } from "@/lib/services/audit.service";
 import { getDb } from "@/lib/db";
@@ -75,6 +75,7 @@ export async function syncAllEmployeeGradesWithPolicy(
       basicSalary: employees.basicSalary,
       gradeCount: employees.gradeCount,
       gradeAmount: employees.gradeAmount,
+      gradeManual: employees.gradeManual,
     })
     .from(employees)
     .where(eq(employees.status, "Active"));
@@ -82,16 +83,12 @@ export async function syncAllEmployeeGradesWithPolicy(
   let updatedEmployees = 0;
 
   for (const emp of activeEmployees) {
-    const basic = Number(emp.basicSalary) || 0;
-    const count = emp.gradeCount ?? 0;
-
-    // Recalculate for active employees with a positive basic salary and grade count > 0
-    if (basic > 0 && count > 0) {
-      const newGradeAmount = calculateTotalGradeAmount(
-        basic,
-        count,
-        effectivePolicy,
-      );
+    // Grades typed by hand, and every grade under a "typed in" policy, are left alone (4.2).
+    const newGradeAmount = policySyncedGradeAmount(
+      { basicSalary: Number(emp.basicSalary) || 0, gradeCount: emp.gradeCount ?? 0, gradeManual: !!emp.gradeManual },
+      effectivePolicy,
+    );
+    if (newGradeAmount !== null) {
       const currentGradeAmount = Number(emp.gradeAmount) || 0;
 
       // Check if value changed

@@ -13,6 +13,27 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.2 Employees: country code, province, permission-controlled grade, "Is supervisor"
+Branch: `redesign/4.2-employees`
+
+Your review: the original form had a country-code drop-down on the mobile, a Province field in the address, a fully dynamic grade with manual control by permission, and "Is supervisor" (more than approving leave).
+
+- **Mobile and home phone:** kit `PhoneField`: a country button (`NP +977`) with a searchable list of every country (Nepal first), joined to the number; typing `+91…` switches the country. Mobile must be a real mobile (Nepal: 10 digits starting 96/97/98; other countries by the phone library's mobile rules); landlines go in Home phone. Records show numbers formatted (`+977 984 1234567`).
+- **Address:** Province is back first; District is narrowed to it; picking a district first still fills the province; ward 1–35.
+- **Grade:** the Pay section needs **Salary mapping → Edit** (checked on the server); without it pay is read-only. The server works the grade out from the company grade policy (`resolvePay`) unless "Grade by hand" is Yes, stored in the new `employees.grade_manual` column (migration `0035`, also added by the company-database schema sync). A calculation strip shows policy, one grade, grades paid (cap warning), formula and total base. Policy re-syncs skip hand-typed grades and no longer zero grades under the "typed in" policy; the salary-mapping form no longer recalculates a hand-typed grade and names the real policy instead of "Basic / 30 rule". The record's Pay card says how the grade is worked out.
+- **Supervisor:** "Is supervisor" (supervisor / line manager) replaces "Approves leave"; the supervisor field reads "Reports to".
+- **Not done (your choice):** no new employee fields this round. Not kept from the plan: the form does not fall back to the level's starting salary for the grade when basic is 0; it says "Enter the basic salary first", matching what the server saves.
+
+Verified: tsc 0 · eslint: nothing new · 425/425 tests (new: Nepal mobile rule and landline refusal, other countries' mobile rules, split/join of stored numbers, country list and search, province cascade, ward 1–35, grade breakdown per policy and cap, `resolvePay` incl. a hostile browser without pay permission, re-sync skipping hand-typed grades, labels) · `next build` · Playwright on your data:
+- Pramod's Pay: 3 grades → `30,000 ÷ 30 = 1,000 × 3 = 3,000`, total 33,000; 12 grades → "only 10 are paid"; by hand 4,500 → "Policy would give NPR 10,000" (nothing saved)
+- phone: country search "india" + Enter returns to the number; typing `+61 412…` switches to AU; `01-4412345` refused on Enter with the 96/97/98 message; a valid mobile moves on to Home phone
+- province: Bagmati clears Kaski and lists Bagmati's 13 districts
+- record: mobile shown `+977 987 4562125`, Pay card "Grade worked out", "Supervisor: Yes", no "Approves leave"
+- no page overflow at 390 / 1024 / 1440 px; 0 console errors
+- not checked in the browser: a login without Salary mapping → Edit (covered by tests)
+
+---
+
 ## 2026-10-03 — 4.2 Employees: legibility, original date picker, payroll-style record page
 Branch: `redesign/4.2-employees`
 

@@ -2,11 +2,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { attendanceMonth, codeConflicts, separationErrors, historySummary, registerCounts, resolveRecordTab, sectionProgress, tenureLabel, toEmployeeListRow, validateEmployeeField, type RegisterNames } from '../lib/engines/employee.engine';
+import { attendanceMonth, codeConflicts, isValidWard, separationErrors, historySummary, registerCounts, resolveRecordTab, sectionProgress, tenureLabel, toEmployeeListRow, validateEmployeeField, type RegisterNames } from '../lib/engines/employee.engine';
 import { EMPTY_EMPLOYEE_FORM } from '../lib/services/employee.service';
 import { EMPLOYEE_FORM_SECTIONS, EMPLOYEE_FIELD_LABELS } from '../lib/constants/employee-form';
 import type { EmployeeFormData } from '../lib/types/employee';
 import type { Employee } from '../lib/types/employee';
+import type { GradePolicySettings } from '../lib/types/system-control';
+import { changeAddress, provinceIdOf } from '../lib/constants/nepal-locations';
+import { DEFAULT_GRADE_POLICY, gradeBreakdown, policySyncedGradeAmount, resolvePay, type EmployeePay } from '../lib/engines/grade-policy.engine';
 
 const names: RegisterNames = {
   department: new Map([['d1', 'Finance & Accounts']]),
@@ -189,3 +192,107 @@ describe('Employee form (4.2)', () => {
   });
 });
 
+describe('Address province (4.2 follow-up)', () => {
+  const empty = { province: '', district: '', localLevel: '', wardNo: '', tole: '' };
+
+  it('picking a district fills its province and clears the local level', () => {
+    const a = changeAddress({ ...empty, localLevel: 'Old' }, { district: 'Kaski' });
+    assert.equal(a.province, 'P4');
+    assert.equal(a.localLevel, '');
+  });
+
+  it('a new province clears a district outside it, and keeps one inside it', () => {
+    const inKaski = { ...empty, province: 'P4', district: 'Kaski', localLevel: 'Pokhara Metropolitan City' };
+    assert.deepEqual(changeAddress(inKaski, { province: 'P3' }), { ...inKaski, province: 'P3', district: '', localLevel: '' });
+    assert.equal(changeAddress(inKaski, { province: 'P4' }).district, 'Kaski');
+  });
+
+  it('older addresses holding a province name read as its id', () => {
+    assert.equal(provinceIdOf('Bagmati Province'), 'P3');
+    assert.equal(provinceIdOf('P3'), 'P3');
+    assert.equal(provinceIdOf('Nowhere'), '');
+  });
+
+  it('ward numbers run 1 to 35', () => {
+    assert.equal(isValidWard('1'), true);
+    assert.equal(isValidWard('35'), true);
+    assert.equal(isValidWard(''), true);
+    assert.equal(isValidWard('0'), false);
+    assert.equal(isValidWard('36'), false);
+    const address = JSON.stringify({ province: 'P4', district: 'Kaski', localLevel: 'Pokhara Metropolitan City', wardNo: '36', tole: '' });
+    assert.match(validateEmployeeField({ ...EMPTY_EMPLOYEE_FORM, permanentAddress: address }, 'permanentAddress') ?? '', /between 1 and 35/);
+  });
+
+  it('Mobile on the form refuses a landline', () => {
+    assert.match(validateEmployeeField({ ...EMPTY_EMPLOYEE_FORM, mobileNo: '01-4412345' }, 'mobileNo') ?? '', /96, 97 or 98/);
+    assert.equal(validateEmployeeField({ ...EMPTY_EMPLOYEE_FORM, mobileNo: '+9779841123456' }, 'mobileNo'), null);
+    assert.equal(validateEmployeeField({ ...EMPTY_EMPLOYEE_FORM, mobileNo: '9841123456', phoneHome: '01-4412345' }, 'phoneHome'), null);
+  });
+});
+
+describe('Grade: policy, by hand and Salary mapping permission (4.2 follow-up)', () => {
+  const policy = (over: Partial<GradePolicySettings> = {}): GradePolicySettings => ({ ...DEFAULT_GRADE_POLICY, ...over });
+  const pay = (over: Partial<EmployeePay> = {}): EmployeePay => ({ basicSalary: 30000, gradeCount: 3, gradeAmount: 0, gradeManual: false, ...over });
+
+  it('breaks the grade down step by step for each policy method', () => {
+    const daily = gradeBreakdown(30000, 3, policy());
+    assert.equal(daily.rate, 1000);
+    assert.equal(daily.amount, 3000);
+    assert.equal(daily.formula, '30,000 ÷ 30 = 1,000 × 3 = 3,000');
+    assert.equal(gradeBreakdown(30000, 2, policy({ calculationMethod: 'PERCENTAGE_OF_BASIC', fixedGradePercent: 5 })).formula, '30,000 × 5% = 1,500 × 2 = 3,000');
+    assert.equal(gradeBreakdown(30000, 2, policy({ calculationMethod: 'FIXED_AMOUNT_PER_GRADE', fixedAmountPerGrade: 800 })).amount, 1600);
+    assert.equal(gradeBreakdown(30000, 2, policy({ calculationMethod: 'MANUAL_INPUT' })).formula, '');
+    assert.equal(gradeBreakdown(30000, 2, policy({ calculationMethod: 'DISABLED_NO_GRADES' })).amount, 0);
+  });
+
+  it('counts at most the policy cap', () => {
+    const b = gradeBreakdown(30000, 12, policy({ maxGradesAllowedPerLevel: 10 }));
+    assert.equal(b.counted, 10);
+    assert.equal(b.capped, true);
+    assert.equal(b.amount, 10000);
+    assert.equal(gradeBreakdown(30000, 12, policy({ maxGradesAllowedPerLevel: 0 })).capped, false);
+  });
+
+  it('without Salary mapping → Edit, an employee keeps their stored pay whatever the browser sends', () => {
+    const stored = pay({ gradeAmount: 3000 });
+    const hostile = pay({ basicSalary: 999999, gradeCount: 50, gradeAmount: 500000, gradeManual: true });
+    assert.deepEqual(resolvePay({ submitted: hostile, stored, policy: policy(), canEditPay: false }), stored);
+  });
+
+  it('without the permission, a new hire starts on the level starting salary with no grades', () => {
+    const hostile = pay({ basicSalary: 999999, gradeCount: 50, gradeAmount: 500000, gradeManual: true });
+    assert.deepEqual(resolvePay({ submitted: hostile, stored: null, policy: policy(), canEditPay: false, levelStartingSalary: 25000 }), {
+      basicSalary: 25000,
+      gradeCount: 0,
+      gradeAmount: 0,
+      gradeManual: false,
+    });
+  });
+
+  it('with the permission, the grade amount follows the policy unless typed by hand', () => {
+    assert.deepEqual(resolvePay({ submitted: pay({ gradeAmount: 777 }), stored: null, policy: policy(), canEditPay: true }), pay({ gradeAmount: 3000 }));
+    assert.deepEqual(resolvePay({ submitted: pay({ gradeAmount: 777, gradeManual: true }), stored: null, policy: policy(), canEditPay: true }), pay({ gradeAmount: 777, gradeManual: true }));
+    assert.equal(resolvePay({ submitted: pay({ gradeAmount: 1234 }), stored: null, policy: policy({ calculationMethod: 'MANUAL_INPUT' }), canEditPay: true }).gradeAmount, 1234);
+    assert.equal(resolvePay({ submitted: pay({ gradeAmount: 1234, gradeManual: true }), stored: null, policy: policy({ calculationMethod: 'DISABLED_NO_GRADES' }), canEditPay: true }).gradeAmount, 0);
+    assert.equal(resolvePay({ submitted: pay({ gradeAmount: -50, gradeManual: true, gradeCount: -2 }), stored: null, policy: policy(), canEditPay: true }).gradeAmount, 0);
+  });
+
+  it('a policy re-sync never overwrites grades typed by hand, and never zeroes under a "typed in" policy', () => {
+    assert.equal(policySyncedGradeAmount({ basicSalary: 30000, gradeCount: 3, gradeManual: true }, policy()), null);
+    assert.equal(policySyncedGradeAmount({ basicSalary: 30000, gradeCount: 3, gradeManual: false }, policy({ calculationMethod: 'MANUAL_INPUT' })), null);
+    assert.equal(policySyncedGradeAmount({ basicSalary: 30000, gradeCount: 3, gradeManual: false }, policy({ calculationMethod: 'DISABLED_NO_GRADES' })), 0);
+    assert.equal(policySyncedGradeAmount({ basicSalary: 30000, gradeCount: 3, gradeManual: false }, policy()), 3000);
+  });
+
+  it('the save works pay out on the server with the Salary mapping permission (S18)', () => {
+    const actions = readFileSync(join(__dirname, '..', 'app/actions/employee.actions.ts'), 'utf8');
+    assert.match(actions, /hasPermission\('EDIT', 'SALARY_MAPPING'\)[\s\S]*saveEmployee\(id, formData, accessOptions, \{ canEditPay \}\)/);
+    const service = readFileSync(join(__dirname, '..', 'lib/services/employee.service.ts'), 'utf8');
+    assert.match(service, /const pay = resolvePay\(/);
+  });
+
+  it('supervisor fields read "Is supervisor" and "Reports to"', () => {
+    assert.equal(EMPLOYEE_FIELD_LABELS.isSupervisor, 'Is supervisor');
+    assert.equal(EMPLOYEE_FIELD_LABELS.supervisorId, 'Reports to');
+  });
+});

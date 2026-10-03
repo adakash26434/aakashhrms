@@ -151,3 +151,133 @@ export function validatePromotionSalary(params: {
     warningMessage,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Employee pay (4.2): how a grade is worked out, and what may be saved
+// ---------------------------------------------------------------------------
+
+const money = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+/** The policy method in words, for the form's breakdown and the record page. */
+export function gradeMethodLabel(policy: GradePolicySettings = DEFAULT_GRADE_POLICY): string {
+  switch (policy.calculationMethod) {
+    case "STATUTORY_DAILY_RATE":
+      return `One day's basic per grade (basic ÷ ${policy.daysInMonthForDailyRate > 0 ? policy.daysInMonthForDailyRate : 30})`;
+    case "PERCENTAGE_OF_BASIC":
+      return `${policy.fixedGradePercent || 3.33}% of basic per grade`;
+    case "FIXED_AMOUNT_PER_GRADE":
+      return `NPR ${money(Math.max(0, policy.fixedAmountPerGrade || 0))} per grade`;
+    case "MANUAL_INPUT":
+      return "Typed in for each employee";
+    case "DISABLED_NO_GRADES":
+    default:
+      return "Grades are not used";
+  }
+}
+
+export interface GradeBreakdown {
+  method: GradeCalculationMethod;
+  methodLabel: string;
+  /** Value of one grade (0 when the policy does not calculate). */
+  rate: number;
+  /** Grades entered, and grades paid after the cap. */
+  count: number;
+  counted: number;
+  cap: number;
+  capped: boolean;
+  amount: number;
+  /** e.g. "30,000 ÷ 30 = 1,000 × 3 = 3,000"; "" when the policy does not calculate. */
+  formula: string;
+}
+
+/** How the grade amount comes out of the policy, step by step (the form's breakdown panel). */
+export function gradeBreakdown(basicSalary: number, gradeCount: number, policy: GradePolicySettings = DEFAULT_GRADE_POLICY): GradeBreakdown {
+  const basic = Math.max(0, basicSalary || 0);
+  const count = Math.max(0, Math.floor(gradeCount || 0));
+  const cap = Math.max(0, policy.maxGradesAllowedPerLevel || 0);
+  const counted = cap > 0 ? Math.min(count, cap) : count;
+  const rate = calculateGradeRate(basic, policy);
+  const amount = calculateTotalGradeAmount(basic, count, policy);
+  const calculates = policy.calculationMethod !== "MANUAL_INPUT" && policy.calculationMethod !== "DISABLED_NO_GRADES";
+  let formula = "";
+  if (calculates) {
+    const step =
+      policy.calculationMethod === "STATUTORY_DAILY_RATE"
+        ? `${money(basic)} ÷ ${policy.daysInMonthForDailyRate > 0 ? policy.daysInMonthForDailyRate : 30} = ${money(rate)}`
+        : policy.calculationMethod === "PERCENTAGE_OF_BASIC"
+          ? `${money(basic)} × ${policy.fixedGradePercent || 3.33}% = ${money(rate)}`
+          : money(rate);
+    formula = `${step} × ${counted} = ${money(amount)}`;
+  }
+  return {
+    method: policy.calculationMethod,
+    methodLabel: gradeMethodLabel(policy),
+    rate,
+    count,
+    counted,
+    cap,
+    capped: calculates && cap > 0 && count > cap,
+    amount,
+    formula,
+  };
+}
+
+export interface EmployeePay {
+  basicSalary: number;
+  gradeCount: number;
+  gradeAmount: number;
+  /** The grade amount was typed by hand (not worked out by the policy). */
+  gradeManual: boolean;
+}
+
+/**
+ * The pay that may be saved for an employee (security plan S18). The server
+ * calls this; what the browser sent is never trusted on its own:
+ * - without Salary mapping → Edit, an existing employee keeps their stored
+ *   pay, and a new hire starts on the level's starting salary with no grades;
+ * - with it, basic and grade count are as typed; the grade amount follows the
+ *   policy unless it is typed by hand (or the policy is "typed in");
+ * - a "no grades" policy always saves a grade amount of 0.
+ */
+export function resolvePay(params: {
+  submitted: EmployeePay;
+  stored: EmployeePay | null;
+  policy: GradePolicySettings | null | undefined;
+  canEditPay: boolean;
+  /** Starting salary of the chosen level, for a new hire entered without pay permission. */
+  levelStartingSalary?: number;
+}): EmployeePay {
+  const policy = params.policy ?? DEFAULT_GRADE_POLICY;
+  if (!params.canEditPay) {
+    if (params.stored) return { ...params.stored };
+    const basic = Math.max(0, params.levelStartingSalary || 0);
+    return { basicSalary: basic, gradeCount: 0, gradeAmount: 0, gradeManual: false };
+  }
+  const basicSalary = new Decimal(Math.max(0, Number(params.submitted.basicSalary) || 0)).toDecimalPlaces(2).toNumber();
+  const gradeCount = Math.max(0, Math.floor(Number(params.submitted.gradeCount) || 0));
+  const typed = new Decimal(Math.max(0, Number(params.submitted.gradeAmount) || 0)).toDecimalPlaces(2).toNumber();
+  switch (policy.calculationMethod) {
+    case "DISABLED_NO_GRADES":
+      return { basicSalary, gradeCount, gradeAmount: 0, gradeManual: false };
+    case "MANUAL_INPUT":
+      return { basicSalary, gradeCount, gradeAmount: typed, gradeManual: !!params.submitted.gradeManual };
+    default:
+      return params.submitted.gradeManual
+        ? { basicSalary, gradeCount, gradeAmount: typed, gradeManual: true }
+        : { basicSalary, gradeCount, gradeAmount: calculateTotalGradeAmount(basicSalary, gradeCount, policy), gradeManual: false };
+  }
+}
+
+/**
+ * The grade amount a policy re-sync should give an employee, or null to leave
+ * it alone: grades typed by hand, and every grade under a "typed in" policy,
+ * are never overwritten; a "no grades" policy sets 0.
+ */
+export function policySyncedGradeAmount(
+  employee: { basicSalary: number; gradeCount: number; gradeManual: boolean },
+  policy: GradePolicySettings = DEFAULT_GRADE_POLICY
+): number | null {
+  if (policy.calculationMethod === "MANUAL_INPUT" || employee.gradeManual) return null;
+  if (policy.calculationMethod === "DISABLED_NO_GRADES") return 0;
+  return calculateTotalGradeAmount(employee.basicSalary, employee.gradeCount, policy);
+}

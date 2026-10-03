@@ -55,6 +55,7 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
     gradePercent: (row.employees.gradePercent === 100) ? 0 : (row.employees.gradePercent || 0),
     gradeCount: row.employees.gradeCount ?? 0,
     gradeAmount: Number(row.employees.gradeAmount) || 0,
+    gradeManual: !!row.employees.gradeManual,
 
     citizenshipNo: row.employee_personal?.citizenshipNo || '',
     issuingDistrict: row.employee_personal?.issuingDistrict || '',
@@ -253,6 +254,7 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
       gradePercent: data.gradePercent,
       gradeCount: data.gradeCount ?? 0,
       gradeAmount: data.gradeAmount?.toString(),
+      gradeManual: !!data.gradeManual,
     }).returning({ id: employees.id });
     
     const newEmpId = empInsert[0].id;
@@ -354,6 +356,7 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
       gradePercent: data.gradePercent,
       gradeCount: data.gradeCount !== undefined ? data.gradeCount : undefined,
       gradeAmount: data.gradeAmount?.toString(),
+      gradeManual: data.gradeManual !== undefined ? !!data.gradeManual : undefined,
       updatedAt: new Date(),
     }).where(eq(employees.id, id));
 

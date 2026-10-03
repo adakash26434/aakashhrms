@@ -1,5 +1,5 @@
 import metadata from 'libphonenumber-js/metadata.min.json';
-import { parsePhoneNumberFromString, type CountryCode, type PhoneNumber } from 'libphonenumber-js/core';
+import { getCountryCallingCode, parsePhoneNumberFromString, type CountryCode, type PhoneNumber } from 'libphonenumber-js/core';
 
 export interface PhoneValidationResult {
   isValid: boolean;
@@ -87,5 +87,47 @@ export function toE164Phone(raw?: string | null, defaultCountry: CountryCode = '
     return parsed && parsed.isValid() ? parsed.number : clean;
   } catch {
     return clean;
+  }
+}
+
+/**
+ * A stored number split for a country + number field: "+9779841123456" →
+ * { country: "NP", national: "9841123456" }. Text that does not parse stays
+ * in `national` with the fallback country.
+ */
+export function splitPhone(value?: string | null, fallback: CountryCode = 'NP'): { country: CountryCode; national: string } {
+  const clean = (value ?? '').trim();
+  if (!clean) return { country: fallback, national: '' };
+  try {
+    const parsed = parsePhoneNumberFromString(clean, metadata) || parsePhoneNumberFromString(clean, fallback, metadata);
+    // Nepal numbers show as people write them ("984-1234567", "01-4412345").
+    if (parsed) return { country: parsed.country ?? fallback, national: parsed.country === 'NP' ? parsed.formatNational() : parsed.nationalNumber };
+  } catch {
+    // fall through
+  }
+  return { country: fallback, national: clean.replace(/^\+/, '') };
+}
+
+/** The stored value of a country + number field: "+<dial code><digits>", or "" when there are no digits. */
+export function joinPhone(country: CountryCode, national: string): string {
+  const digits = national.replace(/\D/g, '');
+  if (!digits) return '';
+  try {
+    // Drops a trunk "0" ("01-4412345" → "+97714412345").
+    const parsed = parsePhoneNumberFromString(national, country, metadata);
+    if (parsed && parsed.countryCallingCode === getCountryCallingCode(country, metadata)) return parsed.number;
+  } catch {
+    // fall through
+  }
+  return `+${getCountryCallingCode(country, metadata)}${digits}`;
+}
+
+/** The country a typed international number ("+91 98…") belongs to, if it can tell. */
+export function countryOfTyped(typed: string): CountryCode | undefined {
+  if (!typed.trim().startsWith('+')) return undefined;
+  try {
+    return parsePhoneNumberFromString(typed.trim(), metadata)?.country;
+  } catch {
+    return undefined;
   }
 }

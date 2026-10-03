@@ -8,6 +8,7 @@ import { calculateAgeInYears } from "@/lib/engines/employee.engine";
 import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeProfile } from "@/lib/types/employee";
 import { addressText } from "./employee-record-overview";
+import { formatPhoneNumber } from "@/lib/utils/phone";
 
 const TAX_STATUS: Record<string, string> = { "Normal Single": "Single", Married: "Married (couple slab)", Widow: "Widow / widower" };
 const date = (v: Date | string | null | undefined) => (v ? <DateCell value={v} /> : null);
@@ -59,7 +60,7 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
             { label: "Category", value: p.category },
             { label: "Shreni (level)", value: p.shreni, wide: true },
             { label: "Reports to", value: p.supervisor?.name },
-            { label: "Approves leave", value: p.isSupervisor ? "Yes" : "No", tone: p.isSupervisor ? undefined : "muted" },
+            { label: "Supervisor", value: p.isSupervisor ? "Yes" : "No", tone: p.isSupervisor ? undefined : "muted" },
             { label: "Joining date", value: date(p.joiningDate), mono: true },
             { label: "Confirmation date", value: date(p.confirmationDate), mono: true },
           ]}
@@ -71,6 +72,7 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
           items={[
             { label: "Basic salary", value: <Amount value={basic} prefix="NPR" />, tone: basic > 0 ? undefined : "warning" },
             { label: "Grade", value: <span>{p.gradeCount ?? 0} grade{(p.gradeCount ?? 0) === 1 ? "" : "s"} · <Amount value={grade} prefix="NPR" /></span> },
+            { label: "Grade worked out", value: p.gradeBasis, tone: p.gradeManual ? undefined : "muted" },
             { label: "Total base pay", value: <Amount value={basic + grade} prefix="NPR" emphasis />, wide: true },
           ]}
         />
@@ -103,8 +105,8 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
       <InfoCard title="Contact & addresses" icon={Contact} action={edit("contact")}>
         <DescriptionList
           items={[
-            { label: "Mobile", value: p.mobileNo, mono: true, copy: p.mobileNo || undefined },
-            { label: "Home phone", value: p.phoneHome, mono: true },
+            { label: "Mobile", value: p.mobileNo ? formatPhoneNumber(p.mobileNo) : null, mono: true, copy: p.mobileNo || undefined },
+            { label: "Home phone", value: p.phoneHome ? formatPhoneNumber(p.phoneHome) : null, mono: true },
             { label: "Company email", value: p.companyEmail, copy: p.companyEmail || undefined },
             { label: "Personal email", value: p.personalEmail },
             { label: "Permanent address", value: addressText(p.permanentAddress), wide: true },

@@ -48,6 +48,7 @@ function createValidEmployeeData(): EmployeeFormData {
     gradePercent: 100,
     gradeCount: 0,
     gradeAmount: 45000,
+    gradeManual: false,
     citizenshipNo: "27-01-75-01234",
     issuingDistrict: "Kathmandu",
     nidNo: "123-456-7890",

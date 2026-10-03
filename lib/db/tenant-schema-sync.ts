@@ -182,4 +182,18 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
       // Ignored if table does not exist yet
     }
   }
+
+  // grade_manual (4.2, migration 0035): when the column is new, mark the grades that were
+  // typed by hand before it existed (an amount with no grade count), as the migration does.
+  try {
+    const existing = await sql.unsafe(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'employees' AND column_name = 'grade_manual'`
+    );
+    if (existing.length === 0) {
+      await sql.unsafe(`ALTER TABLE "employees" ADD COLUMN IF NOT EXISTS "grade_manual" boolean DEFAULT false NOT NULL`);
+      await sql.unsafe(`UPDATE "employees" SET "grade_manual" = true WHERE "grade_count" = 0 AND COALESCE("grade_amount", 0) > 0`);
+    }
+  } catch {
+    // Ignored if the employees table does not exist yet
+  }
 }

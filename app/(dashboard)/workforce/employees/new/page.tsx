@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { EmployeeForm } from "@/components/employee/employee-form";
 import { getEmployeeFormContext } from "@/lib/services/employee.service";
 import { ensureTenantContext } from "@/lib/db";
-import { checkPermissionWithScope } from "@/lib/auth/check-permission";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
   title: "New employee | AakashHRMS",
@@ -13,6 +13,6 @@ export const metadata: Metadata = {
 export default async function NewEmployeePage() {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("ADD", "EMPLOYEES");
-  const ctx = await getEmployeeFormContext(scope, null);
+  const ctx = await getEmployeeFormContext(scope, null, await hasPermission("EDIT", "SALARY_MAPPING"));
   return <EmployeeForm ctx={ctx} />;
 }

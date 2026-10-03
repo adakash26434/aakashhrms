@@ -3,23 +3,29 @@
 import { useMemo } from "react";
 import { Combobox } from "@/components/kit/combobox";
 import { GridField } from "@/components/kit/form-grid";
+import { PhoneField } from "@/components/kit/phone-field";
 import { inputClass } from "@/components/kit/property-form";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import {
-  findProvinceByDistrict,
+  PROVINCES,
+  changeAddress,
   getAllDistricts,
   getPalikasByDistrict,
   parseStructuredAddress,
+  provinceIdOf,
   serializeStructuredAddress,
   type StructuredAddress,
 } from "@/lib/constants/nepal-locations";
 import { cn } from "@/lib/utils";
 import { FormSection, TextField, label, type EmployeeFormApi } from "./employee-form-fields";
 
+const PROVINCE_OPTIONS = PROVINCES.map((p) => ({ value: p.id, label: p.name, hint: p.nameNepali }));
+
 /**
- * One address on one row: district first (people know their district), then
- * local level, ward and tole. The province fills itself from the district.
- * Stored in the same structured form as before (serializeStructuredAddress).
+ * One address, as in the original form: province, district (narrowed to the
+ * province), local level, ward and tole. Picking a district first still
+ * works: its province fills in. Stored in the same structured form as before
+ * (serializeStructuredAddress).
  */
 function AddressRow({
   name,
@@ -34,22 +40,36 @@ function AddressRow({
   required?: boolean;
   id?: string;
 }) {
-  const address = parseStructuredAddress(value);
-  const districts = useMemo(() => getAllDistricts().map((d) => ({ value: d.name, label: d.name, hint: d.nameNepali })), []);
+  const parsed = parseStructuredAddress(value);
+  const address = { ...parsed, province: provinceIdOf(parsed.province) };
+  const districts = useMemo(
+    () =>
+      getAllDistricts()
+        .filter((d) => !address.province || d.provinceId === address.province)
+        .map((d) => ({ value: d.name, label: d.name, hint: d.nameNepali })),
+    [address.province]
+  );
   const palikas = useMemo(() => getPalikasByDistrict(address.district).map((p) => ({ value: p, label: p })), [address.district]);
-  const province = address.district ? findProvinceByDistrict(address.district) : undefined;
 
   const update = (part: Partial<StructuredAddress>) => {
-    const next = { ...address, ...part };
-    if (part.district !== undefined && part.district !== address.district) {
-      next.province = findProvinceByDistrict(part.district)?.id ?? "";
-      next.localLevel = "";
-    }
-    onChange(next.district || next.localLevel || next.wardNo || next.tole ? serializeStructuredAddress(next) : "");
+    const next = changeAddress(address, part);
+    onChange(next.province || next.district || next.localLevel || next.wardNo || next.tole ? serializeStructuredAddress(next) : "");
   };
 
   return (
-    <div className="grid grid-cols-2 gap-1.5 xl:grid-cols-[minmax(9rem,11rem)_minmax(11rem,15rem)_4.5rem_minmax(7rem,14rem)_auto] xl:items-center">
+    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-6 xl:grid-cols-[minmax(11rem,12.5rem)_minmax(9rem,12rem)_minmax(11rem,15rem)_4.5rem_minmax(7rem,1fr)] xl:items-center">
+      <Combobox
+        id={id}
+        name={`${name}.province`}
+        aria-label={`${label(name)}: province`}
+        aria-required={required || undefined}
+        options={PROVINCE_OPTIONS}
+        value={address.province}
+        onChange={(v) => update({ province: v })}
+        placeholder="Province"
+        allowClear={!required}
+        className="max-w-none sm:col-span-3 xl:col-span-1"
+      />
       <Combobox
         name={`${name}.district`}
         aria-label={`${label(name)}: district`}
@@ -59,7 +79,7 @@ function AddressRow({
         onChange={(v) => update({ district: v })}
         placeholder="District"
         allowClear={!required}
-        className="max-w-none"
+        className="max-w-none sm:col-span-3 xl:col-span-1"
       />
       <Combobox
         name={`${name}.localLevel`}
@@ -70,10 +90,9 @@ function AddressRow({
         onChange={(v) => update({ localLevel: v })}
         placeholder={address.district ? "Local level (palika)" : "Pick the district first"}
         disabled={!address.district}
-        className="max-w-none"
+        className="col-span-2 max-w-none sm:col-span-3 xl:col-span-1"
       />
       <input
-        id={id}
         name={`${name}.wardNo`}
         aria-label={`${label(name)}: ward number`}
         inputMode="numeric"
@@ -81,7 +100,7 @@ function AddressRow({
         placeholder="Ward"
         value={address.wardNo}
         onChange={(e) => update({ wardNo: e.target.value.replace(/\D/g, "").slice(0, 2) })}
-        className={cn(inputClass, "max-w-none")}
+        className={cn(inputClass, "max-w-none sm:col-span-1")}
       />
       <input
         name={`${name}.tole`}
@@ -90,9 +109,8 @@ function AddressRow({
         placeholder="Tole / street"
         value={address.tole}
         onChange={(e) => update({ tole: e.target.value })}
-        className={cn(inputClass, "max-w-none")}
+        className={cn(inputClass, "max-w-none sm:col-span-2 xl:col-span-1")}
       />
-      <span className="col-span-2 truncate text-2xs text-ink-faint xl:col-span-1">{province?.name ?? ""}</span>
     </div>
   );
 }
@@ -110,8 +128,12 @@ export function EmployeeFormContact({
   const { form, errors, set } = api;
   return (
     <FormSection id="contact" title="Contact & address">
-      <TextField api={api} field="mobileNo" type="tel" inputMode="tel" required code size="code" placeholder="98XXXXXXXX" help="Nepal numbers need no +977; it is added on save." />
-      <TextField api={api} field="phoneHome" type="tel" inputMode="tel" code size="code" placeholder="01-4XXXXXX" />
+      <GridField label={label("mobileNo")} required error={errors.mobileNo} size="md" help="Country, then the number. Nepal mobiles have 10 digits starting 96, 97 or 98. Typing +91… switches the country.">
+        <PhoneField name="mobileNo" value={form.mobileNo} onChange={(v) => set("mobileNo", v)} placeholder="98XXXXXXXX" />
+      </GridField>
+      <GridField label={label("phoneHome")} error={errors.phoneHome} size="md" help="Landline or second number; landlines need the area code (01-4412345).">
+        <PhoneField name="phoneHome" value={form.phoneHome} onChange={(v) => set("phoneHome", v)} placeholder="01-4XXXXXX" />
+      </GridField>
       <TextField
         api={api}
         field="companyEmail"
@@ -124,7 +146,7 @@ export function EmployeeFormContact({
       />
       <TextField api={api} field="personalEmail" type="email" inputMode="email" size="lg" transform={(v) => v.trim()} />
 
-      <GridField label={label("permanentAddress")} required error={errors.permanentAddress} span={3} size="full" help="District, then local level, ward and tole. The province fills itself.">
+      <GridField label={label("permanentAddress")} required error={errors.permanentAddress} span={3} size="full" help="Province, district, local level (palika), ward and tole. Picking a district fills its province.">
         <AddressRow name="permanentAddress" required value={form.permanentAddress} onChange={(v) => set("permanentAddress", v)} />
       </GridField>
       <GridField label="Temporary address" size="md" help="Same uses the permanent address; Different lets you enter another one.">
