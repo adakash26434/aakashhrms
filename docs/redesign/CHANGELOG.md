@@ -13,6 +13,32 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — 4.2 Employees: register, record page, full-page editor (sign-off pending)
+Branch: `redesign/4.2-employees` (stacked on `redesign/4.1-home`)
+
+Decisions (your answers): quick view beside the list **and** a full record page; one scrolling form with a section index; read-only related-history tabs; Enter moves to the next field once the current one is complete.
+
+Security (S18, step 1): scoped loader for every employee read/write (out of scope = "not found", audited), placement checked on create and update, audit of create / update (field names only) / delete / credential resets, escaped search, slim list rows with masked bank account, no PII in browser storage, `toActionError` everywhere.
+
+Changed:
+- **Kit (step 2):** Enter-to-next for `PropertyForm`, `Combobox`, `DateField`, `NumberField`, `SectionIndex`, `useUnsavedGuard` + `DiscardBar` (Window reuses it), `scrollIntoContainer`; FilterStrip `/` focuses search; Confirm keeps line breaks in errors; `/dev/kit` demo.
+- **Register (step 3):** server-rendered `EmployeeListRow` grid, URL filters, quick view, Records column and amber edge, typed delete confirmation. KPI cards, the fake Import button and 7 old components are gone. The command palette and the dashboard's "Records to fix" open the record page.
+- **Record page (step 4):** summary strip with tenure; Profile / Leave / Attendance / Payslips / Loans / History tabs, each permission-gated and loaded on its own; in-frame "Employee not found".
+- **Editor (step 5):** one form replaces the 5-step wizard (≈3,000 lines): sections in Enter order, error summary, Save & add another (keeps branch, department, category, joining date), company-wide duplicate-code check, shreni starting salary, automatic grade amount, district-first address with the province filled in, "same as permanent", account number typed twice when new or changed, phones saved as E.164.
+
+Verified: tsc 0 · eslint clean on new code (remaining findings are pre-existing `any`s in repositories) · 396/396 tests (new: `security-employee-access`, `employee`, `kit-form-nav`) · `next build` · Playwright, signed in, on real data:
+- Register: filters, URL filter restore, `/` search, quick view, Enter opens the record; the browser never receives PAN, citizenship, family, address or full account number.
+- Record: every tab; Shrawan 2083 payslip (gross 39,500, SSF 9,300, deductions 11,800, net 27,700); attendance 17 days to 17 Aswin (6 present, 11 not recorded); unknown and malformed ids show "Employee not found".
+- Editor, keyboard only: every field from code to role. Empty required, bad PAN, bad email, missing district and a mistyped account number each block Enter with their message. Comboboxes pick and move on, Shift+Enter goes back, the last field lands on Save, Ctrl+S lists what is missing and focuses it. The leave guard holds a link click.
+- Edit form loads the real record (legacy shreni kept), is not "Unsaved" until something changes.
+- No overflow at 390 / 1024 px; 0 console errors.
+
+Not done here (needs you): saving a test employee and deleting it (it writes to your database and would email a login unless "Create a login" is off); a branch-scoped login check.
+
+Fixed along the way: `scrollIntoView` scrolled the whole app frame when jumping to a section; the sticky footer let content show beneath it.
+
+---
+
 ## 2026-10-03 — 4.1 dashboard: page scroll fix, latest-only cards, framed cards (sign-off pending)
 Branch: `redesign/4.1-home`
 

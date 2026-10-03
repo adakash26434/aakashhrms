@@ -103,6 +103,7 @@ UI conventions for new code:
 
 - `npm run lint` has ~225 **pre-existing** errors (mostly `no-explicit-any`), so CI lint fails on `main`. Don't add new ones; clean up as modules are migrated (Phases 4/8).
 - `npm audit`: the nodemailer advisory via next-auth needs a major upgrade, so CI gates on `critical` for now.
+- Employees: there is no bulk import yet (the old Import button only showed a message and was removed in 4.2). The old `components/ui` pickers (`NepaliDatePicker`, `BSDatePicker`, district / bank / shreni comboboxes, address picker, phone input) are still used by other modules; replace them with the kit `DateField` / `Combobox` as those modules are migrated.
 - Stored payroll run totals (`payroll_runs.total_*`) can lag behind the payslips (Shrawan 2083: run net 62,068.75 vs payslips and salary sheet 68,068.75). Reports and the dashboard read the payslips; fix the run-total update in 4.8 (Payroll run).
 
 ## Git

@@ -210,7 +210,7 @@ The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.
 | Template | Used by | Layout |
 |---|---|---|
 | **A. Register** | Employees, Departments, Designations, Branches, Holidays, Pay heads, Tax slabs, Leave types/rules, OT rules, Loans, Users, Roles, Audit log, Leave applications/approvals, Attendance | Toolbar → FilterStrip → DataGrid (+ optional SplitView detail) → totals/pagination footer |
-| **B. Record editor** | Employee create/edit, Company setup, Salary mapping, Role matrix | Window or full page. Vertical section tabs on the left, PropertyForm on the right, sticky Save/Cancel footer, dirty-state guard |
+| **B. Record editor** | Employee create/edit, Company setup, Salary mapping, Role matrix | Window (short records) or full page (long records): section index on the left, one scrolling PropertyForm with Enter-to-next, sticky Save/Cancel footer, dirty-state guard. See "Implemented employees". |
 | **C. Process** | Payroll run, Leave salary run, Attendance lock, Fiscal-year close, Onboarding | Step rail (Setup → Pre-flight → Calculate → Review → Approve → Lock) with a blocking-issue panel and an audit trail |
 | **D. Report viewer** | All `/reports/*`, payslips | Parameters panel on the left, paged document preview on the right, toolbar with Print / PDF / Excel / CSV |
 | **E. Settings** | System control, Payroll rules, Fiscal year, Tax rates, Company profile | Category list on the left, form on the right, change summary before save |
@@ -263,6 +263,46 @@ Figures come from payslips (as the salary sheet does), not from stored run
 totals. Sections the user may not see are never loaded; failed sections stay
 in place as error panels. `/dev/dashboard` previews every state with sample data.
 
+### Implemented employees (Phase 4.2, templates A + B)
+
+Employees is the first desktop module. The flow is **register → quick view →
+record page → full-page editor**:
+
+| Screen | Route | Layout and rules |
+|---|---|---|
+| Register | `/workforce/employees` | PageBar (counts in the description, no KPI cards) · FilterStrip (department, branch, category, status; ids kept in the URL, never the search text) · DataGrid (Code and Employee pinned, Records column, amber edge for active people missing PAN / bank / basic salary). Single click shows the **quick view** beside the grid (built from the row, no request); Enter or double-click opens the record. Ctrl+N new · F2 edit · Del delete (typed confirmation with the employee code) · `/` search. |
+| Record | `/workforce/employees/[id]` | PageBar (Back, Edit F2, Resend sign-in, Delete, Print Ctrl+P) · summary strip (codes, designation, department, branch, joined + tenure, supervisor link, "records to fix" bar) · tabs in the URL, loaded on the server one at a time: Profile (read-only property sheets, bank masked), Leave, Attendance (BS month to date; missing days are "not recorded", never absent), Payslips (last 12, totals), Loans, History (audit trail by field label). Each related tab needs its own module's VIEW. Missing, malformed and out-of-scope ids show the same in-frame "Employee not found". |
+| Editor | `/workforce/employees/new`, `/[id]/edit` | One scrolling `PropertyForm` with a **SectionIndex** on the left (✓ done, red count for errors, click to jump; a "Jump to section" select below 1024px), error summary on top with links to each field, sticky footer (Cancel · Save & add another · Save), unsaved-changes guard. |
+
+**Full-page editor vs window.** A record with more than about 15 fields, or
+one people type in for long stretches (employees, company setup), gets a full
+page with a section index. Short records (a department, a holiday, a leave
+type) keep the `Window` editor.
+
+**Enter-to-next (all kit forms with `enterNavigation`):**
+
+| Key / where | Action |
+|---|---|
+| Enter on an input, select, checkbox or date | Checks that field with the same rules the server uses; if it is wrong the error shows and focus stays, otherwise focus moves to the next editable field, across sections |
+| Shift+Enter | Previous field, never blocked |
+| Enter in a combobox with its list open | Picks the highlighted option and moves on |
+| Enter in a date field with the calendar open | Picks the highlighted day and moves on (Alt+↓ opens, arrows move, PgUp/PgDn change month, Esc closes) |
+| Textarea | Enter is a new line; Ctrl+Enter moves on |
+| Last field | Focus moves to Save; Enter never submits the form by itself |
+| Ctrl+S / Ctrl+Shift+S | Save / save and add another |
+| Mouse, Tab | Never blocked or redirected |
+
+Read-only, disabled and helper controls (`data-enter-skip`, e.g. "Next free
+code", "Enter by hand") are skipped. Optional documents left empty skip their
+district. Scrolling to a field uses `scrollIntoContainer` (never
+`scrollIntoView`, which also moves the app frame) and keeps the field clear of
+the sticky footer.
+
+Form kit added in 4.2: `Combobox`, `DateField` (BS/AD typed or picked, stored
+as AD), `NumberField` (right-aligned amounts), `SectionIndex`,
+`useUnsavedGuard` + `DiscardBar` (shared with `Window`), `scrollIntoContainer`.
+Field labels and the section layout live in `lib/constants/employee-form.ts`.
+
 ## 5b. Design enhancements (beyond the base frame)
 
 These came out of the reference research (`05-functional-research.md`).
@@ -307,8 +347,9 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
 | `Ctrl N` | New record (current register) |
 | `Enter` / `F2` | Open / edit selected row |
 | `Del` | Delete selected (with confirm) |
-| `Ctrl S` | Save form |
-| `Esc` | Close window / clear selection |
+| `Ctrl S` | Save form (`Ctrl Shift S`: save and add another, on new records) |
+| `Enter` / `Shift Enter` (in a form) | Next / previous field (see "Implemented employees") |
+| `Esc` | Close window / clear selection / back from a record page |
 | `Ctrl P` | Print current report |
 | `Ctrl Shift E` | Export |
 | `/` | Focus grid search |

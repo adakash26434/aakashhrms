@@ -150,8 +150,8 @@ per-module **definition of done** below.
 
 | Step | Module | Template | Screens |
 |---|---|---|---|
-| 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version — **sign-off**. **Built on `redesign/4.1-home`, awaiting your sign-off** |
-| 4.2 | **Workforce: Employees** | A + B | list + split detail, create flow, edit tabs (`employee-form-tabs` 2k lines) |
+| 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version. **Signed off by you on 2026-10-03** (`redesign/4.1-home`) |
+| 4.2 | **Workforce: Employees** | A + B | Register + quick view, full record page with related-history tabs, full-page editor with Enter-to-next; security S18. **Built on `redesign/4.2-employees`, awaiting your sign-off** |
 | 4.3 | **Workforce: Organization** | A | departments, designations, branches, organization view |
 | 4.4 | **Salary structure** | A + B | salary mapping list, mapping editor, bulk actions |
 | 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process |
@@ -222,4 +222,4 @@ See `CHANGELOG.md`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
 - **Phase 2 is signed off.**
 - **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
-- Phase 4.1 (Dashboard, revised to an analytics dashboard) is built and waiting for sign-off; 4.2 Employees (desktop register) follows once you approve it.
+- Phase 4.1 (Dashboard) is signed off. Phase 4.2 (Employees) is built on `redesign/4.2-employees` and waiting for sign-off; 4.3 Organization follows once you approve it.
