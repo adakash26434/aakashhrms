@@ -86,6 +86,8 @@
   --border-input-hover: var(--neutral-500);
   --text-label: var(--neutral-700);
   --surface-panel: #F3F5F1;
+  /* The chosen "No" of a Yes / No field: a solid mid-grey so it reads as clearly as the green "Yes" (white text 5:1). */
+  --switch-off: var(--neutral-500);
 
   /* Text */
   --text: var(--neutral-900);
@@ -170,6 +172,7 @@
   --color-line-input-hover: var(--border-input-hover);
   --color-ink-label: var(--text-label);
   --color-surface-panel: var(--surface-panel);
+  --color-switch-off: var(--switch-off);
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
   --color-ink-faint: var(--text-faint);

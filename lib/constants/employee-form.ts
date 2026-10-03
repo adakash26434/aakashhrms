@@ -19,8 +19,8 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
   {
     id: "general",
     label: "General",
-    fields: ["fullName", "gender", "employeeCode", "attendanceCode", "dateOfBirth", "taxStatus", "isDisabled"],
-    required: ["fullName", "gender", "employeeCode", "attendanceCode", "dateOfBirth", "taxStatus"],
+    fields: ["fullName", "employeeCode", "attendanceCode", "gender", "dateOfBirth", "taxStatus", "isDisabled"],
+    required: ["fullName", "employeeCode", "attendanceCode", "gender", "dateOfBirth", "taxStatus"],
   },
   {
     id: "job",

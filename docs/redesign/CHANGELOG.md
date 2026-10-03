@@ -13,6 +13,16 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — Employee form: codes on one row; clearer "No"
+Branch: `redesign/4.3-organization`
+
+- General section: Full name has its own row, so Employee code and Attendance code always share the next row (2 or 3 columns); Gender moves after the codes. Enter order: name → employee code → attendance code → gender → date of birth.
+- Yes / No fields: the chosen "No" is now a solid mid-grey with white text (`--switch-off`, 5:1) instead of a faint tint, so it reads as clearly as the green "Yes".
+
+Verified: 456/456 tests · Playwright at 1536 (2 columns) and 1920 (3 columns): both codes on one row; Enter order as above.
+
+---
+
 ## 2026-10-03 — Frame and forms: rail opens page lists; layout follows the space it has
 Branch: `redesign/4.3-organization`
 

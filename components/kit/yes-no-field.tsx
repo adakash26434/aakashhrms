@@ -58,7 +58,7 @@ export function YesNoField({ value, onChange, name, id, yesLabel = "Yes", noLabe
       {...aria}
     >
       <span className={cn("flex items-center justify-center rounded-[5px]", value ? "bg-brand text-white" : "text-ink-muted")}>{yesLabel}</span>
-      <span className={cn("flex items-center justify-center rounded-[5px]", !value ? "bg-surface-sunken text-ink" : "text-ink-muted")}>{noLabel}</span>
+      <span className={cn("flex items-center justify-center rounded-[5px]", !value ? "bg-switch-off text-white" : "text-ink-muted")}>{noLabel}</span>
     </button>
   );
 }

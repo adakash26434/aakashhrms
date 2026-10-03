@@ -23,8 +23,8 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
 
   return (
     <FormSection id="general" title="General" description="Codes are filled with the next free ones and are unique across the company.">
-      <TextField api={api} field="fullName" required size="lg" span={2} placeholder="As on the citizenship certificate" autoFocus={isNew} />
-      <ChoiceField api={api} field="gender" options={GENDERS} required size="code" />
+      {/* Full name has its own row, so the two codes always share the next one (2 or 3 columns). */}
+      <TextField api={api} field="fullName" required size="lg" span={3} placeholder="As on the citizenship certificate" autoFocus={isNew} />
 
       <GridField label={label("employeeCode")} required error={errors.employeeCode ?? live.employeeCode} size="md">
         <CodeInput
@@ -48,6 +48,7 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
           onNext={() => set("attendanceCode", getNextAttendanceCode(ctx.codes.map((c) => c.attendanceCode), "ATD-"))}
         />
       </GridField>
+      <ChoiceField api={api} field="gender" options={GENDERS} required size="code" />
       <GridField label={label("dateOfBirth")} required error={errors.dateOfBirth} help="Must be 18 or older (Labour Act). Type YYYY/MM/DD or press Alt+↓." size="date">
         <DateField name="dateOfBirth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} />
       </GridField>
