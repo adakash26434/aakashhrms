@@ -76,7 +76,7 @@ export function SectionIndex({ items, label = "Sections", className }: { items: 
 
   return (
     <>
-      <label className="mb-3 flex items-center gap-2 lg:hidden">
+      <label className="mb-3 flex items-center gap-2 @min-[66rem]:hidden">
         <span className="text-xs font-medium text-ink-muted">Jump to section</span>
         <select
           value={active}
@@ -95,7 +95,7 @@ export function SectionIndex({ items, label = "Sections", className }: { items: 
         </select>
       </label>
 
-      <nav aria-label={label} className={cn("hidden lg:block", className)}>
+      <nav aria-label={label} className={cn("hidden @min-[66rem]:block", className)}>
         <p className="mb-2 px-2 text-3xs font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
         <ol className="space-y-0.5">
           {items.map((item) => {

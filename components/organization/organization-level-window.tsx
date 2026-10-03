@@ -49,7 +49,7 @@ export function LevelFields({ form, set, errors, data, id, onDone }: FieldsProps
   return (
     <>
       {record && record.usage.employees > 0 && (
-        <p className="col-span-full rounded-md border border-info/25 bg-info-subtle px-2.5 py-1.5 text-xs text-info md:col-span-2">
+        <p className="col-span-full rounded-md border border-info/25 bg-info-subtle px-2.5 py-1.5 text-xs text-info">
           {record.usage.employees} employee{record.usage.employees === 1 ? " holds" : "s hold"} this level. Changing its code or name updates them too.
         </p>
       )}
@@ -76,7 +76,7 @@ export function LevelFields({ form, set, errors, data, id, onDone }: FieldsProps
       </Row>
 
       {!id && (
-        <div className="col-span-full border-t border-line pt-3 md:col-span-2">
+        <div className="col-span-full border-t border-line pt-3">
           <p className="mb-1.5 text-xs font-medium text-ink-label">Or load a whole industry scale</p>
           <div className="flex flex-wrap items-center gap-2" data-enter-skip>
             <SelectField

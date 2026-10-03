@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
 import { DateFormatProvider } from "@/lib/contexts/date-format-context";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/sidebar-context";
 import { WorkspaceContextProvider } from "@/lib/contexts/workspace-context";
-import { findActiveLocation, visibleModules } from "@/lib/frame/navigation";
+import { findActiveLocation, visibleModules, type ModuleId, type NavModule } from "@/lib/frame/navigation";
 import { resolveShortcut } from "@/lib/frame/shortcuts";
 import type { WorkspaceContext } from "@/lib/services/workspace-context.service";
 import { CommandPalette } from "./command-palette";
@@ -68,6 +68,10 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
   const [floatingNavOpen, setFloatingNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // A module picked on the rail whose pages the navigator lists, before the user chooses one.
+  const [browseId, setBrowseId] = useState<ModuleId | null>(null);
+  const flyoutRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
 
   const isImpersonating = Boolean(context?.isImpersonating);
   const { lockNow, countdown } = useIdleLock(!isImpersonating);
@@ -80,6 +84,7 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
   const location = findActiveLocation(pathname, modules);
   const activeModule = location?.module ?? modules[0] ?? null;
   const activeSection = location?.section ?? null;
+  const shownModule = modules.find((m) => m.id === browseId) ?? activeModule;
 
   const visibleHrefs = useMemo(() => new Set(modules.flatMap((m) => m.sections.map((s) => s.href))), [modules]);
   const recentAll = useRecentPages(
@@ -99,7 +104,52 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
     setLastPathname(pathname);
     setDrawerOpen(false);
     setFloatingNavOpen(false);
+    setBrowseId(null);
   }
+
+  /** Focus the first page of the navigator (keyboard: Alt+N, then ↓ / Enter). */
+  const focusNavigator = useCallback((module: NavModule) => {
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`nav[aria-label="${module.label} sections"] a`)?.focus());
+  }, []);
+
+  /**
+   * A rail icon (or Alt+N) shows that module's pages to choose from, without
+   * leaving the current page: in the docked navigator when it is pinned,
+   * otherwise in a flyout over the page. A single-page module opens directly.
+   */
+  const selectModule = useCallback(
+    (module: NavModule, viaKeyboard = false) => {
+      if (module.sections.length === 1) {
+        router.push(module.sections[0].href);
+        return;
+      }
+      const isActive = module.id === activeModule?.id;
+      if (window.matchMedia(XL_QUERY).matches && isPinned) {
+        setBrowseId(isActive ? null : module.id);
+      } else if (window.matchMedia(LG_QUERY).matches) {
+        const same = floatingNavOpen && (browseId ?? activeModule?.id) === module.id;
+        setBrowseId(isActive ? null : module.id);
+        setFloatingNavOpen(!same || viaKeyboard);
+      } else {
+        setBrowseId(isActive ? null : module.id);
+      }
+      if (viaKeyboard) focusNavigator(module);
+    },
+    [router, activeModule, isPinned, floatingNavOpen, browseId, focusNavigator]
+  );
+
+  // A flyout closes when the user clicks elsewhere (the rail handles its own clicks).
+  useEffect(() => {
+    if (!floatingNavOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (flyoutRef.current?.contains(t) || railRef.current?.contains(t)) return;
+      setFloatingNavOpen(false);
+      setBrowseId(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [floatingNavOpen]);
 
   // Global shortcuts (2.7).
   useEffect(() => {
@@ -107,6 +157,7 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
       if (e.key === "Escape") {
         setDrawerOpen(false);
         setFloatingNavOpen(false);
+        setBrowseId(null);
         return;
       }
       const hit = resolveShortcut(e, e.target as HTMLElement | null);
@@ -131,14 +182,14 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
           break;
         case "module": {
           const target = modules.find((m) => m.hotkey === String((hit.moduleIndex ?? 0) + 1));
-          if (target) router.push(target.sections[0].href);
+          if (target) selectModule(target, true);
           break;
         }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modules, router, toggleNavigator, lockNow, paletteOpen]);
+  }, [modules, toggleNavigator, lockNow, paletteOpen, selectModule]);
 
   const counters = { pendingApprovals: context?.pendingApprovalsCount ?? 0 };
 
@@ -157,8 +208,8 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
 
   const navigator = (onNavigate?: () => void) => (
     <SectionNav
-      module={activeModule}
-      activeSectionId={activeSection?.id ?? null}
+      module={shownModule}
+      activeSectionId={shownModule?.id === activeModule?.id ? (activeSection?.id ?? null) : null}
       counters={counters}
       recent={recent}
       onNavigate={onNavigate}
@@ -184,12 +235,14 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
 
         <div className="relative flex min-h-0 flex-1 print:block">
           {/* Rail (≥1024px) */}
-          <div className="hidden lg:flex print:hidden">
+          <div ref={railRef} className="hidden lg:flex print:hidden">
             <ModuleRail
               modules={modules}
               activeModuleId={activeModule?.id ?? null}
-              navigatorOpen={isPinned}
+              shownModuleId={isPinned || floatingNavOpen ? (shownModule?.id ?? null) : null}
+              navigatorOpen={isPinned || floatingNavOpen}
               onToggleNavigator={toggleNavigator}
+              onSelectModule={(m) => selectModule(m)}
             />
           </div>
 
@@ -198,8 +251,11 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
 
           {/* Floating navigator (1024–1279px, or ≥1280px when unpinned) */}
           {floatingNavOpen && (
-            <div className="absolute inset-y-0 left-14 z-40 hidden shadow-xl lg:flex print:hidden animate-[panelIn_160ms_var(--ease-out-quint)]">
-              {navigator(() => setFloatingNavOpen(false))}
+            <div ref={flyoutRef} className="absolute inset-y-0 left-14 z-40 hidden shadow-xl lg:flex print:hidden animate-[panelIn_160ms_var(--ease-out-quint)]">
+              {navigator(() => {
+                setFloatingNavOpen(false);
+                setBrowseId(null);
+              })}
             </div>
           )}
 
@@ -222,7 +278,9 @@ function FrameLayout({ children, context, impersonation }: AppFrameProps) {
             <ModuleRail
               modules={modules}
               activeModuleId={activeModule?.id ?? null}
+              shownModuleId={shownModule?.id ?? null}
               navigatorOpen
+              onSelectModule={(m) => selectModule(m)}
               onNavigate={() => setDrawerOpen(false)}
             />
             {navigator(() => setDrawerOpen(false))}

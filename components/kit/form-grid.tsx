@@ -11,16 +11,21 @@ import { cn } from "@/lib/utils";
  */
 export function FormGrid({ children, className, columns = 3 }: { children: ReactNode; className?: string; columns?: 2 | 3 }) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-x-8 gap-y-3 px-4 py-4 md:grid-cols-2",
-        columns === 3 && "xl:grid-cols-3",
-        // Dense desktop rows: every text-like control is 28px high in a form grid.
-        "[&_input:not([type=checkbox])]:h-7.5 [&_button[data-enter-field]]:h-7.5",
-        className
-      )}
-    >
-      {children}
+    // Columns follow the width the form actually has (container query), not the screen: an open
+    // side panel, the section index or a Window never squeezes three columns into too little room.
+    // A column needs about 23rem (label 8.5rem + a 14rem control), so 2 columns from 50rem, 3 from 76rem.
+    <div className="@container">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-x-8 gap-y-3 px-4 py-4 @min-[50rem]:grid-cols-2",
+          columns === 3 && "@min-[76rem]:grid-cols-3",
+          // Dense desktop rows: every text-like control is 28px high in a form grid.
+          "[&_input:not([type=checkbox])]:h-7.5 [&_button[data-enter-field]]:h-7.5",
+          className
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -91,15 +96,15 @@ export function GridField({
       data-field-help={help || undefined}
       className={cn(
         // The row being edited is tinted with a brand marker on its left, as desktop forms mark the current field.
-        "group -mx-2 grid min-w-0 grid-cols-1 gap-1 rounded-md px-2 py-1 transition-colors focus-within:bg-brand-subtle focus-within:shadow-[inset_3px_0_0_var(--color-brand)] sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
-        span === 2 && "md:col-span-2",
-        span === 3 && "md:col-span-2 xl:col-span-3",
+        "group -mx-2 grid min-w-0 grid-cols-1 gap-1 rounded-md px-2 py-1 transition-colors focus-within:bg-brand-subtle focus-within:shadow-[inset_3px_0_0_var(--color-brand)] @min-[26rem]:grid-cols-[8.5rem_minmax(0,1fr)] @min-[26rem]:items-start @min-[26rem]:gap-3",
+        span === 2 && "@min-[50rem]:col-span-2",
+        span === 3 && "col-span-full",
         className
       )}
     >
       <label
         htmlFor={id}
-        className="pt-1.5 text-xs font-medium leading-tight text-ink-label group-focus-within:text-brand-strong sm:text-right"
+        className="pt-1.5 text-xs font-medium leading-tight text-ink-label group-focus-within:text-brand-strong @min-[26rem]:text-right"
         title={label}
       >
         {label}
@@ -134,8 +139,8 @@ export function GridField({
 /** A value shown in the grid without an input (e.g. a calculated total). */
 export function GridValue({ label, children, span = 1 }: { label: string; children: ReactNode; span?: 1 | 2 | 3 }) {
   return (
-    <div className={cn("grid grid-cols-1 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-center sm:gap-3", span === 2 && "md:col-span-2", span === 3 && "md:col-span-2 xl:col-span-3")}>
-      <span className="text-xs font-medium text-ink-label sm:text-right">{label}</span>
+    <div className={cn("grid grid-cols-1 gap-1 @min-[26rem]:grid-cols-[8.5rem_minmax(0,1fr)] @min-[26rem]:items-center @min-[26rem]:gap-3", span === 2 && "@min-[50rem]:col-span-2", span === 3 && "col-span-full")}>
+      <span className="text-xs font-medium text-ink-label @min-[26rem]:text-right">{label}</span>
       <div className="min-w-0 text-sm text-ink">{children}</div>
     </div>
   );
@@ -253,12 +258,12 @@ export function ViewField({
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-start sm:gap-3",
-        span === 2 && "md:col-span-2",
-        span === 3 && "md:col-span-2 xl:col-span-3"
+        "grid min-w-0 grid-cols-1 gap-1 @min-[26rem]:grid-cols-[8.5rem_minmax(0,1fr)] @min-[26rem]:items-start @min-[26rem]:gap-3",
+        span === 2 && "@min-[50rem]:col-span-2",
+        span === 3 && "col-span-full"
       )}
     >
-      <span className="pt-1.5 text-xs font-medium leading-tight text-ink-label sm:text-right">{label}</span>
+      <span className="pt-1.5 text-xs font-medium leading-tight text-ink-label @min-[26rem]:text-right">{label}</span>
       <div className="flex min-w-0 items-start gap-2">
         <div
           className={cn(

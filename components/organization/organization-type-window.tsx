@@ -37,7 +37,7 @@ export function TypeFields({ form, set, errors, data, id }: FieldsProps<TypeForm
   return (
     <>
       {record && record.usage.employees > 0 && (
-        <p className="col-span-full rounded-md border border-info/25 bg-info-subtle px-2.5 py-1.5 text-xs text-info md:col-span-2">
+        <p className="col-span-full rounded-md border border-info/25 bg-info-subtle px-2.5 py-1.5 text-xs text-info">
           {record.usage.employees} employee{record.usage.employees === 1 ? " has" : "s have"} this type. Renaming it updates them too.
         </p>
       )}
@@ -47,13 +47,13 @@ export function TypeFields({ form, set, errors, data, id }: FieldsProps<TypeForm
       <Row label="Name" required error={errors.name} size="md">
         <TextInput name="name" value={form.name} onChange={(v) => set("name", v)} maxLength={50} placeholder="e.g. Contract" />
       </Row>
-      <p className="col-span-full border-t border-line pt-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted md:col-span-2">Eligible for</p>
+      <p className="col-span-full border-t border-line pt-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Eligible for</p>
       {FLAGS.map((f) => (
         <Row key={f.key} label={f.label} size="md" help={f.help}>
           <YesNoField name={f.key} value={form[f.key]} onChange={(v) => set(f.key, v)} />
         </Row>
       ))}
-      <p className="col-span-full border-t border-line pt-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted md:col-span-2">Terms</p>
+      <p className="col-span-full border-t border-line pt-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Terms</p>
       <Row label="Notice period" required error={errors.noticePeriodDays} size="xs" suffix="days">
         <NumberField name="noticePeriodDays" decimals={0} value={form.noticePeriodDays} onChange={(v) => set("noticePeriodDays", v)} showZero />
       </Row>

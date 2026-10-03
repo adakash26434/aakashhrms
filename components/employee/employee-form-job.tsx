@@ -258,7 +258,7 @@ function GradeBreakdownPanel({
   cells.push({ label: "Total monthly base", value: <Amount value={basic + gradeAmount} prefix="NPR" emphasis />, sub: gradesOff ? "Basic salary only" : "Basic + grade" });
 
   return (
-    <div className="md:col-span-2 xl:col-span-3 sm:pl-[calc(8.5rem+0.75rem)]">
+    <div className="col-span-full @min-[26rem]:pl-[calc(8.5rem+0.75rem)]">
       <dl
         aria-label="How the pay is worked out"
         className="grid grid-cols-1 divide-y divide-line overflow-hidden rounded-md border border-line-card bg-surface sm:grid-cols-2 sm:divide-y-0 xl:flex xl:divide-x"

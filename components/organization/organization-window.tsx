@@ -226,7 +226,7 @@ function EditorBody({ target, data, onClose, onSaved }: { target: EditTarget; da
       dirty={dirty}
       title={id ? `Edit ${noun}` : `New ${noun}`}
       description={id ? (form as { name?: string }).name || undefined : "Enter moves to the next field; Save is at the end."}
-      size={kind === "designation" ? "md" : kind === "branch" ? "xl" : "lg"}
+      size={kind === "designation" ? "md" : "xl"}
       footer={
         <>
           <WindowButton onClick={onClose} disabled={saving}>

@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-03 — Frame and forms: rail opens page lists; layout follows the space it has
+Branch: `redesign/4.3-organization`
+
+Your review: with the side panel open the employee form broke (codes and placeholders cut off, footer crowded); rail icons jumped to a fixed page (Workforce always opened Employees) instead of letting you choose.
+
+- **Fixed in the design, not by hiding the panel:** forms now size by the width they actually have (container queries). `FormGrid` gives 2 columns from 50rem and 3 from 76rem of its own width; the section index sits beside the editor only from 66rem, otherwise it becomes "Jump to section"; the editor footer drops the key hints and field hint when narrow; code boxes keep their width with "Next free" beside them. Result: 3 columns at 1920, 2 columns at 1536 / 1366 / 1280 / 1024 with the panel docked, 1 on phones; no cut-off fields.
+- **Rail:** an icon lists the module's pages to choose from (docked navigator switches module without leaving the page; otherwise a flyout over the page, closing on a choice, Esc, a click elsewhere or the same icon). Home opens directly. Alt+1…7 does the same and puts focus on the first page.
+- **Organization windows** are wide enough for two columns (xl).
+- **Language rule** confirmed: Nepali only where genuinely required, after asking.
+
+Verified: tsc 0 · eslint: nothing new · 456/456 tests · `next build` · Playwright: form columns and cut-off check at 1920 / 1536 / 1366 / 1280 / 1024 / 390 with the panel docked; rail docked (Time & Leave listed without leaving Organization, choosing Leaves navigates, Alt+2 focuses Employees) and undocked (flyout, outside click and same icon close it); 0 console errors.
+
+---
+
 ## 2026-10-03 — 4.3 Organization: review fixes (pop-ups, layout, English only)
 Branch: `redesign/4.3-organization`
 

@@ -3,6 +3,7 @@
 import { RotateCcw } from "lucide-react";
 import { DateField } from "@/components/kit/date-field";
 import { GridField } from "@/components/kit/form-grid";
+import { cn } from "@/lib/utils";
 import { inputClass } from "@/components/kit/property-form";
 import { codeConflicts, getNextAttendanceCode, getNextEmployeeCode } from "@/lib/engines/employee.engine";
 import { ChoiceField, FormSection, TextField, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
@@ -75,7 +76,7 @@ function CodeInput({
   "aria-required"?: boolean;
 }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       <input
         id={id}
         name={name}
@@ -84,7 +85,7 @@ function CodeInput({
         maxLength={30}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} w-36 max-w-none font-code`}
+        className={cn(inputClass, "w-28 max-w-none shrink-0 font-code")}
         {...aria}
       />
       <button

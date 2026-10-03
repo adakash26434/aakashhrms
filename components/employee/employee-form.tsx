@@ -275,75 +275,79 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
 
       <EmployeeFormHeader form={form} ctx={ctx} isNew={isNew} progress={progress} />
 
-      <div className="grid gap-5 lg:grid-cols-[196px_minmax(0,1fr)]">
-        <SectionIndex
-          className="sticky top-0 self-start"
-          items={progress.map((p, i) => ({ id: `section-${p.id}`, label: `${i + 1}. ${p.label}`, state: p.state, errors: p.errors, filled: p.filled, required: p.required }))}
-        />
-        <div className="min-w-0">
-          <SectionProgressContext.Provider value={progressById}>
-          <PropertyForm className="space-y-4" onSubmit={() => save(false)} enterNavigation={{ validate, end: () => saveRef.current }}>
-            <EmployeeFormIdentification api={api} />
-            <EmployeeFormJob api={api} />
-            <EmployeeFormDocuments api={api} />
-            <EmployeeFormContact api={api} sameAddress={sameAddress} onSameAddress={setSameAddress} />
-            <EmployeeFormFamily api={api} />
-            <EmployeeFormBank
-              api={api}
-              confirm={accountConfirm}
-              needsConfirm={needsConfirm}
-              onConfirm={(v) => {
-                setAccountConfirm(v);
-                clearError("bankAccountConfirm");
-              }}
-            />
-            <EmployeeFormAccess api={api} options={access} onOptions={setAccess} />
-            {showSeparation && <EmployeeFormSeparation api={api} />}
-          </PropertyForm>
-          </SectionProgressContext.Provider>
+      {/* The section index sits beside the form only when there is room for it and a two-column form
+          (container query); otherwise it becomes the "Jump to section" list above the form. */}
+      <div className="@container">
+        <div className="grid gap-5 @min-[66rem]:grid-cols-[196px_minmax(0,1fr)]">
+          <SectionIndex
+            className="sticky top-0 self-start"
+            items={progress.map((p, i) => ({ id: `section-${p.id}`, label: `${i + 1}. ${p.label}`, state: p.state, errors: p.errors, filled: p.filled, required: p.required }))}
+          />
+          <div className="min-w-0">
+            <SectionProgressContext.Provider value={progressById}>
+            <PropertyForm className="space-y-4" onSubmit={() => save(false)} enterNavigation={{ validate, end: () => saveRef.current }}>
+              <EmployeeFormIdentification api={api} />
+              <EmployeeFormJob api={api} />
+              <EmployeeFormDocuments api={api} />
+              <EmployeeFormContact api={api} sameAddress={sameAddress} onSameAddress={setSameAddress} />
+              <EmployeeFormFamily api={api} />
+              <EmployeeFormBank
+                api={api}
+                confirm={accountConfirm}
+                needsConfirm={needsConfirm}
+                onConfirm={(v) => {
+                  setAccountConfirm(v);
+                  clearError("bankAccountConfirm");
+                }}
+              />
+              <EmployeeFormAccess api={api} options={access} onOptions={setAccess} />
+              {showSeparation && <EmployeeFormSeparation api={api} />}
+            </PropertyForm>
+            </SectionProgressContext.Provider>
 
-          {/* Sticky footer: Enter on the last field lands on Save. It reaches into the page padding so nothing shows beneath it. */}
-          <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-6 bg-surface-sunken lg:-bottom-6 lg:-mx-6 lg:-mb-6">
-            {leave.pending ? (
-              <DiscardBar onKeep={leave.keep} onDiscard={leave.discard} />
-            ) : (
-              <div className="flex items-center justify-end gap-2 border-t border-line bg-surface-sunken/95 px-4 py-2 backdrop-blur lg:px-6">
-                {/* Status bar, as in desktop accounting software: the focused field's hint, what is left, save state, keys. */}
-                <StatusBar
-                  className="mr-auto hidden min-w-0 flex-1 md:flex"
-                  segments={[
-                    { id: "hint", grow: true, content: fieldHelp || "Fill in the record; Enter moves to the next field." },
-                    {
-                      id: "left",
-                      tone: requiredLeft === 0 ? "success" : "default",
-                      content: requiredLeft === 0 ? "All required fields filled" : `${requiredLeft} required left`,
-                    },
-                    { id: "dirty", tone: dirty ? "warning" : "default", content: dirty ? "Unsaved changes" : savedCount ? `${savedCount} saved` : "No changes" },
-                    {
-                      id: "keys",
-                      content: (
-                        <span className="hidden items-center gap-1 xl:inline-flex">
-                          <Kbd>Enter</Kbd> next <Kbd>F6</Kbd> section <Kbd>Ctrl S</Kbd> save
-                        </span>
-                      ),
-                    },
-                  ]}
-                />
-                <WindowButton onClick={cancel} disabled={!!saving}>
-                  Cancel
-                </WindowButton>
-                {isNew && (
-                  <WindowButton onClick={() => save(true)} disabled={!!saving}>
-                    {saving === "another" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Save & add another
+            {/* Sticky footer: Enter on the last field lands on Save. It reaches into the page padding so nothing shows beneath it. */}
+            <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-6 bg-surface-sunken lg:-bottom-6 lg:-mx-6 lg:-mb-6">
+              {leave.pending ? (
+                <DiscardBar onKeep={leave.keep} onDiscard={leave.discard} />
+              ) : (
+                <div className="@container flex items-center justify-end gap-2 border-t border-line bg-surface-sunken/95 px-4 py-2 backdrop-blur lg:px-6">
+                  {/* Status bar, as in desktop accounting software: the focused field's hint, what is left, save state, keys. */}
+                  <StatusBar
+                    className="mr-auto hidden min-w-0 flex-1 @min-[40rem]:flex"
+                    segments={[
+                      { id: "hint", grow: true, content: fieldHelp || "Fill in the record; Enter moves to the next field." },
+                      {
+                        id: "left",
+                        tone: requiredLeft === 0 ? "success" : "default",
+                        content: requiredLeft === 0 ? "All required fields filled" : `${requiredLeft} required left`,
+                      },
+                      { id: "dirty", tone: dirty ? "warning" : "default", content: dirty ? "Unsaved changes" : savedCount ? `${savedCount} saved` : "No changes" },
+                      {
+                        id: "keys",
+                        content: (
+                          <span className="hidden items-center gap-1 @min-[66rem]:inline-flex">
+                            <Kbd>Enter</Kbd> next <Kbd>F6</Kbd> section <Kbd>Ctrl S</Kbd> save
+                          </span>
+                        ),
+                      },
+                    ]}
+                  />
+                  <WindowButton onClick={cancel} disabled={!!saving}>
+                    Cancel
                   </WindowButton>
-                )}
-                <WindowButton ref={saveRef} variant="primary" onClick={() => save(false)} disabled={!!saving} className={cn(saving === "save" && "cursor-wait")}>
-                  {saving === "save" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {isNew ? "Save employee" : "Save changes"}
-                </WindowButton>
-              </div>
-            )}
+                  {isNew && (
+                    <WindowButton onClick={() => save(true)} disabled={!!saving}>
+                      {saving === "another" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Save & add another
+                    </WindowButton>
+                  )}
+                  <WindowButton ref={saveRef} variant="primary" onClick={() => save(false)} disabled={!!saving} className={cn(saving === "save" && "cursor-wait")}>
+                    {saving === "save" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {isNew ? "Save employee" : "Save changes"}
+                  </WindowButton>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

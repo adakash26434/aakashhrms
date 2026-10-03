@@ -503,10 +503,27 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
 
 ## 6. Keyboard map (initial)
 
+**Rail (4.3 review).** A rail icon no longer jumps to the module's first page:
+it lists the module's pages so you choose (Business Central / VS Code
+pattern). With the navigator docked (Ctrl B, from 1280px) the docked
+navigator switches to that module while the current page stays; otherwise the
+list opens as a flyout over the page that closes on a choice, Esc, a click
+elsewhere or the same icon again. A single-page module (Home) opens directly.
+The rail marks the module of the current page (brand bar) and, separately, the
+module being browsed.
+
+**Content adapts to the space it has.** With the navigator docked the page is
+224px narrower, so layouts use **container queries**, not screen breakpoints:
+`FormGrid` gives 2 columns from 50rem and 3 from 76rem of its own width (labels
+beside fields from 26rem); the editor's section index sits beside the form
+only from 66rem (else "Jump to section" above it); the address row and the
+editor footer adapt the same way. New layouts inside the workspace follow this
+rule.
+
 | Keys | Action |
 |---|---|
 | `Ctrl K` / `Alt G` | Command palette ("Go To") |
-| `Alt 1…7` | Switch module |
+| `Alt 1…7` | Show that module's pages in the navigator (focus on the first; ↓ / Enter to open). Home opens directly |
 | `Ctrl B` | Toggle section navigator |
 | `Ctrl Shift L` | Lock the session (implemented in Phase 2) |
 | `Ctrl N` | New record (current register) |
@@ -531,8 +548,9 @@ Pages render inside a white workspace with 24px padding (16px below 1024px). The
   districts) stay in the database but are not shown or edited. After the
   whole system is finished in English, a separate translation pass adds
   Nepali across the system. Use Nepali text only where something genuinely
-  requires it (for example a statutory form that must be printed in Nepali),
-  and **ask before adding it**. Typing Nepali digits into date and number
+  requires it (for example a statutory form or letter that must be in
+  Nepali, or a legal name as written on a document), and **ask before adding
+  it** (confirmed by you, 2026-10-03). Typing Nepali digits into date and number
   fields still works (they are converted); BS dates use English month names.
 - Never hard-code hex colours or `zinc-NNN` in **new** code. Use the semantic
   tokens (`bg-surface`, `text-ink-muted`, `border-line`, `bg-brand`…). See the

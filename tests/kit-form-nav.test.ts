@@ -245,3 +245,32 @@ describe('English-only screens (design system §7 "Language")', () => {
     }
   });
 });
+
+describe('Layout follows the space the form has (4.3 review: side panel open)', () => {
+  const grid = readFileSync(join(__dirname, '..', 'components/kit/form-grid.tsx'), 'utf8');
+
+  it('form columns and label placement use container queries, not screen breakpoints', () => {
+    assert.match(grid, /@container/);
+    assert.match(grid, /@min-\[50rem\]:grid-cols-2/);
+    assert.match(grid, /@min-\[76rem\]:grid-cols-3/);
+    assert.ok(!/\b(sm|md|lg|xl):grid-cols-/.test(grid), 'no screen-width column rules in the form grid');
+  });
+
+  it('the editor puts the section index beside the form only when there is room for it', () => {
+    const editor = readFileSync(join(__dirname, '..', 'components/employee/employee-form.tsx'), 'utf8');
+    const index = readFileSync(join(__dirname, '..', 'components/kit/section-index.tsx'), 'utf8');
+    assert.match(editor, /@min-\[66rem\]:grid-cols-\[196px_minmax\(0,1fr\)\]/);
+    assert.match(index, /@min-\[66rem\]:hidden/);
+  });
+});
+
+describe('Module rail (4.3 review)', () => {
+  const rail = readFileSync(join(__dirname, '..', 'components/frame/module-rail.tsx'), 'utf8');
+  const frame = readFileSync(join(__dirname, '..', 'components/frame/app-frame.tsx'), 'utf8');
+
+  it('a module with several pages opens its page list instead of jumping to its first page', () => {
+    assert.match(rail, /single \?[\s\S]*<Link[\s\S]*: \([\s\S]*<button[\s\S]*onSelectModule\(module\)/);
+    assert.match(frame, /const selectModule = useCallback/);
+    assert.ok(!/router\.push\(target\.sections\[0\]\.href\)/.test(frame), 'Alt+N no longer jumps to the first page');
+  });
+});

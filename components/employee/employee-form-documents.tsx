@@ -49,7 +49,7 @@ export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
         </button>
       }
     >
-      <div className="overflow-x-auto md:col-span-2 xl:col-span-3">
+      <div className="col-span-full overflow-x-auto">
         <table className="w-full min-w-[34rem] max-w-3xl border-separate border-spacing-y-1 text-xs">
           <thead>
             <tr className="text-left text-3xs uppercase tracking-wide text-ink-faint">
