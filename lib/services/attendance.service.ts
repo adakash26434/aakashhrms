@@ -800,7 +800,7 @@ export async function attendanceForPayroll(employeeIds: string[], run: { bsYear:
   if (!employeeIds.length) return out;
   const closed = await repo.findClosedSummaries(employeeIds, "BS", run.bsYear, run.bsMonth);
   for (const s of closed) {
-    out.set(s.employeeId, { leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"), otEarnedAmount: String(s.otEarnedAmount ?? "0"), unpaidDays: Number(s.unpaidDays) || 0, closed: true, otWarnings: s.otWarnings });
+    out.set(s.employeeId, { leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"), otEarnedAmount: String(s.otEarnedAmount ?? "0"), unpaidDays: (Number(s.unpaidDays) || 0) + (Number(s.notEmployedDays) || 0), closed: true, otWarnings: s.otWarnings });
   }
   const open = employeeIds.filter((id) => !out.has(id));
   if (!open.length) return out;

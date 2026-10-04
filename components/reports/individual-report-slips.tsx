@@ -320,7 +320,7 @@ export function AttendanceIndividualSlips({
           <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 py-2 text-xs mb-6">
             <div className="py-2 px-3 sm:first:pl-0">
               <span className="text-2xs text-zinc-500 block font-medium">
-                Working Days
+                Days employed
               </span>
               <span className="text-xl font-semibold tracking-tight text-zinc-950 font-mono mt-0.5 block">
                 {row.totalWorkingDays}

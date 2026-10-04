@@ -132,7 +132,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
         return;
       }
       const csv = rowsToCsv(
-        ["SN", "Code", "EmployeeName", "Department", "WorkingDays", "Present", "PayLeave", "NonPayLeave", "AbsentDays", "OfficeOT", "OffDayOT", "OTEarned", "LeaveDeduction"],
+        ["SN", "Code", "EmployeeName", "Department", "DaysEmployed", "Present", "PayLeave", "NonPayLeave", "AbsentDays", "OfficeOT", "OffDayOT", "OTEarned", "LeaveDeduction"],
         exportRows.map((r, idx) => [
           idx + 1, r.employeeCode, r.employeeName, r.departmentName, r.totalWorkingDays, r.presentDays, r.payLeaveDays,
           r.nonPayLeaveDays, r.absentDays, r.totalOtHoursOffice, r.totalOtHoursOff, r.otEarnedAmount, r.leaveDeductionAmount,

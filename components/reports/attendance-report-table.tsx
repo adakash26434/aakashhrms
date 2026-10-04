@@ -216,7 +216,7 @@ export function AttendanceReportTable({
                 <th className="px-3 py-3 min-w-36">Employee name</th>
                 <th className="px-3 py-3">Department</th>
                 <th className="px-3 py-3">Position</th>
-                <th className="px-3 py-3 text-center">Working days</th>
+                <th className="px-3 py-3 text-center" title="Days in the month while employed">Days employed</th>
                 <th className="px-3 py-3 text-center text-emerald-700">Present</th>
                 <th className="px-3 py-3 text-center text-teal-700">Pay leave</th>
                 <th className="px-3 py-3 text-center text-amber-700">Non-pay leave</th>

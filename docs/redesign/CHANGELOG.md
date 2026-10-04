@@ -13,6 +13,12 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-04 — 4.5a signed off
+Final check before sign-off: tsc 0 · 556/556 tests · lint clean on the attendance files · every attendance tab, the dashboard, employee list, payroll, leaves, self-service and the attendance report load without errors · the attendance report agrees with the register for Aswin 2083 (Kushal 5 present / 7 absent, Pramod 6 / 6, Sumina 6 / 6).
+Fixed: a closed month's payroll "unpaid days" now also counts days before joining / after leaving, as an open month does (the deduction amount was already the same); the attendance report's "Working days" column, slip and CSV header renamed "Days employed" (it is the days of the month while employed).
+
+---
+
 ## 2026-10-04 — 4.5a Attendance foundation
 Branch: `redesign/4.5-attendance` (stacked on 4.4)
 
