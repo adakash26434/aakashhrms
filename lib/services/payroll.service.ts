@@ -42,7 +42,7 @@ import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
-import { calculateMonthlyAttendanceAndOt } from "@/lib/services/attendance.service";
+import { attendanceForPayroll } from "@/lib/services/attendance.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -256,35 +256,10 @@ export async function generatePayrollRun(
     throw new SalaryMappingMissingError(missingSalaryMappings);
   }
 
-  // 5. Batch-load or dynamically calculate Leave/OT calculations for all employees
+  // 5. Attendance for the month (4.5): the closed summary, or worked out now from the same
+  // day rules without writing anything (the month stays as it is).
   const empIds = scopedEmployees.map(e => e.id);
-  const allLeaveOtCalcs = await (await getDb()).select().from(leaveOtCalculations).where(
-    and(
-      inArray(leaveOtCalculations.employeeId, empIds),
-      eq(leaveOtCalculations.bsMonth, payPeriodMonth),
-      eq(leaveOtCalculations.fiscalYearId, activeFy.id)
-    )
-  );
-
-  // Build lookup map
-  const leaveOtByEmployeeId = new Map<string, typeof allLeaveOtCalcs[0]>();
-  for (const calc of allLeaveOtCalcs) {
-    leaveOtByEmployeeId.set(calc.employeeId, calc);
-  }
-
-  // Auto-calculate attendance & OT metrics on the fly for any employees without a pre-locked calculation
-  for (const emp of scopedEmployees) {
-    const existing = leaveOtByEmployeeId.get(emp.id);
-    if (!existing || !existing.isLocked) {
-      const draftCalc = await calculateMonthlyAttendanceAndOt(
-        emp.id,
-        payPeriodMonth,
-        false, // draft mode — not locked until payroll run is locked
-        { start: startStr, end: endStr }
-      );
-      leaveOtByEmployeeId.set(emp.id, draftCalc as any);
-    }
-  }
+  const leaveOtByEmployeeId = await attendanceForPayroll(empIds, { bsYear: payPeriodYear, bsMonth: payPeriodMonth, start: startStr, end: endStr });
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
   const pendingLeaves = await (await getDb()).select({ count: sql`count(*)` }).from(leaveApplications).where(
@@ -946,18 +921,19 @@ export async function syncPayrollRunAttendance(
   }
 
   const slips = await repository.findSlipsByRunId(runId);
+  // Re-reads attendance for the month (closed summary, or worked out now); never unlocks anything (4.5).
+  const attendance = await attendanceForPayroll(slips.map((x) => x.employeeId), {
+    bsYear: run.payPeriodYear,
+    bsMonth: run.payPeriodMonth,
+    start: run.payPeriodStartDate,
+    end: run.payPeriodEndDate,
+  });
   for (const s of slips) {
-    const calc = await calculateMonthlyAttendanceAndOt(
-      s.employeeId,
-      run.payPeriodMonth,
-      false,
-      { start: run.payPeriodStartDate, end: run.payPeriodEndDate }
-    );
-
+    const calc = attendance.get(s.employeeId);
     await overridePayslipAllowanceDeduction({
       slipId: s.id,
-      absentDeduction: String(calc.leaveDeductionAmount || "0"),
-      otAmount: String(calc.otEarnedAmount || "0"),
+      absentDeduction: calc?.leaveDeductionAmount ?? "0",
+      otAmount: calc?.otEarnedAmount ?? "0",
     }, userId);
   }
 
@@ -1066,14 +1042,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     throw new SalaryMappingMissingError([emp.fullName]);
   }
 
-  // Load Leave/OT calculation for this month
-  const [leaveOtCalc] = await (await getDb()).select().from(leaveOtCalculations).where(
-    and(
-      eq(leaveOtCalculations.employeeId, emp.id),
-      eq(leaveOtCalculations.bsMonth, run.payPeriodMonth),
-      eq(leaveOtCalculations.fiscalYearId, run.fiscalYearId)
-    )
-  );
+  // Attendance for this month (4.5): closed summary, or worked out now without saving.
+  const leaveOtCalc = (await attendanceForPayroll([emp.id], { bsYear: run.payPeriodYear, bsMonth: run.payPeriodMonth, start: run.payPeriodStartDate, end: run.payPeriodEndDate })).get(emp.id);
   const attendCalc = {
     leaveDeductionAmount: leaveOtCalc?.leaveDeductionAmount || "0",
     otEarnedAmount: leaveOtCalc?.otEarnedAmount || "0"

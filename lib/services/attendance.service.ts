@@ -1,266 +1,823 @@
-
 import Decimal from "decimal.js";
-import * as repository from "@/lib/repositories/attendance.repository";
-import * as employeeRepository from "@/lib/repositories/employee.repository";
-import * as departmentRepository from "@/lib/repositories/department.repository";
+import * as repo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
-import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
-import * as salaryRepository from "@/lib/repositories/salary-mapping.repository";
+import * as departmentRepository from "@/lib/repositories/department.repository";
+import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
+import { getCompanyWorkSchedule, saveCompanyWorkSchedule } from "@/lib/repositories/company-setup.repository";
+import { findUserNames } from "@/lib/repositories/salary-structure.repository";
+import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
+import { includesOwnRecord, isOwnRecord } from "@/lib/auth/self-action";
+import { UserFacingError } from "@/lib/errors/action-error";
+import { nepalDateIso } from "@/lib/utils/nepal-time";
+import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
+import { addDays, datesIn, periodContaining, periodFor, WEEKDAYS, type PayPeriod } from "@/lib/engines/pay-period.engine";
+import { DEFAULT_RULES, clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
+import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import {
-  validateAttendanceRecord,
-  calculateWorkHours,
-  evaluateLateArrival,
-  calculateAttendanceKPIs,
-} from "@/lib/engines/attendance.engine";
-import { getBSMonthRange, formatADDate } from "@/lib/utils/bs-calendar";
-import type {
-  AttendanceData,
-  AttendanceFormData,
-  AttendanceFilter,
-  AttendanceBulkItem,
-  AttendanceRecord,
+  ADJUSTMENT_KINDS,
+  OVERRIDE_TYPES,
+  type AdjustmentKind,
+  type AdjustmentView,
+  type AttendancePageData,
+  type AttendanceRules,
+  type AttendanceTab,
+  type BranchMonth,
+  type DayLeave,
+  type DayResult,
+  type MonthSummary,
+  type OverrideType,
+  type PunchView,
+  type RegisterEmployee,
+  type RegisterRow,
+  type ShiftRule,
 } from "@/lib/types/attendance";
 
-/**
- * Load initial page data for the selected date.
- */
-export async function getAttendanceData(filter?: Partial<AttendanceFilter>): Promise<AttendanceData> {
-  const targetDate = filter?.date || new Date().toISOString().split("T")[0];
+// Attendance (4.5): the day rules applied to people, punches, approved leave,
+// holidays and HR overrides; the register; adjustments (regularization) with
+// approval; month close per branch; and the figures payroll reads. Every
+// entry point takes the user's scope; S21: nobody edits, overrides or
+// approves their own attendance.
 
-  const [records, employees, departments, branches, fiscalYears] = await Promise.all([
-    repository.findAttendanceByDate(targetDate),
-    employeeRepository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "Active" }),
-    departmentRepository.findAllDepartments(),
-    branchRepository.findAllBranches(),
-    fiscalYearRepository.findAllFiscalYears(),
-  ]);
+const WORDING: ApprovalWording = {
+  ownSubject: "This is your own attendance, so someone else has to approve it.",
+  noPermission: "Only the employee's supervisor or someone with Attendance → Approve can approve this.",
+};
+const MAX_CELLS = 2000;
 
-  const activeEmployees = employees.filter((e) => e.status === "Active");
-  const activeFy = fiscalYears.find((f) => f.status === "Active");
-  if (!activeFy) {
-    throw new Error("Active fiscal year not found. Please activate a fiscal year in settings.");
-  }
+// ---------------------------------------------------------------------------
+// Rules (company work schedule + attendance-only settings)
+// ---------------------------------------------------------------------------
 
-  // Calculate KPIs across all recorded and unrecorded active employees for this date
-  const kpis = calculateAttendanceKPIs(records, activeEmployees.length);
+interface StoredRules {
+  noRecord?: unknown;
+  lateRule?: { enabled?: unknown; count?: unknown };
+  fullDayMinutes?: unknown;
+  otMinimumMinutes?: unknown;
+}
 
+/** The rules in force: office time, break, grace, half day and weekly offs from Company setup; the rest stored with attendance. */
+export async function getRules(): Promise<AttendanceRules> {
+  const [ws, storedRaw] = await Promise.all([getCompanyWorkSchedule(), repo.getRulesJson()]);
+  const stored = (storedRaw && typeof storedRaw === "object" ? storedRaw : {}) as StoredRules;
+  const start = clockMinutes(ws.coreStartTime) !== null ? ws.coreStartTime : DEFAULT_RULES.shift.start;
+  const end = clockMinutes(ws.coreEndTime) !== null ? ws.coreEndTime : DEFAULT_RULES.shift.end;
+  const breakMinutes = Number.isFinite(ws.lunchBreakMinutes) ? Math.max(0, Math.min(180, ws.lunchBreakMinutes)) : 30;
+  const halfDayMinutes = Math.round((ws.halfDayThresholdHours || 4) * 60);
+  const span = (() => {
+    const a = clockMinutes(start)!;
+    let b = clockMinutes(end)!;
+    if (b <= a) b += 1440;
+    return b - a;
+  })();
+  const planned = Math.max(60, span - breakMinutes);
+  const full = Number(stored.fullDayMinutes);
+  const otMin = Number(stored.otMinimumMinutes);
+  const weeklyOffs = (ws.weeklyOffDays ?? []).map((d) => WEEKDAYS.indexOf(d as (typeof WEEKDAYS)[number])).filter((i) => i >= 0);
+  const shift: ShiftRule = {
+    id: null,
+    name: "General",
+    start,
+    end,
+    breakMinutes,
+    graceMinutes: Math.max(0, Math.min(120, ws.gracePeriodMinutes ?? 15)),
+    halfDayMinutes,
+    fullDayMinutes: Number.isFinite(full) && full >= halfDayMinutes ? full : Math.max(halfDayMinutes, planned - 60),
+    otMinimumMinutes: Number.isFinite(otMin) && otMin >= 0 ? otMin : 30,
+    weeklyOffs,
+  };
+  const late = stored.lateRule ?? {};
   return {
-    records,
-    employees: activeEmployees.map((e) => ({
-      id: e.id,
-      employeeCode: e.employeeCode,
-      attendanceCode: e.attendanceCode || e.employeeCode,
-      fullName: e.fullName,
-      departmentId: e.departmentId,
-      departmentName: departments.find((d) => d.id === e.departmentId)?.name ?? "—",
-      branchId: e.branchId,
-      branchName: branches.find((b) => b.id === e.branchId)?.name ?? "—",
-    })),
-    departments: departments.map((d) => ({ id: d.id, name: d.name })),
-    branches: branches.map((b) => ({ id: b.id, name: b.name })),
-    activeFiscalYear: { id: activeFy.id, label: "label" in activeFy ? activeFy.label : "FY 2081/82" },
-    kpis,
-    selectedDate: targetDate,
+    // AD months come with payroll runs in AD months (4.8); until then attendance months are BS.
+    calendar: "BS",
+    noRecord: stored.noRecord === "present" ? "present" : "absent",
+    lateRule: { enabled: late.enabled === true, count: Math.max(1, Math.min(10, Number(late.count) || 3)) },
+    shift,
   };
 }
 
-/**
- * Save or update a single daily attendance punch.
- * Evaluates grace windows and elapsed work hours automatically.
- */
-export async function saveAttendancePunch(
-  id: string | null,
-  formData: AttendanceFormData
-): Promise<AttendanceRecord> {
-  const employees = await employeeRepository.findAll({ search: "", departmentId: "all", branchId: "all", category: "all", status: "Active" });
-  const errors = validateAttendanceRecord(formData, employees.map((e) => e.id));
+/** Saves the rules: office time into Company setup's work schedule (one source), the rest with attendance. */
+export async function saveRules(raw: unknown): Promise<AttendanceRules> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+  const start = String(r.start ?? "");
+  const end = String(r.end ?? "");
+  if (clockMinutes(start) === null) errors.start = "Use a time like 10:00";
+  if (clockMinutes(end) === null) errors.end = "Use a time like 18:00";
+  const num = (k: string, min: number, max: number) => {
+    const n = Number(r[k]);
+    if (!Number.isFinite(n) || n < min || n > max) errors[k] = `Between ${min} and ${max}`;
+    return n;
+  };
+  const breakMinutes = num("breakMinutes", 0, 180);
+  const graceMinutes = num("graceMinutes", 0, 120);
+  const halfDayMinutes = num("halfDayMinutes", 60, 720);
+  const fullDayMinutes = num("fullDayMinutes", 60, 960);
+  const otMinimumMinutes = num("otMinimumMinutes", 0, 240);
+  const lateCount = num("lateCount", 1, 10);
+  if (!errors.fullDayMinutes && !errors.halfDayMinutes && fullDayMinutes < halfDayMinutes) errors.fullDayMinutes = "A full day must be at least a half day";
+  const weeklyOffs = Array.isArray(r.weeklyOffs) ? [...new Set(r.weeklyOffs.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))] : [];
+  if (weeklyOffs.length > 3) errors.weeklyOffs = "At most three weekly off days";
+  if (Object.keys(errors).length) throw new AttendanceValidationError(errors);
 
-  if (Object.keys(errors).length > 0) {
-    throw new Error(Object.values(errors)[0] || "Validation failed.");
+  const ws = await getCompanyWorkSchedule();
+  await saveCompanyWorkSchedule({
+    ...ws,
+    coreStartTime: start,
+    coreEndTime: end,
+    lunchBreakMinutes: breakMinutes,
+    gracePeriodMinutes: graceMinutes,
+    halfDayThresholdHours: halfDayMinutes / 60,
+    weeklyOffDays: weeklyOffs.map((i) => WEEKDAYS[i]),
+    workingDaysPerWeek: 7 - weeklyOffs.length === 5 ? 5 : 6,
+  });
+  await repo.setRulesJson({
+    noRecord: r.noRecord === "present" ? "present" : "absent",
+    lateRule: { enabled: r.lateEnabled === true, count: lateCount },
+    fullDayMinutes,
+    otMinimumMinutes,
+  });
+  return getRules();
+}
+
+export class AttendanceValidationError extends Error {
+  constructor(public errors: Record<string, string>) {
+    super("Check the highlighted fields.");
+    this.name = "AttendanceValidationError";
   }
+}
 
-  // Calculate work hours if times provided
-  const computedHours = formData.inTime && formData.outTime
-    ? calculateWorkHours(formData.inTime, formData.outTime)
-    : formData.workHours || 8;
+/** A refusal because the request is about the user's own attendance (the action audits DENIED_SELF). */
+export class OwnAttendanceError extends UserFacingError {
+  constructor(message = "You can't change or approve your own attendance. Ask someone else.") {
+    super(message);
+    this.name = "OwnAttendanceError";
+  }
+}
 
-  // Evaluate late arrival against 9:00 AM start with 40-min grace window
-  const isLate = formData.inTime ? evaluateLateArrival(formData.inTime, 9, 0, 40) : formData.isLate;
+/** A request naming employees outside the user's scope (the action audits DENIED_SCOPE). */
+export class OutOfScopeError extends UserFacingError {
+  constructor() {
+    super("Some employees are not in your branch / department. Refresh and try again.");
+    this.name = "OutOfScopeError";
+  }
+}
 
-  return await repository.saveRecord(id, {
-    employeeId: formData.employeeId,
-    fiscalYearId: formData.fiscalYearId,
-    attendanceDate: formData.attendanceDate,
-    status: formData.status,
-    inTime: formData.inTime || null,
-    outTime: formData.outTime || null,
-    workHours: computedHours,
-    otHoursOfficeDay: formData.otHoursOfficeDay || 0,
-    otHoursOffDay: formData.otHoursOffDay || 0,
-    isLate,
-    remarks: formData.remarks || null,
+// ---------------------------------------------------------------------------
+// Resolving days
+// ---------------------------------------------------------------------------
+
+type Employee = repo.AttendanceEmployee;
+
+interface Context {
+  rules: AttendanceRules;
+  ot: Map<string, boolean>;
+  holidays: Awaited<ReturnType<typeof repo.findHolidays>>;
+  leaves: Awaited<ReturnType<typeof repo.findApprovedLeaves>>;
+  punches: Map<string, string[]>;
+  overrides: Awaited<ReturnType<typeof repo.findOverrides>>;
+  today: string;
+}
+
+/** Everything the day rules need for some employees between two dates. */
+async function loadContext(employees: Employee[], from: string, to: string, rules?: AttendanceRules): Promise<Context> {
+  const ids = employees.map((e) => e.id);
+  const [r, ot, holidays, leaves, punchRows, overrides] = await Promise.all([
+    rules ? Promise.resolve(rules) : getRules(),
+    repo.findOtEligibility(),
+    repo.findHolidays(from, to),
+    repo.findApprovedLeaves(ids, from, to),
+    // Night shifts reach into the next morning: read a day either side.
+    repo.findPunches(ids, instantAt(addDays(from, -1), 0), instantAt(addDays(to, 2), 0)),
+    repo.findOverrides(ids, from, to),
+  ]);
+  const punches = new Map<string, string[]>();
+  for (const p of punchRows) punches.set(p.employeeId, [...(punches.get(p.employeeId) ?? []), p.punchedAt]);
+  return { rules: r, ot, holidays, leaves, punches, overrides, today: nepalDateIso() };
+}
+
+const LEAVE_PAY: Record<string, DayLeave["pay"]> = { Pay: "full", "Non-Pay": "none", "Partial-Pay": "half" };
+
+/** Migration 0039 marked days typed in the old screen with this note; say it in plain words. */
+const plainNote = (text: string | null) => (text === "Recorded before 4.5" ? "Entered in the old attendance screen" : text);
+
+/** How one employee-day counts. */
+function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
+  const shift = ctx.rules.shift;
+  const holiday = ctx.holidays.find(
+    (h) =>
+      date >= h.start &&
+      date <= h.end &&
+      (!h.branchIds.length || h.branchIds.includes(e.branchId)) &&
+      // International Women's Day is a holiday for women only (Labour Act: 14 public holidays for women).
+      (!/women/i.test(h.name) || e.gender === "Female")
+  );
+  const l = ctx.leaves.find((x) => x.employeeId === e.id && date >= x.from && date <= x.to);
+  const override = ctx.overrides.get(`${e.id}|${date}`);
+  return resolveDay({
+    date,
+    employedFrom: e.joiningDate,
+    employedUntil: e.terminationDate,
+    shift,
+    noRecord: ctx.rules.noRecord,
+    holiday: holiday ? { name: holiday.name } : null,
+    leave: l ? { name: l.name, pay: LEAVE_PAY[l.pay] ?? "full", half: l.duration === "Half Day" } : null,
+    punches: punchesForDay(ctx.punches.get(e.id) ?? [], date, shift),
+    override: override ? { dayType: override.type, reason: plainNote(override.reason) ?? "" } : null,
+    otEligible: ctx.ot.get(e.category) ?? true,
+    today: ctx.today,
   });
 }
 
-/**
- * Bulk post daily attendance for multiple employees.
- */
-export async function bulkPostAttendance(
-  attendanceDate: string,
-  items: AttendanceBulkItem[],
-  fiscalYearId?: string
-) {
-  return await repository.bulkSaveRecords(attendanceDate, items, fiscalYearId);
+/** Employees in scope who were employed at some point in a date range. */
+async function employeesFor(scope: ScopeFilter, from: string, to: string, filter: { branchId?: string; departmentId?: string } = {}): Promise<Employee[]> {
+  const all = await repo.findEmployees(buildEmployeeScopeCondition(scope));
+  return all.filter(
+    (e) =>
+      e.joiningDate <= to &&
+      (!e.terminationDate || e.terminationDate >= from) &&
+      (e.status === "Active" || !!e.terminationDate) &&
+      (!filter.branchId || e.branchId === filter.branchId) &&
+      (!filter.departmentId || e.departmentId === filter.departmentId)
+  );
+}
+
+/** Status words per day for older screens (dashboard, employee record), from the same rules. */
+export async function attendanceMarks(scope: ScopeFilter, from: string, to: string, branchId?: string): Promise<{ employeeId: string; date: string; status: string }[]> {
+  const people = await employeesFor(scope, from, to, { branchId });
+  const ctx = await loadContext(people, from, to);
+  const dates = datesBetween(from, to);
+  const out: { employeeId: string; date: string; status: string }[] = [];
+  for (const e of people) for (const d of dates) {
+    const r = resolveFor(ctx, e, d);
+    if (r.dayType !== "not_employed" && r.dayType !== "upcoming") out.push({ employeeId: e.id, date: d, status: repo.LEGACY_STATUS[r.dayType] });
+  }
+  return out;
 }
 
 /**
- * Delete an attendance punch record.
+ * One employee's days (employee record page): the same rules as the
+ * register. The caller has already checked access to this employee.
  */
-export async function deleteAttendanceRecord(id: string): Promise<void> {
-  await repository.remove(id);
+export async function daysForEmployee(employeeId: string, from: string, to: string) {
+  const people = await repo.findEmployeesByIds([employeeId]);
+  if (!people.length) return [];
+  const ctx = await loadContext(people, from, to);
+  return datesBetween(from, to)
+    .map((d) => resolveFor(ctx, people[0], d))
+    .filter((r) => r.dayType !== "not_employed")
+    .map((r) => ({
+      date: r.date,
+      status: repo.LEGACY_STATUS[r.dayType],
+      inTime: localClock(r.firstIn) || null,
+      outTime: localClock(r.lastOut) || null,
+      workHours: Math.round((r.workMinutes / 60) * 100) / 100,
+      isLate: r.lateMinutes > 0,
+    }));
 }
 
-/**
- * PRE-PAYROLL CALCULATION ENGINE:
- * Aggregates monthly working days, computes statutory LWOP deductions & earned OT.
- * Can be run in draft (lock = false) during payroll generation, or sealed (lock = true).
- */
-export async function calculateMonthlyAttendanceAndOt(
-  employeeId: string,
-  bsMonth: number,
-  lock: boolean = false,
-  dateRangeParam?: { start: string; end: string }
-) {
-  let dateRange = dateRangeParam;
-  if (!dateRange) {
-    const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
-    const activeFy = fiscalYears.find((f) => f.status === "Active");
-    const startBsYear = activeFy?.startDateBS
-      ? parseInt(activeFy.startDateBS.split("-")[0], 10)
-      : (activeFy?.label ? parseInt(activeFy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
-    const bsYear = bsMonth >= 4 ? startBsYear : startBsYear + 1;
-    const { start, end } = getBSMonthRange(bsYear, bsMonth);
-    dateRange = {
-      start: formatADDate(start, "iso"),
-      end: formatADDate(end, "iso"),
+function datesBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDays(d)) out.push(d);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Page data
+// ---------------------------------------------------------------------------
+
+export async function getAttendancePage(params: {
+  tab: AttendanceTab;
+  scope: ScopeFilter;
+  userId: string;
+  year?: number;
+  month?: number;
+  branchId?: string;
+  permissions: AttendancePageData["permissions"];
+}): Promise<AttendancePageData> {
+  const today = nepalDateIso();
+  const rules = await getRules();
+  let period: PayPeriod;
+  try {
+    period = params.year && params.month ? periodFor(rules.calendar, params.year, params.month) : periodContaining(rules.calendar, today);
+  } catch {
+    period = periodContaining(rules.calendar, today);
+  }
+  const [branches, departments, people] = await Promise.all([
+    branchRepository.findAllBranches(),
+    departmentRepository.findAllDepartments(),
+    employeesFor(params.scope, period.start, period.end, { branchId: params.branchId }),
+  ]);
+  const branchName = new Map(branches.map((b) => [b.id, b.name]));
+  const deptName = new Map(departments.map((d) => [d.id, d.name]));
+  const view = (e: Employee): RegisterEmployee => ({
+    id: e.id,
+    employeeCode: e.employeeCode,
+    attendanceCode: e.attendanceCode,
+    fullName: e.fullName,
+    branchId: e.branchId,
+    branchName: branchName.get(e.branchId) ?? "",
+    departmentId: e.departmentId,
+    departmentName: deptName.get(e.departmentId) ?? "",
+    supervisorId: e.supervisorId,
+  });
+
+  const periods = await repo.findPeriods(period.calendar, period.year, period.month);
+  const closedBranches = new Set(periods.filter((p) => p.status === "closed").map((p) => p.branchId));
+
+  // Register (and close overview) for the month.
+  const ctx = await loadContext(people, period.start, period.end, rules);
+  const dates = datesIn(period);
+  const register: RegisterRow[] = people.map((e) => {
+    const days = dates.map((d) => resolveFor(ctx, e, d));
+    return { employee: view(e), days, summary: summariseMonth(period, days, rules), locked: closedBranches.has(e.branchId) };
+  });
+
+  // Today (when today is in the month shown; otherwise its own read).
+  let todayRows: AttendancePageData["todayRows"] = [];
+  if (params.tab === "today") {
+    const todayPeople = today >= period.start && today <= period.end ? people : await employeesFor(params.scope, today, today, { branchId: params.branchId });
+    const tctx = today >= period.start && today <= period.end ? ctx : await loadContext(todayPeople, today, today, rules);
+    todayRows = todayPeople.map((e) => ({ employee: view(e), day: resolveFor(tctx, e, today) })).filter((r) => r.day.dayType !== "not_employed");
+  }
+
+  // Punch log for the month.
+  const ids = people.map((e) => e.id);
+  const punchRows = params.tab === "punches" ? await repo.findPunches(ids, instantAt(period.start, 0), instantAt(addDays(period.end, 1), 0), { includeVoided: true }) : [];
+  const adjustmentRows = await repo.findAdjustments({ employeeIds: ids, from: addDays(period.start, -62), to: period.end });
+  const timeline = await repo.findAdjustmentTimeline(adjustmentRows.map((a) => a.id));
+  const names = await findUserNames([...punchRows.map((p) => p.createdBy ?? ""), ...adjustmentRows.flatMap((a) => [a.preparedBy ?? "", a.decidedBy ?? ""]), ...timeline.flatMap((t) => [t.actorId ?? "", t.onBehalfOf ?? ""])]);
+  const person = new Map(people.map((e) => [e.id, e]));
+
+  const canApprove = params.permissions.approve;
+  const actor = { userId: params.userId, employeeId: params.scope.employeeId, canApprove, isAdministrator: isCompanyAdministrator(params.scope, canApprove) };
+  const adjustments: AdjustmentView[] = adjustmentRows.map((a) => {
+    const e = person.get(a.employeeId);
+    const supervisor = !!e && !!params.scope.employeeId && e.supervisorId === params.scope.employeeId;
+    const can = availableActions(
+      { status: a.status as AdjustmentView["status"], preparedById: a.preparedBy, subjectEmployeeIds: [a.employeeId], flow: { type: "simple", levels: [] }, currentLevel: 0 },
+      { ...actor, canApprove: canApprove || supervisor },
+      { approvers: [], today, wording: WORDING }
+    );
+    return {
+      id: a.id,
+      employeeId: a.employeeId,
+      employeeName: e?.fullName ?? "",
+      employeeCode: e?.employeeCode ?? "",
+      date: String(a.attendanceDate).slice(0, 10),
+      kind: a.kind as AdjustmentKind,
+      requestedIn: a.requestedIn ? a.requestedIn.toISOString() : null,
+      requestedOut: a.requestedOut ? a.requestedOut.toISOString() : null,
+      reason: a.reason,
+      source: a.source === "self_service" ? "self_service" : "hr",
+      status: a.status as AdjustmentView["status"],
+      preparedById: a.preparedBy,
+      preparedBy: a.preparedBy ? names.get(a.preparedBy) ?? "Unknown user" : "System",
+      createdAt: a.createdAt.toISOString(),
+      decidedBy: a.decidedBy ? names.get(a.decidedBy) ?? null : null,
+      decidedAt: a.decidedAt ? a.decidedAt.toISOString() : null,
+      decisionNote: a.decisionNote,
+      approvalRoute: a.approvalRoute,
+      timeline: timeline
+        .filter((t) => t.requestId === a.id)
+        .map(
+          (t): ApprovalTimelineEntry => ({
+            id: t.id,
+            level: t.level,
+            action: t.action as ApprovalTimelineEntry["action"],
+            actorId: t.actorId,
+            actorName: t.actorId ? names.get(t.actorId) ?? "Unknown user" : "System",
+            onBehalfOfName: t.onBehalfOf ? names.get(t.onBehalfOf) ?? null : null,
+            note: t.note,
+            at: t.createdAt.toISOString(),
+          })
+        ),
+      can: { approve: !!can.approve, finalApprove: can.finalApprove && !can.approve, reject: can.reject, withdraw: can.withdraw, reason: can.reason },
     };
+  });
+
+  const punches: PunchView[] = punchRows.map((p) => ({
+    id: p.id,
+    employeeId: p.employeeId,
+    employeeName: person.get(p.employeeId)?.fullName ?? "",
+    employeeCode: person.get(p.employeeId)?.employeeCode ?? "",
+    punchedAt: p.punchedAt,
+    kind: p.kind,
+    source: p.source,
+    ip: p.ip,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    note: plainNote(p.note),
+    createdByName: p.createdBy ? names.get(p.createdBy) ?? null : null,
+    voidedAt: p.voidedAt,
+    voidReason: p.voidReason,
+  }));
+
+  // Month close: one row per branch in scope that has people this month.
+  const finalised = period.calendar === "BS" ? (await repo.countFinalisedPayrollRuns(period.year, period.month)) > 0 : false;
+  const branchIds = [...new Set(people.map((e) => e.branchId))];
+  const months: BranchMonth[] = branchIds.map((b) => {
+    const rows = register.filter((r) => r.employee.branchId === b);
+    const p = periods.find((x) => x.branchId === b);
+    return {
+      branchId: b,
+      branchName: branchName.get(b) ?? "",
+      status: p?.status === "closed" ? "closed" : "open",
+      employees: rows.length,
+      unpaidDays: round2(rows.reduce((n, r) => n + r.summary.unpaidDays + r.summary.notEmployedDays, 0)),
+      otHours: round2(rows.reduce((n, r) => n + (r.summary.otWorkDayMinutes + r.summary.otOffDayMinutes) / 60, 0)),
+      missingPunchDays: rows.reduce((n, r) => n + r.summary.missingPunchDays, 0),
+      pendingAdjustments: adjustments.filter((a) => a.status === "pending" && a.date >= period.start && a.date <= period.end && person.get(a.employeeId)?.branchId === b).length,
+      closedBy: p?.closedBy ? names.get(p.closedBy) ?? null : null,
+      closedAt: p?.closedAt ? p.closedAt.toISOString() : null,
+      reopenReason: p?.reopenReason ?? null,
+      payrollFinalised: finalised,
+    };
+  });
+
+  return {
+    tab: params.tab,
+    today,
+    period: { calendar: period.calendar, year: period.year, month: period.month, start: period.start, end: period.end, days: period.days, label: period.label },
+    rules,
+    branches: branches.map((b) => ({ id: b.id, name: b.name })),
+    departments: departments.map((d) => ({ id: d.id, name: d.name })),
+    branchId: params.branchId ?? "",
+    register,
+    todayRows,
+    punches,
+    adjustments,
+    months: months.sort((a, b) => a.branchName.localeCompare(b.branchName)),
+    currentUserId: params.userId,
+    myEmployeeId: params.scope.employeeId,
+    permissions: params.permissions,
+  };
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// ---------------------------------------------------------------------------
+// Changing days: HR overrides, manual punches, voids
+// ---------------------------------------------------------------------------
+
+/** Checks the people are in scope, not the user (S21), and their days are in open months. */
+async function guardDays(scope: ScopeFilter, cells: { employeeId: string; date: string }[]): Promise<Map<string, Employee>> {
+  if (!cells.length) throw new UserFacingError("Nothing to change.");
+  const from = cells.reduce((m, c) => (c.date < m ? c.date : m), cells[0].date);
+  const to = cells.reduce((m, c) => (c.date > m ? c.date : m), cells[0].date);
+  const people = await employeesFor(scope, from, to);
+  const byId = new Map(people.map((e) => [e.id, e]));
+  if (cells.some((c) => !byId.has(c.employeeId))) throw new OutOfScopeError();
+  if (includesOwnRecord(scope.employeeId, cells.map((c) => c.employeeId))) throw new OwnAttendanceError();
+  const closed = await repo.findClosedPeriodsOverlapping(from, to);
+  const blocked = cells.find((c) => closed.some((p) => p.branchId === byId.get(c.employeeId)!.branchId && c.date >= String(p.startDate) && c.date <= String(p.endDate)));
+  if (blocked) throw new UserFacingError(`${byId.get(blocked.employeeId)!.fullName}'s attendance for ${blocked.date} is in a closed month. Reopen the month first.`);
+  if (cells.some((c) => c.date > nepalDateIso())) throw new UserFacingError("Attendance can't be set for a future date.");
+  return byId;
+}
+
+const isoDate = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+
+/** Sets or clears HR overrides (register cells): one reason for the whole change. */
+export async function setOverrides(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ count: number }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { cells?: unknown; reason?: unknown };
+  const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 300) : "";
+  if (reason.length < 3) throw new AttendanceValidationError({ reason: "Give a short reason" });
+  const cells = (Array.isArray(r.cells) ? r.cells : []).slice(0, MAX_CELLS + 1).map((c) => {
+    const x = (c && typeof c === "object" ? c : {}) as { employeeId?: unknown; date?: unknown; type?: unknown };
+    const date = isoDate(x.date);
+    const type = x.type === null ? null : (OVERRIDE_TYPES as readonly string[]).includes(String(x.type)) ? (x.type as OverrideType) : undefined;
+    if (!date || typeof x.employeeId !== "string" || type === undefined) throw new UserFacingError("Some cells are not valid. Refresh and try again.");
+    return { employeeId: x.employeeId, date, type };
+  });
+  if (cells.length > MAX_CELLS) throw new UserFacingError(`Change at most ${MAX_CELLS} days at a time.`);
+  const unique = new Map(cells.map((c) => [`${c.employeeId}|${c.date}`, c]));
+  const list = [...unique.values()];
+  await guardDays(ctx.scope, list);
+  const fy = new Map<string, string>();
+  for (const c of list) if (!fy.has(c.date)) fy.set(c.date, await repo.fiscalYearFor(c.date));
+  await repo.setOverrides(list.map((c) => ({ ...c, reason, fiscalYearId: fy.get(c.date)! })), ctx.userId);
+  return { count: list.length };
+}
+
+/** Adds an HR punch pair or single punch for a day ("HH:MM"; an out before the in is the next morning). */
+export async function addManualPunches(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ added: number }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { employeeId?: unknown; date?: unknown; in?: unknown; out?: unknown; note?: unknown };
+  const date = isoDate(r.date);
+  const employeeId = typeof r.employeeId === "string" ? r.employeeId : "";
+  const inAt = typeof r.in === "string" && r.in ? clockMinutes(r.in) : null;
+  const outAtRaw = typeof r.out === "string" && r.out ? clockMinutes(r.out) : null;
+  const errors: Record<string, string> = {};
+  if (!date) errors.date = "Choose the day";
+  if (typeof r.in === "string" && r.in && inAt === null) errors.in = "Use a time like 09:58";
+  if (typeof r.out === "string" && r.out && outAtRaw === null) errors.out = "Use a time like 18:05";
+  if (inAt === null && outAtRaw === null && !errors.in && !errors.out) errors.in = "Give a check-in or check-out time";
+  const note = typeof r.note === "string" ? r.note.trim().slice(0, 300) : "";
+  if (note.length < 3) errors.note = "Say why it is entered by hand";
+  if (Object.keys(errors).length) throw new AttendanceValidationError(errors);
+  await guardDays(ctx.scope, [{ employeeId, date: date! }]);
+  const outAt = outAtRaw !== null && inAt !== null && outAtRaw <= inAt ? outAtRaw + 1440 : outAtRaw;
+  const rows: repo.NewPunch[] = [];
+  if (inAt !== null) rows.push({ employeeId, punchedAt: instantAt(date!, inAt), kind: "in", source: "manual", note, createdBy: ctx.userId });
+  if (outAt !== null) rows.push({ employeeId, punchedAt: instantAt(date!, outAt), kind: "out", source: "manual", note, createdBy: ctx.userId });
+  return { added: await repo.insertPunches(rows) };
+}
+
+/** Voids a punch (kept in the log with who and why). */
+export async function voidPunch(punchId: string, reasonRaw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ employeeId: string }> {
+  const reason = typeof reasonRaw === "string" ? reasonRaw.trim().slice(0, 300) : "";
+  if (reason.length < 3) throw new AttendanceValidationError({ reason: "Give a short reason" });
+  const p = await repo.findPunchById(punchId);
+  if (!p) throw new UserFacingError("That punch no longer exists. Refresh the page.");
+  const day = new Date(p.punchedAt.getTime() + 345 * 60000).toISOString().slice(0, 10);
+  await guardDays(ctx.scope, [{ employeeId: p.employeeId, date: day }]);
+  if (!(await repo.voidPunch(punchId, ctx.userId, reason))) throw new UserFacingError("That punch was already voided.");
+  return { employeeId: p.employeeId };
+}
+
+// ---------------------------------------------------------------------------
+// Adjustments (regularization)
+// ---------------------------------------------------------------------------
+
+/**
+ * Raises an adjustment for an employee-day (HR on someone's behalf now;
+ * from self-service later). It waits for the employee's supervisor or
+ * someone with Attendance → Approve; never the employee themselves.
+ */
+export async function createAdjustment(raw: unknown, ctx: { scope: ScopeFilter; userId: string; source?: "hr" | "self_service" }): Promise<{ id: string; employeeId: string }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+  const employeeId = typeof r.employeeId === "string" ? r.employeeId : "";
+  const date = isoDate(r.date);
+  const kind = (ADJUSTMENT_KINDS as readonly string[]).includes(String(r.kind)) ? (r.kind as AdjustmentKind) : null;
+  const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 500) : "";
+  const inMin = typeof r.in === "string" && r.in ? clockMinutes(r.in) : null;
+  const outMinRaw = typeof r.out === "string" && r.out ? clockMinutes(r.out) : null;
+  if (!employeeId) errors.employeeId = "Choose the employee";
+  if (!date) errors.date = "Choose the day";
+  if (!kind) errors.kind = "Choose what to correct";
+  if (reason.length < 3) errors.reason = "Give a short reason";
+  if ((kind === "missed_in" || kind === "wrong_time") && inMin === null) errors.in = "Give the check-in time";
+  if ((kind === "missed_out" || kind === "wrong_time") && outMinRaw === null) errors.out = "Give the check-out time";
+  if (Object.keys(errors).length) throw new AttendanceValidationError(errors);
+  // Raising one for yourself is fine (it waits for someone else); the S21 check here is scope and an open month.
+  const people = await employeesFor(ctx.scope, date!, date!);
+  if (!people.some((e) => e.id === employeeId) && !isOwnRecord(ctx.scope.employeeId, employeeId)) throw new OutOfScopeError();
+  const closed = await repo.findClosedPeriodsOverlapping(date!, date!);
+  const branch = people.find((e) => e.id === employeeId)?.branchId;
+  if (closed.some((p) => p.branchId === branch)) throw new UserFacingError("That day is in a closed month. Reopen the month first.");
+  if (date! > nepalDateIso()) throw new UserFacingError("Attendance can't be adjusted for a future date.");
+  const pending = await repo.findAdjustments({ employeeIds: [employeeId], from: date!, to: date!, status: "pending" });
+  if (pending.length) throw new UserFacingError("An adjustment for that day is already waiting. Decide or withdraw it first.");
+  const outMin = outMinRaw !== null && inMin !== null && outMinRaw <= inMin ? outMinRaw + 1440 : outMinRaw;
+  const id = await repo.createAdjustment({
+    employeeId,
+    date: date!,
+    kind: kind!,
+    requestedIn: inMin !== null ? instantAt(date!, inMin) : null,
+    requestedOut: outMin !== null ? instantAt(date!, outMin) : null,
+    reason,
+    source: ctx.source ?? "hr",
+    preparedBy: ctx.userId,
+  });
+  return { id, employeeId };
+}
+
+/**
+ * Approve, Final approve (company administrator), reject (reason) or
+ * withdraw (preparer) an adjustment. Approvers: the employee's supervisor
+ * or someone with Attendance → Approve in scope; never the employee (S21).
+ * Approving adds its punches (or the On duty / Present override).
+ */
+export async function decideAdjustment(id: string, decision: Decision, noteRaw: unknown, ctx: { scope: ScopeFilter; userId: string; canApprove: boolean }): Promise<{ employeeId: string; status: string }> {
+  const a = await repo.findAdjustmentById(id);
+  if (!a) throw new UserFacingError("That adjustment no longer exists. Refresh the page.");
+  const date = String(a.attendanceDate).slice(0, 10);
+  const all = await repo.findEmployees();
+  const e = all.find((x) => x.id === a.employeeId);
+  if (!e) throw new UserFacingError("That employee no longer exists.");
+  const inScope = (await employeesFor(ctx.scope, date, date)).some((x) => x.id === e.id);
+  const supervisor = !!ctx.scope.employeeId && e.supervisorId === ctx.scope.employeeId;
+  if (!inScope && !supervisor && a.preparedBy !== ctx.userId) throw new OutOfScopeError();
+  const request = { status: a.status as "pending" | "approved" | "rejected" | "withdrawn", preparedById: a.preparedBy, subjectEmployeeIds: [a.employeeId], flow: { type: "simple" as const, levels: [] }, currentLevel: 0 };
+  const actor = { userId: ctx.userId, employeeId: ctx.scope.employeeId, canApprove: (ctx.canApprove && inScope) || supervisor, isAdministrator: isCompanyAdministrator(ctx.scope, ctx.canApprove) };
+  const can = availableActions(request, actor, { approvers: [], today: nepalDateIso(), wording: WORDING });
+  const own = isOwnRecord(ctx.scope.employeeId, a.employeeId);
+  const refuse = (msg: string | null, fallback: string) => {
+    if (own && decision !== "withdraw") throw new OwnAttendanceError(WORDING.ownSubject);
+    throw new UserFacingError(msg ?? fallback);
+  };
+  if (decision === "approve" && !can.approve) refuse(can.reason, "You cannot approve this adjustment.");
+  if (decision === "final_approve" && !can.finalApprove) refuse(can.reason, "Only a company administrator can Final approve.");
+  if (decision === "reject" && !can.reject) refuse(a.preparedBy === ctx.userId ? "You raised this adjustment: withdraw it instead." : can.reason, "You cannot reject this adjustment.");
+  if (decision === "withdraw" && !can.withdraw) throw new UserFacingError("Only the person who raised it can withdraw it, while it waits.");
+  const note = typeof noteRaw === "string" ? noteRaw.trim().slice(0, 300) || null : null;
+  if (decision === "reject" && (!note || note.length < 3)) throw new AttendanceValidationError({ note: "Give a reason for rejecting" });
+  const next = applyDecision(request, decision);
+  if (next.status === "approved") {
+    const closed = await repo.findClosedPeriodsOverlapping(date, date);
+    if (closed.some((p) => p.branchId === e.branchId)) throw new UserFacingError("That day is now in a closed month. Reopen the month first.");
   }
-
-  // Fetch all attendance punches for the exact BS month date range
-  const records = await repository.findByEmployeeAndMonthPrefix(employeeId, undefined, dateRange);
-
-  let presentDays = 0;
-  let absentDays = 0;
-  let payLeaveDays = 0;
-  let nonPayLeaveDays = 0;
-  let totalOtHoursOffice = 0;
-  let totalOtHoursOff = 0;
-
-  const weeklyHoursMap = new Map<string, number>();
-  const dailyViolations: string[] = [];
-
-  for (const r of records) {
-    if (r.status === "Present") presentDays += 1;
-    else if (r.status === "Half Day") presentDays += 0.5;
-    else if (r.status === "Absent") absentDays += 1;
-    else if (r.status === "On Leave") payLeaveDays += 1;
-    else if (r.status === "LWOP") nonPayLeaveDays += 1;
-
-    const dailyOt = Number(r.otHoursOfficeDay) + Number(r.otHoursOffDay);
-    totalOtHoursOffice += Number(r.otHoursOfficeDay);
-    totalOtHoursOff += Number(r.otHoursOffDay);
-
-    // 1. Daily OT limit violation check (> 4 hours)
-    if (dailyOt > 4) {
-      dailyViolations.push(`${r.attendanceDate} (${dailyOt} hrs)`);
+  // Approval: on duty / mark present become an override; times become punches.
+  const punches: repo.NewPunch[] = [];
+  if (next.status === "approved") {
+    if (a.kind === "on_duty" || a.kind === "mark_present") {
+      await repo.setOverrides([{ employeeId: a.employeeId, date, type: a.kind === "on_duty" ? "on_duty" : "present", reason: `Adjustment approved: ${a.reason}`, fiscalYearId: await repo.fiscalYearFor(date) }], ctx.userId);
     }
-
-    // 2. Weekly OT limit violation check (> 24 hours)
-    // Find standard calendar week start (Sunday)
-    try {
-      const d = new Date(r.attendanceDate);
-      const day = d.getDay();
-      const diff = d.getDate() - day;
-      const sunday = new Date(d.setDate(diff));
-      const weekKey = sunday.toISOString().split("T")[0];
-      const currentSum = weeklyHoursMap.get(weekKey) || 0;
-      weeklyHoursMap.set(weekKey, currentSum + dailyOt);
-    } catch (e) {
-      console.error("Failed to parse date for weekly OT grouping:", r.attendanceDate, e);
-    }
+    if (a.requestedIn) punches.push({ employeeId: a.employeeId, punchedAt: a.requestedIn.toISOString(), kind: "in", source: "adjustment", note: a.reason, createdBy: ctx.userId });
+    if (a.requestedOut) punches.push({ employeeId: a.employeeId, punchedAt: a.requestedOut.toISOString(), kind: "out", source: "adjustment", note: a.reason, createdBy: ctx.userId });
   }
+  const ok = await repo.decideAdjustment({
+    id,
+    status: next.status === "pending" ? "approved" : next.status,
+    route: next.route,
+    actorId: ctx.userId,
+    onBehalfOf: null,
+    action: decision === "approve" ? "approved" : decision === "final_approve" ? "final_approved" : decision === "reject" ? "rejected" : "withdrawn",
+    note,
+    punches,
+  });
+  if (!ok) throw new UserFacingError("Someone else acted on this adjustment a moment ago. Refresh the page.");
+  return { employeeId: a.employeeId, status: next.status };
+}
 
-  const weeklyViolations: string[] = [];
-  for (const [weekKey, sum] of weeklyHoursMap.entries()) {
-    if (sum > 24) {
-      weeklyViolations.push(`Week starting ${weekKey} (${sum} hrs)`);
-    }
-  }
+// ---------------------------------------------------------------------------
+// Month close and reopen (per branch)
+// ---------------------------------------------------------------------------
 
-  const otWarningsList: string[] = [];
-  if (dailyViolations.length > 0) {
-    otWarningsList.push(`Daily limit (4 hrs) exceeded on: ${dailyViolations.join(", ")}`);
-  }
-  if (weeklyViolations.length > 0) {
-    otWarningsList.push(`Weekly limit (24 hrs) exceeded in: ${weeklyViolations.join(", ")}`);
-  }
-  const otWarnings = otWarningsList.length > 0 ? otWarningsList.join("; ") : null;
-
-  const totalWorkingDays = presentDays + absentDays + payLeaveDays + nonPayLeaveDays || 30;
-
-  // 2. Retrieve foundational pay (Basic + Grade) from Phase 3 Salary Mapping
-  const salaryMap = await salaryRepository.findByEmployeeId(employeeId);
-  const basicDec = new Decimal(salaryMap ? salaryMap.basicSalary : 0);
-  const gradeDec = new Decimal(salaryMap ? salaryMap.gradeAmount : 0);
-  const basePayDec = basicDec.plus(gradeDec);
-
-  // 3. Statutory LWOP deduction: (Base Pay / Working Days) * Unpaid Days
-  const workDaysDec = new Decimal(totalWorkingDays);
-  const nonPayDaysDec = new Decimal(nonPayLeaveDays);
-  const leaveDeductionAmount = nonPayDaysDec.gt(0)
-    ? basePayDec.dividedBy(workDaysDec).times(nonPayDaysDec).toDecimalPlaces(2).toNumber()
-    : 0;
-
-  // 4. Compute OT Earned Amount using configured multipliers (defaulting to 1.5 for office day and 2.0 for off day)
-  const systemSettings = await systemControlRepository.findSettings();
-  const multOfficeDec = new Decimal(systemSettings?.officeTime?.otMultiplierOfficeDay || 1.5);
-  const multOffDec = new Decimal(systemSettings?.officeTime?.otMultiplierOffDay || 2.0);
-
-  const hourlyRateDec = basicDec.dividedBy(new Decimal(30).times(8)); // 30 days divisor * 8 hours
-  const otRateOfficeDec = hourlyRateDec.times(multOfficeDec);
-  const otRateOffDec = hourlyRateDec.times(multOffDec);
-  const otEarnedAmount = new Decimal(totalOtHoursOffice)
-    .times(otRateOfficeDec)
-    .plus(new Decimal(totalOtHoursOff).times(otRateOffDec))
+/** OT pay and unpaid-day deduction for a summary (OT: basic ÷ 240 × multiplier; unifying with OT rules is 4.7). */
+function amountsFor(summary: MonthSummary, salary: { basic: number; grade: number } | undefined, multipliers: { work: number; off: number }) {
+  if (!salary) return { otEarnedAmount: 0, leaveDeductionAmount: 0 };
+  const hourly = new Decimal(salary.basic).dividedBy(240);
+  const ot = hourly
+    .times(summary.otWorkDayMinutes / 60)
+    .times(multipliers.work)
+    .plus(hourly.times(summary.otOffDayMinutes / 60).times(multipliers.off))
     .toDecimalPlaces(2)
     .toNumber();
+  return { otEarnedAmount: ot, leaveDeductionAmount: unpaidDeduction(salary.basic + salary.grade, summary) };
+}
 
-  // 5. Save calculation (locked or draft)
-  return await repository.saveCalculationLock({
-    employeeId,
-    bsMonth,
-    totalWorkingDays,
-    presentDays,
-    absentDays,
-    payLeaveDays,
-    nonPayLeaveDays,
-    totalOtHoursOffice,
-    totalOtHoursOff,
-    otEarnedAmount,
-    leaveDeductionAmount,
-    otWarnings,
-    isLocked: lock,
-  });
+async function payInputs(employeeIds: string[], onDate: string) {
+  const [salaries, settings] = await Promise.all([salaryMappingRepository.findInForceByEmployeeIds(employeeIds, onDate), systemControlRepository.findSettings()]);
+  const salary = new Map([...salaries].map(([id, m]) => [id, { basic: Number(m.basicSalary) || 0, grade: Number(m.gradeAmount) || 0 }]));
+  const multipliers = { work: settings.officeTime.otMultiplierOfficeDay ?? 1.5, off: settings.officeTime.otMultiplierOffDay ?? 2 };
+  return { salary, multipliers };
+}
+
+/** BS month number of a period (summaries keep it for today's payroll reads). */
+const bsMonthOf = (p: PayPeriod) => (p.calendar === "BS" ? p.month : periodContaining("BS", p.start).month);
+
+/**
+ * Closes a month for branches: every day resolved and stored, summaries
+ * written and locked. Refused while adjustments wait, for branches outside
+ * the user's scope, or when nothing is open.
+ */
+export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branches: number; employees: number }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { year?: unknown; month?: unknown; branchIds?: unknown };
+  const rules = await getRules();
+  let period: PayPeriod;
+  try {
+    period = periodFor(rules.calendar, Number(r.year), Number(r.month));
+  } catch {
+    throw new UserFacingError("Choose a month to close.");
+  }
+  // Every day must have happened: a month is closed after its last day.
+  if (period.end >= nepalDateIso()) throw new UserFacingError(`${period.label} can be closed after its last day.`);
+  const branchIds = Array.isArray(r.branchIds) ? [...new Set(r.branchIds.filter((x): x is string => typeof x === "string"))] : [];
+  if (!branchIds.length) throw new UserFacingError("Choose at least one branch.");
+  if (ctx.scope.scopeType === "DEPARTMENT" || ctx.scope.scopeType === "SELF") throw new UserFacingError("Closing a month needs a company-wide or branch role.");
+  if (ctx.scope.scopeType === "BRANCH" && branchIds.some((b) => !ctx.scope.branchIds.includes(b))) throw new OutOfScopeError();
+  const existing = await repo.findPeriods(period.calendar, period.year, period.month);
+  const allPeople = await employeesFor({ ...ctx.scope, scopeType: ctx.scope.scopeType === "BRANCH" ? "BRANCH" : "GLOBAL" }, period.start, period.end);
+  const pay = await payInputs(allPeople.map((e) => e.id), period.end);
+  let employeesClosed = 0;
+  for (const branchId of branchIds) {
+    if (existing.some((p) => p.branchId === branchId && p.status === "closed")) throw new UserFacingError("That month is already closed for a branch you chose. Refresh the page.");
+    const people = allPeople.filter((e) => e.branchId === branchId);
+    const waiting = await repo.countPendingAdjustments(people.map((e) => e.id), period.start, period.end);
+    if (waiting) throw new UserFacingError(`${waiting} adjustment${waiting === 1 ? " is" : "s are"} still waiting for this month. Decide them first.`);
+    const c = await loadContext(people, period.start, period.end, rules);
+    const fyStart = await repo.fiscalYearFor(period.start);
+    const fyEnd = await repo.fiscalYearFor(period.end);
+    const days: { employeeId: string; fiscalYearId: string; result: DayResult }[] = [];
+    const summaries: repo.SummaryWrite[] = [];
+    for (const e of people) {
+      const results = datesIn(period).map((d) => resolveFor(c, e, d));
+      for (const res of results) days.push({ employeeId: e.id, fiscalYearId: res.date < period.end && fyStart !== fyEnd ? await repo.fiscalYearFor(res.date) : fyEnd, result: res });
+      const summary = summariseMonth(period, results, rules);
+      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, ...amountsFor(summary, pay.salary.get(e.id), pay.multipliers) });
+    }
+    await repo.closePeriod({ period: { calendar: period.calendar, year: period.year, month: period.month, start: period.start, end: period.end, days: period.days }, branchId, userId: ctx.userId, days, summaries });
+    employeesClosed += people.length;
+  }
+  return { branches: branchIds.length, employees: employeesClosed };
+}
+
+/** Reopens a branch month (reason required); refused once that month's payroll is approved or locked. */
+export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branchId: string }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { year?: unknown; month?: unknown; branchId?: unknown; reason?: unknown };
+  const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 300) : "";
+  if (reason.length < 3) throw new AttendanceValidationError({ reason: "Give a reason for reopening" });
+  const rules = await getRules();
+  let period: PayPeriod;
+  try {
+    period = periodFor(rules.calendar, Number(r.year), Number(r.month));
+  } catch {
+    throw new UserFacingError("Choose a month.");
+  }
+  const branchId = typeof r.branchId === "string" ? r.branchId : "";
+  if (ctx.scope.scopeType === "DEPARTMENT" || ctx.scope.scopeType === "SELF") throw new UserFacingError("Reopening a month needs a company-wide or branch role.");
+  if (ctx.scope.scopeType === "BRANCH" && !ctx.scope.branchIds.includes(branchId)) throw new OutOfScopeError();
+  if (period.calendar === "BS" && (await repo.countFinalisedPayrollRuns(period.year, period.month)) > 0) {
+    throw new UserFacingError("Payroll for this month is already approved or locked, so its attendance can't be reopened. Corrections will be paid as arrears once the payroll run supports them.");
+  }
+  const p = (await repo.findPeriods(period.calendar, period.year, period.month)).find((x) => x.branchId === branchId);
+  if (!p || p.status !== "closed") throw new UserFacingError("That month is not closed for this branch.");
+  const people = (await repo.findEmployees()).filter((e) => e.branchId === branchId);
+  const ok = await repo.reopenPeriod({ periodId: p.id, employeeIds: people.map((e) => e.id), start: period.start, end: period.end, calendar: period.calendar, year: period.year, month: period.month, userId: ctx.userId, reason });
+  if (!ok) throw new UserFacingError("Someone else reopened it a moment ago. Refresh the page.");
+  return { branchId };
+}
+
+// ---------------------------------------------------------------------------
+// Attendance report (Reports → Attendance): the same rules, within scope
+// ---------------------------------------------------------------------------
+
+export interface ReportPerson {
+  id: string;
+  employeeCode: string;
+  fullName: string;
+  departmentId: string;
+  designationId: string;
+  branchId: string;
+  days: DayResult[];
+  summary: MonthSummary;
+  amounts: PayrollAttendance;
+}
+
+/** A BS month for the attendance report: every person in scope, their days, summary and pay effect. */
+export async function reportMonth(scope: ScopeFilter, bsYear: number, bsMonth: number, filter: { branchId?: string; departmentId?: string; designationId?: string; employeeId?: string }): Promise<{ period: PayPeriod; people: ReportPerson[] }> {
+  const rules = await getRules();
+  const period = periodFor("BS", bsYear, bsMonth);
+  const people = (await employeesFor(scope, period.start, period.end, { branchId: filter.branchId, departmentId: filter.departmentId })).filter(
+    (e) => (!filter.designationId || e.designationId === filter.designationId) && (!filter.employeeId || e.id === filter.employeeId)
+  );
+  const ctx = await loadContext(people, period.start, period.end, rules);
+  const amounts = await attendanceForPayroll(people.map((e) => e.id), { bsYear, bsMonth, start: period.start, end: period.end });
+  const today = nepalDateIso();
+  return {
+    period,
+    people: people.map((e) => {
+      const days = datesIn(period).map((d) => resolveFor(ctx, e, d));
+      // Days after today are not counted yet.
+      const summary = summariseMonth(period, days.filter((d) => d.date <= today), rules);
+      return { id: e.id, employeeCode: e.employeeCode, fullName: e.fullName, departmentId: e.departmentId, designationId: e.designationId, branchId: e.branchId, days, summary, amounts: amounts.get(e.id)! };
+    }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Payroll
+// ---------------------------------------------------------------------------
+
+export interface PayrollAttendance {
+  leaveDeductionAmount: string;
+  otEarnedAmount: string;
+  unpaidDays: number;
+  /** From a closed month (true) or worked out now without saving (false). */
+  closed: boolean;
+  otWarnings: string | null;
 }
 
 /**
- * Pre-payroll calculation lock (legacy or explicit confirmation).
+ * Attendance figures for a payroll month: the closed summary when the
+ * month is closed, otherwise worked out now from the same rules (nothing is
+ * written, nothing is unlocked).
  */
-export async function runAndLockMonthlyCalculation(
-  employeeId: string,
-  bsMonth: number,
-  datePrefix?: string
-) {
-  return await calculateMonthlyAttendanceAndOt(employeeId, bsMonth, true);
+export async function attendanceForPayroll(employeeIds: string[], run: { bsYear: number; bsMonth: number; start: string; end: string }): Promise<Map<string, PayrollAttendance>> {
+  const out = new Map<string, PayrollAttendance>();
+  if (!employeeIds.length) return out;
+  const closed = await repo.findClosedSummaries(employeeIds, "BS", run.bsYear, run.bsMonth);
+  for (const s of closed) {
+    out.set(s.employeeId, { leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"), otEarnedAmount: String(s.otEarnedAmount ?? "0"), unpaidDays: Number(s.unpaidDays) || 0, closed: true, otWarnings: s.otWarnings });
+  }
+  const open = employeeIds.filter((id) => !out.has(id));
+  if (!open.length) return out;
+  const rules = await getRules();
+  let period: PayPeriod;
+  try {
+    period = periodFor("BS", run.bsYear, run.bsMonth);
+  } catch {
+    period = { calendar: "BS", year: run.bsYear, month: run.bsMonth, start: run.start, end: run.end, days: datesBetween(run.start, run.end).length, label: "" };
+  }
+  const people = (await repo.findEmployees()).filter((e) => open.includes(e.id));
+  const c = await loadContext(people, period.start, period.end, rules);
+  const pay = await payInputs(people.map((e) => e.id), period.end);
+  for (const e of people) {
+    const summary = summariseMonth(period, datesIn(period).map((d) => resolveFor(c, e, d)), rules);
+    const a = amountsFor(summary, pay.salary.get(e.id), pay.multipliers);
+    out.set(e.id, { leaveDeductionAmount: String(a.leaveDeductionAmount), otEarnedAmount: String(a.otEarnedAmount), unpaidDays: summary.unpaidDays + summary.notEmployedDays, closed: false, otWarnings: summary.otWarnings.join("\n") || null });
+  }
+  return out;
 }

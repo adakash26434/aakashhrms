@@ -3,7 +3,6 @@ import {
   payrollRuns,
   payrollSlips,
   payrollSlipHeads,
-  leaveOtCalculations,
   employees,
   employeePersonal,
   departments,
@@ -17,16 +16,19 @@ import {
   loanRepayments,
   loanTypes,
   users,
-  attendanceRecords,
   systemConfig,
 } from "@/lib/db/schema";
 import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
 import { companies } from "@/lib/platform/schema";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { auth } from "@/lib/auth";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, inArray, desc } from "drizzle-orm";
 import * as engine from "@/lib/engines/report.engine";
-import { BS_MONTHS_EN, bsToAD, getDaysInBSMonth, getTodayBS } from "@/lib/utils/bs-calendar";
+import * as attendanceService from "@/lib/services/attendance.service";
+import { localClock } from "@/lib/engines/attendance-day.engine";
+import { nepalDateIso } from "@/lib/utils/nepal-time";
+import type { ScopeFilter } from "@/lib/auth/scope-filter";
+import { BS_MONTHS_EN, bsToAD, getDaysInBSMonth } from "@/lib/utils/bs-calendar";
 import type {
   CompanyReportInfo,
   ReportFilterLookupData,
@@ -551,7 +553,8 @@ export async function getPayslipHeadSummaryData(
 // ─── Attendance Report ─────────────────────────────────────────────────────
 
 export async function getAttendanceReportData(
-  filter: AttendanceReportFilter
+  filter: AttendanceReportFilter,
+  scope: ScopeFilter
 ): Promise<AttendanceReportData> {
   if (!filter.fiscalYearId || !filter.bsMonth) {
     throw new Error("Fiscal Year and BS Month are required for Attendance Report.");
@@ -598,349 +601,67 @@ export async function getAttendanceReportData(
     };
   });
 
-  // Query daily punches for details
-  const dailyPunches = await (await getDb())
-    .select({
-      empId: attendanceRecords.employeeId,
-      attendanceDate: attendanceRecords.attendanceDate,
-      inTime: attendanceRecords.inTime,
-      outTime: attendanceRecords.outTime,
-      workHours: attendanceRecords.workHours,
-      status: attendanceRecords.status,
-    })
-    .from(attendanceRecords)
-    .where(eq(attendanceRecords.fiscalYearId, filter.fiscalYearId));
-
-  const empPunchesMap = new Map<string, typeof dailyPunches>();
-  for (const p of dailyPunches) {
-    const list = empPunchesMap.get(p.empId) || [];
-    list.push(p);
-    empPunchesMap.set(p.empId, list);
-  }
-
-  // Query leaveOtCalculations join employees, departments & designations
-  const records = await (await getDb())
-    .select({
-      calc: leaveOtCalculations,
-      empId: employees.id,
-      empCode: employees.employeeCode,
-      empName: employees.fullName,
-      deptName: departments.name,
-      desigName: designations.name,
-      branchId: employees.branchId,
-      deptId: employees.departmentId,
-      desigId: employees.designationId,
-    })
-    .from(leaveOtCalculations)
-    .innerJoin(employees, eq(leaveOtCalculations.employeeId, employees.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .leftJoin(designations, eq(employees.designationId, designations.id))
-    .where(
-      and(
-        eq(leaveOtCalculations.fiscalYearId, filter.fiscalYearId),
-        eq(leaveOtCalculations.bsMonth, filter.bsMonth)
-      )
-    );
-
-  let filtered = records;
-  if (filter.branchId) {
-    filtered = filtered.filter((r) => r.branchId === filter.branchId);
-  }
-  if (filter.departmentId) {
-    filtered = filtered.filter((r) => r.deptId === filter.departmentId);
-  }
-  if (filter.designationId) {
-    filtered = filtered.filter((r) => r.desigId === filter.designationId);
-  }
-  if (filter.employeeId) {
-    filtered = filtered.filter((r) => r.empId === filter.employeeId);
-  }
-
-  const todayBS = getTodayBS();
-  const currentBsYear = todayBS.year;
-  const currentBsMonth = todayBS.month;
-  const currentBsDay = todayBS.day;
-  const isFutureMonth = bsYear > currentBsYear || (bsYear === currentBsYear && filter.bsMonth > currentBsMonth);
-
-  // Helper to build real daily attendance details without synthesizing fake default punches
-  const generateDailyDetails = (empId?: string | null): AttendanceDailyDetail[] => {
-    const empPunches = empId ? (empPunchesMap.get(empId) || []) : [];
-    return dateHeaders.map((dh) => {
-      // Check if this is a future day (days past today in current month or future months)
-      const isFutureDay =
-        isFutureMonth ||
-        (bsYear === currentBsYear && filter.bsMonth === currentBsMonth && dh.dayNum > currentBsDay);
-
-      if (isFutureDay) {
-        return {
-          dateStr: dh.dateStr,
-          dayNum: dh.dayNum,
-          inTime: "-",
-          outTime: "-",
-          workHours: "00:00",
-          statusCode: "-",
-        };
-      }
-
-      // Check if an explicit manual punch record exists for this employee on this exact date
-      const found = empPunches.find((p) => {
-        const pDate =
-          typeof p.attendanceDate === "string"
-            ? p.attendanceDate.split("T")[0]
-            : (p.attendanceDate as any)?.toISOString?.()?.split("T")[0];
-        return pDate === dh.adDateStr || pDate === dh.dateStr;
-      });
-
-      if (found) {
-        let code = "P";
-        if (found.status === "Absent") code = "A";
-        else if (found.status === "On Leave") code = "L";
-        else if (found.status === "Half Day") code = "HD";
-        else if (found.status === "LWOP") code = "LWOP";
-        else if (found.status === "Holiday") code = "HO";
-        else if (found.status === "Weekly Off" || found.status === "Off Day") code = "OFF";
-
-        return {
-          dateStr: dh.dateStr,
-          dayNum: dh.dayNum,
-          inTime: found.inTime || (code === "P" || code === "HD" ? "09:00 AM" : "-"),
-          outTime: found.outTime || (code === "P" || code === "HD" ? "05:00 PM" : "-"),
-          workHours: found.workHours ? String(found.workHours) : (code === "P" ? "08:00" : code === "HD" ? "04:00" : "00:00"),
-          statusCode: code,
-        };
-      }
-
-      // Check for Weekly Off (Saturday / Sunday) in Corporate Calendar
-      if (dh.dayName === "Sat" || dh.dayName === "Sun") {
-        return {
-          dateStr: dh.dateStr,
-          dayNum: dh.dayNum,
-          inTime: "-",
-          outTime: "-",
-          workHours: "00:00",
-          statusCode: "OFF",
-        };
-      }
-
-      // Past weekday without explicit manual attendance punch: Unposted / Absent
-      return {
-        dateStr: dh.dateStr,
-        dayNum: dh.dayNum,
-        inTime: "-",
-        outTime: "-",
-        workHours: "00:00",
-        statusCode: "A",
-      };
-    });
+  // 4.5: every day comes from the attendance rules (punches, approved leave, holidays,
+  // weekly off, HR overrides), only for employees in the user's scope; closed months
+  // use their stored pay figures. No times are made up for days without punches.
+  const { people } = await attendanceService.reportMonth(scope, bsYear, filter.bsMonth, {
+    branchId: filter.branchId || undefined,
+    departmentId: filter.departmentId || undefined,
+    designationId: filter.designationId || undefined,
+    employeeId: filter.employeeId || undefined,
+  });
+  const [deptRows, desigRows] = await Promise.all([
+    (await getDb()).select({ id: departments.id, name: departments.name }).from(departments),
+    (await getDb()).select({ id: designations.id, name: designations.name }).from(designations),
+  ]);
+  const deptName = new Map(deptRows.map((d) => [d.id, d.name]));
+  const desigName = new Map(desigRows.map((d) => [d.id, d.name]));
+  const todayIso = nepalDateIso();
+  const CODE: Record<string, string> = {
+    present: "P",
+    on_duty: "P",
+    half_day: "HD",
+    absent: "A",
+    missing_punch: "A",
+    paid_leave: "L",
+    unpaid_leave: "LWOP",
+    holiday: "HO",
+    weekly_off: "OFF",
+    not_employed: "-",
   };
+  const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const fmt = (n: number) => String(Math.round(n * 100) / 100);
 
-  const computeMetricsFromDaily = (dailyDetails: AttendanceDailyDetail[]) => {
-    let presentDays = 0;
-    let payLeaveDays = 0;
-    let nonPayLeaveDays = 0;
-    let absentDays = 0;
-    let totalWorkMins = 0;
-
-    for (const d of dailyDetails) {
-      const st = d.statusCode;
-      if (st === "P") {
-        presentDays += 1;
-      } else if (st === "HD") {
-        presentDays += 0.5;
-        absentDays += 0.5;
-      } else if (st === "L" || st === "HO") {
-        payLeaveDays += 1;
-      } else if (st === "LWOP") {
-        nonPayLeaveDays += 1;
-      } else if (st === "A") {
-        absentDays += 1;
-      }
-
-      if (d.workHours && d.workHours !== "00:00" && d.workHours !== "-") {
-        const parts = d.workHours.split(":");
-        const hrs = parseInt(parts[0] || "0", 10);
-        const mins = parseInt(parts[1] || "0", 10);
-        totalWorkMins += hrs * 60 + mins;
-      }
-    }
-
-    const totalWorkingDays = presentDays + absentDays + payLeaveDays + nonPayLeaveDays;
-    const totalWorkHours = `${Math.floor(totalWorkMins / 60)}:${String(totalWorkMins % 60).padStart(2, "0")}`;
-
+  const rows: AttendanceReportRow[] = people.map((p) => {
+    const m = p.summary;
+    const dailyDetails: AttendanceDailyDetail[] = p.days.map((d, i) => ({
+      dateStr: dateHeaders[i]?.dateStr ?? d.date,
+      dayNum: i + 1,
+      inTime: d.date > todayIso ? "-" : localClock(d.firstIn) || "-",
+      outTime: d.date > todayIso ? "-" : localClock(d.lastOut) || "-",
+      workHours: hhmm(d.workMinutes),
+      statusCode: d.date > todayIso ? "-" : CODE[d.dayType] ?? "-",
+    }));
+    const workMinutes = p.days.reduce((n, d) => n + d.workMinutes, 0);
     return {
-      totalWorkingDays: String(totalWorkingDays),
-      presentDays: String(presentDays),
-      payLeaveDays: String(payLeaveDays),
-      nonPayLeaveDays: String(nonPayLeaveDays),
-      absentDays: String(absentDays),
-      totalWorkHours,
+      employeeCode: p.employeeCode,
+      employeeName: p.fullName,
+      departmentName: deptName.get(p.departmentId) || "Unassigned",
+      designationName: desigName.get(p.designationId) || "Staff",
+      totalWorkingDays: fmt(m.calendarDays - m.notEmployedDays),
+      presentDays: fmt(m.presentDays + m.onDutyDays + m.halfDays * 0.5),
+      payLeaveDays: fmt(m.paidLeaveDays),
+      nonPayLeaveDays: fmt(m.unpaidLeaveDays),
+      absentDays: fmt(m.absentDays + m.missingPunchDays + m.halfDays * 0.5),
+      totalOtHoursOffice: fmt(m.otWorkDayMinutes / 60),
+      totalOtHoursOff: fmt(m.otOffDayMinutes / 60),
+      otEarnedAmount: p.amounts.otEarnedAmount,
+      leaveDeductionAmount: p.amounts.leaveDeductionAmount,
+      totalWorkHours: `${Math.floor(workMinutes / 60)}:${String(workMinutes % 60).padStart(2, "0")}`,
+      dailyDetails,
     };
-  };
-
-  let isLocked = false;
-  let rows: AttendanceReportRow[] = [];
-
-  if (filtered.length > 0) {
-    isLocked = filtered.every((r) => r.calc.isLocked);
-    rows = filtered.map((r) => {
-      const dailyDetails = generateDailyDetails(r.empId);
-      const metrics = computeMetricsFromDaily(dailyDetails);
-
-      if (r.calc.isLocked) {
-        return {
-          employeeCode: r.empCode,
-          employeeName: r.empName,
-          departmentName: r.deptName || "Unassigned",
-          designationName: r.desigName || "Staff",
-          totalWorkingDays: String(r.calc.totalWorkingDays ?? metrics.totalWorkingDays),
-          presentDays: String(r.calc.presentDays ?? metrics.presentDays),
-          payLeaveDays: String(r.calc.payLeaveDays ?? metrics.payLeaveDays),
-          nonPayLeaveDays: String(r.calc.nonPayLeaveDays ?? metrics.nonPayLeaveDays),
-          absentDays: String(r.calc.absentDays ?? metrics.absentDays),
-          totalOtHoursOffice: String(r.calc.totalOtHoursOffice ?? 0),
-          totalOtHoursOff: String(r.calc.totalOtHoursOff ?? 0),
-          otEarnedAmount: String(r.calc.otEarnedAmount ?? "0.00"),
-          leaveDeductionAmount: String(r.calc.leaveDeductionAmount ?? "0.00"),
-          totalWorkHours: metrics.totalWorkHours,
-          dailyDetails,
-        };
-      }
-
-      return {
-        employeeCode: r.empCode,
-        employeeName: r.empName,
-        departmentName: r.deptName || "Unassigned",
-        designationName: r.desigName || "Staff",
-        totalWorkingDays: metrics.totalWorkingDays,
-        presentDays: metrics.presentDays,
-        payLeaveDays: metrics.payLeaveDays,
-        nonPayLeaveDays: metrics.nonPayLeaveDays,
-        absentDays: metrics.absentDays,
-        totalOtHoursOffice: String(r.calc.totalOtHoursOffice ?? 0),
-        totalOtHoursOff: String(r.calc.totalOtHoursOff ?? 0),
-        otEarnedAmount: String(r.calc.otEarnedAmount ?? "0.00"),
-        leaveDeductionAmount: String(r.calc.leaveDeductionAmount ?? "0.00"),
-        totalWorkHours: metrics.totalWorkHours,
-        dailyDetails,
-      };
-    });
-  } else {
-    // Fallback 1: Query generated payrollSlips for this period
-    const slips = await (await getDb())
-      .select({
-        slip: payrollSlips,
-        run: payrollRuns,
-        empId: employees.id,
-        empBranchId: employees.branchId,
-        empDeptId: employees.departmentId,
-        empDesigId: employees.designationId,
-        desigName: designations.name,
-      })
-      .from(payrollSlips)
-      .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-      .leftJoin(employees, eq(payrollSlips.employeeId, employees.id))
-      .leftJoin(designations, eq(employees.designationId, designations.id))
-      .where(
-        and(
-          eq(payrollRuns.fiscalYearId, filter.fiscalYearId),
-          eq(payrollRuns.payPeriodMonth, filter.bsMonth)
-        )
-      );
-
-    let filteredSlips = slips;
-    if (filter.branchId) {
-      filteredSlips = filteredSlips.filter((s) => s.empBranchId === filter.branchId);
-    }
-    if (filter.departmentId) {
-      filteredSlips = filteredSlips.filter((s) => s.empDeptId === filter.departmentId);
-    }
-    if (filter.designationId) {
-      filteredSlips = filteredSlips.filter((s) => s.empDesigId === filter.designationId);
-    }
-    if (filter.employeeId) {
-      filteredSlips = filteredSlips.filter((s) => s.empId === filter.employeeId);
-    }
-
-    if (filteredSlips.length > 0) {
-      isLocked = filteredSlips.every((s) => s.run.status === "LOCKED" || s.run.status === "APPROVED");
-      rows = filteredSlips.map((s) => {
-        const dailyDetails = generateDailyDetails(s.empId);
-        const metrics = computeMetricsFromDaily(dailyDetails);
-
-        return {
-          employeeCode: s.slip.employeeCode,
-          employeeName: s.slip.employeeName,
-          departmentName: s.slip.departmentName || "Unassigned",
-          designationName: s.desigName || s.slip.designationName || "Staff",
-          totalWorkingDays: metrics.totalWorkingDays,
-          presentDays: metrics.presentDays,
-          payLeaveDays: metrics.payLeaveDays,
-          nonPayLeaveDays: metrics.nonPayLeaveDays,
-          absentDays: metrics.absentDays,
-          totalOtHoursOffice: String(Number(s.slip.otAmount) > 0 ? (Number(s.slip.otAmount) / 250).toFixed(1) : "0"),
-          totalOtHoursOff: "0",
-          otEarnedAmount: String(s.slip.otAmount || "0.00"),
-          leaveDeductionAmount: String(s.slip.absentDeduction || "0.00"),
-          totalWorkHours: metrics.totalWorkHours,
-          dailyDetails,
-        };
-      });
-    } else {
-      // Fallback 2: Query all active employees in company
-      const activeEmps = await (await getDb())
-        .select({
-          empId: employees.id,
-          empCode: employees.employeeCode,
-          empName: employees.fullName,
-          deptName: departments.name,
-          desigName: designations.name,
-          branchId: employees.branchId,
-          deptId: employees.departmentId,
-          desigId: employees.designationId,
-        })
-        .from(employees)
-        .leftJoin(departments, eq(employees.departmentId, departments.id))
-        .leftJoin(designations, eq(employees.designationId, designations.id))
-        .where(eq(employees.status, "ACTIVE"));
-
-      let filteredEmps = activeEmps;
-      if (filter.branchId) {
-        filteredEmps = filteredEmps.filter((e) => e.branchId === filter.branchId);
-      }
-      if (filter.departmentId) {
-        filteredEmps = filteredEmps.filter((e) => e.deptId === filter.departmentId);
-      }
-      if (filter.designationId) {
-        filteredEmps = filteredEmps.filter((e) => e.desigId === filter.designationId);
-      }
-      if (filter.employeeId) {
-        filteredEmps = filteredEmps.filter((e) => e.empId === filter.employeeId);
-      }
-
-      rows = filteredEmps.map((e) => {
-        const dailyDetails = generateDailyDetails(e.empId);
-        const metrics = computeMetricsFromDaily(dailyDetails);
-
-        return {
-          employeeCode: e.empCode,
-          employeeName: e.empName,
-          departmentName: e.deptName || "Unassigned",
-          designationName: e.desigName || "Staff",
-          totalWorkingDays: metrics.totalWorkingDays,
-          presentDays: metrics.presentDays,
-          payLeaveDays: metrics.payLeaveDays,
-          nonPayLeaveDays: metrics.nonPayLeaveDays,
-          absentDays: metrics.absentDays,
-          totalOtHoursOffice: "0",
-          totalOtHoursOff: "0",
-          otEarnedAmount: "0.00",
-          leaveDeductionAmount: "0.00",
-          totalWorkHours: metrics.totalWorkHours,
-          dailyDetails,
-        };
-      });
-    }
-  }
+  });
+  const isLocked = people.length > 0 && people.every((p) => p.amounts.closed);
 
   return {
     monthLabel,

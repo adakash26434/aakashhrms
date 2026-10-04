@@ -573,6 +573,37 @@ message (e.g. "Copied 3 × 2 cells") and a key reminder.
   code and columns by header; unknown codes and columns are listed and the
   values land in the table as changes, so the table is the preview.
 
+### Implemented attendance (Phase 4.5a, templates A + C)
+
+`/timeAndLeave/attendance`. One set of **day rules**
+(`lib/engines/attendance-day.engine.ts`) decides every employee-day,
+first match wins: not employed → HR override (with reason) → holiday
+(branch; Women's Day for women) → weekly off → approved full-day leave
+(Pay / Non-Pay / Partial-Pay) → punches (first in / last out minus the
+break after 5 hours: full day, half day or absent; a half-day leave covers
+half) → one punch = **missing punch** (absent until adjusted) → nothing =
+company setting (absent by default). Late = first in after start + grace;
+overtime = beyond the planned day from the OT minimum, OT-eligible
+employment types only, flagged over 4 h a day / 24 h a week (Labour Act).
+The **attendance month** follows the company calendar
+(`lib/engines/pay-period.engine.ts`): BS months now, AD months with payroll
+runs in AD months (4.8); days are AD dates so both calendars agree. Pay:
+(basic + grade in force) ÷ days in the month × (unpaid + not-employed days).
+
+| Tab | Layout and rules |
+|---|---|
+| Today | Count tiles (In, Missing punch, Not in, On leave, Off / holiday, Late; a tile filters) and a DataGrid: code, employee, department, day code, in, out, worked, late, why. |
+| Register | EditGrid: one row per employee, one column per day (BS day, weekday, AD day). Day codes P, ½, A, MP, OD, PL, UL, HO, WO with tones; a dot marks an HR override, an amber ring a late day. Editing a cell (keyboard, Ctrl+D, paste) sets an HR override; one reason per save. Read-only: closed months, future days, outside employment, your own row. The pane below explains the selected day (rule, in / out, worked, late, early, overtime) with Add punch and Adjustment. Month totals: paid days, unpaid, late, OT hours. |
+| Adjustments | Regularization requests: Waiting for me / All, bulk approve or reject, timeline. Approved by the employee's supervisor or Attendance → Approve; company administrators Final approve; never the employee. Approval adds punches (or the On duty / Present setting). |
+| Month close | One row per branch: status, employees, unpaid days, OT hours, missing punches, waiting adjustments, closed by. Close (typed `CLOSE`) stores and locks every day and summary for payroll; blocked while adjustments wait. Reopen needs a reason and is refused once that month's payroll is approved or locked. |
+| Punch log | Every punch with source (HR, adjustment, web, device, import), IP, location and who entered it; Void with a reason (kept, struck through). |
+
+Windows: **Add punch** (employee, day, check-in, check-out, note; an out
+before the in is the next morning), **New adjustment**, **Attendance
+rules** (company administrators: office time, break, grace, full / half day,
+OT minimum, weekly off, nothing-recorded rule, late rule, month calendar;
+office time is the same setting as Company setup → Work schedule).
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

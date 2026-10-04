@@ -1,7 +1,9 @@
 'use server';
 
 import { ensureTenantContext } from '@/lib/db';
-import { checkPermission } from "@/lib/auth/check-permission";
+import { checkPermission, checkPermissionWithScope } from "@/lib/auth/check-permission";
+import { toActionError } from "@/lib/errors/action-error";
+import { recordAuditLog } from "@/lib/services/audit.service";
 import { auth } from "@/lib/auth";
 import * as reportService from "@/lib/services/report.service";
 import * as reportEngine from "@/lib/engines/report.engine";
@@ -102,12 +104,12 @@ export async function getPayslipHeadSummaryAction(filter: SalarySheetFilter) {
 export async function getAttendanceReportAction(filter: AttendanceReportFilter) {
   await ensureTenantContext();
   try {
-    await checkPermission("VIEW", "REPORTS_ATTENDANCE");
-    const data = await reportService.getAttendanceReportData(filter);
-    return { success: true, data };
+    // S22: the report follows the user's employee scope.
+    const scope = await checkPermissionWithScope("VIEW", "REPORTS_ATTENDANCE");
+    const data = await reportService.getAttendanceReportData(filter, scope);
+    return { success: true as const, data };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Failed to load attendance report";
-    return { success: false, error: msg };
+    return toActionError(error, "report.attendance");
   }
 }
 
@@ -117,17 +119,18 @@ export async function getAttendanceReportAction(filter: AttendanceReportFilter) 
 export async function exportAttendanceCsvAction(filter: AttendanceReportFilter) {
   await ensureTenantContext();
   try {
-    await checkPermission("EXPORT", "REPORTS_ATTENDANCE");
-    const reportData = await reportService.getAttendanceReportData(filter);
+    // S22: scoped like the report, and every export is audited.
+    const scope = await checkPermissionWithScope("EXPORT", "REPORTS_ATTENDANCE");
+    const reportData = await reportService.getAttendanceReportData(filter, scope);
     const csvString = reportEngine.buildAttendanceCSV(
       reportData.rows,
       reportData.monthLabel
     );
     const filename = `attendance-report-${reportData.monthLabel.replace(/[^a-zA-Z0-9]/g, "-")}.csv`;
-    return { success: true, data: csvString, filename };
+    await recordAuditLog({ userId: scope.userId, action: "EXPORT", module: "REPORTS_ATTENDANCE", recordId: reportData.monthLabel, result: "SUCCESS", newValues: { rows: reportData.rows.length } });
+    return { success: true as const, data: csvString, filename };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Failed to export attendance CSV";
-    return { success: false, error: msg };
+    return toActionError(error, "report.attendance-export");
   }
 }
 

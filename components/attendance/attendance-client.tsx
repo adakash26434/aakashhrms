@@ -1,327 +1,132 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Plus, Upload, Lock } from "lucide-react";
-import { Banner, type BannerTone } from "@/components/ui/banner";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toast";
-import { PageFrame } from "@/components/layout/page-frame";
-import { PageHeader } from "@/components/ui/page-header";
-import { TableShell } from "@/components/ui/table-shell";
-import type { AttendanceData, AttendanceRecord, AttendanceFilter, AttendanceFormData, AttendanceBulkItem } from "@/lib/types/attendance";
-import { filterAttendanceRecords } from "@/lib/engines/attendance.engine";
-import dynamic from "next/dynamic";
-import { AttendanceKPIsGrid } from "./attendance-kpi-cards";
-import { AttendanceFilters } from "./attendance-filters";
-import { AttendanceTabs, type AttendanceTab } from "./attendance-tabs";
-import { AttendanceTable } from "./attendance-table";
+import { useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { CalendarCheck2, ChevronLeft, ChevronRight, ClipboardCheck, Fingerprint, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
+import { PageBar } from "@/components/frame/page-bar";
+import { useDateText } from "@/components/kit/date-cell";
+import { SelectField } from "@/components/kit/select-field";
+import { Tabs, type TabItem } from "@/components/kit/tabs";
+import { WindowButton } from "@/components/kit/window";
+import { shiftPeriod, periodFor } from "@/lib/engines/pay-period.engine";
+import type { AttendancePageData, AttendanceTab } from "@/lib/types/attendance";
+import { AttendanceAdjustments } from "./attendance-adjustments";
+import { AttendanceClose } from "./attendance-close";
+import { AttendancePunches } from "./attendance-punches";
+import { AttendanceRegister } from "./attendance-register";
+import { AttendanceToday } from "./attendance-today";
+import { AdjustmentWindow, PunchWindow, RulesWindow } from "./attendance-windows";
 
-const AttendanceFormModal = dynamic(
-  () => import("./attendance-form-modal").then((m) => m.AttendanceFormModal),
-  { ssr: false }
-);
+/**
+ * Attendance (4.5): Today · Register (month) · Adjustments · Month close ·
+ * Punch log. The month follows the company calendar (BS now; AD with
+ * payroll runs in AD months, 4.8). Every day is decided by one set of rules
+ * (lib/engines/attendance-day.engine.ts) and the server re-checks every change.
+ */
+export function AttendanceClient({ data }: { data: AttendancePageData }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const dateText = useDateText();
+  const [refreshing, startRefresh] = useTransition();
+  const [tab, setTab] = useState<AttendanceTab>(data.tab);
+  const [windowOpen, setWindowOpen] = useState<null | "punch" | "adjustment" | "rules">(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const { permissions: can, period } = data;
 
-const AttendanceBulkModal = dynamic(
-  () => import("./attendance-bulk-modal").then((m) => m.AttendanceBulkModal),
-  { ssr: false }
-);
+  const go = (params: Record<string, string | number | undefined>) => {
+    const sp = new URLSearchParams();
+    const merged = { tab, year: period.year, month: period.month, branch: branchFilter, ...params };
+    for (const [k, v] of Object.entries(merged)) if (v !== undefined && v !== "") sp.set(k, String(v));
+    startRefresh(() => router.push(`${pathname}?${sp.toString()}`));
+  };
+  const branchFilter = data.branchId;
+  const changeTab = (next: string) => {
+    setTab(next as AttendanceTab);
+    go({ tab: next });
+  };
+  const step = (delta: number) => {
+    const p = shiftPeriod(periodFor(period.calendar, period.year, period.month), delta);
+    go({ year: p.year, month: p.month });
+  };
 
-const AttendanceLockModal = dynamic(
-  () => import("./attendance-lock-modal").then((m) => m.AttendanceLockModal),
-  { ssr: false }
-);
+  const waiting = data.adjustments.filter((a) => a.status === "pending" && (a.can.approve || a.can.finalApprove)).length;
+  const missing = data.register.reduce((n, r) => n + r.summary.missingPunchDays, 0);
+  const closed = data.months.filter((m) => m.status === "closed").length;
+  const tabs = useMemo<TabItem[]>(
+    () => [
+      { id: "today", label: "Today", icon: CalendarCheck2 },
+      { id: "register", label: "Register", icon: Table2, badge: missing || undefined },
+      { id: "adjustments", label: "Adjustments", icon: ClipboardCheck, badge: waiting || undefined },
+      { id: "close", label: "Month close", icon: LockKeyhole, badge: data.months.length ? `${closed}/${data.months.length}` : undefined },
+      { id: "punches", label: "Punch log", icon: Fingerprint },
+    ],
+    [missing, waiting, closed, data.months.length]
+  );
 
-const AttendanceDetailPanel = dynamic(
-  () => import("./attendance-detail-panel").then((m) => m.AttendanceDetailPanel),
-  { ssr: false }
-);
-
-const ConfirmDeleteDialog = dynamic(
-  () => import("./confirm-delete-dialog").then((m) => m.ConfirmDeleteDialog),
-  { ssr: false }
-);
-
-import {
-  saveAttendancePunchAction,
-  bulkPostAttendanceAction,
-  deleteAttendancePunchAction,
-  runAndLockMonthlyCalculationAction,
-  getAttendanceDataAction,
-} from "@/app/actions/attendance.actions";
-
-export function AttendanceClient({ initialData }: { initialData: AttendanceData }) {
-  const [data, setData] = useState<AttendanceData>(initialData);
-  const [filter, setFilter] = useState<AttendanceFilter>({
-    search: "",
-    departmentId: "all",
-    branchId: "all",
-    date: initialData.selectedDate || new Date().toISOString().split("T")[0],
-    status: "all",
-    isLateOnly: false,
-  });
-  const [activeTab, setActiveTab] = useState<AttendanceTab>("all");
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Modals state
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isBulkOpen, setIsBulkOpen] = useState(false);
-  const [isLockOpen, setIsLockOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
-  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const toast = useToast();
-  const [banner, setBanner] = useState<{ visible: boolean; message: string; tone: BannerTone }>({
-    visible: false, message: "", tone: "success",
-  });
-
-  function showBanner(message: string, tone: BannerTone = "success") {
-    setBanner({ visible: true, message, tone });
-    if (tone === "success") {
-      toast.success(message);
-    } else if (
-      message.toLowerCase().includes("error") ||
-      message.toLowerCase().includes("failed") ||
-      message.toLowerCase().includes("could not")
-    ) {
-      toast.error(message);
-    } else {
-      toast.info(message);
-    }
-  }
-
-  // Reload full data for a given date (defaults to current filter date)
-  async function refreshData(targetDate?: string) {
-    const dateToFetch = targetDate || filter.date;
-    setIsLoading(true);
-    try {
-      const res = await getAttendanceDataAction({ date: dateToFetch });
-      if (res.success && res.data) {
-        setData(res.data);
-      } else if (res.error) {
-        showBanner(res.error, "info");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleDateChange(newDate: string) {
-    setFilter((prev) => ({ ...prev, date: newDate }));
-    await refreshData(newDate);
-  }
-
-  function handleTabChange(nextTab: AttendanceTab) {
-    setActiveTab(nextTab);
-    if (nextTab !== "all" && filter.status !== "all") {
-      setFilter((prev) => ({ ...prev, status: "all" }));
-    }
-  }
-
-  function handleStatusChange(status: AttendanceFilter["status"]) {
-    setFilter((prev) => ({ ...prev, status }));
-    if (status !== "all" && activeTab !== "all") {
-      setActiveTab("all");
-    }
-  }
-
-  function handleLateOnlyChange(isLateOnly: boolean) {
-    setFilter((prev) => ({ ...prev, isLateOnly }));
-    if (isLateOnly && activeTab !== "all" && activeTab !== "late") {
-      setActiveTab("all");
-    }
-  }
-
-  function handleResetFilters() {
-    setFilter((prev) => ({
-      ...prev,
-      search: "",
-      departmentId: "all",
-      branchId: "all",
-      status: "all",
-      isLateOnly: false,
-    }));
-    setActiveTab("all");
-  }
-
-  const hasActiveFilters =
-    Boolean(filter.search.trim()) ||
-    filter.departmentId !== "all" ||
-    filter.branchId !== "all" ||
-    filter.status !== "all" ||
-    filter.isLateOnly ||
-    activeTab !== "all";
-
-  // Filter & tab derive
-  const filteredRecords = useMemo(() => {
-    let list = data.records;
-    if (activeTab === "present") list = list.filter((r) => r.status === "Present" || r.status === "Half Day");
-    else if (activeTab === "absent") list = list.filter((r) => r.status === "Absent" || r.status === "LWOP");
-    else if (activeTab === "late") list = list.filter((r) => r.isLate);
-    else if (activeTab === "ot") list = list.filter((r) => r.otHoursOfficeDay > 0 || r.otHoursOffDay > 0);
-
-    return filterAttendanceRecords(list, filter);
-  }, [data.records, filter, activeTab]);
-
-  async function handleSavePunch(formData: AttendanceFormData) {
-    const res = await saveAttendancePunchAction(editingRecord?.id || null, formData);
-    if (!res.success) {
-      showBanner(`Error: ${res.error}`, "info");
-    } else {
-      showBanner(editingRecord ? "Punch updated successfully" : "Punch logged successfully");
-      setIsFormOpen(false);
-      setEditingRecord(null);
-      await refreshData();
-    }
-  }
-
-  async function handleBulkPost(date: string, items: AttendanceBulkItem[]) {
-    const res = await bulkPostAttendanceAction(date, items);
-    if (!res.success) {
-      showBanner(`Bulk Error: ${res.error}`, "info");
-    } else {
-      showBanner(`Bulk attendance posted! ${res.data?.successCount} successful.`);
-      setIsBulkOpen(false);
-      await refreshData();
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteId) return;
-    const res = await deleteAttendancePunchAction(deleteId);
-    if (!res.success) {
-      showBanner(`Delete Error: ${res.error}`, "info");
-    } else {
-      showBanner("Record deleted successfully");
-      setDeleteId(null);
-      await refreshData();
-    }
-  }
-
-  async function handleRunEngine(bsMonth: number, datePrefix: string) {
-    let count = 0;
-    for (const emp of data.employees) {
-      await runAndLockMonthlyCalculationAction(emp.id, bsMonth, datePrefix);
-      count++;
-    }
-    showBanner(`Pre-Payroll Engine executed! Locked monthly calculation for ${count} active employees.`, "success");
-    setIsLockOpen(false);
-    await refreshData();
-  }
+  const done = (text: string) => {
+    setWindowOpen(null);
+    setNotice(text);
+    router.refresh();
+  };
 
   return (
-    <PageFrame size="wide" spacing="default">
-      <Banner
-        visible={banner.visible}
-        message={banner.message}
-        tone={banner.tone}
-        onDismiss={() => setBanner((b) => ({ ...b, visible: false }))}
+    <div>
+      <PageBar
+        title="Attendance"
+        description={`${data.register.length} employee${data.register.length === 1 ? "" : "s"} · ${period.label} (${dateText(period.start)} – ${dateText(period.end)}, ${period.days} days)`}
+        actions={[
+          { id: "punch", label: "Add punch", icon: Plus, group: "create", primary: tab === "today" || tab === "register", hidden: !can.add, onClick: () => setWindowOpen("punch") },
+          { id: "adjustment", label: "New adjustment", icon: TimerReset, group: "create", hidden: !can.add, onClick: () => setWindowOpen("adjustment") },
+          { id: "rules", label: "Attendance rules", icon: Settings2, group: "output", hidden: !can.settings, onClick: () => setWindowOpen("rules") },
+          { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
+        ]}
       />
 
-      <PageHeader
-        title="Attendance & OT Engine"
-        description={`Active Fiscal Year: ${data.activeFiscalYear.label}. Track daily attendance punches, evaluate grace windows, and manage overtime. Attendance calculations automatically sync with payroll runs.`}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
-            <Upload className="h-4 w-4" /> 1-Click Bulk Entry
-          </Button>
-          <Button
-            onClick={() => {
-              setEditingRecord(null);
-              setIsFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" /> Log Single Punch
-          </Button>
-          <Button
-            variant="outline"
-            className="border-amber-600/40 text-amber-800 hover:bg-amber-50 font-medium"
-            onClick={() => setIsLockOpen(true)}
-          >
-            <Lock className="h-4 w-4 mr-1 text-amber-600" /> Manual Seal (Optional)
-          </Button>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="inline-flex items-center gap-1 rounded-md border border-line-input bg-surface p-0.5">
+          <WindowButton aria-label="Previous month" title="Previous month" onClick={() => step(-1)}>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </WindowButton>
+          <span className="min-w-36 px-2 text-center text-sm font-semibold text-ink">{period.label}</span>
+          <WindowButton aria-label="Next month" title="Next month" onClick={() => step(1)}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </WindowButton>
         </div>
-      </PageHeader>
-
-      <AttendanceKPIsGrid kpis={data.kpis} />
-
-      <AttendanceTabs
-        active={activeTab}
-        allCount={data.records.length}
-        presentCount={data.records.filter((r) => r.status === "Present" || r.status === "Half Day").length}
-        absentCount={data.records.filter((r) => r.status === "Absent" || r.status === "LWOP").length}
-        lateCount={data.records.filter((r) => r.isLate).length}
-        otCount={data.records.filter((r) => r.otHoursOfficeDay > 0 || r.otHoursOffDay > 0).length}
-        onChange={handleTabChange}
-      />
-
-      <TableShell
-        title="Attendance Records"
-        totalCount={data.records.length}
-        filteredCount={filteredRecords.length}
-        toolbar={
-          <AttendanceFilters
-            filter={filter}
-            setFilter={setFilter}
-            departments={data.departments}
-            branches={data.branches}
-            onDateChange={handleDateChange}
-            onStatusChange={handleStatusChange}
-            onLateOnlyChange={handleLateOnlyChange}
-            onResetFilters={handleResetFilters}
-            hasActiveFilters={hasActiveFilters}
-            isLoading={isLoading}
+        <div className="w-56">
+          <SelectField
+            name="attendance-branch"
+            options={data.branches.map((b) => ({ value: b.id, label: b.name }))}
+            value={branchFilter}
+            onChange={(v) => go({ branch: v })}
+            placeholder="All branches"
+            allowEmpty
           />
-        }
-      >
-        <AttendanceTable
-          records={filteredRecords}
-          totalCountForDate={data.records.length}
-          onResetFilters={handleResetFilters}
-          onSelect={(rec) => setSelectedRecord(rec)}
-          onEdit={(rec) => {
-            setEditingRecord(rec);
-            setIsFormOpen(true);
-          }}
-          onDelete={(id) => setDeleteId(id)}
-        />
-      </TableShell>
+        </div>
+        <span className="text-2xs text-ink-muted">
+          Office time {data.rules.shift.start}–{data.rules.shift.end} · grace {data.rules.shift.graceMinutes} min · a day with nothing recorded counts as {data.rules.noRecord}.
+        </span>
+      </div>
 
-      <AttendanceFormModal
-        open={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSave={handleSavePunch}
-        initialData={editingRecord}
-        employees={data.employees}
-        selectedDate={filter.date}
-      />
+      {notice && (
+        <div role="status" className="mb-3 flex items-start justify-between gap-3 rounded-md border border-success/30 bg-success-subtle px-3 py-2 text-xs text-ink">
+          <p>{notice}</p>
+          <button type="button" className="cursor-pointer text-2xs font-medium text-ink-muted hover:text-ink" onClick={() => setNotice(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
 
-      <AttendanceBulkModal
-        open={isBulkOpen}
-        onClose={() => setIsBulkOpen(false)}
-        onSave={handleBulkPost}
-        employees={data.employees.map((e) => ({ ...e, departmentName: e.departmentName }))}
-        selectedDate={filter.date}
-      />
+      <Tabs variant="folder" items={tabs} value={tab} onChange={changeTab} label="Attendance views">
+        {tab === "today" && <AttendanceToday data={data} />}
+        {tab === "register" && <AttendanceRegister data={data} onSaved={(t) => done(t)} />}
+        {tab === "adjustments" && <AttendanceAdjustments data={data} onNew={() => setWindowOpen("adjustment")} onDone={(t) => done(t)} />}
+        {tab === "close" && <AttendanceClose data={data} onDone={(t) => done(t)} />}
+        {tab === "punches" && <AttendancePunches data={data} onDone={(t) => done(t)} />}
+      </Tabs>
 
-      <AttendanceLockModal
-        open={isLockOpen}
-        onClose={() => setIsLockOpen(false)}
-        onRunEngine={handleRunEngine}
-        employeesCount={data.employees.length}
-      />
-
-      <AttendanceDetailPanel
-        open={!!selectedRecord}
-        record={selectedRecord}
-        onClose={() => setSelectedRecord(null)}
-      />
-
-      <ConfirmDeleteDialog
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleDelete}
-      />
-    </PageFrame>
+      {windowOpen === "punch" && <PunchWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
+      {windowOpen === "adjustment" && <AdjustmentWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
+      {windowOpen === "rules" && <RulesWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
+    </div>
   );
 }

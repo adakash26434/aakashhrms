@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 export interface EditGridColumn<R> {
   id: string;
   header: string;
+  /** Richer header content (e.g. a day number with its date under it); `header` stays the accessible name. */
+  headerNode?: ReactNode;
   /** Header group shown above (e.g. "Allowances"). */
   group?: string;
   /** number: typed amount · choice: one of options · check: yes / no · readonly: worked out. */
@@ -94,6 +96,7 @@ export function EditGrid<R>({
   columns,
   onChange,
   onSelectRows,
+  onActiveCellChange,
   label,
   maxHeight = "calc(100vh - 360px)",
   empty,
@@ -105,6 +108,8 @@ export function EditGrid<R>({
   onChange: (changes: GridValueChange[]) => void;
   /** Rows covered by the selection (for "apply to selected"). */
   onSelectRows?: (rowIds: string[]) => void;
+  /** The active cell moved (row id, column id). */
+  onActiveCellChange?: (rowId: string, colId: string) => void;
   label: string;
   maxHeight?: string;
   empty?: ReactNode;
@@ -194,6 +199,15 @@ export function EditGrid<R>({
     onSelectRows(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection.top, selection.bottom, rows]);
+
+  // Report the active cell (for a detail pane beside the grid).
+  useEffect(() => {
+    if (!onActiveCellChange) return;
+    const row = rows[safeActive.row];
+    const col = columns[safeActive.col];
+    if (row && col) onActiveCellChange(getRowId(row), col.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeActive.row, safeActive.col, rows]);
 
   // Keep the active cell in view (scrolls the grid only, both ways, clear of the sticky header and pinned columns).
   useEffect(() => {
@@ -409,7 +423,7 @@ export function EditGrid<R>({
                       j === safeActive.col && "bg-brand-subtle text-brand-strong"
                     )}
                   >
-                    {c.header}
+                    {c.headerNode ?? c.header}
                   </th>
                 ))}
               </tr>

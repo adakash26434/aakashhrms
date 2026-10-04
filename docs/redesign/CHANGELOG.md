@@ -13,6 +13,27 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-04 — 4.5a Attendance foundation
+Branch: `redesign/4.5-attendance` (stacked on 4.4)
+
+Research: Nepal Labour Act 2074 (8 h a day / 48 a week, rest after 5 hours, one weekly holiday, OT at most 4 h a day / 24 a week at 1.5×, 13 public holidays and 14 for women, substitute leave, home leave by days worked); HR software practice (punches → daily status, regularization approved by the reporting manager, grace and half-day thresholds, loss-of-pay days, web check-in with IP / geofence, device push over ZKTeco ADMS).
+
+**What was wrong before:** absent and half days were never deducted; approved leave never reached attendance (unpaid leave paid in full); a day with no record meant full pay; the daily rate divided by the number of rows typed in; holidays and the weekly off were not used (four different weekly-off rules); office time and grace settings were ignored (late fixed at 9:00 + 40 min); payroll's Sync unlocked sealed months and wrote draft rows; no scope, audit or unique day (S22).
+
+- **Day rules** (`lib/engines/attendance-day.engine.ts`): not employed → HR override → holiday → weekly off → approved leave → punches (full / half / absent; half-day leave covers half) → missing punch → nothing recorded (absent, company setting). Late, early, overtime (OT-eligible types only; over 4 h / 24 h flagged), night shifts kept on the day they start.
+- **Attendance months** (`lib/engines/pay-period.engine.ts`): BS months now; the AD option is built and switches on with payroll runs in AD months (4.8). Every date shows BS and AD.
+- **Pay**: unpaid days (absent, unpaid leave, unpaid halves, late rule when on) and days before joining / after leaving are deducted: (basic + grade in force for the month) ÷ days in the month × days. **This changes payslips:** absences and half days now cost money, approved unpaid leave is deducted, joiners and leavers are prorated. OT keeps today's formula (unified in 4.7).
+- **Screens** (`/timeAndLeave/attendance`): Today, Register (EditGrid with HR overrides and a day pane), Adjustments (approval with timeline, bulk), Month close (per branch), Punch log (void with reason); windows for Add punch, New adjustment and Attendance rules. The old attendance screens are removed.
+- **Payroll** reads closed summaries or works days out on the spot without writing; it never unlocks. The dashboard, employee record and attendance report use the same rules (the report no longer makes up 09:00–17:00 times).
+- **Data** (migration 0039): punches, adjustments, attendance months, day results and overrides (one row per employee-day), summary columns. Days typed before 4.5 keep their meaning (they became HR overrides, their times punches).
+- **Security S22**: scope everywhere, own attendance refused (S21), audit, safe errors, unique day, server-side close, scoped and audited report export. Attendance → Approve added to roles.
+
+Found in the browser check and fixed: days still to come counted as absent (now **Upcoming**, not counted); a month can be closed only after its last day; old entries read "Entered in the old attendance screen"; Month close columns widened; no roadmap numbers in screen text.
+
+Verified: tsc 0 · eslint: nothing new · 556/556 tests (new `tests/attendance-day.test.ts`, `tests/pay-period.test.ts`, `tests/security-attendance.test.ts`) · `next build` · Playwright on your data after migration 0039 (**nothing saved, approved or closed**): Today (Sunday: everyone on weekly off); Register for Aswin 2083 (old entries kept as HR settings with their times: 09:00–18:00 → 8h 15m worked, 1h overtime; Dashain holidays from the calendar as HO; empty working days absent; upcoming days not counted; a day changed to ½ and discarded; Save needs a reason); day pane; Adjustments, Month close (close disabled until the month ends), Punch log (34 punches carried over); Attendance rules and Add punch windows opened and cancelled; 390 / 1366 / 1920 no page overflow; 0 console errors.
+
+---
+
 ## 2026-10-04 — 4.3 and 4.4 signed off
 You signed off 4.3 Organization and 4.4 Salary structure (with its approvals follow-up). Work continues with 4.5 Attendance on `redesign/4.5-attendance`, stacked on 4.4. Nothing is merged to main or pushed.
 

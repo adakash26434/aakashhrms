@@ -28,7 +28,8 @@ describe('Dashboard access (S3)', () => {
   it('scopes employee lists, attendance, leave and payroll sums to the user (and branch filter)', () => {
     assert.match(service, /buildEmployeeScopeCondition\(scope\)/);
     assert.match(service, /byEmployeeId\(payrollSlips\.employeeId\)/);
-    assert.match(service, /byEmployeeId\(attendanceRecords\.employeeId\)/);
+    // Attendance days come from the attendance rules, within the user's scope and the branch filter (4.5).
+    assert.match(service, /attendanceService\.attendanceMarks\(scope, monthStart, todayIso, branchId \?\? undefined\)/);
     assert.match(service, /byEmployeeId\(leaveApplications\.employeeId\)/);
     assert.match(service, /pending\.filter\(\(p\) => inScope\(p\.employeeId\)\)/);
   });

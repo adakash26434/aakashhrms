@@ -161,9 +161,9 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
     modules: [
       {
         key: 'ATTENDANCE',
-        label: 'Attendance & Punch Records',
-        description: 'Daily punch records, shifts, work hours, and monthly attendance sync',
-        allowedActions: ['VIEW', 'ADD', 'EDIT', 'LOCK', 'EXPORT'],
+        label: 'Attendance',
+        description: 'Punches, the monthly register, adjustments (approve), month close (lock) and shifts',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK', 'EXPORT'],
       },
       {
         key: 'LEAVE_APPLICATIONS',

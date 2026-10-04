@@ -61,7 +61,7 @@ export function AttendanceReportClient({ lookupData }: AttendanceReportClientPro
         employeeId: filters.employeeId,
       });
 
-      if (!res.success || !res.data) {
+      if (!res.success) {
         const msg = res.error || "Failed to load attendance report.";
         setError(msg);
         toast.error(msg);

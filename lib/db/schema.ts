@@ -768,9 +768,28 @@ export const attendanceRecords = pgTable('attendance_records', {
   isManualEntry: boolean('is_manual_entry').default(false).notNull(), // True if HR manual punch override
   remarks: text('remarks'),
   isLocked: boolean('is_locked').default(false).notNull(), // Locked when monthly calculation runs
+  // 4.5: the day's result (written when the month is closed) and any HR override (an input).
+  dayType: varchar('day_type', { length: 20 }),
+  payable: numeric('payable', { precision: 3, scale: 2 }).default('0').notNull(),
+  unpaid: numeric('unpaid', { precision: 3, scale: 2 }).default('0').notNull(),
+  firstIn: timestamp('first_in', { withTimezone: true }),
+  lastOut: timestamp('last_out', { withTimezone: true }),
+  workMinutes: integer('work_minutes').default(0).notNull(),
+  lateMinutes: integer('late_minutes').default(0).notNull(),
+  earlyMinutes: integer('early_minutes').default(0).notNull(),
+  otWorkMinutes: integer('ot_work_minutes').default(0).notNull(),
+  otOffMinutes: integer('ot_off_minutes').default(0).notNull(),
+  rule: text('rule'),
+  overrideType: varchar('override_type', { length: 20 }),
+  overrideReason: text('override_reason'),
+  overrideBy: uuid('override_by'),
+  overrideAt: timestamp('override_at'),
+  // Days typed in before 4.5 were turned into overrides once (see migration 0039).
+  migrated: boolean('migrated').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
+  empDateUnique: unique('attendance_records_emp_date_uq').on(table.employeeId, table.attendanceDate),
   employeeIdIdx: index('attendance_records_employee_id_idx').on(table.employeeId),
   fiscalYearIdIdx: index('attendance_records_fiscal_year_id_idx').on(table.fiscalYearId),
   attendanceDateIdx: index('attendance_records_attendance_date_idx').on(table.attendanceDate),
@@ -801,6 +820,18 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
   
   otWarnings: text('ot_warnings'),
 
+  // 4.5: the attendance month (BS or AD) and the day counts payroll uses.
+  calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
+  periodYear: integer('period_year'),
+  periodMonth: integer('period_month'),
+  startDate: date('start_date'),
+  endDate: date('end_date'),
+  calendarDays: integer('calendar_days').default(0).notNull(),
+  payableDays: numeric('payable_days', { precision: 5, scale: 2 }).default('0').notNull(),
+  unpaidDays: numeric('unpaid_days', { precision: 5, scale: 2 }).default('0').notNull(),
+  notEmployedDays: numeric('not_employed_days', { precision: 5, scale: 2 }).default('0').notNull(),
+  summary: jsonb('summary'),
+
   // Lock Control
   isLocked: boolean('is_locked').default(false).notNull(),
   lockedById: uuid('locked_by_id').references(() => users.id, { onDelete: 'set null' }),
@@ -810,6 +841,75 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
 }, (t) => ({
   unq: unique().on(t.employeeId, t.fiscalYearId, t.bsMonth),
   fyMonthIdx: index('leave_ot_calculations_fy_month_idx').on(t.fiscalYearId, t.bsMonth),
+}));
+
+/** 4.5: raw punches (web, device, import, adjustment, manual). Never deleted: voided with a reason. */
+export const attendancePunches = pgTable('attendance_punches', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  punchedAt: timestamp('punched_at', { withTimezone: true }).notNull(),
+  kind: varchar('kind', { length: 10 }).default('auto').notNull(), // in | out | auto
+  source: varchar('source', { length: 20 }).notNull(), // manual | web | device | import | adjustment
+  deviceId: varchar('device_id', { length: 100 }),
+  ip: varchar('ip', { length: 64 }),
+  latitude: numeric('latitude', { precision: 9, scale: 6 }),
+  longitude: numeric('longitude', { precision: 9, scale: 6 }),
+  accuracyM: integer('accuracy_m'),
+  note: text('note'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  voidedAt: timestamp('voided_at'),
+  voidedBy: uuid('voided_by'),
+  voidReason: text('void_reason'),
+}, (t) => ({
+  empTimeIdx: index('attendance_punches_emp_time_idx').on(t.employeeId, t.punchedAt),
+  uniquePunch: unique('attendance_punches_unique_idx').on(t.employeeId, t.punchedAt, t.source),
+}));
+
+/** 4.5: attendance adjustment (regularization) requests, approved through the approval engine. */
+export const attendanceAdjustments = pgTable('attendance_adjustments', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  attendanceDate: date('attendance_date').notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(),
+  requestedIn: timestamp('requested_in', { withTimezone: true }),
+  requestedOut: timestamp('requested_out', { withTimezone: true }),
+  reason: text('reason').notNull(),
+  source: varchar('source', { length: 20 }).default('hr').notNull(), // hr | self_service
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  preparedBy: uuid('prepared_by'),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  empDateIdx: index('attendance_adjustments_emp_date_idx').on(t.employeeId, t.attendanceDate),
+  statusIdx: index('attendance_adjustments_status_idx').on(t.status),
+}));
+
+/** 4.5: an attendance month per branch (BS now, AD with 4.8): open, or closed for payroll. */
+export const attendancePeriods = pgTable('attendance_periods', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
+  periodYear: integer('period_year').notNull(),
+  periodMonth: integer('period_month').notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  days: integer('days').notNull(),
+  branchId: uuid('branch_id').notNull(),
+  status: varchar('status', { length: 10 }).default('open').notNull(), // open | closed
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+  reopenedBy: uuid('reopened_by'),
+  reopenedAt: timestamp('reopened_at'),
+  reopenReason: text('reopen_reason'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  uniquePeriod: unique('attendance_periods_unique_idx').on(t.calendar, t.periodYear, t.periodMonth, t.branchId),
 }));
 
 // =============================================================================

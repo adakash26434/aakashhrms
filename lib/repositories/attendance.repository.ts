@@ -1,598 +1,331 @@
-
 import { getDb } from "@/lib/db";
 import {
+  approvalActions,
+  attendanceAdjustments,
+  attendancePeriods,
+  attendancePunches,
   attendanceRecords,
-  leaveOtCalculations,
-  fiscalYears,
+  employeeTermination,
   employees,
-  departments,
-  branches,
+  employmentTypes,
+  fiscalYears,
+  holidays,
+  leaveApplications,
+  leaveOtCalculations,
+  leaveTypes,
+  payrollRuns,
+  systemConfig,
 } from "@/lib/db/schema";
-import { eq, and, desc, sql, gte, lte, type SQL } from "drizzle-orm";
-import type {
-  AttendanceRecord,
-  AttendanceStatus,
-  LeaveOtCalculation,
-  AttendanceBulkItem,
-} from "@/lib/types/attendance";
-import { parseTimeToMinutes, evaluateLateArrival } from "@/lib/engines/attendance.engine";
-import { getBSMonthRange, formatADDate } from "@/lib/utils/bs-calendar";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
+import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
+import type { DayResult, MonthSummary, OverrideType, PunchSource } from "@/lib/types/attendance";
 
-type AttendanceRowJoined = {
+// Attendance (4.5): punches, HR overrides, daily results, adjustments
+// (regularization), attendance months per branch and the month summaries
+// payroll reads. Queries only; the rules live in lib/engines.
+
+export const MODULE = "ATTENDANCE";
+const RULES_KEY = "attendance.rules";
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+/** The stored attendance-only rules (JSON), or null when never saved. */
+export async function getRulesJson(): Promise<unknown> {
+  const [row] = await (await getDb()).select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, RULES_KEY)).limit(1);
+  if (!row?.value) return null;
+  try {
+    return JSON.parse(row.value);
+  } catch {
+    return null;
+  }
+}
+
+export async function setRulesJson(value: unknown): Promise<void> {
+  const text = JSON.stringify(value);
+  await (await getDb())
+    .insert(systemConfig)
+    .values({ key: RULES_KEY, value: text, dataType: "json" })
+    .onConflictDoUpdate({ target: systemConfig.key, set: { value: text, dataType: "json", updatedAt: new Date() } });
+}
+
+// ---------------------------------------------------------------------------
+// People and the calendar
+// ---------------------------------------------------------------------------
+
+export interface AttendanceEmployee {
   id: string;
-  employeeId: string;
   employeeCode: string;
   attendanceCode: string;
   fullName: string;
-  departmentId: string;
-  departmentName: string | null;
+  gender: string;
   branchId: string;
-  branchName: string | null;
-  fiscalYearId: string;
-  attendanceDate: string;
+  departmentId: string;
+  designationId: string;
+  category: string;
+  joiningDate: string;
   status: string;
-  inTime: string | null;
-  outTime: string | null;
-  workHours: string;
-  otHoursOfficeDay: string;
-  otHoursOffDay: string;
-  isLate: boolean;
-  isManualEntry: boolean;
-  remarks: string | null;
-  isLocked: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  supervisorId: string | null;
+  terminationDate: string | null;
+}
+
+/** Employees (within a scope condition), with their last working date when they have left. */
+export async function findEmployees(condition?: SQL): Promise<AttendanceEmployee[]> {
+  const rows = await (await getDb())
+    .select({
+      id: employees.id,
+      employeeCode: employees.employeeCode,
+      attendanceCode: employees.attendanceCode,
+      fullName: employees.fullName,
+      gender: employees.gender,
+      branchId: employees.branchId,
+      departmentId: employees.departmentId,
+      designationId: employees.designationId,
+      category: employees.category,
+      joiningDate: employees.joiningDate,
+      status: employees.status,
+      supervisorId: employees.supervisorId,
+      terminationDate: sql<string | null>`(select max(${employeeTermination.terminationDate})::text from ${employeeTermination} where ${employeeTermination.employeeId} = ${employees.id})`,
+    })
+    .from(employees)
+    .where(condition)
+    .orderBy(asc(employees.fullName));
+  return rows.map((r) => ({ ...r, joiningDate: String(r.joiningDate).slice(0, 10), supervisorId: r.supervisorId ?? null, terminationDate: r.terminationDate ? String(r.terminationDate).slice(0, 10) : null }));
+}
+
+/** Some employees by id (callers check access first). */
+export async function findEmployeesByIds(ids: string[]): Promise<AttendanceEmployee[]> {
+  if (!ids.length) return [];
+  return findEmployees(inArray(employees.id, ids));
+}
+
+/** Employment type name → overtime allowed. */
+export async function findOtEligibility(): Promise<Map<string, boolean>> {
+  const rows = await (await getDb()).select({ name: employmentTypes.name, ot: employmentTypes.isOtEligible }).from(employmentTypes);
+  return new Map(rows.map((r) => [r.name, r.ot]));
+}
+
+/** Holidays overlapping a range (AD dates), with the branches they apply to (none = all). */
+export async function findHolidays(from: string, to: string) {
+  const rows = await (await getDb())
+    .select({ name: holidays.name, start: holidays.startDateAD, end: holidays.endDateAD, branchIds: holidays.branchIds })
+    .from(holidays)
+    .where(and(lte(holidays.startDateAD, new Date(`${to}T23:59:59Z`)), gte(holidays.endDateAD, new Date(`${from}T00:00:00Z`))));
+  // Holiday dates are stored as local-midnight timestamps; read the calendar day back in Nepal time.
+  const day = (d: Date) => new Date(d.getTime() + 345 * 60000).toISOString().slice(0, 10);
+  return rows.map((r) => ({ name: r.name, start: day(r.start), end: day(r.end), branchIds: r.branchIds ?? [] }));
+}
+
+/** Approved leave overlapping a range, with how the leave type pays. */
+export async function findApprovedLeaves(employeeIds: string[], from: string, to: string) {
+  if (!employeeIds.length) return [];
+  const rows = await (await getDb())
+    .select({
+      employeeId: leaveApplications.employeeId,
+      from: leaveApplications.effectiveFrom,
+      to: leaveApplications.effectiveTo,
+      duration: leaveApplications.duration,
+      name: leaveTypes.name,
+      pay: leaveTypes.leaveType,
+    })
+    .from(leaveApplications)
+    .innerJoin(leaveTypes, eq(leaveApplications.leaveTypeId, leaveTypes.id))
+    .where(and(inArray(leaveApplications.employeeId, employeeIds), eq(leaveApplications.status, "Approved"), lte(leaveApplications.effectiveFrom, to), gte(leaveApplications.effectiveTo, from)));
+  return rows.map((r) => ({ ...r, from: String(r.from).slice(0, 10), to: String(r.to).slice(0, 10) }));
+}
+
+/** The fiscal year an AD date falls in (falls back to the active one). */
+export async function fiscalYearFor(date: string): Promise<string> {
+  const db = await getDb();
+  const at = new Date(`${date}T06:00:00Z`);
+  const [hit] = await db.select({ id: fiscalYears.id }).from(fiscalYears).where(and(lte(fiscalYears.startDateAD, at), gte(fiscalYears.endDateAD, at))).limit(1);
+  if (hit) return hit.id;
+  const [active] = await db.select({ id: fiscalYears.id }).from(fiscalYears).where(eq(fiscalYears.status, "Active")).limit(1);
+  if (active) return active.id;
+  throw new Error("No fiscal year exists yet. Create one in Company setup first.");
+}
+
+// ---------------------------------------------------------------------------
+// Punches
+// ---------------------------------------------------------------------------
+
+export interface PunchRow {
+  id: string;
+  employeeId: string;
+  punchedAt: string;
+  kind: string;
+  source: PunchSource;
+  deviceId: string | null;
+  ip: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracyM: number | null;
+  note: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  voidedAt: string | null;
+  voidReason: string | null;
+}
+
+/** Punches between two instants (voided ones only when asked). */
+export async function findPunches(employeeIds: string[], fromInstant: string, toInstant: string, opts: { includeVoided?: boolean } = {}): Promise<PunchRow[]> {
+  if (!employeeIds.length) return [];
+  const rows = await (await getDb())
+    .select()
+    .from(attendancePunches)
+    .where(
+      and(
+        inArray(attendancePunches.employeeId, employeeIds),
+        gte(attendancePunches.punchedAt, new Date(fromInstant)),
+        lte(attendancePunches.punchedAt, new Date(toInstant)),
+        opts.includeVoided ? undefined : isNull(attendancePunches.voidedAt)
+      )
+    )
+    .orderBy(asc(attendancePunches.punchedAt));
+  return rows.map((r) => ({
+    id: r.id,
+    employeeId: r.employeeId,
+    punchedAt: r.punchedAt.toISOString(),
+    kind: r.kind,
+    source: r.source as PunchSource,
+    deviceId: r.deviceId,
+    ip: r.ip,
+    latitude: r.latitude === null ? null : Number(r.latitude),
+    longitude: r.longitude === null ? null : Number(r.longitude),
+    accuracyM: r.accuracyM,
+    note: r.note,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    voidedAt: r.voidedAt ? r.voidedAt.toISOString() : null,
+    voidReason: r.voidReason,
+  }));
+}
+
+export interface NewPunch {
+  employeeId: string;
+  punchedAt: string;
+  kind: "in" | "out" | "auto";
+  source: PunchSource;
+  deviceId?: string | null;
+  ip?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyM?: number | null;
+  note?: string | null;
+  createdBy: string | null;
+}
+
+/** Adds punches; an identical punch (employee, time, source) is ignored. Returns how many were added. */
+export async function insertPunches(rows: NewPunch[]): Promise<number> {
+  if (!rows.length) return 0;
+  const added = await (await getDb())
+    .insert(attendancePunches)
+    .values(
+      rows.map((r) => ({
+        employeeId: r.employeeId,
+        punchedAt: new Date(r.punchedAt),
+        kind: r.kind,
+        source: r.source,
+        deviceId: r.deviceId ?? null,
+        ip: r.ip ?? null,
+        latitude: r.latitude === null || r.latitude === undefined ? null : String(r.latitude),
+        longitude: r.longitude === null || r.longitude === undefined ? null : String(r.longitude),
+        accuracyM: r.accuracyM ?? null,
+        note: r.note ?? null,
+        createdBy: r.createdBy,
+      }))
+    )
+    .onConflictDoNothing()
+    .returning({ id: attendancePunches.id });
+  return added.length;
+}
+
+export async function findPunchById(id: string) {
+  const [row] = await (await getDb()).select().from(attendancePunches).where(eq(attendancePunches.id, id)).limit(1);
+  return row ?? null;
+}
+
+/** Voids a punch (kept, with who and why). False when it was already voided. */
+export async function voidPunch(id: string, userId: string, reason: string): Promise<boolean> {
+  const rows = await (await getDb())
+    .update(attendancePunches)
+    .set({ voidedAt: new Date(), voidedBy: userId, voidReason: reason })
+    .where(and(eq(attendancePunches.id, id), isNull(attendancePunches.voidedAt)))
+    .returning({ id: attendancePunches.id });
+  return rows.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Overrides and daily results
+// ---------------------------------------------------------------------------
+
+/** HR overrides in a range: employeeId|date → type and reason. */
+export async function findOverrides(employeeIds: string[], from: string, to: string) {
+  if (!employeeIds.length) return new Map<string, { type: OverrideType; reason: string }>();
+  const rows = await (await getDb())
+    .select({ employeeId: attendanceRecords.employeeId, date: attendanceRecords.attendanceDate, type: attendanceRecords.overrideType, reason: attendanceRecords.overrideReason })
+    .from(attendanceRecords)
+    .where(and(inArray(attendanceRecords.employeeId, employeeIds), gte(attendanceRecords.attendanceDate, from), lte(attendanceRecords.attendanceDate, to), isNotNull(attendanceRecords.overrideType)));
+  return new Map(rows.map((r) => [`${r.employeeId}|${String(r.date).slice(0, 10)}`, { type: r.type as OverrideType, reason: r.reason ?? "" }]));
+}
+
+/** Legacy status words still read by older screens (dashboard, employee record) until they move to the engine. */
+export const LEGACY_STATUS: Record<DayResult["dayType"], string> = {
+  present: "Present",
+  half_day: "Half Day",
+  absent: "Absent",
+  missing_punch: "Absent",
+  on_duty: "Present",
+  paid_leave: "On Leave",
+  unpaid_leave: "LWOP",
+  holiday: "Holiday",
+  weekly_off: "Weekly Off",
+  not_employed: "Absent",
+  upcoming: "Absent",
 };
 
 /**
- * Helper: Automatically resolves placeholder fiscal year IDs ("fy-1") to the real Active Fiscal Year UUID.
+ * Sets (or clears, with type null) HR overrides for employee-days. A day
+ * row is created when needed; clearing keeps the row but removes the override.
  */
-export async function resolveFiscalYearId(givenId?: string | null): Promise<string> {
-  if (givenId && givenId.trim()) return givenId;
-  const fys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
-  if (fys.length) return fys[0].id;
-  const allFys = await (await getDb()).select().from(fiscalYears);
-  if (allFys.length) return allFys[0].id;
-  throw new Error("Cannot save attendance: No Fiscal Year exists in the database. Please create an Active Fiscal Year first!");
-}
-
-function mapJoinedRowToRecord(row: AttendanceRowJoined): AttendanceRecord {
-  return {
-    id: row.id,
-    employeeId: row.employeeId,
-    employeeCode: row.employeeCode,
-    attendanceCode: row.attendanceCode || row.employeeCode,
-    employeeName: row.fullName || "",
-    departmentId: row.departmentId,
-    departmentName: row.departmentName ?? "—",
-    branchId: row.branchId,
-    branchName: row.branchName ?? "—",
-    fiscalYearId: row.fiscalYearId,
-    attendanceDate: row.attendanceDate,
-    bsDate: row.attendanceDate, // In production, pass through adToBsString(row.attendanceDate)
-    status: row.status as AttendanceStatus,
-    inTime: row.inTime || null,
-    outTime: row.outTime || null,
-    workHours: Number(row.workHours) || 0,
-    otHoursOfficeDay: Number(row.otHoursOfficeDay) || 0,
-    otHoursOffDay: Number(row.otHoursOffDay) || 0,
-    isLate: row.isLate,
-    isManualEntry: row.isManualEntry,
-    remarks: row.remarks || null,
-    isLocked: row.isLocked,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-/**
- * Fetch all attendance records for a specific date (or date range), joined with employee organizational metadata.
- */
-export async function findAttendanceByDate(targetDate: string): Promise<AttendanceRecord[]> {
-  const rows = await (await getDb())
-    .select({
-      id: attendanceRecords.id,
-      employeeId: attendanceRecords.employeeId,
-      employeeCode: employees.employeeCode,
-      attendanceCode: employees.attendanceCode,
-      fullName: employees.fullName,
-      departmentId: employees.departmentId,
-      departmentName: departments.name,
-      branchId: employees.branchId,
-      branchName: branches.name,
-      fiscalYearId: attendanceRecords.fiscalYearId,
-      attendanceDate: attendanceRecords.attendanceDate,
-      status: attendanceRecords.status,
-      inTime: attendanceRecords.inTime,
-      outTime: attendanceRecords.outTime,
-      workHours: attendanceRecords.workHours,
-      otHoursOfficeDay: attendanceRecords.otHoursOfficeDay,
-      otHoursOffDay: attendanceRecords.otHoursOffDay,
-      isLate: attendanceRecords.isLate,
-      isManualEntry: attendanceRecords.isManualEntry,
-      remarks: attendanceRecords.remarks,
-      isLocked: attendanceRecords.isLocked,
-      createdAt: attendanceRecords.createdAt,
-      updatedAt: attendanceRecords.updatedAt,
-    })
-    .from(attendanceRecords)
-    .innerJoin(employees, eq(attendanceRecords.employeeId, employees.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .leftJoin(branches, eq(employees.branchId, branches.id))
-    .where(eq(attendanceRecords.attendanceDate, targetDate))
-    .orderBy(desc(attendanceRecords.updatedAt));
-
-  return rows.map(mapJoinedRowToRecord);
-}
-
-/**
- * Fetch a single attendance record by ID.
- */
-export async function findById(id: string): Promise<AttendanceRecord | null> {
-  const rows = await (await getDb())
-    .select({
-      id: attendanceRecords.id,
-      employeeId: attendanceRecords.employeeId,
-      employeeCode: employees.employeeCode,
-      attendanceCode: employees.attendanceCode,
-      fullName: employees.fullName,
-      departmentId: employees.departmentId,
-      departmentName: departments.name,
-      branchId: employees.branchId,
-      branchName: branches.name,
-      fiscalYearId: attendanceRecords.fiscalYearId,
-      attendanceDate: attendanceRecords.attendanceDate,
-      status: attendanceRecords.status,
-      inTime: attendanceRecords.inTime,
-      outTime: attendanceRecords.outTime,
-      workHours: attendanceRecords.workHours,
-      otHoursOfficeDay: attendanceRecords.otHoursOfficeDay,
-      otHoursOffDay: attendanceRecords.otHoursOffDay,
-      isLate: attendanceRecords.isLate,
-      isManualEntry: attendanceRecords.isManualEntry,
-      remarks: attendanceRecords.remarks,
-      isLocked: attendanceRecords.isLocked,
-      createdAt: attendanceRecords.createdAt,
-      updatedAt: attendanceRecords.updatedAt,
-    })
-    .from(attendanceRecords)
-    .innerJoin(employees, eq(attendanceRecords.employeeId, employees.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .leftJoin(branches, eq(employees.branchId, branches.id))
-    .where(eq(attendanceRecords.id, id));
-
-  return rows.length ? mapJoinedRowToRecord(rows[0]) : null;
-}
-
-/**
- * Fetch all attendance records for a specific employee in a given B.S. month (using AD date prefix YYYY-MM).
- */
-export async function findByEmployeeAndMonthPrefix(
-  employeeId: string,
-  datePrefix?: string,
-  dateRange?: { start: string; end: string }
-): Promise<AttendanceRecord[]> {
-  const whereConditions = [eq(attendanceRecords.employeeId, employeeId)];
-  if (dateRange?.start && dateRange?.end) {
-    whereConditions.push(
-      gte(attendanceRecords.attendanceDate, dateRange.start),
-      lte(attendanceRecords.attendanceDate, dateRange.end)
-    );
-  } else if (datePrefix) {
-    whereConditions.push(sql`${attendanceRecords.attendanceDate}::text LIKE ${datePrefix + "%"}`);
-  }
-
-  const rows = await (await getDb())
-    .select({
-      id: attendanceRecords.id,
-      employeeId: attendanceRecords.employeeId,
-      employeeCode: employees.employeeCode,
-      attendanceCode: employees.attendanceCode,
-      fullName: employees.fullName,
-      departmentId: employees.departmentId,
-      departmentName: departments.name,
-      branchId: employees.branchId,
-      branchName: branches.name,
-      fiscalYearId: attendanceRecords.fiscalYearId,
-      attendanceDate: attendanceRecords.attendanceDate,
-      status: attendanceRecords.status,
-      inTime: attendanceRecords.inTime,
-      outTime: attendanceRecords.outTime,
-      workHours: attendanceRecords.workHours,
-      otHoursOfficeDay: attendanceRecords.otHoursOfficeDay,
-      otHoursOffDay: attendanceRecords.otHoursOffDay,
-      isLate: attendanceRecords.isLate,
-      isManualEntry: attendanceRecords.isManualEntry,
-      remarks: attendanceRecords.remarks,
-      isLocked: attendanceRecords.isLocked,
-      createdAt: attendanceRecords.createdAt,
-      updatedAt: attendanceRecords.updatedAt,
-    })
-    .from(attendanceRecords)
-    .innerJoin(employees, eq(attendanceRecords.employeeId, employees.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .leftJoin(branches, eq(employees.branchId, branches.id))
-    .where(and(...whereConditions))
-    .orderBy(desc(attendanceRecords.attendanceDate));
-
-  return rows.map(mapJoinedRowToRecord);
-}
-
-/**
- * Create or update a single daily attendance punch record.
- */
-export async function saveRecord(
-  id: string | null,
-  data: {
-    employeeId: string;
-    fiscalYearId?: string;
-    attendanceDate: string;
-    status: string;
-    inTime: string | null;
-    outTime: string | null;
-    workHours: number;
-    otHoursOfficeDay: number;
-    otHoursOffDay: number;
-    isLate: boolean;
-    remarks: string | null;
-  }
-): Promise<AttendanceRecord> {
-  const fyId = await resolveFiscalYearId(data.fiscalYearId);
-
-  // Check if record is locked
-  if (id) {
-    const existing = await (await getDb()).select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
-    if (existing.length && existing[0].isLocked) {
-      throw new Error("Cannot update attendance: This record is locked because payroll has already been generated for this period.");
-    }
-  } else {
-    // Check if an entry already exists for this employee on this date
-    const dup = await (await getDb()).select().from(attendanceRecords).where(
-      and(
-        eq(attendanceRecords.employeeId, data.employeeId),
-        eq(attendanceRecords.attendanceDate, data.attendanceDate)
-      )
-    );
-    if (dup.length) {
-      if (dup[0].isLocked) {
-        throw new Error("Cannot update attendance: This record is locked for payroll.");
-      }
-      id = dup[0].id; // Switch to update existing punch
-    }
-  }
-
-  if (id) {
-    const existing = await findById(id);
-    if (existing && existing.isLocked) {
-      throw new Error("Cannot update attendance: This record is locked for pre-payroll / payroll processing.");
-    }
-
-    await (await getDb())
-      .update(attendanceRecords)
-      .set({
-        status: data.status,
-        inTime: data.inTime,
-        outTime: data.outTime,
-        workHours: data.workHours.toString(),
-        otHoursOfficeDay: data.otHoursOfficeDay.toString(),
-        otHoursOffDay: data.otHoursOffDay.toString(),
-        isLate: data.isLate,
-        isManualEntry: true,
-        remarks: data.remarks,
-        updatedAt: new Date(),
-      })
-      .where(eq(attendanceRecords.id, id));
-    
-    const updated = await findById(id);
-    return updated!;
-  } else {
-    const inserted = await (await getDb())
-      .insert(attendanceRecords)
-      .values({
-        employeeId: data.employeeId,
-        fiscalYearId: fyId,
-        attendanceDate: data.attendanceDate,
-        status: data.status,
-        inTime: data.inTime,
-        outTime: data.outTime,
-        workHours: data.workHours.toString(),
-        otHoursOfficeDay: data.otHoursOfficeDay.toString(),
-        otHoursOffDay: data.otHoursOffDay.toString(),
-        isLate: data.isLate,
-        isManualEntry: true,
-        remarks: data.remarks,
-        isLocked: false,
-      })
-      .returning();
-
-    const created = await findById(inserted[0].id);
-    return created!;
-  }
-}
-
-/**
- * Helper: Calculate check-out time based on check-in time and work hours.
- */
-function calculateOutTime(inTime: string, workHours: number): string {
-  const inMins = parseTimeToMinutes(inTime);
-  if (inMins === null) return "05:00 PM";
-  
-  const outMins = inMins + workHours * 60;
-  const hours24 = Math.floor(outMins / 60) % 24;
-  const minutes = Math.round(outMins % 60);
-  const period = hours24 >= 12 ? "PM" : "AM";
-  
-  let hours12 = hours24 % 12;
-  if (hours12 === 0) hours12 = 12;
-  
-  const minutesStr = minutes.toString().padStart(2, "0");
-  const hoursStr = hours12.toString().padStart(2, "0");
-  
-  return `${hoursStr}:${minutesStr} ${period}`;
-}
-
-/**
- * Bulk save daily attendance punches across multiple employees atomically.
- */
-export async function saveBulkAttendance(
-  items: AttendanceBulkItem[],
-  date: string,
-  fiscalYearId?: string
-): Promise<AttendanceRecord[]> {
-  const fyId = await resolveFiscalYearId(fiscalYearId);
-
-  return await (await getDb()).transaction(async (tx) => {
-    for (const item of items) {
-        // Check existing
-        const dup = await tx.select().from(attendanceRecords).where(
-          and(
-            eq(attendanceRecords.employeeId, item.employeeId),
-            eq(attendanceRecords.attendanceDate, date)
-          )
-        );
-
-        if (dup.length && dup[0].isLocked) {
-          continue;
-        }
-
-        const existing = dup.length ? dup[0] : null;
-        const itemWorkHours = item.workHours ?? (existing ? Number(existing.workHours) : (item.status === "Present" ? 8 : item.status === "Half Day" ? 4 : 0));
-        
-        let inTime = item.inTime || (existing ? existing.inTime : null);
-        let outTime = item.outTime || (existing ? existing.outTime : null);
-
-        if (item.status === "Present" || item.status === "Half Day" || itemWorkHours > 0) {
-          if (!inTime) {
-            inTime = "09:00 AM";
-          }
-          if (!outTime) {
-            outTime = calculateOutTime(inTime, itemWorkHours);
-          }
-        } else {
-          if (itemWorkHours === 0) {
-            inTime = item.inTime || null;
-            outTime = item.outTime || null;
-          }
-        }
-
-        const isLate = inTime ? evaluateLateArrival(inTime, 9, 0, 40) : false;
-
-        if (existing) {
-          await tx
-            .update(attendanceRecords)
-            .set({
-              status: item.status,
-              inTime,
-              outTime,
-              workHours: itemWorkHours.toString(),
-              otHoursOfficeDay: (item.otHoursOfficeDay ?? Number(existing.otHoursOfficeDay)).toString(),
-              otHoursOffDay: (item.otHoursOffDay ?? Number(existing.otHoursOffDay)).toString(),
-              isLate,
-              isManualEntry: true,
-              remarks: item.remarks || existing.remarks,
-              updatedAt: new Date(),
-            })
-            .where(eq(attendanceRecords.id, existing.id));
-        } else {
-          await tx.insert(attendanceRecords).values({
-            employeeId: item.employeeId,
-            fiscalYearId: fyId,
-            attendanceDate: date,
-            status: item.status,
-            inTime,
-            outTime,
-            workHours: itemWorkHours.toString(),
-            otHoursOfficeDay: (item.otHoursOfficeDay ?? 0).toString(),
-            otHoursOffDay: (item.otHoursOffDay ?? 0).toString(),
-            isLate,
+export async function setOverrides(rows: { employeeId: string; date: string; type: OverrideType | null; reason: string; fiscalYearId: string }[], userId: string): Promise<void> {
+  if (!rows.length) return;
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    for (const r of rows) {
+      const now = new Date();
+      await tx
+        .insert(attendanceRecords)
+        .values({
+          employeeId: r.employeeId,
+          fiscalYearId: r.fiscalYearId,
+          attendanceDate: r.date,
+          status: r.type ? LEGACY_STATUS[r.type] : "Absent",
+          isManualEntry: true,
+          overrideType: r.type,
+          overrideReason: r.type ? r.reason : null,
+          overrideBy: r.type ? userId : null,
+          overrideAt: r.type ? now : null,
+        })
+        .onConflictDoUpdate({
+          target: [attendanceRecords.employeeId, attendanceRecords.attendanceDate],
+          set: {
+            overrideType: r.type,
+            overrideReason: r.type ? r.reason : null,
+            overrideBy: r.type ? userId : null,
+            overrideAt: r.type ? now : null,
+            ...(r.type ? { status: LEGACY_STATUS[r.type] } : {}),
             isManualEntry: true,
-            remarks: item.remarks || "Bulk entry",
-            isLocked: false,
-          });
-        }
+            updatedAt: now,
+          },
+        });
     }
-    return [];
   });
 }
 
-/**
- * Delete an attendance record.
- */
-export async function remove(id: string): Promise<boolean> {
-    const existing = await (await getDb()).select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
-    if (!existing.length) {
-      throw new Error(`Attendance record not found: ${id}`);
-    }
-    if (existing[0].isLocked) {
-      throw new Error("Cannot delete attendance: This record is locked for payroll.");
-    }
-    const res = await (await getDb()).delete(attendanceRecords).where(eq(attendanceRecords.id, id)).returning({ id: attendanceRecords.id });
-    return res.length > 0;
-}
-
-/**
- * Save or update the monthly pre-payroll calculation lock record.
- */
-export async function saveCalculationLock(data: {
-  employeeId: string;
-  fiscalYearId?: string;
-  bsMonth: number;
-  totalWorkingDays: number;
-  presentDays: number;
-  absentDays: number;
-  payLeaveDays: number;
-  nonPayLeaveDays: number;
-  totalOtHoursOffice: number;
-  totalOtHoursOff: number;
-  otEarnedAmount: number;
-  leaveDeductionAmount: number;
-  isLocked: boolean;
-  otWarnings: string | null;
-}): Promise<LeaveOtCalculation> {
-  const fyId = await resolveFiscalYearId(data.fiscalYearId);
-
-  const existing = await (await getDb()).select().from(leaveOtCalculations).where(
-    and(
-      eq(leaveOtCalculations.employeeId, data.employeeId),
-      eq(leaveOtCalculations.bsMonth, data.bsMonth),
-      eq(leaveOtCalculations.fiscalYearId, fyId)
-    )
-  );
-
-  // If sealing/locking, strictly lock attendance punches for this specific BS month date range
-  if (data.isLocked) {
-    const [fy] = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.id, fyId)).limit(1);
-    const startBsYear = fy?.startDateBS
-      ? parseInt(fy.startDateBS.split("-")[0], 10)
-      : (fy?.label ? parseInt(fy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
-    const bsYear = data.bsMonth >= 4 ? startBsYear : startBsYear + 1;
-    const { start, end } = getBSMonthRange(bsYear, data.bsMonth);
-    const startStr = formatADDate(start, "iso");
-    const endStr = formatADDate(end, "iso");
-
-    await (await getDb())
-      .update(attendanceRecords)
-      .set({ isLocked: true })
-      .where(
-        and(
-          eq(attendanceRecords.employeeId, data.employeeId),
-          eq(attendanceRecords.fiscalYearId, fyId),
-          gte(attendanceRecords.attendanceDate, startStr),
-          lte(attendanceRecords.attendanceDate, endStr)
-        )
-      );
-  }
-
-  if (existing.length) {
-    const rows = await (await getDb())
-      .update(leaveOtCalculations)
-      .set({
-        totalWorkingDays: data.totalWorkingDays.toString(),
-        presentDays: data.presentDays.toString(),
-        absentDays: data.absentDays.toString(),
-        payLeaveDays: data.payLeaveDays.toString(),
-        nonPayLeaveDays: data.nonPayLeaveDays.toString(),
-        totalOtHoursOffice: data.totalOtHoursOffice.toString(),
-        totalOtHoursOff: data.totalOtHoursOff.toString(),
-        otEarnedAmount: data.otEarnedAmount.toString(),
-        leaveDeductionAmount: data.leaveDeductionAmount.toString(),
-        otWarnings: data.otWarnings,
-        isLocked: data.isLocked,
-        lockedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(leaveOtCalculations.id, existing[0].id))
-      .returning();
-
-    return {
-      id: rows[0].id,
-      employeeId: rows[0].employeeId,
-      employeeName: "", // Joined by service if needed
-      employeeCode: "",
-      departmentName: "",
-      fiscalYearId: rows[0].fiscalYearId,
-      bsMonth: rows[0].bsMonth,
-      totalWorkingDays: Number(rows[0].totalWorkingDays),
-      presentDays: Number(rows[0].presentDays),
-      absentDays: Number(rows[0].absentDays),
-      payLeaveDays: Number(rows[0].payLeaveDays),
-      nonPayLeaveDays: Number(rows[0].nonPayLeaveDays),
-      totalOtHoursOffice: Number(rows[0].totalOtHoursOffice),
-      totalOtHoursOff: Number(rows[0].totalOtHoursOff),
-      otEarnedAmount: Number(rows[0].otEarnedAmount),
-      leaveDeductionAmount: Number(rows[0].leaveDeductionAmount),
-      otWarnings: rows[0].otWarnings,
-      isLocked: rows[0].isLocked,
-      lockedAt: rows[0].lockedAt.toISOString(),
-      createdAt: rows[0].createdAt.toISOString(),
-      updatedAt: rows[0].updatedAt.toISOString(),
-    };
-  } else {
-    const rows = await (await getDb())
-      .insert(leaveOtCalculations)
-      .values({
-        employeeId: data.employeeId,
-        fiscalYearId: fyId,
-        bsMonth: data.bsMonth,
-        totalWorkingDays: data.totalWorkingDays.toString(),
-        presentDays: data.presentDays.toString(),
-        absentDays: data.absentDays.toString(),
-        payLeaveDays: data.payLeaveDays.toString(),
-        nonPayLeaveDays: data.nonPayLeaveDays.toString(),
-        totalOtHoursOffice: data.totalOtHoursOffice.toString(),
-        totalOtHoursOff: data.totalOtHoursOff.toString(),
-        otEarnedAmount: data.otEarnedAmount.toString(),
-        leaveDeductionAmount: data.leaveDeductionAmount.toString(),
-        otWarnings: data.otWarnings,
-        isLocked: data.isLocked,
-        lockedAt: new Date(),
-      })
-      .returning();
-
-    return {
-      id: rows[0].id,
-      employeeId: rows[0].employeeId,
-      employeeName: "",
-      employeeCode: "",
-      departmentName: "",
-      fiscalYearId: rows[0].fiscalYearId,
-      bsMonth: rows[0].bsMonth,
-      totalWorkingDays: Number(rows[0].totalWorkingDays),
-      presentDays: Number(rows[0].presentDays),
-      absentDays: Number(rows[0].absentDays),
-      payLeaveDays: Number(rows[0].payLeaveDays),
-      nonPayLeaveDays: Number(rows[0].nonPayLeaveDays),
-      totalOtHoursOffice: Number(rows[0].totalOtHoursOffice),
-      totalOtHoursOff: Number(rows[0].totalOtHoursOff),
-      otEarnedAmount: Number(rows[0].otEarnedAmount),
-      leaveDeductionAmount: Number(rows[0].leaveDeductionAmount),
-      otWarnings: rows[0].otWarnings,
-      isLocked: rows[0].isLocked,
-      lockedAt: rows[0].lockedAt.toISOString(),
-      createdAt: rows[0].createdAt.toISOString(),
-      updatedAt: rows[0].updatedAt.toISOString(),
-    };
-  }
-}
-
-export async function bulkSaveRecords(
-  attendanceDate: string,
-  items: AttendanceBulkItem[],
-  fiscalYearId?: string
-): Promise<{ successCount: number; errorCount: number }> {
-  await saveBulkAttendance(items, attendanceDate, fiscalYearId);
-  return { successCount: items.length, errorCount: 0 };
-}
-
-/**
- * Dashboard (4.1): one row per attendance mark between two dates (inclusive),
- * restricted by `employeeCondition` (scope + branch filter).
- */
-export async function findAttendanceMarksInRange(
-  fromDate: string,
-  toDate: string,
-  employeeCondition?: SQL
-): Promise<{ employeeId: string; date: string; status: string }[]> {
+/** Status words for days in a range (dashboard, employee record): stored results and overrides. */
+export async function findAttendanceMarksInRange(fromDate: string, toDate: string, employeeCondition?: SQL): Promise<{ employeeId: string; date: string; status: string }[]> {
   const rows = await (await getDb())
     .select({ employeeId: attendanceRecords.employeeId, date: attendanceRecords.attendanceDate, status: attendanceRecords.status })
     .from(attendanceRecords)
@@ -600,7 +333,7 @@ export async function findAttendanceMarksInRange(
   return rows.map((r) => ({ employeeId: r.employeeId, date: String(r.date), status: r.status }));
 }
 
-/** One employee's attendance rows between two AD dates (record page, 4.2). */
+/** One employee's stored day rows between two AD dates (record page, 4.2). */
 export async function findAttendanceForEmployee(employeeId: string, fromDate: string, toDate: string) {
   const rows = await (await getDb())
     .select({
@@ -615,3 +348,291 @@ export async function findAttendanceForEmployee(employeeId: string, fromDate: st
     .where(and(eq(attendanceRecords.employeeId, employeeId), gte(attendanceRecords.attendanceDate, fromDate), lte(attendanceRecords.attendanceDate, toDate)));
   return rows.map((r) => ({ ...r, date: String(r.date), workHours: Number(r.workHours) }));
 }
+
+// ---------------------------------------------------------------------------
+// Adjustments (regularization)
+// ---------------------------------------------------------------------------
+
+export type AdjustmentRowDb = typeof attendanceAdjustments.$inferSelect;
+
+export async function createAdjustment(row: {
+  employeeId: string;
+  date: string;
+  kind: string;
+  requestedIn: string | null;
+  requestedOut: string | null;
+  reason: string;
+  source: "hr" | "self_service";
+  preparedBy: string;
+}): Promise<string> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(attendanceAdjustments)
+      .values({
+        employeeId: row.employeeId,
+        attendanceDate: row.date,
+        kind: row.kind,
+        requestedIn: row.requestedIn ? new Date(row.requestedIn) : null,
+        requestedOut: row.requestedOut ? new Date(row.requestedOut) : null,
+        reason: row.reason,
+        source: row.source,
+        preparedBy: row.preparedBy,
+        approvalType: "simple",
+      })
+      .returning({ id: attendanceAdjustments.id });
+    await tx.insert(approvalActions).values({ module: MODULE, requestId: created.id, level: 0, actorId: row.preparedBy, action: "submitted" });
+    return created.id;
+  });
+}
+
+export async function findAdjustments(opts: { from?: string; to?: string; status?: string; employeeIds?: string[] } = {}) {
+  return (await getDb())
+    .select()
+    .from(attendanceAdjustments)
+    .where(
+      and(
+        opts.from ? gte(attendanceAdjustments.attendanceDate, opts.from) : undefined,
+        opts.to ? lte(attendanceAdjustments.attendanceDate, opts.to) : undefined,
+        opts.status ? eq(attendanceAdjustments.status, opts.status) : undefined,
+        opts.employeeIds ? (opts.employeeIds.length ? inArray(attendanceAdjustments.employeeId, opts.employeeIds) : sql`false`) : undefined
+      )
+    )
+    .orderBy(desc(attendanceAdjustments.createdAt));
+}
+
+export async function findAdjustmentById(id: string): Promise<AdjustmentRowDb | null> {
+  const [row] = await (await getDb()).select().from(attendanceAdjustments).where(eq(attendanceAdjustments.id, id)).limit(1);
+  return row ?? null;
+}
+
+/** Pending adjustments for some employees in a range (they block closing the month). */
+export async function countPendingAdjustments(employeeIds: string[], from: string, to: string): Promise<number> {
+  if (!employeeIds.length) return 0;
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(attendanceAdjustments)
+    .where(and(inArray(attendanceAdjustments.employeeId, employeeIds), eq(attendanceAdjustments.status, "pending"), gte(attendanceAdjustments.attendanceDate, from), lte(attendanceAdjustments.attendanceDate, to)));
+  return row?.n ?? 0;
+}
+
+/**
+ * Decides a pending adjustment (only while still pending). On approval its
+ * punches are added in the same transaction. Null when someone else decided first.
+ */
+export async function decideAdjustment(params: {
+  id: string;
+  status: "approved" | "rejected" | "withdrawn";
+  route: ApprovalRoute | null;
+  actorId: string;
+  onBehalfOf: string | null;
+  action: ApprovalActionKind;
+  note: string | null;
+  punches: NewPunch[];
+}): Promise<boolean> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const updated = await tx
+      .update(attendanceAdjustments)
+      .set({ status: params.status, decidedBy: params.actorId, decidedAt: now, decisionNote: params.note, approvalRoute: params.status === "approved" ? params.route : null })
+      .where(and(eq(attendanceAdjustments.id, params.id), eq(attendanceAdjustments.status, "pending")))
+      .returning({ id: attendanceAdjustments.id });
+    if (!updated.length) return false;
+    await tx.insert(approvalActions).values({ module: MODULE, requestId: params.id, level: 0, actorId: params.actorId, onBehalfOf: params.onBehalfOf, action: params.action, note: params.note, createdAt: now });
+    if (params.status === "approved" && params.punches.length) {
+      await tx
+        .insert(attendancePunches)
+        .values(params.punches.map((p) => ({ employeeId: p.employeeId, punchedAt: new Date(p.punchedAt), kind: p.kind, source: p.source, note: p.note ?? null, createdBy: p.createdBy })))
+        .onConflictDoNothing();
+    }
+    return true;
+  });
+}
+
+export async function findAdjustmentTimeline(ids: string[]) {
+  if (!ids.length) return [];
+  return (await getDb())
+    .select()
+    .from(approvalActions)
+    .where(and(eq(approvalActions.module, MODULE), inArray(approvalActions.requestId, ids)))
+    .orderBy(asc(approvalActions.createdAt));
+}
+
+// ---------------------------------------------------------------------------
+// Attendance months (per branch) and summaries
+// ---------------------------------------------------------------------------
+
+export type PeriodRowDb = typeof attendancePeriods.$inferSelect;
+
+export async function findPeriods(calendar: string, year: number, month: number): Promise<PeriodRowDb[]> {
+  return (await getDb())
+    .select()
+    .from(attendancePeriods)
+    .where(and(eq(attendancePeriods.calendar, calendar), eq(attendancePeriods.periodYear, year), eq(attendancePeriods.periodMonth, month)));
+}
+
+/** Closed months overlapping a date range (any branch). */
+export async function findClosedPeriodsOverlapping(from: string, to: string): Promise<PeriodRowDb[]> {
+  return (await getDb())
+    .select()
+    .from(attendancePeriods)
+    .where(and(eq(attendancePeriods.status, "closed"), lte(attendancePeriods.startDate, to), gte(attendancePeriods.endDate, from)));
+}
+
+/** Payroll runs for a BS month that are approved or locked (they stop reopening attendance). */
+export async function countFinalisedPayrollRuns(bsYear: number, bsMonth: number): Promise<number> {
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(payrollRuns)
+    .where(and(eq(payrollRuns.payPeriodYear, bsYear), eq(payrollRuns.payPeriodMonth, bsMonth), inArray(payrollRuns.status, ["APPROVED", "LOCKED"])));
+  return row?.n ?? 0;
+}
+
+export interface SummaryWrite {
+  employeeId: string;
+  fiscalYearId: string;
+  bsMonth: number;
+  summary: MonthSummary;
+  otEarnedAmount: number;
+  leaveDeductionAmount: number;
+}
+
+/**
+ * Closes a month for a branch in one transaction: the period row, every
+ * day's result (overrides kept), and each employee's summary, all locked.
+ */
+export async function closePeriod(params: {
+  period: { calendar: string; year: number; month: number; start: string; end: string; days: number };
+  branchId: string;
+  userId: string;
+  days: { employeeId: string; fiscalYearId: string; result: DayResult }[];
+  summaries: SummaryWrite[];
+}): Promise<void> {
+  const db = await getDb();
+  const { period } = params;
+  await db.transaction(async (tx) => {
+    const now = new Date();
+    await tx
+      .insert(attendancePeriods)
+      .values({ calendar: period.calendar, periodYear: period.year, periodMonth: period.month, startDate: period.start, endDate: period.end, days: period.days, branchId: params.branchId, status: "closed", closedBy: params.userId, closedAt: now })
+      .onConflictDoUpdate({
+        target: [attendancePeriods.calendar, attendancePeriods.periodYear, attendancePeriods.periodMonth, attendancePeriods.branchId],
+        set: { status: "closed", closedBy: params.userId, closedAt: now },
+      });
+    for (const d of params.days) {
+      const r = d.result;
+      if (r.dayType === "not_employed") continue;
+      const values = {
+        status: LEGACY_STATUS[r.dayType],
+        dayType: r.dayType,
+        payable: String(r.payable),
+        unpaid: String(r.unpaid),
+        firstIn: r.firstIn ? new Date(r.firstIn) : null,
+        lastOut: r.lastOut ? new Date(r.lastOut) : null,
+        workMinutes: r.workMinutes,
+        workHours: String(Math.round((r.workMinutes / 60) * 100) / 100),
+        lateMinutes: r.lateMinutes,
+        isLate: r.lateMinutes > 0,
+        earlyMinutes: r.earlyMinutes,
+        otWorkMinutes: r.otWorkDayMinutes,
+        otOffMinutes: r.otOffDayMinutes,
+        otHoursOfficeDay: String(Math.round((r.otWorkDayMinutes / 60) * 100) / 100),
+        otHoursOffDay: String(Math.round((r.otOffDayMinutes / 60) * 100) / 100),
+        rule: r.rule,
+        isLocked: true,
+        updatedAt: now,
+      };
+      await tx
+        .insert(attendanceRecords)
+        .values({ employeeId: d.employeeId, fiscalYearId: d.fiscalYearId, attendanceDate: r.date, ...values })
+        .onConflictDoUpdate({ target: [attendanceRecords.employeeId, attendanceRecords.attendanceDate], set: values });
+    }
+    for (const s of params.summaries) {
+      const m = s.summary;
+      const values = {
+        totalWorkingDays: String(m.calendarDays),
+        presentDays: String(m.presentDays + m.halfDays * 0.5 + m.onDutyDays),
+        absentDays: String(m.absentDays + m.missingPunchDays),
+        payLeaveDays: String(m.paidLeaveDays),
+        nonPayLeaveDays: String(m.unpaidLeaveDays),
+        totalOtHoursOffice: String(Math.round((m.otWorkDayMinutes / 60) * 100) / 100),
+        totalOtHoursOff: String(Math.round((m.otOffDayMinutes / 60) * 100) / 100),
+        otEarnedAmount: String(s.otEarnedAmount),
+        leaveDeductionAmount: String(s.leaveDeductionAmount),
+        otWarnings: m.otWarnings.length ? m.otWarnings.join("\n") : null,
+        calendar: m.calendar,
+        periodYear: m.periodYear,
+        periodMonth: m.periodMonth,
+        startDate: m.start,
+        endDate: m.end,
+        calendarDays: m.calendarDays,
+        payableDays: String(m.payableDays),
+        unpaidDays: String(m.unpaidDays),
+        notEmployedDays: String(m.notEmployedDays),
+        summary: m,
+        isLocked: true,
+        lockedById: params.userId,
+        lockedAt: now,
+        updatedAt: now,
+      };
+      await tx
+        .insert(leaveOtCalculations)
+        .values({ employeeId: s.employeeId, fiscalYearId: s.fiscalYearId, bsMonth: s.bsMonth, ...values })
+        .onConflictDoUpdate({ target: [leaveOtCalculations.employeeId, leaveOtCalculations.fiscalYearId, leaveOtCalculations.bsMonth], set: values });
+    }
+  });
+}
+
+/** Reopens a branch month: the period and its summaries and days unlock (results stay until it is closed again). */
+export async function reopenPeriod(params: { periodId: string; employeeIds: string[]; start: string; end: string; calendar: string; year: number; month: number; userId: string; reason: string }): Promise<boolean> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const rows = await tx
+      .update(attendancePeriods)
+      .set({ status: "open", reopenedBy: params.userId, reopenedAt: now, reopenReason: params.reason })
+      .where(and(eq(attendancePeriods.id, params.periodId), eq(attendancePeriods.status, "closed")))
+      .returning({ id: attendancePeriods.id });
+    if (!rows.length) return false;
+    if (params.employeeIds.length) {
+      await tx
+        .update(leaveOtCalculations)
+        .set({ isLocked: false, updatedAt: now })
+        .where(and(inArray(leaveOtCalculations.employeeId, params.employeeIds), eq(leaveOtCalculations.calendar, params.calendar), eq(leaveOtCalculations.periodYear, params.year), eq(leaveOtCalculations.periodMonth, params.month)));
+      await tx
+        .update(attendanceRecords)
+        .set({ isLocked: false, updatedAt: now })
+        .where(and(inArray(attendanceRecords.employeeId, params.employeeIds), gte(attendanceRecords.attendanceDate, params.start), lte(attendanceRecords.attendanceDate, params.end)));
+    }
+    return true;
+  });
+}
+
+/** Closed (locked) summaries for a month. */
+export async function findClosedSummaries(employeeIds: string[], calendar: string, year: number, month: number) {
+  if (!employeeIds.length) return [];
+  return (await getDb())
+    .select()
+    .from(leaveOtCalculations)
+    .where(
+      and(
+        inArray(leaveOtCalculations.employeeId, employeeIds),
+        eq(leaveOtCalculations.calendar, calendar),
+        eq(leaveOtCalculations.periodYear, year),
+        eq(leaveOtCalculations.periodMonth, month),
+        eq(leaveOtCalculations.isLocked, true)
+      )
+    );
+}
+
+/** Locked day rows between dates for some employees (they cannot change). */
+export async function findLockedDays(employeeIds: string[], from: string, to: string): Promise<Set<string>> {
+  if (!employeeIds.length) return new Set();
+  const rows = await (await getDb())
+    .select({ employeeId: attendanceRecords.employeeId, date: attendanceRecords.attendanceDate })
+    .from(attendanceRecords)
+    .where(and(inArray(attendanceRecords.employeeId, employeeIds), gte(attendanceRecords.attendanceDate, from), lte(attendanceRecords.attendanceDate, to), eq(attendanceRecords.isLocked, true)));
+  return new Set(rows.map((r) => `${r.employeeId}|${String(r.date).slice(0, 10)}`));
+}
+

@@ -125,8 +125,26 @@ export function buildFlow(
 const activeDelegate = (approver: ApproverInfo | undefined, actorId: string, today: string) =>
   !!approver && approver.delegatedTo === actorId && !!approver.delegatedUntil && approver.delegatedUntil.slice(0, 10) >= today;
 
+/** Words for the refusal reasons; salary changes by default, other modules pass their own. */
+export interface ApprovalWording {
+  /** "This change includes your own salary, so someone else has to approve it." */
+  ownSubject: string;
+  /** "You cannot approve salary changes." */
+  noPermission: string;
+}
+
+export const SALARY_WORDING: ApprovalWording = {
+  ownSubject: "This change includes your own salary, so someone else has to approve it.",
+  noPermission: "You cannot approve salary changes.",
+};
+
 /** What this person may do with a request now, and the plain reason when they cannot approve. */
-export function availableActions(request: ApprovalRequest, actor: ApprovalActor, ctx: { approvers: readonly ApproverInfo[]; today: string }): AvailableActions {
+export function availableActions(
+  request: ApprovalRequest,
+  actor: ApprovalActor,
+  ctx: { approvers: readonly ApproverInfo[]; today: string; wording?: ApprovalWording }
+): AvailableActions {
+  const words = ctx.wording ?? SALARY_WORDING;
   const none: AvailableActions = { approve: null, finalApprove: false, reject: false, withdraw: false, reason: null, stuck: null };
   if (request.status !== "pending") return { ...none, reason: `This change was already ${request.status}.` };
   const preparer = !!actor.userId && request.preparedById === actor.userId;
@@ -135,10 +153,10 @@ export function availableActions(request: ApprovalRequest, actor: ApprovalActor,
   out.finalApprove = actor.isAdministrator && !ownSubject;
 
   let reason: string | null = null;
-  if (ownSubject) reason = "This change includes your own salary, so someone else has to approve it.";
+  if (ownSubject) reason = words.ownSubject;
   else if (request.flow.type === "simple") {
     if (preparer) reason = actor.isAdministrator ? null : "You prepared this change, so someone else has to approve it.";
-    else if (!actor.canApprove) reason = "You cannot approve salary changes.";
+    else if (!actor.canApprove) reason = words.noPermission;
     else out.approve = { level: 0, onBehalfOf: null };
   } else {
     const level = request.flow.levels.find((l) => l.level === request.currentLevel);
@@ -182,7 +200,7 @@ export function statusText(request: Pick<ApprovalRequest, "status" | "flow" | "c
 }
 
 /** True when this person can act on the request now (for "Waiting for me" and the bell). */
-export function waitingFor(request: ApprovalRequest, actor: ApprovalActor, ctx: { approvers: readonly ApproverInfo[]; today: string }): boolean {
+export function waitingFor(request: ApprovalRequest, actor: ApprovalActor, ctx: { approvers: readonly ApproverInfo[]; today: string; wording?: ApprovalWording }): boolean {
   const a = availableActions(request, actor, ctx);
   // Administrators see everything they could Final approve only when it is theirs to move: their own request, or one that is stuck.
   return !!a.approve || (a.finalApprove && (request.preparedById === actor.userId || !!a.stuck));

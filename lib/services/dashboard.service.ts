@@ -13,7 +13,7 @@
 import { and, eq, type SQL } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { ensureTenantContext } from "@/lib/db";
-import { employees as employeesTable, payrollSlips, leaveApplications, attendanceRecords } from "@/lib/db/schema";
+import { employees as employeesTable, payrollSlips, leaveApplications } from "@/lib/db/schema";
 import { hasPermission, requireAuthenticatedUser } from "@/lib/auth/check-permission";
 import { buildEmployeeIdScopeCondition, buildEmployeeScopeCondition, resolveUserScope, type ScopeFilter } from "@/lib/auth/scope-filter";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
@@ -23,7 +23,7 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as payrollRepository from "@/lib/repositories/payroll.repository";
-import * as attendanceRepository from "@/lib/repositories/attendance.repository";
+import * as attendanceService from "@/lib/services/attendance.service";
 import * as auditRepository from "@/lib/repositories/audit.repository";
 import * as holidayRepository from "@/lib/repositories/holiday.repository";
 import * as engine from "@/lib/engines/dashboard.engine";
@@ -139,7 +139,8 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     wantsLeave ? section("leave", failed, () => leaveRepository.findAllLeaveApplications({ status: "Approved" })) : null,
     wantsLeave ? section("leave types", failed, () => leaveRepository.findAllLeaveTypes()) : null,
     employees ? section("headcount", failed, () => employeeRepository.countJoinersLeavers(monthStart, todayIso, employeeCondition)) : null,
-    attendance ? section("attendance", failed, () => attendanceRepository.findAttendanceMarksInRange(monthStart, todayIso, byEmployeeId(attendanceRecords.employeeId))) : null,
+    // Days by the attendance rules (4.5), within the user's scope.
+    attendance ? section("attendance", failed, () => attendanceService.attendanceMarks(scope, monthStart, todayIso, branchId ?? undefined)) : null,
     leaveApprovals || attendance ? section("leave by type", failed, () => leaveRepository.sumApprovedLeaveDaysByType(byEmployeeId(leaveApplications.employeeId))) : null,
     audit ? section("activity", failed, () => auditRepository.findAuditLogs({ limit: ACTIVITY_LIMIT })) : null,
     employees || attendance ? section("upcoming", failed, () => holidayRepository.findAllHolidays()) : null,

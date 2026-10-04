@@ -4,7 +4,7 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as designationRepository from "@/lib/repositories/designation.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as leaveRepository from "@/lib/repositories/leave.repository";
-import * as attendanceRepository from "@/lib/repositories/attendance.repository";
+import * as attendanceService from "@/lib/services/attendance.service";
 import * as payrollRepository from "@/lib/repositories/payroll.repository";
 import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as auditRepository from "@/lib/repositories/audit.repository";
@@ -15,7 +15,7 @@ import { getEmployeeInScope } from "@/lib/services/employee.service";
 import { attendanceMonth, historySummary, missingRecords, resolveRecordTab } from "@/lib/engines/employee.engine";
 import { bsMonthDaysToDate, periodLabel } from "@/lib/engines/dashboard.engine";
 import { maskAccountNumber } from "@/lib/utils/mask";
-import { nepalToday, toLocalDate } from "@/lib/utils/nepal-time";
+import { nepalDateIso, nepalToday, toLocalDate } from "@/lib/utils/nepal-time";
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
 import type { Employee, EmployeeFacts, EmployeeProfile, EmployeeRecordData, EmployeeRecordTab, EmployeeRecordTabData } from "@/lib/types/employee";
 
@@ -74,7 +74,9 @@ async function loadTab(tab: EmployeeRecordTab, employeeId: string): Promise<Empl
       const today = nepalToday();
       const month = bsMonthDaysToDate(today);
       const days = month.days.map((date, i) => ({ date, bsDay: i + 1, weekday: toLocalDate(date)?.getDay() ?? 0 }));
-      const records = days.length ? await attendanceRepository.findAttendanceForEmployee(employeeId, days[0].date, days[days.length - 1].date) : [];
+      // Days up to today, by the attendance rules (4.5); later days stay blank.
+      const until = days.filter((d) => d.date <= nepalDateIso()).at(-1)?.date;
+      const records = days.length && until ? await attendanceService.daysForEmployee(employeeId, days[0].date, until) : [];
       return { tab, data: attendanceMonth(month.label, days, records) };
     }
     case "payslips": {
@@ -122,7 +124,8 @@ async function loadFacts(employeeId: string, access: RecordTabAccess): Promise<E
       const month = bsMonthDaysToDate(nepalToday());
       if (!month.days.length) return null;
       const days = month.days.map((date, i) => ({ date, bsDay: i + 1, weekday: 0 }));
-      const records = await attendanceRepository.findAttendanceForEmployee(employeeId, days[0].date, days[days.length - 1].date);
+      const until = days.filter((d) => d.date <= nepalDateIso()).at(-1)?.date;
+      const records = until ? await attendanceService.daysForEmployee(employeeId, days[0].date, until) : [];
       const { totals } = attendanceMonth(month.label, days, records);
       return { monthLabel: month.label, present: totals.present + totals.halfDay / 2, absent: totals.absent, leave: totals.leave, notRecorded: totals.notRecorded };
     }),
