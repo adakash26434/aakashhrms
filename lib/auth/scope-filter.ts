@@ -18,6 +18,8 @@ export interface ScopeFilter {
   departmentIds: string[];    // From users.assignedDepartmentIds (for DEPARTMENT scope)
   employeeId: string | null;  // From users.employeeId (for SELF scope)
   userId: string;             // The authenticated user's ID
+  /** Set for a platform super-admin viewing the tenant (support), never for company users. */
+  isImpersonation?: boolean;
 }
 
 // ---------------------------------------------------------------------------

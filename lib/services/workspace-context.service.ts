@@ -1,4 +1,6 @@
 import { cache } from 'react';
+import { countWaitingFor as countSalaryWaitingFor } from '@/lib/services/salary-structure.service';
+import { hasPermission } from '@/lib/auth/check-permission';
 import { auth } from '@/lib/auth';
 import { getUserAllowedModulesArray } from '@/lib/auth/get-user-permissions';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
@@ -34,7 +36,10 @@ export interface WorkspaceContext {
     id: string | null;
     name: string;
   };
+  /** Leave requests waiting (approvers only, within their scope). */
   pendingApprovalsCount: number;
+  /** Salary changes this user can act on now (approval engine, S21). */
+  pendingSalaryApprovalsCount: number;
   allowedModules: string[];
   isImpersonating: boolean;
   impersonationDetails?: {
@@ -182,6 +187,8 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
         name: activeFyName,
       },
       pendingApprovalsCount: pendingCount,
+      // Platform support never approves company salary changes.
+      pendingSalaryApprovalsCount: 0,
       allowedModules: [], // Impersonation has full access, sidebar shows all
       isImpersonating: true,
       impersonationDetails: impersonation,
@@ -357,6 +364,18 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     }
   }
 
+  // Salary changes waiting for this user (their level, a delegation, a simple approval,
+  // or their own change to Final approve as an administrator), within their scope.
+  let salaryPending = 0;
+  if (userId && allowedModules.includes('SALARY_MAPPING')) {
+    try {
+      const scope = await resolveUserScope(userId, tenantSlug);
+      salaryPending = await countSalaryWaitingFor(scope, await hasPermission('APPROVE', 'SALARY_MAPPING'));
+    } catch (err) {
+      console.error('Error counting salary approvals:', err);
+    }
+  }
+
   return {
     user: {
       id: userId,
@@ -382,6 +401,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
       name: activeFyName,
     },
     pendingApprovalsCount: pendingCount,
+    pendingSalaryApprovalsCount: salaryPending,
     allowedModules,
     isImpersonating: false,
   };

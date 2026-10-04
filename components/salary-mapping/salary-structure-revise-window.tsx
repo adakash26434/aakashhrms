@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Loader2, Save } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
 import { DateField } from "@/components/kit/date-field";
 import { FormGrid, GridField } from "@/components/kit/form-grid";
@@ -11,11 +10,13 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { submitSalaryChangeAction } from "@/app/actions/salary-structure.actions";
+import type { SubmitResult } from "@/lib/services/salary-structure.service";
 import { EMPTY_LINES, gradeAmountFor, largeChangeWarning, structureTotals, validateLines } from "@/lib/engines/salary-structure.engine";
 import { gradeBreakdown } from "@/lib/engines/grade-policy.engine";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import type { RetirementScheme, SalaryStructureData, StructureLines, StructureRow } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
+import { SaveButtons, SaveOutcome, saveOutcome, usePayrollLock } from "./salary-structure-approval";
 
 const SCHEMES = [
   { value: "ssf", label: "SSF (11% + 20%)" },
@@ -24,12 +25,12 @@ const SCHEMES = [
 ];
 
 /** Revise one employee's salary: a new dated revision (the old one stays in the history). */
-export function SalaryStructureReviseWindow({ row, data, onClose, onSaved }: { row: StructureRow | null; data: SalaryStructureData; onClose: () => void; onSaved: () => void }) {
+export function SalaryStructureReviseWindow({ row, data, onClose, onSaved }: { row: StructureRow | null; data: SalaryStructureData; onClose: () => void; onSaved: (result: SubmitResult) => void }) {
   if (!row) return null;
   return <ReviseBody key={row.employeeId} row={row} data={data} onClose={onClose} onSaved={onSaved} />;
 }
 
-function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: SalaryStructureData; onClose: () => void; onSaved: () => void }) {
+function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: SalaryStructureData; onClose: () => void; onSaved: (result: SubmitResult) => void }) {
   const level = data.levels.find((l) => l.code === row.levelCode || l.name === row.levelCode);
   const start: StructureLines = row.current?.lines ?? { ...EMPTY_LINES, basic: level?.minSalary ?? 0, scheme: "ssf" };
   const [lines, setLines] = useState<StructureLines>(start);
@@ -37,7 +38,7 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
   const [reason, setReason] = useState(row.current ? "" : "Starting salary");
   const [failure, setFailure] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<false | "submit" | "approve">(false);
   const saveRef = useRef<HTMLButtonElement>(null);
   const policy = data.gradePolicy;
   const manualPolicy = policy?.calculationMethod === "MANUAL_INPUT";
@@ -65,31 +66,36 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
   const dirty = linesChanged || reason !== (row.current ? "" : "Starting salary");
   // A revision that changes nothing is refused by the server; say so before sending.
   const nothingToSend = !!row.current && !linesChanged;
+  // Same rules as the server: what saving does, and payroll still open for the date.
+  const outcome = saveOutcome(data, [row.employeeId]);
+  const payrollLock = usePayrollLock(data);
+  const lockMessage = payrollLock(effectiveFrom, [row.employeeId]);
 
-  const save = async () => {
+  const save = async (approveNow = false) => {
     if (saving) return;
     const local: Record<string, string> = { ...check.errors };
     if (!effectiveFrom) local.effectiveFrom = "Choose the date the change takes effect";
+    else if (lockMessage) local.effectiveFrom = lockMessage;
     if (reason.trim().length < 3) local.reason = "Give a short reason";
     setErrors(local);
     if (Object.keys(local).length) {
       setFailure("Some fields need attention.");
       return;
     }
-    setSaving(true);
+    setSaving(approveNow ? "approve" : "submit");
     setFailure(null);
-    const result = await submitSalaryChangeAction({ kind: "single", effectiveFrom, reason, rows: [{ employeeId: row.employeeId, lines }] });
+    const result = await submitSalaryChangeAction({ kind: "single", effectiveFrom, reason, rows: [{ employeeId: row.employeeId, lines }] }, { approveNow });
     setSaving(false);
     if (!result.success) {
       setErrors(result.validationErrors?.[row.employeeId] ?? {});
       setFailure(result.error);
       return;
     }
-    onSaved();
+    onSaved(result.data);
   };
 
   const validate = (name: string) => {
-    const message = name === "reason" ? (reason.trim().length < 3 ? "Give a short reason" : undefined) : name === "effectiveFrom" ? (!effectiveFrom ? "Choose a date" : undefined) : check.errors[name];
+    const message = name === "reason" ? (reason.trim().length < 3 ? "Give a short reason" : undefined) : name === "effectiveFrom" ? (!effectiveFrom ? "Choose a date" : lockMessage ?? undefined) : check.errors[name];
     setErrors((e) => ({ ...e, [name]: message ?? "" }));
     return !message;
   };
@@ -110,28 +116,23 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
               {failure}
             </p>
           ) : (
-            <span className="mr-auto text-2xs text-ink-muted">
-              {nothingToSend
-                ? "Change the basic salary, grade or an amount to revise."
-                : data.approvalRequired
-                  ? "Saved as a change waiting for approval by someone else."
-                  : "Takes effect once saved."}
-            </span>
+            nothingToSend ? (
+              <span className="mr-auto text-2xs text-ink-muted">Change the basic salary, grade or an amount to revise.</span>
+            ) : (
+              <SaveOutcome data={data} outcome={outcome} className="mr-auto" />
+            )
           )}
-          <WindowButton onClick={onClose} disabled={saving}>
+          <WindowButton onClick={onClose} disabled={!!saving}>
             Cancel
           </WindowButton>
-          <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving || nothingToSend}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            {data.approvalRequired ? "Send for approval" : "Save revision"}
-          </WindowButton>
+          <SaveButtons outcome={outcome} saving={saving} disabled={nothingToSend} onSave={(now) => void save(now)} submitRef={saveRef} plainLabel="Save revision" />
         </>
       }
     >
       <div className="-mx-4 -my-4 grid @container lg:grid-cols-[minmax(0,1fr)_17rem]">
-        <PropertyForm onSubmit={save} enterNavigation={{ validate, end: () => saveRef.current }} className="space-y-0 bg-surface-panel">
+        <PropertyForm onSubmit={() => void save(false)} enterNavigation={{ validate, end: () => saveRef.current }} className="space-y-0 bg-surface-panel">
           <FormGrid columns={2}>
-            <GridField label="Effective from" required error={errors.effectiveFrom} size="date" help="The first day the new salary counts. Payroll uses the revision in force for each month.">
+            <GridField label="Effective from" required error={errors.effectiveFrom || lockMessage || undefined} size="date" help="Payroll uses the revision in force at each month's end, so a change counts for the whole month it falls in.">
               <DateField name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} />
             </GridField>
             <GridField label="Reason" required error={errors.reason} size="lg">

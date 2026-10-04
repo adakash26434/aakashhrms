@@ -548,9 +548,30 @@ export const salaryChangeBatches = pgTable('salary_change_batches', {
   decidedBy: uuid('decided_by'),
   decidedAt: timestamp('decided_at'),
   decisionNote: text('decision_note'),
+  // How it was approved: simple | levels | final_approve | not_required | on_hire | policy (null while pending)
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  // The flow fixed at submission: none | simple | multi_level, its levels and the level waiting now
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   statusIdx: index('salary_change_batches_status_idx').on(table.status),
+}));
+
+/** Approval timeline (4.4 follow-up): every step of a request (salary changes now; pay runs and loans later). */
+export const approvalActions = pgTable('approval_actions', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  module: varchar('module', { length: 40 }).notNull(), // e.g. SALARY_MAPPING
+  requestId: uuid('request_id').notNull(),
+  level: integer('level').default(0).notNull(),
+  actorId: uuid('actor_id'),
+  onBehalfOf: uuid('on_behalf_of'),
+  action: varchar('action', { length: 20 }).notNull(), // submitted | approved | final_approved | rejected | withdrawn | skipped | not_required
+  note: text('note'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  requestIdx: index('approval_actions_request_idx').on(table.module, table.requestId),
 }));
 
 /** Salary templates (4.4): a standard structure (basic + pay heads) for levels or designations. */

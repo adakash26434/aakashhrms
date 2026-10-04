@@ -8,6 +8,7 @@ import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
 import type { RevisionSummary, SalaryStructureData, StructureRow } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
+import { APPROVAL_ROUTE_LABEL } from "./salary-structure-approval";
 
 const SCHEME: Record<string, string> = { ssf: "SSF", pf: "Provident fund", none: "None" };
 
@@ -115,6 +116,10 @@ export function SalaryStructureDetail({ row, data, onRevise }: { row: StructureR
                     <span className="truncate">
                       {h.preparedBy ? `By ${h.preparedBy}` : legacy ? "Existing record" : "By the system"}
                       {h.approvedBy && h.approvedBy !== h.preparedBy ? ` · approved by ${h.approvedBy}` : ""}
+                      {(() => {
+                        const route = data.batches.find((b) => b.id === h.batchId)?.approvalRoute;
+                        return route === "final_approve" ? ` · ${APPROVAL_ROUTE_LABEL[route].toLowerCase()}` : "";
+                      })()}
                     </span>
                     {h.status === "approved" && (
                       <a href={`/workforce/salary-mapping/letter/${h.id}`} target="_blank" rel="noopener" className="inline-flex shrink-0 items-center gap-1 font-medium text-brand-strong hover:underline">

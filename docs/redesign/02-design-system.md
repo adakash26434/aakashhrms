@@ -532,9 +532,32 @@ message (e.g. "Copied 3 × 2 cells") and a key reminder.
 - **One owner for pay.** The employee form sets only the **starting**
   structure on hire; for existing employees the Pay section is read-only with
   "Revise in Salary structure".
-- **Approval.** With the setting on, saves are *Change waiting* until another
-  user with Salary structure → Approve accepts them; a starting salary on hire
-  and grade-policy syncs are approved at once (recorded as batches).
+- **Approvals (Zoho Payroll style, S21).** The tab is **Approvals**
+  (`?tab=approvals`; `changes` still opens it). *Approval settings* (company
+  administrators): **No approval**, **Simple** (anyone with Approve, never
+  the preparer) or **Multi-level** (named approvers in order, Level 2 after
+  Level 1; up to 5; move up / down). The flow is copied onto each change when
+  it is saved. **Final approve**: company administrators can approve at any
+  stage, including their own change (recorded); the Revise and Review windows
+  offer them **Save and approve**. **Nobody approves a change to their own
+  salary**: Bulk edit marks your row "(you)"; levels whose approver prepared
+  the change or is in it are skipped. Views: **Waiting for me** (default when
+  there is something; count on the tab and in the title-bar bell) and **All
+  changes** (filters: status, approved how). Rows can be selected for bulk
+  Approve / Reject (typed `APPROVE`, results per change). The detail shows
+  the **approval timeline** (submitted, each level, skipped levels and why,
+  final approve, rejection with reason, "on behalf of" for delegates, and
+  the levels still to come), what changed (old → new) and the effect on
+  gross, net before tax and employer cost, with buttons from the same engine
+  the server uses (Approve Level n, Approve for X, Final approve, Reject,
+  Withdraw) or the plain reason. The form footers say what saving will do
+  ("Goes to Level 1: Gita, then Level 2: Hari"). This pattern is the template
+  for pay-run (4.8) and loan (4.10) approvals.
+- **Paid months are closed.** A change may not take effect in a month whose
+  payroll is approved or locked for that employee (no arrears yet): the date
+  field says the first open date, and the server refuses it on save and on
+  approval. After saving, the page names any draft payroll month to
+  recalculate.
 - **Typo guard.** A basic salary that moves by more than half (up or down)
   is flagged ("Basic rises by 300%: check for a typo") in the grid and the
   Revise window; it is a warning, not a block.

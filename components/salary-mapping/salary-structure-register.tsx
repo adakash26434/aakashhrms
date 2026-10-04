@@ -7,6 +7,7 @@ import { SplitView } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
 import type { SalaryStructureData, StructureRow } from "@/lib/types/salary-structure";
 import { SalaryStructureDetail } from "./salary-structure-detail";
+import { batchStatusText } from "./salary-structure-approval";
 
 const STATUS_LABEL: Record<StructureRow["status"], { key: string; label: string }> = {
   current: { key: "active", label: "Current" },
@@ -62,10 +63,18 @@ export function SalaryStructureRegister({
         header: "Status",
         width: 140,
         value: (r) => STATUS_LABEL[r.status].label,
-        cell: (r) => <StatusChip status={STATUS_LABEL[r.status].key} label={STATUS_LABEL[r.status].label} />,
+        cell: (r) => {
+          // A waiting change says where it is: "Level 1 of 2 · Hari Thapa" in the tooltip.
+          const batch = r.status === "pending" ? data.batches.find((b) => b.id === r.pendingBatchId) : null;
+          return (
+            <span title={batch ? batchStatusText(batch, data) : undefined}>
+              <StatusChip status={STATUS_LABEL[r.status].key} label={batch && batch.flow.type === "multi_level" ? `Waiting · L${batch.currentLevel}` : STATUS_LABEL[r.status].label} />
+            </span>
+          );
+        },
       },
     ],
-    []
+    [data]
   );
 
   return (

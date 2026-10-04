@@ -229,6 +229,53 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     }
   }
 
+  // Approvals (4.4 follow-up, migration 0038): the flow kept on each salary change batch,
+  // how it was approved, and the approval_actions timeline. Same statements as the
+  // migration; all idempotent (backfills touch only rows not yet filled).
+  for (const q of [
+    `ALTER TABLE "salary_change_batches" ADD COLUMN IF NOT EXISTS "approval_route" varchar(20)`,
+    `ALTER TABLE "salary_change_batches" ADD COLUMN IF NOT EXISTS "approval_type" varchar(20)`,
+    `ALTER TABLE "salary_change_batches" ADD COLUMN IF NOT EXISTS "approval_levels" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+    `ALTER TABLE "salary_change_batches" ADD COLUMN IF NOT EXISTS "current_level" integer DEFAULT 0 NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS "approval_actions" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "module" varchar(40) NOT NULL,
+  "request_id" uuid NOT NULL,
+  "level" integer DEFAULT 0 NOT NULL,
+  "actor_id" uuid,
+  "on_behalf_of" uuid,
+  "action" varchar(20) NOT NULL,
+  "note" text,
+  "created_at" timestamp DEFAULT now() NOT NULL
+)`,
+    `CREATE INDEX IF NOT EXISTS "approval_actions_request_idx" ON "approval_actions" ("module", "request_id")`,
+    `UPDATE "salary_change_batches" SET "approval_route" = 'simple' WHERE "approval_route" = 'second_person'`,
+    `UPDATE "salary_change_batches" SET "approval_route" = 'final_approve' WHERE "approval_route" = 'administrator'`,
+    `UPDATE "salary_change_batches" SET "approval_route" = CASE
+  WHEN "kind" = 'hire' THEN 'on_hire'
+  WHEN "kind" = 'policy' THEN 'policy'
+  WHEN "decided_by" IS NOT DISTINCT FROM "prepared_by" THEN 'not_required'
+  ELSE 'simple' END
+WHERE "status" = 'approved' AND "approval_route" IS NULL`,
+    `UPDATE "salary_change_batches" SET "approval_type" = CASE WHEN "kind" IN ('hire', 'policy') OR "approval_route" = 'not_required' THEN 'none' ELSE 'simple' END
+WHERE "approval_type" IS NULL`,
+    `INSERT INTO "approval_actions" ("id", "module", "request_id", "level", "actor_id", "action", "created_at")
+SELECT md5("id"::text || ':submitted')::uuid, 'SALARY_MAPPING', "id", 0, "prepared_by", 'submitted', "created_at" FROM "salary_change_batches"
+ON CONFLICT ("id") DO NOTHING`,
+    `INSERT INTO "approval_actions" ("id", "module", "request_id", "level", "actor_id", "action", "note", "created_at")
+SELECT md5("id"::text || ':decided')::uuid, 'SALARY_MAPPING', "id", 0, "decided_by",
+  CASE "status" WHEN 'approved' THEN (CASE "approval_route" WHEN 'final_approve' THEN 'final_approved' WHEN 'simple' THEN 'approved' WHEN 'levels' THEN 'approved' ELSE 'not_required' END) ELSE "status" END,
+  "decision_note", COALESCE("decided_at", "created_at")
+FROM "salary_change_batches" WHERE "status" <> 'pending'
+ON CONFLICT ("id") DO NOTHING`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored if the table does not exist yet
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

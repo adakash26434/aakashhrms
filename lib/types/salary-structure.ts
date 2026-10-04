@@ -2,9 +2,10 @@
 // kept), changed one by one or in bulk, optionally approved by a second
 // person; standard templates; printable revision letters.
 
+import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry, ApproverInfo } from "@/lib/types/approval";
 import type { GradePolicySettings } from "@/lib/types/system-control";
 
-export const STRUCTURE_TABS = ["structures", "bulk", "changes", "templates"] as const;
+export const STRUCTURE_TABS = ["structures", "bulk", "approvals", "templates"] as const;
 export type StructureTab = (typeof STRUCTURE_TABS)[number];
 
 /**
@@ -103,6 +104,8 @@ export interface StructureRow {
 export type BatchKind = "single" | "bulk" | "import" | "hire" | "policy";
 export type BatchStatus = "pending" | "approved" | "rejected" | "withdrawn";
 
+export type { ApprovalRoute } from "@/lib/types/approval";
+
 export interface BatchLine {
   employeeId: string;
   employeeCode: string;
@@ -124,8 +127,17 @@ export interface BatchRow {
   decidedBy: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
+  /** How it was approved (null while waiting or not approved). */
+  approvalRoute: ApprovalRoute | null;
+  /** The flow fixed when it was submitted, and the level waiting now. */
+  flow: ApprovalFlow;
+  currentLevel: number;
+  /** Every step: submitted, levels, final approve, rejection, withdrawal. */
+  timeline: ApprovalTimelineEntry[];
   createdAt: string;
   lines: BatchLine[];
+  /** Every employee in the batch (lines show only those in the user's scope). */
+  employeeIds: string[];
 }
 
 export interface TemplateRow {
@@ -154,8 +166,23 @@ export interface SalaryStructureData {
   gradePolicy: GradePolicySettings | null;
   ssfBase: "BasicSalary" | "BasicPlusGrade";
   pfPercent: number;
-  approvalRequired: boolean;
+  /** Company approval setting for salary changes, and who can approve. */
+  approvalPolicy: ApprovalPolicy;
+  approvers: ApproverInfo[];
+  /** Today (AD, Nepal time): delegations are checked against it. */
+  today: string;
   currentUserId: string;
+  /** The current user's own salary rules (S21) and approval standing. */
+  me: {
+    /** Employee record linked to the user account (null: not linked). */
+    employeeId: string | null;
+    /** Can approve salary changes company-wide (not a platform support login). */
+    isAdministrator: boolean;
+    /** Other active users who can approve salary changes (for "nobody else can approve"). */
+    otherApprovers: number;
+  };
+  /** Payroll months already approved or locked per employee: the latest period end (AD date). */
+  finalisedUntil: Record<string, string>;
   /** Every revision per employee, newest first (history and letters). */
   history: Record<string, RevisionSummary[]>;
   permissions: {

@@ -267,6 +267,13 @@
       "when": 1789900000000,
       "tag": "0037_salary_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0038_salary_approval_route",
+      "breakpoints": true
     }
   ]
 }

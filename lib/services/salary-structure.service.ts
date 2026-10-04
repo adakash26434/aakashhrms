@@ -9,10 +9,10 @@ import * as systemControlRepository from "@/lib/repositories/system-control.repo
 import {
   EMPTY_LINES,
   batchSummary,
-  canDecideBatch,
-  canWithdrawBatch,
   changedLines,
   classifyHead,
+  earliestOpenDate,
+  finalisedConflicts,
   gradeAmountFor,
   headsFromLines,
   latestApproved,
@@ -22,9 +22,23 @@ import {
   type PayHeadLike,
   type TotalsSettings,
 } from "@/lib/engines/salary-structure.engine";
+import {
+  applyDecision,
+  availableActions,
+  buildFlow,
+  isCompanyAdministrator,
+  parsePolicy,
+  validatePolicy,
+  waitingFor,
+  type ApprovalActor,
+  type ApprovalRequest,
+  type Decision,
+} from "@/lib/engines/approval.engine";
+import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry, ApproverInfo } from "@/lib/types/approval";
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
+import { BS_MONTHS_EN, formatBSDate } from "@/lib/utils/bs-calendar";
 import type { PayHead } from "@/lib/types/pay-head";
 import type { Employee } from "@/lib/types/employee";
 import type {
@@ -135,7 +149,7 @@ export async function getStructureData(params: {
   userId: string;
   permissions: SalaryStructureData["permissions"];
 }): Promise<SalaryStructureData> {
-  const [{ heads, settings, totalsSettings }, employees, branches, departments, designations, levels, batches, templates, approval] = await Promise.all([
+  const [{ heads, settings, totalsSettings }, employees, branches, departments, designations, levels, batches, templates, policy, batchEmployees, approvers] = await Promise.all([
     loadContext(),
     employeesInScope(params.scope),
     branchRepository.findAllBranches(),
@@ -144,10 +158,14 @@ export async function getStructureData(params: {
     shreniRepository.findAllShreniLevels(),
     repository.findBatches(),
     repository.findTemplates(),
-    repository.approvalRequired(),
+    repository.getApprovalPolicy(),
+    repository.findBatchEmployeeIds(),
+    repository.findApprovers(),
   ]);
+  const actions = await repository.findApprovalActions(batches.map((b) => b.id));
+  const userName = new Map(approvers.map((a) => [a.userId, a.name]));
   const ids = employees.map((e) => e.id);
-  const { revisions, heads: stored } = await repository.findRevisions(ids);
+  const [{ revisions, heads: stored }, finalisedUntil] = await Promise.all([repository.findRevisions(ids), repository.findFinalisedUntil(ids)]);
   const names = await repository.findUserNames([...revisions.flatMap((r) => [r.createdBy ?? "", r.approvedBy ?? ""]), ...batches.flatMap((b) => [b.preparedBy ?? "", b.decidedBy ?? ""])]);
   const branchName = new Map(branches.map((b) => [b.id, b.name]));
   const departmentName = new Map(departments.map((d) => [d.id, d.name]));
@@ -218,8 +236,28 @@ export async function getStructureData(params: {
       decidedBy: b.decidedBy ? names.get(b.decidedBy) ?? null : null,
       decidedAt: b.decidedAt ? b.decidedAt.toISOString() : null,
       decisionNote: b.decisionNote,
+      approvalRoute: (b.approvalRoute as ApprovalRoute | null) ?? null,
+      flow: flowOf(b),
+      currentLevel: b.currentLevel ?? 0,
+      // "Submitted" first: older rows mix database and app clocks (time zones), so time alone can misorder it.
+      timeline: actions
+        .filter((a) => a.requestId === b.id)
+        .sort((x, y) => (x.action === "submitted" ? 0 : 1) - (y.action === "submitted" ? 0 : 1) || x.createdAt.getTime() - y.createdAt.getTime())
+        .map(
+          (a): ApprovalTimelineEntry => ({
+            id: a.id,
+            level: a.level,
+            action: a.action as ApprovalTimelineEntry["action"],
+            actorId: a.actorId,
+            actorName: a.actorId ? userName.get(a.actorId) ?? "Unknown user" : "System",
+            onBehalfOfName: a.onBehalfOf ? userName.get(a.onBehalfOf) ?? "Unknown user" : null,
+            note: a.note,
+            at: a.createdAt.toISOString(),
+          })
+        ),
       createdAt: b.createdAt.toISOString(),
       lines,
+      employeeIds: batchEmployees.get(b.id) ?? lines.map((l) => l.employeeId),
     });
   }
 
@@ -236,8 +274,16 @@ export async function getStructureData(params: {
     gradePolicy: settings.gradePolicy ?? null,
     ssfBase: totalsSettings.ssfBase,
     pfPercent: totalsSettings.pfPercent,
-    approvalRequired: approval,
+    approvalPolicy: policy,
+    approvers,
+    today: nepalDateIso(),
     currentUserId: params.userId,
+    me: {
+      employeeId: params.scope.employeeId,
+      isAdministrator: isCompanyAdministrator(params.scope, params.permissions.approve),
+      otherApprovers: approvers.filter((a) => a.active && a.canApprove && a.userId !== params.userId).length,
+    },
+    finalisedUntil,
     permissions: params.permissions,
     history,
   };
@@ -263,8 +309,52 @@ const toTemplateRow = (t: repository.TemplateRowDb): TemplateRow => ({
 export interface SubmitResult {
   batchId: string;
   approved: boolean;
+  /** How it counted at once (null: waiting for approval). */
+  route: ApprovalRoute | null;
+  /** It waits because it includes the preparer's own salary (S21). */
+  ownSalary: boolean;
   employeeCount: number;
   monthlyChange: number;
+  /** Draft or in-review payroll months (e.g. "Aswin 2083") to recalculate. */
+  recalculate: string[];
+  /** Who it waits for: "Level 1: Hari Thapa", or "an approver". */
+  waitingFor: string | null;
+}
+
+/** The acting user for the approval rules (S21: own salary; Final approve for administrators). */
+function actorFrom(scope: ScopeFilter, canApprove: boolean): ApprovalActor {
+  return { userId: scope.userId, employeeId: scope.employeeId, canApprove, isAdministrator: isCompanyAdministrator(scope, canApprove) };
+}
+
+/** The flow kept on a batch (older batches without one are simple). */
+function flowOf(b: repository.BatchRowDb): ApprovalFlow {
+  const levels = Array.isArray(b.approvalLevels) ? b.approvalLevels : [];
+  return { type: b.approvalType === "multi_level" && levels.length ? "multi_level" : "simple", levels };
+}
+
+/** A batch as the approval engine sees it. */
+function requestOf(b: repository.BatchRowDb, subjectEmployeeIds: string[]): ApprovalRequest {
+  return { status: b.status as ApprovalRequest["status"], preparedById: b.preparedBy, subjectEmployeeIds, flow: flowOf(b), currentLevel: b.currentLevel ?? 0 };
+}
+
+/**
+ * Payroll uses the revision in force at each month's end and there is no back
+ * pay (arrears) yet, so a change may not reach a month whose payroll is
+ * already approved or locked: it would silently differ from what was paid.
+ */
+async function assertPayrollOpen(effectiveFrom: string, employeeIds: string[], names: Map<string, string>) {
+  const until = await repository.findFinalisedUntil(employeeIds);
+  const conflicts = finalisedConflicts(effectiveFrom, until, employeeIds);
+  if (!conflicts.size) return;
+  const [, lastPaid] = [...conflicts.entries()].sort((a, b) => b[1].localeCompare(a[1]))[0];
+  const open = earliestOpenDate(until, [...conflicts.keys()])!;
+  const who = [...conflicts.keys()].slice(0, 3).map((id) => names.get(id) ?? "an employee").join(", ");
+  const more = conflicts.size > 3 ? ` and ${conflicts.size - 3} more` : "";
+  throw new UserFacingError(
+    `Payroll is already approved for ${who}${more} up to ${formatBSDate(new Date(`${lastPaid}T00:00:00`), "long")}` +
+      `. Choose an effective date from ${formatBSDate(new Date(`${open}T00:00:00`), "long")} (${open}) or later; ` +
+      `back pay for earlier months (arrears) comes with the payroll run redesign.`
+  );
 }
 
 /**
@@ -273,13 +363,14 @@ export interface SubmitResult {
  * already waiting; grades follow the policy unless typed by hand; rows that
  * change nothing are dropped.
  */
-export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<SubmitResult> {
+export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userId: string; canApprove: boolean; approveNow?: boolean }): Promise<SubmitResult> {
   const input = normalizeBatch(raw);
-  const [{ heads, settings, totalsSettings }, employees, levels, approval] = await Promise.all([
+  const [{ heads, settings, totalsSettings }, employees, levels, policy, approvers] = await Promise.all([
     loadContext(),
     employeesInScope(ctx.scope, { includeInactive: true }),
     shreniRepository.findAllShreniLevels(),
-    repository.approvalRequired(),
+    repository.getApprovalPolicy(),
+    repository.findApprovers(),
   ]);
   const scoped = new Map(employees.map((e) => [e.id, e]));
   const outside = input.rows.filter((r) => !scoped.has(r.employeeId)).map((r) => r.employeeId);
@@ -287,6 +378,7 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
   const left = input.rows.filter((r) => scoped.get(r.employeeId)!.status !== "Active");
   if (left.length) throw new UserFacingError(`Only active employees can be revised: ${left.slice(0, 5).map((r) => scoped.get(r.employeeId)!.fullName).join(", ")}.`);
   const byId = scoped;
+  await assertPayrollOpen(input.effectiveFrom, input.rows.map((r) => r.employeeId), new Map(employees.map((e) => [e.id, e.fullName])));
   const pending = await repository.countPendingFor(input.rows.map((r) => r.employeeId));
   if (pending.size) {
     const names = [...pending.keys()].map((id) => byId.get(id)?.fullName).filter(Boolean).slice(0, 5).join(", ");
@@ -334,16 +426,49 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
   if (!prepared.length) throw new UserFacingError("Nothing changed: every row matches the current salary.");
 
   const summary = batchSummary(prepared);
+  const changedIds = prepared.map((p) => p.revision.employeeId);
+  const actor = actorFrom(ctx.scope, ctx.canApprove);
+  const outcome = buildFlow(policy, { preparerId: ctx.userId, preparerEmployeeId: ctx.scope.employeeId, subjectEmployeeIds: changedIds, approvers });
+  const ownSalary = !outcome.approvedAtOnce && outcome.ownSubject;
+  // "Save and approve": an administrator's Final approve in the same step, never on their own salary (S21).
+  const finalNow = !!ctx.approveNow && !outcome.approvedAtOnce;
+  if (finalNow && !actor.isAdministrator) throw new UserFacingError("Only a company administrator can save and approve in one step.");
+  if (finalNow && ownSalary) throw new SelfDecisionError("This change includes your own salary, so someone else has to approve it.", "own_salary");
+
+  const steps: repository.NewApprovalAction[] = [{ level: 0, actorId: ctx.userId, action: "submitted" }];
+  for (const l of outcome.flow.levels.filter((x) => x.skipped)) {
+    steps.push({ level: l.level, actorId: null, action: "skipped", note: l.skipped === "preparer" ? "Approver prepared this change" : "Approver's own salary is in this change" });
+  }
+  if (outcome.approvedAtOnce) steps.push({ level: 0, actorId: ctx.userId, action: "not_required" });
+  if (finalNow) steps.push({ level: 0, actorId: ctx.userId, action: "final_approved", note: "Saved and approved by a company administrator" });
+
+  const route: ApprovalRoute | null = outcome.approvedAtOnce ? outcome.route : finalNow ? "final_approve" : null;
   const batchId = await repository.createBatch({
     kind: input.kind,
     effectiveFrom: input.effectiveFrom,
     reason: input.reason,
     monthlyChange: summary.monthlyChange,
     preparedBy: ctx.userId,
-    approved: !approval,
+    approvedRoute: route,
+    approvalType: outcome.approvedAtOnce ? "none" : outcome.flow.type,
+    flow: outcome.flow,
+    currentLevel: outcome.currentLevel,
+    actions: steps,
     revisions: prepared.map((p) => p.revision),
   });
-  return { batchId, approved: !approval, employeeCount: summary.employeeCount, monthlyChange: summary.monthlyChange };
+  const approved = route !== null;
+  const open = approved ? await repository.findOpenRunsFrom(input.effectiveFrom, changedIds) : [];
+  const levelUser = outcome.flow.levels.find((l) => l.level === outcome.currentLevel)?.userId;
+  return {
+    batchId,
+    approved,
+    route,
+    ownSalary,
+    employeeCount: summary.employeeCount,
+    monthlyChange: summary.monthlyChange,
+    recalculate: open.map((r) => `${BS_MONTHS_EN[r.month] ?? r.month} ${r.year}`),
+    waitingFor: approved ? null : outcome.flow.type === "multi_level" && levelUser ? `Level ${outcome.currentLevel}: ${approvers.find((x) => x.userId === levelUser)?.name ?? "approver"}` : "an approver",
+  };
 }
 
 /** A new employee's first structure (from the employee form): approved at once, effective from joining. */
@@ -365,7 +490,12 @@ export async function createStartingStructure(params: {
     reason: "Starting salary",
     monthlyChange: totals.gross,
     preparedBy: params.userId,
-    approved: true,
+    approvedRoute: "on_hire",
+    approvalType: "none",
+    actions: [
+      { level: 0, actorId: params.userId, action: "submitted" },
+      { level: 0, actorId: params.userId, action: "not_required", note: "Starting salary on hire" },
+    ],
     revisions: [{ employeeId: params.employeeId, basic: params.basic, gradeCount: params.gradeCount, gradeAmount: params.gradeAmount, gradeManual: params.gradeManual, netAmount: totals.netBeforeTax, heads: [] }],
   });
 }
@@ -405,7 +535,12 @@ export async function applyPolicyGrades(policy: Parameters<typeof gradeAmountFor
     reason: "Grade policy changed",
     monthlyChange,
     preparedBy: userId,
-    approved: true,
+    approvedRoute: "policy",
+    approvalType: "none",
+    actions: [
+      { level: 0, actorId: userId, action: "submitted" },
+      { level: 0, actorId: userId, action: "not_required", note: "Grade policy changed" },
+    ],
     revisions: changes,
   });
   return changes.length;
@@ -415,33 +550,141 @@ export async function applyPolicyGrades(policy: Parameters<typeof gradeAmountFor
 // Decisions
 // ---------------------------------------------------------------------------
 
-/** Approve or reject (needs Approve, never your own batch) or withdraw (only your own). */
+/** A refusal because the request concerns the user's own salary or is their own (the action audits it DENIED_SELF). */
+export class SelfDecisionError extends UserFacingError {
+  constructor(message: string, public code: "own_salary" | "own_request") {
+    super(message);
+    this.name = "SelfDecisionError";
+  }
+}
+
+export interface DecideResult {
+  employeeCount: number;
+  status: BatchStatus;
+  route: ApprovalRoute | null;
+  /** The level approved (0: simple or final). */
+  level: number;
+}
+
+/**
+ * One decision on a pending batch: approve the current level (or, simple, the
+ * batch), Final approve (company administrator), reject (reason required) or
+ * withdraw (its preparer). Every employee in it must be in the user's scope;
+ * the approval engine decides who may act (S21). Approving it for good
+ * re-checks that payroll is still open for its months.
+ */
 export async function decideBatch(
   batchId: string,
-  decision: "approved" | "rejected" | "withdrawn",
+  decision: Decision,
   note: string | null,
   ctx: { scope: ScopeFilter; userId: string; canApprove: boolean }
-): Promise<{ employeeCount: number; ownBatch: boolean }> {
+): Promise<DecideResult> {
   const batch = await repository.findBatchById(batchId);
   if (!batch) throw new UserFacingError("That change no longer exists. Refresh the page.");
-  const status = batch.status as BatchStatus;
-  const ref = { status, preparedById: batch.preparedBy };
-  // Every employee in the batch must be in the user's scope.
-  const { revisions } = await repository.findRevisions(null);
-  const inBatch = revisions.filter((r) => r.batchId === batchId).map((r) => r.employeeId);
-  const allowed = new Set((await employeesInScope(ctx.scope, { includeInactive: true })).map((e) => e.id));
+  const inBatch = (await repository.findBatchEmployeeIds(batchId)).get(batchId) ?? [];
+  const scoped = await employeesInScope(ctx.scope, { includeInactive: true });
+  const allowed = new Set(scoped.map((e) => e.id));
   const outside = inBatch.filter((id) => !allowed.has(id));
   if (outside.length) throw new OutOfScopeError(outside);
-  if (status !== "pending") throw new UserFacingError(`This change was already ${status}.`);
-  if (decision === "withdrawn") {
-    if (!canWithdrawBatch(ref, ctx.userId)) throw new UserFacingError("Only the person who prepared a change can withdraw it.");
-  } else {
-    if (batch.preparedBy === ctx.userId) return { employeeCount: 0, ownBatch: true };
-    if (!canDecideBatch(ref, ctx.userId, ctx.canApprove)) throw new UserFacingError("You cannot approve or reject salary changes.");
-    if (decision === "rejected" && !(note ?? "").trim()) throw new UserFacingError("Give a reason for rejecting.");
+
+  const approvers = await repository.findApprovers();
+  const request = requestOf(batch, inBatch);
+  const actor = actorFrom(ctx.scope, ctx.canApprove);
+  const can = availableActions(request, actor, { approvers, today: nepalDateIso() });
+  const ownSalary = includesOwn(actor.employeeId, inBatch);
+  const refuse = (message: string) => {
+    if (ownSalary) throw new SelfDecisionError("This change includes your own salary, so someone else has to approve or reject it.", "own_salary");
+    if (request.preparedById === actor.userId && decision !== "withdraw") throw new SelfDecisionError(message, "own_request");
+    throw new UserFacingError(message);
+  };
+  if (decision === "approve" && !can.approve) refuse(can.reason ?? "You cannot approve this change.");
+  if (decision === "final_approve" && !can.finalApprove) refuse(can.reason ?? "Only a company administrator can Final approve.");
+  if (decision === "reject" && !can.reject) refuse(request.preparedById === actor.userId ? "You prepared this change: withdraw it instead of rejecting it." : can.reason ?? "You cannot reject this change.");
+  if (decision === "withdraw" && !can.withdraw) throw new UserFacingError(request.status !== "pending" ? `This change was already ${request.status}.` : "Only the person who prepared a change can withdraw it.");
+  const cleanNote = note?.trim() || null;
+  if (decision === "reject" && (!cleanNote || cleanNote.length < 3)) throw new UserFacingError("Give a reason for rejecting.");
+
+  const next = applyDecision(request, decision);
+  if (next.status === "approved") await assertPayrollOpen(batch.effectiveFrom, inBatch, new Map(scoped.map((e) => [e.id, e.fullName])));
+  const level = decision === "approve" ? can.approve!.level : 0;
+  const changed = await repository.decideBatch({
+    batchId,
+    expectedLevel: request.currentLevel,
+    next,
+    actorId: ctx.userId,
+    note: cleanNote,
+    action: {
+      level,
+      actorId: ctx.userId,
+      onBehalfOf: decision === "approve" ? can.approve!.onBehalfOf : null,
+      action: decision === "approve" ? "approved" : decision === "final_approve" ? "final_approved" : decision === "reject" ? "rejected" : "withdrawn",
+      note: cleanNote,
+    },
+  });
+  if (changed === null) throw new UserFacingError("Someone else acted on this change a moment ago. Refresh the page.");
+  return { employeeCount: inBatch.length, status: next.status, route: next.route, level };
+}
+
+const includesOwn = (employeeId: string | null, ids: string[]) => !!employeeId && ids.includes(employeeId);
+
+export interface ManyResult {
+  id: string;
+  ok: boolean;
+  error?: string;
+  /** Set when refused for the user's own salary / own request or out of scope (the action audits it). */
+  refusal?: "own_salary" | "own_request" | "scope";
+  result?: DecideResult;
+}
+
+/** The same decision on several batches (bulk approve / reject); each is checked on its own. */
+export async function decideMany(ids: string[], decision: Decision, note: string | null, ctx: { scope: ScopeFilter; userId: string; canApprove: boolean }): Promise<ManyResult[]> {
+  const out: ManyResult[] = [];
+  for (const id of ids) {
+    try {
+      out.push({ id, ok: true, result: await decideBatch(id, decision, note, ctx) });
+    } catch (error) {
+      if (error instanceof SelfDecisionError) out.push({ id, ok: false, error: error.message, refusal: error.code });
+      else if (error instanceof OutOfScopeError) out.push({ id, ok: false, error: error.message, refusal: "scope" });
+      else if (error instanceof UserFacingError) out.push({ id, ok: false, error: error.message });
+      else throw error;
+    }
   }
-  const changed = await repository.decideBatch(batchId, decision, ctx.userId, note?.trim() || null);
-  return { employeeCount: changed.length, ownBatch: false };
+  return out;
+}
+
+/** Salary changes this person can act on now (the title-bar bell). */
+export async function countWaitingFor(scope: ScopeFilter, canApprove: boolean): Promise<number> {
+  const pending = (await repository.findBatches()).filter((b) => b.status === "pending");
+  if (!pending.length) return 0;
+  const [approvers, members, scoped] = await Promise.all([repository.findApprovers(), repository.findBatchEmployeeIds(), employeesInScope(scope, { includeInactive: true })]);
+  const allowed = new Set(scoped.map((e) => e.id));
+  const actor = actorFrom(scope, canApprove);
+  const today = nepalDateIso();
+  return pending.filter((b) => {
+    const ids = members.get(b.id) ?? [];
+    return ids.every((id) => allowed.has(id)) && waitingFor(requestOf(b, ids), actor, { approvers, today });
+  }).length;
+}
+
+// ---------------------------------------------------------------------------
+// Approval settings
+// ---------------------------------------------------------------------------
+
+/** Pending changes keep the approvers they were submitted with; this says how many. */
+export async function saveApprovalPolicy(raw: unknown): Promise<{ policy: ApprovalPolicy; pendingKept: number }> {
+  const policy = parsePolicy(raw);
+  const requested = raw && typeof raw === "object" ? (raw as { type?: unknown }).type : undefined;
+  if (requested === "multi_level" && policy.type !== "multi_level") throw new StructureValidationError({ settings: { levels: "Add at least one approver" } });
+  const approvers = await repository.findApprovers();
+  const errors = validatePolicy(policy, approvers);
+  if (Object.keys(errors).length) throw new StructureValidationError({ settings: errors });
+  await repository.setApprovalPolicy(policy);
+  const pendingKept = (await repository.findBatches()).filter((b) => b.status === "pending").length;
+  return { policy, pendingKept };
+}
+
+export async function listApprovers(): Promise<ApproverInfo[]> {
+  return repository.findApprovers();
 }
 
 // ---------------------------------------------------------------------------
@@ -467,9 +710,7 @@ export async function setTemplateActive(id: string, active: boolean): Promise<vo
   await repository.setTemplateActive(id, active);
 }
 
-export async function setApprovalRequired(on: boolean): Promise<void> {
-  await repository.setApprovalRequired(on);
-}
+
 
 // ---------------------------------------------------------------------------
 // Revision letter

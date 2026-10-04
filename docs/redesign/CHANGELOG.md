@@ -13,6 +13,24 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-04 — 4.4 follow-up: Zoho-style approvals, never your own salary (S21)
+Branch: `redesign/4.4-salary-structure`
+
+You asked for a proper approval system like Zoho Payroll. Research: [Zoho Payroll approvals](https://www.zoho.com/en-ae/payroll/help/employer/settings/approvals.html) (simple, multi-level and custom approval per module; levels in order; admins Final approve), [salary revision approvals](https://www.zoho.com/in/payroll/help/employer/approvals/salary-revision.html) (Approvals module, bulk approve / reject); maker-checker guidance (the person a request is about never approves it).
+
+- **Approval settings** (company administrators; Approvals tab → Approval settings): **No approval / Simple / Multi-level** with named approvers in order (up to 5, move up / down). Validated (active approvers with Approve, no repeats) and audited. Changes already waiting keep their approvers (the flow is copied onto each change when saved). Custom rules come with Configuration (4.12).
+- **Final approve:** company administrators (Approve, company-wide, not platform support) approve at any stage, including their own change, recorded as *Final approved*; the Revise and Review windows offer **Save and approve**.
+- **Never your own salary (S21):** a change that includes your own salary always needs someone else (even with approval off); levels whose approver prepared the change or is in it are skipped and recorded, falling back to Simple when all are skipped.
+- **Approvals tab** (was Changes): **Waiting for me** (count on the tab and in the title-bar bell, now a menu with leave requests and salary changes) and **All changes**; bulk Approve / Reject; the **approval timeline** per change; buttons from the same engine as the server (Approve Level n, Approve for X as a delegate, Final approve, Reject with reason, Withdraw) or the plain reason.
+- **Delegation:** a user's existing "delegate to … until" lets the delegate act for a level approver, recorded *on behalf of*.
+- **Safety:** a decision applies only while the change is still at the level you saw (no double decisions); a stuck level (approver left or lost Approve) says so and can be Final approved; the paid-month guard and old → new details from the previous step stay.
+- **Code:** generic `lib/engines/approval.engine.ts` + `lib/types/approval.ts` (reused by pay runs 4.8 and loans 4.10); `lib/auth/self-action.ts` shared with leave approvals; migration 0038 (flow columns on batches, `approval_actions` timeline, backfill of earlier batches).
+- Bulk edit: the Change details strip is top-aligned (date, reason and buttons on one line).
+
+Verified: tsc 0 · eslint: nothing new · 517/517 tests (new `tests/approval-engine.test.ts`: settings parsing and validation, administrator definition, submission with skips and fall-back, level order, Final approve, delegation in and out of date, stuck level, own salary for every role, preparer rules, withdraw; S20 / S21 server-path checks) · `next build` · Playwright on your data after migration 0038 (**nothing saved or approved by the checks**): Approvals tab and timeline (Pramod's change shows Submitted → Final approved, approved from your session earlier; gross 0.00, net −385.00, employer cost +700.00 because grade is in the SSF base); Approval settings window (multi-level picker lists the users who can approve; cancelled); Revise footer for an administrator ("Waits for anyone who can approve (not you)", Submit for approval + Save and approve; closed unsaved); bell menu (leave requests, salary changes); 390 / 1366 / 1920 no overflow; 0 console errors. Fixed during the check: the timeline always lists Submitted first (older rows mix database and app clocks).
+
+---
+
 ## 2026-10-04 — 4.4 Salary structure
 Branch: `redesign/4.4-salary-structure` (stacked on 4.3)
 

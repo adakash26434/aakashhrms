@@ -153,16 +153,16 @@ per-module **definition of done** below.
 | 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version. **Signed off by you on 2026-10-03** (`redesign/4.1-home`) |
 | 4.2 | **Workforce: Employees** | A + B | Register + quick view, full record page with related-history tabs, full-page editor with Enter-to-next; security S18. **Signed off by you on 2026-10-03** (`redesign/4.2-employees`) |
 | 4.3 | **Workforce: Organization** | A | Branches, departments (company-wide), designations, grade levels, employment types, structure matrix and reporting chart; security S19. **In progress on `redesign/4.3-organization`** |
-| 4.4 | **Salary structure** | A + B | Dated salary revisions with history, Revise window, spreadsheet Bulk edit (EditGrid, Excel paste, CSV import), change batches with second-person approval, templates, revision letter; SSF on basic + grade (company setting); security S20. **In progress on `redesign/4.4-salary-structure`** |
-| 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process |
-| 4.6 | **Time: Leaves** | A | applications, approvals, balances drawer |
+| 4.4 | **Salary structure** | A + B | Dated salary revisions with history, Revise window, spreadsheet Bulk edit (EditGrid, Excel paste, CSV import), Zoho-style approvals (none / simple / multi-level, Final approve, timeline, Waiting for me, bulk decide, delegation; never your own salary), templates, revision letter; SSF on basic + grade (company setting); security S20, S21. Later: `.xlsx` import (CSV and paste from Excel today); email notifications for approvals. **In progress on `redesign/4.4-salary-structure`** |
+| 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process; S21: no correcting or approving your own attendance |
+| 4.6 | **Time: Leaves** | A | applications, approvals, balances drawer; S21 already applied to leave approvals (keep the shared check) |
 | 4.7 | **Time: Policies** | A + E | leave types, leave rules, OT rules |
-| 4.8 | **Payroll run** | C | generate → pre-flight → calculate → review grid → approve → lock; payslip modal; **E1 working-period selector** (first consumer); **arrears** for back-dated salary revisions (4.4 stores them dated; payroll already picks the revision in force; SSF on basic + grade is in place) |
-| 4.9 | **Leave salary** | C | setup + run table |
-| 4.10 | **Loans** | A | register, disbursement, repayment, loan types |
+| 4.8 | **Payroll run** | C | generate → pre-flight → calculate → review grid → approve → lock; payslip modal; **E1 working-period selector** (first consumer); **arrears** for back-dated salary revisions (4.4 stores them dated; payroll already picks the revision in force; SSF on basic + grade is in place; until then 4.4 refuses changes into approved / locked months); S21: no manual edits to your own payslip; **pay-run approval** reuses the approval engine (none / simple / multi-level, Final approve, timeline) |
+| 4.9 | **Leave salary** | C | setup + run table; S21: no approving your own encashment |
+| 4.10 | **Loans** | A | register, disbursement, repayment, loan types; S21: no approving your own loan |
 | 4.11 | **Reports** | D | salary sheet, payslip, attendance, tax/IRD, leave, loan + print/PDF styles |
-| 4.12 | **Configuration** | E | setup overview, company setup (5 tabs), holidays, payroll rules (fiscal year, tax, pay heads, system control) |
-| 4.13 | **Administration** | A + B | users, roles + permission matrix, audit log |
+| 4.12 | **Configuration** | E | setup overview, company setup (5 tabs), holidays, payroll rules (fiscal year, tax, pay heads, system control); **Approvals** settings page (moved from Salary structure) with **Custom approval rules** (route by % increase, monthly change, new gross, branch / department); pay heads: onboarding's "Basic Salary" / "Grade Amount" become fixed label heads that cannot hold amounts, with a list of employees who still have one (e.g. Pramod Sharma's 3,500 before 4.4) |
+| 4.13 | **Administration** | A + B | users, roles + permission matrix, audit log; S21: no changing your own role or permissions; show which users are linked to employees |
 
 **Definition of done (per module)**
 - Uses only kit components and semantic tokens (no raw `zinc-NNN` or arbitrary `text-[Npx]` left in the module folder)

@@ -7,6 +7,7 @@ import type {
   LeaveStatus,
 } from "@/lib/types/leave";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
+import { isOwnRecord } from "@/lib/auth/self-action";
 
 export function validateLeaveApplication(
   data: LeaveApplicationFormData,
@@ -147,9 +148,9 @@ export function employeeInScope(
   }
 }
 
-/** A reviewer may not approve or reject their own request (maker-checker). */
+/** A reviewer may not approve or reject their own request (maker-checker, S21). */
 export function isOwnRequest(reviewerEmployeeId: string | null | undefined, applicantEmployeeId: string): boolean {
-  return !!reviewerEmployeeId && reviewerEmployeeId === applicantEmployeeId;
+  return isOwnRecord(reviewerEmployeeId, applicantEmployeeId);
 }
 
 export const REJECTION_REASON_MIN = 3;

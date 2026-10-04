@@ -5,6 +5,7 @@ import { Columns3, Download, FileUp, ListPlus, Send, Trash2, Wand2 } from "lucid
 import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
 import { useDateText } from "@/components/kit/date-cell";
+import { SaveButtons, SaveOutcome, describeChanges, money, saveOutcome, usePayrollLock } from "./salary-structure-approval";
 import { DateField } from "@/components/kit/date-field";
 import { EditGrid, type EditGridColumn, type GridValueChange } from "@/components/kit/edit-grid";
 import { inputClass } from "@/components/kit/property-form";
@@ -12,6 +13,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton } from "@/components/kit/window";
 import { authorizeExportAction } from "@/app/actions/export.actions";
 import { submitSalaryChangeAction } from "@/app/actions/salary-structure.actions";
+import type { SubmitResult } from "@/lib/services/salary-structure.service";
 import { parseCsv, rowsToCsv, safeFilename } from "@/lib/export/csv";
 import { downloadTextFile } from "@/lib/export/download";
 import {
@@ -62,7 +64,7 @@ function readHidden(): string[] {
  * the keyboard, paste from Excel, fill down, apply a template, or import a
  * CSV; then review the changes and send them as one batch.
  */
-export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructureData; onSubmitted: () => void }) {
+export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructureData; onSubmitted: (result: SubmitResult) => void }) {
   const policy = data.gradePolicy;
   const settings = useMemo(() => ({ ssfBase: data.ssfBase, pfPercent: data.pfPercent }), [data.ssfBase, data.pfPercent]);
   const manualPolicy = policy?.calculationMethod === "MANUAL_INPUT";
@@ -76,6 +78,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
   const [filters, setFilters] = useState({ branch: "", dept: "", level: "" });
   const [effectiveFrom, setEffectiveFrom] = useState(nepalDateIso());
   const dateText = useDateText();
+  const payrollLock = usePayrollLock(data);
   const [reason, setReason] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -85,7 +88,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
   useEffect(() => setHidden(readHidden()), []);
   const [chooser, setChooser] = useState(false);
   const [reviewing, setReviewing] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<false | "submit" | "approve">(false);
   const [notice, setNotice] = useState<{ tone: "info" | "warning" | "danger"; text: string; list?: string[] } | null>(null);
   const [imported, setImported] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -165,7 +168,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
   const columns = useMemo<EditGridColumn<GridRow>[]>(() => {
     const cols: EditGridColumn<GridRow>[] = [
       { id: "code", header: "Code", kind: "readonly", pinned: true, width: 88, align: "left", value: (r) => r.row.employeeCode },
-      { id: "name", header: "Employee", kind: "readonly", pinned: true, width: 170, align: "left", value: (r) => r.row.fullName },
+      { id: "name", header: "Employee", kind: "readonly", pinned: true, width: 170, align: "left", value: (r) => (r.row.employeeId === data.me.employeeId ? `${r.row.fullName} (you)` : r.row.fullName) },
       {
         id: "basic",
         header: "Basic",
@@ -240,7 +243,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
       }
     );
     return cols;
-  }, [amountHeads, computedHeads, hidden, gradesOff, manualPolicy]);
+  }, [amountHeads, computedHeads, hidden, gradesOff, manualPolicy, data.me.employeeId]);
 
   const changedRows = rows.filter((r) => r.changed);
   const errorRows = rows.filter((r) => Object.keys(r.errors).length);
@@ -339,14 +342,14 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
     });
   };
 
-  const submit = async () => {
-    setSubmitting(true);
+  const submit = async (approveNow: boolean) => {
+    setSubmitting(approveNow ? "approve" : "submit");
     const result = await submitSalaryChangeAction({
       kind: imported ? "import" : "bulk",
       effectiveFrom,
       reason,
       rows: changedRows.map((r) => ({ employeeId: r.row.employeeId, lines: r.lines })),
-    });
+    }, { approveNow });
     setSubmitting(false);
     if (!result.success) {
       setReviewing(false);
@@ -359,15 +362,22 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
     setEdited({});
     setReason("");
     setImported(false);
-    onSubmitted();
+    onSubmitted(result.data);
   };
 
-  const canReview = changedRows.length > 0 && !errorRows.length && !!effectiveFrom && reason.trim().length >= 3;
+  // What saving will do (same rule as the server) and whether payroll is still open for the date.
+  const changedIds = changedRows.map((r) => r.row.employeeId);
+  const outcome = saveOutcome(data, changedIds);
+  const ownInTable = !!data.me.employeeId && ids.includes(data.me.employeeId);
+  const payrollLocked = payrollLock(effectiveFrom, changedIds);
+  const canReview = changedRows.length > 0 && !errorRows.length && !!effectiveFrom && reason.trim().length >= 3 && !payrollLocked;
   // Said next to the button, not only in a tooltip.
   const reviewBlocker = !changedRows.length
     ? null
     : errorRows.length
       ? "Fix the cells in red first"
+      : payrollLocked
+        ? payrollLocked
       : !effectiveFrom
         ? "Choose the effective date (step 2)"
         : reason.trim().length < 3
@@ -418,8 +428,9 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
         )}
       </div>
 
-      {/* 2. Change details */}
-      <div className="flex flex-wrap items-end gap-2 rounded-md border border-line bg-surface-panel px-3 py-2">
+      {/* 2. Change details. Top-aligned: the date field's BS line hangs below its input,
+          so bottom alignment would push the other inputs and buttons down. */}
+      <div className="flex flex-wrap items-start gap-2 rounded-md border border-line bg-surface-panel px-3 py-2">
         <StepLabel n={2} text="Change details" hint="Applies to every row" />
         <label className="w-76 text-2xs font-medium text-ink-label">
           Effective from <span className="text-danger">*</span>
@@ -435,12 +446,16 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
               Template
               <SelectField name="bulk-template" options={data.templates.filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name }))} value={templateId} onChange={setTemplateId} placeholder="Choose…" />
             </label>
-            <WindowButton onClick={applyTemplateToRows} disabled={!templateId || !ids.length} title="Applies to the selected rows (or all rows) the template fits">
-              <Wand2 className="h-3.5 w-3.5" /> Apply {selectedRows.length > 1 ? `to ${selectedRows.length} selected` : "to all rows"}
-            </WindowButton>
+            <span className="flex flex-col">
+              <LabelSpacer />
+              <WindowButton onClick={applyTemplateToRows} disabled={!templateId || !ids.length} title="Applies to the selected rows (or all rows) the template fits">
+                <Wand2 className="h-3.5 w-3.5" /> Apply {selectedRows.length > 1 ? `to ${selectedRows.length} selected` : "to all rows"}
+              </WindowButton>
+            </span>
           </>
         )}
-        <span className="ml-auto flex flex-wrap gap-2">
+        <span className="ml-auto flex flex-wrap gap-x-2">
+          <LabelSpacer />
           <WindowButton onClick={() => setChooser(true)} title="Choose which pay-head columns show">
             <Columns3 className="h-3.5 w-3.5" /> Columns
           </WindowButton>
@@ -479,6 +494,13 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
         </div>
       )}
 
+      {ownInTable && (
+        <p role="status" className="rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-xs text-ink">
+          Your own salary is in this table, so the whole change waits for another approver.{" "}
+          {data.me.isAdministrator ? "Remove your row to save and approve the rest now." : null}
+        </p>
+      )}
+
       <EditGrid
         label="Salary bulk edit"
         rows={rows}
@@ -511,7 +533,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
           {after - before > 0 ? "+" : ""}
           <Amount value={after - before} />
         </span>
-        {reviewBlocker && <span className="ml-auto text-2xs text-warning">{reviewBlocker}</span>}
+        {reviewBlocker && <span className="ml-auto max-w-xl text-right text-2xs text-warning">{reviewBlocker}</span>}
         <WindowButton variant="primary" className={reviewBlocker ? undefined : "ml-auto"} disabled={!canReview} onClick={() => setReviewing(true)} title={canReview ? undefined : "Change some rows, fix errors, and give the date and reason first"}>
           <Send className="h-3.5 w-3.5" /> Review {changedRows.length || ""} change{changedRows.length === 1 ? "" : "s"}
         </WindowButton>
@@ -555,13 +577,11 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
           description={`Effective from ${dateText(effectiveFrom)} · ${reason}`}
           footer={
             <>
-              <span className="mr-auto text-2xs text-ink-muted">{data.approvalRequired ? "Sent for approval by someone else; nothing changes until then." : "Takes effect once saved."}</span>
-              <WindowButton onClick={() => setReviewing(false)} disabled={submitting}>
+              <SaveOutcome data={data} outcome={outcome} className="mr-auto" />
+              <WindowButton onClick={() => setReviewing(false)} disabled={!!submitting}>
                 Back to the table
               </WindowButton>
-              <WindowButton variant="primary" onClick={submit} disabled={submitting}>
-                <Send className="h-3.5 w-3.5" /> {data.approvalRequired ? "Send for approval" : "Save changes"}
-              </WindowButton>
+              <SaveButtons outcome={outcome} saving={submitting} onSave={(now) => void submit(now)} plainLabel="Save changes" />
             </>
           }
         >
@@ -653,26 +673,10 @@ function StepLabel({ n, text, hint }: { n: number; text: string; hint: string })
   );
 }
 
-const money = (v: unknown) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const SCHEME_NAME: Record<RetirementScheme, string> = { ssf: "SSF", pf: "PF", none: "None" };
-
-/** What changed for one employee, with old → new values ("Basic 22,000.00 → 24,500.00"). */
-function describeChanges(before: StructureLines, after: StructureLines, heads: SalaryStructureData["heads"]): string[] {
-  const name = (id: string) => heads.find((h) => h.id === id)?.name ?? "Pay head";
-  return changedLines(before, after).map((k) => {
-    if (k === "basic") return `Basic ${money(before.basic)} → ${money(after.basic)}`;
-    if (k === "gradeCount") return `Grades ${before.gradeCount} → ${after.gradeCount}`;
-    if (k === "gradeAmount") return `Grade ${money(before.gradeAmount)} → ${money(after.gradeAmount)}${after.gradeManual ? " (by hand)" : ""}`;
-    if (k === "scheme") return `Scheme ${SCHEME_NAME[before.scheme]} → ${SCHEME_NAME[after.scheme]}`;
-    if (k === "computed") {
-      const added = after.computed.filter((id) => !before.computed.includes(id)).map(name);
-      const removed = before.computed.filter((id) => !after.computed.includes(id)).map(name);
-      return [added.length ? `Adds ${added.join(", ")}` : "", removed.length ? `Removes ${removed.join(", ")}` : ""].filter(Boolean).join("; ");
-    }
-    return `${name(k)} ${money(before.amounts[k] ?? 0)} → ${money(after.amounts[k] ?? 0)}`;
-  });
-}
-
 /** Column title for a pay head; label heads ("Grade Amount") are told apart from the base-pay columns. */
 const headTitle = (h: SalaryStructureData["heads"][number]) => (h.labelOnly ? `${h.name} (pay head)` : h.name);
+
+/** An empty label line, so buttons in a top-aligned strip sit level with the inputs. */
+function LabelSpacer() {
+  return <span aria-hidden className="block w-full text-2xs font-medium">&nbsp;</span>;
+}

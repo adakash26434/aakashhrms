@@ -1,17 +1,37 @@
-import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
+  approvalActions,
   employeeSalaryHeads,
   employeeSalaryMap,
   employees,
   fiscalYears,
+  payrollRuns,
+  payrollSlips,
+  permissions,
+  rolePermissions,
+  roles,
   salaryChangeBatches,
   salaryTemplates,
   systemConfig,
+  userRoles,
   users,
 } from "@/lib/db/schema";
 import { latestApproved } from "@/lib/engines/salary-structure.engine";
+import { parsePolicy } from "@/lib/engines/approval.engine";
+import type { ApprovalActionKind, ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApproverInfo } from "@/lib/types/approval";
 import type { BatchKind, BatchStatus, TemplateInput } from "@/lib/types/salary-structure";
+
+const MODULE = "SALARY_MAPPING";
+
+/** One step for the approval timeline. */
+export interface NewApprovalAction {
+  level: number;
+  actorId: string | null;
+  onBehalfOf?: string | null;
+  action: ApprovalActionKind;
+  note?: string | null;
+}
 
 // Salary structure (4.4): revisions (rows of employee_salary_map), change
 // batches, templates and the approval setting. Approved revisions are never
@@ -45,6 +65,17 @@ export async function findRevisions(employeeIds: string[] | null): Promise<{ rev
       ).map((h) => ({ ...h, amount: Number(h.amount) || 0 }))
     : [];
   return { revisions, heads };
+}
+
+/** Every employee in each batch (all of them, whatever the reader's scope): batchId -> employee ids. */
+export async function findBatchEmployeeIds(batchId?: string): Promise<Map<string, string[]>> {
+  const rows = await (await getDb())
+    .select({ batchId: employeeSalaryMap.batchId, employeeId: employeeSalaryMap.employeeId })
+    .from(employeeSalaryMap)
+    .where(batchId ? eq(employeeSalaryMap.batchId, batchId) : sql`${employeeSalaryMap.batchId} IS NOT NULL`);
+  const out = new Map<string, string[]>();
+  for (const r of rows) if (r.batchId) out.set(r.batchId, [...(out.get(r.batchId) ?? []), r.employeeId]);
+  return out;
 }
 
 export async function findBatches(): Promise<BatchRowDb[]> {
@@ -95,14 +126,25 @@ export async function createBatch(params: {
   reason: string;
   monthlyChange: number;
   preparedBy: string | null;
-  approved: boolean;
+  /** How it counts at once; null: it waits for approval. */
+  approvedRoute: ApprovalRoute | null;
+  /** The flow fixed on it (type "none" when no approval applied) and the level waiting. */
+  approvalType: "none" | ApprovalFlow["type"];
+  flow?: ApprovalFlow;
+  currentLevel?: number;
+  /** Timeline steps written with it (submitted, skipped levels, final approve …). */
+  actions: NewApprovalAction[];
+  /** Who approved it at once (Final approve: the administrator; otherwise the preparer). */
+  approvedBy?: string | null;
   revisions: NewRevision[];
 }): Promise<string> {
+  const approved = params.approvedRoute !== null;
+  const approver = params.approvedBy ?? params.preparedBy;
   const fiscalYearId = await fiscalYearFor(params.effectiveFrom);
   const db = await getDb();
   return db.transaction(async (tx) => {
     const now = new Date();
-    const status: BatchStatus = params.approved ? "approved" : "pending";
+    const status: BatchStatus = approved ? "approved" : "pending";
     const [batch] = await tx
       .insert(salaryChangeBatches)
       .values({
@@ -113,8 +155,12 @@ export async function createBatch(params: {
         employeeCount: params.revisions.length,
         monthlyChange: String(params.monthlyChange),
         preparedBy: params.preparedBy,
-        decidedBy: params.approved ? params.preparedBy : null,
-        decidedAt: params.approved ? now : null,
+        decidedBy: approved ? approver : null,
+        decidedAt: approved ? now : null,
+        approvalRoute: params.approvedRoute,
+        approvalType: params.approvalType,
+        approvalLevels: params.flow?.levels ?? [],
+        currentLevel: approved ? 0 : params.currentLevel ?? 0,
       })
       .returning({ id: salaryChangeBatches.id });
     for (const r of params.revisions) {
@@ -135,15 +181,20 @@ export async function createBatch(params: {
           status,
           batchId: batch.id,
           reason: params.reason,
-          approvedBy: params.approved ? params.preparedBy : null,
-          approvedAt: params.approved ? now : null,
+          approvedBy: approved ? approver : null,
+          approvedAt: approved ? now : null,
         })
         .returning({ id: employeeSalaryMap.id });
       if (r.heads.length) {
         await tx.insert(employeeSalaryHeads).values(r.heads.map((h) => ({ salaryMapId: rev.id, payHeadId: h.payHeadId, amount: String(h.amount), isChangeable: true })));
       }
     }
-    if (params.approved) await refreshCurrent(tx, params.revisions.map((r) => r.employeeId));
+    if (params.actions.length) {
+      await tx.insert(approvalActions).values(
+        params.actions.map((a, i) => ({ module: MODULE, requestId: batch.id, level: a.level, actorId: a.actorId, onBehalfOf: a.onBehalfOf ?? null, action: a.action, note: a.note ?? null, createdAt: new Date(now.getTime() + i) }))
+      );
+    }
+    if (approved) await refreshCurrent(tx, params.revisions.map((r) => r.employeeId));
     return batch.id;
   });
 }
@@ -177,20 +228,41 @@ async function refreshCurrent(tx: Tx, employeeIds: string[]) {
   }
 }
 
-/** Approve, reject or withdraw a pending batch (its revisions follow). */
-export async function decideBatch(batchId: string, decision: "approved" | "rejected" | "withdrawn", userId: string, note: string | null): Promise<string[]> {
+/**
+ * One step on a pending batch: a level approved (the next level now waits),
+ * or the batch approved, rejected or withdrawn (its revisions follow). It
+ * applies only while the batch is still pending at the level the person saw,
+ * so two people deciding at once cannot both win; null when it did not apply.
+ */
+export async function decideBatch(params: {
+  batchId: string;
+  expectedLevel: number;
+  next: { status: BatchStatus; currentLevel: number; route: ApprovalRoute | null };
+  actorId: string;
+  action: NewApprovalAction;
+  note: string | null;
+}): Promise<string[] | null> {
   const db = await getDb();
+  const { batchId, next } = params;
+  const decision = next.status;
   return db.transaction(async (tx) => {
     const now = new Date();
+    const finished = decision !== "pending";
     const updated = await tx
       .update(salaryChangeBatches)
-      .set({ status: decision, decidedBy: userId, decidedAt: now, decisionNote: note })
-      .where(and(eq(salaryChangeBatches.id, batchId), eq(salaryChangeBatches.status, "pending")))
+      .set(
+        finished
+          ? { status: decision, currentLevel: 0, decidedBy: params.actorId, decidedAt: now, decisionNote: params.note, approvalRoute: decision === "approved" ? next.route : null }
+          : { currentLevel: next.currentLevel }
+      )
+      .where(and(eq(salaryChangeBatches.id, batchId), eq(salaryChangeBatches.status, "pending"), eq(salaryChangeBatches.currentLevel, params.expectedLevel)))
       .returning({ id: salaryChangeBatches.id });
-    if (!updated.length) return [];
+    if (!updated.length) return null;
+    await tx.insert(approvalActions).values({ module: MODULE, requestId: batchId, level: params.action.level, actorId: params.action.actorId, onBehalfOf: params.action.onBehalfOf ?? null, action: params.action.action, note: params.action.note ?? null, createdAt: now });
+    if (!finished) return [];
     const revs = await tx
       .update(employeeSalaryMap)
-      .set({ status: decision, ...(decision === "approved" ? { approvedBy: userId, approvedAt: now } : {}), updatedAt: now })
+      .set({ status: decision, ...(decision === "approved" ? { approvedBy: params.actorId, approvedAt: now } : {}), updatedAt: now })
       .where(and(eq(employeeSalaryMap.batchId, batchId), eq(employeeSalaryMap.status, "pending")))
       .returning({ employeeId: employeeSalaryMap.employeeId });
     const employeeIds = revs.map((r) => r.employeeId);
@@ -242,19 +314,99 @@ export async function setTemplateActive(id: string, active: boolean): Promise<vo
   await (await getDb()).update(salaryTemplates).set({ isActive: active, updatedAt: new Date() }).where(eq(salaryTemplates.id, id));
 }
 
-const APPROVAL_KEY = "salaryRevision.requireApproval";
+const POLICY_KEY = "approvals.salaryRevision";
+const LEGACY_KEY = "salaryRevision.requireApproval";
 
-/** "Salary changes need a second person's approval" (on unless switched off). */
-export async function approvalRequired(): Promise<boolean> {
-  const rows = await (await getDb()).select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, APPROVAL_KEY)).limit(1);
-  return rows[0]?.value !== "false";
+/** The company's approval setting for salary changes (default: simple). */
+export async function getApprovalPolicy(): Promise<ApprovalPolicy> {
+  const rows = await (await getDb()).select({ key: systemConfig.key, value: systemConfig.value }).from(systemConfig).where(inArray(systemConfig.key, [POLICY_KEY, LEGACY_KEY]));
+  const stored = rows.find((r) => r.key === POLICY_KEY)?.value;
+  let parsed: unknown = null;
+  try {
+    parsed = stored ? JSON.parse(stored) : null;
+  } catch {
+    parsed = null;
+  }
+  return parsePolicy(parsed, rows.find((r) => r.key === LEGACY_KEY)?.value ?? null);
 }
 
-export async function setApprovalRequired(on: boolean): Promise<void> {
+export async function setApprovalPolicy(policy: ApprovalPolicy): Promise<void> {
+  const value = JSON.stringify({ type: policy.type, levels: policy.levels });
   await (await getDb())
     .insert(systemConfig)
-    .values({ key: APPROVAL_KEY, value: String(on), dataType: "boolean" })
-    .onConflictDoUpdate({ target: systemConfig.key, set: { value: String(on), updatedAt: new Date() } });
+    .values({ key: POLICY_KEY, value, dataType: "json" })
+    .onConflictDoUpdate({ target: systemConfig.key, set: { value, dataType: "json", updatedAt: new Date() } });
+}
+
+/**
+ * Every user, with whether they can approve salary changes (office / system
+ * administrators have full access; others need a role with Salary structure →
+ * Approve), their linked employee and any delegation while away.
+ */
+export async function findApprovers(): Promise<ApproverInfo[]> {
+  const db = await getDb();
+  const [people, grants] = await Promise.all([
+    db
+      .select({ id: users.id, name: users.name, email: users.email, employeeId: users.employeeId, isActive: users.isActive, delegatedTo: users.delegatedToUserId, delegatedUntil: users.delegatedUntil, fullName: employees.fullName })
+      .from(users)
+      .leftJoin(employees, eq(users.employeeId, employees.id)),
+    db
+      .selectDistinct({ userId: userRoles.userId })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(or(inArray(roles.slug, ["system_admin", "office_admin"]), and(eq(permissions.module, MODULE), eq(permissions.action, "APPROVE")))),
+  ]);
+  const can = new Set(grants.map((g) => g.userId));
+  return people
+    .map((u) => ({
+      userId: u.id,
+      name: u.name || u.fullName || u.email,
+      employeeId: u.employeeId ?? null,
+      active: u.isActive,
+      canApprove: can.has(u.id),
+      delegatedTo: u.delegatedTo ?? null,
+      delegatedUntil: u.delegatedUntil ? u.delegatedUntil.toISOString() : null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Timeline steps of some batches (all when no ids), oldest first. */
+export async function findApprovalActions(requestIds?: string[]) {
+  if (requestIds && !requestIds.length) return [];
+  return (await getDb())
+    .select()
+    .from(approvalActions)
+    .where(and(eq(approvalActions.module, MODULE), requestIds ? inArray(approvalActions.requestId, requestIds) : undefined))
+    .orderBy(asc(approvalActions.createdAt));
+}
+
+// ---------------------------------------------------------------------------
+// Payroll months a change would reach
+// ---------------------------------------------------------------------------
+
+/** Per employee, the latest pay period end with an approved or locked payslip (AD date). */
+export async function findFinalisedUntil(employeeIds: string[] | null): Promise<Record<string, string>> {
+  if (employeeIds && !employeeIds.length) return {};
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, until: sql<string>`max(${payrollRuns.payPeriodEndDate})::text` })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollRuns.status, ["APPROVED", "LOCKED"]), employeeIds ? inArray(payrollSlips.employeeId, employeeIds) : undefined))
+    .groupBy(payrollSlips.employeeId);
+  return Object.fromEntries(rows.map((r) => [r.employeeId, String(r.until).slice(0, 10)]));
+}
+
+/** Draft or in-review payroll months (BS) that include these employees and end on or after a date: they need recalculating. */
+export async function findOpenRunsFrom(effectiveFrom: string, employeeIds: string[]): Promise<{ month: number; year: number }[]> {
+  if (!employeeIds.length) return [];
+  return (await getDb())
+    .selectDistinct({ month: payrollRuns.payPeriodMonth, year: payrollRuns.payPeriodYear })
+    .from(payrollRuns)
+    .innerJoin(payrollSlips, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollRuns.status, ["DRAFT", "UNDER_REVIEW"]), gte(payrollRuns.payPeriodEndDate, effectiveFrom), inArray(payrollSlips.employeeId, employeeIds)))
+    .orderBy(asc(payrollRuns.payPeriodYear), asc(payrollRuns.payPeriodMonth));
 }
 
 /** Pending revisions of some employees (a new change waits until these are decided). */

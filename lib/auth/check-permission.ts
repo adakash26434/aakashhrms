@@ -189,7 +189,7 @@ export async function checkPermissionWithScope(
   // not a tenant user, so it has no row to resolve a scope from.
   const impersonation = await getImpersonationSession();
   if (impersonation) {
-    return { scopeType: 'GLOBAL', branchIds: [], departmentIds: [], employeeId: null, userId: impersonation.actorId };
+    return { scopeType: 'GLOBAL', branchIds: [], departmentIds: [], employeeId: null, userId: impersonation.actorId, isImpersonation: true };
   }
   const session = await auth();
   const userId = await verifyPermission(action, module);

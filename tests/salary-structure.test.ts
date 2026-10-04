@@ -6,10 +6,10 @@ import {
   EMPTY_LINES,
   applyTemplate,
   batchSummary,
-  canDecideBatch,
-  canWithdrawBatch,
   changedLines,
   classifyHead,
+  earliestOpenDate,
+  finalisedConflicts,
   gradeAmountFor,
   headsFromLines,
   largeChangeWarning,
@@ -145,15 +145,17 @@ describe('Revisions in force (payroll picks by month)', () => {
   });
 });
 
-describe('Second-person approval', () => {
-  it('needs Approve and someone other than the preparer; only the preparer withdraws', () => {
-    const b = { status: 'pending' as const, preparedById: 'u1' };
-    assert.equal(canDecideBatch(b, 'u2', true), true);
-    assert.equal(canDecideBatch(b, 'u1', true), false);
-    assert.equal(canDecideBatch(b, 'u2', false), false);
-    assert.equal(canDecideBatch({ ...b, status: 'approved' }, 'u2', true), false);
-    assert.equal(canWithdrawBatch(b, 'u1'), true);
-    assert.equal(canWithdrawBatch(b, 'u2'), false);
+describe('Payroll already approved or locked (no arrears yet)', () => {
+  const until = { e1: '2026-09-16', e2: '2026-08-16' };
+  it('a change may not reach a month whose payroll is approved or locked', () => {
+    assert.deepEqual([...finalisedConflicts('2026-09-16', until, ['e1', 'e2']).keys()], ['e1']);
+    assert.deepEqual([...finalisedConflicts('2026-08-01', until, ['e1', 'e2']).keys()], ['e1', 'e2']);
+    assert.equal(finalisedConflicts('2026-09-17', until, ['e1', 'e2']).size, 0);
+    assert.equal(finalisedConflicts('2020-01-01', until, ['e3']).size, 0);
+  });
+  it('the first open date is the day after the latest finalised month', () => {
+    assert.equal(earliestOpenDate(until, ['e1', 'e2']), '2026-09-17');
+    assert.equal(earliestOpenDate(until, ['e3']), null);
   });
 });
 
@@ -203,11 +205,11 @@ describe('CSV import', () => {
 describe('Salary structure security (S20)', () => {
   const actions = read('app/actions/salary-structure.actions.ts');
   it('every action checks permission with scope, audits and hides raw errors', () => {
-    for (const name of ['submitSalaryChangeAction', 'decideSalaryChangeAction', 'saveSalaryTemplateAction', 'setSalaryTemplateActiveAction', 'setSalaryApprovalAction']) {
+    for (const name of ['submitSalaryChangeAction', 'decideSalaryChangesAction', 'saveSalaryTemplateAction', 'setSalaryTemplateActiveAction', 'saveSalaryApprovalSettingsAction']) {
       const body = actions.slice(actions.indexOf(`export async function ${name}`));
       const end = body.indexOf('\nexport async function', 10);
       const fn = end > 0 ? body.slice(0, end) : body;
-      assert.match(fn, /checkPermissionWithScope\(('EDIT'|'APPROVE'|action), 'SALARY_MAPPING'\)/, name);
+      assert.match(fn, /checkPermissionWithScope\(('EDIT'|'APPROVE'|decision === 'withdraw' \? 'EDIT' : 'VIEW'), 'SALARY_MAPPING'\)/, name);
       assert.match(fn, /recordAuditLog\(/, name);
       assert.match(fn, /toActionError\(/, name);
     }
@@ -218,8 +220,9 @@ describe('Salary structure security (S20)', () => {
   it('employees outside the user\'s scope are refused and audited DENIED_SCOPE', () => {
     const service = read('lib/services/salary-structure.service.ts');
     assert.equal((service.match(/throw new OutOfScopeError\(/g) ?? []).length, 2); // submit and decide
-    assert.match(actions, /result: 'DENIED_SCOPE'/);
-    assert.equal((actions.match(/await auditOutOfScope\(/g) ?? []).length, 2);
+    assert.match(actions, /'DENIED_SCOPE'/);
+    assert.equal((actions.match(/await auditOutOfScope\(/g) ?? []).length, 1); // submit; decisions audit per item
+    assert.match(actions, /r\.refusal === 'scope' \? 'DENIED_SCOPE' : DENIED_SELF/);
   });
 
   it('the page reads only within the user\'s scope; there is no delete', () => {
@@ -239,6 +242,37 @@ describe('Salary structure security (S20)', () => {
     assert.equal(ok.kind, 'bulk');
     assert.equal(ok.rows[0].lines.scheme, 'none');
     assert.deepEqual(ok.rows[0].lines.computed, ['y']);
+  });
+
+  it('S21: own-salary refusals are audited DENIED_SELF; the settings need a company administrator, never platform support', () => {
+    assert.match(actions, /SelfDecisionError && userId[\s\S]*result: DENIED_SELF/); // save and approve
+    assert.match(actions, /result: r\.refusal === 'scope' \? 'DENIED_SCOPE' : DENIED_SELF/); // decisions
+    const setting = actions.slice(actions.indexOf('export async function saveSalaryApprovalSettingsAction'));
+    assert.match(setting, /checkPermissionWithScope\('APPROVE', 'SALARY_MAPPING'\)/);
+    assert.match(setting, /scope\.scopeType !== 'GLOBAL'/);
+    assert.match(setting, /scope\.isImpersonation/);
+    assert.match(actions, /hasPermission\('APPROVE', 'SALARY_MAPPING'\)/);
+    assert.match(actions, /slice\(0, MAX_BULK\)/);
+  });
+
+  it('the server applies the rules: flow on submit, engine on every decision over all employees, payroll still open', () => {
+    const service = read('lib/services/salary-structure.service.ts');
+    assert.match(service, /buildFlow\(policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId/);
+    assert.match(service, /if \(finalNow && !actor\.isAdministrator\)/);
+    assert.match(service, /if \(finalNow && ownSalary\) throw new SelfDecisionError/);
+    assert.match(service, /findBatchEmployeeIds\(batchId\)/);
+    assert.match(service, /availableActions\(request, actor, \{ approvers, today: nepalDateIso\(\) \}\)/);
+    assert.equal((service.match(/await assertPayrollOpen\(/g) ?? []).length, 2); // submit and final approval
+    const repo = read('lib/repositories/salary-structure.repository.ts');
+    // A decision applies only while the batch is pending at the level the person saw.
+    assert.match(repo, /eq\(salaryChangeBatches\.status, "pending"\), eq\(salaryChangeBatches\.currentLevel, params\.expectedLevel\)/);
+    assert.match(repo, /inArray\(payrollRuns\.status, \["APPROVED", "LOCKED"\]\)/);
+    // Every step goes to the timeline in the same transaction.
+    assert.match(repo, /tx\.insert\(approvalActions\)/);
+  });
+
+  it('the old tab link (?tab=changes) opens Approvals', () => {
+    assert.equal(resolveStructureTab('changes'), 'approvals');
   });
 
   it('the letter prints its company block (print styles hide <header> elements)', () => {

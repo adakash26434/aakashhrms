@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Bell, CalendarDays, HelpCircle, Menu, Search } from "lucide-react";
 import { DateFormatMenu } from "@/components/ui/date-format-menu";
 import type { WorkspaceContext } from "@/lib/services/workspace-context.service";
@@ -14,6 +15,8 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
   const pending = context?.pendingApprovalsCount ?? 0;
   const canSeeApprovals =
     Boolean(context?.isImpersonating) || Boolean(context?.allowedModules.includes("LEAVE_APPROVALS"));
+  const salaryPending = context?.pendingSalaryApprovalsCount ?? 0;
+  const canSeeSalary = !context?.isImpersonating && Boolean(context?.allowedModules.includes("SALARY_MAPPING"));
 
   return (
     <header className="relative z-30 shrink-0 bg-chrome print:hidden">
@@ -82,21 +85,7 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
             {context?.activeFiscalYear.name}
           </Link>
 
-          {canSeeApprovals && (
-            <Link
-              href="/timeAndLeave/leaves?tab=approvals"
-              className="relative flex h-8 w-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken"
-              aria-label={pending > 0 ? `${pending} pending approval${pending === 1 ? "" : "s"}` : "No pending approvals"}
-              title={pending > 0 ? `${pending} pending approval${pending === 1 ? "" : "s"}` : "No pending approvals"}
-            >
-              <Bell className="h-4 w-4" />
-              {pending > 0 && (
-                <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-3xs font-semibold text-white tabular-nums">
-                  {pending > 99 ? "99+" : pending}
-                </span>
-              )}
-            </Link>
-          )}
+          {(canSeeApprovals || canSeeSalary) && <ApprovalsBell leave={canSeeApprovals ? pending : null} salary={canSeeSalary ? salaryPending : null} />}
 
           <button
             type="button"
@@ -113,5 +102,67 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * Alerts bell: requests waiting for this user. Leave requests (approvers) and
+ * salary changes they can act on now (4.4 approvals). One kind links straight
+ * to it; both open a small menu.
+ */
+function ApprovalsBell({ leave, salary }: { leave: number | null; salary: number | null }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const total = (leave ?? 0) + (salary ?? 0);
+  const label = total > 0 ? `${total} request${total === 1 ? "" : "s"} waiting for you` : "Nothing waiting for you";
+  const items = [
+    leave !== null ? { href: "/timeAndLeave/leaves?tab=approvals", label: "Leave requests", count: leave } : null,
+    salary !== null ? { href: "/workforce/salary-mapping?tab=approvals", label: "Salary changes", count: salary } : null,
+  ].filter((x): x is { href: string; label: string; count: number } => !!x);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  const badge = total > 0 && (
+    <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-3xs font-semibold text-white tabular-nums">
+      {total > 99 ? "99+" : total}
+    </span>
+  );
+  const buttonClass = "relative flex h-8 w-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken";
+  if (items.length === 1) {
+    return (
+      <Link href={items[0].href} className={buttonClass} aria-label={label} title={label}>
+        <Bell className="h-4 w-4" />
+        {badge}
+      </Link>
+    );
+  }
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" className={buttonClass} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Bell className="h-4 w-4" />
+        {badge}
+      </button>
+      {open && (
+        <div role="menu" aria-label="Waiting for you" className="absolute right-0 top-full z-40 mt-1 w-56 rounded-md border border-line bg-surface py-1 text-sm shadow-lg">
+          {items.map((i) => (
+            <Link key={i.href} role="menuitem" href={i.href} onClick={() => setOpen(false)} className="flex items-center justify-between px-3 py-1.5 text-ink hover:bg-surface-sunken">
+              {i.label}
+              <span className={i.count ? "rounded-full bg-brand-red px-1.5 text-3xs font-semibold text-white tabular-nums" : "text-2xs text-ink-faint"}>{i.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

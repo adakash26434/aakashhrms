@@ -8,7 +8,6 @@ import { calculateTotalGradeAmount, DEFAULT_GRADE_POLICY } from "@/lib/engines/g
 import { isSsfDeductionHead, isSsfEmployerHead, ssfContribution } from "@/lib/engines/payroll.engine";
 import type { GradePolicySettings } from "@/lib/types/system-control";
 import type {
-  BatchStatus,
   HeadKind,
   RetirementScheme,
   StructureHead,
@@ -272,13 +271,33 @@ export function latestApproved<T extends RevisionLike>(revisions: readonly T[]):
   return pick;
 }
 
-/** Who may decide a pending batch: Approve permission, and never the person who prepared it. */
-export function canDecideBatch(batch: { status: BatchStatus; preparedById: string | null }, userId: string, canApprove: boolean): boolean {
-  return batch.status === "pending" && canApprove && !!userId && batch.preparedById !== userId;
+// ---------------------------------------------------------------------------
+// Payroll already paid (no arrears yet: a change must not reach into those months)
+// ---------------------------------------------------------------------------
+
+/**
+ * Employees whose payroll is approved or locked for a month the change would
+ * reach: payroll uses the revision in force at each month's end, so a change
+ * effective on or before a finalised period end would rewrite paid months.
+ * Returns employeeId → that latest finalised period end.
+ */
+export function finalisedConflicts(effectiveFrom: string, finalisedUntil: Readonly<Record<string, string>>, employeeIds: readonly string[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const id of employeeIds) {
+    const until = finalisedUntil[id];
+    if (until && effectiveFrom <= until) out.set(id, until);
+  }
+  return out;
 }
 
-export function canWithdrawBatch(batch: { status: BatchStatus; preparedById: string | null }, userId: string): boolean {
-  return batch.status === "pending" && batch.preparedById === userId;
+/** The first day a change may take effect for these employees (the day after the latest finalised month), or null. */
+export function earliestOpenDate(finalisedUntil: Readonly<Record<string, string>>, employeeIds: readonly string[]): string | null {
+  const ends = employeeIds.map((id) => finalisedUntil[id]).filter((d): d is string => !!d).sort();
+  const last = ends[ends.length - 1];
+  if (!last) return null;
+  const d = new Date(`${last}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
@@ -390,5 +409,6 @@ export function matchImport(rows: readonly string[][], columns: readonly ImportC
 
 /** The tab to open: a known one, else Structures. */
 export function resolveStructureTab(raw: string | undefined | null): StructureTab {
+  if (raw === "changes") return "approvals"; // the tab's earlier name
   return (STRUCTURE_TABS as readonly string[]).includes(raw ?? "") ? (raw as StructureTab) : "structures";
 }
