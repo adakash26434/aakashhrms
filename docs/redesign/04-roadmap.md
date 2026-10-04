@@ -152,8 +152,8 @@ per-module **definition of done** below.
 |---|---|---|---|
 | 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version. **Signed off by you on 2026-10-03** (`redesign/4.1-home`) |
 | 4.2 | **Workforce: Employees** | A + B | Register + quick view, full record page with related-history tabs, full-page editor with Enter-to-next; security S18. **Signed off by you on 2026-10-03** (`redesign/4.2-employees`) |
-| 4.3 | **Workforce: Organization** | A | Branches, departments (company-wide), designations, grade levels, employment types, structure matrix and reporting chart; security S19. **In progress on `redesign/4.3-organization`** |
-| 4.4 | **Salary structure** | A + B | Dated salary revisions with history, Revise window, spreadsheet Bulk edit (EditGrid, Excel paste, CSV import), Zoho-style approvals (none / simple / multi-level, Final approve, timeline, Waiting for me, bulk decide, delegation; never your own salary), templates, revision letter; SSF on basic + grade (company setting); security S20, S21. Later: `.xlsx` import (CSV and paste from Excel today); email notifications for approvals. **In progress on `redesign/4.4-salary-structure`** |
+| 4.3 | **Workforce: Organization** | A | Branches, departments (company-wide), designations, grade levels, employment types, structure matrix and reporting chart; security S19. **Signed off by you on 2026-10-04** (`redesign/4.3-organization`) |
+| 4.4 | **Salary structure** | A + B | Dated salary revisions with history, Revise window, spreadsheet Bulk edit (EditGrid, Excel paste, CSV import), Zoho-style approvals (none / simple / multi-level, Final approve, timeline, Waiting for me, bulk decide, delegation; never your own salary), templates, revision letter; SSF on basic + grade (company setting); security S20, S21. Later: `.xlsx` import (CSV and paste from Excel today); email notifications for approvals. **Signed off by you on 2026-10-04** (`redesign/4.4-salary-structure`) |
 | 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process; S21: no correcting or approving your own attendance |
 | 4.6 | **Time: Leaves** | A | applications, approvals, balances drawer; S21 already applied to leave approvals (keep the shared check) |
 | 4.7 | **Time: Policies** | A + E | leave types, leave rules, OT rules |
@@ -222,4 +222,4 @@ See `CHANGELOG.md`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
 - **Phase 2 is signed off.**
 - **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
-- Phases 4.1 (Dashboard) and 4.2 (Employees) are signed off. 4.3 Organization is complete on `redesign/4.3-organization`, stacked on 4.2, waiting for sign-off. 4.4 Salary structure is in progress on `redesign/4.4-salary-structure`, stacked on 4.3.
+- Phases 4.1 (Dashboard), 4.2 (Employees), 4.3 (Organization) and 4.4 (Salary structure) are signed off. 4.5 Attendance is in progress on `redesign/4.5-attendance`, stacked on 4.4.

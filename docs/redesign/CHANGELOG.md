@@ -13,6 +13,11 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-04 — 4.3 and 4.4 signed off
+You signed off 4.3 Organization and 4.4 Salary structure (with its approvals follow-up). Work continues with 4.5 Attendance on `redesign/4.5-attendance`, stacked on 4.4. Nothing is merged to main or pushed.
+
+---
+
 ## 2026-10-04 — 4.4 follow-up: Zoho-style approvals, never your own salary (S21)
 Branch: `redesign/4.4-salary-structure`
 
