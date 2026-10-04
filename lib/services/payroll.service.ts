@@ -89,7 +89,7 @@ export class LeaveOtCalculationNotLockedError extends Error {
 
 export class SalaryMappingMissingError extends Error {
   constructor(public employeeNames: string[]) {
-    super(`Salary mapping is missing for employees: ${employeeNames.join(", ")}`);
+    super(`No salary structure for employees: ${employeeNames.join(", ")}`);
     this.name = "SalaryMappingMissingError";
   }
 }
@@ -240,8 +240,10 @@ export async function generatePayrollRun(
   // 4. Validate that every employee in scope has a salary mapping
   // BATCH PREFETCH: Load all salary mappings in a single query instead of N+1 per-employee
   const missingSalaryMappings: string[] = [];
-  const salaryMapByEmployeeId = await salaryMappingRepository.findActiveByEmployeeIds(
-    scopedEmployees.map(e => e.id)
+  // The salary revision in force for this month (4.4), not just the latest one.
+  const salaryMapByEmployeeId = await salaryMappingRepository.findInForceByEmployeeIds(
+    scopedEmployees.map(e => e.id),
+    endStr
   );
 
   for (const emp of scopedEmployees) {

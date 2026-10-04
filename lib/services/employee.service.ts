@@ -2,7 +2,6 @@ import * as repository from "@/lib/repositories/employee.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
-import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as engine from "@/lib/engines/employee.engine";
 import type { Employee, EmployeeFormContext, EmployeeFormData, EmployeeRegisterData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { toE164Phone } from "@/lib/utils/phone";
@@ -11,9 +10,8 @@ import { findAllEmploymentTypes } from "@/lib/repositories/employment-type.repos
 import * as roleService from "@/lib/services/role.service";
 import * as userService from "@/lib/services/user.service";
 import { getDb } from "@/lib/db";
-import { employeeSalaryMap, employeeSalaryHeads, payHeads, systemConfig } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import Decimal from "decimal.js";
+import { systemConfig } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import { calculateProRataLeaveDays } from "@/lib/engines/leave-type.engine";
@@ -38,6 +36,7 @@ export class EmployeeValidationError extends Error {
 import * as shreniRepository from "@/lib/repositories/shreni.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import { resolvePay } from "@/lib/engines/grade-policy.engine";
+import * as salaryStructureService from "@/lib/services/salary-structure.service";
 import { pickable, placementErrors } from "@/lib/engines/organization.engine";
 
 const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
@@ -286,7 +285,7 @@ export async function saveEmployee(
   formData: EmployeeFormData,
   accessOptions?: EmployeeAccessOptions,
   /** Salary mapping → Edit, checked by the action: without it pay is never taken from the form. */
-  payAccess: { canEditPay: boolean } = { canEditPay: false }
+  payAccess: { canEditPay: boolean; userId?: string | null } = { canEditPay: false }
 ): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
   const [allCodes, orgBranches, orgDepartments, orgDesignations, stored] = await Promise.all([
@@ -336,15 +335,11 @@ export async function saveEmployee(
     },
     stored: storedPay,
     policy: settings.gradePolicy,
-    canEditPay: payAccess.canEditPay,
+    // Existing employees: pay changes go through Salary structure (dated revisions), never this form.
+    canEditPay: payAccess.canEditPay && !current,
     levelStartingSalary: levels.find((l) => l.code === formData.shreni || l.name === formData.shreni)?.minSalary,
   });
   formData = { ...formData, ...pay };
-  const payChanged =
-    !storedPay ||
-    storedPay.basicSalary !== pay.basicSalary ||
-    storedPay.gradeCount !== pay.gradeCount ||
-    storedPay.gradeAmount !== pay.gradeAmount;
 
   // 2. Transform FormData (strings) -> Employee Entity (Dates)
   const employeeData: Partial<Employee> = {
@@ -406,129 +401,6 @@ export async function saveEmployee(
   // 3. Persist via repository
   if (id) {
     const updated = await repository.update(id, employeeData);
-
-    // =======================================================================
-    // SALARY MAPPING SYNCHRONIZATION ON EMPLOYEE EDIT
-    // Keep active salary mapping in sync with updated basic salary and grades.
-    // Preserves all existing assigned allowances, deductions, and loans.
-    // Only when pay changed, so an edit of other details never rewrites the map.
-    // =======================================================================
-    if (payChanged) try {
-      const db = (await getDb());
-      const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
-      const activeFy = fiscalYears.find((fy) => fy.status === 'Active') || fiscalYears[0];
-
-      if (activeFy) {
-        const activeMaps = await db
-          .select()
-          .from(employeeSalaryMap)
-          .where(and(eq(employeeSalaryMap.employeeId, id), eq(employeeSalaryMap.isActive, true)));
-
-        const newBasic = Number(employeeData.basicSalary) || 0;
-        const newGradeCount = employeeData.gradeCount ?? 0;
-        const newGradeAmount = Number(employeeData.gradeAmount) || 0;
-        const newGradePercent = (employeeData.gradePercent === 100 || !employeeData.gradePercent) ? 0 : employeeData.gradePercent;
-
-        if (activeMaps.length > 0) {
-          const map = activeMaps[0];
-          // Get existing assigned salary heads (allowances and deductions)
-          const existingHeadRows = await db
-            .select({
-              id: employeeSalaryHeads.id,
-              salaryMapId: employeeSalaryHeads.salaryMapId,
-              payHeadId: employeeSalaryHeads.payHeadId,
-              amount: employeeSalaryHeads.amount,
-              isChangeable: employeeSalaryHeads.isChangeable,
-              payHeadName: payHeads.name,
-              payHeadType: payHeads.type,
-              calcBasis: payHeads.calcBasis,
-              calcParameter: payHeads.calcParameter,
-              calcPercent: payHeads.calcPercent,
-              isSsfHead: payHeads.isSsfHead,
-              isSsfEmployerHead: payHeads.isSsfEmployerHead,
-            })
-            .from(employeeSalaryHeads)
-            .leftJoin(payHeads, eq(employeeSalaryHeads.payHeadId, payHeads.id))
-            .where(eq(employeeSalaryHeads.salaryMapId, map.id));
-
-          let totalAllowances = new Decimal(0);
-          let totalDeductions = new Decimal(0);
-
-          for (const head of existingHeadRows) {
-            let headAmt = new Decimal(head.amount || 0);
-
-            // If head is SSF: recalculate based on new basic (20% allowance for employer, 31% deduction for total)
-            if ((head.isSsfHead || head.isSsfEmployerHead) && newBasic > 0) {
-              if (head.payHeadType === 'allowance' || head.isSsfEmployerHead) {
-                headAmt = new Decimal(Math.round(newBasic * 0.20));
-              } else if (head.payHeadType === 'deduction' || head.isSsfHead) {
-                headAmt = new Decimal(Math.round(newBasic * 0.31));
-              }
-              // Update head in DB if changed
-              if (!headAmt.equals(new Decimal(head.amount || 0))) {
-                await db
-                  .update(employeeSalaryHeads)
-                  .set({ amount: headAmt.toFixed(2) })
-                  .where(eq(employeeSalaryHeads.id, head.id));
-              }
-            }
-
-            if (head.payHeadType === 'allowance') {
-              totalAllowances = totalAllowances.plus(headAmt);
-            } else {
-              totalDeductions = totalDeductions.plus(headAmt);
-            }
-          }
-
-          // Calculate new net amount: basic + gradeAmount + allowances - deductions - loans
-          const l1 = new Decimal(map.loan1Deduction || 0);
-          const l2 = new Decimal(map.loan2Deduction || 0);
-          const updatedNet = new Decimal(newBasic)
-            .plus(newGradeAmount)
-            .plus(totalAllowances)
-            .minus(totalDeductions)
-            .minus(l1)
-            .minus(l2)
-            .toDecimalPlaces(2)
-            .toNumber();
-
-          await db
-            .update(employeeSalaryMap)
-            .set({
-              basicSalary: newBasic.toFixed(2),
-              gradeCount: newGradeCount,
-              gradeAmount: newGradeAmount.toFixed(2),
-              gradePercent: newGradePercent.toString(),
-              netAmount: updatedNet.toFixed(2),
-              updatedAt: new Date(),
-            })
-            .where(eq(employeeSalaryMap.id, map.id));
-        } else if (newBasic > 0) {
-          // No active mapping exists yet, but basic salary is provided -> Auto-create initial active mapping
-          const joinDateStr = employeeData.joiningDate
-            ? new Date(employeeData.joiningDate).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
-
-          await salaryMappingRepository.saveSalaryMapping({
-            employeeId: id,
-            fiscalYearId: activeFy.id,
-            effectiveFrom: joinDateStr,
-            basicSalary: newBasic,
-            gradePercent: newGradePercent || 0,
-            gradeCount: newGradeCount,
-            gradeAmount: newGradeAmount,
-            salaryHeads: [],
-            loan1Deduction: 0,
-            loan2Deduction: 0,
-            netAmount: newBasic + newGradeAmount,
-            isActive: true,
-          });
-        }
-      }
-    } catch (err) {
-      console.error(`Failed to synchronize salary mapping for employee ${id}:`, err);
-      // Non-blocking
-    }
 
     // =======================================================================
     // EMPLOYEE-USER SYNC ON UPDATE
@@ -603,41 +475,23 @@ export async function saveEmployee(
     }
 
     // =======================================================================
-    // SALARY MAPPING AUTO-PROVISIONING ON HIRE
-    // Provision active salary mapping record if basic salary is provided
+    // STARTING SALARY (4.4): the first salary revision, approved at once and
+    // effective from the joining date, through Salary structure (one owner for pay).
     // =======================================================================
-    const newBasic = Number(employeeData.basicSalary) || 0;
-    if (newBasic > 0) {
+    if ((Number(employeeData.basicSalary) || 0) > 0) {
       try {
-        const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
-        const activeFy = fiscalYears.find((fy) => fy.status === 'Active') || fiscalYears[0];
-        if (activeFy) {
-          const joinDateStr = employee.joiningDate
-            ? new Date(employee.joiningDate).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
-
-          const newGradeCount = employeeData.gradeCount ?? 0;
-          const newGradeAmount = Number(employeeData.gradeAmount) || 0;
-          const newGradePercent = (Number(employeeData.gradePercent) === 100 || !employeeData.gradePercent) ? 0 : (Number(employeeData.gradePercent) || 0);
-
-          await salaryMappingRepository.saveSalaryMapping({
-            employeeId: employee.id,
-            fiscalYearId: activeFy.id,
-            effectiveFrom: joinDateStr,
-            basicSalary: newBasic,
-            gradePercent: newGradePercent,
-            gradeCount: newGradeCount,
-            gradeAmount: newGradeAmount,
-            salaryHeads: [],
-            loan1Deduction: 0,
-            loan2Deduction: 0,
-            netAmount: newBasic + newGradeAmount,
-            isActive: true,
-          });
-        }
+        await salaryStructureService.createStartingStructure({
+          employeeId: employee.id,
+          joiningDate: formData.joiningDate,
+          basic: Number(employeeData.basicSalary) || 0,
+          gradeCount: employeeData.gradeCount ?? 0,
+          gradeAmount: Number(employeeData.gradeAmount) || 0,
+          gradeManual: !!employeeData.gradeManual,
+          userId: payAccess.userId ?? null,
+        });
       } catch (err) {
-        console.error(`Failed to initialize salary mapping for employee ${employee.id}:`, err);
-        // Non-blocking
+        console.error(`Failed to create the starting salary for employee ${employee.id}:`, err);
+        // Non-blocking: it can be added in Salary structure.
       }
     }
     

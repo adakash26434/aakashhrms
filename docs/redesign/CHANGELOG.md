@@ -13,6 +13,29 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-04 — 4.4 Salary structure
+Branch: `redesign/4.4-salary-structure` (stacked on 4.3)
+
+`/workforce/salary-mapping` rebuilt as **Salary structure** (templates A + B and the new kit `EditGrid`), after Zoho Payroll and greytHR / Keka (dated revisions, bulk revise by spreadsheet), TallyPrime (pay heads as a table per employee) and SAP IT0008 (one record per validity period).
+
+- **Revisions, not edits.** Each change is a revision with an effective date and a reason, kept in the history; approved revisions are never edited or deleted. Payroll now uses the approved revision **in force at the end of the period**, not "the active row".
+- **Tabs:** Structures (register, breakdown FactBox, history with % change and letter links; Revise window by Enter) · **Bulk edit** · Changes · Templates. `?employee=<id>` opens with that person selected (linked from the employee record and form).
+- **Bulk edit:** a spreadsheet table (`components/kit/edit-grid.tsx`): rows from filters or picked employees, columns for basic, grades, scheme, every fixed-amount allowance and deduction, worked-out heads (Yes/No), gross, net and change; Excel keys (arrows, Tab, type to replace, F2, Ctrl+D fill down, Ctrl+C / Ctrl+V blocks with Excel incl. "1,20,000", Delete, Ctrl+Z / Ctrl+Y), mouse range selection, changed cells marked with the old value, errors in red, level-start warnings; column chooser; apply a template to selected rows; CSV template download and import (matched by employee code and header; unknown codes / columns listed); totals footer; Review window before Submit.
+- **Second-person approval** (setting on by default): changes wait in **Changes** until someone else with the new Salary structure → **Approve** accepts them (typed `APPROVE`) or rejects them with a reason; the preparer can withdraw. A starting salary on hire and grade-policy syncs are approved at once and recorded as batches.
+- **Templates** by level and / or designation; **revision letter** (A4 print page, English, previous / revised / change).
+- **One owner for pay:** the employee form sets only the starting structure on hire; afterwards the Pay section is read-only with "Revise in Salary structure". The grade-policy re-sync creates a revision batch instead of editing rows.
+- **Security S20:** View with employee scope on every read (the old data action had no check), Edit / Approve on writes, never approving your own change (`DENIED_SELF`), out-of-scope requests audited `DENIED_SCOPE`, no delete, every submit / decision / template / setting audited, `toActionError`, server-side reshaping (2,000 rows max, 2 MB CSV).
+- **Database:** migration `0037_salary_revisions` (revision columns on `employee_salary_map`; `salary_change_batches`; `salary_templates`), applied to company databases by `ensureTenantSchema` on restart. Existing rows become approved revisions.
+- Removed: the old salary-mapping screens (hero, KPI cards, 972-line modal, bulk form, delete dialog), `salary-mapping.actions.ts`, `salary-mapping.service.ts` and the mock data.
+
+**Your review on the running app (fixes):** register headers no longer cut off (wider columns, "Gross"); text dates follow the BS/AD switch (new kit `useDateText()`), and the letter prints both calendars; history marks salaries recorded before revisions; onboarding's "Basic Salary" / "Grade Amount" label heads are no longer offered as allowances, but an amount already stored on one is shown with a warning (payroll pays it: Pramod's 3,500 keeps his net at 27,700, matching his payslip); Revise window: Save disabled until something changes, errors in the footer; Bulk edit: numbered "1 Employees / 2 Change details" strips, date line no longer spills, Code and Employee left-aligned with a pinned edge, Gross / Net grouped as money, "Pasted n cells" message, why Review is disabled, a typo guard for basic changes over 50%, review lines with old → new values and the employer cost change, amber (not red) import notes; Changes: "All statuses" filter label; Templates: basic shown as "level starting salary" instead of a disabled 0; letter: the company block printed (print styles hide header elements).
+
+Verified: tsc 0 · eslint: nothing new · 494/494 tests (new `tests/edit-grid.test.ts`: Excel moves, ranges, TSV paste with quotes / CRLF, single-value fill, fill down, undo / redo, lakh-comma numbers, Excel CSV; `tests/salary-structure.test.ts`: head kinds, store / read back, totals with SSF on basic + grade and PF, grade policy vs by hand, validation, changed lines, batch sums, revision in force by month, approval rules, templates, CSV matching, S20 action checks, `DENIED_SCOPE`, payroll in-force read, server reshaping) · `next build` · Playwright on your data after the restart (migration 0037 applied; **nothing saved**: one accidental Enter on "Send for approval" with no changes was refused by the server, "Nothing changed"): Structures register, detail and history; Revise window by F2 and Enter (reason required stops Enter); Bulk edit by keyboard (type, Enter, "1,20,000", Ctrl+D fill down, Ctrl+Z, a 2 × 2 Excel paste), grade recalculation, CSV download and re-import (unknown code and column listed), Review window opened and closed; Changes and Templates tabs; letter on screen and in print preview; 1920 / 1366 / 1024 / 390 with no page overflow; 0 console errors on fresh loads. Known: at 390 px the date field's BS line runs ~25 px past the field (kit `DateField`, all forms).
+
+Notes: arrears for back-dated revisions come with 4.8 (Payroll run). Import is CSV only (no `.xlsx` library added).
+
+---
+
 ## 2026-10-03 — SSF on basic + grade (company setting)
 Branch: `redesign/4.4-salary-structure` (first commit of 4.4)
 

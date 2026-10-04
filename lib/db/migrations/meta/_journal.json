@@ -260,6 +260,13 @@
       "when": 1789800000000,
       "tag": "0036_org_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789900000000,
+      "tag": "0037_salary_revisions",
+      "breakpoints": true
     }
   ]
 }

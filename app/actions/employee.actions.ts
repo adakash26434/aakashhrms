@@ -47,7 +47,7 @@ export async function saveEmployeeAction(
 
     // Pay fields need Salary mapping → Edit as well (S18); without it they are kept / defaulted.
     const canEditPay = await hasPermission('EDIT', 'SALARY_MAPPING');
-    const result = await empService.saveEmployee(id, formData, accessOptions, { canEditPay });
+    const result = await empService.saveEmployee(id, formData, accessOptions, { canEditPay, userId: scope.userId });
     await recordAuditLog({
       userId: scope.userId,
       action,

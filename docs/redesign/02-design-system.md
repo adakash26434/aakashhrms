@@ -199,18 +199,19 @@ are designed so it only needs new values.
 | `Confirm` | Every confirmation; `requireText` for destructive or irreversible actions |
 | `PropertyForm` / `FieldGroup` / `FieldRow` / `inputClass` | Every form |
 | `Tabs` | Horizontal (pages) or vertical (record editor sections) |
-| `StatusChip`, `Amount`, `DateCell` | Statuses, money and dates, everywhere |
+| `StatusChip`, `Amount`, `DateCell` | Statuses, money and dates, everywhere. For a date inside text (titles, messages) use `useDateText()` so it follows the BS/AD switch; formal documents use `bothCalendars()` ("Bhadra 31, 2083 (2026-09-16)") |
 | `FactBox`, `Worklist` | Context panels (E2); approval queues (E3) |
 | `GridSkeleton`, `FormSkeleton`, `EmptyState`, `ErrorState` | Loading, empty and error states |
+| `EditGrid` (4.4) | Spreadsheet-style bulk entry: many rows × many amount columns edited in place with Excel keys, paste from Excel, fill down and undo. Not for registers (use `DataGrid`). See "Implemented salary structure". |
 
-The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts` and `density.ts`. Exports use `lib/export/csv.ts` and `authorizeExportAction`.
+The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts`, `density.ts`, `popup.ts` and `edit-grid.ts`. Exports use `lib/export/csv.ts` and `authorizeExportAction`.
 
 ## 5. Screen templates
 
 | Template | Used by | Layout |
 |---|---|---|
 | **A. Register** | Employees, Departments, Designations, Branches, Holidays, Pay heads, Tax slabs, Leave types/rules, OT rules, Loans, Users, Roles, Audit log, Leave applications/approvals, Attendance | Toolbar → FilterStrip → DataGrid (+ optional SplitView detail) → totals/pagination footer |
-| **B. Record editor** | Employee create/edit, Company setup, Salary mapping, Role matrix | Window (short records) or full page (long records): section index on the left, one scrolling PropertyForm with Enter-to-next, sticky Save/Cancel footer, dirty-state guard. See "Implemented employees". |
+| **B. Record editor** | Employee create/edit, Company setup, Salary structure (Revise window), Role matrix | Window (short records) or full page (long records): section index on the left, one scrolling PropertyForm with Enter-to-next, sticky Save/Cancel footer, dirty-state guard. See "Implemented employees". |
 | **C. Process** | Payroll run, Leave salary run, Attendance lock, Fiscal-year close, Onboarding | Step rail (Setup → Pre-flight → Calculate → Review → Approve → Lock) with a blocking-issue panel and an audit trail |
 | **D. Report viewer** | All `/reports/*`, payslips | Parameters panel on the left, paged document preview on the right, toolbar with Print / PDF / Excel / CSV |
 | **E. Settings** | System control, Payroll rules, Fiscal year, Tax rates, Company profile | Category list on the left, form on the right, change summary before save |
@@ -487,6 +488,67 @@ designations / shreni / employment types) open the matching tab.
 - **Company-wide departments.** A department is open to all branches or to
   chosen ones; the employee form lists branch first and offers only the
   departments open to it (the save checks it too).
+
+### Implemented salary structure (Phase 4.4, templates A + B + EditGrid)
+
+`/workforce/salary-mapping`, titled **Salary structure**. Each employee's pay
+is a list of **dated revisions** (SAP IT0008 / Zoho Payroll "effective
+from"): nothing is overwritten, a change is a new revision with an effective
+date and a reason, and payroll uses the revision in force for the month.
+Folder tabs in the URL (`?tab=`; `?employee=<id>` opens with that person
+selected): **Structures · Bulk edit · Changes · Templates**.
+
+| Tab | Layout and rules |
+|---|---|
+| Structures | PageBar (Revise salary / New structure F2, Bulk edit, Print letter, Refresh; counts and waiting changes in the description) · FilterStrip · DataGrid (code and name pinned; level, basic, grade, allowances, deductions, gross, net, effective from, status: Current / Takes effect later / Change waiting / No structure) · SplitView detail: FactBox breakdown per pay head and a **History** list (effective from, gross with % change, reason, Letter link). Enter / double-click opens the Revise window. |
+| Revise window | Kit `Window` xl, `FormGrid`, Enter to the next field: effective from (BS), reason, basic, retirement scheme (SSF / PF / none), grade count, grade amount (policy, or by hand where allowed), one field per fixed-amount head, Yes/No per worked-out head ("10% of basic"); a totals aside (gross, SSF 11% / employer 20% on the company base, deductions, net before tax, employer cost, change versus now). |
+| Bulk edit | The **EditGrid** (below). Above it, two numbered strips: **1 Employees** (filters + "Add matching employees", "Add one employee", remove selected) and **2 Change details** (effective from, reason, template, column chooser remembered per browser, CSV download / import). Below it: current versus new monthly gross, the difference, rows changed, errors, and why Review is not yet available ("Give a reason (step 2)"); **Review changes** opens a window listing each change with old → new values ("Basic 22,000.00 → 24,500.00"), gross now / new, and the employer cost change, before Submit. |
+| Changes | One row per change batch (bulk save, single revision, CSV import, starting salary, grade-policy sync): made, effective from, kind, reason, employees, monthly change, prepared by, status. Detail: old → new gross per employee; **Approve** (typed `APPROVE`), **Reject** (reason required) for someone other than the preparer; **Withdraw** for the preparer while pending. The approval setting (on by default) sits on top, switchable only with Approve. |
+| Templates | Register + Window: code, name, fits (levels and / or designations, none = everyone), basic (amount or the level's starting salary), scheme (keep / SSF / PF / none), pay heads. Applied to selected Bulk edit rows; grade counts are kept and the grade recalculated. |
+| Letter | `/workforce/salary-mapping/letter/[revisionId]`: A4 print page (Ctrl+P; frame hidden in print), company header, employee, effective date, reason, previous / revised / change per component, gross and net before tax, signature lines. English only. |
+
+**EditGrid** (`components/kit/edit-grid.tsx`, logic in `lib/kit/edit-grid.ts`).
+Columns declare `kind` (`number`, `choice`, `check`, `readonly`), an optional
+`group` (shown as a header band: Base pay, Allowances, Deductions, Worked out by
+payroll, Monthly), `pinned`, `original` (to mark changes), `error` / `warning`.
+Changed cells carry an amber corner mark with the old value in the tooltip;
+errors are red with the message; read-only (worked-out) cells are grey. The
+status footer names the active column and row, its error or warning, the last
+message (e.g. "Copied 3 × 2 cells") and a key reminder.
+
+| Keys / mouse | Action |
+|---|---|
+| Arrows · Tab / Shift Tab · Home / End | Move (Tab wraps to the next row) |
+| Ctrl + arrows · Ctrl Home / Ctrl End | Jump to the edge / first / last cell |
+| Shift + arrows · Shift click · drag | Select a range; Ctrl A selects all |
+| Type | Replace the cell; Enter saves and moves down, Tab right, Esc cancels |
+| F2 · double-click | Edit the cell keeping its value (a choice cell opens its list) |
+| Enter / Shift Enter (not editing) | Down / up; Space or Enter toggles a Yes/No cell |
+| Ctrl C / Ctrl V | Copy / paste blocks with Excel (tab-separated); one value pasted fills the selection; "1,20,000" and "NPR 25,000.50" are read as numbers |
+| Ctrl D | Fill down from the top row of the selection |
+| Delete / Backspace | Set the selection to 0 (No for Yes/No cells) |
+| Ctrl Z / Ctrl Y (Ctrl Shift Z) | Undo / redo, a paste or fill counts as one step |
+
+- **One owner for pay.** The employee form sets only the **starting**
+  structure on hire; for existing employees the Pay section is read-only with
+  "Revise in Salary structure".
+- **Approval.** With the setting on, saves are *Change waiting* until another
+  user with Salary structure → Approve accepts them; a starting salary on hire
+  and grade-policy syncs are approved at once (recorded as batches).
+- **Typo guard.** A basic salary that moves by more than half (up or down)
+  is flagged ("Basic rises by 300%: check for a typo") in the grid and the
+  Revise window; it is a warning, not a block.
+- **Label pay heads.** Onboarding's "Basic Salary" / "Grade Amount" heads
+  are labels for the base pay. They are never offered for new entry
+  (Revise window, Bulk edit, templates); where a structure already holds an
+  amount on one it is shown as "(pay head)" with a warning, because payroll
+  pays it on top of basic / grade.
+- **Revise window:** Save is disabled until something changes; server
+  messages show in the footer, beside the buttons.
+- **CSV** rather than `.xlsx` (no new dependency): download the template for
+  the chosen rows, edit in Excel, save as CSV, import. Rows match by employee
+  code and columns by header; unknown codes and columns are listed and the
+  values land in the table as changes, so the table is the preview.
 
 ### Implemented frame (Phase 2)
 

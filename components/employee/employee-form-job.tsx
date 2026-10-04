@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
+import Link from "next/link";
 import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
 import { DateField } from "@/components/kit/date-field";
@@ -18,7 +19,8 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
   const policy = ctx.gradePolicy ?? DEFAULT_GRADE_POLICY;
   const gradesOff = policy.calculationMethod === "DISABLED_NO_GRADES";
   const manualPolicy = policy.calculationMethod === "MANUAL_INPUT";
-  // Pay is changed only with Salary mapping → Edit (the server checks it again).
+  // The starting pay is set here on hire, with Salary structure → Edit (the server
+  // checks it again). Later changes are dated revisions made in Salary structure (4.4).
   const canEditPay = ctx.canEditPay;
   // Grade amount follows the company grade policy unless it is typed by hand.
   const manualGrade = manualPolicy || form.gradeManual;
@@ -141,13 +143,22 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
         id="pay"
         title="Pay"
         description={
-          canEditPay
-            ? "Monthly, in NPR. Allowances and deductions are set in Salary mapping."
-            : "Monthly, in NPR. Pay can be changed by users with Salary mapping → Edit."
+          api.isNew
+            ? canEditPay
+              ? "Monthly, in NPR. The starting salary; allowances, deductions and later changes are made in Salary structure."
+              : "Monthly, in NPR. Users with Salary structure → Edit can set the starting salary."
+            : "Monthly, in NPR. Pay changes are dated revisions, made with Revise salary in Salary structure."
         }
         aside={
-          <p className="text-xs text-ink-muted">
-            Total base <Amount value={total} prefix="NPR" emphasis className="ml-1 text-ink" />
+          <p className="flex items-center gap-3 text-xs text-ink-muted">
+            {!api.isNew && ctx.employeeId && (
+              <Link href={`/workforce/salary-mapping?employee=${ctx.employeeId}`} className="font-medium text-brand-strong hover:underline">
+                Revise in Salary structure
+              </Link>
+            )}
+            <span>
+              Total base <Amount value={total} prefix="NPR" emphasis className="ml-1 text-ink" />
+            </span>
           </p>
         }
       >
@@ -158,8 +169,8 @@ export function EmployeeFormJob({ api }: { api: EmployeeFormApi }) {
           help={
             !canEditPay
               ? api.isNew
-                ? "Starts at the level's starting salary; someone with Salary mapping → Edit can change it."
-                : "Set by users with Salary mapping → Edit."
+                ? "Starts at the level's starting salary; someone with Salary structure → Edit can change it."
+                : "Changed with Revise salary in Salary structure."
               : belowScale
                 ? `Below this level's starting salary (NPR ${minSalary.toLocaleString("en-IN")}).`
                 : "Monthly basic salary."

@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import { employeeSalaryMap, employeeSalaryHeads, payHeads, fiscalYears } from "@/lib/db/schema";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, lte } from "drizzle-orm";
 import type { 
   SalaryMapping, 
   SalaryMappingFilter, 
@@ -282,4 +282,29 @@ export const update = async (idOrData: any, data?: any): Promise<SalaryMapping> 
   return await create(payload);
 };
 export const remove = deleteSalaryMapping;
-
+
+/**
+ * Payroll (4.4): each employee's salary revision in force on a date — the
+ * latest approved revision effective on or before it. Employees with none in
+ * force yet (e.g. the only revision is dated later) fall back to their
+ * current one, as before revisions existed.
+ */
+export async function findInForceByEmployeeIds(employeeIds: string[], onDate: string): Promise<Map<string, SalaryMapping>> {
+  const result = new Map<string, SalaryMapping>();
+  if (!employeeIds.length) return result;
+  const rows = await (await getDb())
+    .select()
+    .from(employeeSalaryMap)
+    .where(and(inArray(employeeSalaryMap.employeeId, employeeIds), eq(employeeSalaryMap.status, "approved"), lte(employeeSalaryMap.effectiveFrom, onDate)));
+  const picked = new Map<string, SalaryMapRow>();
+  for (const r of rows) {
+    const cur = picked.get(r.employeeId);
+    if (!cur || r.effectiveFrom > cur.effectiveFrom || (r.effectiveFrom === cur.effectiveFrom && r.createdAt > cur.createdAt)) picked.set(r.employeeId, r);
+  }
+  const chosen = [...picked.values()];
+  const heads = await fetchHeadsForMaps(chosen.map((r) => r.id));
+  for (const m of mapRowsToSalaryMappings(chosen, heads)) result.set(m.employeeId, m);
+  const missing = employeeIds.filter((id) => !result.has(id));
+  if (missing.length) for (const [id, m] of await findActiveByEmployeeIds(missing)) result.set(id, m);
+  return result;
+}

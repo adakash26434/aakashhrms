@@ -502,6 +502,7 @@ export const employeeSalaryMap = pgTable('employee_salary_map', {
   gradePercent: numeric('grade_percent', { precision: 5, scale: 2 }).default('0').notNull(),
   gradeCount: integer('grade_count').default(0).notNull(),
   gradeAmount: numeric('grade_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  gradeManual: boolean('grade_manual').default(false).notNull(),
   
   // Loan Deduction Placeholders (Matching Excel Sheet columns & SalaryMapping type)
   loan1Deduction: numeric('loan1_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
@@ -512,15 +513,61 @@ export const employeeSalaryMap = pgTable('employee_salary_map', {
   
   // Audit & Status
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  // 4.4: each row is a salary revision. is_active marks the current one (the latest approved);
+  // payroll picks the approved revision in force for the month by effective_from.
   isActive: boolean('is_active').default(true).notNull(),
+  status: varchar('status', { length: 20 }).default('approved').notNull(), // approved | pending | rejected | withdrawn
+  batchId: uuid('batch_id'),
+  reason: text('reason'),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at'),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   employeeIdIdx: index('employee_salary_map_employee_id_idx').on(table.employeeId),
+  batchIdIdx: index('employee_salary_map_batch_id_idx').on(table.batchId),
   fiscalYearIdIdx: index('employee_salary_map_fiscal_year_id_idx').on(table.fiscalYearId),
   createdByIdx: index('employee_salary_map_created_by_idx').on(table.createdBy),
 }));
+
+/**
+ * Salary change batches (4.4): one per single revision, bulk edit or import.
+ * With approval on, its revisions stay pending until someone other than the
+ * preparer approves them.
+ */
+export const salaryChangeBatches = pgTable('salary_change_batches', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  kind: varchar('kind', { length: 20 }).notNull(), // single | bulk | import | hire | policy
+  effectiveFrom: date('effective_from').notNull(),
+  reason: text('reason').notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn
+  employeeCount: integer('employee_count').default(0).notNull(),
+  monthlyChange: numeric('monthly_change', { precision: 15, scale: 2 }).default('0').notNull(),
+  preparedBy: uuid('prepared_by'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  statusIdx: index('salary_change_batches_status_idx').on(table.status),
+}));
+
+/** Salary templates (4.4): a standard structure (basic + pay heads) for levels or designations. */
+export const salaryTemplates = pgTable('salary_templates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  levelCodes: text('level_codes').array().notNull().default(sql`ARRAY[]::text[]`),
+  designationIds: text('designation_ids').array().notNull().default(sql`ARRAY[]::text[]`),
+  basicMode: varchar('basic_mode', { length: 20 }).default('amount').notNull(), // amount | level_start
+  basicAmount: numeric('basic_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  scheme: varchar('scheme', { length: 10 }).default('keep').notNull(), // keep | ssf | pf | none
+  heads: jsonb('heads').$type<{ payHeadId: string; amount: number }[]>().notNull().default(sql`'[]'::jsonb`),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
 
 /**
  * 2. EMPLOYEE SALARY HEADS (One-to-Many Dynamic Assignments)

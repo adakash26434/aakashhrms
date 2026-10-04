@@ -1,0 +1,252 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  EMPTY_LINES,
+  applyTemplate,
+  batchSummary,
+  canDecideBatch,
+  canWithdrawBatch,
+  changedLines,
+  classifyHead,
+  gradeAmountFor,
+  headsFromLines,
+  largeChangeWarning,
+  latestApproved,
+  linesFromHeads,
+  matchImport,
+  resolveStructureTab,
+  revisionInForce,
+  structureTotals,
+  templateFits,
+  validateLines,
+  type PayHeadLike,
+} from '../lib/engines/salary-structure.engine';
+import { DEFAULT_GRADE_POLICY } from '../lib/engines/grade-policy.engine';
+import { normalizeBatch } from '../lib/services/salary-structure.service';
+import type { StructureLines } from '../lib/types/salary-structure';
+
+const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
+
+const head = (over: Partial<PayHeadLike>): PayHeadLike => ({
+  id: 'h', code: 'H', name: 'Head', type: 'allowance', calcBasis: 'None', calcParameter: 'FixedAmount', calcPercent: 0,
+  isFestivalAllowance: false, isAbsentDeduct: false, isOtHead: false, isLeaveHead: false, isTdsHead: false, isPfHead: false,
+  isSsfHead: false, isSsfEmployerHead: false, isRemoteAllowance: false, isCitHead: false, ...over,
+});
+
+const HEADS = [
+  head({ id: 'tran', code: 'TRAN', name: 'Transport' }),
+  head({ id: 'dear', code: 'DEAR', name: 'Dearness', calcBasis: 'BasicSalary', calcParameter: 'BasicSalary', calcPercent: 10 }),
+  head({ id: 'fest', code: 'FEST', name: 'Festival', isFestivalAllowance: true }),
+  head({ id: 'cit', code: 'CIT', name: 'CIT', type: 'deduction', isCitHead: true }),
+  head({ id: 'ssf', code: 'SSF', name: 'SSF', type: 'deduction', isSsfHead: true }),
+  head({ id: 'ssfer', code: 'SSF-ER', name: 'SSF employer', isSsfEmployerHead: true }),
+  head({ id: 'pf', code: 'PF', name: 'PF', type: 'deduction', isPfHead: true }),
+  head({ id: 'tds', code: 'TDS', name: 'TDS', type: 'deduction', isTdsHead: true }),
+].map(classifyHead);
+
+const lines = (over: Partial<StructureLines> = {}): StructureLines => ({ ...EMPTY_LINES, basic: 30000, gradeCount: 3, gradeAmount: 3000, scheme: 'ssf', ...over });
+const settings = { ssfBase: 'BasicPlusGrade' as const, pfPercent: 10 };
+
+describe('Pay heads in a structure', () => {
+  it('sorts heads into typed amounts, worked-out, scheme and automatic', () => {
+    const kind = Object.fromEntries(HEADS.map((h) => [h.id, h.kind]));
+    assert.deepEqual(kind, { tran: 'amount', dear: 'computed', fest: 'computed', cit: 'amount', ssf: 'scheme', ssfer: 'scheme', pf: 'scheme', tds: 'auto' });
+    assert.equal(HEADS.find((h) => h.id === 'dear')!.rule, '10% of basic');
+    assert.equal(HEADS.find((h) => h.id === 'fest')!.occasional, true);
+  });
+
+  it('the onboarding Basic Salary / Grade Amount heads are labels: never offered, but a stored amount still counts', () => {
+    const basicHead = classifyHead(head({ id: 'bh', code: 'BASIC', name: 'Basic Salary' }));
+    assert.equal(basicHead.labelOnly, true);
+    assert.equal(classifyHead(head({ code: 'grade', name: 'Grade Amount' })).labelOnly, true);
+    assert.equal(classifyHead(head({ code: 'GRADE-X', name: 'Grade bonus' })).labelOnly, undefined);
+    // An amount already stored on one is still counted (payroll pays it) and flagged.
+    const l = lines({ amounts: { bh: 3500 } });
+    assert.equal(structureTotals(l, [...HEADS, basicHead], settings).gross, 36500);
+    assert.ok(validateLines(l, [...HEADS, basicHead]).warnings.bh);
+  });
+
+  it('stores amounts, worked-out heads and the scheme heads, and reads them back', () => {
+    const l = lines({ amounts: { tran: 2000, cit: 1000 }, computed: ['dear'] });
+    const stored = headsFromLines(l, HEADS);
+    assert.deepEqual(stored.map((s) => s.payHeadId).sort(), ['cit', 'dear', 'ssf', 'ssfer', 'tran']);
+    const back = linesFromHeads({ basic: 30000, gradeCount: 3, gradeAmount: 3000, gradeManual: false }, stored, HEADS);
+    assert.deepEqual(back, { ...l, computed: ['dear'] });
+  });
+});
+
+describe('Monthly totals (same SSF rule as payroll)', () => {
+  it('basic + grade + allowances; SSF 11% / 20% on basic + grade; deductions; employer cost', () => {
+    const t = structureTotals(lines({ amounts: { tran: 2000, cit: 1000 }, computed: ['dear', 'fest'] }), HEADS, settings);
+    // gross = 30,000 + 3,000 + 2,000 + 10% of 30,000 (festival left out: occasional)
+    assert.equal(t.gross, 38000);
+    assert.equal(t.retirementEmployee, 3630);
+    assert.equal(t.retirementEmployer, 6600);
+    assert.equal(t.deductions, 1000);
+    assert.equal(t.netBeforeTax, 38000 - 1000 - 3630);
+    assert.equal(t.employerCost, 38000 + 6600);
+  });
+
+  it('PF: 10% of basic + grade each side; none: no contribution', () => {
+    assert.equal(structureTotals(lines({ scheme: 'pf' }), HEADS, settings).retirementEmployee, 3300);
+    assert.equal(structureTotals(lines({ scheme: 'none' }), HEADS, settings).retirementEmployee, 0);
+  });
+
+  it('grade follows the policy unless typed by hand', () => {
+    assert.equal(gradeAmountFor(lines({ gradeAmount: 999 }), DEFAULT_GRADE_POLICY), 3000);
+    assert.equal(gradeAmountFor(lines({ gradeAmount: 999, gradeManual: true }), DEFAULT_GRADE_POLICY), 999);
+    assert.equal(gradeAmountFor(lines(), { ...DEFAULT_GRADE_POLICY, calculationMethod: 'DISABLED_NO_GRADES' }), 0);
+  });
+});
+
+describe('Validation and changes', () => {
+  it('checks basic, grade count and amounts; warns below the level start', () => {
+    assert.deepEqual(validateLines(lines(), HEADS).errors, {});
+    assert.ok(validateLines(lines({ basic: 0 }), HEADS).errors.basic);
+    assert.ok(validateLines(lines({ gradeCount: 1.5 }), HEADS).errors.gradeCount);
+    assert.ok(validateLines(lines({ amounts: { tran: -5 } }), HEADS).errors.tran);
+    assert.ok(validateLines(lines({ amounts: { nope: 5 } }), HEADS).errors.nope);
+    assert.ok(validateLines(lines({ basic: 20000 }), HEADS, 25000).warnings.basic);
+  });
+
+  it('flags a basic salary that moves by more than half (a likely typo)', () => {
+    assert.match(largeChangeWarning(30000, 120000) ?? '', /rises by 300%/);
+    assert.match(largeChangeWarning(30000, 3000) ?? '', /falls by 90%/);
+    assert.equal(largeChangeWarning(30000, 33000), null);
+    assert.equal(largeChangeWarning(null, 50000), null);
+  });
+
+  it('lists what changed, and sums a batch', () => {
+    assert.deepEqual(changedLines(lines(), lines({ basic: 32000, amounts: { tran: 500 } })), ['basic', 'tran']);
+    assert.deepEqual(changedLines(lines(), lines()), []);
+    assert.deepEqual(changedLines(null, lines()), ['new']);
+    const t = (gross: number) => ({ ...structureTotals(lines(), HEADS, settings), gross });
+    assert.deepEqual(batchSummary([{ before: t(100), after: t(150) }, { before: null, after: t(50) }]), { employeeCount: 2, monthlyChange: 100, before: 100, after: 200 });
+  });
+});
+
+describe('Revisions in force (payroll picks by month)', () => {
+  const revs = [
+    { id: 'old', effectiveFrom: '2026-01-01', status: 'approved', createdAt: '2026-01-01T00:00:00Z' },
+    { id: 'mid', effectiveFrom: '2026-07-17', status: 'approved', createdAt: '2026-07-01T00:00:00Z' },
+    { id: 'fix', effectiveFrom: '2026-07-17', status: 'approved', createdAt: '2026-07-05T00:00:00Z' },
+    { id: 'future', effectiveFrom: '2026-10-17', status: 'approved', createdAt: '2026-09-01T00:00:00Z' },
+    { id: 'pending', effectiveFrom: '2026-08-01', status: 'pending', createdAt: '2026-08-01T00:00:00Z' },
+  ];
+  it('the latest approved revision effective by the end of the month; pending ignored', () => {
+    assert.equal(revisionInForce(revs, '2026-06-30')?.id, 'old');
+    assert.equal(revisionInForce(revs, '2026-08-15')?.id, 'fix'); // same date: the later correction wins
+    assert.equal(revisionInForce(revs, '2025-12-31'), null);
+  });
+  it('the current revision is the latest approved, even if it starts later', () => {
+    assert.equal(latestApproved(revs)?.id, 'future');
+  });
+});
+
+describe('Second-person approval', () => {
+  it('needs Approve and someone other than the preparer; only the preparer withdraws', () => {
+    const b = { status: 'pending' as const, preparedById: 'u1' };
+    assert.equal(canDecideBatch(b, 'u2', true), true);
+    assert.equal(canDecideBatch(b, 'u1', true), false);
+    assert.equal(canDecideBatch(b, 'u2', false), false);
+    assert.equal(canDecideBatch({ ...b, status: 'approved' }, 'u2', true), false);
+    assert.equal(canWithdrawBatch(b, 'u1'), true);
+    assert.equal(canWithdrawBatch(b, 'u2'), false);
+  });
+});
+
+describe('Templates', () => {
+  it('fit by level and designation (empty = everyone)', () => {
+    assert.equal(templateFits({ levelCodes: [], designationIds: [] }, { levelCode: 'S6', designationId: 'd1' }), true);
+    assert.equal(templateFits({ levelCodes: ['S6'], designationIds: [] }, { levelCode: 'S5', designationId: 'd1' }), false);
+  });
+  it('fill basic (amount or level start), heads and scheme; grade recalculated, count kept', () => {
+    const next = applyTemplate({ basicMode: 'level_start', basicAmount: 0, scheme: 'keep', heads: [{ payHeadId: 'tran', amount: 1500 }, { payHeadId: 'dear', amount: 0 }] }, lines({ gradeCount: 2 }), HEADS, 36000, DEFAULT_GRADE_POLICY);
+    assert.equal(next.basic, 36000);
+    assert.equal(next.gradeCount, 2);
+    assert.equal(next.gradeAmount, 2400);
+    assert.deepEqual(next.amounts, { tran: 1500 });
+    assert.deepEqual(next.computed, ['dear']);
+    assert.equal(next.scheme, 'ssf');
+  });
+});
+
+describe('CSV import', () => {
+  it('matches rows by employee code and columns by header; reports the rest', () => {
+    const cols = [
+      { id: 'basic', header: 'Basic', kind: 'number' as const },
+      { id: 'scheme', header: 'Scheme (SSF/PF/None)', kind: 'scheme' as const },
+      { id: 'comp:dear', header: 'Dearness (Yes/No)', kind: 'yesno' as const },
+    ];
+    const r = matchImport(
+      [
+        ['Employee code', 'Employee', 'Basic', 'Scheme (SSF/PF/None)', 'Dearness (Yes/No)', 'Bonus'],
+        ['EMP-1', 'A', '1,20,000', 'PF', 'Yes', '5'],
+        ['EMP-9', 'Z', '1', 'SSF', 'No', ''],
+        ['EMP-2', 'B', 'abc', 'maybe', 'x', ''],
+      ],
+      cols,
+      new Set(['EMP-1', 'EMP-2'])
+    );
+    assert.deepEqual(r.values.get('EMP-1'), { basic: 120000, scheme: 'pf', 'comp:dear': true });
+    assert.deepEqual(r.unknownCodes, ['EMP-9']);
+    assert.deepEqual(r.unknownColumns, ['Bonus']);
+    assert.equal(r.errors.length, 3);
+  });
+  it('needs an employee code column', () => {
+    assert.equal(matchImport([['Name', 'Basic']], [], new Set()).errors.length, 1);
+  });
+});
+
+describe('Salary structure security (S20)', () => {
+  const actions = read('app/actions/salary-structure.actions.ts');
+  it('every action checks permission with scope, audits and hides raw errors', () => {
+    for (const name of ['submitSalaryChangeAction', 'decideSalaryChangeAction', 'saveSalaryTemplateAction', 'setSalaryTemplateActiveAction', 'setSalaryApprovalAction']) {
+      const body = actions.slice(actions.indexOf(`export async function ${name}`));
+      const end = body.indexOf('\nexport async function', 10);
+      const fn = end > 0 ? body.slice(0, end) : body;
+      assert.match(fn, /checkPermissionWithScope\(('EDIT'|'APPROVE'|action), 'SALARY_MAPPING'\)/, name);
+      assert.match(fn, /recordAuditLog\(/, name);
+      assert.match(fn, /toActionError\(/, name);
+    }
+    assert.ok(!/error\.message/.test(actions));
+    assert.match(actions, /DENIED_SELF/);
+  });
+
+  it('employees outside the user\'s scope are refused and audited DENIED_SCOPE', () => {
+    const service = read('lib/services/salary-structure.service.ts');
+    assert.equal((service.match(/throw new OutOfScopeError\(/g) ?? []).length, 2); // submit and decide
+    assert.match(actions, /result: 'DENIED_SCOPE'/);
+    assert.equal((actions.match(/await auditOutOfScope\(/g) ?? []).length, 2);
+  });
+
+  it('the page reads only within the user\'s scope; there is no delete', () => {
+    assert.match(read('app/(dashboard)/workforce/salary-mapping/page.tsx'), /checkPermissionWithScope\("VIEW", "SALARY_MAPPING"\)/);
+    assert.match(read('lib/services/salary-structure.service.ts'), /buildEmployeeScopeCondition\(scope\)/);
+    assert.ok(!/delete\(employeeSalaryMap\)/.test(read('lib/repositories/salary-structure.repository.ts')));
+  });
+
+  it('payroll uses the revision in force for the month', () => {
+    assert.match(read('lib/services/payroll.service.ts'), /findInForceByEmployeeIds\(\s*scopedEmployees\.map\(e => e\.id\),\s*endStr/);
+  });
+
+  it('the server reshapes what the browser sends', () => {
+    assert.throws(() => normalizeBatch({ kind: 'bulk', effectiveFrom: 'soon', reason: 'x', rows: [{}] }), /date/);
+    assert.throws(() => normalizeBatch({ kind: 'bulk', effectiveFrom: '2026-07-17', reason: 'Raise', rows: [{ employeeId: 'a' }, { employeeId: 'a' }] }), /only once/);
+    const ok = normalizeBatch({ kind: 'hack', effectiveFrom: '2026-07-17', reason: 'Raise', rows: [{ employeeId: 'a', lines: { basic: '30000', scheme: 'evil', amounts: { x: '5' }, computed: [1, 'y'] } }] });
+    assert.equal(ok.kind, 'bulk');
+    assert.equal(ok.rows[0].lines.scheme, 'none');
+    assert.deepEqual(ok.rows[0].lines.computed, ['y']);
+  });
+
+  it('the letter prints its company block (print styles hide <header> elements)', () => {
+    assert.ok(!/<header[\s>]/.test(read('components/salary-mapping/salary-structure-letter.tsx')));
+  });
+
+  it('opens a known tab', () => {
+    assert.equal(resolveStructureTab('bulk'), 'bulk');
+    assert.equal(resolveStructureTab('x'), 'structures');
+  });
+});

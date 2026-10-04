@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { BriefcaseBusiness, Contact, IdCard, Landmark, LogOut, ShieldCheck, UserRound, Users, Wallet } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
 import { DateCell } from "@/components/kit/date-cell";
@@ -76,7 +77,13 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
             { label: "Total base pay", value: <Amount value={basic + grade} prefix="NPR" emphasis />, wide: true },
           ]}
         />
-        <p className="mt-3 text-3xs text-ink-faint">Allowances and deductions are set in Salary mapping.</p>
+        <p className="mt-3 text-3xs text-ink-faint">
+          Allowances, deductions and pay changes (dated revisions) are in{" "}
+          <Link href={`/workforce/salary-mapping?employee=${p.id}`} className="font-medium text-brand-strong hover:underline">
+            Salary structure
+          </Link>
+          .
+        </p>
       </InfoCard>
 
       <InfoCard title="Bank" icon={Landmark} action={edit("bank")}>

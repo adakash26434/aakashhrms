@@ -4,15 +4,10 @@ import {
   type SystemControlValidationErrors,
 } from "@/lib/engines/system-control.engine";
 import type { SystemControlData, GradePolicySettings } from "@/lib/types/system-control";
-import {
-  DEFAULT_GRADE_POLICY,
-  policySyncedGradeAmount,
-} from "@/lib/engines/grade-policy.engine";
+import { DEFAULT_GRADE_POLICY } from "@/lib/engines/grade-policy.engine";
 import { recordAuditLog } from "@/lib/services/audit.service";
-import { getDb } from "@/lib/db";
-import { employees, employeeSalaryMap } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import Decimal from "decimal.js";
+import { applyPolicyGrades } from "@/lib/services/salary-structure.service";
+import { findAll as findAllEmployees } from "@/lib/repositories/employee.repository";
 
 /** Thrown when the engine rejects the payload. */
 export class SystemControlValidationError extends Error {
@@ -56,91 +51,18 @@ export async function saveSystemControlSettings(
 }
 
 /**
- * Recalculates and synchronizes the grade amount for all active employees
- * according to the specified (or currently configured) grade policy.
- * Updates both the `employees` table and active `employee_salary_map` records.
+ * The grade policy changed (4.4): one approved, system-prepared salary
+ * revision batch for every active employee whose policy grade changes.
+ * Grades typed by hand, and every grade under a "typed in" policy, are left
+ * alone; nothing is edited in place, so history stays complete.
  */
 export async function syncAllEmployeeGradesWithPolicy(
   policy?: GradePolicySettings,
 ): Promise<GradeSyncResult> {
-  const db = (await getDb());
   const effectivePolicy =
     policy || (await repository.findSettings()).gradePolicy || DEFAULT_GRADE_POLICY;
-
-  // 1. Fetch all active employees with basic salary and grade count
-  const activeEmployees = await db
-    .select({
-      id: employees.id,
-      fullName: employees.fullName,
-      basicSalary: employees.basicSalary,
-      gradeCount: employees.gradeCount,
-      gradeAmount: employees.gradeAmount,
-      gradeManual: employees.gradeManual,
-    })
-    .from(employees)
-    .where(eq(employees.status, "Active"));
-
-  let updatedEmployees = 0;
-
-  for (const emp of activeEmployees) {
-    // Grades typed by hand, and every grade under a "typed in" policy, are left alone (4.2).
-    const newGradeAmount = policySyncedGradeAmount(
-      { basicSalary: Number(emp.basicSalary) || 0, gradeCount: emp.gradeCount ?? 0, gradeManual: !!emp.gradeManual },
-      effectivePolicy,
-    );
-    if (newGradeAmount !== null) {
-      const currentGradeAmount = Number(emp.gradeAmount) || 0;
-
-      // Check if value changed
-      if (Math.abs(newGradeAmount - currentGradeAmount) > 0.001) {
-        // Update employee table
-        await db
-          .update(employees)
-          .set({
-            gradeAmount: newGradeAmount.toString(),
-            updatedAt: new Date(),
-          })
-          .where(eq(employees.id, emp.id));
-
-        // Update active employee_salary_map if present
-        const activeMaps = await db
-          .select({
-            id: employeeSalaryMap.id,
-            gradeAmount: employeeSalaryMap.gradeAmount,
-            netAmount: employeeSalaryMap.netAmount,
-          })
-          .from(employeeSalaryMap)
-          .where(
-            and(
-              eq(employeeSalaryMap.employeeId, emp.id),
-              eq(employeeSalaryMap.isActive, true),
-            ),
-          );
-
-        for (const map of activeMaps) {
-          const currentMapGrade = Number(map.gradeAmount) || 0;
-          const currentNet = Number(map.netAmount) || 0;
-          // netAmount changes by the delta between new grade amount and old map grade amount
-          const delta = newGradeAmount - currentMapGrade;
-          const updatedNet = new Decimal(currentNet)
-            .plus(delta)
-            .toDecimalPlaces(2)
-            .toNumber();
-
-          await db
-            .update(employeeSalaryMap)
-            .set({
-              gradeAmount: newGradeAmount.toString(),
-              netAmount: updatedNet.toString(),
-              updatedAt: new Date(),
-            })
-            .where(eq(employeeSalaryMap.id, map.id));
-        }
-
-        updatedEmployees++;
-      }
-    }
-  }
+  const updatedEmployees = await applyPolicyGrades(effectivePolicy, null);
+  const totalActive = (await findAllEmployees({ search: "", departmentId: "all", branchId: "all", category: "all", status: "Active" })).length;
 
   if (updatedEmployees > 0) {
     await recordAuditLog({
@@ -149,7 +71,7 @@ export async function syncAllEmployeeGradesWithPolicy(
       recordId: "Bulk Employee Grade Recalculation",
       newValues: {
         updatedEmployees,
-        totalActive: activeEmployees.length,
+        totalActive,
         policyMethod: effectivePolicy.calculationMethod,
       },
     });
@@ -157,7 +79,7 @@ export async function syncAllEmployeeGradesWithPolicy(
 
   return {
     updatedEmployees,
-    totalActive: activeEmployees.length,
+    totalActive,
     policyMethod: effectivePolicy.calculationMethod,
   };
 }

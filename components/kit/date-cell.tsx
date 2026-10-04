@@ -38,3 +38,22 @@ export function DateCell({
     </time>
   );
 }
+
+/**
+ * The same date as text, for titles, messages and other places where a
+ * `<DateCell>` element does not fit. Follows the global BS/AD choice.
+ */
+export function useDateText(): (value: Date | string | null | undefined, variant?: "numeric" | "long") => string {
+  const { isAD } = useDateFormat();
+  return (value, variant = "numeric") => {
+    const date = toDate(value);
+    if (!date) return "—";
+    return isAD ? formatADDate(date, variant === "long" ? "long" : "iso") : formatBSDate(date, variant === "long" ? "long" : "numeric");
+  };
+}
+
+/** Both calendars for formal documents (letters): "1 Ashwin 2083 (2026-09-17)". */
+export function bothCalendars(value: Date | string | null | undefined): string {
+  const date = toDate(value);
+  return date ? `${formatBSDate(date, "long")} (${formatADDate(date, "iso")})` : "—";
+}

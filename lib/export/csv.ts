@@ -89,3 +89,41 @@ export function safeFilename(part: string): string {
       .slice(0, 80) || "export"
   );
 }
+
+/**
+ * Reads CSV text (as saved by Excel: commas, quoted cells with "" inside,
+ * CRLF or LF line ends, an optional UTF-8 BOM) into rows of cells.
+ */
+export function parseCsv(text: string): string[][] {
+  const src = text.replace(/^﻿/, "");
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && src[i + 1] === "\n") i++;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += ch;
+  }
+  if (cell !== "" || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  // A leading ' (formula guard added by our own export) is not part of the value.
+  return rows.filter((r) => r.some((c) => c.trim() !== "")).map((r) => r.map((c) => (c.startsWith("'") ? c.slice(1) : c)));
+}

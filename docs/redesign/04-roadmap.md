@@ -153,11 +153,11 @@ per-module **definition of done** below.
 | 4.1 | **Dashboard** | F | `/dashboard` analytics dashboard (KPIs, cost charts, attendance, action cards), revised after your review of the work-queue version. **Signed off by you on 2026-10-03** (`redesign/4.1-home`) |
 | 4.2 | **Workforce: Employees** | A + B | Register + quick view, full record page with related-history tabs, full-page editor with Enter-to-next; security S18. **Signed off by you on 2026-10-03** (`redesign/4.2-employees`) |
 | 4.3 | **Workforce: Organization** | A | Branches, departments (company-wide), designations, grade levels, employment types, structure matrix and reporting chart; security S19. **In progress on `redesign/4.3-organization`** |
-| 4.4 | **Salary structure** | A + B | salary mapping list, mapping editor, bulk actions |
+| 4.4 | **Salary structure** | A + B | Dated salary revisions with history, Revise window, spreadsheet Bulk edit (EditGrid, Excel paste, CSV import), change batches with second-person approval, templates, revision letter; SSF on basic + grade (company setting); security S20. **In progress on `redesign/4.4-salary-structure`** |
 | 4.5 | **Time: Attendance** | A + C | register, bulk entry, lock process |
 | 4.6 | **Time: Leaves** | A | applications, approvals, balances drawer |
 | 4.7 | **Time: Policies** | A + E | leave types, leave rules, OT rules |
-| 4.8 | **Payroll run** | C | generate → pre-flight → calculate → review grid → approve → lock; payslip modal; **E1 working-period selector** (first consumer) |
+| 4.8 | **Payroll run** | C | generate → pre-flight → calculate → review grid → approve → lock; payslip modal; **E1 working-period selector** (first consumer); **arrears** for back-dated salary revisions (4.4 stores them dated; payroll already picks the revision in force; SSF on basic + grade is in place) |
 | 4.9 | **Leave salary** | C | setup + run table |
 | 4.10 | **Loans** | A | register, disbursement, repayment, loan types |
 | 4.11 | **Reports** | D | salary sheet, payslip, attendance, tax/IRD, leave, loan + print/PDF styles |
@@ -222,4 +222,4 @@ See `CHANGELOG.md`.
 - **Phase 2** is complete on `redesign/2-app-frame`, which is stacked on Phase 1. None of these branches is merged or pushed.
 - **Phase 2 is signed off.**
 - **Phase 3 is complete** on `redesign/3-component-kit`, which is stacked on Phase 2.
-- Phases 4.1 (Dashboard) and 4.2 (Employees) are signed off. 4.3 Organization is in progress on `redesign/4.3-organization`, stacked on 4.2.
+- Phases 4.1 (Dashboard) and 4.2 (Employees) are signed off. 4.3 Organization is complete on `redesign/4.3-organization`, stacked on 4.2, waiting for sign-off. 4.4 Salary structure is in progress on `redesign/4.4-salary-structure`, stacked on 4.3.

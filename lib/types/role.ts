@@ -148,9 +148,9 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
       },
       {
         key: 'SALARY_MAPPING',
-        label: 'Salary Mapping',
-        description: 'Individual basic salary, grade amount, and mapped pay heads per employee',
-        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE', 'EXPORT'],
+        label: 'Salary Structure',
+        description: 'Salary revisions (basic, grade, pay heads), bulk changes and templates. Approve lets a user approve salary changes prepared by others',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'EXPORT'],
       },
     ],
   },

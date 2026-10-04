@@ -1,31 +1,33 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
-import { SalaryMappingClient } from "@/components/salary-mapping/salary-mapping-client";
-import { getSalaryMappingData } from "@/lib/services/salary-mapping.service";
+import { SalaryStructureClient } from "@/components/salary-mapping/salary-structure-client";
+import { getStructureData } from "@/lib/services/salary-structure.service";
+import { resolveStructureTab } from "@/lib/engines/salary-structure.engine";
 import { ensureTenantContext } from "@/lib/db";
-import { checkPermission } from "@/lib/auth/check-permission";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
-  title: "Salary Mapping | AakashHRMS",
-  description:
-    "Manage employee salary mappings — basic salary, grade %, allowances, deductions, and net pay.",
+  title: "Salary structure | AakashHRMS",
+  description: "Each employee's pay as dated revisions: single changes, the bulk table, approvals, templates and revision letters.",
 };
 
-/**
- * Server component for the Salary Mapping page.
- *
- * Fetches the initial dataset through the service layer and passes
- * it to the client component. The client takes over from there and
- * owns all subsequent mutations via the same service.
- *
- * When the backend goes live, only `getSalaryMappingData()` changes
- * (it will hit the DB or call a Server Action). The server component
- * file and its imports stay identical.
- */
-export default async function SalaryMappingPage() {
+export default async function SalaryStructurePage({ searchParams }: { searchParams: Promise<{ tab?: string; employee?: string }> }) {
   await ensureTenantContext();
-  await checkPermission("VIEW", "SALARY_MAPPING");
-
-  const data = await getSalaryMappingData();
-  return <SalaryMappingClient initialData={data} />;
+  // Salary data follows the user's employee scope (S20).
+  const scope = await checkPermissionWithScope("VIEW", "SALARY_MAPPING");
+  const { tab, employee } = await searchParams;
+  const [add, edit, approve, exportAllowed] = await Promise.all([
+    hasPermission("ADD", "SALARY_MAPPING"),
+    hasPermission("EDIT", "SALARY_MAPPING"),
+    hasPermission("APPROVE", "SALARY_MAPPING"),
+    hasPermission("EXPORT", "SALARY_MAPPING"),
+  ]);
+  const data = await getStructureData({
+    tab: resolveStructureTab(tab),
+    scope,
+    userId: scope.userId,
+    permissions: { add, edit, approve, export: exportAllowed },
+  });
+  // ?employee=<id> (from the employee form) opens with that person selected.
+  return <SalaryStructureClient data={data} initialEmployeeId={typeof employee === "string" ? employee : null} />;
 }
