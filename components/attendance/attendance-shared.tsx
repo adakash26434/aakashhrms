@@ -19,12 +19,18 @@ export const DAY_TONE: Record<DayType, string> = {
   upcoming: "text-ink-faint",
 };
 
+/** A day's name; a day still to come today is "Not in yet". */
+export function dayName(day: Pick<DayResult, "dayType" | "date">, today?: string): string {
+  if (day.dayType === "upcoming") return today && day.date === today ? "Not in yet" : "Still to come";
+  return DAY_CODE[day.dayType].name;
+}
+
 /** A day's code ("P", "A", "½" …) with its tone; a dot marks an HR override, a ring a late day. */
 export function DayCode({ day, className }: { day: DayResult; className?: string }) {
   const meta = DAY_CODE[day.dayType];
   return (
     <span
-      title={`${meta.name}: ${day.rule}`}
+      title={`${dayName(day)}: ${day.rule}`}
       className={cn(
         "relative inline-flex h-5 min-w-6 items-center justify-center rounded px-1 text-2xs font-semibold",
         DAY_TONE[day.dayType],
@@ -49,6 +55,10 @@ export function DayLegend() {
           {DAY_CODE[t].name}
         </li>
       ))}
+      <li className="inline-flex items-center gap-1">
+        <span className="inline-flex h-4 min-w-5 items-center justify-center rounded px-1 text-3xs font-semibold text-ink-faint">·</span>
+        not yet (today before the shift ends, or later)
+      </li>
       <li className="inline-flex items-center gap-1">
         <span className="h-1.5 w-1.5 rounded-full bg-ink" /> set by HR
       </li>

@@ -7,7 +7,7 @@ import { FormGrid, GridField } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { submitSalaryChangeAction } from "@/app/actions/salary-structure.actions";
 import type { SubmitResult } from "@/lib/services/salary-structure.service";
@@ -122,9 +122,7 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
               <SaveOutcome data={data} outcome={outcome} className="mr-auto" />
             )
           )}
-          <WindowButton onClick={onClose} disabled={!!saving}>
-            Cancel
-          </WindowButton>
+          <WindowCancel disabled={!!saving} />
           <SaveButtons outcome={outcome} saving={saving} disabled={nothingToSend} onSave={(now) => void save(now)} submitRef={saveRef} plainLabel="Save revision" />
         </>
       }

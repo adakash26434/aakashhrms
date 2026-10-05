@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { FOCUSABLE_SELECTOR, nextTrapIndex } from "@/lib/kit/focus";
@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { DiscardBar } from "./discard-bar";
 
 export type WindowSize = "sm" | "md" | "lg" | "xl" | "full";
+
+/** The window's own close (asks "Discard changes?" when there are unsaved changes), for its footer buttons. */
+const WindowCloseContext = createContext<(() => void) | null>(null);
 
 const SIZE: Record<WindowSize, string> = {
   sm: "max-w-md",
@@ -159,7 +162,11 @@ function WindowSurface({ onClose, title, description, size = "md", children, foo
         {confirmingDiscard ? (
           <DiscardBar onKeep={() => setConfirmingDiscard(false)} onDiscard={onClose} />
         ) : (
-          footer && <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-surface-sunken px-4 py-2.5">{footer}</div>
+          footer && (
+            <WindowCloseContext.Provider value={requestClose}>
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-surface-sunken px-4 py-2.5">{footer}</div>
+            </WindowCloseContext.Provider>
+          )
         )}
       </div>
     </div>
@@ -186,5 +193,18 @@ export function WindowButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * The footer's Cancel: closes the window the same way as Esc and the close
+ * button, so unsaved changes ask "Discard changes?" first.
+ */
+export function WindowCancel({ children = "Cancel", disabled, onClick }: { children?: ReactNode; disabled?: boolean; onClick?: () => void }) {
+  const close = useContext(WindowCloseContext);
+  return (
+    <WindowButton disabled={disabled} onClick={close ?? onClick}>
+      {children}
+    </WindowButton>
   );
 }

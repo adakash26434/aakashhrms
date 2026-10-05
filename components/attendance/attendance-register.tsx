@@ -12,10 +12,11 @@ import { hoursText, localClock } from "@/lib/engines/attendance-day.engine";
 import { bsDayOf, weekdayOf } from "@/lib/engines/pay-period.engine";
 import { DAY_CODE, OVERRIDE_TYPES, type AttendancePageData, type DayResult, type OverrideType, type RegisterRow } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
-import { DayCode, DayLegend } from "./attendance-shared";
+import { DayCode, DayLegend, dayName } from "./attendance-shared";
 import { AdjustmentWindow, PunchWindow } from "./attendance-windows";
 
 const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAY_NAME = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CLEAR = "auto";
 const OPTIONS = [
   ...OVERRIDE_TYPES.map((t) => ({ value: t, label: `${DAY_CODE[t].code} · ${DAY_CODE[t].name}` })),
@@ -68,7 +69,7 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
       const off = usual ? !usual.week[wd]?.working : false;
       cols.push({
         id: `d:${date}`,
-        header: `${bs.day} ${dateText(date)}`,
+        header: `${dateText(date)} (${WEEKDAY_NAME[wd]})`,
         headerNode: (
           <span className={cn("flex flex-col items-center leading-tight", off && "text-ink-faint", date === data.today && "text-brand-strong")}>
             <span className="text-xs font-semibold">{bs.day}</span>
@@ -209,7 +210,7 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
                 {activeRow.employee.fullName} · {dateText(activeDay.date, "long")}
               </p>
               <p className="mt-0.5 flex items-center gap-1.5 text-ink-muted">
-                <DayCode day={activeDay} /> {DAY_CODE[activeDay.dayType].name}: {activeDay.rule}
+                <DayCode day={activeDay} /> {dayName(activeDay, data.today)}: {activeDay.rule}
               </p>
             </div>
             {activeDay.date <= data.today && activeDay.dayType !== "not_employed" && !activeRow.locked && activeRow.employee.id !== data.myEmployeeId && (

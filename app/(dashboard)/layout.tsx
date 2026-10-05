@@ -1,5 +1,7 @@
 import { AppFrame } from "@/components/frame/app-frame";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { DATE_FORMAT_KEY, parseDateFormat } from "@/lib/utils/date-format-pref";
 import { getTenantDb } from "@/lib/db/tenant-pool-manager";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { getWorkspaceContext } from "@/lib/services/workspace-context.service";
@@ -17,6 +19,7 @@ export default async function DashboardLayout({
 }) {
   // Super Admin "View company workspace" (verified, signed impersonation token)
   const impersonation = await getImpersonationSession();
+  const dateFormat = parseDateFormat((await cookies()).get(DATE_FORMAT_KEY)?.value);
 
   if (impersonation) {
     const tenantDb = await getTenantDb(impersonation.companySlug);
@@ -28,6 +31,7 @@ export default async function DashboardLayout({
     return (
       <AppFrame
         context={context}
+        dateFormat={dateFormat}
         impersonation={{
           actorName: impersonation.actorName,
           companyName: impersonation.companyName,
@@ -57,5 +61,9 @@ export default async function DashboardLayout({
   }
 
   const context = await getWorkspaceContext();
-  return <AppFrame context={context}>{children}</AppFrame>;
+  return (
+    <AppFrame context={context} dateFormat={dateFormat}>
+      {children}
+    </AppFrame>
+  );
 }

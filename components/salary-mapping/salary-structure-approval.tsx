@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, Check, CircleDot, Loader2, Plus, Save, ShieldCheck, SkipForward, Trash2, Undo2, UserCheck, X } from "lucide-react";
 import { Combobox } from "@/components/kit/combobox";
 import { useDateText } from "@/components/kit/date-cell";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { saveSalaryApprovalSettingsAction } from "@/app/actions/salary-structure.actions";
 import { buildFlow, statusText, type ApprovalActor, type SubmitOutcome } from "@/lib/engines/approval.engine";
 import { changedLines, earliestOpenDate, finalisedConflicts } from "@/lib/engines/salary-structure.engine";
@@ -273,9 +273,7 @@ export function ApprovalSettingsWindow({ data, onClose, onSaved }: { data: Salar
           ) : (
             <span className="mr-auto text-2xs text-ink-muted">{pending ? `${pending} change${pending === 1 ? "" : "s"} waiting keep the approvers they were sent to.` : "Applies to changes saved from now on."}</span>
           )}
-          <WindowButton onClick={onClose} disabled={saving}>
-            Cancel
-          </WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton variant="primary" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save settings
           </WindowButton>

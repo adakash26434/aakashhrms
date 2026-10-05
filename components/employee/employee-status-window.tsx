@@ -6,7 +6,7 @@ import { DateField } from "@/components/kit/date-field";
 import { FormGrid, GridField } from "@/components/kit/form-grid";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { setEmployeeStatusAction } from "@/app/actions/employee.actions";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import type { EmployeeValidationErrors } from "@/lib/types/employee";
@@ -76,9 +76,7 @@ function StatusWindowBody({ target, onClose, onDone }: { target: StatusTarget; o
       size={leaving ? "lg" : "sm"}
       footer={
         <>
-          <WindowButton onClick={onClose} disabled={pending}>
-            Cancel
-          </WindowButton>
+          <WindowCancel disabled={pending} />
           <WindowButton ref={submitRef} variant={leaving ? "danger" : "primary"} onClick={submit} disabled={pending}>
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : leaving ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
             {leaving ? "Make inactive" : "Make active"}

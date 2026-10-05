@@ -10,7 +10,7 @@ import { FormGrid, GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { assignShiftAction, rotateRosterAction, setRosterAction } from "@/app/actions/shift.actions";
 import { bsDayOf, weekdayOf } from "@/lib/engines/pay-period.engine";
 import { MAX_ROTATION_DAYS, rotate } from "@/lib/engines/shift.engine";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { ShiftChip } from "./attendance-shared";
 
 const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAY_NAME = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const OFF = "OFF";
 const USUAL = "USUAL";
 const SOURCE_TEXT = { roster: "Roster day", assignment: "Assigned shift", branch: "Branch default", company: "Company default" } as const;
@@ -85,7 +86,7 @@ export function AttendanceRoster({ data, onSaved }: { data: AttendancePageData; 
       const wd = weekdayOf(date);
       cols.push({
         id: `d:${date}`,
-        header: `${bs.day} ${dateText(date)}`,
+        header: `${dateText(date)} (${WEEKDAY_NAME[wd]})`,
         headerNode: (
           <span className={cn("flex flex-col items-center leading-tight", date === data.today && "text-brand-strong")}>
             <span className="text-xs font-semibold">{bs.day}</span>
@@ -155,6 +156,13 @@ export function AttendanceRoster({ data, onSaved }: { data: AttendancePageData; 
     setEdits(new Map());
     setNote("");
     onSaved(`${result.data.count} roster day${result.data.count === 1 ? "" : "s"} saved.`);
+  };
+
+  // A saved window closes; unsaved roster edits in the grid are dropped (the page reloads the roster).
+  const windowSaved = (text: string) => {
+    setWindowOpen(null);
+    setEdits(new Map());
+    onSaved(text);
   };
 
   const activeRow = active ? data.roster.find((r) => r.employee.id === active.rowId) : null;
@@ -256,8 +264,8 @@ export function AttendanceRoster({ data, onSaved }: { data: AttendancePageData; 
         </section>
       )}
 
-      {windowOpen === "assign" && <AssignWindow data={data} people={people} shifts={activeShifts} onClose={() => setWindowOpen(null)} onSaved={onSaved} />}
-      {windowOpen === "rotate" && <RotateWindow data={data} people={people} shifts={activeShifts} onClose={() => setWindowOpen(null)} onSaved={onSaved} />}
+      {windowOpen === "assign" && <AssignWindow data={data} people={people} shifts={activeShifts} onClose={() => setWindowOpen(null)} onSaved={windowSaved} />}
+      {windowOpen === "rotate" && <RotateWindow data={data} people={people} shifts={activeShifts} onClose={() => setWindowOpen(null)} onSaved={windowSaved} />}
     </div>
   );
 }
@@ -275,7 +283,8 @@ const firstOpenDay = (data: AttendancePageData) => (data.today >= data.period.st
 
 /** Gives the chosen people a shift from a date (to a date, or ongoing); their earlier shift ends the day before. */
 function AssignWindow({ data, people, shifts, onClose, onSaved }: { data: AttendancePageData; people: RosterRow[]; shifts: ShiftView[]; onClose: () => void; onSaved: (t: string) => void }) {
-  const [form, setForm] = useState({ shiftId: shifts.find((s) => !s.isDefault)?.id ?? shifts[0]?.id ?? "", from: firstOpenDay(data), to: "", note: "" });
+  const [start] = useState(() => ({ shiftId: shifts.find((s) => !s.isDefault)?.id ?? shifts[0]?.id ?? "", from: firstOpenDay(data), to: "", note: "" }));
+  const [form, setForm] = useState(start);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -298,13 +307,14 @@ function AssignWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
     <Window
       open
       onClose={saving ? () => {} : onClose}
+      dirty={JSON.stringify(form) !== JSON.stringify(start)}
       size="md"
       title="Assign shift"
       description="Their usual shift from a date. Roster days (swaps, OFF) still win on their days."
       footer={
         <>
           <Failure text={failure} />
-          <WindowButton onClick={onClose} disabled={saving}>Cancel</WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving || !people.length}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Assign
           </WindowButton>
@@ -354,10 +364,12 @@ function RotateWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
   const saveRef = useRef<HTMLButtonElement>(null);
   const dateText = useDateText();
   const byId = new Map(shifts.map((s) => [s.id, s]));
-  const everyDays = unit === "weeks" ? every * 7 : every;
+  const everyDays = (unit === "weeks" ? 7 : 1) * Math.max(1, every);
   const preview = useMemo(() => (from && to && to >= from ? rotate({ shiftIds: steps, everyDays: Math.max(1, everyDays), from, to, startAt }) : []), [steps, everyDays, from, to, startAt]);
   const stepOptions = [...shifts.map((s) => ({ value: s.id, label: `${s.code} · ${s.name}` })), { value: OFF, label: "OFF (day off)" }];
   const label = (id: string) => (id === OFF ? OFF : byId.get(id)?.code ?? "?");
+  const [startState] = useState(() => JSON.stringify({ steps, every, unit, from, to, startAt }));
+  const rotateDirty = JSON.stringify({ steps, every, unit, from, to, startAt }) !== startState;
 
   const save = async () => {
     setSaving(true);
@@ -374,13 +386,14 @@ function RotateWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
     <Window
       open
       onClose={saving ? () => {} : onClose}
+      dirty={rotateDirty}
       size="lg"
       title="Rotate shifts"
       description="Fills the roster: each step for a number of days or weeks, in order, then round again. It replaces roster days in the dates chosen."
       footer={
         <>
           <Failure text={failure} />
-          <WindowButton onClick={onClose} disabled={saving}>Cancel</WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving || !people.length || steps.length < 2}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Fill roster
           </WindowButton>
@@ -413,7 +426,7 @@ function RotateWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
             {errors.shiftIds && <p className="mt-1 text-2xs text-danger">{errors.shiftIds}</p>}
           </GridValue>
           <GridField label="Each step lasts" error={errors.everyDays} size="code">
-            <NumberField name="every" decimals={0} value={every} onChange={(v) => setEvery(Math.max(1, Math.min(31, Math.round(v) || 1)))} />
+            <NumberField name="every" decimals={0} max={31} selectOnFocus value={every} onChange={(v) => setEvery(Math.round(v))} />
           </GridField>
           <GridField label="Unit" size="code">
             <SelectField

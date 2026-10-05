@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Loader2, Save } from "lucide-react";
 import { FormGrid, GridField, type GridFieldSize } from "@/components/kit/form-grid";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { saveOrgRecordAction } from "@/app/actions/organization.actions";
 import {
   ORG_KIND_LABEL,
@@ -229,9 +229,7 @@ function EditorBody({ target, data, onClose, onSaved }: { target: EditTarget; da
       size={kind === "designation" ? "md" : "xl"}
       footer={
         <>
-          <WindowButton onClick={onClose} disabled={saving}>
-            Cancel
-          </WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             {id ? "Save changes" : `Add ${noun}`}

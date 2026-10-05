@@ -307,7 +307,7 @@ export function DataGrid<T>({
       sorted
     );
     downloadTextFile(`${safeFilename(name)}_${new Date().toISOString().slice(0, 10)}.csv`, csv);
-    setNotice(`Exported ${sorted.length} rows`);
+    setNotice(`Exported ${sorted.length} ${sorted.length === 1 ? "row" : "rows"}`);
   };
 
   const onBodyKeyDown = (e: React.KeyboardEvent) => {
@@ -392,7 +392,7 @@ export function DataGrid<T>({
           </button>
         </span>
       )}
-      <span className="text-2xs text-ink-faint tabular-nums">{sorted.length.toLocaleString("en-IN")} rows</span>
+      <span className="text-2xs text-ink-faint tabular-nums">{sorted.length.toLocaleString("en-IN")} {sorted.length === 1 ? "row" : "rows"}</span>
       <button type="button" onClick={() => void copyRows()} className="flex h-7 items-center gap-1 rounded-md px-2 text-xs text-ink-muted hover:bg-surface-sunken hover:text-ink cursor-pointer" title="Copy selected rows (Ctrl C)">
         <Copy className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Copy</span>

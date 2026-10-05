@@ -29,6 +29,8 @@ export interface SelectFieldProps {
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
   "aria-required"?: boolean;
+  /** Focus this field first when its window opens. */
+  "data-autofocus"?: boolean;
 }
 
 /**

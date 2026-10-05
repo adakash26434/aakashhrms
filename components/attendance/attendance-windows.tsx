@@ -8,7 +8,7 @@ import { FormGrid, GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { addAttendancePunchesAction, createAttendanceAdjustmentAction, saveAttendanceRulesAction } from "@/app/actions/attendance.actions";
 import { ADJUSTMENT_KINDS, ADJUSTMENT_KIND_LABEL, type AdjustmentKind, type AttendancePageData } from "@/lib/types/attendance";
@@ -33,7 +33,8 @@ function Failure({ text }: { text: string | null }) {
 
 /** HR punch: a check-in and / or check-out for a day, with a note (an out before the in is the next morning). */
 export function PunchWindow({ data, initial, onClose, onSaved }: { data: AttendancePageData; initial?: { employeeId: string; date: string }; onClose: () => void; onSaved: Saved }) {
-  const [form, setForm] = useState({ employeeId: initial?.employeeId ?? "", date: initial?.date ?? data.today, in: "", out: "", note: "" });
+  const [start] = useState(() => ({ employeeId: initial?.employeeId ?? "", date: initial?.date ?? data.today, in: "", out: "", note: "" }));
+  const [form, setForm] = useState(start);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -54,13 +55,14 @@ export function PunchWindow({ data, initial, onClose, onSaved }: { data: Attenda
     <Window
       open
       onClose={saving ? () => {} : onClose}
+      dirty={JSON.stringify(form) !== JSON.stringify(start)}
       size="md"
       title="Add punch"
       description="For a check-in or check-out the employee could not record. It is kept in the punch log with your name and note."
       footer={
         <>
           <Failure text={failure} />
-          <WindowButton onClick={onClose} disabled={saving}>Cancel</WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Add punch
           </WindowButton>
@@ -92,7 +94,8 @@ export function PunchWindow({ data, initial, onClose, onSaved }: { data: Attenda
 
 /** A new adjustment (regularization) on an employee's behalf; it waits for their supervisor or an approver. */
 export function AdjustmentWindow({ data, initial, onClose, onSaved }: { data: AttendancePageData; initial?: { employeeId: string; date: string }; onClose: () => void; onSaved: Saved }) {
-  const [form, setForm] = useState({ employeeId: initial?.employeeId ?? "", date: initial?.date ?? data.today, kind: "missed_out" as AdjustmentKind, in: "", out: "", reason: "" });
+  const [start] = useState(() => ({ employeeId: initial?.employeeId ?? "", date: initial?.date ?? data.today, kind: "missed_out" as AdjustmentKind, in: "", out: "", reason: "" }));
+  const [form, setForm] = useState(start);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -116,13 +119,14 @@ export function AdjustmentWindow({ data, initial, onClose, onSaved }: { data: At
     <Window
       open
       onClose={saving ? () => {} : onClose}
+      dirty={JSON.stringify(form) !== JSON.stringify(start)}
       size="md"
       title="New adjustment"
       description="For a missed or wrong check-in / check-out, field work, or a day to count as present. It counts once approved (never by the employee themselves)."
       footer={
         <>
           <Failure text={failure} />
-          <WindowButton onClick={onClose} disabled={saving}>Cancel</WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Send for approval
           </WindowButton>
@@ -194,7 +198,7 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
       footer={
         <>
           <Failure text={failure} />
-          <WindowButton onClick={onClose} disabled={saving}>Cancel</WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save rules
           </WindowButton>
@@ -205,6 +209,7 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
         <FormGrid columns={2}>
           <GridField label="Nothing recorded" size="md" help="A working day with no punch, leave or adjustment">
             <SelectField
+              data-autofocus
               name="noRecord"
               options={[
                 { value: "absent", label: "Absent (unpaid)" },
@@ -218,7 +223,7 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
             <YesNoField name="lateEnabled" value={form.lateEnabled} onChange={(v) => set("lateEnabled", v)} />
           </GridField>
           <GridField label="Late days per half day" error={errors.lateCount} size="xs">
-            <NumberField name="lateCount" decimals={0} value={form.lateCount} onChange={(v) => set("lateCount", v)} readOnly={!form.lateEnabled} />
+            <NumberField name="lateCount" decimals={0} max={10} value={form.lateCount} onChange={(v) => set("lateCount", v)} disabled={!form.lateEnabled} />
           </GridField>
           <GridValue label="Month calendar">
             <span className={cn("text-sm")}>Bikram Sambat months (29–32 days)</span>
@@ -251,7 +256,7 @@ export function ReasonWindow({ title, description, action, danger, onClose, onCo
       footer={
         <>
           <Failure text={failure} />
-          <WindowButton onClick={onClose} disabled={busy}>Cancel</WindowButton>
+          <WindowCancel disabled={busy} />
           <WindowButton variant={danger ? "danger" : "primary"} onClick={go} disabled={busy || reason.trim().length < 3}>
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {action}
           </WindowButton>

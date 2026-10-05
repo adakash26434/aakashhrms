@@ -10,7 +10,7 @@ import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
 import { StatusChip } from "@/components/kit/status-chip";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { saveSalaryTemplateAction, setSalaryTemplateActiveAction } from "@/app/actions/salary-structure.actions";
 import type { SalaryStructureData, TemplateInput, TemplateRow } from "@/lib/types/salary-structure";
@@ -144,9 +144,7 @@ function TemplateWindow({ data, template, onClose, onSaved }: { data: SalaryStru
       description="Amounts are monthly. Heads left at 0 are not part of the template."
       footer={
         <>
-          <WindowButton onClick={onClose} disabled={saving}>
-            Cancel
-          </WindowButton>
+          <WindowCancel disabled={saving} />
           <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save template
           </WindowButton>

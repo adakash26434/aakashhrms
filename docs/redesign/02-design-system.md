@@ -195,7 +195,7 @@ are designed so it only needs new values.
 | `DataGrid` | Every register. Give it an `id` (prefs are remembered per grid), `columns` with `type` (`text`/`amount`/`number`/`date`/`code`/`status`), `value` for sort, total, copy and export, and `sticky` for pinned leading columns. Optional: `rowTone` (E9), `exportModule` (audited CSV), `selectable`, `onOpen`, `activeRowId`. |
 | `FilterStrip` | Search + filters + applied chips + saved views above a grid |
 | `SplitView` | Register + detail pane (detail = `FactBox` / record summary) |
-| `Window` + `WindowButton` | Every dialog; pass `dirty` on edit forms |
+| `Window` + `WindowButton` + `WindowCancel` | Every dialog; pass `dirty` on edit forms. The footer Cancel is `WindowCancel` (it asks "Discard changes?" like Esc and ×; a plain `WindowButton onClick={onClose}` would skip that). A window closes itself after a successful save. |
 | `Confirm` | Every confirmation; `requireText` for destructive or irreversible actions |
 | `PropertyForm` / `FieldGroup` / `FieldRow` / `inputClass` | Every form |
 | `Tabs` | Horizontal (pages) or vertical (record editor sections) |
@@ -434,7 +434,7 @@ the sticky footer.
 Form kit added in 4.2: `FormGrid` / `GridField` / `GridValue` / `useFieldHelp`,
 `SelectField`, `YesNoField`, `Combobox`, `DateField` (BS/AD typed or picked,
 stored as AD, limited to the years the calendar library supports),
-`NumberField` (right-aligned amounts), `SectionIndex`, `useUnsavedGuard` +
+`NumberField` (right-aligned amounts and counts, typed, never browser spinners; `max` refuses larger values, `selectOnFocus` for small fields such as a day of the month), `SectionIndex`, `useUnsavedGuard` +
 `DiscardBar` (shared with `Window`), `scrollIntoContainer`. Rule: a control
 must keep the same element tree while the user types (a wrapper that appears
 or disappears remounts the input and drops focus).

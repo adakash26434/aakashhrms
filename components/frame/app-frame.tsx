@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { ImpersonationBanner } from "@/components/platform/impersonation-banner";
 import { DateFormatProvider } from "@/lib/contexts/date-format-context";
+import type { DateFormat } from "@/lib/utils/date-format-pref";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/sidebar-context";
 import { WorkspaceContextProvider } from "@/lib/contexts/workspace-context";
 import { findActiveLocation, visibleModules, type ModuleId, type NavModule } from "@/lib/frame/navigation";
@@ -30,6 +31,8 @@ interface AppFrameProps {
   children: React.ReactNode;
   context?: WorkspaceContext;
   impersonation?: ImpersonationInfo;
+  /** The user's date format from its cookie (rendered on the server without a flash). */
+  dateFormat?: DateFormat | null;
 }
 
 /**
@@ -42,9 +45,9 @@ interface AppFrameProps {
  * ≥1280px: rail + docked navigator (Ctrl B). 1024–1279px: rail, navigator
  * floats on demand. <1024px: both live in a drawer behind the menu button.
  */
-export function AppFrame({ children, context, impersonation }: AppFrameProps) {
+export function AppFrame({ children, context, impersonation, dateFormat }: AppFrameProps) {
   return (
-    <DateFormatProvider>
+    <DateFormatProvider initialFormat={dateFormat}>
       <WorkspaceContextProvider value={context}>
         <SidebarProvider>
           <FrameLayout context={context} impersonation={impersonation}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { DATE_FORMAT_KEY, DEFAULT_DATE_FORMAT, parseDateFormat, type DateFormat } from "@/lib/utils/date-format-pref";
 
 /**
  * The four user-selectable date display formats.
@@ -14,13 +15,18 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
  * presentation (numeric/iso vs long). Switching calendar preserves
  * the presentation (e.g. "bs-long" → "ad-long").
  */
-export type DateFormat = "bs-long" | "bs-numeric" | "ad-iso" | "ad-long";
+export type { DateFormat };
 
 export type Calendar = "bs" | "ad";
 export type DateFormatVariant = "long" | "iso" | "numeric";
 
-const STORAGE_KEY = "payroll.dateFormat";
-const DEFAULT_FORMAT: DateFormat = "bs-numeric";
+const STORAGE_KEY = DATE_FORMAT_KEY;
+const DEFAULT_FORMAT: DateFormat = DEFAULT_DATE_FORMAT;
+
+/** Saves the choice where the server can read it on the next page (one year). */
+function writeCookie(f: DateFormat) {
+  document.cookie = `${DATE_FORMAT_KEY}=${f}; path=/; max-age=31536000; samesite=lax`;
+}
 
 interface DateFormatContextValue {
   /** The full format (calendar + presentation). */
@@ -43,12 +49,7 @@ interface DateFormatContextValue {
 const DateFormatContext = createContext<DateFormatContextValue | null>(null);
 
 function isDateFormat(s: string): s is DateFormat {
-  return (
-    s === "bs-long" ||
-    s === "bs-numeric" ||
-    s === "ad-iso" ||
-    s === "ad-long"
-  );
+  return parseDateFormat(s) !== null;
 }
 
 function calendarOf(f: DateFormat): Calendar {
@@ -79,8 +80,9 @@ function formatForCalendar(
  * the server and reads localStorage inside a `useEffect` (avoids
  * hydration mismatches).
  */
-export function DateFormatProvider({ children }: { children: React.ReactNode }) {
-  const [format, setFormatState] = useState<DateFormat>(DEFAULT_FORMAT);
+export function DateFormatProvider({ children, initialFormat }: { children: React.ReactNode; initialFormat?: DateFormat | null }) {
+  // The server passes the cookie's format, so the first render already shows it.
+  const [format, setFormatState] = useState<DateFormat>(initialFormat ?? DEFAULT_FORMAT);
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage once on mount.
@@ -98,12 +100,16 @@ export function DateFormatProvider({ children }: { children: React.ReactNode }) 
       if (stored && isDateFormat(stored)) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setFormatState(stored);
+        // Choices made before the cookie existed: copy them so the server renders them next time.
+        if (stored !== initialFormat) writeCookie(stored);
       }
     } catch {
       /* localStorage may be disabled (private mode, etc.) — ignore. */
     } finally {
       setHydrated(true);
     }
+    // Once on mount: initialFormat is the server's first value, not something to follow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setFormat = useCallback((f: DateFormat) => {
@@ -113,6 +119,7 @@ export function DateFormatProvider({ children }: { children: React.ReactNode }) 
     } catch {
       /* ignore */
     }
+    writeCookie(f);
   }, []);
 
   const calendar = calendarOf(format);

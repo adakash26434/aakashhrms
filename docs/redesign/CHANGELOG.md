@@ -13,6 +13,25 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.5b UI / UX pass (your feedback)
+Branch: `redesign/4.5-attendance`
+
+- **Windows close after saving**: Assign shift and Rotate stayed open after a save; they now close (and the roster reloads).
+- **Typing numbers**: the season day boxes were browser number inputs (spinner arrows, a cleared box became 0); they are `NumberField`s now, with a maximum (32) and the contents selected on click so typing replaces them. The rotation's "each step lasts" no longer jumps back to 1 while you type.
+- **Cancel asks before discarding**: footer Cancel buttons closed windows without the "Discard changes?" question (only Esc and × asked). New kit `WindowCancel` used in every redesigned window (attendance, organization, salary structure, employee status); Add punch, New adjustment, Assign shift and Rotate now also tell the window when something was typed.
+- **Shift window**: row checks (week, seasons) show after a save attempt, not as soon as a season row is added.
+- **Attendance rules**: the first field gets focus; the late-day count is greyed out while the late rule is off.
+- **Register**: today before the shift ends reads "Not in yet" (not "Upcoming"); the legend explains "·"; the status line shows the date and weekday once.
+- **Punch log**: column widths rebalanced so "In / out" and Void fit at 1366 px.
+- **Grids**: "1 row" instead of "1 rows".
+- **Date format (whole app)**: the BS / AD choice was read only in the browser, so every page drew BS first and switched to AD a moment later. It is now also kept in a cookie and the server draws the chosen format straight away.
+
+Verified: tsc 0 · eslint: nothing new · 578/578 tests · `next build` · Browser (nothing saved): typing in shift numbers and season days, Cancel → "Discard changes?", rules window focus, register day pane, Punch log at 1366, BS / AD rendered by the server, 0 console errors (the one hydration message seen comes from the test tool hiding the caret during screenshots).
+
+Not changed now: leave, loan, payroll and platform screens still use browser number inputs; they are fixed when those modules are redesigned (4.6 onwards).
+
+---
+
 ## 2026-10-05 — 4.5b Shifts and roster
 Branch: `redesign/4.5-attendance`
 

@@ -6,7 +6,7 @@ import { FormGroup, GridField, GridValue } from "@/components/kit/form-grid";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { Window, WindowButton } from "@/components/kit/window";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { saveShiftAction } from "@/app/actions/shift.actions";
 import { hoursText } from "@/lib/engines/attendance-day.engine";
 import { MAX_SEASONS, parseShift, plannedMinutes, plannedWeekMinutes, shiftWarnings } from "@/lib/engines/shift.engine";
@@ -97,6 +97,8 @@ export function ShiftWindow({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Row checks (week, seasons) show once a save has been tried, not while a row is still being filled in.
+  const [tried, setTried] = useState(false);
   const saveRef = useRef<HTMLButtonElement>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const setDay = (i: number, v: Partial<ShiftWeekDay>) => setForm((f) => ({ ...f, week: f.week.map((w, j) => (j === i ? { ...w, ...v } : w)) }));
@@ -111,6 +113,7 @@ export function ShiftWindow({
 
   const save = async () => {
     if (readOnly) return;
+    setTried(true);
     setSaving(true);
     const result = await saveShiftAction({ ...form, id: editingId });
     setSaving(false);
@@ -141,9 +144,7 @@ export function ShiftWindow({
               {failure}
             </p>
           )}
-          <WindowButton onClick={onClose} disabled={saving}>
-            {readOnly ? "Close" : "Cancel"}
-          </WindowButton>
+          <WindowCancel disabled={saving}>{readOnly ? "Close" : "Cancel"}</WindowCancel>
           {!readOnly && (
             <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save shift
@@ -249,14 +250,14 @@ export function ShiftWindow({
                         </td>
                         <td className={cn("py-1 tabular-nums", w.working ? "text-ink" : "text-ink-faint")}>
                           {form.kind === "flexible" && w.working ? hoursText(form.fullDayMinutes) : dayHours(w)}
-                          {(errors[`week.${i}`] || parsed.errors[`week.${i}`]) && <span className="ml-2 text-danger">{errors[`week.${i}`] || parsed.errors[`week.${i}`]}</span>}
+                          {(errors[`week.${i}`] || (tried ? parsed.errors[`week.${i}`] : undefined)) && <span className="ml-2 text-danger">{errors[`week.${i}`] || (tried ? parsed.errors[`week.${i}`] : undefined)}</span>}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              {(errors.week || parsed.errors.week) && <p className="mt-1 text-2xs text-danger">{errors.week || parsed.errors.week}</p>}
+              {(errors.week || (tried ? parsed.errors.week : undefined)) && <p className="mt-1 text-2xs text-danger">{errors.week || (tried ? parsed.errors.week : undefined)}</p>}
             </div>
           </FormGroup>
 
@@ -291,7 +292,7 @@ export function ShiftWindow({
                   <label className="flex flex-col gap-0.5">
                     <span className="text-3xs uppercase tracking-wide text-ink-muted">From</span>
                     <span className="flex gap-1">
-                      <input aria-label="From day" type="number" min={1} max={32} value={s.fromDay} onChange={(e) => setSeason(i, { fromDay: Number(e.target.value) })} className={cn(inputClass, "w-14")} />
+                      <NumberField aria-label="From day" name={`season-${i}-fromDay`} decimals={0} max={32} selectOnFocus value={s.fromDay} onChange={(v) => setSeason(i, { fromDay: v })} className="w-14" />
                       <span className="w-28">
                         <SelectField name={`season-${i}-from`} aria-label="From month" options={MONTHS} value={String(s.fromMonth)} onChange={(v) => setSeason(i, { fromMonth: Number(v) })} />
                       </span>
@@ -300,7 +301,7 @@ export function ShiftWindow({
                   <label className="flex flex-col gap-0.5">
                     <span className="text-3xs uppercase tracking-wide text-ink-muted">To</span>
                     <span className="flex gap-1">
-                      <input aria-label="To day" type="number" min={1} max={32} value={s.toDay} onChange={(e) => setSeason(i, { toDay: Number(e.target.value) })} className={cn(inputClass, "w-14")} />
+                      <NumberField aria-label="To day" name={`season-${i}-toDay`} decimals={0} max={32} selectOnFocus value={s.toDay} onChange={(v) => setSeason(i, { toDay: v })} className="w-14" />
                       <span className="w-28">
                         <SelectField name={`season-${i}-to`} aria-label="To month" options={MONTHS} value={String(s.toMonth)} onChange={(v) => setSeason(i, { toMonth: Number(v) })} />
                       </span>
@@ -319,10 +320,10 @@ export function ShiftWindow({
                       <Trash2 className="h-3.5 w-3.5" />
                     </WindowButton>
                   )}
-                  {(errors[`seasons.${i}`] || parsed.errors[`seasons.${i}`]) && <p className="w-full text-2xs text-danger">{errors[`seasons.${i}`] || parsed.errors[`seasons.${i}`]}</p>}
+                  {(errors[`seasons.${i}`] || (tried ? parsed.errors[`seasons.${i}`] : undefined)) && <p className="w-full text-2xs text-danger">{errors[`seasons.${i}`] || (tried ? parsed.errors[`seasons.${i}`] : undefined)}</p>}
                 </div>
               ))}
-              {(errors.seasons || parsed.errors.seasons) && <p className="text-2xs text-danger">{errors.seasons || parsed.errors.seasons}</p>}
+              {(errors.seasons || (tried ? parsed.errors.seasons : undefined)) && <p className="text-2xs text-danger">{errors.seasons || (tried ? parsed.errors.seasons : undefined)}</p>}
             </div>
           </FormGroup>
 
