@@ -7,7 +7,7 @@ import { UserFacingError } from "@/lib/errors/action-error";
 import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "@/lib/services/attendance-errors";
 import { addDays, WEEKDAYS } from "@/lib/engines/pay-period.engine";
 import { clockMinutes, DEFAULT_SHIFT } from "@/lib/engines/attendance-day.engine";
-import { MAX_ROTATION_DAYS, parseShift, plannedMinutes, rotate, shiftForDay, shiftWarnings, weekFromOffs, type ShiftInput } from "@/lib/engines/shift.engine";
+import { MAX_ROTATION_DAYS, parseShift, plannedMinutes, rotate, shiftForDay, shiftWarnings, weekFromOffs, weeklyOffOf, type ShiftInput } from "@/lib/engines/shift.engine";
 import type { ShiftDefinition, ShiftRule, ShiftSource } from "@/lib/types/attendance";
 
 // Shifts (4.5b): company-wide roles define shifts (the actions check that);
@@ -265,7 +265,10 @@ export async function setRoster(raw: unknown, ctx: { scope: ScopeFilter; userId:
 }
 
 /** Fills the roster from a rotation: shifts (or OFF) in order, each for N days, between two dates. */
-export async function rotateRoster(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ people: number; days: number }> {
+export async function rotateRoster(
+  raw: unknown,
+  ctx: { scope: ScopeFilter; userId: string }
+): Promise<{ people: number; days: number; from: string; to: string; steps: string; everyDays: number }> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const errors: Record<string, string> = {};
   const from = isoDate(r.from);
@@ -281,9 +284,11 @@ export async function rotateRoster(raw: unknown, ctx: { scope: ScopeFilter; user
   if (order.length < 2) errors.shiftIds = "Choose at least two steps";
   if (!Number.isInteger(startAt) || startAt < 0 || startAt >= Math.max(1, order.length)) errors.startAt = "Choose where the rotation starts";
   if (Object.keys(errors).length) throw new AttendanceValidationError(errors);
-  for (const id of new Set(order.filter((x) => x !== "OFF"))) await activeShift(id);
+  const used = new Map<string, ShiftDefinition>();
+  for (const id of new Set(order.filter((x) => x !== "OFF"))) used.set(id, await activeShift(id));
   const ids = Array.isArray(r.employeeIds) ? [...new Set(r.employeeIds.filter((x): x is string => typeof x === "string"))] : [];
-  const days = rotate({ shiftIds: order, everyDays, from: from!, to: to!, startAt });
+  // Each step's shift keeps its own weekly offs; OFF steps give rotating days off.
+  const days = rotate({ shiftIds: order, everyDays, from: from!, to: to!, startAt, offOn: weeklyOffOf([...used.values()]) });
   if (ids.length * days.length > MAX_ROSTER_CELLS) throw new UserFacingError(`That is ${ids.length * days.length} roster days; fill at most ${MAX_ROSTER_CELLS} at a time.`);
   await guardPeople(ctx.scope, ids, from!, to!);
   const note = typeof r.note === "string" ? r.note.trim().slice(0, 300) || null : "Rotation";
@@ -292,5 +297,6 @@ export async function rotateRoster(raw: unknown, ctx: { scope: ScopeFilter; user
     note,
     ctx.userId
   );
-  return { people: ids.length, days: days.length };
+  const steps = order.map((id) => (id === "OFF" ? "OFF" : used.get(id)!.code)).join(" → ");
+  return { people: ids.length, days: days.length, from: from!, to: to!, steps, everyDays };
 }

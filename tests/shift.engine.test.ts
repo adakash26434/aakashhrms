@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, periodFor, weekdayOf } from '../lib/engines/pay-period.engine';
-import { dayPlan, parseShift, plannedWeekMinutes, rotate, seasonOn, shiftForDay, shiftSummary, shiftWarnings, type ShiftInput } from '../lib/engines/shift.engine';
+import { dayPlan, longestWorkRun, parseShift, plannedWeekMinutes, rotate, seasonOn, shiftForDay, shiftSummary, shiftWarnings, weeklyOffOf, type ShiftInput } from '../lib/engines/shift.engine';
 import type { ShiftDefinition } from '../lib/types/attendance';
 
 // Shifts (4.5b): each company defines its own. A week (off days, own hours
@@ -120,6 +120,31 @@ describe('Rotations', () => {
     assert.deepEqual(days.map((d) => (d.off ? 'OFF' : d.shiftId)), ['A', 'A', 'B', 'B', 'OFF', 'OFF', 'A']);
     const team2 = rotate({ shiftIds: ['A', 'B'], everyDays: 7, from: '2026-10-01', to: '2026-10-15', startAt: 1 });
     assert.deepEqual([team2[0].shiftId, team2[6].shiftId, team2[7].shiftId, team2[14].shiftId], ['B', 'B', 'A', 'B']);
+  });
+  it("each shift keeps its own weekly offs (a GEN → NGT rotation never turns Sat / Sun into working days)", () => {
+    const gen = shift();
+    const ngt = shift({ id: 'ngt', code: 'NGT', start: '22:00', end: '06:00', week: week([0, 6]) });
+    const plant = shift({ id: 'plant', code: 'PLT', week: week([]) });
+    const offOn = weeklyOffOf([gen, ngt, plant]);
+    // 5–17 Oct 2026 (Mon–Sat), a week each: the case found in 4.6a.
+    const days = rotate({ shiftIds: ['gen', 'ngt'], everyDays: 7, from: MON, to: '2026-10-17', offOn });
+    const code = (d: { shiftId: string | null; off: boolean }) => (d.off ? 'OFF' : d.shiftId);
+    assert.deepEqual(days.map(code), ['gen', 'gen', 'gen', 'gen', 'gen', 'OFF', 'OFF', 'ngt', 'ngt', 'ngt', 'ngt', 'ngt', 'OFF']);
+    // Through the day rules: Saturday is a weekly off, not GEN.
+    const sat = days.find((d) => d.date === SAT)!;
+    assert.equal(shiftForDay(SAT, { roster: sat, assignments: [], branchDefaultId: null, companyDefaultId: 'gen' }, new Map([['gen', gen]])).plan.off, true);
+    // A shift with no weekly off is worked every day; OFF steps rotate the days off.
+    assert.equal(rotate({ shiftIds: ['plant', 'OFF'], everyDays: 6, from: MON, to: '2026-10-17', offOn }).filter((d) => d.off).length, 6);
+    // Without offOn (old behaviour) every day of a shift step is worked.
+    assert.equal(rotate({ shiftIds: ['gen', 'ngt'], everyDays: 7, from: MON, to: '2026-10-17' }).some((d) => d.off), false);
+  });
+  it('the longest run of working days (Labour Act §40: a day off a week)', () => {
+    const plant = shift({ id: 'plant', code: 'PLT', week: week([]) });
+    const all = rotate({ shiftIds: ['plant', 'plant'], everyDays: 7, from: MON, to: '2026-10-17', offOn: weeklyOffOf([plant]) });
+    assert.deepEqual(longestWorkRun(all), { days: 13, from: MON });
+    const gen = rotate({ shiftIds: ['gen', 'gen'], everyDays: 7, from: MON, to: '2026-10-17', offOn: weeklyOffOf([shift()]) });
+    assert.deepEqual(longestWorkRun(gen), { days: 5, from: MON });
+    assert.deepEqual(longestWorkRun([]), { days: 0, from: null });
   });
   it('at most 92 days at a time; nothing for bad input', () => {
     assert.equal(rotate({ shiftIds: ['A', 'B'], everyDays: 1, from: '2026-01-01', to: '2026-12-31' }).length, 92);

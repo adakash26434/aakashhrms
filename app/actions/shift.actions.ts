@@ -141,9 +141,9 @@ export async function rotateRosterAction(input: unknown): Promise<Ok<{ people: n
   try {
     scope = await checkPermissionWithScope('EDIT', 'ATTENDANCE');
     const result = await shiftService.rotateRoster(input, { scope, userId: scope.userId });
-    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'ATTENDANCE', recordId: 'roster-rotation', result: 'SUCCESS', newValues: { people: result.people, days: result.days } });
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'ATTENDANCE', recordId: 'roster-rotation', result: 'SUCCESS', newValues: { people: result.people, days: result.days, from: result.from, to: result.to, steps: result.steps, everyDays: result.everyDays } });
     refresh();
-    return { success: true, data: result };
+    return { success: true, data: { people: result.people, days: result.days } };
   } catch (error: unknown) {
     await auditRefusal(error, scope, 'roster-rotation');
     return fail(error, 'shift.rotate');

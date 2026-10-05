@@ -13,6 +13,19 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — Roster rotations keep weekly offs (found in 4.6a)
+Branch: `redesign/4.6-leaves`
+
+**Why Saturdays were counted as leave days.** The roster had a rotation over 5–17 Oct (GEN → NGT, a week each; the Rotate window's defaults: first open day to month end). A rotation wrote a shift on **every** day, and a rostered shift is worked even on its usual off day (that is how a manual swap onto a weekend works), so the rotation silently turned Saturdays and Sundays into working days. Leave then counted them, and once those days passed, attendance would have marked them **absent** instead of weekly off.
+
+Fixed: `rotate()` takes each step's shift's own week (`weeklyOffOf`); its weekly offs are written as OFF, and OFF steps still give rotating days off. The Rotate window previews the same rule and warns when the result has 7 or more working days in a row (Labour Act §40). A rotation's audit line now records its dates, steps and step length. A shift typed in the grid on a weekly off is still worked (swaps, weekend duty).
+
+Verified: tsc 0 · eslint clean · 633/633 tests (`tests/shift.engine.test.ts`: the 5–17 Oct case, OFF steps, the §40 run; `tests/security-attendance.test.ts`: the service passes the shifts' weeks) · browser: Rotate window with its defaults previews GEN Mon–Fri, OFF Sat / Sun, NGT, OFF (not saved); Pramod's sick leave 5–12 Oct counts 5 days, Sat 10 Oct "Weekly off", Sun 11 / Mon 12 Dashain; 0 console errors. The roster for 5–17 Oct was corrected by hand (Sat / Sun OFF).
+
+Also: the EditGrid choice list is now as wide as its longest label (in 50 px roster columns "USUAL (back to the usual shift)" wrapped one word per line).
+
+---
+
 ## 2026-10-05 — Kit: grid column menu no longer clipped
 Branch: `redesign/4.6-leaves`
 

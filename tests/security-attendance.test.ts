@@ -162,6 +162,8 @@ describe('S22 (4.5b): shifts', () => {
     assert.match(guard, /findClosedPeriodsOverlapping\(from, to\)/);
     assert.match(guard, /MAX_PEOPLE/);
     for (const name of ['assignShift', 'setRoster', 'rotateRoster']) assert.match(fnBody(shiftService, name), /await guardPeople\(ctx\.scope, /, name);
+    // A rotation keeps each shift's weekly offs (4.6a: a GEN → NGT rotation had made Saturdays working days).
+    assert.match(fnBody(shiftService, 'rotateRoster'), /rotate\(\{[^}]*offOn: weeklyOffOf\(/);
     assert.match(fnBody(shiftService, 'setRoster'), /MAX_ROSTER_CELLS/);
   });
   it('one roster day per employee and date; shifts are archived, not deleted', () => {

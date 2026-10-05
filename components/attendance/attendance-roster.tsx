@@ -13,7 +13,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { assignShiftAction, rotateRosterAction, setRosterAction } from "@/app/actions/shift.actions";
 import { bsDayOf, weekdayOf } from "@/lib/engines/pay-period.engine";
-import { MAX_ROTATION_DAYS, rotate } from "@/lib/engines/shift.engine";
+import { longestWorkRun, MAX_ROTATION_DAYS, rotate, weeklyOffOf } from "@/lib/engines/shift.engine";
 import type { AttendancePageData, RosterRow, ShiftView } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
 import { ShiftChip } from "./attendance-shared";
@@ -367,7 +367,12 @@ function RotateWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
   const dateText = useDateText();
   const byId = new Map(shifts.map((s) => [s.id, s]));
   const everyDays = (unit === "weeks" ? 7 : 1) * Math.max(1, every);
-  const preview = useMemo(() => (from && to && to >= from ? rotate({ shiftIds: steps, everyDays: Math.max(1, everyDays), from, to, startAt }) : []), [steps, everyDays, from, to, startAt]);
+  // The same rule as the server: each step's shift keeps its own weekly offs.
+  const preview = useMemo(
+    () => (from && to && to >= from ? rotate({ shiftIds: steps, everyDays: Math.max(1, everyDays), from, to, startAt, offOn: weeklyOffOf(shifts) }) : []),
+    [steps, everyDays, from, to, startAt, shifts]
+  );
+  const run = longestWorkRun(preview);
   const stepOptions = [...shifts.map((s) => ({ value: s.id, label: `${s.code} · ${s.name}` })), { value: OFF, label: "OFF (day off)" }];
   const label = (id: string) => (id === OFF ? OFF : byId.get(id)?.code ?? "?");
   const [startState] = useState(() => JSON.stringify({ steps, every, unit, from, to, startAt }));
@@ -391,7 +396,7 @@ function RotateWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
       dirty={rotateDirty}
       size="lg"
       title="Rotate shifts"
-      description="Fills the roster: each step for a number of days or weeks, in order, then round again. It replaces roster days in the dates chosen."
+      description="Fills the roster: each step for a number of days or weeks, in order, then round again. Each shift keeps its own weekly offs; add an OFF step for rotating days off. It replaces roster days in the dates chosen."
       footer={
         <>
           <Failure text={failure} />
@@ -468,6 +473,11 @@ function RotateWindow({ data, people, shifts, onClose, onSaved }: { data: Attend
               {preview.length > 28 && <span className="self-end text-2xs text-ink-muted">… {preview.length - 28} more days</span>}
               {!preview.length && <span className="text-2xs text-ink-muted">Choose the dates.</span>}
             </div>
+            {run.days >= 7 && run.from && (
+              <p className="mt-1.5 text-2xs text-warning">
+                {run.days} working days in a row from {dateText(run.from)}. The Labour Act (§40) gives one day off a week: add an OFF step or use shifts with a weekly off.
+              </p>
+            )}
           </GridValue>
         </FormGrid>
       </PropertyForm>

@@ -149,16 +149,50 @@ export function shiftForDay(date: string, choice: ShiftChoice, shifts: ReadonlyM
  * days, from `from` to `to`, starting with shift number `startAt` (0-based).
  * "OFF" in the list is a day off.
  */
-export function rotate(p: { shiftIds: readonly string[]; everyDays: number; from: string; to: string; startAt?: number }): { date: string; shiftId: string | null; off: boolean }[] {
+export function rotate(p: {
+  shiftIds: readonly string[];
+  everyDays: number;
+  from: string;
+  to: string;
+  startAt?: number;
+  /** A step's shift keeps its own weekly offs (a rostered shift is otherwise worked even on them). */
+  offOn?: (shiftId: string, date: string) => boolean;
+}): { date: string; shiftId: string | null; off: boolean }[] {
   const out: { date: string; shiftId: string | null; off: boolean }[] = [];
   if (!p.shiftIds.length || p.everyDays < 1 || p.to < p.from) return out;
   let i = 0;
   for (let d = p.from; d <= p.to && out.length < MAX_ROTATION_DAYS; d = addDays(d)) {
     const id = p.shiftIds[(Math.floor(i / p.everyDays) + (p.startAt ?? 0)) % p.shiftIds.length];
-    out.push(id === "OFF" ? { date: d, shiftId: null, off: true } : { date: d, shiftId: id, off: false });
+    out.push(id === "OFF" || p.offOn?.(id, d) ? { date: d, shiftId: null, off: true } : { date: d, shiftId: id, off: false });
     i++;
   }
   return out;
+}
+
+/** The weekly offs of each shift, for `rotate`. */
+export function weeklyOffOf(shifts: readonly ShiftDefinition[]): (shiftId: string, date: string) => boolean {
+  const byId = new Map(shifts.map((s) => [s.id, s]));
+  return (shiftId, date) => {
+    const s = byId.get(shiftId);
+    return s ? dayPlan(s, date).off : false;
+  };
+}
+
+/** The longest run of working days in a row (Labour Act §40: a weekly holiday), and where it starts. */
+export function longestWorkRun(days: readonly { date: string; off: boolean }[]): { days: number; from: string | null } {
+  let best = { days: 0, from: null as string | null };
+  let run = 0;
+  let start: string | null = null;
+  for (const d of days) {
+    if (d.off) {
+      run = 0;
+      continue;
+    }
+    if (run === 0) start = d.date;
+    run++;
+    if (run > best.days) best = { days: run, from: start };
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
