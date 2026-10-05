@@ -13,6 +13,11 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.5 Attendance signed off
+4.5a (day rules, register, adjustments, month close), 4.5b (shifts, roster) and 4.5c (web clock-in) are signed off on `redesign/4.5-attendance`. 4.6 Leaves starts on `redesign/4.6-leaves`, stacked on 4.5.
+
+---
+
 ## 2026-10-05 — 4.5c checked as an HR manager
 Branch: `redesign/4.5-attendance`
 
