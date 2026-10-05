@@ -94,7 +94,7 @@ export function AttendanceToday({ data }: { data: AttendancePageData }) {
         </button>
       </div>
       <p className="mb-2 text-2xs text-ink-muted">
-        {dateText(data.today, "long")} · before their shift starts people not yet in show as Not in; a single punch shows as Missing punch until they check out.
+        {dateText(data.today, "long")} · people show as Not in yet, and those clocked in as At work, until their shift ends; then a missing check-out shows as Missing punch.
       </p>
       <FilterStrip
         id="attendance-today"

@@ -101,6 +101,8 @@ export function AttendanceRoster({ data, onSaved }: { data: AttendancePageData; 
         value: (r) => edits.get(key(r.employee.id, date)) ?? current(r, i),
         original: (r) => current(r, i),
         editable,
+        lockedReason: (r) =>
+          !canEdit ? "You can view the roster but not change it (Attendance → Edit)." : r.employee.id === data.myEmployeeId ? "This is your own shift: someone else has to change it." : r.locked ? "This month is closed for the branch." : undefined,
         format: (_v, r) => {
           const d = r.days[i];
           const edited = edits.get(key(r.employee.id, date));

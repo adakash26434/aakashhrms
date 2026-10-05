@@ -36,6 +36,8 @@ export interface EditGridColumn<R> {
   original?: (row: R) => unknown;
   format?: (value: unknown, row: R) => ReactNode;
   editable?: (row: R) => boolean;
+  /** Why a cell can't be changed (shown when someone types into it), e.g. "This month is closed". */
+  lockedReason?: (row: R) => string | undefined;
   error?: (row: R) => string | undefined;
   warning?: (row: R) => string | undefined;
   /** Text shown in the header tooltip (how a worked-out column is calculated). */
@@ -230,6 +232,10 @@ export function EditGrid<R>({
     const row = rowAt(safeActive.row);
     if (!col || !row || !editableAt(safeActive)) {
       if (col?.kind === "readonly") setMessage(`${col.header} is worked out${col.hint ? `: ${col.hint}` : ""}`);
+      else if (col && row && col.lockedReason) {
+        const why = col.lockedReason(row);
+        if (why) setMessage(why);
+      }
       return;
     }
     if (col.kind === "check") {

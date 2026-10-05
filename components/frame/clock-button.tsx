@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Clock3 } from "lucide-react";
+import { clockStatusAction } from "@/app/actions/checkin.actions";
 import { ClockCard } from "@/components/attendance/clock-card";
 import { localClock } from "@/lib/engines/attendance-day.engine";
 import type { ClockStatus } from "@/lib/types/attendance";
@@ -10,12 +11,23 @@ import { cn } from "@/lib/utils";
 /**
  * Clock button (4.5c) in the title bar, for staff who are also employees:
  * opens the same clock card as self-service. The label shows today's state
- * once the card has loaded ("In 09:02").
+ * ("In 09:02"), loaded with the page.
  */
 export function ClockButton() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<ClockStatus | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Today's state for the label ("In 09:02") as soon as the page loads, not only once opened.
+  useEffect(() => {
+    let alive = true;
+    clockStatusAction().then((res) => {
+      if (alive && res.success) setStatus(res.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +61,7 @@ export function ClockButton() {
       </button>
       {open && (
         <div role="dialog" aria-label="Clock in or out" className="absolute right-0 top-full z-40 mt-1 w-80 max-w-[calc(100vw-1.5rem)] rounded-lg border border-line bg-surface p-3 shadow-lg">
-          <ClockCard compact onChanged={setStatus} />
+          <ClockCard compact initial={status} onChanged={setStatus} />
         </div>
       )}
     </div>

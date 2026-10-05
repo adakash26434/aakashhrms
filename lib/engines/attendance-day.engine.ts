@@ -343,5 +343,6 @@ export function hoursText(minutes: number): string {
   if (!minutes) return "0h";
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
+  if (!h) return `${m}m`;
   return m ? `${h}h ${m}m` : `${h}h`;
 }

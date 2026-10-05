@@ -13,6 +13,17 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.5c checked as an HR manager
+Branch: `redesign/4.5-attendance`
+
+Signed in as Sumina Shrestha (HR Manager, company-wide, linked to EMP-001): the **Clock** button in the top bar clocked her in and out at the office point (web punches, "0 m from Head Office"); Today showed her as At work; her own Register row is read-only; the allowed-anywhere list does not offer herself; she can change web clock-in settings (company-wide role). Head Office set back to Off afterwards.
+
+Fixed: the top-bar button now loads today's state with the page ("In 12:00" / "Out 12:03", not "Clock in" until opened); a locked grid cell now says why when someone types into it (your own row, closed month, future day, no Edit permission) instead of doing nothing; the Today hint describes Not in yet / At work; worked time under an hour reads "2m", not "0h 2m".
+
+Role review (HR Manager, 46 of 189): sensible overall. Suggested: add **Attendance → Lock** (closing the month is HR's job before payroll); remove **Employees → Delete** (terminate, never delete), **Pay Heads → Add / Edit** (payroll's or the admin's), and probably **Roles & users → View**. Payroll stays with payroll / finance.
+
+---
+
 ## 2026-10-05 — 4.5c Web clock-in
 Branch: `redesign/4.5-attendance`
 

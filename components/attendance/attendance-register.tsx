@@ -55,6 +55,18 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
   const editable = (r: RegisterRow, d: DayResult) =>
     data.permissions.edit && !r.locked && d.dayType !== "not_employed" && d.date <= data.today && r.employee.id !== data.myEmployeeId;
   const key = (employeeId: string, date: string) => `${employeeId}|${date}`;
+  const lockedReason = (r: RegisterRow, d: DayResult) =>
+    !data.permissions.edit
+      ? "You can view attendance but not change it (Attendance → Edit)."
+      : r.employee.id === data.myEmployeeId
+        ? "This is your own attendance: someone else has to change it."
+        : r.locked
+          ? "This month is closed for the branch. Reopen it in Month close to change days."
+          : d.dayType === "not_employed"
+            ? "Not employed on this day."
+            : d.date > data.today
+              ? "Days still to come can't be set."
+              : undefined;
 
   const columns = useMemo<EditGridColumn<RegisterRow>[]>(() => {
     const cols: EditGridColumn<RegisterRow>[] = [
@@ -84,6 +96,7 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
         value: (r) => edits.get(key(r.employee.id, date)) ?? r.days[i].dayType,
         original: (r) => r.days[i].dayType,
         editable: (r) => editable(r, r.days[i]),
+        lockedReason: (r) => lockedReason(r, r.days[i]),
         format: (v, r) => {
           const day = r.days[i];
           const edited = edits.get(key(r.employee.id, date));
