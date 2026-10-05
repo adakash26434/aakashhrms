@@ -9,10 +9,10 @@ import {
   unpaidDeduction,
   type DayInput,
 } from '../lib/engines/attendance-day.engine';
-import { datesIn, periodFor } from '../lib/engines/pay-period.engine';
+import { addDays, datesIn, periodFor, weekdayOf } from '../lib/engines/pay-period.engine';
 import type { DayResult } from '../lib/types/attendance';
 
-// General shift: 10:00–18:00, 30 min break, 15 min grace, full day 7 h, half day 4 h, OT from 30 min, Saturday off.
+// General shift: 10:00–18:00, 30 min break, 15 min grace, full day 7 h, half day 4 h, OT from 30 min; Saturday is the day off here.
 const MON = '2026-10-05';
 const SAT = '2026-10-03';
 const at = (date: string, hhmm: string) => {
@@ -23,7 +23,7 @@ const day = (over: Partial<DayInput> = {}): DayInput => ({
   date: MON,
   employedFrom: '2020-01-01',
   employedUntil: null,
-  shift: DEFAULT_SHIFT,
+  shift: { ...DEFAULT_SHIFT, off: weekdayOf(over.date ?? MON) === 6 },
   noRecord: 'absent',
   holiday: null,
   leave: null,
@@ -84,6 +84,9 @@ describe('Day rules, in order', () => {
     assert.equal(resolveDay(day({ today: '2026-10-04', holiday: { name: 'Dashain' } })).dayType, 'holiday');
     assert.equal(resolveDay(day({ today: '2026-10-04', leave: { name: 'Sick', pay: 'full', half: false } })).dayType, 'paid_leave');
     assert.equal(resolveDay(day({ today: '2026-10-05' })).dayType, 'absent');
+    // Today before the shift ends: not in yet (not absent); after it ends: absent.
+    assert.equal(resolveDay(day({ today: MON, now: at(MON, '10:20') })).dayType, 'upcoming');
+    assert.equal(resolveDay(day({ today: MON, now: at(MON, '18:01') })).dayType, 'absent');
   });
   it('8. nothing recorded: absent, or present when the company counts it so', () => {
     assert.deepEqual(pick(resolveDay(day())), ['absent', 0, 1]);
@@ -109,6 +112,29 @@ describe('Times: late, early, break, overtime', () => {
     const r = resolveDay(day({ punches: worked(MON, '10:00', '23:00') }));
     assert.equal(r.otWorkDayMinutes, 300);
     assert.ok(r.flags.includes('ot_over_daily_limit'));
+  });
+  it('flexible hours: no late or early; overtime after a full day', () => {
+    const flexi = { ...DEFAULT_SHIFT, start: '07:00', end: '21:00', flexible: true, fullDayMinutes: 480 };
+    const r = resolveDay(day({ shift: flexi, punches: worked(MON, '11:30', '20:45') }));
+    assert.equal(r.lateMinutes, 0);
+    assert.equal(r.earlyMinutes, 0);
+    assert.equal(r.dayType, 'present');
+    assert.equal(r.otWorkDayMinutes, 9 * 60 + 15 - 30 - 480);
+  });
+  it('the day carries the shift that applied', () => {
+    assert.equal(resolveDay(day()).shift?.code, 'GEN');
+  });
+  it('a punch belongs to the nearest shift: night then morning on the roster', () => {
+    const night = { ...DEFAULT_SHIFT, code: 'N', start: '22:00', end: '06:00' };
+    const morning = { ...DEFAULT_SHIFT, code: 'M', start: '06:00', end: '14:00' };
+    const tue = addDays(MON, 1);
+    // Night out at 05:55 on Tuesday, then Tuesday's morning shift in at 06:10 (touching shifts: the boundary is 06:00).
+    const punches = [at(MON, '21:58'), at(tue, '05:55'), at(tue, '06:10'), at(tue, '14:05')];
+    assert.deepEqual(punchesForDay(punches, MON, night, DEFAULT_SHIFT, morning), punches.slice(0, 2));
+    assert.deepEqual(punchesForDay(punches, tue, morning, night, morning), punches.slice(2));
+    // A wide gap is split in the middle: General 10–18 then General: 02:00 next morning belongs to the next day.
+    assert.deepEqual(punchesForDay([at(tue, '01:59')], MON, DEFAULT_SHIFT, DEFAULT_SHIFT, DEFAULT_SHIFT).length, 1);
+    assert.deepEqual(punchesForDay([at(tue, '02:01')], tue, DEFAULT_SHIFT, DEFAULT_SHIFT, DEFAULT_SHIFT).length, 1);
   });
   it('a night shift keeps its punches after midnight on the day it started', () => {
     const night = { ...DEFAULT_SHIFT, start: '22:00', end: '06:00' };

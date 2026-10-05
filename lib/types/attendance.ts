@@ -197,11 +197,16 @@ export const DAY_CODE: Record<DayType, { code: string; name: string }> = {
 export const OVERRIDE_TYPES = ["present", "absent", "half_day", "on_duty", "paid_leave", "unpaid_leave"] as const satisfies readonly DayType[];
 export type OverrideType = (typeof OVERRIDE_TYPES)[number];
 
-/** Working time for a day: the company office time now, named shifts in 4.5b. */
+/**
+ * One employee's working time on one day: their shift's hours for that
+ * weekday and season (4.5b), or a day off. Worked out by
+ * `lib/engines/shift.engine.ts`; the day rules only read it.
+ */
 export interface ShiftRule {
   id: string | null;
+  code: string;
   name: string;
-  /** Local (Nepal) times "HH:MM". A shift whose end is not after its start crosses midnight. */
+  /** Local (Nepal) times "HH:MM". A shift whose end is not after its start crosses midnight. Flexible: the window to work in. */
   start: string;
   end: string;
   breakMinutes: number;
@@ -211,11 +216,91 @@ export interface ShiftRule {
   halfDayMinutes: number;
   /** Extra minutes below this are not overtime. */
   otMinimumMinutes: number;
-  /** Weekly off days, 0 Sunday … 6 Saturday. */
-  weeklyOffs: number[];
+  /** A weekly off (from the shift's week, or OFF on the roster). */
+  off: boolean;
+  /** Flexible hours: no late or early; overtime after a full day's hours. */
+  flexible: boolean;
+  /** The season whose hours apply ("Winter"), if any. */
+  season?: string | null;
 }
 
-/** Company attendance rules (one source: system_config "attendance.*"). */
+// ---------------------------------------------------------------------------
+// 4.5b Shifts: defined by the company, assigned to people, rostered by day
+// ---------------------------------------------------------------------------
+
+export const SHIFT_KINDS = ["fixed", "flexible"] as const;
+export type ShiftKind = (typeof SHIFT_KINDS)[number];
+
+/** Shift colours (design tokens, so they follow light and dark themes). */
+export const SHIFT_COLORS = ["green", "blue", "amber", "rose", "slate"] as const;
+export type ShiftColor = (typeof SHIFT_COLORS)[number];
+
+/** A weekday in a shift's week (index 0 Sunday … 6 Saturday): working or off, with its own hours when they differ. */
+export interface ShiftWeekDay {
+  working: boolean;
+  start?: string | null;
+  end?: string | null;
+}
+
+/** Hours for a BS date range that comes back every year (Winter: Kartik 16 – Magh 15). */
+export interface ShiftSeason {
+  name: string;
+  fromMonth: number;
+  fromDay: number;
+  toMonth: number;
+  toDay: number;
+  start: string;
+  end: string;
+}
+
+/** A shift as the company defines it. */
+export interface ShiftDefinition {
+  id: string;
+  code: string;
+  name: string;
+  color: ShiftColor;
+  kind: ShiftKind;
+  start: string;
+  end: string;
+  breakMinutes: number;
+  graceMinutes: number;
+  fullDayMinutes: number;
+  halfDayMinutes: number;
+  otMinimumMinutes: number;
+  /** Seven days, Sunday first. */
+  week: ShiftWeekDay[];
+  seasons: ShiftSeason[];
+  isDefault: boolean;
+  active: boolean;
+}
+
+/** A shift on the Shifts tab. */
+export interface ShiftView extends ShiftDefinition {
+  /** People whose shift it is today (assignment, branch or company default). */
+  people: number;
+  /** Plain summary: "09:00–17:00 · Sat, Sun off · Winter 09:00–16:00". */
+  summary: string;
+  /** Planned hours in a normal week (minutes). */
+  weekMinutes: number;
+  /** Labour Act reminders for this shift. */
+  warnings: string[];
+  /** Branches that use it as their default. */
+  branchNames: string[];
+}
+
+/** Where a day's shift came from. */
+export type ShiftSource = "roster" | "assignment" | "branch" | "company";
+
+/** One roster row: an employee's shift for each day of the month. */
+export interface RosterRow {
+  employee: RegisterEmployee;
+  days: { date: string; shiftId: string | null; code: string; off: boolean; source: ShiftSource; note: string | null }[];
+  /** The employee's assignments that touch the month. */
+  assignments: { shiftId: string; from: string; to: string | null }[];
+  locked: boolean;
+}
+
+/** Company attendance rules (one source: system_config "attendance.*"). Working hours live in shifts. */
 export interface AttendanceRules {
   /** Attendance (and pay) months: BS now; AD with payroll runs in AD months (4.8). */
   calendar: PeriodCalendar;
@@ -223,8 +308,6 @@ export interface AttendanceRules {
   noRecord: "absent" | "present";
   /** "Every N late days = half a day unpaid" (off unless enabled). */
   lateRule: { enabled: boolean; count: number };
-  /** The default working time (General). */
-  shift: ShiftRule;
 }
 
 /** An approved leave on a day, as the day rules need it. */
@@ -258,6 +341,8 @@ export interface DayResult {
   flags: ("late" | "early" | "missing_punch" | "ot_over_daily_limit" | "assumed_present" | "override")[];
   holidayName?: string | null;
   leaveName?: string | null;
+  /** The shift that applied (code, name, hours that day). */
+  shift?: { id: string | null; code: string; name: string; start: string; end: string; season: string | null } | null;
 }
 
 /** One employee's month, ready for payroll. */
@@ -305,7 +390,7 @@ export const ADJUSTMENT_KIND_LABEL: Record<AdjustmentKind, string> = {
 };
 
 /** Attendance page tabs (4.5). */
-export const ATTENDANCE_TABS = ["today", "register", "adjustments", "close", "punches"] as const;
+export const ATTENDANCE_TABS = ["today", "register", "roster", "shifts", "adjustments", "close", "punches"] as const;
 export type AttendanceTab = (typeof ATTENDANCE_TABS)[number];
 
 export interface RegisterEmployee {
@@ -399,7 +484,16 @@ export interface AttendancePageData {
   punches: PunchView[];
   adjustments: AdjustmentView[];
   months: BranchMonth[];
+  /** Shifts (all, archived included) and the company default. */
+  shifts: ShiftView[];
+  defaultShiftId: string | null;
+  roster: RosterRow[];
+  /** Each branch's default shift (null = the company default). */
+  branchDefaults: Record<string, string | null>;
+  /** Company setup's winter time, offered as a season in the shift window (Shifts tab only). */
+  winterHours: { start: string; end: string } | null;
   currentUserId: string;
   myEmployeeId: string | null;
+  /** settings: rules and shift definitions (company-wide roles); edit: overrides, assignments and roster. */
   permissions: { add: boolean; edit: boolean; approve: boolean; lock: boolean; export: boolean; settings: boolean };
 }

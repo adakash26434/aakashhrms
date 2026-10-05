@@ -540,6 +540,7 @@ export async function closePeriod(params: {
         otHoursOfficeDay: String(Math.round((r.otWorkDayMinutes / 60) * 100) / 100),
         otHoursOffDay: String(Math.round((r.otOffDayMinutes / 60) * 100) / 100),
         rule: r.rule,
+        shiftId: r.shift?.id ?? null,
         isLocked: true,
         updatedAt: now,
       };

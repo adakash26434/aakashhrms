@@ -13,6 +13,25 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.5b Shifts and roster
+Branch: `redesign/4.5-attendance`
+
+Research: Zoho People (shift hours, breaks, per-shift weekends incl. half working days, default shift and mapping, rotations, the shift window that splits the gap between shifts), Keka / greytHR (fixed, rotating, flexible and night shifts; roster grid; rotations; shift allowance as a pay item), Nepal (government hours 09:00–17:00 and 09:00–16:00 from Kartik 16 to Magh 15, Saturday + Sunday off; shorter Fridays and Saturday mornings in many offices), Labour Act 2074 (8 h a day / 48 a week, rest after 5 hours, a weekly holiday, transport for women outside daylight). Device integration and punch file import moved to their own later step, as asked.
+
+- **Shifts each company defines** (`lib/engines/shift.engine.ts`): hours, break, grace, full / half day, OT minimum; a week (each day working or off, with its own hours); seasons by BS date that come back every year; fixed or flexible; night shifts. Labour Act reminders (not blocks).
+- **Which shift applies**: roster day → dated assignment → branch default → company default. Rostered shift on an off day = working day; rostered OFF = day off; holidays still win.
+- **Day rules** use the day's shift: weekly off from the shift, shorter days need their own planned hours, flexible shifts have no late / early; a punch belongs to the nearest shift (gap split in the middle) instead of a fixed −4 h / +20 h window. Closed days store their shift.
+- **Screens**: Roster tab (EditGrid, Assign shift, Rotate with preview), Shifts tab (list, branch defaults, Shift window with live checks), shift on Today and in the register's day pane. Attendance rules keep the company-wide rules only.
+- **One source**: the General shift is created from Company setup's work schedule (nothing changes until shifts are added); Company setup → Work schedule is now read-only and copied from the default shift. The saved winter time is offered as a season ("Add winter hours"), not switched on by itself.
+- **Data** (migration 0040): `shifts`, `shift_assignments`, `shift_roster` (unique per employee-day), `branches.default_shift_id`, `attendance_records.shift_id`.
+- **Security S22 (shifts)**: defining is company-wide only; assigning is scoped; never your own shift; closed months refused; audited; batch limits.
+
+- **Today, before the shift ends**: a working day with nothing recorded shows **Not in yet** (counted with Not in, not deducted) until the shift's end, then Absent. Found in the browser check: on a Monday morning everyone showed Absent (4.5a was checked on a Sunday).
+
+Verified: tsc 0 · eslint: nothing new · 578/578 tests (new `tests/shift.engine.test.ts`; shift and not-in-yet cases in `tests/attendance-day.test.ts`; shift block in `tests/security-attendance.test.ts`) · `next build` · Browser after the restart (nothing saved): General shift created from Company setup (09:00–17:00, Sat + Sun off, 36h 15m a week, same thresholds as before); Shift window opened, winter season added and cancelled; Roster grid; Assign shift and Rotate windows with preview, cancelled; Today with the shift column; Company setup → Work schedule read-only; 390 / 1366 widths, no page overflow, 0 console errors. Fixed in the check: Not in yet (above), cut-off column headers, narrow time boxes, rotation preview labels (BS day + weekday), branch default alignment on phones.
+
+---
+
 ## 2026-10-04 — 4.5a signed off
 Final check before sign-off: tsc 0 · 556/556 tests · lint clean on the attendance files · every attendance tab, the dashboard, employee list, payroll, leaves, self-service and the attendance report load without errors · the attendance report agrees with the register for Aswin 2083 (Kushal 5 present / 7 absent, Pramod 6 / 6, Sumina 6 / 6).
 Fixed: a closed month's payroll "unpaid days" now also counts days before joining / after leaving, as an open month does (the deduction amount was already the same); the attendance report's "Working days" column, slip and CSV header renamed "Days employed" (it is the days of the month while employed).

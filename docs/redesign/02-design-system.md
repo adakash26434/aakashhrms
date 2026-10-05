@@ -597,12 +597,27 @@ runs in AD months (4.8); days are AD dates so both calendars agree. Pay:
 | Adjustments | Regularization requests: Waiting for me / All, bulk approve or reject, timeline. Approved by the employee's supervisor or Attendance → Approve; company administrators Final approve; never the employee. Approval adds punches (or the On duty / Present setting). |
 | Month close | One row per branch: status, employees, unpaid days, OT hours, missing punches, waiting adjustments, closed by. Close (typed `CLOSE`) stores and locks every day and summary for payroll; blocked while adjustments wait. Reopen needs a reason and is refused once that month's payroll is approved or locked. |
 | Punch log | Every punch with source (HR, adjustment, web, device, import), IP, location and who entered it; Void with a reason (kept, struck through). |
+| Roster (4.5b) | EditGrid like the Register: each person's shift code per day in the shift's colour; plain = assigned shift or default, **bold** = roster day, OFF = day off. Type a code, OFF or USUAL; Ctrl+D, Excel paste; one optional note per save. **Assign shift** window (shift, from, until or ongoing; selected rows or everyone shown) and **Rotate** window (steps in order incl. OFF, each N days / weeks, from / to up to 92 days, start step, preview). Read-only: closed months, your own row. |
+| Shifts (4.5b) | DataGrid: code chip, name (company default badge), type, hours and week summary, hours a week, people today, branch default for, Labour Act reminders, status. New / Edit / Duplicate / Make default / Archive (company-wide roles). Below: **branch default shifts**. |
 
 Windows: **Add punch** (employee, day, check-in, check-out, note; an out
 before the in is the next morning), **New adjustment**, **Attendance
-rules** (company administrators: office time, break, grace, full / half day,
-OT minimum, weekly off, nothing-recorded rule, late rule, month calendar;
-office time is the same setting as Company setup → Work schedule).
+rules** (company administrators: nothing-recorded rule, late rule, month
+calendar), **Shift** (company-wide roles; groups: Shift (code, name,
+colour, fixed / flexible) → Hours and day rules (start, end, break, grace,
+full / half day, OT minimum) → Week (7 rows: working / off, own hours) →
+Seasons (BS from / to, hours; "Add winter hours" fills Kartik 16 – Magh 15
+from Company setup's winter time) → Labour Act checks (live)).
+
+**Shifts** (`lib/engines/shift.engine.ts`): a day's shift is the roster
+day, else the person's dated assignment, else their branch default, else
+the company default. The day's hours: own weekday hours, else the season's,
+else the shift's; a shorter day needs its own planned hours for a full day
+and half of them for a half day. Flexible shifts have no late or early and
+OT after a full day's hours. A punch belongs to the nearest shift: the gap
+between one day's shift end and the next start is split in the middle
+(overlapping shifts: the next start). Company setup → Work schedule is
+read-only and shows the default shift.
 
 ### Implemented frame (Phase 2)
 

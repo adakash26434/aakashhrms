@@ -5,9 +5,11 @@
 //   covers half) · 7 one punch only = missing punch · 8 nothing = company
 //   setting (absent by default).
 // Times: punches are instants (ISO, UTC); shift times are Nepal local time
-// (UTC+05:45). A day's punches are those from 4 hours before its shift
-// starts to 20 hours after, so a night shift belongs to the day it starts.
-// Pure: no database access.
+// (UTC+05:45). The day's shift (4.5b: `lib/engines/shift.engine.ts`) says
+// whether it is a weekly off and which hours apply. A punch belongs to the
+// day whose shift it is nearest: the gap between one day's shift end and the
+// next day's start is split in the middle, so a night shift keeps its
+// morning punches. Pure: no database access.
 
 import { addDays, utcDate, weekdayOf } from "@/lib/engines/pay-period.engine";
 import type { AttendanceRules, DayLeave, DayResult, DayType, MonthSummary, OverrideType, ShiftRule } from "@/lib/types/attendance";
@@ -24,6 +26,7 @@ const WINDOW_BEFORE_START = 240;
 
 export const DEFAULT_SHIFT: ShiftRule = {
   id: null,
+  code: "GEN",
   name: "General",
   start: "10:00",
   end: "18:00",
@@ -32,14 +35,14 @@ export const DEFAULT_SHIFT: ShiftRule = {
   fullDayMinutes: 420,
   halfDayMinutes: 240,
   otMinimumMinutes: 30,
-  weeklyOffs: [6],
+  off: false,
+  flexible: false,
 };
 
 export const DEFAULT_RULES: AttendanceRules = {
   calendar: "BS",
   noRecord: "absent",
   lateRule: { enabled: false, count: 3 },
-  shift: DEFAULT_SHIFT,
 };
 
 /** "HH:MM" (24-hour) → minutes after midnight; null when not a time. */
@@ -69,15 +72,29 @@ export function shiftSpan(shift: ShiftRule): { start: number; end: number; lengt
   return { start, end, length: end - start };
 }
 
-/** The window of instants whose punches belong to this day for this shift. */
-export function dayWindow(date: string, shift: ShiftRule): { from: string; to: string } {
-  const { start } = shiftSpan(shift);
-  return { from: instantAt(date, start - WINDOW_BEFORE_START), to: instantAt(date, start - WINDOW_BEFORE_START + 1440) };
+/** Where one day's punches stop and the next day's start: the middle of the gap between the shifts (the next start when they overlap). */
+function boundary(endPrev: number, startNext: number): number {
+  return endPrev < startNext ? Math.floor((endPrev + startNext) / 2) : startNext;
+}
+
+/**
+ * The window of instants whose punches belong to this day. With the shifts
+ * of the day before and after, the gaps between them are split in the
+ * middle; without them, 4 hours before the start to 20 hours after.
+ */
+export function dayWindow(date: string, shift: ShiftRule, prev?: ShiftRule | null, next?: ShiftRule | null): { from: string; to: string } {
+  const own = shiftSpan(shift);
+  const ms = (d: string, minutes: number) => new Date(instantAt(d, minutes)).getTime();
+  const startMs = ms(date, own.start);
+  const endMs = ms(date, own.end);
+  const from = prev ? boundary(ms(addDays(date, -1), shiftSpan(prev).end), startMs) : ms(date, own.start - WINDOW_BEFORE_START);
+  const to = next ? boundary(endMs, ms(addDays(date, 1), shiftSpan(next).start)) : ms(date, own.start - WINDOW_BEFORE_START + 1440);
+  return { from: new Date(from).toISOString(), to: new Date(to).toISOString() };
 }
 
 /** Punches (instants) inside the day's window, oldest first. */
-export function punchesForDay(punches: readonly string[], date: string, shift: ShiftRule): string[] {
-  const { from, to } = dayWindow(date, shift);
+export function punchesForDay(punches: readonly string[], date: string, shift: ShiftRule, prev?: ShiftRule | null, next?: ShiftRule | null): string[] {
+  const { from, to } = dayWindow(date, shift, prev, next);
   const a = new Date(from).getTime();
   const b = new Date(to).getTime();
   return punches.filter((p) => {
@@ -102,10 +119,13 @@ export interface DayInput {
   otEligible: boolean;
   /** Today (Nepal): a later working day with nothing on it is upcoming, not absent. */
   today?: string;
+  /** The current instant: today, a working day with nothing on it is "not in yet" until the shift ends. */
+  now?: string;
 }
 
-const base = (date: string): Omit<DayResult, "dayType" | "payable" | "unpaid" | "rule"> => ({
+const base = (date: string, shift?: ShiftRule): Omit<DayResult, "dayType" | "payable" | "unpaid" | "rule"> => ({
   date,
+  shift: shift ? { id: shift.id, code: shift.code, name: shift.name, start: shift.start, end: shift.end, season: shift.season ?? null } : null,
   firstIn: null,
   lastOut: null,
   workMinutes: 0,
@@ -120,7 +140,7 @@ const base = (date: string): Omit<DayResult, "dayType" | "payable" | "unpaid" | 
 
 /** Times from punches: first in, last out, minutes worked, late, early and overtime. */
 function measure(input: DayInput, offDay: boolean) {
-  const out = base(input.date);
+  const out = base(input.date, input.shift);
   const p = input.punches;
   if (!p.length) return { ...out, punchCount: 0 };
   out.firstIn = p[0];
@@ -135,9 +155,12 @@ function measure(input: DayInput, offDay: boolean) {
     out.otOffDayMinutes = input.otEligible && out.workMinutes >= input.shift.otMinimumMinutes ? out.workMinutes : 0;
     return { ...out, punchCount: p.length };
   }
-  if (inAt > span.start + input.shift.graceMinutes) out.lateMinutes = inAt - span.start;
-  if (outAt < span.end) out.earlyMinutes = span.end - outAt;
-  const planned = span.length - input.shift.breakMinutes;
+  // Flexible hours: no late or early; overtime after a full day's hours.
+  if (!input.shift.flexible) {
+    if (inAt > span.start + input.shift.graceMinutes) out.lateMinutes = inAt - span.start;
+    if (outAt < span.end) out.earlyMinutes = span.end - outAt;
+  }
+  const planned = input.shift.flexible ? input.shift.fullDayMinutes : span.length - (span.length > BREAK_AFTER_MINUTES ? input.shift.breakMinutes : 0);
   const extra = out.workMinutes - planned;
   out.otWorkDayMinutes = input.otEligible && extra >= input.shift.otMinimumMinutes ? extra : 0;
   return { ...out, punchCount: p.length };
@@ -148,9 +171,9 @@ export function resolveDay(input: DayInput): DayResult {
   const d = input.date;
   // 1. Outside employment: neither paid nor an absence.
   if (d < input.employedFrom || (input.employedUntil && d > input.employedUntil)) {
-    return { ...base(d), dayType: "not_employed", payable: 0, unpaid: 0, rule: d < input.employedFrom ? "Before joining" : "After leaving" };
+    return { ...base(d, input.shift), dayType: "not_employed", payable: 0, unpaid: 0, rule: d < input.employedFrom ? "Before joining" : "After leaving" };
   }
-  const offDay = !!input.holiday || input.shift.weeklyOffs.includes(weekdayOf(d));
+  const offDay = !!input.holiday || input.shift.off;
   const m = measure(input, offDay && !input.override);
   const { punchCount, ...times } = m;
   const flags: DayResult["flags"] = [];
@@ -175,7 +198,7 @@ export function resolveDay(input: DayInput): DayResult {
     return withFlags({ ...times, dayType: "holiday", payable: 1, unpaid: 0, rule: `Holiday: ${input.holiday.name}`, holidayName: input.holiday.name });
   }
   // 4. Weekly off (paid); hours worked are off-day overtime.
-  if (input.shift.weeklyOffs.includes(weekdayOf(d))) {
+  if (input.shift.off) {
     return withFlags({ ...times, dayType: "weekly_off", payable: 1, unpaid: 0, rule: "Weekly off" });
   }
   // 5. Approved full-day leave (Partial-Pay pays half).
@@ -223,6 +246,10 @@ export function resolveDay(input: DayInput): DayResult {
   // A day still to come with nothing on it is not counted yet.
   if (input.today && d > input.today) {
     return withFlags({ ...times, ...halfLeave, dayType: "upcoming", payable: 0, unpaid: 0, rule: "Still to come" });
+  }
+  // Today before the shift ends: not in yet, not absent.
+  if (input.today && d === input.today && input.now && new Date(input.now).getTime() < new Date(instantAt(d, shiftSpan(input.shift).end)).getTime()) {
+    return withFlags({ ...times, ...halfLeave, dayType: "upcoming", payable: 0, unpaid: 0, rule: `Not in yet (the shift ends at ${input.shift.end})` });
   }
   // 8. Nothing recorded: the company setting (absent by default).
   if (input.noRecord === "present") {

@@ -16,6 +16,8 @@ export const branches = pgTable('branches', {
   isHeadOffice: boolean('is_head_office').default(false).notNull(),
   remoteCategory: varchar('remote_category', { length: 20 }).default('NONE').notNull(),
   status: varchar('status', { length: 20 }).default('active').notNull(), // "active" | "inactive"
+  // 4.5b: the shift for this branch's people unless they have their own (null = company default).
+  defaultShiftId: uuid('default_shift_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
@@ -786,6 +788,8 @@ export const attendanceRecords = pgTable('attendance_records', {
   overrideAt: timestamp('override_at'),
   // Days typed in before 4.5 were turned into overrides once (see migration 0039).
   migrated: boolean('migrated').default(true).notNull(),
+  // 4.5b: the shift that applied (stored when the month is closed).
+  shiftId: uuid('shift_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -910,6 +914,60 @@ export const attendancePeriods = pgTable('attendance_periods', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   uniquePeriod: unique('attendance_periods_unique_idx').on(t.calendar, t.periodYear, t.periodMonth, t.branchId),
+}));
+
+/** 4.5b: a shift defined by the company: hours, a week (off days, own hours per weekday) and seasons. */
+export const shifts = pgTable('shifts', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 10 }).notNull(),
+  name: varchar('name', { length: 60 }).notNull(),
+  color: varchar('color', { length: 12 }).default('green').notNull(),
+  kind: varchar('kind', { length: 10 }).default('fixed').notNull(), // fixed | flexible
+  startTime: varchar('start_time', { length: 5 }).notNull(),
+  endTime: varchar('end_time', { length: 5 }).notNull(),
+  breakMinutes: integer('break_minutes').default(30).notNull(),
+  graceMinutes: integer('grace_minutes').default(15).notNull(),
+  fullDayMinutes: integer('full_day_minutes').default(420).notNull(),
+  halfDayMinutes: integer('half_day_minutes').default(240).notNull(),
+  otMinimumMinutes: integer('ot_minimum_minutes').default(30).notNull(),
+  week: jsonb('week').$type<{ working: boolean; start?: string | null; end?: string | null }[]>().default([]).notNull(),
+  seasons: jsonb('seasons').$type<{ name: string; fromMonth: number; fromDay: number; toMonth: number; toDay: number; start: string; end: string }[]>().default([]).notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  codeIdx: unique('shifts_code_idx').on(t.code),
+}));
+
+/** 4.5b: an employee's shift from a date (to_date null = ongoing); periods never overlap. */
+export const shiftAssignments = pgTable('shift_assignments', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  shiftId: uuid('shift_id').references(() => shifts.id, { onDelete: 'restrict' }).notNull(),
+  fromDate: date('from_date').notNull(),
+  toDate: date('to_date'),
+  note: text('note'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  empIdx: index('shift_assignments_emp_idx').on(t.employeeId, t.fromDate),
+}));
+
+/** 4.5b: one roster day: a shift for that day (rotation, swap) or OFF. */
+export const shiftRoster = pgTable('shift_roster', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  rosterDate: date('roster_date').notNull(),
+  shiftId: uuid('shift_id').references(() => shifts.id, { onDelete: 'restrict' }),
+  isOff: boolean('is_off').default(false).notNull(),
+  note: text('note'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  empDateIdx: unique('shift_roster_emp_date_idx').on(t.employeeId, t.rosterDate),
 }));
 
 // =============================================================================

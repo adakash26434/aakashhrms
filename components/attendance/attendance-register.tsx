@@ -60,10 +60,12 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
       { id: "code", header: "Code", kind: "readonly", pinned: true, width: 84, align: "left", value: (r) => r.employee.employeeCode },
       { id: "name", header: "Employee", kind: "readonly", pinned: true, width: 160, align: "left", value: (r) => (r.employee.id === data.myEmployeeId ? `${r.employee.fullName} (you)` : r.employee.fullName) },
     ];
+    // Headers grey out the company default shift's off days (each person's own shift decides their day).
+    const usual = data.shifts.find((s) => s.id === data.defaultShiftId);
     dates.forEach((date, i) => {
       const bs = bsDayOf(date);
       const wd = weekdayOf(date);
-      const off = data.rules.shift.weeklyOffs.includes(wd);
+      const off = usual ? !usual.week[wd]?.working : false;
       cols.push({
         id: `d:${date}`,
         header: `${bs.day} ${dateText(date)}`,
@@ -225,8 +227,9 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
               </span>
             )}
           </div>
-          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 @min-[40rem]:grid-cols-6">
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 @min-[40rem]:grid-cols-7">
             {[
+              ["Shift", activeDay.shift ? `${activeDay.shift.code} ${activeDay.shift.start}–${activeDay.shift.end}${activeDay.shift.season ? ` (${activeDay.shift.season})` : ""}` : "—"],
               ["In", localClock(activeDay.firstIn) || "—"],
               ["Out", localClock(activeDay.lastOut) || "—"],
               ["Worked", activeDay.workMinutes ? hoursText(activeDay.workMinutes) : "—"],

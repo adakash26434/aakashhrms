@@ -401,6 +401,66 @@ WHERE "migrated" = false`,
     }
   }
 
+  // Shifts (4.5b, migration 0040): company-defined shifts, dated assignments, a day roster,
+  // a branch default and the shift stored on closed days. The General shift is created by
+  // the shift service from Company setup the first time shifts are read.
+  for (const q of [
+    `CREATE TABLE IF NOT EXISTS "shifts" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "code" varchar(10) NOT NULL,
+  "name" varchar(60) NOT NULL,
+  "color" varchar(12) DEFAULT 'green' NOT NULL,
+  "kind" varchar(10) DEFAULT 'fixed' NOT NULL,
+  "start_time" varchar(5) NOT NULL,
+  "end_time" varchar(5) NOT NULL,
+  "break_minutes" integer DEFAULT 30 NOT NULL,
+  "grace_minutes" integer DEFAULT 15 NOT NULL,
+  "full_day_minutes" integer DEFAULT 420 NOT NULL,
+  "half_day_minutes" integer DEFAULT 240 NOT NULL,
+  "ot_minimum_minutes" integer DEFAULT 30 NOT NULL,
+  "week" jsonb DEFAULT '[]'::jsonb NOT NULL,
+  "seasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
+  "is_default" boolean DEFAULT false NOT NULL,
+  "active" boolean DEFAULT true NOT NULL,
+  "created_by" uuid,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_by" uuid,
+  "updated_at" timestamp DEFAULT now() NOT NULL
+)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "shifts_code_idx" ON "shifts" ("code")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "shifts_one_default_idx" ON "shifts" ("is_default") WHERE "is_default" = true`,
+    `CREATE TABLE IF NOT EXISTS "shift_assignments" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+  "shift_id" uuid NOT NULL REFERENCES "shifts"("id") ON DELETE RESTRICT,
+  "from_date" date NOT NULL,
+  "to_date" date,
+  "note" text,
+  "created_by" uuid,
+  "created_at" timestamp DEFAULT now() NOT NULL
+)`,
+    `CREATE INDEX IF NOT EXISTS "shift_assignments_emp_idx" ON "shift_assignments" ("employee_id", "from_date")`,
+    `CREATE TABLE IF NOT EXISTS "shift_roster" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+  "roster_date" date NOT NULL,
+  "shift_id" uuid REFERENCES "shifts"("id") ON DELETE RESTRICT,
+  "is_off" boolean DEFAULT false NOT NULL,
+  "note" text,
+  "created_by" uuid,
+  "created_at" timestamp DEFAULT now() NOT NULL
+)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "shift_roster_emp_date_idx" ON "shift_roster" ("employee_id", "roster_date")`,
+    `ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "default_shift_id" uuid`,
+    `ALTER TABLE "attendance_records" ADD COLUMN IF NOT EXISTS "shift_id" uuid`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] shifts 0040:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

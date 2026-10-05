@@ -127,3 +127,45 @@ describe('Adjustment approval (supervisor or approver; never yourself)', () => {
     assert.equal(a.reason, 'no permission');
   });
 });
+
+describe('S22 (4.5b): shifts', () => {
+  const shiftActions = read('app/actions/shift.actions.ts');
+  const shiftService = read('lib/services/shift.service.ts');
+  it('defining shifts and branch defaults is a company-wide control, never platform support', () => {
+    const control = shiftActions.slice(shiftActions.indexOf('async function companyControl'), shiftActions.indexOf('export async function saveShiftAction'));
+    assert.match(control, /checkPermissionWithScope\('EDIT', 'ATTENDANCE'\)/);
+    assert.match(control, /scope\.scopeType !== 'GLOBAL'/);
+    assert.match(control, /scope\.isImpersonation/);
+    for (const name of ['saveShiftAction', 'makeDefaultShiftAction', 'setShiftActiveAction', 'setBranchShiftAction']) {
+      const fn = fnBody(shiftActions, name);
+      assert.match(fn, /await companyControl\(\)/, name);
+      assert.match(fn, /recordAuditLog\(/, name);
+      assert.match(fn, /fail\(error, /, name);
+    }
+  });
+  it('assigning, the roster and rotations need Attendance → Edit with scope; refusals audited', () => {
+    for (const name of ['assignShiftAction', 'setRosterAction', 'rotateRosterAction']) {
+      const fn = fnBody(shiftActions, name);
+      assert.match(fn, /checkPermissionWithScope\('EDIT', 'ATTENDANCE'\)/, name);
+      assert.match(fn, /recordAuditLog\(/, name);
+      assert.match(fn, /auditRefusal\(error, scope, /, name);
+    }
+    assert.match(shiftActions, /OwnAttendanceError\) await recordAuditLog\([^)]*result: DENIED_SELF/);
+    assert.match(shiftActions, /OutOfScopeError\) await recordAuditLog\([^)]*result: 'DENIED_SCOPE'/);
+    for (const line of shiftActions.split(/\r?\n/).filter((l) => l.includes('error.message'))) assert.match(line, /UserFacingError/, line);
+  });
+  it('people in scope only, never your own shift, no closed months, limited batches', () => {
+    const guard = shiftService.slice(shiftService.indexOf('async function guardPeople'), shiftService.indexOf('async function activeShift'));
+    assert.match(guard, /findEmployees\(buildEmployeeScopeCondition\(scope\)\)/);
+    assert.match(guard, /throw new OutOfScopeError\(\)/);
+    assert.match(guard, /includesOwnRecord\(scope\.employeeId, employeeIds\)[\s\S]*OwnAttendanceError/);
+    assert.match(guard, /findClosedPeriodsOverlapping\(from, to\)/);
+    assert.match(guard, /MAX_PEOPLE/);
+    for (const name of ['assignShift', 'setRoster', 'rotateRoster']) assert.match(fnBody(shiftService, name), /await guardPeople\(ctx\.scope, /, name);
+    assert.match(fnBody(shiftService, 'setRoster'), /MAX_ROSTER_CELLS/);
+  });
+  it('one roster day per employee and date; shifts are archived, not deleted', () => {
+    assert.match(read('lib/db/migrations/0040_attendance_shifts.sql'), /CREATE UNIQUE INDEX IF NOT EXISTS "shift_roster_emp_date_idx"/);
+    assert.ok(!/delete\(shifts\)/.test(read('lib/repositories/shift.repository.ts')));
+  });
+});

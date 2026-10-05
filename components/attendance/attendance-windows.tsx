@@ -11,7 +11,6 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { addAttendancePunchesAction, createAttendanceAdjustmentAction, saveAttendanceRulesAction } from "@/app/actions/attendance.actions";
-import { WEEKDAYS } from "@/lib/engines/pay-period.engine";
 import { ADJUSTMENT_KINDS, ADJUSTMENT_KIND_LABEL, type AdjustmentKind, type AttendancePageData } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
 
@@ -160,18 +159,9 @@ export function AdjustmentWindow({ data, initial, onClose, onSaved }: { data: At
   );
 }
 
-/** Attendance rules (company administrators): office time, thresholds, weekly offs, no-record and late rules. */
+/** Attendance rules (company administrators): what a day with nothing recorded counts as, and the late rule. Working hours are in shifts. */
 export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageData; onClose: () => void; onSaved: Saved }) {
-  const s = data.rules.shift;
   const initial = {
-    start: s.start,
-    end: s.end,
-    breakMinutes: s.breakMinutes,
-    graceMinutes: s.graceMinutes,
-    halfDayMinutes: s.halfDayMinutes,
-    fullDayMinutes: s.fullDayMinutes,
-    otMinimumMinutes: s.otMinimumMinutes,
-    weeklyOffs: s.weeklyOffs,
     noRecord: data.rules.noRecord,
     lateEnabled: data.rules.lateRule.enabled,
     lateCount: data.rules.lateRule.count,
@@ -193,15 +183,14 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
     }
     onSaved("Attendance rules saved. Open months are worked out with them; closed months keep their results.");
   };
-  const hours = (m: number) => Math.round((m / 60) * 100) / 100;
   return (
     <Window
       open
       onClose={saving ? () => {} : onClose}
       dirty={JSON.stringify(form) !== JSON.stringify(initial)}
-      size="xl"
+      size="lg"
       title="Attendance rules"
-      description="How every day is counted. Office time, break, grace, half day and weekly off are the same settings as Company setup → Work schedule."
+      description="Company-wide rules for counting days. Working hours, break, grace, full and half day, overtime and weekly offs are set per shift (Shifts tab)."
       footer={
         <>
           <Failure text={failure} />
@@ -214,43 +203,6 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
     >
       <PropertyForm onSubmit={save} enterNavigation={{ end: () => saveRef.current }} className="-mx-4 -my-4 space-y-0 bg-surface-panel">
         <FormGrid columns={2}>
-          <GridField label="Office starts" required error={errors.start} size="code">
-            <input name="start" type="time" value={form.start} onChange={(e) => set("start", e.target.value)} className={inputClass} />
-          </GridField>
-          <GridField label="Office ends" required error={errors.end} size="code" help="Earlier than the start means a night shift (ends next morning)">
-            <input name="end" type="time" value={form.end} onChange={(e) => set("end", e.target.value)} className={inputClass} />
-          </GridField>
-          <GridField label="Break" error={errors.breakMinutes} size="code" suffix="minutes" help="Taken off days longer than 5 hours (Labour Act: rest after 5 hours)">
-            <NumberField name="breakMinutes" decimals={0} value={form.breakMinutes} onChange={(v) => set("breakMinutes", v)} showZero />
-          </GridField>
-          <GridField label="Grace" error={errors.graceMinutes} size="code" suffix="minutes" help="Arriving within this is not late">
-            <NumberField name="graceMinutes" decimals={0} value={form.graceMinutes} onChange={(v) => set("graceMinutes", v)} showZero />
-          </GridField>
-          <GridField label="Full day from" error={errors.fullDayMinutes} size="code" suffix={`minutes (${hours(form.fullDayMinutes)} h)`}>
-            <NumberField name="fullDayMinutes" decimals={0} value={form.fullDayMinutes} onChange={(v) => set("fullDayMinutes", v)} />
-          </GridField>
-          <GridField label="Half day from" error={errors.halfDayMinutes} size="code" suffix={`minutes (${hours(form.halfDayMinutes)} h)`} help="Less than this worked is absent">
-            <NumberField name="halfDayMinutes" decimals={0} value={form.halfDayMinutes} onChange={(v) => set("halfDayMinutes", v)} />
-          </GridField>
-          <GridField label="Overtime from" error={errors.otMinimumMinutes} size="code" suffix="minutes" help="Extra time below this is not overtime; over 4 h a day or 24 h a week is flagged">
-            <NumberField name="otMinimumMinutes" decimals={0} value={form.otMinimumMinutes} onChange={(v) => set("otMinimumMinutes", v)} showZero />
-          </GridField>
-          <GridField label="Weekly off" error={errors.weeklyOffs} span={2} size="full">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
-              {WEEKDAYS.map((d, i) => (
-                <label key={d} className="inline-flex cursor-pointer items-center gap-1.5 text-xs">
-                  <input
-                    type="checkbox"
-                    name={`weeklyOff.${i}`}
-                    className="h-3.5 w-3.5 accent-brand"
-                    checked={form.weeklyOffs.includes(i)}
-                    onChange={() => set("weeklyOffs", form.weeklyOffs.includes(i) ? form.weeklyOffs.filter((x) => x !== i) : [...form.weeklyOffs, i].sort())}
-                  />
-                  {d}
-                </label>
-              ))}
-            </div>
-          </GridField>
           <GridField label="Nothing recorded" size="md" help="A working day with no punch, leave or adjustment">
             <SelectField
               name="noRecord"

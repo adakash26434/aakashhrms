@@ -176,7 +176,7 @@ export async function reopenAttendanceMonthAction(input: unknown): Promise<Ok | 
   }
 }
 
-/** Attendance rules (office time, thresholds, weekly offs, no-record rule, late rule): a company administrator's control. */
+/** Attendance rules (nothing-recorded rule, late rule; working hours are in shifts): a company administrator's control. */
 export async function saveAttendanceRulesAction(input: unknown): Promise<Ok | Fail> {
   await ensureTenantContext();
   try {
@@ -190,10 +190,9 @@ export async function saveAttendanceRulesAction(input: unknown): Promise<Ok | Fa
       module: 'ATTENDANCE',
       recordId: 'attendance-rules',
       result: 'SUCCESS',
-      newValues: { start: rules.shift.start, end: rules.shift.end, weeklyOffs: rules.shift.weeklyOffs.length, noRecord: rules.noRecord, lateRule: rules.lateRule.enabled },
+      newValues: { noRecord: rules.noRecord, lateRule: rules.lateRule.enabled, lateCount: rules.lateRule.count },
     });
     revalidatePath('/timeAndLeave/attendance');
-    revalidatePath('/setup/company-setup');
     return { success: true };
   } catch (error: unknown) {
     return fail(error, 'attendance.rules');

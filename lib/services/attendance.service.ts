@@ -4,15 +4,17 @@ import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
-import { getCompanyWorkSchedule, saveCompanyWorkSchedule } from "@/lib/repositories/company-setup.repository";
+import * as shiftService from "@/lib/services/shift.service";
 import { findUserNames } from "@/lib/repositories/salary-structure.repository";
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
 import { includesOwnRecord, isOwnRecord } from "@/lib/auth/self-action";
 import { UserFacingError } from "@/lib/errors/action-error";
+import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "@/lib/services/attendance-errors";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
-import { addDays, datesIn, periodContaining, periodFor, WEEKDAYS, type PayPeriod } from "@/lib/engines/pay-period.engine";
-import { DEFAULT_RULES, clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
+import { addDays, datesIn, periodContaining, periodFor, type PayPeriod } from "@/lib/engines/pay-period.engine";
+import { plannedWeekMinutes, shiftSummary, shiftWarnings } from "@/lib/engines/shift.engine";
+import { clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import {
   ADJUSTMENT_KINDS,
@@ -30,7 +32,8 @@ import {
   type PunchView,
   type RegisterEmployee,
   type RegisterRow,
-  type ShiftRule,
+  type RosterRow,
+  type ShiftView,
 } from "@/lib/types/attendance";
 
 // Attendance (4.5): the day rules applied to people, punches, approved leave,
@@ -52,116 +55,37 @@ const MAX_CELLS = 2000;
 interface StoredRules {
   noRecord?: unknown;
   lateRule?: { enabled?: unknown; count?: unknown };
-  fullDayMinutes?: unknown;
-  otMinimumMinutes?: unknown;
 }
 
-/** The rules in force: office time, break, grace, half day and weekly offs from Company setup; the rest stored with attendance. */
+/** Company-wide attendance rules (working hours live in shifts, 4.5b). */
 export async function getRules(): Promise<AttendanceRules> {
-  const [ws, storedRaw] = await Promise.all([getCompanyWorkSchedule(), repo.getRulesJson()]);
+  const storedRaw = await repo.getRulesJson();
   const stored = (storedRaw && typeof storedRaw === "object" ? storedRaw : {}) as StoredRules;
-  const start = clockMinutes(ws.coreStartTime) !== null ? ws.coreStartTime : DEFAULT_RULES.shift.start;
-  const end = clockMinutes(ws.coreEndTime) !== null ? ws.coreEndTime : DEFAULT_RULES.shift.end;
-  const breakMinutes = Number.isFinite(ws.lunchBreakMinutes) ? Math.max(0, Math.min(180, ws.lunchBreakMinutes)) : 30;
-  const halfDayMinutes = Math.round((ws.halfDayThresholdHours || 4) * 60);
-  const span = (() => {
-    const a = clockMinutes(start)!;
-    let b = clockMinutes(end)!;
-    if (b <= a) b += 1440;
-    return b - a;
-  })();
-  const planned = Math.max(60, span - breakMinutes);
-  const full = Number(stored.fullDayMinutes);
-  const otMin = Number(stored.otMinimumMinutes);
-  const weeklyOffs = (ws.weeklyOffDays ?? []).map((d) => WEEKDAYS.indexOf(d as (typeof WEEKDAYS)[number])).filter((i) => i >= 0);
-  const shift: ShiftRule = {
-    id: null,
-    name: "General",
-    start,
-    end,
-    breakMinutes,
-    graceMinutes: Math.max(0, Math.min(120, ws.gracePeriodMinutes ?? 15)),
-    halfDayMinutes,
-    fullDayMinutes: Number.isFinite(full) && full >= halfDayMinutes ? full : Math.max(halfDayMinutes, planned - 60),
-    otMinimumMinutes: Number.isFinite(otMin) && otMin >= 0 ? otMin : 30,
-    weeklyOffs,
-  };
   const late = stored.lateRule ?? {};
   return {
     // AD months come with payroll runs in AD months (4.8); until then attendance months are BS.
     calendar: "BS",
     noRecord: stored.noRecord === "present" ? "present" : "absent",
     lateRule: { enabled: late.enabled === true, count: Math.max(1, Math.min(10, Number(late.count) || 3)) },
-    shift,
   };
 }
 
-/** Saves the rules: office time into Company setup's work schedule (one source), the rest with attendance. */
+/** Saves the company-wide rules (what a day with nothing recorded counts as, the late rule). */
 export async function saveRules(raw: unknown): Promise<AttendanceRules> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const errors: Record<string, string> = {};
-  const start = String(r.start ?? "");
-  const end = String(r.end ?? "");
-  if (clockMinutes(start) === null) errors.start = "Use a time like 10:00";
-  if (clockMinutes(end) === null) errors.end = "Use a time like 18:00";
-  const num = (k: string, min: number, max: number) => {
-    const n = Number(r[k]);
-    if (!Number.isFinite(n) || n < min || n > max) errors[k] = `Between ${min} and ${max}`;
-    return n;
-  };
-  const breakMinutes = num("breakMinutes", 0, 180);
-  const graceMinutes = num("graceMinutes", 0, 120);
-  const halfDayMinutes = num("halfDayMinutes", 60, 720);
-  const fullDayMinutes = num("fullDayMinutes", 60, 960);
-  const otMinimumMinutes = num("otMinimumMinutes", 0, 240);
-  const lateCount = num("lateCount", 1, 10);
-  if (!errors.fullDayMinutes && !errors.halfDayMinutes && fullDayMinutes < halfDayMinutes) errors.fullDayMinutes = "A full day must be at least a half day";
-  const weeklyOffs = Array.isArray(r.weeklyOffs) ? [...new Set(r.weeklyOffs.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))] : [];
-  if (weeklyOffs.length > 3) errors.weeklyOffs = "At most three weekly off days";
-  if (Object.keys(errors).length) throw new AttendanceValidationError(errors);
-
-  const ws = await getCompanyWorkSchedule();
-  await saveCompanyWorkSchedule({
-    ...ws,
-    coreStartTime: start,
-    coreEndTime: end,
-    lunchBreakMinutes: breakMinutes,
-    gracePeriodMinutes: graceMinutes,
-    halfDayThresholdHours: halfDayMinutes / 60,
-    weeklyOffDays: weeklyOffs.map((i) => WEEKDAYS[i]),
-    workingDaysPerWeek: 7 - weeklyOffs.length === 5 ? 5 : 6,
-  });
+  const lateCount = Number(r.lateCount);
+  if (!Number.isInteger(lateCount) || lateCount < 1 || lateCount > 10) throw new AttendanceValidationError({ lateCount: "Between 1 and 10" });
+  const storedRaw = await repo.getRulesJson();
+  const stored = storedRaw && typeof storedRaw === "object" ? storedRaw : {};
   await repo.setRulesJson({
+    ...stored,
     noRecord: r.noRecord === "present" ? "present" : "absent",
     lateRule: { enabled: r.lateEnabled === true, count: lateCount },
-    fullDayMinutes,
-    otMinimumMinutes,
   });
   return getRules();
 }
 
-export class AttendanceValidationError extends Error {
-  constructor(public errors: Record<string, string>) {
-    super("Check the highlighted fields.");
-    this.name = "AttendanceValidationError";
-  }
-}
-
-/** A refusal because the request is about the user's own attendance (the action audits DENIED_SELF). */
-export class OwnAttendanceError extends UserFacingError {
-  constructor(message = "You can't change or approve your own attendance. Ask someone else.") {
-    super(message);
-    this.name = "OwnAttendanceError";
-  }
-}
-
-/** A request naming employees outside the user's scope (the action audits DENIED_SCOPE). */
-export class OutOfScopeError extends UserFacingError {
-  constructor() {
-    super("Some employees are not in your branch / department. Refresh and try again.");
-    this.name = "OutOfScopeError";
-  }
-}
+export { AttendanceValidationError, OwnAttendanceError, OutOfScopeError };
 
 // ---------------------------------------------------------------------------
 // Resolving days
@@ -176,13 +100,15 @@ interface Context {
   leaves: Awaited<ReturnType<typeof repo.findApprovedLeaves>>;
   punches: Map<string, string[]>;
   overrides: Awaited<ReturnType<typeof repo.findOverrides>>;
+  shifts: shiftService.ShiftContext;
   today: string;
+  now: string;
 }
 
 /** Everything the day rules need for some employees between two dates. */
 async function loadContext(employees: Employee[], from: string, to: string, rules?: AttendanceRules): Promise<Context> {
   const ids = employees.map((e) => e.id);
-  const [r, ot, holidays, leaves, punchRows, overrides] = await Promise.all([
+  const [r, ot, holidays, leaves, punchRows, overrides, shifts] = await Promise.all([
     rules ? Promise.resolve(rules) : getRules(),
     repo.findOtEligibility(),
     repo.findHolidays(from, to),
@@ -190,10 +116,11 @@ async function loadContext(employees: Employee[], from: string, to: string, rule
     // Night shifts reach into the next morning: read a day either side.
     repo.findPunches(ids, instantAt(addDays(from, -1), 0), instantAt(addDays(to, 2), 0)),
     repo.findOverrides(ids, from, to),
+    shiftService.loadShiftContext(ids, from, to),
   ]);
   const punches = new Map<string, string[]>();
   for (const p of punchRows) punches.set(p.employeeId, [...(punches.get(p.employeeId) ?? []), p.punchedAt]);
-  return { rules: r, ot, holidays, leaves, punches, overrides, today: nepalDateIso() };
+  return { rules: r, ot, holidays, leaves, punches, overrides, shifts, today: nepalDateIso(), now: new Date().toISOString() };
 }
 
 const LEAVE_PAY: Record<string, DayLeave["pay"]> = { Pay: "full", "Non-Pay": "none", "Partial-Pay": "half" };
@@ -203,7 +130,10 @@ const plainNote = (text: string | null) => (text === "Recorded before 4.5" ? "En
 
 /** How one employee-day counts. */
 function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
-  const shift = ctx.rules.shift;
+  // The day's shift, and the shifts either side (a punch belongs to the nearest shift).
+  const shift = shiftService.shiftOn(ctx.shifts, e, date).plan;
+  const prev = shiftService.shiftOn(ctx.shifts, e, addDays(date, -1)).plan;
+  const next = shiftService.shiftOn(ctx.shifts, e, addDays(date, 1)).plan;
   const holiday = ctx.holidays.find(
     (h) =>
       date >= h.start &&
@@ -222,10 +152,11 @@ function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
     noRecord: ctx.rules.noRecord,
     holiday: holiday ? { name: holiday.name } : null,
     leave: l ? { name: l.name, pay: LEAVE_PAY[l.pay] ?? "full", half: l.duration === "Half Day" } : null,
-    punches: punchesForDay(ctx.punches.get(e.id) ?? [], date, shift),
+    punches: punchesForDay(ctx.punches.get(e.id) ?? [], date, shift, prev, next),
     override: override ? { dayType: override.type, reason: plainNote(override.reason) ?? "" } : null,
     otEligible: ctx.ot.get(e.category) ?? true,
     today: ctx.today,
+    now: ctx.now,
   });
 }
 
@@ -435,6 +366,36 @@ export async function getAttendancePage(params: {
     };
   });
 
+  // Shifts (all, archived included) with how many people work them today, and the roster for the month.
+  const { shifts: defs, defaultId } = await shiftService.listShifts();
+  const todayShifts = today >= period.start && today <= period.end ? ctx.shifts : await shiftService.loadShiftContext(ids, today, today);
+  const peopleToday = new Map<string, number>();
+  for (const e of people) {
+    if (e.joiningDate > today || (e.terminationDate && e.terminationDate < today)) continue;
+    const id = shiftService.shiftOn({ ...todayShifts, roster: new Map() }, e, today).shiftId;
+    if (id) peopleToday.set(id, (peopleToday.get(id) ?? 0) + 1);
+  }
+  const shifts: ShiftView[] = defs.map((d) => ({
+    ...d,
+    people: peopleToday.get(d.id) ?? 0,
+    summary: shiftSummary(d),
+    weekMinutes: plannedWeekMinutes(d),
+    warnings: shiftWarnings(d),
+    branchNames: branches.filter((b) => ctx.shifts.branchDefaults.get(b.id) === d.id).map((b) => b.name),
+  }));
+  const roster: RosterRow[] =
+    params.tab === "roster"
+      ? people.map((e) => ({
+          employee: view(e),
+          days: dates.map((d) => {
+            const s = shiftService.shiftOn(ctx.shifts, e, d);
+            return { date: d, shiftId: s.shiftId, code: s.plan.code, off: s.plan.off, source: s.source, note: s.note };
+          }),
+          assignments: (ctx.shifts.assignments.get(e.id) ?? []).filter((a) => a.from <= period.end && (!a.to || a.to >= period.start)).map((a) => ({ shiftId: a.shiftId, from: a.from, to: a.to })),
+          locked: closedBranches.has(e.branchId),
+        }))
+      : [];
+
   return {
     tab: params.tab,
     today,
@@ -448,6 +409,11 @@ export async function getAttendancePage(params: {
     punches,
     adjustments,
     months: months.sort((a, b) => a.branchName.localeCompare(b.branchName)),
+    shifts,
+    defaultShiftId: defaultId,
+    roster,
+    branchDefaults: Object.fromEntries(branches.map((b) => [b.id, ctx.shifts.branchDefaults.get(b.id) ?? null])),
+    winterHours: params.tab === "shifts" ? await shiftService.winterSuggestion() : null,
     currentUserId: params.userId,
     myEmployeeId: params.scope.employeeId,
     permissions: params.permissions,

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck2, ChevronLeft, ChevronRight, ClipboardCheck, Fingerprint, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
+import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, ChevronRight, ClipboardCheck, Fingerprint, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { useDateText } from "@/components/kit/date-cell";
 import { SelectField } from "@/components/kit/select-field";
@@ -14,12 +14,14 @@ import { AttendanceAdjustments } from "./attendance-adjustments";
 import { AttendanceClose } from "./attendance-close";
 import { AttendancePunches } from "./attendance-punches";
 import { AttendanceRegister } from "./attendance-register";
+import { AttendanceRoster } from "./attendance-roster";
+import { AttendanceShifts } from "./attendance-shifts";
 import { AttendanceToday } from "./attendance-today";
 import { AdjustmentWindow, PunchWindow, RulesWindow } from "./attendance-windows";
 
 /**
- * Attendance (4.5): Today · Register (month) · Adjustments · Month close ·
- * Punch log. The month follows the company calendar (BS now; AD with
+ * Attendance (4.5): Today · Register (month) · Roster · Shifts ·
+ * Adjustments · Month close · Punch log. The month follows the company calendar (BS now; AD with
  * payroll runs in AD months, 4.8). Every day is decided by one set of rules
  * (lib/engines/attendance-day.engine.ts) and the server re-checks every change.
  */
@@ -49,6 +51,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
     go({ year: p.year, month: p.month });
   };
 
+  const defaultShift = data.shifts.find((s) => s.id === data.defaultShiftId);
   const waiting = data.adjustments.filter((a) => a.status === "pending" && (a.can.approve || a.can.finalApprove)).length;
   const missing = data.register.reduce((n, r) => n + r.summary.missingPunchDays, 0);
   const closed = data.months.filter((m) => m.status === "closed").length;
@@ -56,11 +59,13 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
     () => [
       { id: "today", label: "Today", icon: CalendarCheck2 },
       { id: "register", label: "Register", icon: Table2, badge: missing || undefined },
+      { id: "roster", label: "Roster", icon: CalendarRange },
+      { id: "shifts", label: "Shifts", icon: Clock3, badge: data.shifts.filter((s) => s.active).length || undefined },
       { id: "adjustments", label: "Adjustments", icon: ClipboardCheck, badge: waiting || undefined },
       { id: "close", label: "Month close", icon: LockKeyhole, badge: data.months.length ? `${closed}/${data.months.length}` : undefined },
       { id: "punches", label: "Punch log", icon: Fingerprint },
     ],
-    [missing, waiting, closed, data.months.length]
+    [missing, waiting, closed, data.months.length, data.shifts]
   );
 
   const done = (text: string) => {
@@ -103,7 +108,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
           />
         </div>
         <span className="text-2xs text-ink-muted">
-          Office time {data.rules.shift.start}–{data.rules.shift.end} · grace {data.rules.shift.graceMinutes} min · a day with nothing recorded counts as {data.rules.noRecord}.
+          {defaultShift ? `Default shift ${defaultShift.code}: ${defaultShift.start}–${defaultShift.end}, grace ${defaultShift.graceMinutes} min` : "No default shift"} · a day with nothing recorded counts as {data.rules.noRecord}.
         </span>
       </div>
 
@@ -119,6 +124,8 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
       <Tabs variant="folder" items={tabs} value={tab} onChange={changeTab} label="Attendance views">
         {tab === "today" && <AttendanceToday data={data} />}
         {tab === "register" && <AttendanceRegister data={data} onSaved={(t) => done(t)} />}
+        {tab === "roster" && <AttendanceRoster data={data} onSaved={(t) => done(t)} />}
+        {tab === "shifts" && <AttendanceShifts data={data} onSaved={(t) => done(t)} />}
         {tab === "adjustments" && <AttendanceAdjustments data={data} onNew={() => setWindowOpen("adjustment")} onDone={(t) => done(t)} />}
         {tab === "close" && <AttendanceClose data={data} onDone={(t) => done(t)} />}
         {tab === "punches" && <AttendancePunches data={data} onDone={(t) => done(t)} />}

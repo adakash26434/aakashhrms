@@ -1,6 +1,6 @@
 "use client";
 
-import { DAY_CODE, type DayResult, type DayType } from "@/lib/types/attendance";
+import { DAY_CODE, type DayResult, type DayType, type ShiftColor } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
 
 // Shared by the attendance screens: day codes and their tones.
@@ -56,5 +56,31 @@ export function DayLegend() {
         <span className="h-3 w-3 rounded ring-1 ring-warning" /> late
       </li>
     </ul>
+  );
+}
+
+/** Shift colours (tokens). */
+export const SHIFT_TONE: Record<ShiftColor, string> = {
+  green: "bg-success-subtle text-success",
+  blue: "bg-info-subtle text-info",
+  amber: "bg-warning-subtle text-warning",
+  rose: "bg-danger-subtle text-danger",
+  slate: "bg-surface-sunken text-ink",
+};
+
+/** A shift code chip in its colour ("OFF" for a day off). */
+export function ShiftChip({ code, color, off, strong, title, className }: { code: string; color?: ShiftColor; off?: boolean; strong?: boolean; title?: string; className?: string }) {
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex h-5 min-w-8 items-center justify-center rounded px-1 text-2xs",
+        off ? "text-ink-faint" : SHIFT_TONE[color ?? "slate"],
+        strong ? "font-bold ring-1 ring-ink/30" : "font-medium",
+        className
+      )}
+    >
+      {off ? "OFF" : code}
+    </span>
   );
 }

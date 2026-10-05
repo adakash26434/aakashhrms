@@ -11,10 +11,13 @@ import { DayCode } from "./attendance-shared";
 
 type Row = AttendancePageData["todayRows"][number];
 
+/** Today, a working day with nothing on it yet is "Not in yet" (absent only once the shift has ended). */
+const statusName = (r: Row) => (r.day.dayType === "upcoming" ? "Not in yet" : DAY_CODE[r.day.dayType].name);
+
 const GROUPS: { id: string; label: string; types: DayType[] }[] = [
   { id: "in", label: "In", types: ["present", "half_day", "on_duty"] },
   { id: "missing", label: "Missing punch", types: ["missing_punch"] },
-  { id: "absent", label: "Not in", types: ["absent"] },
+  { id: "absent", label: "Not in", types: ["absent", "upcoming"] },
   { id: "leave", label: "On leave", types: ["paid_leave", "unpaid_leave"] },
   { id: "off", label: "Off / holiday", types: ["weekly_off", "holiday"] },
 ];
@@ -47,15 +50,16 @@ export function AttendanceToday({ data }: { data: AttendancePageData }) {
       { id: "name", header: "Employee", sticky: true, width: 180, value: (r) => r.employee.fullName, cell: (r) => <span className="font-medium text-ink">{r.employee.fullName}</span> },
       { id: "dept", header: "Department", width: 150, value: (r) => r.employee.departmentName },
       { id: "branch", header: "Branch", width: 130, value: (r) => r.employee.branchName, defaultHidden: true },
-      { id: "status", header: "Today", width: 150, value: (r) => DAY_CODE[r.day.dayType].name, cell: (r) => (
+      { id: "status", header: "Today", width: 150, value: (r) => statusName(r), cell: (r) => (
         <span className="inline-flex items-center gap-1.5">
           <DayCode day={r.day} />
-          <span className="text-xs text-ink-muted">{DAY_CODE[r.day.dayType].name}</span>
+          <span className="text-xs text-ink-muted">{statusName(r)}</span>
         </span>
       ) },
+      { id: "shift", header: "Shift", width: 130, value: (r) => r.day.shift?.code ?? "", cell: (r) => (r.day.shift ? <span className="tabular-nums text-2xs"><span className="font-semibold text-ink">{r.day.shift.code}</span> {r.day.shift.start}–{r.day.shift.end}</span> : <span className="text-ink-faint">—</span>) },
       { id: "in", header: "In", width: 70, value: (r) => localClock(r.day.firstIn), cell: (r) => <span className="tabular-nums">{localClock(r.day.firstIn) || "—"}</span> },
       { id: "out", header: "Out", width: 70, value: (r) => localClock(r.day.lastOut), cell: (r) => <span className="tabular-nums">{localClock(r.day.lastOut) || "—"}</span> },
-      { id: "worked", header: "Worked", width: 84, value: (r) => r.day.workMinutes, cell: (r) => <span className="tabular-nums">{r.day.workMinutes ? hoursText(r.day.workMinutes) : "—"}</span> },
+      { id: "worked", header: "Worked", width: 100, value: (r) => r.day.workMinutes, cell: (r) => <span className="tabular-nums">{r.day.workMinutes ? hoursText(r.day.workMinutes) : "—"}</span> },
       { id: "late", header: "Late", width: 76, type: "number", value: (r) => r.day.lateMinutes, cell: (r) => (r.day.lateMinutes ? <span className="font-medium text-warning">{r.day.lateMinutes} min</span> : <span className="text-ink-faint">—</span>) },
       { id: "rule", header: "Why", width: 280, value: (r) => r.day.rule, cell: (r) => <span className="truncate text-2xs text-ink-muted">{r.day.rule}</span> },
     ],
@@ -86,7 +90,7 @@ export function AttendanceToday({ data }: { data: AttendancePageData }) {
         </button>
       </div>
       <p className="mb-2 text-2xs text-ink-muted">
-        {dateText(data.today, "long")} · before office time ({data.rules.shift.start}) people not yet in show as Not in; a single punch shows as Missing punch until they check out.
+        {dateText(data.today, "long")} · before their shift starts people not yet in show as Not in; a single punch shows as Missing punch until they check out.
       </p>
       <FilterStrip
         id="attendance-today"
