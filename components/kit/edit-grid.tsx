@@ -559,7 +559,9 @@ function CellEditor<R>({
     onDone(move, shift, override);
   };
   const options = col.kind === "choice" ? (col.options ?? []) : [];
-  const listStyle = usePopupPosition(cellRef, options.length > 0, { height: options.length * 28 + 8, matchWidth: true, gap: 1 });
+  // At least wide enough for a label on one line (narrow day columns are 50 px).
+  const listWidth = Math.min(320, Math.max(...options.map((o) => o.label.length), 0) * 8 + 24);
+  const listStyle = usePopupPosition(cellRef, options.length > 0, { height: options.length * 28 + 8, width: listWidth, matchWidth: true, gap: 1 });
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -606,7 +608,7 @@ function CellEditor<R>({
                 e.preventDefault();
                 finish(null, false, o.label);
               }}
-              className="cursor-pointer px-2.5 py-1 text-sm hover:bg-brand-subtle"
+              className="cursor-pointer truncate px-2.5 py-1 text-sm hover:bg-brand-subtle"
             >
               {o.label}
             </li>
