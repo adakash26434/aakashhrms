@@ -308,6 +308,60 @@ export interface AttendanceRules {
   noRecord: "absent" | "present";
   /** "Every N late days = half a day unpaid" (off unless enabled). */
   lateRule: { enabled: boolean; count: number };
+  /** 4.5c: web clock-in for the company (each branch then has its rule). Off until HR sets it up. */
+  webCheckIn: { enabled: boolean };
+}
+
+// ---------------------------------------------------------------------------
+// 4.5c Web clock-in
+// ---------------------------------------------------------------------------
+
+/** A branch's web clock-in settings. */
+export interface BranchCheckin {
+  branchId: string;
+  branchName: string;
+  rule: import("@/lib/engines/checkin.engine").CheckinRule;
+  networks: string[];
+  latitude: number | null;
+  longitude: number | null;
+  radiusM: number;
+  /** Active employees in the branch. */
+  people: number;
+}
+
+/** Someone allowed to clock in from anywhere (no approval). */
+export interface CheckinException {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  from: string;
+  to: string | null;
+  reason: string;
+}
+
+/** The clock card: today for the signed-in employee. */
+export interface ClockStatus {
+  employeeName: string;
+  branchName: string;
+  today: string;
+  /** Web clock-in available, and what the branch checks. */
+  available: boolean;
+  rule: import("@/lib/engines/checkin.engine").CheckinRule;
+  /** The browser should share its location (the rule uses it). */
+  wantsLocation: boolean;
+  /** Why not available (off, closed month, not employed). */
+  unavailableReason: string | null;
+  next: "in" | "out";
+  shift: { code: string; name: string; start: string; end: string; off: boolean } | null;
+  /** Today's punches (web, HR, device …) and remote requests waiting for approval. */
+  punches: { at: string; kind: string; source: string; note: string | null }[];
+  waiting: { at: string; kind: "remote_in" | "remote_out"; status: string; reason: string }[];
+  dayType: DayType;
+  dayRule: string;
+  workMinutes: number;
+  firstIn: string | null;
+  lastOut: string | null;
 }
 
 /** An approved leave on a day, as the day rules need it. */
@@ -378,8 +432,11 @@ export interface MonthSummary {
 export const PUNCH_SOURCES = ["manual", "web", "device", "import", "adjustment"] as const;
 export type PunchSource = (typeof PUNCH_SOURCES)[number];
 
+/** Corrections HR raises (New adjustment). */
 export const ADJUSTMENT_KINDS = ["missed_in", "missed_out", "wrong_time", "on_duty", "mark_present"] as const;
-export type AdjustmentKind = (typeof ADJUSTMENT_KINDS)[number];
+/** 4.5c: a web clock-in or clock-out made outside the allowed place, waiting for approval. */
+export const REMOTE_KINDS = ["remote_in", "remote_out"] as const;
+export type AdjustmentKind = (typeof ADJUSTMENT_KINDS)[number] | (typeof REMOTE_KINDS)[number];
 
 export const ADJUSTMENT_KIND_LABEL: Record<AdjustmentKind, string> = {
   missed_in: "Missed check-in",
@@ -387,10 +444,12 @@ export const ADJUSTMENT_KIND_LABEL: Record<AdjustmentKind, string> = {
   wrong_time: "Wrong time recorded",
   on_duty: "On duty (field work)",
   mark_present: "Mark present",
+  remote_in: "Clock-in outside the office",
+  remote_out: "Clock-out outside the office",
 };
 
 /** Attendance page tabs (4.5). */
-export const ATTENDANCE_TABS = ["today", "register", "roster", "shifts", "adjustments", "close", "punches"] as const;
+export const ATTENDANCE_TABS = ["today", "register", "roster", "shifts", "adjustments", "close", "punches", "checkin"] as const;
 export type AttendanceTab = (typeof ATTENDANCE_TABS)[number];
 
 export interface RegisterEmployee {
@@ -439,6 +498,8 @@ export interface AdjustmentView {
   kind: AdjustmentKind;
   requestedIn: string | null;
   requestedOut: string | null;
+  /** Remote clock-in: where it was made (IP, distance from the office, accuracy). */
+  place: { ip: string | null; distanceM: number | null; accuracyM: number | null; latitude: number | null; longitude: number | null } | null;
   reason: string;
   source: "hr" | "self_service";
   status: "pending" | "approved" | "rejected" | "withdrawn";
@@ -492,6 +553,8 @@ export interface AttendancePageData {
   branchDefaults: Record<string, string | null>;
   /** Company setup's winter time, offered as a season in the shift window (Shifts tab only). */
   winterHours: { start: string; end: string } | null;
+  /** Web clock-in settings (Check-in tab only). */
+  checkin: { branches: BranchCheckin[]; exceptions: CheckinException[]; myIp: string } | null;
   currentUserId: string;
   myEmployeeId: string | null;
   /** settings: rules and shift definitions (company-wide roles); edit: overrides, assignments and roster. */

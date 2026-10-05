@@ -24,7 +24,7 @@ import { assertSessionUsable } from '@/lib/auth/session-updates';
  * This is the single source of truth for self-service data scoping.
  * NEVER trusts client-supplied parameters for employee identity.
  */
-async function getSessionEmployeeId(): Promise<{ employeeId: string; userId: string }> {
+export async function getSessionEmployeeId(): Promise<{ employeeId: string; userId: string }> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error('Unauthorized: Not authenticated');

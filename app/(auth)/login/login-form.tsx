@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useEffect, useState, useActionState } from "react";
 import { loginAction } from "@/app/actions/auth.actions";
 import { Eye, EyeOff, ArrowRight, Loader2, AlertCircle, HelpCircle, X, Mail } from "lucide-react";
 
@@ -9,6 +9,12 @@ export function LoginForm() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [companyDigits, setCompanyDigits] = useState("");
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
+  const signedIn = Boolean(state?.redirectTo);
+
+  // Signed in: load the workspace as a full page so the server's redirects set the address.
+  useEffect(() => {
+    if (state?.redirectTo) window.location.assign(state.redirectTo);
+  }, [state?.redirectTo]);
 
   // Strip any 'CMP-' or 'CMP' prefix so user only ever enters/sees the digits
   const handleCompanyDigitsChange = (value: string) => {
@@ -123,13 +129,13 @@ export function LoginForm() {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || signedIn}
           className="w-full h-10 sm:h-11 mt-1.5 rounded-lg bg-payroll-primary hover:bg-payroll-navy text-white text-sm font-bold shadow-md shadow-payroll-primary/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
         >
-          {isPending ? (
+          {isPending || signedIn ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Signing In...</span>
+              <span>{signedIn ? "Opening your workspace..." : "Signing In..."}</span>
             </>
           ) : (
             <>

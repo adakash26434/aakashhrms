@@ -87,6 +87,9 @@ describe('Day rules, in order', () => {
     // Today before the shift ends: not in yet (not absent); after it ends: absent.
     assert.equal(resolveDay(day({ today: MON, now: at(MON, '10:20') })).dayType, 'upcoming');
     assert.equal(resolveDay(day({ today: MON, now: at(MON, '18:01') })).dayType, 'absent');
+    // Clocked in and the shift is still on: at work, not a missing punch; after the shift it is one.
+    assert.equal(resolveDay(day({ today: MON, now: at(MON, '11:30'), punches: [at(MON, '11:00')] })).dayType, 'upcoming');
+    assert.equal(resolveDay(day({ today: MON, now: at(MON, '18:30'), punches: [at(MON, '11:00')] })).dayType, 'missing_punch');
   });
   it('8. nothing recorded: absent, or present when the company counts it so', () => {
     assert.deepEqual(pick(resolveDay(day())), ['absent', 0, 1]);

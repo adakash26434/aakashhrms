@@ -13,6 +13,28 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.5c Web clock-in
+Branch: `redesign/4.5-attendance`
+
+Research: Zoho People (web / mobile check-in, IP and geo restrictions per location), Keka (web clock-in limited to office IP ranges; remote clock-in outside the office with location and approval), greytHR (web sign-in with IP restriction, geofencing), browser location (precise on phones, rough on desktops; can be faked, so the server works the distance out and checks accuracy; HTTPS only), Nepal Privacy Act 2075 (location is personal data: purpose, scope and who sees it must be told; used only for that purpose).
+
+- **Rules** (`lib/engines/checkin.engine.ts`): company switch (off by default) and a rule per branch: off, anywhere, office network (IPv4 / IPv6 addresses and ranges), office location (point + radius, accuracy allowance 50 m, too rough over 500 m), network or location, network and location. People can be allowed to clock in from anywhere (reason, until a date).
+- **Clocking** (`lib/services/checkin.service.ts`): the signed-in employee only, server time, in / out decided by the server, one punch a minute, rate limit; inside → web punch with IP, location and a note; outside → the reason is shown and the employee may **send it for approval** (remote clock-in adjustment; the supervisor or Attendance → Approve decides; approval adds the web punch). Night shifts clock out on the day they started.
+- **Screens**: Clock card on the self-service home (replaces the disabled placeholder) and a **Clock** button in the main app's title bar; **Web clock-in** tab in Attendance (company switch, branch rules with "Add this network" / "Use my current location", allowed-anywhere list); remote clock-ins in Adjustments show distance, accuracy and IP; the title-bar bell counts attendance adjustments waiting for you; **My attendance** shows the month's days with the same rules (it showed only closed months before).
+- **Data** (migration 0041): branch check-in columns, remote place on adjustments, `attendance_checkin_exceptions`.
+- **Security S23** and privacy notice.
+
+Found and fixed in the browser test:
+- **Location was blocked everywhere**: the security headers had `Permissions-Policy: geolocation=()`; now `geolocation=(self)` (our own pages only, never third-party frames).
+- **After signing in, self-service users were stuck on the `/dashboard` address** (two redirects in a row after a server-action redirect: the page showed self-service but every later request went to `/dashboard` and failed with "An unexpected response was received from the server"). Sign-in now finishes and the form loads the workspace as a full page, so the server's redirects set the address.
+- A query compared a computed time with an untyped date parameter (the clock card failed with a reference); it now casts explicitly. Server error logs now include the cause in the log line (users still see only the reference).
+- **A day in progress**: one punch today before the shift ends showed Missing punch (counted absent); it now shows **At work** and is not counted until the shift ends (Today counts it under In).
+- My attendance crashed calling a browser-only helper on the server (moved to the engine). The self-service logo was hidden under the top bar (the bar now starts after the sidebar). Small: the reason box gets focus, "Web clock-in" as the punch source, wider Correction column, a double-click no longer selects a word in grids.
+
+Verified: tsc 0 · eslint: nothing new · 600/600 tests (new `tests/checkin.engine.test.ts`, `tests/security-checkin.test.ts`; at-work case in `tests/attendance-day.test.ts`) · `next build` · Browser with your permission: HR set Head Office to Office location with "Use my current location" and switched web clock-in on; as Pramod Sharma (EMP-002, simulated location): clock-in at the office → web punch "0 m from Head Office"; an immediate second tap refused; clock-out 2.2 km away → "You are 2.2 km from Head Office (allowed 150 m)", sent for approval with a reason; My attendance showed the request and "At work"; 390 px fits. As admin: sign-in landed on the right address; the bell showed 1 attendance adjustment; the request showed 2.2 km, ±15 m, IP; approved → the web punch was added. Afterwards the two test punches were voided ("Test of web clock-in") and web clock-in set back to Off (company and Head Office). 0 console errors.
+
+---
+
 ## 2026-10-05 — 4.5b UI / UX pass (your feedback)
 Branch: `redesign/4.5-attendance`
 

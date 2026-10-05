@@ -56,7 +56,7 @@ export function AttendanceAdjustments({ data, onNew, onDone }: { data: Attendanc
     () => [
       { id: "date", header: "Day", type: "date", value: (a) => a.date },
       { id: "name", header: "Employee", width: 180, value: (a) => a.employeeName, cell: (a) => <span className="font-medium text-ink">{a.employeeName} <span className="font-code text-3xs text-ink-faint">{a.employeeCode}</span></span> },
-      { id: "kind", header: "Correction", width: 170, value: (a) => ADJUSTMENT_KIND_LABEL[a.kind] },
+      { id: "kind", header: "Correction", width: 220, value: (a) => ADJUSTMENT_KIND_LABEL[a.kind] },
       { id: "times", header: "Times asked", width: 120, value: (a) => `${localClock(a.requestedIn)}–${localClock(a.requestedOut)}`, cell: (a) => <span className="tabular-nums">{[localClock(a.requestedIn), localClock(a.requestedOut)].filter(Boolean).join(" – ") || "—"}</span> },
       { id: "reason", header: "Reason", width: 240, value: (a) => a.reason },
       { id: "by", header: "Raised by", width: 150, value: (a) => a.preparedBy },
@@ -116,6 +116,14 @@ export function AttendanceAdjustments({ data, onNew, onDone }: { data: Attendanc
                   {[localClock(active.requestedIn) && `In ${localClock(active.requestedIn)}`, localClock(active.requestedOut) && `Out ${localClock(active.requestedOut)}`].filter(Boolean).join(" · ") || "No times"}
                 </p>
                 <p className="mt-1 text-ink">“{active.reason}”</p>
+                {active.place && (
+                  <p className="mt-1.5 text-2xs text-ink-muted">
+                    Made {active.place.distanceM !== null ? `${active.place.distanceM >= 1000 ? `${(active.place.distanceM / 1000).toFixed(1)} km` : `${active.place.distanceM} m`} from the office` : "without a location"}
+                    {active.place.accuracyM !== null ? ` (±${active.place.accuracyM} m)` : ""}
+                    {active.place.ip ? ` · IP ${active.place.ip}` : ""}
+                    {active.place.latitude !== null ? ` · ${active.place.latitude}, ${active.place.longitude}` : ""}
+                  </p>
+                )}
               </div>
               {active.status === "pending" && (
                 <div className="space-y-1.5">

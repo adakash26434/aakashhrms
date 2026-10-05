@@ -568,6 +568,10 @@ export function DataGrid<T>({
                       if (selectable && (e.ctrlKey || e.metaKey || e.shiftKey)) toggleRow(rowId, e.shiftKey);
                     }}
                     onDoubleClick={() => onOpen?.(row)}
+                    // A double-click opens the row; it should not also select a word.
+                    onMouseDown={(e) => {
+                      if (onOpen && e.detail > 1) e.preventDefault();
+                    }}
                     className={cn(
                       "group/row outline-none focus-visible:[&>td]:shadow-[inset_0_1px_0_var(--focus),inset_0_-1px_0_var(--focus)]",
                       isSelected || isActive ? "[&>td]:bg-selection" : "hover:[&>td]:bg-surface-sunken",

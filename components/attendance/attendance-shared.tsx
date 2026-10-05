@@ -1,6 +1,7 @@
 "use client";
 
 import { DAY_CODE, type DayResult, type DayType, type ShiftColor } from "@/lib/types/attendance";
+import { dayName } from "@/lib/engines/attendance-day.engine";
 import { cn } from "@/lib/utils";
 
 // Shared by the attendance screens: day codes and their tones.
@@ -19,11 +20,7 @@ export const DAY_TONE: Record<DayType, string> = {
   upcoming: "text-ink-faint",
 };
 
-/** A day's name; a day still to come today is "Not in yet". */
-export function dayName(day: Pick<DayResult, "dayType" | "date">, today?: string): string {
-  if (day.dayType === "upcoming") return today && day.date === today ? "Not in yet" : "Still to come";
-  return DAY_CODE[day.dayType].name;
-}
+export { dayName };
 
 /** A day's code ("P", "A", "½" …) with its tone; a dot marks an HR override, a ring a late day. */
 export function DayCode({ day, className }: { day: DayResult; className?: string }) {

@@ -288,6 +288,13 @@
       "when": 1790200000000,
       "tag": "0040_attendance_shifts",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790300000000,
+      "tag": "0041_web_checkin",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,8 @@ import { AuthError } from 'next-auth';
 // Define the exact shape of the state we return to the UI
 export type LoginState = {
   error?: string;
+  /** Signed in: the form loads this page (a full load, so the server's own redirects set the address). */
+  redirectTo?: string;
 } | undefined;
 
 export async function loginAction(
@@ -30,18 +32,22 @@ export async function loginAction(
       return { error: 'Please enter your password.' };
     }
 
-    // NextAuth signIn with standard redirect to /dashboard.
-    // The dashboard page will dynamically check if onboarding is needed
-    // using the resolved tenant context and redirect to /onboarding only if incomplete.
+    // Sign in without a server-action redirect, then let the form load /dashboard as a full page.
+    // The dashboard sends self-service users on to /self-service and incomplete companies to
+    // /onboarding. Chained redirects after a server-action redirect left the address on
+    // /dashboard while showing self-service, so every later action posted to the wrong page.
     await signIn('credentials', {
       email,
       password,
       companyCode,
-      redirectTo: '/dashboard', 
-    }); 
+      redirect: false,
+    });
+    return { redirectTo: '/dashboard' };
   } catch (error: unknown) {
     if (error instanceof AuthError) {
-      const cause = (error as any).cause?.err ?? (error as any).cause;
+      const rawCause: unknown = (error as { cause?: unknown }).cause;
+      const cause: unknown = rawCause && typeof rawCause === 'object' && 'err' in rawCause ? ((rawCause as { err?: unknown }).err ?? rawCause) : rawCause;
+      const info = (cause && typeof cause === 'object' ? cause : {}) as { name?: string; code?: string };
       const message = cause instanceof Error ? cause.message : (typeof cause === 'string' ? cause : '');
 
       if (message.startsWith("TOO_MANY_ATTEMPTS:")) {
@@ -53,8 +59,8 @@ export async function loginAction(
       if (
         error.type === 'CredentialsSignin' ||
         error.type === 'CallbackRouteError' ||
-        cause?.name === 'CredentialsSignin' ||
-        cause?.code === 'credentials'
+        info.name === 'CredentialsSignin' ||
+        info.code === 'credentials'
       ) {
         return { error: 'Invalid email or password.' };
       }

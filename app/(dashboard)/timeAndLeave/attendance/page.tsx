@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { getClientIp } from "@/lib/auth/client-ip";
 import { AttendanceClient } from "@/components/attendance/attendance-client";
 import { getAttendancePage } from "@/lib/services/attendance.service";
 import { ensureTenantContext } from "@/lib/db";
@@ -32,6 +34,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     month: Number(sp.month) || undefined,
     branchId: typeof sp.branch === "string" && sp.branch ? sp.branch : undefined,
     permissions: { add, edit, approve, lock, export: exportAllowed, settings: edit && scope.scopeType === "GLOBAL" && !scope.isImpersonation },
+    // "Add this network" on the Web clock-in tab.
+    clientIp: tab === "checkin" ? getClientIp(await headers()) : undefined,
   });
   return <AttendanceClient data={data} />;
 }

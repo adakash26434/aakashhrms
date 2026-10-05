@@ -12,7 +12,7 @@
 // morning punches. Pure: no database access.
 
 import { addDays, utcDate, weekdayOf } from "@/lib/engines/pay-period.engine";
-import type { AttendanceRules, DayLeave, DayResult, DayType, MonthSummary, OverrideType, ShiftRule } from "@/lib/types/attendance";
+import { DAY_CODE, type AttendanceRules, type DayLeave, type DayResult, type DayType, type MonthSummary, type OverrideType, type ShiftRule } from "@/lib/types/attendance";
 import type { PayPeriod } from "@/lib/engines/pay-period.engine";
 
 /** Nepal is UTC+05:45 all year (no daylight saving). */
@@ -43,6 +43,7 @@ export const DEFAULT_RULES: AttendanceRules = {
   calendar: "BS",
   noRecord: "absent",
   lateRule: { enabled: false, count: 3 },
+  webCheckIn: { enabled: false },
 };
 
 /** "HH:MM" (24-hour) → minutes after midnight; null when not a time. */
@@ -238,6 +239,11 @@ export function resolveDay(input: DayInput): DayResult {
           : "Worked less than a half day";
     return withFlags({ ...times, ...halfLeave, dayType, payable, unpaid: 1 - payable, rule });
   }
+  // Today before the shift ends: in progress, not judged yet.
+  const shiftNotOver = !!input.today && d === input.today && !!input.now && new Date(input.now).getTime() < new Date(instantAt(d, shiftSpan(input.shift).end)).getTime();
+  if (punchCount === 1 && shiftNotOver) {
+    return withFlags({ ...times, ...halfLeave, dayType: "upcoming", payable: 0, unpaid: 0, rule: `At work since ${localClock(times.firstIn)} (the shift ends at ${input.shift.end})` });
+  }
   // 7. One punch only: needs an adjustment; counts as absent until corrected.
   if (punchCount === 1) {
     flags.push("missing_punch");
@@ -248,7 +254,7 @@ export function resolveDay(input: DayInput): DayResult {
     return withFlags({ ...times, ...halfLeave, dayType: "upcoming", payable: 0, unpaid: 0, rule: "Still to come" });
   }
   // Today before the shift ends: not in yet, not absent.
-  if (input.today && d === input.today && input.now && new Date(input.now).getTime() < new Date(instantAt(d, shiftSpan(input.shift).end)).getTime()) {
+  if (shiftNotOver) {
     return withFlags({ ...times, ...halfLeave, dayType: "upcoming", payable: 0, unpaid: 0, rule: `Not in yet (the shift ends at ${input.shift.end})` });
   }
   // 8. Nothing recorded: the company setting (absent by default).
@@ -313,6 +319,12 @@ export function unpaidDeduction(basicPlusGrade: number, summary: Pick<MonthSumma
   if (!summary.calendarDays) return 0;
   const days = summary.unpaidDays + summary.notEmployedDays;
   return Math.round(((basicPlusGrade / summary.calendarDays) * days) * 100) / 100;
+}
+
+/** A day's name for people; a day still to come today is "Not in yet". */
+export function dayName(day: Pick<DayResult, "dayType" | "date" | "firstIn">, today?: string): string {
+  if (day.dayType === "upcoming") return today && day.date === today ? (day.firstIn ? "At work" : "Not in yet") : "Still to come";
+  return DAY_CODE[day.dayType].name;
 }
 
 /** An instant as Nepal local "HH:MM" (for display). */

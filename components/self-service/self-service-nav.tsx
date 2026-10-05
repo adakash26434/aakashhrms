@@ -64,7 +64,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
           </div>
         </div>
       </aside>
-      <nav className="sticky top-0 z-40 border-b border-payroll-border bg-white/95 backdrop-blur-xs shadow-payroll-xs sm:pl-64">
+      <nav className="sticky top-0 z-40 border-b border-payroll-border bg-white/95 backdrop-blur-xs shadow-payroll-xs sm:ml-64">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex min-h-15 items-center justify-between gap-3 py-2">
           <div className="flex items-center gap-6">

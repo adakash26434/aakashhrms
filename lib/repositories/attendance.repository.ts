@@ -364,6 +364,8 @@ export async function createAdjustment(row: {
   reason: string;
   source: "hr" | "self_service";
   preparedBy: string;
+  /** Remote clock-in (4.5c): where it was made. */
+  place?: { ip: string | null; latitude: number | null; longitude: number | null; accuracyM: number | null; distanceM: number | null } | null;
 }): Promise<string> {
   const db = await getDb();
   return db.transaction(async (tx) => {
@@ -379,6 +381,11 @@ export async function createAdjustment(row: {
         source: row.source,
         preparedBy: row.preparedBy,
         approvalType: "simple",
+        ip: row.place?.ip ?? null,
+        latitude: row.place?.latitude === null || row.place?.latitude === undefined ? null : String(row.place.latitude),
+        longitude: row.place?.longitude === null || row.place?.longitude === undefined ? null : String(row.place.longitude),
+        accuracyM: row.place?.accuracyM ?? null,
+        distanceM: row.place?.distanceM ?? null,
       })
       .returning({ id: attendanceAdjustments.id });
     await tx.insert(approvalActions).values({ module: MODULE, requestId: created.id, level: 0, actorId: row.preparedBy, action: "submitted" });

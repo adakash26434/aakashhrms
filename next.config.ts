@@ -73,8 +73,10 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
           {
+            // geolocation=(self): web clock-in (4.5c) may ask for the location on our own pages only,
+            // never inside a third-party frame; everything else stays off.
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
+            value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), browsing-topics=()",
           },
           ...(hsts ? [{ key: "Strict-Transport-Security", value: hsts }] : []),
         ],

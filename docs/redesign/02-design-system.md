@@ -598,6 +598,7 @@ runs in AD months (4.8); days are AD dates so both calendars agree. Pay:
 | Month close | One row per branch: status, employees, unpaid days, OT hours, missing punches, waiting adjustments, closed by. Close (typed `CLOSE`) stores and locks every day and summary for payroll; blocked while adjustments wait. Reopen needs a reason and is refused once that month's payroll is approved or locked. |
 | Punch log | Every punch with source (HR, adjustment, web, device, import), IP, location and who entered it; Void with a reason (kept, struck through). |
 | Roster (4.5b) | EditGrid like the Register: each person's shift code per day in the shift's colour; plain = assigned shift or default, **bold** = roster day, OFF = day off. Type a code, OFF or USUAL; Ctrl+D, Excel paste; one optional note per save. **Assign shift** window (shift, from, until or ongoing; selected rows or everyone shown) and **Rotate** window (steps in order incl. OFF, each N days / weeks, from / to up to 92 days, start step, preview). Read-only: closed months, your own row. |
+| Web clock-in (4.5c) | Company switch (On / Off, off by default), a DataGrid of branches (rule, office network, office location, people; double-click opens the **branch window**: rule, network list with "Add this network (your current IP)", latitude / longitude with "Use my current location", radius), and **Allowed to clock in from anywhere** (person, from, until, reason; never yourself). |
 | Shifts (4.5b) | DataGrid: code chip, name (company default badge), type, hours and week summary, hours a week, people today, branch default for, Labour Act reminders, status. New / Edit / Duplicate / Make default / Archive (company-wide roles). Below: **branch default shifts**. |
 
 Windows: **Add punch** (employee, day, check-in, check-out, note; an out
@@ -608,6 +609,8 @@ colour, fixed / flexible) → Hours and day rules (start, end, break, grace,
 full / half day, OT minimum) → Week (7 rows: working / off, own hours) →
 Seasons (BS from / to, hours; "Add winter hours" fills Kartik 16 – Magh 15
 from Company setup's winter time) → Labour Act checks (live)).
+
+**Clock card** (`components/attendance/clock-card.tsx`, 4.5c): today's date, status (Not in yet / In since 09:02 / Out at 17:05 / Waiting for approval), shift, In / Out / Worked, one big **Clock in / Clock out** button (the server decides which), "Your location is checked" when the branch rule uses it, today's entries (web, HR, device; outside-office ones marked waiting / not approved) and the privacy notice. Outside the allowed place it explains why ("You are 2.3 km from Head Office (allowed 150 m)") and offers **Send for approval** with a reason. On the self-service home, and in the main app's title bar (**Clock** button, shows "In 09:02") for staff who are employees. Waiting remote clock-ins join the title-bar bell. **My attendance** (self-service) lists the month's days with code, shift, in, out, worked and why, month totals, and clock-ins outside the office with their approval.
 
 **Shifts** (`lib/engines/shift.engine.ts`): a day's shift is the roster
 day, else the person's dated assignment, else their branch default, else

@@ -11,8 +11,12 @@ import { DayCode } from "./attendance-shared";
 
 type Row = AttendancePageData["todayRows"][number];
 
+/** Which tile a person is in: someone clocked in whose shift is still on counts as In. */
+const inGroup = (g: (typeof GROUPS)[number], r: Row) =>
+  r.day.dayType === "upcoming" ? (r.day.firstIn ? g.id === "in" : g.id === "absent") : g.types.includes(r.day.dayType);
+
 /** Today, a working day with nothing on it yet is "Not in yet" (absent only once the shift has ended). */
-const statusName = (r: Row) => (r.day.dayType === "upcoming" ? "Not in yet" : DAY_CODE[r.day.dayType].name);
+const statusName = (r: Row) => (r.day.dayType === "upcoming" ? (r.day.firstIn ? "At work" : "Not in yet") : DAY_CODE[r.day.dayType].name);
 
 const GROUPS: { id: string; label: string; types: DayType[] }[] = [
   { id: "in", label: "In", types: ["present", "half_day", "on_duty"] },
@@ -29,7 +33,7 @@ export function AttendanceToday({ data }: { data: AttendancePageData }) {
   const [search, setSearch] = useState("");
   const rows = data.todayRows;
   // Before the office start, "Not in" just means "not yet".
-  const counts = GROUPS.map((g) => ({ ...g, n: rows.filter((r) => g.types.includes(r.day.dayType)).length }));
+  const counts = GROUPS.map((g) => ({ ...g, n: rows.filter((r) => inGroup(g, r)).length }));
   const late = rows.filter((r) => r.day.lateMinutes > 0).length;
 
   const visible = useMemo(() => {
@@ -37,7 +41,7 @@ export function AttendanceToday({ data }: { data: AttendancePageData }) {
     const group = GROUPS.find((g) => g.id === filters.group);
     return rows.filter(
       (r) =>
-        (!group || group.types.includes(r.day.dayType)) &&
+        (!group || inGroup(group, r)) &&
         (!filters.department || r.employee.departmentId === filters.department) &&
         (filters.late !== "yes" || r.day.lateMinutes > 0) &&
         (!q || r.employee.fullName.toLowerCase().includes(q) || r.employee.employeeCode.toLowerCase().includes(q))

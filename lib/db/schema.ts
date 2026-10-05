@@ -18,6 +18,13 @@ export const branches = pgTable('branches', {
   status: varchar('status', { length: 20 }).default('active').notNull(), // "active" | "inactive"
   // 4.5b: the shift for this branch's people unless they have their own (null = company default).
   defaultShiftId: uuid('default_shift_id'),
+  // 4.5c web clock-in: rule (off | anywhere | network | location | network_or_location | network_and_location),
+  // office networks (addresses / ranges), office point and radius.
+  checkinRule: varchar('checkin_rule', { length: 24 }).default('off').notNull(),
+  checkinNetworks: text('checkin_networks').array().notNull().default(sql`ARRAY[]::text[]`),
+  latitude: numeric('latitude', { precision: 9, scale: 6 }),
+  longitude: numeric('longitude', { precision: 9, scale: 6 }),
+  checkinRadiusM: integer('checkin_radius_m').default(150).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
@@ -889,6 +896,12 @@ export const attendanceAdjustments = pgTable('attendance_adjustments', {
   decidedBy: uuid('decided_by'),
   decidedAt: timestamp('decided_at'),
   decisionNote: text('decision_note'),
+  // 4.5c remote check-in (outside the allowed place): where it was made.
+  ip: varchar('ip', { length: 64 }),
+  latitude: numeric('latitude', { precision: 9, scale: 6 }),
+  longitude: numeric('longitude', { precision: 9, scale: 6 }),
+  accuracyM: integer('accuracy_m'),
+  distanceM: integer('distance_m'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   empDateIdx: index('attendance_adjustments_emp_date_idx').on(t.employeeId, t.attendanceDate),
@@ -914,6 +927,19 @@ export const attendancePeriods = pgTable('attendance_periods', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   uniquePeriod: unique('attendance_periods_unique_idx').on(t.calendar, t.periodYear, t.periodMonth, t.branchId),
+}));
+
+/** 4.5c: people allowed to clock in from anywhere (field staff, a client visit until a date), without approval. */
+export const attendanceCheckinExceptions = pgTable('attendance_checkin_exceptions', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  fromDate: date('from_date').notNull(),
+  toDate: date('to_date'),
+  reason: text('reason').notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  empIdx: index('attendance_checkin_exceptions_emp_idx').on(t.employeeId),
 }));
 
 /** 4.5b: a shift defined by the company: hours, a week (off days, own hours per weekday) and seasons. */

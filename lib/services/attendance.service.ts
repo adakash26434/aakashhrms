@@ -5,6 +5,7 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as shiftService from "@/lib/services/shift.service";
+import * as checkinRepo from "@/lib/repositories/checkin.repository";
 import { findUserNames } from "@/lib/repositories/salary-structure.repository";
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
 import { includesOwnRecord, isOwnRecord } from "@/lib/auth/self-action";
@@ -19,6 +20,7 @@ import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import {
   ADJUSTMENT_KINDS,
   OVERRIDE_TYPES,
+  REMOTE_KINDS,
   type AdjustmentKind,
   type AdjustmentView,
   type AttendancePageData,
@@ -55,6 +57,7 @@ const MAX_CELLS = 2000;
 interface StoredRules {
   noRecord?: unknown;
   lateRule?: { enabled?: unknown; count?: unknown };
+  webCheckIn?: { enabled?: unknown };
 }
 
 /** Company-wide attendance rules (working hours live in shifts, 4.5b). */
@@ -67,6 +70,8 @@ export async function getRules(): Promise<AttendanceRules> {
     calendar: "BS",
     noRecord: stored.noRecord === "present" ? "present" : "absent",
     lateRule: { enabled: late.enabled === true, count: Math.max(1, Math.min(10, Number(late.count) || 3)) },
+    // Off until HR sets web clock-in up (4.5c).
+    webCheckIn: { enabled: stored.webCheckIn?.enabled === true },
   };
 }
 
@@ -81,6 +86,7 @@ export async function saveRules(raw: unknown): Promise<AttendanceRules> {
     ...stored,
     noRecord: r.noRecord === "present" ? "present" : "absent",
     lateRule: { enabled: r.lateEnabled === true, count: lateCount },
+    webCheckIn: { enabled: r.webCheckIn === true },
   });
   return getRules();
 }
@@ -225,6 +231,8 @@ export async function getAttendancePage(params: {
   month?: number;
   branchId?: string;
   permissions: AttendancePageData["permissions"];
+  /** The signed-in user's IP (Check-in tab: "Add this network"). */
+  clientIp?: string;
 }): Promise<AttendancePageData> {
   const today = nepalDateIso();
   const rules = await getRules();
@@ -299,6 +307,10 @@ export async function getAttendancePage(params: {
       kind: a.kind as AdjustmentKind,
       requestedIn: a.requestedIn ? a.requestedIn.toISOString() : null,
       requestedOut: a.requestedOut ? a.requestedOut.toISOString() : null,
+      place:
+        a.kind === "remote_in" || a.kind === "remote_out"
+          ? { ip: a.ip, distanceM: a.distanceM, accuracyM: a.accuracyM, latitude: a.latitude === null ? null : Number(a.latitude), longitude: a.longitude === null ? null : Number(a.longitude) }
+          : null,
       reason: a.reason,
       source: a.source === "self_service" ? "self_service" : "hr",
       status: a.status as AdjustmentView["status"],
@@ -414,6 +426,7 @@ export async function getAttendancePage(params: {
     roster,
     branchDefaults: Object.fromEntries(branches.map((b) => [b.id, ctx.shifts.branchDefaults.get(b.id) ?? null])),
     winterHours: params.tab === "shifts" ? await shiftService.winterSuggestion() : null,
+    checkin: params.tab === "checkin" ? await checkinSettings(params.clientIp ?? "unknown") : null,
     currentUserId: params.userId,
     myEmployeeId: params.scope.employeeId,
     permissions: params.permissions,
@@ -421,6 +434,28 @@ export async function getAttendancePage(params: {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** The Check-in tab: each branch's rule and the allowed-anywhere list. */
+async function checkinSettings(myIp: string): Promise<NonNullable<AttendancePageData["checkin"]>> {
+  const [rows, people, exceptions] = await Promise.all([checkinRepo.findBranchCheckins(), checkinRepo.countActiveByBranch(), checkinRepo.findExceptions()]);
+  return {
+    branches: rows.map((b) => ({ branchId: b.id, branchName: b.name, rule: b.rule, networks: b.networks, latitude: b.latitude, longitude: b.longitude, radiusM: b.radiusM, people: people.get(b.id) ?? 0 })),
+    exceptions,
+    myIp,
+  };
+}
+
+/**
+ * One employee's days between two dates with the same rules as the register
+ * (self-service clock card and My attendance). The caller has already
+ * resolved the employee from the session.
+ */
+export async function ownDays(employeeId: string, from: string, to: string): Promise<{ employee: Employee; days: DayResult[] } | null> {
+  const people = await repo.findEmployeesByIds([employeeId]);
+  if (!people.length) return null;
+  const ctx = await loadContext(people, from, to);
+  return { employee: people[0], days: datesBetween(from, to).map((d) => resolveFor(ctx, people[0], d)) };
+}
 
 // ---------------------------------------------------------------------------
 // Changing days: HR overrides, manual punches, voids
@@ -533,7 +568,7 @@ export async function createAdjustment(raw: unknown, ctx: { scope: ScopeFilter; 
   const branch = people.find((e) => e.id === employeeId)?.branchId;
   if (closed.some((p) => p.branchId === branch)) throw new UserFacingError("That day is in a closed month. Reopen the month first.");
   if (date! > nepalDateIso()) throw new UserFacingError("Attendance can't be adjusted for a future date.");
-  const pending = await repo.findAdjustments({ employeeIds: [employeeId], from: date!, to: date!, status: "pending" });
+  const pending = (await repo.findAdjustments({ employeeIds: [employeeId], from: date!, to: date!, status: "pending" })).filter((a) => !(REMOTE_KINDS as readonly string[]).includes(a.kind));
   if (pending.length) throw new UserFacingError("An adjustment for that day is already waiting. Decide or withdraw it first.");
   const outMin = outMinRaw !== null && inMin !== null && outMinRaw <= inMin ? outMinRaw + 1440 : outMinRaw;
   const id = await repo.createAdjustment({
@@ -590,8 +625,13 @@ export async function decideAdjustment(id: string, decision: Decision, noteRaw: 
     if (a.kind === "on_duty" || a.kind === "mark_present") {
       await repo.setOverrides([{ employeeId: a.employeeId, date, type: a.kind === "on_duty" ? "on_duty" : "present", reason: `Adjustment approved: ${a.reason}`, fiscalYearId: await repo.fiscalYearFor(date) }], ctx.userId);
     }
-    if (a.requestedIn) punches.push({ employeeId: a.employeeId, punchedAt: a.requestedIn.toISOString(), kind: "in", source: "adjustment", note: a.reason, createdBy: ctx.userId });
-    if (a.requestedOut) punches.push({ employeeId: a.employeeId, punchedAt: a.requestedOut.toISOString(), kind: "out", source: "adjustment", note: a.reason, createdBy: ctx.userId });
+    // A remote clock-in becomes the web punch it was, with where it was made.
+    const remote = a.kind === "remote_in" || a.kind === "remote_out";
+    const place = remote
+      ? { source: "web" as const, ip: a.ip, latitude: a.latitude === null ? null : Number(a.latitude), longitude: a.longitude === null ? null : Number(a.longitude), accuracyM: a.accuracyM, note: `Outside the office, approved: ${a.reason}` }
+      : { source: "adjustment" as const, note: a.reason };
+    if (a.requestedIn) punches.push({ employeeId: a.employeeId, punchedAt: a.requestedIn.toISOString(), kind: "in", createdBy: ctx.userId, ...place });
+    if (a.requestedOut) punches.push({ employeeId: a.employeeId, punchedAt: a.requestedOut.toISOString(), kind: "out", createdBy: ctx.userId, ...place });
   }
   const ok = await repo.decideAdjustment({
     id,
@@ -610,6 +650,28 @@ export async function decideAdjustment(id: string, decision: Decision, noteRaw: 
 // ---------------------------------------------------------------------------
 // Month close and reopen (per branch)
 // ---------------------------------------------------------------------------
+
+/**
+ * Adjustments (and remote clock-ins) this user can decide now: their
+ * supervisees', or anyone's in scope with Attendance → Approve; never their
+ * own or ones they raised (the title bar's waiting count).
+ */
+export async function countAdjustmentsWaitingFor(scope: ScopeFilter, canApprove: boolean): Promise<number> {
+  const pending = await repo.findAdjustments({ status: "pending" });
+  if (!pending.length) return 0;
+  const [inScope, people] = await Promise.all([
+    canApprove ? repo.findEmployees(buildEmployeeScopeCondition(scope)) : Promise.resolve([]),
+    repo.findEmployeesByIds([...new Set(pending.map((a) => a.employeeId))]),
+  ]);
+  const scoped = new Set(inScope.map((e) => e.id));
+  const supervisor = new Map(people.map((e) => [e.id, e.supervisorId]));
+  return pending.filter(
+    (a) =>
+      a.employeeId !== scope.employeeId &&
+      a.preparedBy !== scope.userId &&
+      (scoped.has(a.employeeId) || (!!scope.employeeId && supervisor.get(a.employeeId) === scope.employeeId))
+  ).length;
+}
 
 /** OT pay and unpaid-day deduction for a summary (OT: basic ÷ 240 × multiplier; unifying with OT rules is 4.7). */
 function amountsFor(summary: MonthSummary, salary: { basic: number; grade: number } | undefined, multipliers: { work: number; off: number }) {

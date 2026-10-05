@@ -1,6 +1,9 @@
 import React from "react";
 import Link from "next/link";
-import { getSelfServiceDashboard } from "@/lib/services/self-service.service";
+import { getSelfServiceDashboard, getSessionEmployeeId } from "@/lib/services/self-service.service";
+import { clockStatus } from "@/lib/services/checkin.service";
+import { ClockCard } from "@/components/attendance/clock-card";
+import type { ClockStatus } from "@/lib/types/attendance";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -12,8 +15,6 @@ import {
   UserCircle,
   FileText,
   Plus,
-  LogIn,
-  LogOut,
   MapPin,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,7 +32,7 @@ export default async function SelfServiceDashboardPage() {
   let dashboard;
   try {
     dashboard = await getSelfServiceDashboard();
-  } catch (error: any) {
+  } catch (error: unknown) {
     return (
       <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
         <CardContent className="py-16">
@@ -39,13 +40,22 @@ export default async function SelfServiceDashboardPage() {
             icon={<UserCircle className="h-10 w-10 text-payroll-primary" />}
             title="Self-Service Portal Unavailable"
             description={
-              error?.message ||
+              (error instanceof Error && error.message) ||
               "Your user account is not linked to an active employee personnel record. Please contact your HR administrator."
             }
           />
         </CardContent>
       </Card>
     );
+  }
+
+  // Today for the clock card (4.5c), rendered on the server; the card refreshes itself after clocking.
+  let clock: ClockStatus | null = null;
+  try {
+    const { employeeId } = await getSessionEmployeeId();
+    clock = await clockStatus(employeeId);
+  } catch {
+    clock = null;
   }
 
   const emp = dashboard.employee;
@@ -55,7 +65,7 @@ export default async function SelfServiceDashboardPage() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="border-b border-zinc-200/70 pb-6 sm:pb-8">
-        <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-start">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
               <CalendarDays className="h-3.5 w-3.5 text-payroll-primary" />
@@ -76,7 +86,9 @@ export default async function SelfServiceDashboardPage() {
             </div>
           </div>
 
-          <AttendanceStatus />
+          <div className="min-w-0 lg:w-md">
+            <ClockCard initial={clock} />
+          </div>
         </div>
       </section>
 
@@ -100,41 +112,6 @@ export default async function SelfServiceDashboardPage() {
         <LatestPayslip payslip={payslip} />
         <LeaveBalanceSummary leave={leave} />
       </div>
-    </div>
-  );
-}
-
-function AttendanceStatus() {
-  return (
-    <div className="min-w-0 border-y border-payroll-light/70 bg-transparent py-5 sm:rounded-xl sm:border sm:border-payroll-light/80 sm:bg-white sm:p-5 sm:shadow-payroll-xs lg:w-md">
-      <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-        <span className="h-2 w-2 rounded-full bg-zinc-300" />
-        <span>Attendance actions ready for setup</span>
-      </div>
-      <div className="mt-3 grid grid-cols-3 divide-x divide-zinc-200/70 border-y border-zinc-200/70 py-3">
-        <StatusValue label="Punch in" value="—" />
-        <StatusValue label="Punch out" value="—" />
-        <StatusValue label="Worked" value="—" />
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled className="inline-flex min-h-10 items-center gap-2 rounded-full bg-zinc-900 px-4 text-xs font-semibold text-white opacity-60 cursor-not-allowed" title="Clock in will be connected to attendance services later">
-          <LogIn className="h-3.5 w-3.5" />
-          Clock in
-        </button>
-        <button type="button" disabled className="inline-flex min-h-10 items-center gap-2 rounded-full border border-zinc-200 px-4 text-xs font-semibold text-zinc-500 opacity-60 cursor-not-allowed" title="Clock out will be connected to attendance services later">
-          <LogOut className="h-3.5 w-3.5" />
-          Clock out
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function StatusValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="px-3 first:pl-0 last:pr-0">
-      <span className="block text-2xs font-medium text-zinc-500">{label}</span>
-      <span className="mt-1 block text-lg font-semibold tabular-nums text-payroll-navy">{value}</span>
     </div>
   );
 }

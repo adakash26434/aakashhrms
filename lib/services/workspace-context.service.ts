@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { countWaitingFor as countSalaryWaitingFor } from '@/lib/services/salary-structure.service';
+import { countAdjustmentsWaitingFor } from '@/lib/services/attendance.service';
 import { hasPermission } from '@/lib/auth/check-permission';
 import { auth } from '@/lib/auth';
 import { getUserAllowedModulesArray } from '@/lib/auth/get-user-permissions';
@@ -40,6 +41,10 @@ export interface WorkspaceContext {
   pendingApprovalsCount: number;
   /** Salary changes this user can act on now (approval engine, S21). */
   pendingSalaryApprovalsCount: number;
+  /** Attendance adjustments and remote clock-ins this user can decide (supervisor, or Approve in scope; never their own). */
+  pendingAttendanceCount: number;
+  /** The signed-in user's employee record (turns on the Clock button), if linked. */
+  myEmployeeId: string | null;
   allowedModules: string[];
   isImpersonating: boolean;
   impersonationDetails?: {
@@ -187,8 +192,10 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
         name: activeFyName,
       },
       pendingApprovalsCount: pendingCount,
-      // Platform support never approves company salary changes.
+      // Platform support never approves company salary changes, decides attendance or clocks in.
       pendingSalaryApprovalsCount: 0,
+      pendingAttendanceCount: 0,
+      myEmployeeId: null,
       allowedModules: [], // Impersonation has full access, sidebar shows all
       isImpersonating: true,
       impersonationDetails: impersonation,
@@ -216,6 +223,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
   let activeFyName = getDefaultFiscalYearName();
   let activeFyId: string | null = null;
   let pendingCount = 0;
+  let myEmployeeId: string | null = null;
 
   // A. Resolve Company info from Platform DB in parallel with Tenant DB
   const companyPromise = (async () => {
@@ -260,6 +268,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
             .limit(1);
 
           if (userRecord) {
+            myEmployeeId = userRecord.employeeId ?? null;
             if (userRecord.name) {
               userName = userRecord.name;
             }
@@ -376,6 +385,17 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     }
   }
 
+  // Attendance adjustments and remote clock-ins waiting for this user.
+  let attendancePending = 0;
+  if (userId && allowedModules.includes('ATTENDANCE')) {
+    try {
+      const scope = await resolveUserScope(userId, tenantSlug);
+      attendancePending = await countAdjustmentsWaitingFor(scope, await hasPermission('APPROVE', 'ATTENDANCE'));
+    } catch (err) {
+      console.error('Error counting attendance approvals:', err);
+    }
+  }
+
   return {
     user: {
       id: userId,
@@ -402,6 +422,8 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     },
     pendingApprovalsCount: pendingCount,
     pendingSalaryApprovalsCount: salaryPending,
+    pendingAttendanceCount: attendancePending,
+    myEmployeeId,
     allowedModules,
     isImpersonating: false,
   };

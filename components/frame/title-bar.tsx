@@ -7,6 +7,7 @@ import { Bell, CalendarDays, HelpCircle, Menu, Search } from "lucide-react";
 import { DateFormatMenu } from "@/components/ui/date-format-menu";
 import type { WorkspaceContext } from "@/lib/services/workspace-context.service";
 import { useFrame } from "./frame-context";
+import { ClockButton } from "./clock-button";
 import { UserMenu } from "./user-menu";
 
 /** Title bar (2.2): brand, command trigger, calendar, fiscal year, alerts, account. */
@@ -17,6 +18,10 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
     Boolean(context?.isImpersonating) || Boolean(context?.allowedModules.includes("LEAVE_APPROVALS"));
   const salaryPending = context?.pendingSalaryApprovalsCount ?? 0;
   const canSeeSalary = !context?.isImpersonating && Boolean(context?.allowedModules.includes("SALARY_MAPPING"));
+  const attendancePending = context?.pendingAttendanceCount ?? 0;
+  const canSeeAttendance = !context?.isImpersonating && Boolean(context?.allowedModules.includes("ATTENDANCE"));
+  // Staff who are also employees clock in here too (never platform support).
+  const canClock = !context?.isImpersonating && Boolean(context?.myEmployeeId);
 
   return (
     <header className="relative z-30 shrink-0 bg-chrome print:hidden">
@@ -85,7 +90,11 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
             {context?.activeFiscalYear.name}
           </Link>
 
-          {(canSeeApprovals || canSeeSalary) && <ApprovalsBell leave={canSeeApprovals ? pending : null} salary={canSeeSalary ? salaryPending : null} />}
+          {canClock && <ClockButton />}
+
+          {(canSeeApprovals || canSeeSalary || canSeeAttendance) && (
+            <ApprovalsBell leave={canSeeApprovals ? pending : null} salary={canSeeSalary ? salaryPending : null} attendance={canSeeAttendance ? attendancePending : null} />
+          )}
 
           <button
             type="button"
@@ -106,18 +115,20 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
 }
 
 /**
- * Alerts bell: requests waiting for this user. Leave requests (approvers) and
- * salary changes they can act on now (4.4 approvals). One kind links straight
- * to it; both open a small menu.
+ * Alerts bell: requests waiting for this user. Leave requests (approvers),
+ * salary changes they can act on now (4.4 approvals), and attendance
+ * adjustments and remote clock-ins (4.5). One kind links straight to it;
+ * more open a small menu.
  */
-function ApprovalsBell({ leave, salary }: { leave: number | null; salary: number | null }) {
+function ApprovalsBell({ leave, salary, attendance }: { leave: number | null; salary: number | null; attendance: number | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const total = (leave ?? 0) + (salary ?? 0);
+  const total = (leave ?? 0) + (salary ?? 0) + (attendance ?? 0);
   const label = total > 0 ? `${total} request${total === 1 ? "" : "s"} waiting for you` : "Nothing waiting for you";
   const items = [
     leave !== null ? { href: "/timeAndLeave/leaves?tab=approvals", label: "Leave requests", count: leave } : null,
     salary !== null ? { href: "/workforce/salary-mapping?tab=approvals", label: "Salary changes", count: salary } : null,
+    attendance !== null ? { href: "/timeAndLeave/attendance?tab=adjustments", label: "Attendance adjustments", count: attendance } : null,
   ].filter((x): x is { href: string; label: string; count: number } => !!x);
 
   useEffect(() => {

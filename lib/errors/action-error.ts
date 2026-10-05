@@ -41,7 +41,9 @@ export function toActionError(
     return { success: false, error: error.message };
   }
   const ref = randomUUID().slice(0, 8).toUpperCase();
-  log(`[${context}] unexpected error (ref ${ref})`, {
+  // The cause goes in the log line too (server log only), since some log sinks drop the object.
+  const cause = error instanceof Error ? `${error.name}: ${error.message.slice(0, 300)}` : String(error).slice(0, 300);
+  log(`[${context}] unexpected error (ref ${ref}): ${cause}`, {
     ref,
     error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
   });

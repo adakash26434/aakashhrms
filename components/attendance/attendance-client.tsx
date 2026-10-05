@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, ChevronRight, ClipboardCheck, Fingerprint, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
+import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, MapPin, ChevronRight, ClipboardCheck, Fingerprint, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { useDateText } from "@/components/kit/date-cell";
 import { SelectField } from "@/components/kit/select-field";
@@ -11,6 +11,7 @@ import { WindowButton } from "@/components/kit/window";
 import { shiftPeriod, periodFor } from "@/lib/engines/pay-period.engine";
 import type { AttendancePageData, AttendanceTab } from "@/lib/types/attendance";
 import { AttendanceAdjustments } from "./attendance-adjustments";
+import { AttendanceCheckin } from "./attendance-checkin";
 import { AttendanceClose } from "./attendance-close";
 import { AttendancePunches } from "./attendance-punches";
 import { AttendanceRegister } from "./attendance-register";
@@ -64,6 +65,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
       { id: "adjustments", label: "Adjustments", icon: ClipboardCheck, badge: waiting || undefined },
       { id: "close", label: "Month close", icon: LockKeyhole, badge: data.months.length ? `${closed}/${data.months.length}` : undefined },
       { id: "punches", label: "Punch log", icon: Fingerprint },
+      { id: "checkin", label: "Web clock-in", icon: MapPin },
     ],
     [missing, waiting, closed, data.months.length, data.shifts]
   );
@@ -129,6 +131,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
         {tab === "adjustments" && <AttendanceAdjustments data={data} onNew={() => setWindowOpen("adjustment")} onDone={(t) => done(t)} />}
         {tab === "close" && <AttendanceClose data={data} onDone={(t) => done(t)} />}
         {tab === "punches" && <AttendancePunches data={data} onDone={(t) => done(t)} />}
+        {tab === "checkin" && <AttendanceCheckin data={data} onSaved={(t) => done(t)} />}
       </Tabs>
 
       {windowOpen === "punch" && <PunchWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}

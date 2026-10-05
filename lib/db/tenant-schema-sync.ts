@@ -461,6 +461,37 @@ WHERE "migrated" = false`,
     }
   }
 
+  // Web clock-in (4.5c, migration 0041): branch check-in rules, remote check-in location,
+  // people allowed to clock in from anywhere.
+  for (const q of [
+    `ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "checkin_rule" varchar(24) DEFAULT 'off' NOT NULL`,
+    `ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "checkin_networks" text[] DEFAULT ARRAY[]::text[] NOT NULL`,
+    `ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "latitude" numeric(9, 6)`,
+    `ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "longitude" numeric(9, 6)`,
+    `ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "checkin_radius_m" integer DEFAULT 150 NOT NULL`,
+    `ALTER TABLE "attendance_adjustments" ADD COLUMN IF NOT EXISTS "ip" varchar(64)`,
+    `ALTER TABLE "attendance_adjustments" ADD COLUMN IF NOT EXISTS "latitude" numeric(9, 6)`,
+    `ALTER TABLE "attendance_adjustments" ADD COLUMN IF NOT EXISTS "longitude" numeric(9, 6)`,
+    `ALTER TABLE "attendance_adjustments" ADD COLUMN IF NOT EXISTS "accuracy_m" integer`,
+    `ALTER TABLE "attendance_adjustments" ADD COLUMN IF NOT EXISTS "distance_m" integer`,
+    `CREATE TABLE IF NOT EXISTS "attendance_checkin_exceptions" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+  "from_date" date NOT NULL,
+  "to_date" date,
+  "reason" text NOT NULL,
+  "created_by" uuid,
+  "created_at" timestamp DEFAULT now() NOT NULL
+)`,
+    `CREATE INDEX IF NOT EXISTS "attendance_checkin_exceptions_emp_idx" ON "attendance_checkin_exceptions" ("employee_id")`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] web check-in 0041:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

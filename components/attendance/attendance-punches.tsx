@@ -9,7 +9,7 @@ import { localClock, localDate } from "@/lib/engines/attendance-day.engine";
 import { PUNCH_SOURCES, type AttendancePageData, type PunchSource, type PunchView } from "@/lib/types/attendance";
 import { ReasonWindow } from "./attendance-windows";
 
-const SOURCE_LABEL: Record<PunchSource, string> = { manual: "Entered by HR", web: "Web check-in", device: "Device", import: "File import", adjustment: "Adjustment" };
+const SOURCE_LABEL: Record<PunchSource, string> = { manual: "Entered by HR", web: "Web clock-in", device: "Device", import: "File import", adjustment: "Adjustment" };
 
 /** Punch log: every punch of the month with its source, IP and location; wrong ones are voided (kept, with the reason). */
 export function AttendancePunches({ data, onDone }: { data: AttendancePageData; onDone: (text: string) => void }) {

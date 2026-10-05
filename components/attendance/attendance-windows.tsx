@@ -169,6 +169,8 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
     noRecord: data.rules.noRecord,
     lateEnabled: data.rules.lateRule.enabled,
     lateCount: data.rules.lateRule.count,
+    // Kept as it is (switched on the Web clock-in tab).
+    webCheckIn: data.rules.webCheckIn.enabled,
   };
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
