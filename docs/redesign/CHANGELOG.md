@@ -39,7 +39,7 @@ Research: Labour Act 2074 chapter 9 (§40–51), SSF maternity / sickness benefi
 
 Verified: tsc 0 · eslint nothing new · 631/631 tests · `next build` · browser as the company administrator: Requests and Balances tabs, ledger pane (Pramod: home 18 + sick 12 + substitute 0, no longer 72), New request preview (Pramod, sick, 5–12 Oct: 6 days, Dashain days not counted, balance 12 → 6, §51 note, maternity not offered to a man), Adjust balance window opened and cancelled, 390 / 1366 / 1920 without sideways scroll, 0 console errors. Nothing was saved.
 
-Notes: the roster has everyone on GEN every day from 5 to 17 Oct (weekends included), apparently left from shift testing, so leave in that span counts Saturdays; self-service My leave needs an employee sign-in to check; existing names are renamed when the dev server next restarts. 4.6b (entitlements) and 4.6c (statutory leave settings) follow.
+Notes: the roster has everyone on GEN every day from 5 to 17 Oct (weekends included), apparently left from shift testing, so leave in that span counts Saturdays; self-service My leave needs an employee sign-in to check; after the restart the existing statutory names read in English only (Leaves, Leave types), with no sync errors. 4.6b (entitlements) and 4.6c (statutory leave settings) follow.
 
 ---
 
