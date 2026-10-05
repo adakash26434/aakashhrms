@@ -37,6 +37,12 @@ Browser (after the restart, nothing saved): Balances, Requests, Substitute (hide
 - Engine: `homeLeaveMonths` (statuses added / waiting for close / this month / to come / not employed; joiners and leavers; the company's rate). Attendance: `paidDaysSoFar` (same rules as the register, nothing written).
 - Verified in the browser: after the switch and Shrawan's close, Pramod: Shrawan 10 paid days → +0.5 (added), Bhadra 9 (waiting for month close), Aswin 12 so far (this month), up to 15.8; grid and pane agree; employee record shows the same and payable on leaving 0.5. Self-service shows the same panel (not opened in the browser: needs an employee login).
 
+**Ready for real companies (month by month from day one).** A company that starts using AakashHRMS during a leave year now has a proper start:
+- **Starting balances** (Balances → Starting balances…): pick the month leave is kept here from, enter each person's balances on its first day from the old records (type or paste from Excel). Only the difference is recorded, so saving the same figures again changes nothing; the month is fixed by the first save (`leave_start` in `system_config`, no migration). Months before it are "In the starting balance": closing or reopening them adds or takes back no home leave, and they don't block opening the next year. Starting balances (`start:<year>` ref) are never mistaken for the old system's up-front days, so new companies never see the switch.
+- **Why balances aren't growing yet** is now said everywhere: the Balances tab lists months that have ended but aren't closed (with Go to month close); month close reports the home leave it added; a home leave request that is short says which months haven't been added; the employee record's payable on leaving adds "plus about X days earned in months not closed yet".
+- The switch from up-front home leave stays for data from the old system.
+- Engine `balanceAtStart` (lines that set up the year count whatever their date: openings, the first-day credit and carry-over, the switch, starting balances); `homeLeaveMonths` "before" status. 668/668 tests.
+
 Notes: the payout itself (excess each year, everything on leaving) is leave salary, 4.9. Company types' carry-over and encashment settings get their editor in 4.7.
 
 ---

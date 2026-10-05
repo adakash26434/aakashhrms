@@ -11,7 +11,7 @@ import * as entitlements from '@/lib/services/leave-entitlement.service';
 import * as homeLeave from '@/lib/services/home-leave.service';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
 import type { ScopeFilter } from '@/lib/auth/scope-filter';
-import type { HomeLeaveYear, HomeSwitchPreview, LeavePreview, LeaveStatus, LedgerLine, OpeningPreview } from '@/lib/types/leave';
+import type { HomeLeaveYear, HomeSwitchPreview, LeavePreview, LeaveStatus, LedgerLine, OpeningPreview, StartingBalancesData } from '@/lib/types/leave';
 
 // Security plan S24 (4.6): every leave action checks a leave permission with
 // the user's scope (branch / department), counts the days on the server,
@@ -250,6 +250,34 @@ export async function switchHomeLeaveAction(): Promise<Ok<{ yearLabel: string; p
     return { success: true, data: r };
   } catch (error: unknown) {
     return fail(error, 'leave.homeSwitch');
+  }
+}
+
+/** The starting balances screen (company-wide editors). */
+export async function startingBalancesAction(pick?: { year: number; month: number }): Promise<Ok<StartingBalancesData> | Fail> {
+  await ensureTenantContext();
+  try {
+    const p = pick && Number.isInteger(pick.year) && Number.isInteger(pick.month) ? { year: pick.year, month: pick.month } : undefined;
+    return { success: true, data: await homeLeave.startingBalancesData(await openYearScope(), p) };
+  } catch (error: unknown) {
+    return fail(error, 'leave.startingBalances');
+  }
+}
+
+/** Saves starting balances from the old records (never your own; audited). */
+export async function saveStartingBalancesAction(input: unknown): Promise<Ok<{ label: string; people: number; changes: number }> | Fail> {
+  await ensureTenantContext();
+  let scope: ScopeFilter | null = null;
+  try {
+    if (await getImpersonationSession()) throw new UserFacingError('Support view cannot change leave balances for the company.');
+    scope = await openYearScope();
+    const r = await homeLeave.saveStartingBalances(input, { scope, userId: scope.userId });
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'LEAVE_APPLICATIONS', recordId: 'starting-balances', result: 'SUCCESS', newValues: { startingBalancesFrom: r.label, people: r.people, changes: r.changes } });
+    refresh();
+    return { success: true, data: r };
+  } catch (error: unknown) {
+    await auditRefusal(error, scope, 'EDIT', 'LEAVE_APPLICATIONS', 'starting-balances');
+    return fail(error, 'leave.saveStartingBalances');
   }
 }
 

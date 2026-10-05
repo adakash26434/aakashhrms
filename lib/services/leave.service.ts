@@ -10,7 +10,7 @@ import { isOwnRecord } from "@/lib/auth/self-action";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "@/lib/services/attendance-errors";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
-import { addDays } from "@/lib/engines/pay-period.engine";
+import { addDays, periodContaining } from "@/lib/engines/pay-period.engine";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording } from "@/lib/engines/approval.engine";
 import { balanceOn, capOf, checkRequest, countDays, fmt, homeLeaveEarned, ledgerSummary, proRata, creditedYearly, splitPaid, type CalendarDay } from "@/lib/engines/leave.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
@@ -189,7 +189,32 @@ async function previewFor(person: Person, type: LeaveRuleType, input: RequestInp
   if (!year) problems.push("These dates are outside every fiscal year set up. Ask HR.");
   // A leave year whose balances were carried into the next one takes no more balance leave.
   if (year && type.kind === "balance" && rolled.has(year.id)) problems.push(`${year.label} is closed for leave: its balances were carried into the next year.`);
+  // Short of home leave: say which finished months haven't added theirs yet (it comes with the month close).
+  if (year && type.statutoryCode === "HOME" && balance && balance.after < 0) {
+    const waitingMonths = await monthsWaitingForClose(person.branchId, year);
+    if (waitingMonths.length) notes.push(`Home leave is added when each attendance month is closed. ${waitingMonths.join(", ")} ${waitingMonths.length === 1 ? "has" : "have"} ended but ${waitingMonths.length === 1 ? "isn't" : "aren't"} closed yet, so ${waitingMonths.length === 1 ? "its days aren't" : "their days aren't"} in the balance.`);
+  }
   return { days, paidDays, unpaidDays, detail, skipped, balance, problems, notes, fiscalYearId: year?.id ?? null };
+}
+
+/**
+ * Attendance months of a leave year that have ended but aren't closed for a
+ * branch (from when the company started keeping leave here). Attendance
+ * months are BS months until payroll supports AD months (4.8).
+ */
+export async function monthsWaitingForClose(branchId: string, year: LeaveYear): Promise<string[]> {
+  const today = nepalDateIso();
+  const start = await repo.findLeaveStart();
+  const from = start && start.start > year.start ? start.start : year.start;
+  const closed = (await attendanceRepo.findClosedPeriodsOverlapping(from, today)).filter((c) => c.branchId === branchId);
+  const out: string[] = [];
+  for (let d = from; d <= year.end; ) {
+    const p = periodContaining("BS", d);
+    if (p.end >= today) break;
+    if (!closed.some((c) => c.calendar === p.calendar && c.periodYear === p.year && c.periodMonth === p.month)) out.push(p.label);
+    d = addDays(p.end, 1);
+  }
+  return out;
 }
 
 async function typeById(id: string): Promise<LeaveRuleType> {
@@ -574,6 +599,8 @@ export async function getLeavePage(params: { tab: LeaveTabId; scope: ScopeFilter
     substitute: null,
     calendar: null,
     homeSwitch: null,
+    homeMonthsToClose: [],
+    leaveStart: null,
   };
 }
 
@@ -664,7 +691,9 @@ export async function monthCloseLines(p: {
   const substitute = types.find((t) => t.statutoryCode === "SUBSTITUTE" && t.kind === "balance");
   const rolled = await rolledYears();
   const lines: repo.NewLedgerLine[] = [];
-  if (home) {
+  // Months before the company started keeping leave here are in the starting balances.
+  const start = await repo.findLeaveStart();
+  if (home && !(start && p.period.end < start.start)) {
     const ref = monthRef(p.period);
     const year = await postingYear(p.fiscalYearId, rolled);
     const posted = await repo.findLinesByRef(ids, ref);
@@ -674,7 +703,8 @@ export async function monthCloseLines(p: {
     // adds the closed months' days.
     const yearLines = (await repo.findLedger(ids, year)).filter((l) => l.leaveTypeId === home.id);
     const switched = new Set(yearLines.filter((l) => l.ref === `home-earned:${year}`).map((l) => l.employeeId));
-    const upFront = new Set(yearLines.filter((l) => l.kind === "opening" && l.days > 0 && !switched.has(l.employeeId)).map((l) => l.employeeId));
+    // Only the old system's lines (no ref); starting balances (ref start:…) are not up-front days.
+    const upFront = new Set(yearLines.filter((l) => l.kind === "opening" && !l.ref && l.days > 0 && !switched.has(l.employeeId)).map((l) => l.employeeId));
     for (const x of p.paidDays) {
       if (upFront.has(x.employeeId)) continue;
       const earned = homeLeaveEarned(x.days, home.accrualEveryDays);
@@ -716,6 +746,9 @@ export async function monthCloseLines(p: {
 
 /** Reopening an attendance month takes its home leave back (closing again posts it afresh). */
 export async function monthReopenLines(p: { period: { calendar: string; year: number; month: number; label: string; end: string }; employeeIds: string[]; reason: string; userId: string }): Promise<repo.NewLedgerLine[]> {
+  // A month before the start is in the starting balances: reopening it changes no leave.
+  const start = await repo.findLeaveStart();
+  if (start && p.period.end < start.start) return [];
   const ref = monthRef(p.period);
   const posted = await repo.findLinesByRef(p.employeeIds, ref);
   const rolled = await rolledYears();

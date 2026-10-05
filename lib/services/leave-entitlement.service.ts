@@ -149,7 +149,7 @@ async function planFor(target: leaveService.LeaveYear, from: leaveService.LeaveY
 
 /** Attendance months of a year still open, for branches that close months (from their first closed month on). */
 async function openMonths(year: leaveService.LeaveYear, people: Person[]): Promise<string[]> {
-  const rules = await attendanceService.getRules();
+  const [rules, start] = await Promise.all([attendanceService.getRules(), repo.findLeaveStart()]);
   const closedEver = await attendanceRepo.findClosedPeriodsOverlapping("1900-01-01", "2999-12-31");
   const branchNames = (await nameMaps()).branch;
   const out: string[] = [];
@@ -161,7 +161,8 @@ async function openMonths(year: leaveService.LeaveYear, people: Person[]): Promi
     const closed = new Set(mine.filter((c) => c.calendar === rules.calendar).map((c) => `${c.periodYear}-${c.periodMonth}`));
     for (let d = year.start; d <= year.end; ) {
       const p = periodContaining(rules.calendar, d);
-      if (p.end >= first && !closed.has(`${p.year}-${p.month}`)) out.push(`${p.label} (${branchNames.get(branchId) ?? "branch"})`);
+      // Months before the company started keeping leave here are in the starting balances.
+      if (p.end >= first && !(start && p.end < start.start) && !closed.has(`${p.year}-${p.month}`)) out.push(`${p.label} (${branchNames.get(branchId) ?? "branch"})`);
       d = addDays(p.end, 1);
     }
   }

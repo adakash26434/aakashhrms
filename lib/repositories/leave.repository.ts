@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db";
-import { approvalActions, leaveTypes, employeeLeaveBalances, leaveApplications, leaveLedger, leaveYearOpenings, fiscalYears, employees } from "@/lib/db/schema";
+import { approvalActions, leaveTypes, employeeLeaveBalances, leaveApplications, leaveLedger, leaveYearOpenings, fiscalYears, employees, systemConfig } from "@/lib/db/schema";
 import { eq, and, desc, or, ilike, gte, lte, inArray, like, SQL, sql } from "drizzle-orm";
 import type { DayBasis, EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveKind, LeaveRuleType, LeaveStatus, LeaveFilter, LedgerKind, LedgerLine } from "@/lib/types/leave";
 import type { ApprovalActionKind } from "@/lib/types/approval";
@@ -425,6 +425,52 @@ export async function openYear(p: { fiscalYearId: string; fromFiscalYearId: stri
     // Large companies: post in chunks inside the same transaction.
     for (let i = 0; i < p.lines.length; i += 500) await postLedgerLines(p.lines.slice(i, i + 500), tx);
     return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 4.6b: when the company started keeping leave here (starting balances)
+// ---------------------------------------------------------------------------
+
+const LEAVE_START_KEY = "leave_start";
+
+/** The month leave is kept in AakashHRMS from (balances before it came in as starting balances), or null. */
+export interface LeaveStart {
+  calendar: string;
+  year: number;
+  month: number;
+  label: string;
+  /** First day of that month. */
+  start: string;
+  setBy: string | null;
+  setAt: string;
+}
+
+export async function findLeaveStart(): Promise<LeaveStart | null> {
+  const [row] = await (await getDb()).select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, LEAVE_START_KEY)).limit(1);
+  if (!row?.value) return null;
+  try {
+    const v = JSON.parse(row.value) as LeaveStart;
+    return typeof v?.start === "string" && typeof v.year === "number" && typeof v.month === "number" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Saves starting balances in one transaction; the first save also fixes the
+ * month leave is kept from (it never changes afterwards: a second start is
+ * ignored and the stored one returned).
+ */
+export async function saveStartingBalances(p: { start: LeaveStart; lines: NewLedgerLine[] }): Promise<LeaveStart> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    await tx.insert(systemConfig).values({ key: LEAVE_START_KEY, value: JSON.stringify(p.start), dataType: "json" }).onConflictDoNothing({ target: systemConfig.key });
+    const [row] = await tx.select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, LEAVE_START_KEY)).limit(1);
+    const stored = JSON.parse(row.value) as LeaveStart;
+    if (stored.start !== p.start.start) throw new Error("LEAVE_START_CHANGED");
+    for (let i = 0; i < p.lines.length; i += 500) await postLedgerLines(p.lines.slice(i, i + 500), tx);
+    return stored;
   });
 }
 

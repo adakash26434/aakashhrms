@@ -75,14 +75,15 @@ export function AttendanceClose({ data, onDone }: { data: AttendancePageData; on
       return;
     }
     setSelected(new Set());
-    onDone(`${data.period.label} closed for ${result.data.branches} branch${result.data.branches === 1 ? "" : "es"} (${result.data.employees} employees). Payroll now reads these results.`);
+    const home = result.data.homeLeavePeople ? ` Home leave added: ${result.data.homeLeaveDays} days for ${result.data.homeLeavePeople} employee${result.data.homeLeavePeople === 1 ? "" : "s"}.` : "";
+    onDone(`${data.period.label} closed for ${result.data.branches} branch${result.data.branches === 1 ? "" : "es"} (${result.data.employees} employees). Payroll now reads these results.${home}`);
   };
 
   return (
     <div className="p-3">
       <div className="mb-3 rounded-md border border-line bg-surface-panel px-3 py-2.5 text-xs text-ink-muted">
         <p>
-          <span className="font-medium text-ink">Closing {data.period.label}</span> works out every day for the branch, stores it, and locks it for payroll. Days can then only change after reopening, which is no longer possible once that month&apos;s payroll is approved or locked.
+          <span className="font-medium text-ink">Closing {data.period.label}</span> works out every day for the branch, stores it, locks it for payroll, and adds the home leave earned in it (1 day for every 20 paid days; reopening takes it back). Days can then only change after reopening, which is no longer possible once that month&apos;s payroll is approved or locked.
         </p>
         {!monthEnded && <p className="mt-1 text-warning">This month has not ended yet: it can be closed after its last day.</p>}
       </div>

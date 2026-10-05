@@ -690,6 +690,21 @@ warns when no month is closed yet or someone goes below 0, previews each
 person (given up front struck through, brought forward, earned so far,
 taken, balance now → after) and asks for SWITCH to be typed.
 
+**Starting balances** (Balances tab button, company-wide role): for a
+company that starts keeping leave in AakashHRMS during a leave year. Four
+numbered points explain it; "Leave is kept here from [month]" (this leave
+year up to the current month; suggested: the first month already closed;
+fixed with a lock once saved); an EditGrid of employees employed on that
+day × balance types (not substitute), showing the balance on the month's
+first day, typed or pasted from Excel, changed cells marked, warnings over
+a type's limit, your own row locked. Saving records only the difference.
+The Balances tab then says "Leave is kept here from …"; until set, it
+suggests Starting balances. A blue notice lists months that have ended but
+aren't closed ("Home leave for Bhadra 2083 isn't added yet", with **Go to
+month close**). Months before the start show "In the starting balance" in
+the home leave table. Month close says what it added ("Home leave added:
+1.6 days for 3 employees").
+
 **Guide (kit, `components/kit/guide.tsx`).** Screens whose rules aren't
 obvious open with a "How … works" panel: a title with a help icon, 3–4
 numbered steps (bold step name, one or two plain sentences, no jargon or

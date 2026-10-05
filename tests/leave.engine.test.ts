@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  balanceAtStart,
   balanceOn,
   capOf,
   carryOver,
@@ -427,8 +428,49 @@ describe('home leave month by month (Labour Act §43)', () => {
     assert.equal(r.earned, 0);
   });
 
+  it('months before the company started keeping leave here are in the starting balance', () => {
+    const r = homeLeaveMonths({
+      months: [
+        { ...shrawan, closed: true, closedPaidDays: 31, posted: 1.55, beforeStart: true },
+        { ...bhadra, closed: false, closedPaidDays: null, posted: 0, beforeStart: true },
+        { ...kartik, closed: false, closedPaidDays: null, posted: 0 },
+      ],
+      joiningDate: '2020-01-01',
+      terminationDate: null,
+      today,
+      everyDays: 20,
+    });
+    assert.deepEqual(r.months.map((m) => m.status), ['before', 'before', 'to_come']);
+    // Nothing counted twice: the starting balance already holds those months.
+    assert.equal(r.earned, 0);
+    assert.equal(r.upTo, 1.5);
+  });
+
   it('a company rate more generous than the law is used (1 day per 18)', () => {
     const r = homeLeaveMonths({ months: [{ ...kartik, closed: false, closedPaidDays: null, posted: 0 }], joiningDate: '2020-01-01', terminationDate: null, today, everyDays: 18 });
     assert.equal(r.upTo, 1.67);
+  });
+});
+
+describe('balance on the first day of the start month (starting balances)', () => {
+  const l = (kind: 'opening' | 'credit' | 'accrual' | 'taken' | 'adjusted', days: number, entryDate: string, ref: string | null = null) => ({ kind, days, entryDate, expiresOn: null, ref });
+  const year = '2026-07-17';
+  const lines = [
+    l('opening', 18, year), // the old system's up-front home leave
+    l('accrual', 0.5, '2026-08-16', 'accrual:BS-2083-4'), // Shrawan closed
+    l('adjusted', -18, '2026-10-05', 'home-earned:y'), // the switch, made later
+    l('taken', -1, '2026-09-20'),
+  ];
+
+  it('lines that set up the year count whatever their date; the rest only before the start', () => {
+    // From Shrawan (the year's first day): 18 up front, taken back by the switch.
+    assert.equal(balanceAtStart(lines, year), 0);
+    // From Aswin: Shrawan's 0.5 is in; leave taken in Aswin is not.
+    assert.equal(balanceAtStart(lines, '2026-09-17'), 0.5);
+  });
+
+  it("the year's credit on its first day counts; a starting balance entered later counts too", () => {
+    assert.equal(balanceAtStart([l('credit', 12, year)], year), 12);
+    assert.equal(balanceAtStart([l('credit', 12, year), l('opening', -4, year, 'start:y')], year), 8);
   });
 });

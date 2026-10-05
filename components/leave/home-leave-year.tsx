@@ -10,6 +10,7 @@ const STATUS: Record<HomeLeaveYear["months"][number]["status"], { label: string;
   waiting: { label: "Waiting for month close", className: "bg-warning-subtle text-warning" },
   open: { label: "This month · added when closed", className: "bg-info-subtle text-info" },
   to_come: { label: "To come", className: "bg-surface-sunken text-ink-muted" },
+  before: { label: "In the starting balance", className: "bg-surface-sunken text-ink-muted" },
   outside: { label: "Not employed", className: "bg-surface-sunken text-ink-faint" },
 };
 
@@ -23,7 +24,7 @@ const STATUS: Record<HomeLeaveYear["months"][number]["status"], { label: string;
 export function HomeLeaveYearView({ year, mine = false, className }: { year: HomeLeaveYear; mine?: boolean; className?: string }) {
   const months = year.months.filter((m) => m.status !== "outside");
   const facts: [string, string, string?][] = [
-    ["Brought forward", fmt(year.broughtForward), "From earlier years"],
+    ["Brought forward", fmt(year.broughtForward), "From earlier years, or the starting balance entered when the company started using AakashHRMS"],
     ["Earned so far", fmt(year.earned), "Months closed this year"],
     ["Taken", fmt(year.taken)],
     ["Balance now", fmt(year.balance), "What can be taken today"],

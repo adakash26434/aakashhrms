@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, Info, Loader2, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, ClipboardList, Info, Loader2, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
 import { Guide } from "@/components/kit/guide";
@@ -22,7 +23,7 @@ type Line = LedgerLine & { createdByName: string | null };
  * mourning …) has no balance. The pane shows the ledger: every credit,
  * leave taken and adjustment, never edited or deleted.
  */
-export function LeaveBalances({ data, onAdjust, onSwitchHome }: { data: LeavePageData; onAdjust: (employeeId: string) => void; onSwitchHome: () => void }) {
+export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances }: { data: LeavePageData; onAdjust: (employeeId: string) => void; onSwitchHome: () => void; onStartingBalances: () => void }) {
   const dateText = useDateText();
   const [branch, setBranch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -132,12 +133,37 @@ export function LeaveBalances({ data, onAdjust, onSwitchHome }: { data: LeavePag
           )}
         </div>
       )}
+      {data.homeMonthsToClose.length > 0 && (
+        <div role="status" className="mb-3 flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-info/30 bg-info-subtle px-3 py-2.5 text-xs text-ink">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Home leave for {data.homeMonthsToClose.map((m) => m.label).join(", ")} isn&apos;t added yet.</p>
+            <p className="mt-0.5 text-ink-muted">
+              {data.homeMonthsToClose.length === 1 ? "The month has" : "These months have"} ended, but attendance isn&apos;t closed for {Math.max(...data.homeMonthsToClose.map((m) => m.people))} employee{Math.max(...data.homeMonthsToClose.map((m) => m.people)) === 1 ? "" : "s"}. Home leave is added when a month is closed in Attendance → Month close.
+            </p>
+          </div>
+          <Link href={`/timeAndLeave/attendance?tab=close&year=${data.homeMonthsToClose[0].year}&month=${data.homeMonthsToClose[0].month}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-xs font-medium text-ink hover:bg-surface-sunken">
+            Go to month close <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="w-56">
           <SelectField name="balance-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branch} onChange={setBranch} placeholder="All branches" allowEmpty />
         </div>
+        {data.permissions.openYear && (
+          <WindowButton onClick={onStartingBalances}>
+            <ClipboardList className="h-3.5 w-3.5" /> Starting balances…
+          </WindowButton>
+        )}
         <span className="text-2xs text-ink-muted">
-          Leave year {data.fiscalYear.label} ({dateText(data.fiscalYear.start)} – {dateText(data.fiscalYear.end)}). Balances are what can be taken today.
+          Leave year {data.fiscalYear.label} ({dateText(data.fiscalYear.start)} – {dateText(data.fiscalYear.end)}).{" "}
+          {data.leaveStart
+            ? `Leave is kept here from ${data.leaveStart.label}; earlier balances came in as starting balances.`
+            : data.permissions.openYear
+              ? "Starting to keep leave here? Enter everyone's balances from the old records with Starting balances."
+              : null}{" "}
+          Balances are what can be taken today.
         </span>
       </div>
       <SplitView

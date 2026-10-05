@@ -283,6 +283,21 @@ export function balanceOn(
   return { available: round(free + live.reduce((n, b) => n + b.left, 0)), buckets: live, free: round(free), expired: expired.sort((x, y) => x.expiresOn.localeCompare(y.expiresOn)) };
 }
 
+/**
+ * The balance on the first day of the start month: what happened before it,
+ * plus the lines that set up the year whatever their date (opening and
+ * starting balances, the year's credit and carry-over on its first day, the
+ * switch from up-front home leave).
+ */
+export function balanceAtStart(lines: readonly (BalanceLine & { ref?: string | null })[], start: string): number {
+  const setsUpYear = (l: (typeof lines)[number]) =>
+    l.kind === "opening" || (l.entryDate === start && (l.kind === "credit" || l.kind === "carried_forward")) || (l.ref ?? "").startsWith("start:") || (l.ref ?? "").startsWith("home-earned:");
+  return balanceOn(
+    lines.filter((l) => l.entryDate < start || setsUpYear(l)),
+    start
+  ).available;
+}
+
 /** Labour Act §43: home leave earned in a month, 1 day per N paid days (2 decimals). */
 export function homeLeaveEarned(paidDays: number, everyDays: number | null): number {
   const n = everyDays && everyDays > 0 ? everyDays : 20;
@@ -302,14 +317,16 @@ export interface HomeMonthInput {
   posted: number;
   /** Open month: paid days so far, from attendance (unknown = null). */
   livePaidDays?: number | null;
+  /** Before the company started keeping leave here: in the starting balance. */
+  beforeStart?: boolean;
 }
 
 export interface HomeMonth {
   label: string;
   start: string;
   end: string;
-  /** closed: added to the balance; waiting: over, not closed yet; open: under way; to_come: not started; outside: not employed then. */
-  status: "closed" | "waiting" | "open" | "to_come" | "outside";
+  /** closed: added to the balance; waiting: over, not closed yet; open: under way; to_come: not started; before: in the starting balance; outside: not employed then. */
+  status: "closed" | "waiting" | "open" | "to_come" | "before" | "outside";
   paidDays: number | null;
   earned: number | null;
 }
@@ -330,6 +347,7 @@ export function homeLeaveMonths(p: { months: readonly HomeMonthInput[]; joiningD
     const to = p.terminationDate && p.terminationDate < m.end ? p.terminationDate : m.end;
     const employed = daysBetween(from, to);
     const base = { label: m.label, start: m.start, end: m.end };
+    if (m.beforeStart) return { ...base, status: "before", paidDays: null, earned: null };
     if (m.closed) {
       earned += m.posted;
       upTo += m.posted;

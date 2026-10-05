@@ -143,7 +143,7 @@ export async function decideAttendanceAdjustmentsAction(ids: string[], decision:
 }
 
 /** Closes a month for branches (days and summaries stored and locked for payroll). */
-export async function closeAttendanceMonthAction(input: unknown): Promise<Ok<{ branches: number; employees: number }> | Fail> {
+export async function closeAttendanceMonthAction(input: unknown): Promise<Ok<{ branches: number; employees: number; homeLeaveDays: number; homeLeavePeople: number }> | Fail> {
   await ensureTenantContext();
   let scope: ScopeFilter | null = null;
   try {

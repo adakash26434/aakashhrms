@@ -37,6 +37,8 @@ const REQUEST_COLUMNS: GridColumn<Request>[] = [
 
 /** Leave tab: the leave year's balances (from the leave ledger), what leaving would pay, and the latest requests. */
 export function EmployeeRecordLeave({ data }: { data: EmployeeLeaveTabData }) {
+  // Home leave earned in months whose attendance isn't closed yet (not in the balance until then).
+  const pendingHome = (data.home?.months ?? []).filter((m) => m.status === "waiting" || m.status === "open").reduce((n, m) => n + (m.earned ?? 0), 0);
   return (
     <div className="grid items-stretch gap-4 xl:grid-cols-2">
       <Panel level={3} title="Balances" meta={data.fiscalYearLabel ? `Leave year ${data.fiscalYearLabel}` : "No leave year"} padded={false}>
@@ -60,6 +62,11 @@ export function EmployeeRecordLeave({ data }: { data: EmployeeLeaveTabData }) {
                 </span>
               ))}
             </p>
+            {pendingHome > 0 && (
+              <p className="mt-0.5 text-2xs text-ink">
+                Plus about {days(Math.round(pendingHome * 10) / 10)} days of home leave earned in months not closed yet ({data.home!.months.filter((m) => m.status === "waiting" || m.status === "open").map((m) => m.label).join(", ")}); it is added when they are closed.
+              </p>
+            )}
             <p className="mt-0.5 text-2xs text-ink-muted">Accumulated home and sick leave is paid at the last basic salary when someone leaves (Labour Act §49, up to {data.payable.map((p) => (p.cap === null ? null : `${p.cap} ${p.leaveTypeName.replace(/ Leave$/i, "").toLowerCase()}`)).filter(Boolean).join(" / ") || "the limit"}). Leave salary pays it.</p>
           </div>
         )}

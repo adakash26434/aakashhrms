@@ -223,3 +223,42 @@ describe('S24 home leave switch (4.6b)', () => {
     assert.match(close, /if \(upFront\.has\(x\.employeeId\)\) continue/);
   });
 });
+
+// S24 (4.6b): starting balances when a company starts keeping leave here.
+describe('S24 starting balances (4.6b)', () => {
+  const leaveRepo = source('lib/repositories/leave.repository.ts');
+  it('company-wide only, never from support view, never your own, audited', () => {
+    const save = fnBody(actions, 'saveStartingBalancesAction');
+    assert.match(save, /getImpersonationSession\(\)/);
+    assert.match(save, /openYearScope\(\)/);
+    assert.match(save, /result: 'SUCCESS'/);
+    assert.match(save, /auditRefusal\(error, scope/);
+    assert.match(fnBody(actions, 'startingBalancesAction'), /openYearScope\(\)/);
+    const svc = fnBody(homeLeave, 'saveStartingBalances');
+    assert.match(svc, /assertCompanyWide\(ctx\.scope\)/);
+    assert.match(svc, /isOwnRecord\(ctx\.scope\.employeeId, c\.employeeId\)\)\) throw new OwnAttendanceError/);
+    assert.match(svc, /MAX_START_CELLS/);
+    assert.match(svc, /c\.days < 0 \|\| c\.days > 999/);
+  });
+
+  it('records only the difference, and the start month is fixed once in the same transaction', () => {
+    const svc = fnBody(homeLeave, 'saveStartingBalances');
+    assert.match(svc, /const diff = r2\(c\.days - cell\.now\)/);
+    assert.match(svc, /if \(diff === 0\) continue/);
+    const tx = fnBody(leaveRepo, 'saveStartingBalances');
+    assert.match(tx, /onConflictDoNothing\(\{ target: systemConfig\.key \}\)/);
+    assert.match(tx, /LEAVE_START_CHANGED/);
+    assert.match(tx, /postLedgerLines\(p\.lines\.slice\(i, i \+ 500\), tx\)/);
+  });
+
+  it('months before the start add or take back no home leave, and do not block opening the next year', () => {
+    assert.match(fnBody(service, 'monthCloseLines'), /if \(home && !\(start && p\.period\.end < start\.start\)\)/);
+    assert.match(fnBody(service, 'monthReopenLines'), /if \(start && p\.period\.end < start\.start\) return \[\]/);
+    assert.match(fnBody(entitlements, 'openMonths'), /!\(start && p\.end < start\.start\)/);
+  });
+
+  it('starting balances are never mistaken for the old system up-front days', () => {
+    assert.match(fnBody(homeLeave, 'upFrontOf'), /l\.kind === "opening" && !l\.ref/);
+    assert.match(fnBody(service, 'monthCloseLines'), /l\.kind === "opening" && !l\.ref/);
+  });
+});

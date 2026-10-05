@@ -262,6 +262,27 @@ export interface HomeSwitchPreview {
   rows: { employee: LeavePerson; givenUpFront: number; broughtForward: number; earnedSoFar: number; taken: number; balanceNow: number; balanceAfter: number }[];
 }
 
+/**
+ * Starting balances: when a company starts keeping leave in AakashHRMS, each
+ * person's balances on the first day of that month, from the old records.
+ */
+export interface StartingBalancesData {
+  /** The month is fixed once the first starting balances are saved. */
+  fixed: boolean;
+  start: { year: number; month: number; label: string; start: string };
+  /** Months that can be chosen while it isn't fixed: this leave year, up to the current month. */
+  months: { year: number; month: number; label: string; start: string }[];
+  yearLabel: string;
+  types: { id: string; name: string; statutoryCode: string | null; cap: number | null }[];
+  rows: {
+    employee: LeavePerson;
+    joiningDate: string;
+    own: boolean;
+    /** Per leave type id: the balance on the first day of the month now, and whether a starting balance was entered (null = type not for this person). */
+    cells: Record<string, { now: number; entered: boolean } | null>;
+  }[];
+}
+
 /** A day worked on a weekly off or holiday in the last 21 days (substitute leave, Labour Act §42). */
 export interface SubstituteSuggestion {
   employee: LeavePerson;
@@ -327,6 +348,10 @@ export interface LeavePageData {
   calendar: LeaveCalendarData | null;
   /** Balances tab: home leave for this year was given up front by the old system and is still to be switched to earned (null = nothing to do). */
   homeSwitch: { people: number; givenUpFront: number } | null;
+  /** Balances tab: months that have ended but aren't closed, so their home leave isn't added yet. */
+  homeMonthsToClose: { label: string; year: number; month: number; people: number }[];
+  /** The month leave is kept in AakashHRMS from (balances before it are starting balances), or null. */
+  leaveStart: { label: string; start: string } | null;
 }
 
 /** The server's answer to "how many days would this be?" */

@@ -763,7 +763,7 @@ const bsMonthOf = (p: PayPeriod) => (p.calendar === "BS" ? p.month : periodConta
  * written and locked. Refused while adjustments wait, for branches outside
  * the user's scope, or when nothing is open.
  */
-export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branches: number; employees: number }> {
+export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branches: number; employees: number; homeLeaveDays: number; homeLeavePeople: number }> {
   const r = (raw && typeof raw === "object" ? raw : {}) as { year?: unknown; month?: unknown; branchIds?: unknown };
   const rules = await getRules();
   let period: PayPeriod;
@@ -782,6 +782,8 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
   const allPeople = await employeesFor({ ...ctx.scope, scopeType: ctx.scope.scopeType === "BRANCH" ? "BRANCH" : "GLOBAL" }, period.start, period.end);
   const pay = await payInputs(allPeople.map((e) => e.id), period.end);
   let employeesClosed = 0;
+  let homeLeaveDays = 0;
+  const homeLeavePeople = new Set<string>();
   for (const branchId of branchIds) {
     if (existing.some((p) => p.branchId === branchId && p.status === "closed")) throw new UserFacingError("That month is already closed for a branch you chose. Refresh the page.");
     const people = allPeople.filter((e) => e.branchId === branchId);
@@ -807,8 +809,12 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
     });
     await repo.closePeriod({ period: { calendar: period.calendar, year: period.year, month: period.month, start: period.start, end: period.end, days: period.days }, branchId, userId: ctx.userId, days, summaries, ledger });
     employeesClosed += people.length;
+    for (const l of ledger.filter((x) => x.kind === "accrual")) {
+      homeLeaveDays += l.days;
+      homeLeavePeople.add(l.employeeId);
+    }
   }
-  return { branches: branchIds.length, employees: employeesClosed };
+  return { branches: branchIds.length, employees: employeesClosed, homeLeaveDays: Math.round(homeLeaveDays * 100) / 100, homeLeavePeople: homeLeavePeople.size };
 }
 
 /** Reopens a branch month (reason required); refused once that month's payroll is approved or locked. */
