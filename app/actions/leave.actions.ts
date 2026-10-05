@@ -8,9 +8,10 @@ import { recordAuditLog } from '@/lib/services/audit.service';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
 import * as service from '@/lib/services/leave.service';
 import * as entitlements from '@/lib/services/leave-entitlement.service';
+import * as homeLeave from '@/lib/services/home-leave.service';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
 import type { ScopeFilter } from '@/lib/auth/scope-filter';
-import type { LeavePreview, LeaveStatus, LedgerLine, OpeningPreview } from '@/lib/types/leave';
+import type { HomeLeaveYear, HomeSwitchPreview, LeavePreview, LeaveStatus, LedgerLine, OpeningPreview } from '@/lib/types/leave';
 
 // Security plan S24 (4.6): every leave action checks a leave permission with
 // the user's scope (branch / department), counts the days on the server,
@@ -209,6 +210,46 @@ export async function grantSubstituteLeaveAction(items: unknown): Promise<Ok<{ d
     const first = Array.isArray(items) && items[0] && typeof (items[0] as { employeeId?: unknown }).employeeId === 'string' ? (items[0] as { employeeId: string }).employeeId : 'substitute';
     await auditRefusal(error, scope, 'EDIT', 'LEAVE_APPLICATIONS', first);
     return fail(error, 'leave.substitute');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4.6b: home leave earned month by month (Labour Act §43)
+// ---------------------------------------------------------------------------
+
+/** One person's home leave for the leave year, month by month (Balances pane). */
+export async function getHomeLeaveYearAction(employeeId: string): Promise<Ok<HomeLeaveYear | null> | Fail> {
+  await ensureTenantContext();
+  try {
+    if (typeof employeeId !== 'string' || !UUID.test(employeeId)) throw new UserFacingError('Employee not found.');
+    return { success: true, data: await homeLeave.homeLeaveFor(employeeId, await viewScope()) };
+  } catch (error: unknown) {
+    return fail(error, 'leave.homeYear');
+  }
+}
+
+/** What switching this year's up-front home leave to earned home leave would do. */
+export async function homeSwitchPreviewAction(): Promise<Ok<HomeSwitchPreview> | Fail> {
+  await ensureTenantContext();
+  try {
+    return { success: true, data: await homeLeave.homeSwitchPreview(await openYearScope()) };
+  } catch (error: unknown) {
+    return fail(error, 'leave.homeSwitchPreview');
+  }
+}
+
+/** Replaces this year's up-front home leave with what was earned (once). Company-wide, never from support view, audited. */
+export async function switchHomeLeaveAction(): Promise<Ok<{ yearLabel: string; people: number }> | Fail> {
+  await ensureTenantContext();
+  try {
+    if (await getImpersonationSession()) throw new UserFacingError('Support view cannot change leave balances for the company.');
+    const scope = await openYearScope();
+    const r = await homeLeave.switchHomeLeave(scope, scope.userId);
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'LEAVE_APPLICATIONS', recordId: 'home-leave', result: 'SUCCESS', newValues: { homeLeaveEarnedFrom: r.yearLabel, people: r.people } });
+    refresh();
+    return { success: true, data: r };
+  } catch (error: unknown) {
+    return fail(error, 'leave.homeSwitch');
   }
 }
 

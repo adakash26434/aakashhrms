@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import * as leaveService from '@/lib/services/leave.service';
+import * as homeLeaveService from '@/lib/services/home-leave.service';
 import { assertSessionUsable } from '@/lib/auth/session-updates';
 
 // ---------------------------------------------------------------------------
@@ -205,6 +206,12 @@ export async function getMyPayslipDetail(payslipId: string) {
 export async function getMyLeaveBalances() {
   const { employeeId } = await getSessionEmployeeId();
   return leaveService.myBalances(employeeId);
+}
+
+/** The employee's own home leave this year, month by month (the employee comes from the session). */
+export async function getMyHomeLeave() {
+  const { employeeId } = await getSessionEmployeeId();
+  return homeLeaveService.homeLeaveFor(employeeId, "checked");
 }
 
 export async function getMyLeaveTypes() {

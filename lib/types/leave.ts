@@ -223,11 +223,43 @@ export interface LeaveBalanceCell {
   taken: number;
   /** Days in waiting requests. */
   waiting: number;
+  /** Home leave: earned so far this year and the most the year can give. */
+  home?: { earned: number; upTo: number; givenUpFront: number | null };
 }
 
 export interface EmployeeBalancesRow {
   employee: LeavePerson;
   cells: LeaveBalanceCell[];
+}
+
+/**
+ * One person's home leave for a leave year (Labour Act §43: 1 day per 20
+ * paid days): where the balance comes from, and month by month what was
+ * earned.
+ */
+export interface HomeLeaveYear {
+  employeeId: string;
+  yearLabel: string;
+  /** Brought in from earlier years. */
+  broughtForward: number;
+  /** Added by closed attendance months. */
+  earned: number;
+  taken: number;
+  /** Other changes (HR adjustments, paid out, …). */
+  other: number;
+  balance: number;
+  /** The most the year can give: earned + the rest if every remaining day is paid. */
+  upTo: number;
+  /** The old system gave the year up front and the switch to earned leave has not been made (null = earned month by month). */
+  givenUpFront: number | null;
+  months: import("@/lib/engines/leave.engine").HomeMonth[];
+}
+
+/** Switching this year's home leave from "given up front" to earned (once per leave year). */
+export interface HomeSwitchPreview {
+  year: { id: string; label: string; start: string; end: string };
+  months: { label: string; closed: boolean }[];
+  rows: { employee: LeavePerson; givenUpFront: number; broughtForward: number; earnedSoFar: number; taken: number; balanceNow: number; balanceAfter: number }[];
 }
 
 /** A day worked on a weekly off or holiday in the last 21 days (substitute leave, Labour Act §42). */
@@ -293,6 +325,8 @@ export interface LeavePageData {
   substitute: SubstituteSuggestion[] | null;
   /** Calendar tab: the month shown (loaded with that tab). */
   calendar: LeaveCalendarData | null;
+  /** Balances tab: home leave for this year was given up front by the old system and is still to be switched to earned (null = nothing to do). */
+  homeSwitch: { people: number; givenUpFront: number } | null;
 }
 
 /** The server's answer to "how many days would this be?" */

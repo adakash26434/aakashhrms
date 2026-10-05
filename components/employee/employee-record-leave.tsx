@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { Panel } from "@/components/kit/panel";
+import { HomeLeaveYearView } from "@/components/leave/home-leave-year";
 import type { EmployeeLeaveTabData } from "@/lib/types/employee";
 
 type Balance = EmployeeLeaveTabData["balances"][number];
@@ -75,6 +76,7 @@ export function EmployeeRecordLeave({ data }: { data: EmployeeLeaveTabData }) {
           empty={{ title: "No leave requests", description: "Requests appear here once they are applied for." }}
         />
       </Panel>
+      {data.home && <HomeLeaveYearView year={data.home} className="xl:col-span-2" />}
       <p className="text-3xs text-ink-faint xl:col-span-2">
         To apply for or decide on leave, use <Link href="/timeAndLeave/leaves" className="underline">Leaves</Link>.
       </p>

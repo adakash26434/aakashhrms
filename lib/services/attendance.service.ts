@@ -248,6 +248,33 @@ export async function daysForEmployee(employeeId: string, from: string, to: stri
     }));
 }
 
+/**
+ * Paid days so far in some open months (home leave view, 4.6b): the same
+ * rules as the register, up to a day; nothing is written. Per employee,
+ * keyed `year-month`.
+ */
+export async function paidDaysSoFar(employeeIds: string[], periods: PayPeriod[], upTo: string): Promise<Map<string, Map<string, number>>> {
+  const out = new Map<string, Map<string, number>>();
+  const started = periods.filter((p) => p.start <= upTo);
+  const people = started.length && employeeIds.length ? await repo.findEmployeesByIds(employeeIds) : [];
+  if (!people.length) return out;
+  const rules = await getRules();
+  const from = started.map((p) => p.start).sort()[0];
+  const ends = started.map((p) => (p.end < upTo ? p.end : upTo)).sort();
+  const c = await loadContext(people, from, ends[ends.length - 1], rules);
+  for (const e of people) {
+    const months = new Map<string, number>();
+    for (const p of started) {
+      const results = datesIn(p)
+        .filter((d) => d <= upTo)
+        .map((d) => resolveFor(c, e, d));
+      months.set(`${p.year}-${p.month}`, summariseMonth(p, results, rules).payableDays);
+    }
+    out.set(e.id, months);
+  }
+  return out;
+}
+
 function datesBetween(from: string, to: string): string[] {
   const out: string[] = [];
   for (let d = from; d <= to; d = addDays(d)) out.push(d);

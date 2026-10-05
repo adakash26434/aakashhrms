@@ -8,7 +8,7 @@ import { Tabs, type TabItem } from "@/components/kit/tabs";
 import type { LeavePageData, LeaveTabId } from "@/lib/types/leave";
 import { LeaveBalances } from "./leave-balances";
 import { LeaveCalendar } from "./leave-calendar";
-import { LeaveSubstitute, OpenYearWindow } from "./leave-entitlements";
+import { LeaveSubstitute, OpenYearWindow, SwitchHomeLeaveWindow } from "./leave-entitlements";
 import { LeaveRequests } from "./leave-requests";
 import { AdjustBalanceWindow, NewRequestWindow } from "./leave-windows";
 
@@ -24,7 +24,7 @@ export function LeaveClient({ data }: { data: LeavePageData }) {
   const pathname = usePathname();
   const [refreshing, startRefresh] = useTransition();
   const [tab, setTab] = useState<LeaveTabId>(data.tab);
-  const [windowOpen, setWindowOpen] = useState<null | { kind: "new" } | { kind: "open-year" } | { kind: "adjust"; employeeId: string }>(null);
+  const [windowOpen, setWindowOpen] = useState<null | { kind: "new" } | { kind: "open-year" } | { kind: "switch-home" } | { kind: "adjust"; employeeId: string }>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const can = data.permissions;
 
@@ -73,12 +73,13 @@ export function LeaveClient({ data }: { data: LeavePageData }) {
 
       <Tabs variant="folder" items={tabs} value={tab} onChange={changeTab} label="Leave views">
         {tab === "requests" && <LeaveRequests data={data} onNew={() => setWindowOpen({ kind: "new" })} onDone={done} />}
-        {tab === "balances" && <LeaveBalances data={data} onAdjust={(employeeId) => setWindowOpen({ kind: "adjust", employeeId })} />}
+        {tab === "balances" && <LeaveBalances data={data} onAdjust={(employeeId) => setWindowOpen({ kind: "adjust", employeeId })} onSwitchHome={() => setWindowOpen({ kind: "switch-home" })} />}
         {tab === "substitute" && <LeaveSubstitute data={data} onDone={done} />}
         {tab === "calendar" && <LeaveCalendar data={data} />}
       </Tabs>
 
       {windowOpen?.kind === "new" && <NewRequestWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
+      {windowOpen?.kind === "switch-home" && <SwitchHomeLeaveWindow onClose={() => setWindowOpen(null)} onSaved={done} />}
       {windowOpen?.kind === "open-year" && <OpenYearWindow types={data.types} onClose={() => setWindowOpen(null)} onSaved={done} />}
       {adjustPerson && <AdjustBalanceWindow data={data} person={adjustPerson} onClose={() => setWindowOpen(null)} onSaved={done} />}
     </div>

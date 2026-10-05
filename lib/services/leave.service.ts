@@ -573,6 +573,7 @@ export async function getLeavePage(params: { tab: LeaveTabId; scope: ScopeFilter
     // Filled by the page for their tabs (leave-entitlement.service).
     substitute: null,
     calendar: null,
+    homeSwitch: null,
   };
 }
 
@@ -642,7 +643,7 @@ export async function withdrawOwn(id: string, employeeId: string, userId: string
 // 4.6b: entitlements posted with attendance (month close / reopen) and at hire
 // ---------------------------------------------------------------------------
 
-const monthRef = (period: { calendar: string; year: number; month: number }) => `accrual:${period.calendar}-${period.year}-${period.month}`;
+export const monthRef = (period: { calendar: string; year: number; month: number }) => `accrual:${period.calendar}-${period.year}-${period.month}`;
 
 /**
  * Leave lines that go with closing an attendance month (same transaction):
@@ -668,8 +669,12 @@ export async function monthCloseLines(p: {
     const year = await postingYear(p.fiscalYearId, rolled);
     const posted = await repo.findLinesByRef(ids, ref);
     // Before 4.6 the whole year's home leave was given up front (the `opening`
-    // lines of the 4.6a backfill): nothing more is earned in that year.
-    const upFront = new Set((await repo.findLedger(ids, year)).filter((l) => l.leaveTypeId === home.id && l.kind === "opening" && l.days > 0).map((l) => l.employeeId));
+    // lines of the 4.6a backfill). Until HR switches that year to earned home
+    // leave (home-leave.service), nothing more is earned in it; the switch
+    // adds the closed months' days.
+    const yearLines = (await repo.findLedger(ids, year)).filter((l) => l.leaveTypeId === home.id);
+    const switched = new Set(yearLines.filter((l) => l.ref === `home-earned:${year}`).map((l) => l.employeeId));
+    const upFront = new Set(yearLines.filter((l) => l.kind === "opening" && l.days > 0 && !switched.has(l.employeeId)).map((l) => l.employeeId));
     for (const x of p.paidDays) {
       if (upFront.has(x.employeeId)) continue;
       const earned = homeLeaveEarned(x.days, home.accrualEveryDays);

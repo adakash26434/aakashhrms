@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, SlidersHorizontal } from "lucide-react";
+import { ArrowRightLeft, Info, Loader2, SlidersHorizontal } from "lucide-react";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
 import { Guide } from "@/components/kit/guide";
 import { SelectField } from "@/components/kit/select-field";
 import { SplitView } from "@/components/kit/split-view";
 import { WindowButton } from "@/components/kit/window";
-import { getLeaveLedgerAction } from "@/app/actions/leave.actions";
+import { getHomeLeaveYearAction, getLeaveLedgerAction } from "@/app/actions/leave.actions";
 import { balanceOn, capOf, fmt } from "@/lib/engines/leave.engine";
-import { LEDGER_KIND_LABEL, type EmployeeBalancesRow, type LeavePageData, type LedgerLine } from "@/lib/types/leave";
+import { LEDGER_KIND_LABEL, type EmployeeBalancesRow, type HomeLeaveYear, type LeavePageData, type LedgerLine } from "@/lib/types/leave";
+import { HomeLeaveYearView } from "./home-leave-year";
 import { cn } from "@/lib/utils";
 
 type Line = LedgerLine & { createdByName: string | null };
@@ -21,11 +22,12 @@ type Line = LedgerLine & { createdByName: string | null };
  * mourning …) has no balance. The pane shows the ledger: every credit,
  * leave taken and adjustment, never edited or deleted.
  */
-export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjust: (employeeId: string) => void }) {
+export function LeaveBalances({ data, onAdjust, onSwitchHome }: { data: LeavePageData; onAdjust: (employeeId: string) => void; onSwitchHome: () => void }) {
   const dateText = useDateText();
   const [branch, setBranch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ledger, setLedger] = useState<{ employeeId: string; lines: Line[] | null; error: string | null } | null>(null);
+  const [homeYear, setHomeYear] = useState<{ employeeId: string; year: HomeLeaveYear | null } | null>(null);
   const balanceTypes = useMemo(() => data.types.filter((t) => t.kind === "balance" && t.isActive), [data.types]);
   const sickType = data.types.find((t) => t.statutoryCode === "SICK");
   const homeType = data.types.find((t) => t.statutoryCode === "HOME");
@@ -40,6 +42,9 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
     let live = true;
     getLeaveLedgerAction(activeId).then((r) => {
       if (live) setLedger({ employeeId: activeId, lines: r.success ? r.data : null, error: r.success ? null : r.error });
+    });
+    getHomeLeaveYearAction(activeId).then((r) => {
+      if (live) setHomeYear({ employeeId: activeId, year: r.success ? r.data : null });
     });
     return () => {
       live = false;
@@ -57,11 +62,20 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
           id: `t-${t.id}`,
           header: t.name,
           type: "number",
-          width: 140,
+          width: t.statutoryCode === "HOME" ? 210 : 140,
           value: (b) => b.cells.find((c) => c.leaveTypeId === t.id)?.balance ?? null,
           cell: (b) => {
             const c = b.cells.find((x) => x.leaveTypeId === t.id);
             if (!c) return <span className="text-ink-faint">—</span>;
+            if (c.home) {
+              const h = c.home;
+              return (
+                <span className="tabular-nums" title={h.givenUpFront !== null ? `${fmt(h.givenUpFront)} days given up front by the old system; not switched to earned home leave yet` : `Earned ${fmt(h.earned)} so far this year; up to ${fmt(h.upTo)} by the year end if every day is paid. Taken ${fmt(c.taken)}.`}>
+                  <span className={cn("font-semibold", c.balance < 0 ? "text-danger" : "text-ink")}>{fmt(c.balance)}</span>
+                  <span className="text-2xs text-ink-muted"> · {h.givenUpFront !== null ? "given up front" : `earned ${fmt(h.earned)} of up to ${fmt(h.upTo)}`}</span>
+                </span>
+              );
+            }
             return (
               <span className="tabular-nums" title={`Taken ${fmt(c.taken)} this year${c.waiting ? `, ${fmt(c.waiting)} waiting` : ""}`}>
                 <span className={cn("font-semibold", c.balance < 0 ? "text-danger" : "text-ink")}>{fmt(c.balance)}</span>
@@ -101,6 +115,23 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
         ]}
         note="Click a name to see every change to that person's balance, with who made it and why. Maternity, maternity care and mourning leave have no balance: they are given each time they are needed."
       />
+      {data.homeSwitch && (
+        <div role="status" className="mb-3 flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2.5 text-xs text-ink">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Home leave for {data.fiscalYear.label} was given up front by the old system.</p>
+            <p className="mt-0.5 text-ink-muted">
+              {data.homeSwitch.people} {data.homeSwitch.people === 1 ? "employee has" : "employees have"} home leave given in full for the year ({fmt(data.homeSwitch.givenUpFront)} days in all). The law gives it as it is earned: 1 day for every 20 paid days. Switching replaces the up-front days with what each person has earned, and from then on every closed attendance month adds its days.
+              {!data.permissions.openYear && " Someone with a company-wide leave role can make the switch."}
+            </p>
+          </div>
+          {data.permissions.openYear && (
+            <WindowButton variant="primary" onClick={onSwitchHome}>
+              <ArrowRightLeft className="h-3.5 w-3.5" /> Switch to earned home leave…
+            </WindowButton>
+          )}
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="w-56">
           <SelectField name="balance-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branch} onChange={setBranch} placeholder="All branches" allowEmpty />
@@ -111,7 +142,7 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
       </div>
       <SplitView
         id="leave-balances"
-        detailTitle={active ? `${active.employee.fullName} · ledger` : undefined}
+        detailTitle={active ? `${active.employee.fullName} · balances` : undefined}
         onCloseDetail={() => setActiveId(null)}
         detail={
           active ? (
@@ -124,6 +155,7 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
                   {own && <p className="text-2xs text-ink-muted">This is your own balance, so someone else has to adjust it.</p>}
                 </div>
               )}
+              {homeYear?.employeeId === active.employee.id && homeYear.year && <HomeLeaveYearView year={homeYear.year} />}
               {ledger?.error && (
                 <p role="alert" className="text-danger">
                   {ledger.error}

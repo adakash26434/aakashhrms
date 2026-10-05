@@ -1,5 +1,6 @@
 import React from "react";
-import { getMyLeaveBalances, getMyLeaveApplications, getMyLeaveTypes } from "@/lib/services/self-service.service";
+import { getMyLeaveBalances, getMyLeaveApplications, getMyLeaveTypes, getMyHomeLeave } from "@/lib/services/self-service.service";
+import { HomeLeaveYearView } from "@/components/leave/home-leave-year";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle, CalendarCheck, Palmtree } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,12 +16,13 @@ export const metadata = {
 };
 
 export default async function MyLeavePage() {
-  let balancesData, applications, types;
+  let balancesData, applications, types, home;
   try {
-    [balancesData, applications, types] = await Promise.all([
+    [balancesData, applications, types, home] = await Promise.all([
       getMyLeaveBalances(),
       getMyLeaveApplications(),
       getMyLeaveTypes(),
+      getMyHomeLeave(),
     ]);
   } catch (error: any) {
     return (
@@ -113,7 +115,7 @@ export default async function MyLeavePage() {
                         </span>
                       </div>
                       <div className="text-right text-2xs text-gray-500 font-medium space-y-0.5">
-                        <p>Allotted: <strong className="text-payroll-navy">{allotted}</strong></p>
+                        <p>Given / earned: <strong className="text-payroll-navy">{allotted}</strong></p>
                         <p>Taken: <strong className="text-payroll-navy">{taken}</strong></p>
                         {carriedForward > 0 && (
                           <p>Carried: <strong className="text-payroll-navy">{carriedForward}</strong></p>
@@ -146,6 +148,9 @@ export default async function MyLeavePage() {
           </div>
         )}
       </div>
+
+      {/* ── Home leave month by month (Labour Act §43) ── */}
+      {home && <HomeLeaveYearView year={home} mine className="bg-white" />}
 
       {/* ── Leave Applications History Table ── */}
       <div className="space-y-3">

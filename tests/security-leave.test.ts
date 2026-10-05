@@ -190,3 +190,36 @@ describe('S24 leave entitlements (4.6b)', () => {
     assert.doesNotMatch(entitlements, /\.update\(|\.delete\(/);
   });
 });
+
+// S24 (4.6b): switching up-front home leave to earned home leave.
+const homeLeave = source('lib/services/home-leave.service.ts');
+
+describe('S24 home leave switch (4.6b)', () => {
+  it('company-wide only, never from support view, audited, once per person and year', () => {
+    const action = fnBody(actions, 'switchHomeLeaveAction');
+    assert.match(action, /getImpersonationSession\(\)/);
+    assert.match(action, /openYearScope\(\)/);
+    assert.match(action, /result: 'SUCCESS'/);
+    assert.match(fnBody(actions, 'homeSwitchPreviewAction'), /openYearScope\(\)/);
+    for (const name of ['homeSwitchPreview', 'switchHomeLeave']) assert.match(fnBody(homeLeave, name), /assertCompanyWide\(scope\)/, name);
+    const run = fnBody(homeLeave, 'switchHomeLeave');
+    assert.match(run, /findLinesByRef\([\s\S]*switchRef\(year\.id\)\)[\s\S]*Someone else made this switch/);
+    // A person already switched is never switched again.
+    assert.match(fnBody(homeLeave, 'upFrontOf'), /l\.ref === switchRef\(year\.id\)\)\) return null/);
+  });
+
+  it('reading a home leave year follows the scope; the employee record and self-service pass already-checked people', () => {
+    const read = fnBody(actions, 'getHomeLeaveYearAction');
+    assert.match(read, /UUID\.test\(employeeId\)/);
+    assert.match(read, /homeLeaveFor\(employeeId, await viewScope\(\)\)/);
+    assert.match(fnBody(homeLeave, 'homeLeaveFor'), /buildEmployeeScopeCondition\(scope\)[\s\S]*throw new OutOfScopeError\(\)/);
+    assert.match(source('lib/services/self-service.service.ts'), /getSessionEmployeeId\(\);\s*return homeLeaveService\.homeLeaveFor\(employeeId, "checked"\)/);
+  });
+
+  it('until the switch the month close adds no home leave on top of the up-front days; after it, it does', () => {
+    const close = fnBody(service, 'monthCloseLines');
+    assert.match(close, /home-earned:\$\{year\}/);
+    assert.match(close, /!switched\.has\(l\.employeeId\)/);
+    assert.match(close, /if \(upFront\.has\(x\.employeeId\)\) continue/);
+  });
+});

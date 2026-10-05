@@ -5,6 +5,7 @@ import * as designationRepository from "@/lib/repositories/designation.repositor
 import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as attendanceService from "@/lib/services/attendance.service";
 import * as leaveService from "@/lib/services/leave.service";
+import * as homeLeaveService from "@/lib/services/home-leave.service";
 import * as payrollRepository from "@/lib/repositories/payroll.repository";
 import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as auditRepository from "@/lib/repositories/audit.repository";
@@ -63,12 +64,14 @@ async function loadTab(tab: EmployeeRecordTab, employeeId: string): Promise<Empl
   switch (tab) {
     case "leave": {
       // Balances from the leave ledger for the leave year (4.6), usable today.
-      const [mine, payable, requests] = await Promise.all([
+      // The record page has already checked access to this employee.
+      const [mine, payable, requests, home] = await Promise.all([
         leaveService.myBalances(employeeId),
         leaveService.payableOnLeaving(employeeId),
         leaveRepository.findRecentLeaveByEmployee(employeeId, 10),
+        homeLeaveService.homeLeaveFor(employeeId, "checked"),
       ]);
-      return { tab, data: { fiscalYearLabel: mine.fiscalYearLabel ?? null, balances: mine.balances, requests, payable } };
+      return { tab, data: { fiscalYearLabel: mine.fiscalYearLabel ?? null, balances: mine.balances, requests, payable, home } };
     }
     case "attendance": {
       const today = nepalToday();

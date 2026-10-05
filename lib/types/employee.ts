@@ -280,6 +280,8 @@ export interface EmployeeLeaveTabData {
   requests: { id: string; leaveTypeName: string; from: string; to: string; days: number; status: string; appliedDate: string }[];
   /** Paid at the last basic salary if the employee left today (Labour Act §49; leave salary 4.9). */
   payable: { leaveTypeName: string; days: number; cap: number | null }[];
+  /** Home leave month by month (Labour Act §43). */
+  home: import("@/lib/types/leave").HomeLeaveYear | null;
 }
 
 export interface EmployeeAttendanceDay {

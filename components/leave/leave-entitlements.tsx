@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, Check, CheckCircle2, CircleDashed, Loader2, X } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, CalendarPlus, Check, CheckCircle2, CircleDashed, Loader2, X } from "lucide-react";
 import { Confirm } from "@/components/kit/confirm";
 import { Guide } from "@/components/kit/guide";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
@@ -10,9 +10,9 @@ import { SelectField } from "@/components/kit/select-field";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { ReasonWindow } from "@/components/attendance/attendance-windows";
-import { grantSubstituteLeaveAction, leaveOpeningPreviewAction, openLeaveYearAction } from "@/app/actions/leave.actions";
+import { grantSubstituteLeaveAction, homeSwitchPreviewAction, leaveOpeningPreviewAction, openLeaveYearAction, switchHomeLeaveAction } from "@/app/actions/leave.actions";
 import { capOf, fmt } from "@/lib/engines/leave.engine";
-import type { LeavePageData, LeaveRuleType, OpeningPreview, SubstituteSuggestion } from "@/lib/types/leave";
+import type { HomeSwitchPreview, LeavePageData, LeaveRuleType, OpeningPreview, SubstituteSuggestion } from "@/lib/types/leave";
 import { cn } from "@/lib/utils";
 import { daysText, weekday } from "./leave-windows";
 
@@ -251,6 +251,134 @@ export function OpenYearWindow({ types, onClose, onSaved }: { types: readonly Le
 
 /** Whether the target year has started (the figures are final), from the checklist. */
 const hasStarted = (p: OpeningPreview) => !p.checks.some((c) => !c.ok && c.label.endsWith("has started"));
+
+// ---------------------------------------------------------------------------
+// Switching this year's home leave to earned (once)
+// ---------------------------------------------------------------------------
+
+type SwitchRow = HomeSwitchPreview["rows"][number];
+
+/**
+ * The old system gave the whole year's home leave up front. This replaces
+ * it, for everyone at once, with what each person has earned (1 day per 20
+ * paid days, from the closed attendance months); open months add theirs
+ * when they close. The preview shows each balance now and after.
+ */
+export function SwitchHomeLeaveWindow({ onClose, onSaved }: { onClose: () => void; onSaved: (text: string) => void }) {
+  const [preview, setPreview] = useState<HomeSwitchPreview | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    let live = true;
+    homeSwitchPreviewAction().then((r) => {
+      if (!live) return;
+      if (r.success) setPreview(r.data);
+      else setFailure(r.error);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const columns = useMemo<GridColumn<SwitchRow>[]>(
+    () => [
+      { id: "name", header: "Employee", width: 190, sticky: true, value: (r) => r.employee.fullName, cell: (r) => <span className="font-medium text-ink">{r.employee.fullName} <span className="font-code text-3xs text-ink-faint">{r.employee.employeeCode}</span></span> },
+      { id: "given", header: "Given up front", type: "number", width: 120, value: (r) => r.givenUpFront, cell: (r) => <span className="tabular-nums text-ink-muted line-through">{fmt(r.givenUpFront)}</span> },
+      { id: "bf", header: "Brought forward", type: "number", width: 130, value: (r) => r.broughtForward, cell: (r) => <span className="tabular-nums">{fmt(r.broughtForward)}</span> },
+      { id: "earned", header: "Earned so far", type: "number", width: 120, value: (r) => r.earnedSoFar, cell: (r) => <span className="tabular-nums text-success">+{fmt(r.earnedSoFar)}</span> },
+      { id: "taken", header: "Taken", type: "number", width: 90, value: (r) => r.taken, cell: (r) => <span className="tabular-nums">{fmt(r.taken)}</span> },
+      {
+        id: "after",
+        header: "Balance now → after",
+        type: "number",
+        width: 170,
+        value: (r) => r.balanceAfter,
+        cell: (r) => (
+          <span className="tabular-nums">
+            <span className="text-ink-muted">{fmt(r.balanceNow)}</span> → <span className={cn("font-semibold", r.balanceAfter < 0 ? "text-danger" : "text-ink")}>{fmt(r.balanceAfter)}</span>
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const closed = preview?.months.filter((m) => m.closed) ?? [];
+  const open = preview?.months.filter((m) => !m.closed) ?? [];
+  const below = preview?.rows.filter((r) => r.balanceAfter < 0).length ?? 0;
+  const run = async () => {
+    const r = await switchHomeLeaveAction();
+    if (!r.success) throw new Error(r.error);
+    onSaved(`Home leave for ${r.data.yearLabel} is now earned month by month for ${r.data.people} employee${r.data.people === 1 ? "" : "s"}.`);
+  };
+  const names = (list: { label: string }[]) => list.map((m) => m.label.replace(/ \d{4}$/, "")).join(", ");
+
+  return (
+    <Window
+      open
+      onClose={onClose}
+      size="xl"
+      title="Switch to earned home leave"
+      description={preview ? `For ${preview.year.label}: home leave becomes what each person has earned, 1 day for every 20 paid days (Labour Act §43), instead of the year given up front.` : "Home leave becomes what each person has earned, 1 day for every 20 paid days (Labour Act §43)."}
+      footer={
+        <>
+          {failure && (
+            <p role="alert" className="mr-auto rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1 text-xs text-danger">
+              {failure}
+            </p>
+          )}
+          <WindowCancel />
+          <WindowButton variant="primary" onClick={() => setConfirming(true)} disabled={!preview?.rows.length}>
+            <ArrowRightLeft className="h-3.5 w-3.5" /> Switch {preview?.rows.length ?? ""} employee{preview?.rows.length === 1 ? "" : "s"}
+          </WindowButton>
+        </>
+      }
+    >
+      {!preview && !failure && (
+        <p className="flex items-center gap-1.5 text-xs text-ink-muted">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Working out what each person has earned…
+        </p>
+      )}
+      {preview && (
+        <div className="@container space-y-3 text-xs">
+          <section aria-label="What happens" className="rounded-lg border border-line bg-surface px-3 py-2.5">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">What happens</h3>
+            <ol className="list-decimal space-y-1 pl-4 text-ink">
+              <li>The home leave given up front for {preview.year.label} is taken off each balance. Each person&apos;s history gets a line saying why.</li>
+              <li>{closed.length ? <>Each closed attendance month adds the days earned in it: {names(closed)}.</> : <>No attendance month of {preview.year.label} is closed yet, so nothing is added now.</>}</li>
+              <li>{open.length ? <>{names(open)} {open.length === 1 ? "adds its days when it is" : "add their days when they are"} closed in Attendance, and so does every month after.</> : <>Every month after this adds its days when it is closed in Attendance.</>}</li>
+              <li>Leave already taken stays taken. Days brought forward from earlier years stay.</li>
+            </ol>
+          </section>
+          {!closed.length && (
+            <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-ink">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+              <span>Balances will show only what was brought forward until {names(open.slice(0, 1)) || "the first month"} is closed. Switching now or after closing those months gives the same result.</span>
+            </p>
+          )}
+          {below > 0 && (
+            <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-ink">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+              <span>
+                {below} {below === 1 ? "person has" : "people have"} taken more home leave than earned so far, so the balance goes below 0 until the coming months make it up. New home leave requests are refused while the balance is short.
+              </span>
+            </p>
+          )}
+          <DataGrid id="leave-home-switch" label="Home leave before and after" columns={columns} rows={preview.rows} getRowId={(r) => r.employee.id} defaultSort={{ columnId: "name", direction: "asc" }} pageSize={100} maxHeight="45vh" empty={{ title: "Nothing to switch", description: "Everyone's home leave is already earned month by month." }} />
+        </div>
+      )}
+      <Confirm
+        open={confirming}
+        title="Switch to earned home leave?"
+        message={`Home leave for ${preview?.rows.length ?? 0} employees changes exactly as shown. It is done once and can't be undone. Type SWITCH to confirm.`}
+        confirmLabel="Switch"
+        requireText="SWITCH"
+        onConfirm={run}
+        onCancel={() => setConfirming(false)}
+      />
+    </Window>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Substitute leave (Labour Act §42)

@@ -289,6 +289,66 @@ export function homeLeaveEarned(paidDays: number, everyDays: number | null): num
   return paidDays > 0 ? round(paidDays / n) : 0;
 }
 
+/** One attendance month of a leave year, for the home leave view. */
+export interface HomeMonthInput {
+  label: string;
+  start: string;
+  end: string;
+  /** The month is closed for the person's branch (its home leave has been added). */
+  closed: boolean;
+  /** Paid days stored when the month was closed. */
+  closedPaidDays: number | null;
+  /** Home leave posted for the month (net of any reopen). */
+  posted: number;
+  /** Open month: paid days so far, from attendance (unknown = null). */
+  livePaidDays?: number | null;
+}
+
+export interface HomeMonth {
+  label: string;
+  start: string;
+  end: string;
+  /** closed: added to the balance; waiting: over, not closed yet; open: under way; to_come: not started; outside: not employed then. */
+  status: "closed" | "waiting" | "open" | "to_come" | "outside";
+  paidDays: number | null;
+  earned: number | null;
+}
+
+const daysBetween = (from: string, to: string) => (from > to ? 0 : Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1);
+
+/**
+ * Home leave month by month for a leave year (Labour Act §43): what each
+ * closed month added, what an open month has earned so far (added when it
+ * closes), and the most the year can give if every remaining day is paid.
+ */
+export function homeLeaveMonths(p: { months: readonly HomeMonthInput[]; joiningDate: string; terminationDate: string | null; today: string; everyDays: number | null }): { months: HomeMonth[]; earned: number; upTo: number } {
+  const n = p.everyDays && p.everyDays > 0 ? p.everyDays : 20;
+  let earned = 0;
+  let upTo = 0;
+  const months = p.months.map((m): HomeMonth => {
+    const from = m.start > p.joiningDate ? m.start : p.joiningDate;
+    const to = p.terminationDate && p.terminationDate < m.end ? p.terminationDate : m.end;
+    const employed = daysBetween(from, to);
+    const base = { label: m.label, start: m.start, end: m.end };
+    if (m.closed) {
+      earned += m.posted;
+      upTo += m.posted;
+      return { ...base, status: "closed", paidDays: m.closedPaidDays, earned: round(m.posted) };
+    }
+    if (!employed) return { ...base, status: "outside", paidDays: null, earned: null };
+    if (m.start > p.today) {
+      upTo += employed / n;
+      return { ...base, status: "to_come", paidDays: null, earned: null };
+    }
+    // Under way (or over but not closed): what attendance shows so far, plus the days still to come.
+    const so = m.livePaidDays ?? null;
+    const rest = daysBetween(p.today > from ? p.today : from, to);
+    upTo += so === null ? employed / n : so / n + rest / n;
+    return { ...base, status: m.end < p.today ? "waiting" : "open", paidDays: so, earned: so === null ? null : homeLeaveEarned(so, n) };
+  });
+  return { months, earned: round(earned), upTo: round(upTo) };
+}
+
 /** What carries into the next leave year (up to the cap) and what is over it. A negative balance carries as it is. */
 export function carryOver(closing: number, cap: number | null): { carry: number; over: number } {
   if (closing <= 0 || cap === null) return { carry: round(closing), over: 0 };

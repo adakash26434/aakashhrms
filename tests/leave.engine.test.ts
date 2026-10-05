@@ -6,6 +6,7 @@ import {
   carryOver,
   creditedYearly,
   homeLeaveEarned,
+  homeLeaveMonths,
   planOpening,
   proRata,
   checkRequest,
@@ -375,5 +376,59 @@ describe('opening a leave year (Labour Act §49, §50)', () => {
   it('every line says it belongs to this opening', () => {
     assert.ok(plan.lines.length > 0);
     assert.ok(plan.lines.every((l) => l.ref === 'opening:y2'));
+  });
+});
+
+describe('home leave month by month (Labour Act §43)', () => {
+  // FY 2083/84 in BS months (start / end in AD); today is 19 Aswin (5 Oct 2026).
+  const shrawan = { label: 'Shrawan 2083', start: '2026-07-17', end: '2026-08-16' };
+  const bhadra = { label: 'Bhadra 2083', start: '2026-08-17', end: '2026-09-16' };
+  const aswin = { label: 'Aswin 2083', start: '2026-09-17', end: '2026-10-17' };
+  const kartik = { label: 'Kartik 2083', start: '2026-10-18', end: '2026-11-16' };
+  const today = '2026-10-05';
+
+  it('a closed month adds what was posted; an open one shows what it has earned so far', () => {
+    const r = homeLeaveMonths({
+      months: [
+        { ...shrawan, closed: true, closedPaidDays: 31, posted: 1.55 },
+        { ...bhadra, closed: false, closedPaidDays: null, posted: 0, livePaidDays: 20 },
+        { ...aswin, closed: false, closedPaidDays: null, posted: 0, livePaidDays: 18 },
+        { ...kartik, closed: false, closedPaidDays: null, posted: 0 },
+      ],
+      joiningDate: '2020-01-01',
+      terminationDate: null,
+      today,
+      everyDays: 20,
+    });
+    assert.deepEqual(r.months.map((m) => m.status), ['closed', 'waiting', 'open', 'to_come']);
+    assert.equal(r.earned, 1.55);
+    assert.equal(r.months[0].earned, 1.55);
+    assert.equal(r.months[1].earned, 1);
+    assert.equal(r.months[2].earned, 0.9);
+    // Up to: 1.55 + Bhadra 20/20 + Aswin (18 so far + 13 days from today) / 20 + Kartik 30/20.
+    assert.equal(r.upTo, 1.55 + 1 + 1.55 + 1.5);
+  });
+
+  it('months before joining or after leaving are not counted', () => {
+    const r = homeLeaveMonths({
+      months: [
+        { ...shrawan, closed: false, closedPaidDays: null, posted: 0 },
+        { ...bhadra, closed: false, closedPaidDays: null, posted: 0, livePaidDays: null },
+        { ...kartik, closed: false, closedPaidDays: null, posted: 0 },
+      ],
+      joiningDate: '2026-08-27',
+      terminationDate: '2026-11-06',
+      today,
+      everyDays: 20,
+    });
+    assert.equal(r.months[0].status, 'outside');
+    // Bhadra from 27 Aug (21 days), unknown so far: counted as if paid. Kartik to 6 Nov (20 days).
+    assert.equal(r.upTo, 1.05 + 1);
+    assert.equal(r.earned, 0);
+  });
+
+  it('a company rate more generous than the law is used (1 day per 18)', () => {
+    const r = homeLeaveMonths({ months: [{ ...kartik, closed: false, closedPaidDays: null, posted: 0 }], joiningDate: '2020-01-01', terminationDate: null, today, everyDays: 18 });
+    assert.equal(r.upTo, 1.67);
   });
 });

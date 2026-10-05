@@ -675,6 +675,21 @@ it no credit. The employee record's Leave tab shows the balances from the
 ledger and **Payable on leaving** (home ≤ 90, sick ≤ 45, at the last basic
 salary; leave salary 4.9 pays it).
 
+**Home leave this year** (`components/leave/home-leave-year.tsx`; Balances
+pane, employee record Leave tab, self-service My leave): five facts (brought
+forward, earned so far, taken, **balance now** highlighted, **up to this
+year** = earned + what the remaining days can give if paid) and a month table
+(month, paid days, earned, status: **Added** for a closed month, **Waiting
+for month close** for one that has ended, **This month · added when closed**
+with "so far" figures, **To come**), then one line on what counts as a paid
+day. The Balances grid's Home Leave cell reads "0.5 · earned 0.5 of up to
+15.8". While a year's home leave is still the old system's up-front days, a
+banner on Balances explains it and offers **Switch to earned home leave…**
+(company-wide role): a window lists what happens in four numbered steps,
+warns when no month is closed yet or someone goes below 0, previews each
+person (given up front struck through, brought forward, earned so far,
+taken, balance now → after) and asks for SWITCH to be typed.
+
 **Guide (kit, `components/kit/guide.tsx`).** Screens whose rules aren't
 obvious open with a "How … works" panel: a title with a help icon, 3–4
 numbered steps (bold step name, one or two plain sentences, no jargon or
