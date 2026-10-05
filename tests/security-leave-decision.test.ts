@@ -49,36 +49,32 @@ describe('S17 leave decisions', () => {
     assert.equal(cleanRemarks('x'.repeat(900))!.length, 500);
   });
 
-  it('the action enforces scope, self-approval, transitions, a reason, support-view block and audit', () => {
+  // 4.6: decisions moved to the leave service and the approval engine; the
+  // source checks live in tests/security-leave.test.ts (S24).
+  it('the decision action checks scope, blocks support view and audits each request', () => {
     const action = source('app/actions/leave.actions.ts');
-    const body = action.slice(action.indexOf('export async function updateLeaveStatusAction'), action.indexOf('export async function deleteLeaveApplicationAction'));
-    assert.match(body, /checkPermissionWithScope\('APPROVE', 'LEAVE_APPROVALS'\)/);
-    assert.match(body, /employeeInScope\(scope, employee\)/);
-    assert.match(body, /isOwnRequest\(scope\.employeeId, application\.employeeId\)/);
-    assert.match(body, /canTransitionLeave\(application\.status, status\)/);
-    assert.match(body, /REJECTION_REASON_MIN/);
+    const body = action.slice(action.indexOf('export async function decideLeaveRequestsAction'), action.indexOf('export async function adjustLeaveBalanceAction'));
+    assert.match(body, /viewScope\(\)/);
+    assert.match(body, /hasPermission\('APPROVE', 'LEAVE_APPROVALS'\)/);
     assert.match(body, /getImpersonationSession\(\)/);
-    assert.match(body, /UUID_PATTERN\.test\(id\)/);
-    assert.match(body, /result: 'DENIED_SCOPE'/);
+    assert.match(body, /UUID\.test\(id\)/);
     assert.match(body, /result: 'SUCCESS'/);
-    assert.match(body, /toActionError\(error/);
-    // The reviewer is the signed-in user, never the client-supplied argument.
-    assert.match(body, /reviewedById: scope\.userId/);
-    assert.doesNotMatch(body, /leaveService\.updateLeaveApplicationStatus/);
+    assert.match(body, /auditRefusal\(error, scope/);
+    // The decider is the signed-in user, never a client-supplied argument.
+    assert.match(body, /userId: scope\.userId/);
   });
 
-  it('the status change is conditional on the previous status, in one transaction with the balance', () => {
+  it('the status change is conditional on the previous status, in one transaction with the ledger', () => {
     const repo = source('lib/repositories/leave.repository.ts');
-    const fn = repo.slice(repo.indexOf('export async function transitionLeaveApplication'));
+    const fn = repo.slice(repo.indexOf('export async function decideRequest'));
     assert.match(fn, /\.transaction\(/);
-    assert.match(fn, /eq\(leaveApplications\.status, args\.expectedStatus\)/);
-    assert.match(fn, /sql`\$\{employeeLeaveBalances\.balance\} - \$\{days\}`/);
+    assert.match(fn, /eq\(leaveApplications\.status, p\.expectedStatus\)/);
+    assert.match(fn, /postLedgerLines\(p\.ledger, tx\)/);
   });
 
-  it('leave lists are scoped for the approvals tab, the action and the requests page', () => {
-    assert.match(source('app/actions/leave.actions.ts'), /getLeaveApplications\(filter, scope\)/);
+  it('leave lists are scoped on the page and in the service', () => {
     assert.match(source('app/(dashboard)/timeAndLeave/leaves/page.tsx'), /checkPermissionWithScope\("VIEW", "LEAVE_APPLICATIONS"\)/);
-    assert.match(source('lib/services/leave.service.ts'), /employeeInScope\(scope, emp\)/);
+    assert.match(source('lib/services/leave.service.ts'), /attendanceRepo\.findEmployees\(buildEmployeeScopeCondition\(scope\)\)/);
   });
 
 });

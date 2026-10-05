@@ -101,7 +101,7 @@ export interface FullOnboardingPayload {
 
 export const DEFAULT_NEPAL_LEAVE_TYPES: LeaveTypePreset[] = [
   {
-    name: 'Home Leave (घर बिदा)',
+    name: 'Home Leave',
     code: 'HOME',
     category: 'STATUTORY',
     daysPerYear: 18,
@@ -111,7 +111,7 @@ export const DEFAULT_NEPAL_LEAVE_TYPES: LeaveTypePreset[] = [
     genderSpecific: 'All',
   },
   {
-    name: 'Sick Leave (बिरामी बिदा)',
+    name: 'Sick Leave',
     code: 'SICK',
     category: 'STATUTORY',
     daysPerYear: 12,
@@ -121,7 +121,7 @@ export const DEFAULT_NEPAL_LEAVE_TYPES: LeaveTypePreset[] = [
     genderSpecific: 'All',
   },
   {
-    name: 'Maternity Leave (प्रसूति बिदा)',
+    name: 'Maternity Leave',
     code: 'MATERNITY',
     category: 'STATUTORY',
     daysPerYear: 98,
@@ -131,7 +131,7 @@ export const DEFAULT_NEPAL_LEAVE_TYPES: LeaveTypePreset[] = [
     genderSpecific: 'Female',
   },
   {
-    name: 'Paternity Leave (प्रसूति स्याहार बिदा)',
+    name: 'Paternity Leave',
     code: 'PATERNITY',
     category: 'STATUTORY',
     daysPerYear: 15,
@@ -141,7 +141,7 @@ export const DEFAULT_NEPAL_LEAVE_TYPES: LeaveTypePreset[] = [
     genderSpecific: 'Male',
   },
   {
-    name: 'Mourning Leave (क्रिया बिदा)',
+    name: 'Mourning Leave',
     code: 'MOURNING',
     category: 'STATUTORY',
     daysPerYear: 13,
@@ -150,13 +150,14 @@ export const DEFAULT_NEPAL_LEAVE_TYPES: LeaveTypePreset[] = [
     isPaid: true,
     genderSpecific: 'All',
   },
+  // Public holidays (Labour Act §41) are days in the Holiday calendar, not a leave type (4.6).
   {
-    name: 'Public & Festival Holidays (पर्व बिदा)',
-    code: 'PUBLIC',
+    name: 'Substitute Leave',
+    code: 'SUBSTITUTE',
     category: 'STATUTORY',
-    daysPerYear: 14,
+    daysPerYear: 0,
     isEncashable: false,
-    maxAccumulation: 14,
+    maxAccumulation: 0,
     isPaid: true,
     genderSpecific: 'All',
   },

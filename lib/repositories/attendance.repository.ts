@@ -10,9 +10,7 @@ import {
   employmentTypes,
   fiscalYears,
   holidays,
-  leaveApplications,
   leaveOtCalculations,
-  leaveTypes,
   payrollRuns,
   systemConfig,
 } from "@/lib/db/schema";
@@ -115,24 +113,6 @@ export async function findHolidays(from: string, to: string) {
   // Holiday dates are stored as local-midnight timestamps; read the calendar day back in Nepal time.
   const day = (d: Date) => new Date(d.getTime() + 345 * 60000).toISOString().slice(0, 10);
   return rows.map((r) => ({ name: r.name, start: day(r.start), end: day(r.end), branchIds: r.branchIds ?? [] }));
-}
-
-/** Approved leave overlapping a range, with how the leave type pays. */
-export async function findApprovedLeaves(employeeIds: string[], from: string, to: string) {
-  if (!employeeIds.length) return [];
-  const rows = await (await getDb())
-    .select({
-      employeeId: leaveApplications.employeeId,
-      from: leaveApplications.effectiveFrom,
-      to: leaveApplications.effectiveTo,
-      duration: leaveApplications.duration,
-      name: leaveTypes.name,
-      pay: leaveTypes.leaveType,
-    })
-    .from(leaveApplications)
-    .innerJoin(leaveTypes, eq(leaveApplications.leaveTypeId, leaveTypes.id))
-    .where(and(inArray(leaveApplications.employeeId, employeeIds), eq(leaveApplications.status, "Approved"), lte(leaveApplications.effectiveFrom, to), gte(leaveApplications.effectiveTo, from)));
-  return rows.map((r) => ({ ...r, from: String(r.from).slice(0, 10), to: String(r.to).slice(0, 10) }));
 }
 
 /** The fiscal year an AD date falls in (falls back to the active one). */

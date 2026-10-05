@@ -1,349 +1,167 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, AlertCircle } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Loader2, Plus, Save, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toast";
-import { applyForLeaveAction } from "@/app/actions/self-service.actions";
-import { cn } from "@/lib/utils";
+import { DateField } from "@/components/kit/date-field";
+import { FormGrid, GridField } from "@/components/kit/form-grid";
+import { PropertyForm, inputClass } from "@/components/kit/property-form";
+import { SelectField } from "@/components/kit/select-field";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
+import { YesNoField } from "@/components/kit/yes-no-field";
+import { Confirm } from "@/components/kit/confirm";
+import { LeavePreviewBox, ssfAsked, useLeavePreview } from "@/components/leave/leave-windows";
+import { applyForLeaveAction, previewMyLeaveAction, withdrawMyLeaveAction } from "@/app/actions/self-service.actions";
+import type { LeaveRuleType } from "@/lib/types/leave";
 
-interface LeaveBalanceOption {
-  id: string;
-  leaveTypeId?: string;
-  leaveTypeName: string;
-  leaveTypeCode: string;
-  balance: number | string;
-}
+const HALF_OPTIONS = [
+  { value: "", label: "Whole day(s)" },
+  { value: "first", label: "First half" },
+  { value: "second", label: "Second half" },
+];
 
-interface ApplyLeaveModalProps {
-  balances: LeaveBalanceOption[];
-}
-
-export function ApplyLeaveModal({ balances }: ApplyLeaveModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [leaveTypeId, setLeaveTypeId] = useState(balances[0]?.id || "");
-  const [effectiveFrom, setEffectiveFrom] = useState("");
-  const [effectiveTo, setEffectiveTo] = useState("");
-  const [duration, setDuration] = useState<"Full Day" | "Half Day">("Full Day");
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
+/**
+ * Self-service leave request (4.6). The server counts the days from your own
+ * calendar (weekly offs and holidays are not counted) and checks the balance;
+ * the request waits for your supervisor or a leave approver. The full My leave
+ * redesign is Phase 5.
+ */
+export function ApplyLeaveModal({ types, today }: { types: LeaveRuleType[]; today: string }) {
   const router = useRouter();
-  const toast = useToast();
-
-  const selectedBalance = balances.find(
-    (b) => b.id === leaveTypeId || b.leaveTypeId === leaveTypeId,
+  const [open, setOpen] = useState(false);
+  const blank = { leaveTypeId: types[0]?.id ?? "", from: today, to: today, half: "", reason: "", certificateNote: "", ssfClaim: false };
+  const [form, setForm] = useState(blank);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [failure, setFailure] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const saveRef = useRef<HTMLButtonElement>(null);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const type = types.find((t) => t.id === form.leaveTypeId);
+  const halfAllowed = !!type?.allowHalfDay && form.from === form.to;
+  const { preview, loading } = useLeavePreview(
+    open ? { leaveTypeId: form.leaveTypeId, from: form.from, to: form.to, half: halfAllowed ? form.half : "", certificateNote: form.certificateNote } : { leaveTypeId: "", from: "", to: "", half: "", certificateNote: "" },
+    previewMyLeaveAction
   );
 
-  // Calculate calendar days difference
-  const calculateDays = () => {
-    if (!effectiveFrom || !effectiveTo) return 0;
-    const start = new Date(effectiveFrom);
-    const end = new Date(effectiveTo);
-    if (end < start) return 0;
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return duration === "Half Day" ? diffDays * 0.5 : diffDays;
+  const start = () => {
+    setForm(blank);
+    setErrors({});
+    setFailure(null);
+    setOpen(true);
   };
-
-  const calculatedDays = calculateDays();
-  const remainingBalance = Number(selectedBalance?.balance ?? 0);
-  const isBalanceExceeded = calculatedDays > remainingBalance;
-
-  const handleOpen = () => {
-    setError(null);
-    setReason("");
-    setEffectiveFrom("");
-    setEffectiveTo("");
-    setDuration("Full Day");
-    if (balances.length > 0) {
-      setLeaveTypeId(balances[0].id);
-    }
-    setIsOpen(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!leaveTypeId) {
-      setError("Please select a leave category.");
+  const save = async () => {
+    setSaving(true);
+    const result = await applyForLeaveAction({ ...form, half: halfAllowed && form.half ? form.half : null, ssfClaim: ssfAsked(type) && form.ssfClaim });
+    setSaving(false);
+    if (!result.success) {
+      setErrors(result.validationErrors ?? {});
+      setFailure(result.error);
       return;
     }
-    if (!effectiveFrom || !effectiveTo) {
-      setError("Please select both start and end dates.");
-      return;
-    }
-    if (new Date(effectiveTo) < new Date(effectiveFrom)) {
-      setError("End date cannot be earlier than start date.");
-      return;
-    }
-    if (calculatedDays <= 0) {
-      setError("Invalid duration selected.");
-      return;
-    }
-    if (isBalanceExceeded) {
-      setError(
-        `Requested duration (${calculatedDays} days) exceeds available balance (${remainingBalance} days).`,
-      );
-      return;
-    }
-    if (!reason.trim()) {
-      setError("Please provide a reason for your leave request.");
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const res = await applyForLeaveAction({
-          leaveTypeId: selectedBalance?.leaveTypeId || leaveTypeId,
-          effectiveFrom,
-          effectiveTo,
-          duration,
-          noOfDays: calculatedDays,
-          reason: reason.trim(),
-        });
-
-        if (!res.success) {
-          setError(res.error || "Failed to submit leave request.");
-          toast.error(res.error || "Failed to submit leave request.");
-          return;
-        }
-
-        toast.success("Leave request submitted successfully for supervisor approval.");
-        setIsOpen(false);
-        router.refresh();
-      } catch (err: any) {
-        setError(err.message || "An unexpected error occurred.");
-      }
-    });
+    setOpen(false);
+    router.refresh();
   };
 
   return (
     <>
-      <Button
-        onClick={handleOpen}
-        className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium text-xs shadow-none cursor-pointer flex items-center gap-1.5"
-      >
-        <Plus className="w-3.5 h-3.5" />
-        <span>Apply for Leave</span>
+      <Button onClick={start} disabled={!types.length} className="flex cursor-pointer items-center gap-1.5 rounded-md bg-payroll-primary text-xs font-medium text-white shadow-none hover:bg-payroll-primary-hover">
+        <Plus className="h-3.5 w-3.5" />
+        <span>Apply for leave</span>
       </Button>
-
-      <Dialog
-        open={isOpen}
-        onClose={() => !isPending && setIsOpen(false)}
-        title="Submit Leave Application"
-        description="Request time off. Your supervisor will be notified for review."
-        size="2xl"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <span className="text-xs text-zinc-500 font-medium">
-              {calculatedDays > 0 ? `${calculatedDays} day(s) requested` : "Select dates to calculate balance impact"}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsOpen(false)}
-                disabled={isPending}
-                className="rounded-md border-zinc-200 text-zinc-700 hover:bg-zinc-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                isLoading={isPending}
-                disabled={isPending || isBalanceExceeded || calculatedDays === 0}
-                className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer px-4 py-2 text-sm"
-              >
-                Submit Application
-              </Button>
-            </div>
-          </div>
-        }
-      >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Section 1: Leave Category & Quota */}
-          <FormSection
-            title="Leave Category"
-            description="Choose the applicable policy scheme and view current quota availability."
-            isFirst
-          >
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
-                  Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={leaveTypeId}
-                  onChange={(e) => setLeaveTypeId(e.target.value)}
-                  className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
-                >
-                  {balances.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.leaveTypeName} ({b.leaveTypeCode}) — Balance: {b.balance} days
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedBalance && (
-                <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-3 flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Available entitlement quota:</span>
-                  <span className="font-semibold text-emerald-950 font-mono">
-                    {selectedBalance.balance} days
-                  </span>
-                </div>
+      {open && (
+        <Window
+          open
+          onClose={saving ? () => {} : () => setOpen(false)}
+          dirty={JSON.stringify(form) !== JSON.stringify(blank)}
+          size="lg"
+          title="Apply for leave"
+          description="Your weekly offs and holidays inside the dates are not counted. The request goes to your supervisor or a leave approver."
+          footer={
+            <>
+              {failure && (
+                <p role="alert" className="mr-auto rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1 text-xs text-danger">
+                  {failure}
+                </p>
               )}
-            </div>
-          </FormSection>
-
-          {/* Section 2: Schedule & Duration */}
-          <FormSection
-            title="Schedule & Duration"
-            description="Specify absence calendar dates and single-day or half-day basis."
-          >
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
-                    From Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={effectiveFrom}
-                    onChange={(e) => setEffectiveFrom(e.target.value)}
-                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
-                    To Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={effectiveTo}
-                    min={effectiveFrom}
-                    onChange={(e) => setEffectiveTo(e.target.value)}
-                    className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
-                  Daily Duration Basis
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setDuration("Full Day")}
-                    className={cn(
-                      "flex-1 py-2 px-3 text-xs font-medium rounded-md border transition-colors cursor-pointer",
-                      duration === "Full Day"
-                        ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-semibold"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-                    )}
-                  >
-                    Full Day (1.0x)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDuration("Half Day")}
-                    className={cn(
-                      "flex-1 py-2 px-3 text-xs font-medium rounded-md border transition-colors cursor-pointer",
-                      duration === "Half Day"
-                        ? "border-payroll-primary bg-payroll-primary-light text-payroll-navy font-semibold"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-                    )}
-                  >
-                    Half Day (0.5x)
-                  </button>
-                </div>
-              </div>
-
-              {/* Duration Preview Banner */}
-              {effectiveFrom && effectiveTo && (
-                <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200/80 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-zinc-500 block text-2xs">Calculated Leave Duration:</span>
-                    <span className="font-semibold text-zinc-900 text-sm font-mono">
-                      {calculatedDays} day(s)
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 block text-2xs text-right">Available Balance:</span>
-                    <span
-                      className={cn(
-                        "font-semibold block text-right text-xs font-mono",
-                        isBalanceExceeded ? "text-red-600" : "text-emerald-800"
-                      )}
-                    >
-                      {remainingBalance} days remaining
-                    </span>
-                  </div>
-                </div>
+              <WindowCancel disabled={saving} />
+              <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving || loading || !!preview?.problems.length}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Send request
+              </WindowButton>
+            </>
+          }
+        >
+          <PropertyForm onSubmit={save} enterNavigation={{ end: () => saveRef.current }} className="-mx-4 -mt-4 space-y-0 bg-surface-panel">
+            <FormGrid columns={2}>
+              <GridField label="Leave type" required error={errors.leaveTypeId} size="lg">
+                <SelectField name="leaveTypeId" options={types.map((t) => ({ value: t.id, label: t.name }))} value={form.leaveTypeId} onChange={(v) => set("leaveTypeId", v)} />
+              </GridField>
+              {halfAllowed ? (
+                <GridField label="Part of the day" size="md">
+                  <SelectField name="half" options={HALF_OPTIONS} value={form.half} onChange={(v) => set("half", v)} />
+                </GridField>
+              ) : (
+                <div />
               )}
-            </div>
-          </FormSection>
-
-          {/* Section 3: Reason */}
-          <FormSection
-            title="Reason & Details"
-            description="Provide context for absence for supervisor review."
-          >
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
-                Reason / Justification <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Please provide details for your leave request..."
-                className="block w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-payroll-primary focus:ring-1 focus:ring-payroll-primary resize-y"
-              />
-            </div>
-          </FormSection>
-        </form>
-      </Dialog>
+              <GridField label="From" required error={errors.from} size="date">
+                <DateField name="from" value={form.from} onChange={(v) => setForm((f) => ({ ...f, from: v, to: !f.to || f.to < v ? v : f.to }))} />
+              </GridField>
+              <GridField label="To" required error={errors.to} size="date">
+                <DateField name="to" value={form.to} onChange={(v) => set("to", v)} />
+              </GridField>
+              <GridField label="Reason" required error={errors.reason} span={2} size="full">
+                <input name="reason" value={form.reason} maxLength={500} onChange={(e) => set("reason", e.target.value)} className={inputClass} />
+              </GridField>
+              {type?.requiresDocument && (
+                <GridField label="Certificate" error={errors.certificateNote} span={2} size="full" help={`Needed after ${type.documentThresholdDays ?? 3} days in a row`}>
+                  <input name="certificateNote" value={form.certificateNote} maxLength={300} onChange={(e) => set("certificateNote", e.target.value)} placeholder="e.g. Medical certificate from the hospital, doctor, date" className={inputClass} />
+                </GridField>
+              )}
+              {ssfAsked(type) && (
+                <GridField label="SSF claim" size="md" help="If you are in the SSF, it pays maternity beyond 60 days and sickness beyond 12.">
+                  <YesNoField name="ssfClaim" value={form.ssfClaim} onChange={(v) => set("ssfClaim", v)} />
+                </GridField>
+              )}
+            </FormGrid>
+          </PropertyForm>
+          <section aria-label="Days counted" className="mt-3 rounded-lg border border-line bg-surface px-3 py-2.5">
+            <LeavePreviewBox preview={preview} loading={loading} />
+          </section>
+        </Window>
+      )}
     </>
   );
 }
 
-function FormSection({
-  title,
-  description,
-  children,
-  isFirst = false,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  isFirst?: boolean;
-}) {
+/** Withdraw your own waiting request. */
+export function WithdrawLeaveButton({ id }: { id: string }) {
+  const router = useRouter();
+  const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, startBusy] = useTransition();
   return (
-    <div className={cn("space-y-3", !isFirst && "pt-5 border-t border-zinc-200")}>
-      <div>
-        <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
-        {description && (
-          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>
-        )}
-      </div>
-      <div>{children}</div>
-    </div>
+    <>
+      <button type="button" disabled={busy} onClick={() => setAsking(true)} className="inline-flex cursor-pointer items-center gap-1 text-2xs font-medium text-payroll-primary hover:underline disabled:opacity-50">
+        <Undo2 className="h-3 w-3" /> Withdraw
+      </button>
+      {error && (
+        <span role="alert" className="block text-2xs text-danger">
+          {error}
+        </span>
+      )}
+      <Confirm
+        open={asking}
+        title="Withdraw this leave request?"
+        message="It will not be decided or taken."
+        confirmLabel="Withdraw"
+        onConfirm={async () => {
+          const r = await withdrawMyLeaveAction(id);
+          setAsking(false);
+          if (!r.success) setError(r.error);
+          else startBusy(() => router.refresh());
+        }}
+        onCancel={() => setAsking(false)}
+      />
+    </>
   );
 }

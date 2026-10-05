@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { LeaveApplication } from "@/lib/types/leave";
-import { getStatusBadgeVariant } from "@/lib/engines/leave.engine";
+const STATUS_VARIANT: Record<LeaveApplication["status"], "warning" | "success" | "danger" | "neutral"> = { Pending: "warning", Approved: "success", Rejected: "danger", Cancelled: "neutral" };
 import { cn } from "@/lib/utils";
 
 interface EnrichedApplication extends LeaveApplication {
@@ -117,7 +117,7 @@ function LeaveExpandableRow({
               <DetailRow
                 label="Status"
                 value={
-                  <Badge variant={getStatusBadgeVariant(application.status)}>
+                  <Badge variant={STATUS_VARIANT[application.status]}>
                     {application.status}
                   </Badge>
                 }
@@ -315,7 +315,7 @@ export function LeaveApplicationsTable({
                     </span>
                   </td>
                   <td className="px-4 py-4 align-middle">
-                    <Badge variant={getStatusBadgeVariant(app.status)}>
+                    <Badge variant={STATUS_VARIANT[app.status]}>
                       {app.status}
                     </Badge>
                   </td>

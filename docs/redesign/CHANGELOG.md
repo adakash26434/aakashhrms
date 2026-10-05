@@ -13,6 +13,36 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — Kit: grid column menu no longer clipped
+Branch: `redesign/4.6-leaves`
+
+The DataGrid **Columns** menu was drawn inside the grid's rounded frame (`overflow-hidden`), so on short grids most of the list was cut off (every module's tables). It is now placed on the screen like the other kit pop-ups (`usePopupPosition`): it opens upwards near the bottom of the screen, stays inside the screen at 390 px, scrolls when the list is long, and closes on Escape.
+
+Verified: Leaves → Balances at 390 / 1366 / 1920 (whole list visible, no sideways scroll), 0 console errors.
+
+---
+
+## 2026-10-05 — 4.6a Leaves foundation
+Branch: `redesign/4.6-leaves`
+
+Research: Labour Act 2074 chapter 9 (§40–51), SSF maternity / sickness benefits, Zoho People / Keka leave types, comp-off and ledgers (see the plan in the roadmap row).
+
+- **Rules** (`lib/engines/leave.engine.ts`): three layers (calendar = weekly offs + holidays, never leave types; statutory types; company types); kinds balance / event / none; working-day counting skips the person's weekly offs and branch holidays and says why, calendar-day counting for maternity, maternity care and mourning; half days (first / second); pay per day (maternity 60 paid + 38 unpaid, +30 unpaid with a doctor's note); refusals (type not for the person, short balance, overlap, HR-set days, closed attendance month, outside employment, across the leave year, more than the event's days); §51 rights; the statutory floor (`statutoryFloorProblems`); ledger sums.
+- **Requests and approvals** (`lib/services/leave.service.ts`, `app/actions/leave.actions.ts`): the server counts every request; approve / Final approve / reject / withdraw / cancel through the approval engine (supervisor or Leave approvals → Approve; company administrators Final approve; never your own); approval re-checks balance, overlaps and closed months; rights can be rejected only for a missing condition; cancelling approved leave returns the days and is refused in a closed month.
+- **Balances**: append-only `leave_ledger` (opening, accrual, grant, taken, returned, adjusted, carried forward, paid out, expired); Adjust balance with a reason, never your own.
+- **Screens**: `/timeAndLeave/leaves` with Requests (Waiting for me / All / My leave, filters, bulk approve / reject, detail pane with days, balance, §51 note and timeline) and Balances (employee × balance types, ledger pane); New request window with a live server preview; Adjust balance window. Old Applications / Approvals pages redirect here. Self-service Apply for leave uses the same preview and service; waiting requests can be withdrawn.
+- **Attendance** reads approved leave day by day (weekly offs inside leave stay weekly offs; maternity's unpaid days are deducted).
+- **Statutory types** are locked in the old leave-type editor until 4.6c. Public & festival holidays is no longer a leave type (new and existing companies); Substitute and Unpaid leave added. Statutory names are English only (the Nepali in brackets is dropped from the seeds, the platform sync and existing companies, for the later translation pass).
+- **Bell** counts only leave the user can decide.
+- **Data** (migration 0042): leave type behaviour columns, request detail / approval columns, `leave_ledger` with the old balances backfilled (home / sick opening and taken lines; event and public-holiday "balances" left out).
+- **Security S24** (see 03): scope on every action, server-side day count, own-record rules, audit, safe errors, immutable ledger, closed-month guard, balance re-check, statutory floor, bell scope.
+
+Verified: tsc 0 · eslint nothing new · 631/631 tests · `next build` · browser as the company administrator: Requests and Balances tabs, ledger pane (Pramod: home 18 + sick 12 + substitute 0, no longer 72), New request preview (Pramod, sick, 5–12 Oct: 6 days, Dashain days not counted, balance 12 → 6, §51 note, maternity not offered to a man), Adjust balance window opened and cancelled, 390 / 1366 / 1920 without sideways scroll, 0 console errors. Nothing was saved.
+
+Notes: the roster has everyone on GEN every day from 5 to 17 Oct (weekends included), apparently left from shift testing, so leave in that span counts Saturdays; self-service My leave needs an employee sign-in to check; existing names are renamed when the dev server next restarts. 4.6b (entitlements) and 4.6c (statutory leave settings) follow.
+
+---
+
 ## 2026-10-05 — 4.5 Attendance signed off
 4.5a (day rules, register, adjustments, month close), 4.5b (shifts, roster) and 4.5c (web clock-in) are signed off on `redesign/4.5-attendance`. 4.6 Leaves starts on `redesign/4.6-leaves`, stacked on 4.5.
 

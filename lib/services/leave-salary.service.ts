@@ -4,6 +4,7 @@ import { auditLogs } from "@/lib/db/schema";
 import * as repository from "@/lib/repositories/leave-salary.repository";
 import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
+import { nepalDateIso } from '@/lib/utils/nepal-time';
 import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as leaveRuleRepository from "@/lib/repositories/leave-rule.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
@@ -301,11 +302,23 @@ export async function payLeaveSalary(
     // 2. Mark as PAID inside transaction
     const result = await repository.updateLeaveSalaryRunStatus(id, 'PAID', userId, tx);
 
-    // 3. Deduct from leave balance inside transaction
+    // 3. Deduct from leave balance inside transaction (4.6: a "paid out" ledger line; the summary row follows it)
     if (targetBalance) {
-      const newTaken = targetBalance.taken + encashedDays;
-      const newBalance = Math.max(0, targetBalance.balance - encashedDays);
-      await leaveRepository.updateLeaveBalance(targetBalance.id, newTaken, newBalance, tx);
+      await leaveRepository.postLedgerLines(
+        [
+          {
+            employeeId: record.employeeId,
+            leaveTypeId: record.leaveTypeId,
+            fiscalYearId: targetBalance.fiscalYearId,
+            entryDate: nepalDateIso(),
+            kind: 'paid_out',
+            days: -encashedDays,
+            note: 'Leave salary paid',
+            createdBy: userId,
+          },
+        ],
+        tx
+      );
     }
 
     // 4. Audit log inside transaction

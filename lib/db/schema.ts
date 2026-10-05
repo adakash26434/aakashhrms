@@ -659,6 +659,15 @@ export const leaveTypes = pgTable('leave_types', {
   isPlatformLocked: boolean('is_platform_locked').default(false).notNull(), // Lock statutory rules published by Super Admin
   platformCode: varchar('platform_code', { length: 100 }),
   isActive: boolean('is_active').default(true).notNull(),
+  // 4.6: how the type counts and pays (null = the defaults for its statutory code).
+  kind: varchar('kind', { length: 10 }), // balance | event | none
+  dayBasis: varchar('day_basis', { length: 10 }), // working | calendar
+  paidDaysPerEvent: numeric('paid_days_per_event', { precision: 5, scale: 1 }),
+  maxDaysPerRequest: numeric('max_days_per_request', { precision: 5, scale: 1 }),
+  allowHalfDay: boolean('allow_half_day').default(true).notNull(),
+  isRight: boolean('is_right').default(false).notNull(), // Labour Act §51
+  accrualEveryDays: integer('accrual_every_days'),
+  expiryDays: integer('expiry_days'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
@@ -704,6 +713,20 @@ export const leaveApplications = pgTable('leave_applications', {
   reviewedById: uuid('reviewed_by_id').references(() => users.id, { onDelete: 'set null' }),
   reviewedAt: timestamp('reviewed_at'),
   reviewRemarks: text('review_remarks'),
+  // 4.6: the counted days and pay split, who raised it, the approval flow and records.
+  half: varchar('half', { length: 6 }), // first | second
+  daysDetail: jsonb('days_detail').$type<{ date: string; part: number; pay: 'full' | 'none' | 'half' }[]>(),
+  paidDays: numeric('paid_days', { precision: 6, scale: 2 }),
+  unpaidDays: numeric('unpaid_days', { precision: 6, scale: 2 }),
+  source: varchar('source', { length: 20 }).default('hr').notNull(), // hr | self_service
+  preparedBy: uuid('prepared_by'),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  cancelReason: text('cancel_reason'),
+  certificateNote: text('certificate_note'),
+  ssfClaim: boolean('ssf_claim').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -713,6 +736,25 @@ export const leaveApplications = pgTable('leave_applications', {
   reviewedByIdIdx: index('leave_applications_reviewed_by_id_idx').on(table.reviewedById),
   statusIdx: index('leave_applications_status_idx').on(table.status),
   effectiveRangeIdx: index('leave_applications_effective_range_idx').on(table.effectiveFrom, table.effectiveTo),
+}));
+
+/** 4.6: every change to a leave balance (signed days); never edited or deleted. Balance = the sum. */
+export const leaveLedger = pgTable('leave_ledger', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  leaveTypeId: uuid('leave_type_id').references(() => leaveTypes.id, { onDelete: 'restrict' }).notNull(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
+  entryDate: date('entry_date').notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(),
+  days: numeric('days', { precision: 6, scale: 2 }).notNull(),
+  applicationId: uuid('application_id'),
+  note: text('note'),
+  expiresOn: date('expires_on'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  empTypeYearIdx: index('leave_ledger_emp_type_year_idx').on(t.employeeId, t.leaveTypeId, t.fiscalYearId),
+  applicationIdx: index('leave_ledger_application_idx').on(t.applicationId),
 }));
 
 /**

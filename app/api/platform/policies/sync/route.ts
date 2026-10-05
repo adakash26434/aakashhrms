@@ -75,10 +75,14 @@ export async function POST(request: Request) {
 
         // A. Upsert Statutory Leave Types
         for (const lr of packPayload.leaveRules || []) {
+          // Public holidays are the Holiday calendar, not a leave type (4.6); older packs may still list them.
+          if (lr.statutoryCode === 'PUBLIC' || lr.code === 'PUBLIC') continue;
+          // English-only screens for now; older packs carry the Nepali name in brackets.
+          const name = lr.name.replace(/ *[(][\u0900-\u097F /]+[)]/g, '').trim();
           await tenantDb
             .insert(leaveTypes)
             .values({
-              name: lr.name,
+              name,
               code: lr.code,
               leaveType: lr.leaveType,
               noOfDays: String(lr.daysPerYear),
@@ -98,7 +102,7 @@ export async function POST(request: Request) {
             .onConflictDoUpdate({
               target: leaveTypes.code,
               set: {
-                name: lr.name,
+                name,
                 leaveType: lr.leaveType,
                 noOfDays: String(lr.daysPerYear),
                 accumulationCap: lr.maxAccumulation ? String(lr.maxAccumulation) : null,

@@ -83,7 +83,7 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
   leaveRules: [
     {
       code: 'HOME',
-      name: 'Home Leave (घर बिदा)',
+      name: 'Home Leave',
       nepaliName: 'घर बिदा',
       statutoryCode: 'HOME',
       leaveType: 'Pay',
@@ -101,7 +101,7 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
     },
     {
       code: 'SICK',
-      name: 'Sick Leave (बिरामी बिदा)',
+      name: 'Sick Leave',
       nepaliName: 'बिरामी बिदा',
       statutoryCode: 'SICK',
       leaveType: 'Pay',
@@ -120,7 +120,7 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
     },
     {
       code: 'MATERNITY',
-      name: 'Maternity Leave (प्रसूति बिदा)',
+      name: 'Maternity Leave',
       nepaliName: 'प्रसूति बिदा',
       statutoryCode: 'MATERNITY',
       leaveType: 'Partial-Pay',
@@ -139,7 +139,7 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
     },
     {
       code: 'PATERNITY',
-      name: 'Paternity Leave (प्रसूति स्याहार बिदा)',
+      name: 'Paternity Leave',
       nepaliName: 'प्रसूति स्याहार बिदा',
       statutoryCode: 'PATERNITY',
       leaveType: 'Pay',
@@ -157,7 +157,7 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
     },
     {
       code: 'MOURNING',
-      name: 'Mourning Leave (क्रिया बिदा)',
+      name: 'Mourning Leave',
       nepaliName: 'क्रिया बिदा',
       statutoryCode: 'MOURNING',
       leaveType: 'Pay',
@@ -173,22 +173,22 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
       legalSection: 'Section 43, Nepal Labour Act 2074',
       isPlatformLocked: true,
     },
+    // Public holidays (§41) are days in the Holiday calendar, not a leave type (4.6).
     {
-      code: 'PUBLIC',
-      name: 'Public & Festival Holidays (पर्व बिदा)',
-      nepaliName: 'पर्व बिदा',
-      statutoryCode: 'PUBLIC',
+      code: 'SUBSTITUTE',
+      name: 'Substitute Leave',
+      nepaliName: '',
+      statutoryCode: 'SUBSTITUTE',
       leaveType: 'Pay',
-      daysPerYear: 14,
-      maxAccumulation: 14,
+      daysPerYear: 0,
+      maxAccumulation: 0,
       isEncashable: false,
       encashmentBasis: 'None',
       genderApplicable: 'All',
       requiresDocument: false,
-      accrualMethod: 'Annual Gazette / Statutory list',
-      description:
-        'Minimum 14 days fully paid public holidays per fiscal year as gazetted by Nepal Government.',
-      legalSection: 'Section 39, Nepal Labour Act 2074',
+      accrualMethod: 'Granted for work on a weekly off or public holiday; used within 21 days',
+      description: 'A day off for working on a weekly off or public holiday, to be taken within 21 days.',
+      legalSection: 'Section 42, Labour Act 2074',
       isPlatformLocked: true,
     },
   ],

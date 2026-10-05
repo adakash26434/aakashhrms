@@ -295,6 +295,13 @@
       "when": 1790300000000,
       "tag": "0041_web_checkin",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790400000000,
+      "tag": "0042_leave_ledger",
+      "breakpoints": true
     }
   ]
 }

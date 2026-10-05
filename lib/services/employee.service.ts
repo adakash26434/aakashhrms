@@ -436,38 +436,35 @@ export async function saveEmployee(
       const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
       const activeFy = fiscalYears.find(fy => fy.status === 'Active');
       if (activeFy) {
-        const leaveTypes = await leaveRepository.findAllLeaveTypes();
+        // 4.6: opening ledger lines for types credited yearly (sick 12, company balance types),
+        // pro-rata for a mid-year joiner. Home leave is earned from days worked and substitute
+        // leave is granted, so they start at 0; event leave (maternity, mourning) has no balance.
+        const ruleTypes = await leaveRepository.findRuleTypes();
         const fyStart = new Date(activeFy.startDateAD);
         const fyEnd = new Date(activeFy.endDateAD);
         const joinDate = employee.joiningDate ? new Date(employee.joiningDate) : fyStart;
-
-        const creationPromises = leaveTypes.map(async (lt) => {
-          // Check gender applicability
-          if (lt.genderApplicable !== 'All' && lt.genderApplicable !== employee.gender) {
-            return;
-          }
-
-          const isEventBased = ['MOURNING', 'PATERNITY', 'MATERNITY'].includes(lt.code.toUpperCase()) ||
-                               ['MOURNING', 'PATERNITY', 'MATERNITY'].includes(lt.statutoryCode?.toUpperCase() || '');
-
-          let allottedDays = Number(lt.noOfDays);
-
-          // Calculate allotment — pro-rata only if configured, not event-based, and employee joined midway through this FY
-          if (!isEventBased && lt.proRataForNewJoinees && joinDate > fyStart) {
-            allottedDays = calculateProRataLeaveDays(Number(lt.noOfDays), joinDate, fyStart, fyEnd);
-          }
-
-          return leaveRepository.createLeaveBalance({
+        const yearly = ruleTypes.filter(
+          (lt) =>
+            lt.isActive &&
+            lt.kind === "balance" &&
+            lt.statutoryCode !== "HOME" &&
+            lt.statutoryCode !== "SUBSTITUTE" &&
+            lt.days > 0 &&
+            (lt.genderApplicable === "All" || lt.genderApplicable === employee.gender)
+        );
+        const entryDate = (joinDate > fyStart ? joinDate : fyStart).toISOString().slice(0, 10);
+        await leaveRepository.postLedgerLines(
+          yearly.map((lt) => ({
             employeeId: employee.id,
             leaveTypeId: lt.id,
             fiscalYearId: activeFy.id,
-            allotted: allottedDays,
-            taken: 0,
-            carriedForward: 0,
-            balance: allottedDays,
-          });
-        });
-        await Promise.all(creationPromises);
+            entryDate,
+            kind: "opening" as const,
+            days: joinDate > fyStart ? calculateProRataLeaveDays(lt.days, joinDate, fyStart, fyEnd) : lt.days,
+            note: joinDate > fyStart ? "Pro-rata from joining" : "Yearly credit",
+            createdBy: null,
+          }))
+        );
       }
     } catch (err) {
       console.error(`Failed to initialize leave balances for employee ${employee.id}:`, err);

@@ -2,6 +2,11 @@
 
 import { ensureTenantContext } from '@/lib/db';
 import * as selfService from '@/lib/services/self-service.service';
+import { revalidatePath } from 'next/cache';
+import { recordAuditLog } from '@/lib/services/audit.service';
+import { LeaveValidationError } from '@/lib/services/leave.service';
+import { UserFacingError, toActionError } from '@/lib/errors/action-error';
+import type { LeavePreview } from '@/lib/types/leave';
 
 export type ActionResponse<T = undefined> = {
   success: boolean;
@@ -73,10 +78,10 @@ export async function getMyPayslipDetailAction(payslipId: string): Promise<Actio
 // My Leave
 // ---------------------------------------------------------------------------
 
-export async function getMyLeaveBalancesAction(fiscalYearId?: string): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.getMyLeaveBalances>>>> {
+export async function getMyLeaveBalancesAction(): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.getMyLeaveBalances>>>> {
   try {
     await ensureTenantContext();
-    const data = await selfService.getMyLeaveBalances(fiscalYearId);
+    const data = await selfService.getMyLeaveBalances();
     return { success: true, data };
   } catch (error: unknown) {
     console.error('[SELF_SERVICE_LEAVE_BALANCES] Failed:', error);
@@ -97,22 +102,44 @@ export async function getMyLeaveApplicationsAction(): Promise<ActionResponse<Awa
   }
 }
 
-export async function applyForLeaveAction(payload: {
-  leaveTypeId: string;
-  effectiveFrom: string;
-  effectiveTo: string;
-  duration: 'Full Day' | 'Half Day';
-  noOfDays: number;
-  reason: string;
-}): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.applyForLeave>>>> {
+/** The server's count for a request (days counted / skipped, pay, balance, problems). */
+export async function previewMyLeaveAction(input: unknown): Promise<{ success: true; data: LeavePreview } | { success: false; error: string }> {
   try {
     await ensureTenantContext();
-    const data = await selfService.applyForLeave(payload);
-    return { success: true, data };
+    return { success: true, data: await selfService.previewMyLeave(input) };
   } catch (error: unknown) {
-    console.error('[SELF_SERVICE_APPLY_LEAVE] Failed:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to submit leave application';
-    return { success: false, error: msg };
+    if (error instanceof LeaveValidationError) return { success: false, error: Object.values(error.errors)[0] ?? 'Check the request.' };
+    return toActionError(error, 'self-service.leavePreview');
+  }
+}
+
+/** S24: the employee comes from the session and the server counts the days. */
+export async function applyForLeaveAction(input: unknown): Promise<{ success: true } | { success: false; error: string; validationErrors?: Record<string, string> }> {
+  try {
+    await ensureTenantContext();
+    const r = await selfService.applyForLeave(input);
+    await recordAuditLog({ userId: (await selfService.getSessionEmployeeId()).userId, action: 'ADD', module: 'LEAVE_APPLICATIONS', recordId: r.id, result: 'SUCCESS', newValues: { selfService: true, days: r.days } });
+    revalidatePath('/self-service/my-leave');
+    revalidatePath('/timeAndLeave/leaves');
+    return { success: true };
+  } catch (error: unknown) {
+    if (error instanceof LeaveValidationError) return { success: false, error: 'Check the highlighted fields.', validationErrors: error.errors };
+    return toActionError(error, 'self-service.applyLeave');
+  }
+}
+
+/** Withdraw your own waiting request. */
+export async function withdrawMyLeaveAction(id: string): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await ensureTenantContext();
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new UserFacingError('That leave request was not found.');
+    await selfService.withdrawMyLeave(id);
+    await recordAuditLog({ userId: (await selfService.getSessionEmployeeId()).userId, action: 'EDIT', module: 'LEAVE_APPLICATIONS', recordId: id, result: 'SUCCESS', newValues: { withdrawn: true, selfService: true } });
+    revalidatePath('/self-service/my-leave');
+    revalidatePath('/timeAndLeave/leaves');
+    return { success: true };
+  } catch (error: unknown) {
+    return toActionError(error, 'self-service.withdrawLeave');
   }
 }
 

@@ -168,7 +168,8 @@ describe('Frame data exposure (S15, palette)', () => {
   it('counts pending approvals only for approvers, within their scope', () => {
     const svc = source('lib/services/workspace-context.service.ts');
     assert.match(svc, /allowedModules\.includes\('LEAVE_APPROVALS'\)/);
-    assert.match(svc, /buildEmployeeIdScopeCondition\(scope, leaveApplications\.employeeId\)/);
+    // 4.6: the leave service counts what this user can decide, within their scope.
+    assert.match(svc, /countLeaveWaitingFor\(scope, /);
   });
 
   it('palette employee search checks permission, scope and returns display fields only', () => {

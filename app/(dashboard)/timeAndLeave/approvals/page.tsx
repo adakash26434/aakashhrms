@@ -7,5 +7,5 @@ export default async function LeaveApprovalsPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "LEAVE_APPROVALS");
 
-  redirect("/timeAndLeave/leaves?tab=approvals");
+  redirect("/timeAndLeave/leaves?tab=requests");
 }

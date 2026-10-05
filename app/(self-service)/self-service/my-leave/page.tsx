@@ -1,10 +1,11 @@
 import React from "react";
-import { getMyLeaveBalances, getMyLeaveApplications } from "@/lib/services/self-service.service";
+import { getMyLeaveBalances, getMyLeaveApplications, getMyLeaveTypes } from "@/lib/services/self-service.service";
+import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { CalendarDays, Clock, CheckCircle2, XCircle, AlertCircle, CalendarCheck, Palmtree } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ApplyLeaveModal } from "@/components/self-service/apply-leave-modal";
+import { ApplyLeaveModal, WithdrawLeaveButton } from "@/components/self-service/apply-leave-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,12 @@ export const metadata = {
 };
 
 export default async function MyLeavePage() {
-  let balancesData, applications;
+  let balancesData, applications, types;
   try {
-    [balancesData, applications] = await Promise.all([
+    [balancesData, applications, types] = await Promise.all([
       getMyLeaveBalances(),
       getMyLeaveApplications(),
+      getMyLeaveTypes(),
     ]);
   } catch (error: any) {
     return (
@@ -45,11 +47,11 @@ export default async function MyLeavePage() {
             Leave Entitlement & Applications
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-            Statutory leave balances (Nepal Labour Act 2074) and leave request history.
+            Your leave balances for this leave year and your requests. Weekly offs and holidays inside a leave are not counted.
           </p>
         </div>
 
-        {balances.length > 0 && <ApplyLeaveModal balances={balances} />}
+        <ApplyLeaveModal types={types} today={nepalDateIso()} />
       </div>
 
       {/* ── Leave Balance Cards ── */}
@@ -64,7 +66,7 @@ export default async function MyLeavePage() {
               <EmptyState
                 icon={<Palmtree className="h-8 w-8 text-payroll-primary" />}
                 title="No leave balances allotted"
-                description="Your leave balances for the current fiscal year have not been initialized yet."
+                description="You have no leave balances this leave year yet. You can still ask for leave given per event (e.g. mourning) or unpaid leave."
               />
             </CardContent>
           </Card>
@@ -184,10 +186,16 @@ export default async function MyLeavePage() {
                     {app.status}
                   </Badge>
                 </div>
+                {app.status === "Pending" && (
+                  <div className="mt-2">
+                    <WithdrawLeaveButton id={app.id} />
+                  </div>
+                )}
                 <div className="mt-3 grid grid-cols-2 gap-3 border-t border-payroll-border-light pt-3 text-xs">
                   <div>
                     <span className="block text-2xs font-medium uppercase tracking-wider text-gray-400">Duration</span>
-                    <span className="mt-1 block font-mono font-semibold text-payroll-navy">{app.noOfDays} day(s)</span>
+                    <span className="mt-1 block font-mono font-semibold text-payroll-navy">{app.noOfDays} day(s){app.half ? ` (${app.half} half)` : ""}</span>
+                    {Number(app.unpaidDays) > 0 && <span className="block text-2xs text-red-600">{Number(app.unpaidDays)} unpaid</span>}
                   </div>
                   <div>
                     <span className="block text-2xs font-medium uppercase tracking-wider text-gray-400">Reason</span>
@@ -225,8 +233,9 @@ export default async function MyLeavePage() {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-zinc-200/70 bg-zinc-50 text-zinc-700 font-mono text-2xs">
-                        {app.noOfDays} day(s)
+                        {app.noOfDays} day(s){app.half ? ` (${app.half} half)` : ""}
                       </span>
+                      {Number(app.unpaidDays) > 0 && <span className="block text-2xs text-red-600">{Number(app.unpaidDays)} unpaid</span>}
                     </td>
                     <td className="px-4 py-3.5 text-zinc-600 max-w-50 truncate" title={app.reason}>
                       {app.reason || "—"}
@@ -246,6 +255,11 @@ export default async function MyLeavePage() {
                       >
                         {app.status}
                       </Badge>
+                      {app.status === "Pending" && (
+                        <div className="mt-1">
+                          <WithdrawLeaveButton id={app.id} />
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-zinc-500 max-w-50 truncate text-2xs" title={app.reviewRemarks || ""}>
                       {app.reviewRemarks || "—"}

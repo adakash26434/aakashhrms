@@ -1,7 +1,9 @@
 import { getDb } from "@/lib/db";
-import { leaveTypes, employeeLeaveBalances, leaveApplications, fiscalYears, employees } from "@/lib/db/schema";
-import { eq, and, desc, or, ilike, gte, lte, SQL, sql } from "drizzle-orm";
-import type { EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveStatus, LeaveFilter } from "@/lib/types/leave";
+import { approvalActions, leaveTypes, employeeLeaveBalances, leaveApplications, leaveLedger, fiscalYears, employees } from "@/lib/db/schema";
+import { eq, and, desc, or, ilike, gte, lte, inArray, SQL, sql } from "drizzle-orm";
+import type { DayBasis, EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveKind, LeaveRuleType, LeaveStatus, LeaveFilter, LedgerKind, LedgerLine } from "@/lib/types/leave";
+import type { ApprovalActionKind } from "@/lib/types/approval";
+import { defaultsFor, ledgerSummary, payOf } from "@/lib/engines/leave.engine";
 import type { LeaveTypeRecord, LeavePayType, GenderApplicable, StatutoryCode } from "@/lib/types/leave-type";
 
 function mapLeaveType(row: typeof leaveTypes.$inferSelect): LeaveTypeRecord {
@@ -245,127 +247,251 @@ export async function findLeaveApplicationById(id: string): Promise<LeaveApplica
   return mapApp(rows[0]);
 }
 
-export async function createLeaveApplication(data: any): Promise<LeaveApplication> {
-  let fyId = data.fiscalYearId;
-  if (!fyId || fyId === "fy-1") {
-    const activeFys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, "Active"));
-    if (activeFys.length) {
-      fyId = activeFys[0].id;
-    } else {
-      const allFys = await (await getDb()).select().from(fiscalYears);
-      if (allFys.length) fyId = allFys[0].id;
-      else throw new Error("Cannot create leave application: No Fiscal Year found in database.");
-    }
-  }
-
-  const effectiveFromStr = data.startDate instanceof Date ? data.startDate.toISOString().split('T')[0] : String(data.startDate || data.effectiveFrom || '');
-  const effectiveToStr = data.endDate instanceof Date ? data.endDate.toISOString().split('T')[0] : String(data.endDate || data.effectiveTo || '');
-
-  const rows = await (await getDb()).insert(leaveApplications).values({
-    employeeId: data.employeeId,
-    leaveTypeId: data.leaveTypeId,
-    fiscalYearId: fyId,
-    appliedDate: new Date().toISOString().split('T')[0],
-    effectiveFrom: effectiveFromStr,
-    effectiveTo: effectiveToStr,
-    duration: data.duration || "FULL_DAY",
-    noOfDays: (data.totalDays ?? data.noOfDays ?? 1).toString(),
-    reason: data.reason || "",
-    remarks: data.attachmentUrl ?? data.remarks ?? null,
-    status: "PENDING",
-  }).returning();
-
-  return mapApp(rows[0]);
-}
-
-export async function updateLeaveApplication(id: string, data: Partial<Omit<LeaveApplication, "id" | "createdAt" | "updatedAt">>): Promise<LeaveApplication | null> {
-  const updateVals: any = { ...data, updatedAt: new Date() };
-  if (data.noOfDays !== undefined) updateVals.noOfDays = data.noOfDays.toString();
-
-  const rows = await (await getDb()).update(leaveApplications).set(updateVals).where(eq(leaveApplications.id, id)).returning();
-  return rows.length ? mapApp(rows[0]) : null;
-}
-
-export async function deleteLeaveApplication(id: string): Promise<boolean> {
-  const res = await (await getDb()).delete(leaveApplications).where(eq(leaveApplications.id, id)).returning({ id: leaveApplications.id });
-  return res.length > 0;
-}
-
 export const findAllLeaveTypesIncludingInactive = findAllLeaveTypes;
 export const removeLeaveType = deleteLeaveType;
 export const findLeaveBalancesByEmployee = findLeaveBalances;
-export const removeLeaveApplication = deleteLeaveApplication;
 
-export async function updateLeaveBalance(
-  id: string,
-  taken: number,
-  balance: number,
-  tx?: any
-): Promise<EmployeeLeaveBalance | null> {
-  const client = tx || (await getDb());
-  const rows = await client.update(employeeLeaveBalances)
-    .set({ taken: taken.toString(), balance: balance.toString(), updatedAt: new Date() })
-    .where(eq(employeeLeaveBalances.id, id))
-    .returning();
-  return rows.length ? mapBalance(rows[0]) : null;
+// ---------------------------------------------------------------------------
+// 4.6: leave types as the rules need them
+// ---------------------------------------------------------------------------
+
+/** Every leave type with how it counts and pays (nulls fall back to the defaults for its statutory code). */
+export async function findRuleTypes(): Promise<LeaveRuleType[]> {
+  const rows = await (await getDb()).select().from(leaveTypes).orderBy(leaveTypes.name);
+  // Public holidays (§41) are days in the Holiday calendar, never a leave type with a balance.
+  return rows.filter((r) => (r.statutoryCode ?? r.code) !== "PUBLIC").map((r) => {
+    const pay = payOf(r.leaveType);
+    const d = defaultsFor(r.statutoryCode, pay);
+    return {
+      id: r.id,
+      name: r.name,
+      code: r.code,
+      statutoryCode: r.statutoryCode,
+      isStatutory: r.isStatutory,
+      kind: (r.kind as LeaveKind | null) ?? d.kind,
+      dayBasis: (r.dayBasis as DayBasis | null) ?? d.dayBasis,
+      pay,
+      days: Number(r.noOfDays) || 0,
+      paidDaysPerEvent: r.paidDaysPerEvent !== null ? Number(r.paidDaysPerEvent) : d.paidDaysPerEvent,
+      maxDaysPerRequest: r.maxDaysPerRequest !== null ? Number(r.maxDaysPerRequest) : null,
+      allowHalfDay: r.allowHalfDay,
+      isRight: r.isRight || d.isRight,
+      genderApplicable: (r.genderApplicable as LeaveRuleType["genderApplicable"]) || "All",
+      applicableDepartments: r.applicableDepartments ?? [],
+      applicableDesignations: r.applicableDesignations ?? [],
+      requiresDocument: r.requiresDocument,
+      documentThresholdDays: r.documentThresholdDays,
+      accumulationCap: r.accumulationCap !== null ? Number(r.accumulationCap) : null,
+      isActive: r.isActive,
+    };
+  });
 }
+
+// ---------------------------------------------------------------------------
+// 4.6: the ledger (never edited or deleted; the summary row follows it)
+// ---------------------------------------------------------------------------
+
+export interface NewLedgerLine {
+  employeeId: string;
+  leaveTypeId: string;
+  fiscalYearId: string;
+  entryDate: string;
+  kind: LedgerKind;
+  /** Signed days (taken / paid out / expired / lapsed negative). */
+  days: number;
+  applicationId?: string | null;
+  note?: string | null;
+  expiresOn?: string | null;
+  createdBy: string | null;
+}
+
+type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>["transaction"]>[0]>[0];
+
+/** Adds ledger lines and brings each affected summary row (employee, type, year) up to date, in the given transaction. */
+export async function postLedgerLines(lines: NewLedgerLine[], tx?: Tx): Promise<void> {
+  if (!lines.length) return;
+  const run = async (t: Tx) => {
+    await t.insert(leaveLedger).values(
+      lines.map((l) => ({
+        employeeId: l.employeeId,
+        leaveTypeId: l.leaveTypeId,
+        fiscalYearId: l.fiscalYearId,
+        entryDate: l.entryDate,
+        kind: l.kind,
+        days: String(l.days),
+        applicationId: l.applicationId ?? null,
+        note: l.note ?? null,
+        expiresOn: l.expiresOn ?? null,
+        createdBy: l.createdBy,
+      }))
+    );
+    const keys = [...new Map(lines.map((l) => [`${l.employeeId}|${l.leaveTypeId}|${l.fiscalYearId}`, l])).values()];
+    for (const k of keys) {
+      const all = await t
+        .select({ kind: leaveLedger.kind, days: leaveLedger.days })
+        .from(leaveLedger)
+        .where(and(eq(leaveLedger.employeeId, k.employeeId), eq(leaveLedger.leaveTypeId, k.leaveTypeId), eq(leaveLedger.fiscalYearId, k.fiscalYearId)));
+      const sum = ledgerSummary(all.map((r) => ({ kind: r.kind as LedgerKind, days: Number(r.days) })));
+      const values = { allotted: String(sum.allotted), taken: String(sum.taken), carriedForward: String(sum.carriedForward), balance: String(sum.balance), updatedAt: new Date() };
+      await t
+        .insert(employeeLeaveBalances)
+        .values({ employeeId: k.employeeId, leaveTypeId: k.leaveTypeId, fiscalYearId: k.fiscalYearId, ...values })
+        .onConflictDoUpdate({ target: [employeeLeaveBalances.employeeId, employeeLeaveBalances.leaveTypeId, employeeLeaveBalances.fiscalYearId], set: values });
+    }
+  };
+  if (tx) await run(tx);
+  else await (await getDb()).transaction(run);
+}
+
+/** Ledger lines of some employees in a leave year, oldest first. */
+export async function findLedger(employeeIds: string[], fiscalYearId: string): Promise<(LedgerLine & { employeeId: string })[]> {
+  if (!employeeIds.length) return [];
+  const rows = await (await getDb())
+    .select()
+    .from(leaveLedger)
+    .where(and(inArray(leaveLedger.employeeId, employeeIds), eq(leaveLedger.fiscalYearId, fiscalYearId)))
+    .orderBy(leaveLedger.entryDate, leaveLedger.createdAt);
+  return rows.map((r) => ({
+    id: r.id,
+    employeeId: r.employeeId,
+    leaveTypeId: r.leaveTypeId,
+    entryDate: String(r.entryDate).slice(0, 10),
+    kind: r.kind as LedgerKind,
+    days: Number(r.days),
+    applicationId: r.applicationId,
+    note: r.note,
+    expiresOn: r.expiresOn ? String(r.expiresOn).slice(0, 10) : null,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// 4.6: requests
+// ---------------------------------------------------------------------------
+
+export type RequestRowDb = typeof leaveApplications.$inferSelect;
+
+export async function findRequests(opts: { employeeIds?: string[]; from?: string; to?: string; statuses?: LeaveStatus[] } = {}): Promise<RequestRowDb[]> {
+  if (opts.employeeIds && !opts.employeeIds.length) return [];
+  return (await getDb())
+    .select()
+    .from(leaveApplications)
+    .where(
+      and(
+        opts.employeeIds ? inArray(leaveApplications.employeeId, opts.employeeIds) : undefined,
+        opts.to ? lte(leaveApplications.effectiveFrom, opts.to) : undefined,
+        opts.from ? gte(leaveApplications.effectiveTo, opts.from) : undefined,
+        opts.statuses ? inArray(leaveApplications.status, opts.statuses) : undefined
+      )
+    )
+    .orderBy(desc(leaveApplications.createdAt));
+}
+
+export async function findRequestById(id: string): Promise<RequestRowDb | null> {
+  const [r] = await (await getDb()).select().from(leaveApplications).where(eq(leaveApplications.id, id)).limit(1);
+  return r ?? null;
+}
+
+/** A new request, waiting, with "submitted" on its timeline. */
+export async function insertRequest(row: {
+  employeeId: string;
+  leaveTypeId: string;
+  fiscalYearId: string;
+  from: string;
+  to: string;
+  half: string | null;
+  days: number;
+  paidDays: number;
+  unpaidDays: number;
+  detail: { date: string; part: number; pay: "full" | "none" | "half" }[];
+  reason: string;
+  certificateNote: string | null;
+  ssfClaim: boolean;
+  source: "hr" | "self_service";
+  preparedBy: string;
+  appliedDate: string;
+}): Promise<string> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(leaveApplications)
+      .values({
+        employeeId: row.employeeId,
+        leaveTypeId: row.leaveTypeId,
+        fiscalYearId: row.fiscalYearId,
+        appliedDate: row.appliedDate,
+        effectiveFrom: row.from,
+        effectiveTo: row.to,
+        duration: row.half ? "Half Day" : "Full Day",
+        half: row.half,
+        noOfDays: String(row.days),
+        paidDays: String(row.paidDays),
+        unpaidDays: String(row.unpaidDays),
+        daysDetail: row.detail,
+        reason: row.reason,
+        certificateNote: row.certificateNote,
+        ssfClaim: row.ssfClaim,
+        source: row.source,
+        preparedBy: row.preparedBy,
+        approvalType: "simple",
+        status: "Pending",
+      })
+      .returning({ id: leaveApplications.id });
+    await tx.insert(approvalActions).values({ module: MODULE, requestId: created.id, level: 0, actorId: row.preparedBy, action: "submitted" });
+    return created.id;
+  });
+}
+
 /**
- * S17: decide a leave application atomically. The status only changes if the
- * application is still in `expectedStatus` (so two reviewers cannot both
- * approve and deduct the balance twice), and the balance moves in the same
- * transaction with SQL arithmetic (no read-modify-write).
- * Returns null when the application was already decided by someone else.
+ * Decides a request in one transaction: the status changes only if it is
+ * still `expectedStatus` (two approvers cannot both take the days), the
+ * timeline gets the action, and the ledger lines (taken / returned) are
+ * posted with the summary row.
  */
-export async function transitionLeaveApplication(args: {
+export async function decideRequest(p: {
   id: string;
   expectedStatus: LeaveStatus;
   status: LeaveStatus;
-  reviewedById: string;
-  reviewRemarks: string | null;
-}): Promise<LeaveApplication | null> {
-  return await (await getDb()).transaction(async (tx) => {
+  route: string | null;
+  actorId: string;
+  action: ApprovalActionKind;
+  note: string | null;
+  cancelReason?: string | null;
+  ledger: NewLedgerLine[];
+}): Promise<boolean> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
     const rows = await tx
       .update(leaveApplications)
       .set({
-        status: args.status,
-        reviewedById: args.reviewedById,
+        status: p.status,
+        reviewedById: p.actorId,
         reviewedAt: new Date(),
-        reviewRemarks: args.reviewRemarks,
+        reviewRemarks: p.note,
+        approvalRoute: p.route,
+        ...(p.cancelReason !== undefined ? { cancelReason: p.cancelReason } : {}),
         updatedAt: new Date(),
       })
-      .where(and(eq(leaveApplications.id, args.id), eq(leaveApplications.status, args.expectedStatus)))
-      .returning();
-    if (!rows.length) return null;
-    const app = rows[0];
-
-    const days = app.noOfDays;
-    const balanceRow = and(
-      eq(employeeLeaveBalances.employeeId, app.employeeId),
-      eq(employeeLeaveBalances.leaveTypeId, app.leaveTypeId),
-      eq(employeeLeaveBalances.fiscalYearId, app.fiscalYearId)
-    );
-    if (args.status === "Approved" && args.expectedStatus !== "Approved") {
-      await tx
-        .update(employeeLeaveBalances)
-        .set({
-          taken: sql`${employeeLeaveBalances.taken} + ${days}`,
-          balance: sql`${employeeLeaveBalances.balance} - ${days}`,
-          updatedAt: new Date(),
-        })
-        .where(balanceRow);
-    } else if ((args.status === "Rejected" || args.status === "Cancelled") && args.expectedStatus === "Approved") {
-      await tx
-        .update(employeeLeaveBalances)
-        .set({
-          taken: sql`GREATEST(0, ${employeeLeaveBalances.taken} - ${days})`,
-          balance: sql`${employeeLeaveBalances.balance} + ${days}`,
-          updatedAt: new Date(),
-        })
-        .where(balanceRow);
-    }
-    return mapApp(app);
+      .where(and(eq(leaveApplications.id, p.id), eq(leaveApplications.status, p.expectedStatus)))
+      .returning({ id: leaveApplications.id });
+    if (!rows.length) return false;
+    await tx.insert(approvalActions).values({ module: MODULE, requestId: p.id, level: 0, actorId: p.actorId, action: p.action, note: p.note });
+    await postLedgerLines(p.ledger, tx);
+    return true;
   });
 }
+
+export async function findTimeline(ids: string[]) {
+  if (!ids.length) return [];
+  return (await getDb())
+    .select()
+    .from(approvalActions)
+    .where(and(eq(approvalActions.module, MODULE), inArray(approvalActions.requestId, ids)))
+    .orderBy(approvalActions.createdAt);
+}
+
+export const MODULE = "LEAVE";
 
 /**
  * Dashboard (4.1): approved leave days per leave type in the active fiscal
@@ -402,7 +528,8 @@ export async function findLeaveBalancesWithTypes(employeeId: string, fiscalYearI
     })
     .from(employeeLeaveBalances)
     .innerJoin(leaveTypes, eq(leaveTypes.id, employeeLeaveBalances.leaveTypeId))
-    .where(and(eq(employeeLeaveBalances.employeeId, employeeId), eq(employeeLeaveBalances.fiscalYearId, fiscalYearId)))
+    // 4.6: only types with a balance (event leave and public holidays have none).
+    .where(and(eq(employeeLeaveBalances.employeeId, employeeId), eq(employeeLeaveBalances.fiscalYearId, fiscalYearId), eq(leaveTypes.kind, "balance"), eq(leaveTypes.isActive, true)))
     .orderBy(leaveTypes.name);
   return rows.map((r) => ({
     leaveTypeName: r.leaveTypeName,

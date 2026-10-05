@@ -1,161 +1,154 @@
 'use server';
 
-import { ensureTenantContext } from '@/lib/db';
-import * as leaveService from '@/lib/services/leave.service';
 import { revalidatePath } from 'next/cache';
-import type { LeaveApplicationFormData, LeaveStatus, LeaveFilter } from '@/lib/types/leave';
-import { checkPermission, checkPermissionWithScope } from '@/lib/auth/check-permission';
-import * as leaveRepository from '@/lib/repositories/leave.repository';
-import { findById as findEmployeeById } from '@/lib/repositories/employee.repository';
+import { ensureTenantContext } from '@/lib/db';
+import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
+import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
+import * as service from '@/lib/services/leave.service';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
-import {
-  canTransitionLeave,
-  cleanRemarks,
-  employeeInScope,
-  isLeaveStatus,
-  isOwnRequest,
-  REJECTION_REASON_MIN,
-} from '@/lib/engines/leave.engine';
+import type { ScopeFilter } from '@/lib/auth/scope-filter';
+import type { LeavePreview, LeaveStatus, LedgerLine } from '@/lib/types/leave';
 
-export async function saveLeaveApplicationAction(id: string | null, formData: LeaveApplicationFormData) {
-  await ensureTenantContext();
+// Security plan S24 (4.6): every leave action checks a leave permission with
+// the user's scope (branch / department), counts the days on the server,
+// never lets anyone approve, cancel or adjust their own leave (S21, audited
+// DENIED_SELF), audits what changed (ids and days), and returns safe
+// messages. Support view (platform impersonation) can't decide leave.
+
+type Fail = { success: false; error: string; ref?: string; validationErrors?: Record<string, string> };
+type Ok<T = undefined> = T extends undefined ? { success: true } : { success: true; data: T };
+
+const DECISIONS = ['approve', 'final_approve', 'reject', 'withdraw', 'cancel'] as const;
+const MAX_BULK = 200;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function refresh() {
+  revalidatePath('/timeAndLeave/leaves');
+  revalidatePath('/timeAndLeave/attendance');
+  revalidatePath('/dashboard');
+  revalidatePath('/self-service');
+}
+
+/** The scope for reading leave: Leave requests → View, or Leave approvals → View. */
+async function viewScope(): Promise<ScopeFilter> {
   try {
-    if (id) {
-      await checkPermission('EDIT', 'LEAVE_APPLICATIONS');
-    } else {
-      await checkPermission('ADD', 'LEAVE_APPLICATIONS');
-    }
-    const result = await leaveService.saveLeaveApplication(id, formData);
-    revalidatePath('/timeAndLeave/applications');
-    revalidatePath('/timeAndLeave/approvals');
-    return { success: true, data: result };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'LeaveValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'Failed to save application.' };
+    return await checkPermissionWithScope('VIEW', 'LEAVE_APPLICATIONS');
+  } catch {
+    return checkPermissionWithScope('VIEW', 'LEAVE_APPROVALS');
   }
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function auditRefusal(error: unknown, scope: ScopeFilter | null, action: 'ADD' | 'EDIT' | 'APPROVE', module: 'LEAVE_APPLICATIONS' | 'LEAVE_APPROVALS', recordId: string) {
+  if (!scope) return;
+  if (error instanceof service.OwnLeaveError) await recordAuditLog({ userId: scope.userId, action, module, recordId, result: DENIED_SELF });
+  else if (error instanceof service.OutOfScopeError) await recordAuditLog({ userId: scope.userId, action, module, recordId, result: 'DENIED_SCOPE' });
+}
+
+function fail(error: unknown, context: string): Fail {
+  if (error instanceof service.LeaveValidationError) return { success: false, error: 'Check the highlighted fields.', validationErrors: error.errors };
+  return toActionError(error, context);
+}
+
+/** What a request would take (days counted and skipped, pay, balance, problems). */
+export async function previewLeaveAction(input: unknown): Promise<Ok<LeavePreview> | Fail> {
+  await ensureTenantContext();
+  try {
+    const scope = await checkPermissionWithScope('ADD', 'LEAVE_APPLICATIONS');
+    return { success: true, data: await service.preview(input, { scope }) };
+  } catch (error: unknown) {
+    return fail(error, 'leave.preview');
+  }
+}
+
+/** HR raises a request for someone in scope; it waits for approval like any other. */
+export async function createLeaveRequestAction(input: unknown): Promise<Ok<{ id: string }> | Fail> {
+  await ensureTenantContext();
+  let scope: ScopeFilter | null = null;
+  try {
+    scope = await checkPermissionWithScope('ADD', 'LEAVE_APPLICATIONS');
+    const r = await service.createRequest(input, { userId: scope.userId, source: 'hr', scope });
+    await recordAuditLog({ userId: scope.userId, action: 'ADD', module: 'LEAVE_APPLICATIONS', recordId: r.id, result: 'SUCCESS', newValues: { employee: r.employeeId, days: r.days } });
+    refresh();
+    return { success: true, data: { id: r.id } };
+  } catch (error: unknown) {
+    await auditRefusal(error, scope, 'ADD', 'LEAVE_APPLICATIONS', 'request');
+    return fail(error, 'leave.create');
+  }
+}
 
 /**
- * Approve, reject or cancel a leave request (S17). Used by the Approvals page,
- * the Applications page and the Home approvals queue.
- * The reviewer is always the signed-in user; the old `reviewerId` argument is
- * ignored and kept only so existing callers compile.
+ * Approve, Final approve, reject, withdraw or cancel (one or many). Who may
+ * act is decided on the server: the employee's supervisor or Leave approvals
+ * → Approve in scope; company administrators Final approve; never your own
+ * leave. Cancelling approved leave also needs Leave requests → Edit or
+ * Approve. Each is checked and audited on its own.
  */
-export async function updateLeaveStatusAction(id: string, status: LeaveStatus, _reviewerId?: string, remarks?: string) {
+export async function decideLeaveRequestsAction(
+  ids: string[],
+  decision: (typeof DECISIONS)[number],
+  note?: string
+): Promise<Ok<{ done: number; failed: { id: string; error: string }[] }> | Fail> {
   await ensureTenantContext();
   try {
-    if (typeof id !== 'string' || !UUID_PATTERN.test(id)) throw new UserFacingError('Leave request not found.');
-    if (!isLeaveStatus(status) || status === 'Pending') throw new UserFacingError('That is not a valid decision.');
-    if (await getImpersonationSession()) {
-      throw new UserFacingError('Support view cannot approve or reject leave on behalf of the company.');
-    }
-
-    const scope = await checkPermissionWithScope('APPROVE', 'LEAVE_APPROVALS');
-    const application = await leaveRepository.findLeaveApplicationById(id);
-    const employee = application ? await findEmployeeById(application.employeeId) : undefined;
-
-    // Outside the reviewer's branch / department scope looks the same as "not found".
-    if (!application || !employee || !employeeInScope(scope, employee)) {
-      if (application) {
-        await recordAuditLog({ userId: scope.userId, action: 'APPROVE', module: 'LEAVE_APPROVALS', recordId: id, result: 'DENIED_SCOPE', newValues: { status } });
+    if (!DECISIONS.includes(decision)) throw new UserFacingError('That is not a valid decision.');
+    const list = Array.isArray(ids) ? [...new Set(ids.map(String))].filter((id) => UUID.test(id)).slice(0, MAX_BULK) : [];
+    if (!list.length) throw new UserFacingError('Choose at least one leave request.');
+    if (decision !== 'withdraw' && (await getImpersonationSession())) throw new UserFacingError('Support view cannot decide leave on behalf of the company.');
+    const scope = await viewScope();
+    const [canApprove, canEdit] = await Promise.all([hasPermission('APPROVE', 'LEAVE_APPROVALS'), hasPermission('EDIT', 'LEAVE_APPLICATIONS')]);
+    const action = decision === 'withdraw' || decision === 'cancel' ? 'EDIT' : 'APPROVE';
+    const leaveModule = action === 'EDIT' ? 'LEAVE_APPLICATIONS' : 'LEAVE_APPROVALS';
+    let done = 0;
+    const failed: { id: string; error: string }[] = [];
+    for (const id of list) {
+      try {
+        const r = await service.decide(id, decision, note, { scope, userId: scope.userId, canApprove, canEdit });
+        await recordAuditLog({ userId: scope.userId, action, module: leaveModule, recordId: id, result: 'SUCCESS', newValues: { decision, status: r.status, employee: r.employeeId } });
+        done++;
+      } catch (error) {
+        await auditRefusal(error, scope, action, leaveModule, id);
+        if (error instanceof UserFacingError) failed.push({ id, error: error.message });
+        else if (error instanceof service.LeaveValidationError) failed.push({ id, error: Object.values(error.errors)[0] ?? 'Not changed.' });
+        else throw error;
       }
-      throw new UserFacingError('Leave request not found.');
     }
-    if (isOwnRequest(scope.employeeId, application.employeeId)) {
-      await recordAuditLog({ userId: scope.userId, action: 'APPROVE', module: 'LEAVE_APPROVALS', recordId: id, result: 'DENIED_SELF_APPROVAL', newValues: { status } });
-      throw new UserFacingError("You can't approve or reject your own leave. Another approver needs to review it.");
-    }
-    if (!canTransitionLeave(application.status, status)) {
-      throw new UserFacingError(`This request is already ${application.status.toLowerCase()}.`);
-    }
-    const reviewRemarks = cleanRemarks(remarks);
-    if (status === 'Rejected' && (!reviewRemarks || reviewRemarks.length < REJECTION_REASON_MIN)) {
-      throw new UserFacingError('Give a short reason for the rejection.');
-    }
-
-    const updated = await leaveRepository.transitionLeaveApplication({
-      id,
-      expectedStatus: application.status,
-      status,
-      reviewedById: scope.userId,
-      reviewRemarks,
-    });
-    if (!updated) {
-      throw new UserFacingError('Someone else decided this request a moment ago. Refresh to see the latest status.');
-    }
-
-    await recordAuditLog({
-      userId: scope.userId,
-      action: 'APPROVE',
-      module: 'LEAVE_APPROVALS',
-      recordId: id,
-      result: 'SUCCESS',
-      oldValues: { status: application.status },
-      newValues: { status, remarks: reviewRemarks, employeeId: application.employeeId, days: application.noOfDays },
-    });
-
-    revalidatePath('/timeAndLeave/approvals');
-    revalidatePath('/timeAndLeave/applications');
-    revalidatePath('/dashboard');
-    return { success: true as const, data: updated };
+    if (done) refresh();
+    if (!done && failed.length === 1) return { success: false, error: failed[0].error };
+    return { success: true, data: { done, failed } };
   } catch (error: unknown) {
-    return toActionError(error, 'leave.updateStatus');
+    return fail(error, 'leave.decide');
   }
 }
 
-export async function deleteLeaveApplicationAction(id: string) {
+/** HR adds days to a balance or takes them away, with a reason (never their own). */
+export async function adjustLeaveBalanceAction(input: unknown): Promise<Ok | Fail> {
   await ensureTenantContext();
+  let scope: ScopeFilter | null = null;
   try {
-    await checkPermission('DELETE', 'LEAVE_APPLICATIONS');
-    await leaveService.deleteLeaveApplication(id);
-    revalidatePath('/timeAndLeave/applications');
+    scope = await checkPermissionWithScope('EDIT', 'LEAVE_APPLICATIONS');
+    const r = await service.adjustBalance(input, { scope, userId: scope.userId });
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'LEAVE_APPLICATIONS', recordId: r.employeeId, result: 'SUCCESS', newValues: { balanceAdjusted: r.days, leaveType: r.leaveTypeId } });
+    refresh();
     return { success: true };
   } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to delete application.' };
+    const id = input && typeof input === 'object' && typeof (input as { employeeId?: unknown }).employeeId === 'string' ? (input as { employeeId: string }).employeeId : 'balance';
+    await auditRefusal(error, scope, 'EDIT', 'LEAVE_APPLICATIONS', id);
+    return fail(error, 'leave.adjust');
   }
 }
 
-export async function getLeaveApplicationsAction(filter: LeaveFilter) {
+/** One person's ledger for the leave year (Balances pane). */
+export async function getLeaveLedgerAction(employeeId: string): Promise<Ok<(LedgerLine & { createdByName: string | null })[]> | Fail> {
   await ensureTenantContext();
   try {
-    const scope =
-      filter.status === 'Pending'
-        ? await checkPermissionWithScope('VIEW', 'LEAVE_APPROVALS')
-        : await checkPermissionWithScope('VIEW', 'LEAVE_APPLICATIONS');
-    const data = await leaveService.getLeaveApplications(filter, scope);
-    return { success: true, data };
+    if (typeof employeeId !== 'string' || !UUID.test(employeeId)) throw new UserFacingError('Employee not found.');
+    const scope = await viewScope();
+    return { success: true, data: await service.ledgerFor(employeeId, scope) };
   } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch applications.' };
+    return fail(error, 'leave.ledger');
   }
 }
 
-export async function getLeaveLookupDataAction() {
-  await ensureTenantContext();
-  try {
-    await checkPermission('VIEW', 'LEAVE_APPLICATIONS');
-    const data = await leaveService.getLeaveLookupData();
-    return { success: true, data };
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch lookup data.' };
-  }
-}
-
-export async function getEmployeeLeaveBalancesAction(employeeId: string) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('VIEW', 'LEAVE_APPLICATIONS');
-    const data = await leaveService.getEmployeeLeaveBalances(employeeId);
-    return { success: true, data };
-  } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch balances.' };
-  }
-}
+export type { LeaveStatus };

@@ -314,6 +314,8 @@ export async function bootstrapStatutoryLeavesAndOT(
 
   // 1. Insert Leave Types and matching Statutory Leave Rules
   for (const lt of data.leaveTypes) {
+    // Public holidays are the Holiday calendar, not a leave type (4.6).
+    if (lt.code === 'PUBLIC') continue;
     let leaveTypeId: string;
     const existing = await db
       .select()

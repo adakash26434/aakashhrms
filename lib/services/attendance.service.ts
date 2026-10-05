@@ -5,6 +5,7 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as shiftService from "@/lib/services/shift.service";
+import { approvedLeaveDays } from "@/lib/services/leave.service";
 import * as checkinRepo from "@/lib/repositories/checkin.repository";
 import { findUserNames } from "@/lib/repositories/salary-structure.repository";
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
@@ -27,7 +28,6 @@ import {
   type AttendanceRules,
   type AttendanceTab,
   type BranchMonth,
-  type DayLeave,
   type DayResult,
   type MonthSummary,
   type OverrideType,
@@ -103,7 +103,8 @@ interface Context {
   rules: AttendanceRules;
   ot: Map<string, boolean>;
   holidays: Awaited<ReturnType<typeof repo.findHolidays>>;
-  leaves: Awaited<ReturnType<typeof repo.findApprovedLeaves>>;
+  /** Approved leave per employee|date (the request's own counted days, 4.6). */
+  leaves: Awaited<ReturnType<typeof approvedLeaveDays>>;
   punches: Map<string, string[]>;
   overrides: Awaited<ReturnType<typeof repo.findOverrides>>;
   shifts: shiftService.ShiftContext;
@@ -118,7 +119,7 @@ async function loadContext(employees: Employee[], from: string, to: string, rule
     rules ? Promise.resolve(rules) : getRules(),
     repo.findOtEligibility(),
     repo.findHolidays(from, to),
-    repo.findApprovedLeaves(ids, from, to),
+    approvedLeaveDays(ids, from, to),
     // Night shifts reach into the next morning: read a day either side.
     repo.findPunches(ids, instantAt(addDays(from, -1), 0), instantAt(addDays(to, 2), 0)),
     repo.findOverrides(ids, from, to),
@@ -128,8 +129,6 @@ async function loadContext(employees: Employee[], from: string, to: string, rule
   for (const p of punchRows) punches.set(p.employeeId, [...(punches.get(p.employeeId) ?? []), p.punchedAt]);
   return { rules: r, ot, holidays, leaves, punches, overrides, shifts, today: nepalDateIso(), now: new Date().toISOString() };
 }
-
-const LEAVE_PAY: Record<string, DayLeave["pay"]> = { Pay: "full", "Non-Pay": "none", "Partial-Pay": "half" };
 
 /** Migration 0039 marked days typed in the old screen with this note; say it in plain words. */
 const plainNote = (text: string | null) => (text === "Recorded before 4.5" ? "Entered in the old attendance screen" : text);
@@ -148,7 +147,7 @@ function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
       // International Women's Day is a holiday for women only (Labour Act: 14 public holidays for women).
       (!/women/i.test(h.name) || e.gender === "Female")
   );
-  const l = ctx.leaves.find((x) => x.employeeId === e.id && date >= x.from && date <= x.to);
+  const l = ctx.leaves.get(`${e.id}|${date}`);
   const override = ctx.overrides.get(`${e.id}|${date}`);
   return resolveDay({
     date,
@@ -157,7 +156,7 @@ function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
     shift,
     noRecord: ctx.rules.noRecord,
     holiday: holiday ? { name: holiday.name } : null,
-    leave: l ? { name: l.name, pay: LEAVE_PAY[l.pay] ?? "full", half: l.duration === "Half Day" } : null,
+    leave: l ?? null,
     punches: punchesForDay(ctx.punches.get(e.id) ?? [], date, shift, prev, next),
     override: override ? { dayType: override.type, reason: plainNote(override.reason) ?? "" } : null,
     otEligible: ctx.ot.get(e.category) ?? true,

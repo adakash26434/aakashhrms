@@ -339,6 +339,8 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
     const targetLeaveTypes = leaveTypes && leaveTypes.length > 0 ? leaveTypes : DEFAULT_NEPAL_LEAVE_TYPES;
 
     for (const lt of targetLeaveTypes) {
+      // Public holidays are the Holiday calendar, not a leave type (4.6); older saved setups may still list them.
+      if (lt.code === 'PUBLIC') continue;
       let leaveTypeId: string;
       const existingLT = await tenantDb
         .select()

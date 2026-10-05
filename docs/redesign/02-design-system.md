@@ -622,6 +622,38 @@ between one day's shift end and the next start is split in the middle
 (overlapping shifts: the next start). Company setup → Work schedule is
 read-only and shows the default shift.
 
+### Implemented leaves (Phase 4.6a, templates A + C)
+
+`/timeAndLeave/leaves` (the old Applications and Approvals pages redirect
+here). Leave types are three layers: the **calendar** (weekly offs from
+shifts, public holidays from the Holiday calendar: never leave types),
+**statutory types** from the Labour Act (Home, Sick, Maternity, Maternity
+care, Mourning, Substitute; set by the platform, locked until 4.6c) and
+**company types** (e.g. Unpaid leave). Each type is a *balance* (home, sick,
+substitute), an *event* (maternity 98 days of which 60 paid, maternity care
+15, mourning 13: calendar days, no balance) or *none* (unpaid). One engine
+(`lib/engines/leave.engine.ts`) counts days (working basis skips the
+person's weekly offs and holidays, saying why; half days are one date),
+splits pay per day, and refuses a request when the type isn't for the
+person, the balance is short, it overlaps another request or an HR-set day,
+it falls in a closed attendance month, outside employment, or across the
+leave year. Sick, mourning and maternity are rights (§51): a rejection must
+say which condition is not met; other leave may be refused or moved for a
+recorded work reason.
+
+| Tab | Layout and rules |
+|---|---|
+| Requests | Waiting for me / All / My leave, type and status filters, bulk approve or reject. DataGrid: from, to, employee, type, days (half, unpaid), reason, status. Detail pane: dates, days counted (unpaid in red), certificate, SSF claim, balance now, the §51 note, Approve / Final approve / Reject / Withdraw / Cancel leave, approval timeline. |
+| Balances | DataGrid: employee × balance types (balance, taken, waiting), branch filter. Detail pane: the leave ledger per type (date, kind, note, who, signed days) and **Adjust balance** (never your own). |
+
+Windows: **New leave request** (employee, type, from / to, part of the day,
+reason, certificate, SSF claim) with a **live preview from the server**:
+days counted with weekday, days not counted and why, paid / unpaid, balance
+now → after, problems that block sending, and notes. **Adjust balance**
+(type, add / take days, whole or half, reason; shows now → after).
+Self-service **Apply for leave** uses the same preview and service; waiting
+requests can be withdrawn there (full My leave redesign: Phase 5).
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

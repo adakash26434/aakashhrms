@@ -116,14 +116,14 @@ export function LeaveTypeFormModal({
       title={
         typeRecord
           ? isStatutory
-            ? "Customize Statutory Leave"
+            ? "Statutory leave (read-only)"
             : "Edit Leave Type"
           : "New Leave Type"
       }
       description={
         typeRecord
           ? isStatutory
-            ? "Nepal Labour Act statutory properties (Code, Statutory flags) are locked, but you can adjust days, caps, and departments."
+            ? "Set by the Labour Act 2074 and the same for every company. Changes in the employees' favour, approved by a second person, come with the leave policy settings."
             : "Update custom leave policy settings."
           : "Create a new leave type policy for the organization."
       }
@@ -143,17 +143,17 @@ export function LeaveTypeFormModal({
             >
               Cancel
             </Button>
-            <DataSaveButton
+            {!isStatutory && <DataSaveButton
               onClick={handleSave}
               isSaving={saving}
               label={typeRecord ? "Update Policy" : "Create Policy"}
               className="rounded-md bg-payroll-primary hover:bg-payroll-primary-hover text-white font-medium shadow-none cursor-pointer"
-            />
+            />}
           </div>
         </div>
       }
     >
-      <div className="space-y-6">
+      <fieldset disabled={isStatutory} className="m-0 min-w-0 space-y-6 border-0 p-0">
         {/* Section 1: Policy Identification */}
         <FormSection
           title="Policy Identification"
@@ -447,7 +447,7 @@ export function LeaveTypeFormModal({
             </button>
           </div>
         </FormSection>
-      </div>
+      </fieldset>
     </Dialog>
   );
 }
