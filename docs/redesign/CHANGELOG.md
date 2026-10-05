@@ -13,6 +13,11 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.6a Leaves foundation signed off
+4.6a (leave ledger, rules engine, requests and approvals, balances, self-service, S24) and the fixes found while checking it (grid column menu, English leave names, roster rotations) are signed off. 4.6b Entitlements starts on the same branch.
+
+---
+
 ## 2026-10-05 — Roster rotations keep weekly offs (found in 4.6a)
 Branch: `redesign/4.6-leaves`
 
