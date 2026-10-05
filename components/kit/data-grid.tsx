@@ -28,6 +28,7 @@ import { DateCell } from "./date-cell";
 import { EmptyState, ErrorState } from "./empty-state";
 import { GridSkeleton } from "./skeleton";
 import { StatusChip } from "./status-chip";
+import { usePopupPosition } from "./use-popup-position";
 
 export type ColumnType = "text" | "amount" | "number" | "date" | "code" | "status";
 
@@ -215,6 +216,9 @@ export function DataGrid<T>({
   const [notice, setNotice] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  // On the screen (position: fixed), so the grid's rounded frame never clips the column list.
+  const menuStyle = usePopupPosition(menuButtonRef, menuOpen, { width: 240, maxWidth: 240, height: Math.min(420, columns.length * 32 + 84) });
 
   // Visible columns (first column can never be hidden).
   const hiddenIds = new Set(hasSavedPrefs ? prefs.hidden : columns.filter((c) => c.defaultHidden).map((c) => c.id));
@@ -253,8 +257,15 @@ export function DataGrid<T>({
     const onDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [menuOpen]);
 
   useEffect(() => {
@@ -405,6 +416,7 @@ export function DataGrid<T>({
       )}
       <div className="relative" ref={menuRef}>
         <button
+          ref={menuButtonRef}
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
           aria-haspopup="true"
@@ -414,10 +426,10 @@ export function DataGrid<T>({
           <Columns3 className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Columns</span>
         </button>
-        {menuOpen && (
-          <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg">
+        {menuOpen && menuStyle && (
+          <div style={menuStyle} className="z-50 flex w-60 flex-col rounded-lg border border-line bg-surface p-1.5 shadow-lg">
             <p className="px-2 pb-1 pt-0.5 text-2xs font-semibold uppercase tracking-wider text-ink-faint">Show columns</p>
-            <div className="max-h-64 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               {columns.map((c, i) => (
                 <label key={c.id} className={cn("flex items-center gap-2 rounded px-2 py-1.5 text-sm text-ink hover:bg-surface-sunken", (i === 0 || c.hideable === false) && "opacity-50")}>
                   <input type="checkbox" checked={i === 0 || !hiddenIds.has(c.id)} disabled={i === 0 || c.hideable === false} onChange={() => toggleColumn(c.id)} />
@@ -431,7 +443,7 @@ export function DataGrid<T>({
                 savePrefs(null);
                 setMenuOpen(false);
               }}
-              className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-ink-muted hover:bg-surface-sunken cursor-pointer"
+              className="mt-1 flex w-full shrink-0 items-center gap-2 rounded px-2 py-1.5 text-xs text-ink-muted hover:bg-surface-sunken cursor-pointer"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Reset widths and columns
             </button>
