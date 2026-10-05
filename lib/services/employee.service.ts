@@ -12,9 +12,7 @@ import * as userService from "@/lib/services/user.service";
 import { getDb } from "@/lib/db";
 import { systemConfig } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import * as leaveRepository from "@/lib/repositories/leave.repository";
-import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
-import { calculateProRataLeaveDays } from "@/lib/engines/leave-type.engine";
+import { creditOnJoining } from "@/lib/services/leave.service";
 import { ScopeFilter, buildEmployeeScopeCondition } from "@/lib/auth/scope-filter";
 import {
   findUserByEmployeeId,
@@ -427,48 +425,13 @@ export async function saveEmployee(
       accessOptions
     );
 
-    // =======================================================================
-    // P0 FIX: LEAVE BALANCE INITIALIZATION ON HIRE
-    // Allot leave balances for all active leave types in the current FY.
-    // Pro-rata calculation for mid-year joiners based on leave type config.
-    // =======================================================================
+    // Leave on hire (4.6b): yearly credits (sick 12, company types), pro-rata from joining, in
+    // the leave year; home leave is earned at month close and substitute leave granted.
     try {
-      const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
-      const activeFy = fiscalYears.find(fy => fy.status === 'Active');
-      if (activeFy) {
-        // 4.6: opening ledger lines for types credited yearly (sick 12, company balance types),
-        // pro-rata for a mid-year joiner. Home leave is earned from days worked and substitute
-        // leave is granted, so they start at 0; event leave (maternity, mourning) has no balance.
-        const ruleTypes = await leaveRepository.findRuleTypes();
-        const fyStart = new Date(activeFy.startDateAD);
-        const fyEnd = new Date(activeFy.endDateAD);
-        const joinDate = employee.joiningDate ? new Date(employee.joiningDate) : fyStart;
-        const yearly = ruleTypes.filter(
-          (lt) =>
-            lt.isActive &&
-            lt.kind === "balance" &&
-            lt.statutoryCode !== "HOME" &&
-            lt.statutoryCode !== "SUBSTITUTE" &&
-            lt.days > 0 &&
-            (lt.genderApplicable === "All" || lt.genderApplicable === employee.gender)
-        );
-        const entryDate = (joinDate > fyStart ? joinDate : fyStart).toISOString().slice(0, 10);
-        await leaveRepository.postLedgerLines(
-          yearly.map((lt) => ({
-            employeeId: employee.id,
-            leaveTypeId: lt.id,
-            fiscalYearId: activeFy.id,
-            entryDate,
-            kind: "opening" as const,
-            days: joinDate > fyStart ? calculateProRataLeaveDays(lt.days, joinDate, fyStart, fyEnd) : lt.days,
-            note: joinDate > fyStart ? "Pro-rata from joining" : "Yearly credit",
-            createdBy: null,
-          }))
-        );
-      }
+      await creditOnJoining({ id: employee.id, gender: employee.gender, joiningDate: employee.joiningDate ? String(employee.joiningDate).slice(0, 10) : null });
     } catch (err) {
-      console.error(`Failed to initialize leave balances for employee ${employee.id}:`, err);
-      // Non-blocking — HR can manually allot if this fails
+      console.error(`Failed to credit leave for employee ${employee.id}:`, err);
+      // Non-blocking: HR can adjust the balance.
     }
 
     // =======================================================================

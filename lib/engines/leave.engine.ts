@@ -187,6 +187,7 @@ export const LEDGER_SIGN: Record<LedgerKind, 1 | -1 | 0> = {
   credit: 1,
   accrual: 1,
   grant: 1,
+  not_granted: 0,
   carried_forward: 1,
   returned: 1,
   adjusted: 0,
@@ -214,6 +215,242 @@ export function ledgerSummary(lines: readonly { kind: LedgerKind; days: number }
 export function signed(kind: LedgerKind, days: number): number {
   const s = LEDGER_SIGN[kind];
   return s === 0 ? days : s * Math.abs(days);
+}
+
+// ---------------------------------------------------------------------------
+// Entitlements (4.6b): expiry, home leave earned, carry-over, the year opening
+// ---------------------------------------------------------------------------
+
+/** A ledger line as the balance needs it. */
+export interface BalanceLine {
+  id?: string;
+  kind: LedgerKind;
+  days: number;
+  entryDate: string;
+  expiresOn: string | null;
+  createdAt?: string;
+}
+
+export interface BalanceBucket {
+  id: string | undefined;
+  expiresOn: string;
+  left: number;
+}
+
+/**
+ * The balance usable on a date. Lines with an expiry (substitute leave
+ * grants, §42) are used oldest-expiry first and stop counting once they
+ * expire; everything else counts as it is. Days that expired unused are
+ * listed so the month close can write them off (the `expired` lines it
+ * writes are not counted again). Without expiring lines this is the ledger
+ * sum.
+ */
+export function balanceOn(
+  lines: readonly BalanceLine[],
+  date: string
+): { available: number; buckets: BalanceBucket[]; free: number; expired: { id: string | undefined; expiresOn: string; days: number }[] } {
+  const sorted = [...lines].sort((a, b) => a.entryDate.localeCompare(b.entryDate) || (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+  const buckets: BalanceBucket[] = [];
+  const expired: { id: string | undefined; expiresOn: string; days: number }[] = [];
+  let free = 0;
+  const expireBefore = (d: string) => {
+    for (let i = buckets.length - 1; i >= 0; i--) {
+      if (buckets[i].expiresOn < d) {
+        const [b] = buckets.splice(i, 1);
+        if (b.left > 0) expired.push({ id: b.id, expiresOn: b.expiresOn, days: round(b.left) });
+      }
+    }
+  };
+  for (const l of sorted) {
+    // A written-off expiry mirrors what the expiry here already removed.
+    if (l.kind === "expired") continue;
+    expireBefore(l.entryDate);
+    if (l.days > 0 && l.expiresOn) buckets.push({ id: l.id, expiresOn: l.expiresOn, left: l.days });
+    else if (l.days > 0) free += l.days;
+    else if (l.days < 0) {
+      let need = -l.days;
+      for (const b of [...buckets].sort((x, y) => x.expiresOn.localeCompare(y.expiresOn))) {
+        if (need <= 0) break;
+        const use = Math.min(b.left, need);
+        b.left -= use;
+        need -= use;
+      }
+      free -= need;
+    }
+  }
+  expireBefore(date);
+  const live = buckets.filter((b) => b.left > 0).map((b) => ({ ...b, left: round(b.left) }));
+  return { available: round(free + live.reduce((n, b) => n + b.left, 0)), buckets: live, free: round(free), expired: expired.sort((x, y) => x.expiresOn.localeCompare(y.expiresOn)) };
+}
+
+/** Labour Act §43: home leave earned in a month, 1 day per N paid days (2 decimals). */
+export function homeLeaveEarned(paidDays: number, everyDays: number | null): number {
+  const n = everyDays && everyDays > 0 ? everyDays : 20;
+  return paidDays > 0 ? round(paidDays / n) : 0;
+}
+
+/** What carries into the next leave year (up to the cap) and what is over it. A negative balance carries as it is. */
+export function carryOver(closing: number, cap: number | null): { carry: number; over: number } {
+  if (closing <= 0 || cap === null) return { carry: round(closing), over: 0 };
+  return { carry: round(Math.min(closing, cap)), over: round(Math.max(0, closing - cap)) };
+}
+
+const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86400000;
+
+/** A yearly credit for someone who joins during the year: the share of the year left from joining (1 decimal). */
+export function proRata(days: number, joiningDate: string, year: { start: string; end: string }): number {
+  if (joiningDate <= year.start) return days;
+  if (joiningDate > year.end) return 0;
+  const total = dayNumber(year.end) - dayNumber(year.start) + 1;
+  const left = dayNumber(year.end) - dayNumber(joiningDate) + 1;
+  return Math.round(((days * left) / total) * 10) / 10;
+}
+
+/** The cap of a balance type: its own, else the Labour Act's for statutory types (home 90, sick 45). */
+export function capOf(t: Pick<LeaveRuleType, "accumulationCap" | "statutoryCode">): number | null {
+  return t.accumulationCap ?? (t.statutoryCode ? STATUTORY_FLOOR[t.statutoryCode]?.cap ?? null : null);
+}
+
+/** Types credited a number of days each year (sick 12, company types); home leave is earned and substitute leave granted. */
+export const creditedYearly = (t: Pick<LeaveRuleType, "kind" | "statutoryCode" | "days">) =>
+  t.kind === "balance" && t.statutoryCode !== "HOME" && t.statutoryCode !== "SUBSTITUTE" && t.days > 0;
+
+export interface OpeningPerson {
+  id: string;
+  gender: string;
+  joiningDate: string;
+  terminationDate: string | null;
+}
+
+export interface OpeningRow {
+  employeeId: string;
+  leaveTypeId: string;
+  /** Usable at the old year's end. */
+  closing: number;
+  carry: number;
+  /** Over the cap (or not carried): to be paid out at basic salary, or lapsed. */
+  over: number;
+  overKind: "paid_out" | "lapsed" | null;
+  credit: number;
+  /** The new year's balance after opening. */
+  opening: number;
+}
+
+export interface OpeningLine {
+  employeeId: string;
+  leaveTypeId: string;
+  fiscalYearId: string;
+  entryDate: string;
+  kind: LedgerKind;
+  days: number;
+  note: string;
+  expiresOn: string | null;
+  ref: string;
+}
+
+/**
+ * Opening a leave year (Labour Act §49, §50). For everyone employed on its
+ * first day, each balance type's usable days at the old year's end carry
+ * over up to the cap (home 90, sick 45, a company type's own cap if it
+ * carries over); what is over is marked to be paid out at basic salary
+ * (statutory types, encashable company types) or lapses. Substitute leave
+ * keeps each grant's expiry. Sick leave and company types are credited for
+ * the year (pro-rata for someone who joined during it and was not credited
+ * at hire).
+ */
+export function planOpening(p: {
+  types: readonly LeaveRuleType[];
+  people: readonly OpeningPerson[];
+  oldYear: { id: string; label: string; end: string } | null;
+  newYear: { id: string; label: string; start: string; end: string };
+  /** Old-year lines per `employee|type`. */
+  oldLines: ReadonlyMap<string, readonly BalanceLine[]>;
+  /** `employee|type` pairs already credited in the new year (at hire). */
+  creditedInNewYear: ReadonlySet<string>;
+}): { rows: OpeningRow[]; lines: OpeningLine[] } {
+  const rows: OpeningRow[] = [];
+  const lines: OpeningLine[] = [];
+  const ref = `opening:${p.newYear.id}`;
+  const types = p.types.filter((t) => t.kind === "balance" && t.isActive);
+  for (const e of p.people) {
+    if (e.terminationDate && e.terminationDate < p.newYear.start) continue;
+    if (e.joiningDate > p.newYear.end) continue;
+    for (const t of types) {
+      if (t.genderApplicable !== "All" && t.genderApplicable !== e.gender) continue;
+      const key = `${e.id}|${t.id}`;
+      const old = p.oldYear ? balanceOn(p.oldLines.get(key) ?? [], p.oldYear.end) : null;
+      const closing = old?.available ?? 0;
+      let carry = 0;
+      let over = 0;
+      let overKind: OpeningRow["overKind"] = null;
+      const line = (kind: LedgerKind, days: number, note: string, expiresOn: string | null = null, oldYear = false) =>
+        lines.push({
+          employeeId: e.id,
+          leaveTypeId: t.id,
+          fiscalYearId: oldYear && p.oldYear ? p.oldYear.id : p.newYear.id,
+          entryDate: oldYear && p.oldYear ? p.oldYear.end : p.newYear.start,
+          kind,
+          days,
+          note,
+          expiresOn,
+          ref,
+        });
+      if (old && p.oldYear) {
+        if (t.statutoryCode === "SUBSTITUTE") {
+          // Each grant keeps its own expiry; only what is still usable on the first day moves.
+          for (const b of old.buckets.filter((x) => x.expiresOn >= p.newYear.start)) {
+            line("carried_forward", b.left, `From ${p.oldYear.label}, expires ${b.expiresOn}`, b.expiresOn);
+            carry += b.left;
+          }
+          if (old.free !== 0) {
+            line("carried_forward", old.free, `From ${p.oldYear.label}`);
+            carry += old.free;
+          }
+        } else {
+          const carries = t.isStatutory || t.carryForward;
+          const cap = capOf(t);
+          const c = carries ? carryOver(closing, cap) : { carry: round(Math.min(closing, 0)), over: round(Math.max(closing, 0)) };
+          carry = c.carry;
+          over = c.over;
+          if (carry !== 0) line("carried_forward", carry, `From ${p.oldYear.label}`);
+          if (over > 0) {
+            overKind = t.isStatutory || t.isEncashable ? "paid_out" : "lapsed";
+            line(
+              overKind,
+              -over,
+              overKind === "paid_out"
+                ? carries && cap !== null
+                  ? `Over the ${fmt(cap)}-day limit: to be paid at basic salary (Labour Act §49)`
+                  : "Not carried over: to be paid at basic salary"
+                : `Not carried over to ${p.newYear.label}`,
+              null,
+              true
+            );
+          }
+        }
+      }
+      let credit = 0;
+      if (creditedYearly(t) && !p.creditedInNewYear.has(key)) {
+        credit = proRata(t.days, e.joiningDate, p.newYear);
+        if (credit > 0) {
+          const joined = e.joiningDate > p.newYear.start;
+          lines.push({
+            employeeId: e.id,
+            leaveTypeId: t.id,
+            fiscalYearId: p.newYear.id,
+            entryDate: joined ? e.joiningDate : p.newYear.start,
+            kind: "credit",
+            days: credit,
+            note: joined ? `${p.newYear.label}, pro-rata from joining` : p.newYear.label,
+            expiresOn: null,
+            ref,
+          });
+        }
+      }
+      rows.push({ employeeId: e.id, leaveTypeId: t.id, closing, carry: round(carry), over, overKind, credit, opening: round(carry + credit) });
+    }
+  }
+  return { rows, lines };
 }
 
 // ---------------------------------------------------------------------------

@@ -7,9 +7,10 @@ import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
 import * as service from '@/lib/services/leave.service';
+import * as entitlements from '@/lib/services/leave-entitlement.service';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
 import type { ScopeFilter } from '@/lib/auth/scope-filter';
-import type { LeavePreview, LeaveStatus, LedgerLine } from '@/lib/types/leave';
+import type { LeavePreview, LeaveStatus, LedgerLine, OpeningPreview } from '@/lib/types/leave';
 
 // Security plan S24 (4.6): every leave action checks a leave permission with
 // the user's scope (branch / department), counts the days on the server,
@@ -148,6 +149,66 @@ export async function getLeaveLedgerAction(employeeId: string): Promise<Ok<(Ledg
     return { success: true, data: await service.ledgerFor(employeeId, scope) };
   } catch (error: unknown) {
     return fail(error, 'leave.ledger');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4.6b: opening a leave year, substitute leave
+// ---------------------------------------------------------------------------
+
+/** Opening a leave year changes everyone's balances: Leave requests → Edit, company-wide. */
+async function openYearScope(): Promise<ScopeFilter> {
+  const scope = await checkPermissionWithScope('EDIT', 'LEAVE_APPLICATIONS');
+  if (scope.scopeType !== 'GLOBAL') throw new UserFacingError('Opening a leave year needs a company-wide role.');
+  return scope;
+}
+
+/** What opening the next leave year would do (carry-over, payout, credits) and what stops it. */
+export async function leaveOpeningPreviewAction(): Promise<Ok<OpeningPreview> | Fail> {
+  await ensureTenantContext();
+  try {
+    return { success: true, data: await entitlements.openingPreview(await openYearScope()) };
+  } catch (error: unknown) {
+    return fail(error, 'leave.openingPreview');
+  }
+}
+
+/** Opens the next leave year, once. Never from support view. */
+export async function openLeaveYearAction(): Promise<Ok<{ label: string; people: number }> | Fail> {
+  await ensureTenantContext();
+  let scope: ScopeFilter | null = null;
+  try {
+    if (await getImpersonationSession()) throw new UserFacingError('Support view cannot open a leave year for the company.');
+    scope = await openYearScope();
+    const r = await entitlements.openYear(scope, scope.userId);
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'LEAVE_APPLICATIONS', recordId: 'leave-year', result: 'SUCCESS', newValues: { leaveYearOpened: r.label, people: r.people, lines: r.lines } });
+    refresh();
+    return { success: true, data: { label: r.label, people: r.people } };
+  } catch (error: unknown) {
+    return fail(error, 'leave.openYear');
+  }
+}
+
+/**
+ * Grants substitute leave (full or half day) for days worked on a weekly
+ * off or holiday, or records it as not granted with a reason. In scope,
+ * never your own (S21); each decision audited.
+ */
+export async function grantSubstituteLeaveAction(items: unknown): Promise<Ok<{ done: number }> | Fail> {
+  await ensureTenantContext();
+  let scope: ScopeFilter | null = null;
+  try {
+    if (await getImpersonationSession()) throw new UserFacingError('Support view cannot grant leave on behalf of the company.');
+    scope = await checkPermissionWithScope('EDIT', 'LEAVE_APPLICATIONS');
+    const done = await entitlements.grantSubstitute(items, { scope, userId: scope.userId });
+    for (const d of done)
+      await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'LEAVE_APPLICATIONS', recordId: d.employeeId, result: 'SUCCESS', newValues: { substituteLeave: d.days, workedOn: d.date } });
+    refresh();
+    return { success: true, data: { done: done.length } };
+  } catch (error: unknown) {
+    const first = Array.isArray(items) && items[0] && typeof (items[0] as { employeeId?: unknown }).employeeId === 'string' ? (items[0] as { employeeId: string }).employeeId : 'substitute';
+    await auditRefusal(error, scope, 'EDIT', 'LEAVE_APPLICATIONS', first);
+    return fail(error, 'leave.substitute');
   }
 }
 

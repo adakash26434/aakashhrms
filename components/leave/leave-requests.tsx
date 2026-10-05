@@ -5,6 +5,7 @@ import { Ban, Check, Plus, ShieldCheck, Undo2, X } from "lucide-react";
 import { Confirm } from "@/components/kit/confirm";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
+import { Guide } from "@/components/kit/guide";
 import { SelectField } from "@/components/kit/select-field";
 import { SplitView } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
@@ -99,6 +100,18 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
 
   return (
     <div className="p-3">
+      <Guide
+        id="leave-requests"
+        className="mb-3"
+        title="How leave requests work"
+        steps={[
+          { title: "Ask", text: "Employees apply in self-service, or HR presses New request for them. The days are counted for them: weekly offs and holidays inside the dates are skipped." },
+          { title: "Approve", text: "The employee's supervisor or a leave approver decides it under Waiting for me. Company administrators can Final approve. Nobody approves their own leave." },
+          { title: "Taken", text: "Approved days come off the balance and show as leave in attendance, so payroll pays them (or deducts unpaid days)." },
+          { title: "Plans change", text: "A waiting request can be withdrawn; approved leave can be cancelled and the days go back, unless that attendance month is already closed." },
+        ]}
+        note="Requests from the last three months and all waiting ones are shown. Click a request to see the days counted and its history."
+      />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Which requests" className="inline-flex rounded-md border border-line-input bg-surface p-0.5 text-xs">
           {views.map(([id, label]) => (
@@ -142,9 +155,6 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
           </span>
         )}
       </div>
-      <p className="mb-2 text-2xs text-ink-muted">
-        Approved by the employee&apos;s supervisor or someone with Leave approvals → Approve; company administrators can Final approve. Nobody approves their own leave. Requests from the last three months and all waiting ones are shown.
-      </p>
       {message && (
         <p role="alert" className="mb-3 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">
           {message}

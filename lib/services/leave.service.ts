@@ -12,7 +12,7 @@ import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { addDays } from "@/lib/engines/pay-period.engine";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording } from "@/lib/engines/approval.engine";
-import { checkRequest, countDays, fmt, ledgerBalance, ledgerSummary, splitPaid, type CalendarDay } from "@/lib/engines/leave.engine";
+import { balanceOn, capOf, checkRequest, countDays, fmt, homeLeaveEarned, ledgerSummary, proRata, creditedYearly, splitPaid, type CalendarDay } from "@/lib/engines/leave.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import type { EmployeeBalancesRow, LeaveDayDetail, LeaveHalf, LeavePageData, LeavePay, LeavePerson, LeavePreview, LeaveRequestView, LeaveRuleType, LeaveStatus, LeaveTabId, LedgerLine } from "@/lib/types/leave";
 
@@ -45,13 +45,36 @@ async function employeesFor(scope: ScopeFilter): Promise<Person[]> {
 
 const localDay = (d: Date | string) => new Date(new Date(d).getTime() + 345 * 60000).toISOString().slice(0, 10);
 
-/** The leave year (= fiscal year, Labour Act §50) a date falls in. */
-async function leaveYearOf(date: string): Promise<{ id: string; label: string; start: string; end: string } | null> {
+export interface LeaveYear {
+  id: string;
+  label: string;
+  start: string;
+  end: string;
+}
+
+/** Every leave year (= fiscal year, Labour Act §50), oldest first, with Nepal dates. */
+export async function leaveYears(): Promise<LeaveYear[]> {
   const years = await fiscalYearRepository.findAllFiscalYears();
-  const y = years
-    .map((f) => ({ id: f.id, label: f.label, start: localDay(f.startDateAD), end: localDay(f.endDateAD) }))
-    .find((f) => date >= f.start && date <= f.end);
-  return y ?? null;
+  return years.map((f) => ({ id: f.id, label: f.label, start: localDay(f.startDateAD), end: localDay(f.endDateAD) })).sort((a, b) => a.start.localeCompare(b.start));
+}
+
+/** The leave year a date falls in. */
+export async function leaveYearOf(date: string): Promise<LeaveYear | null> {
+  return (await leaveYears()).find((f) => date >= f.start && date <= f.end) ?? null;
+}
+
+/** Leave years whose balances were carried into a later year (from → into): closed for leave. */
+export async function rolledYears(): Promise<Map<string, string>> {
+  const openings = await repo.findOpenings();
+  return new Map(openings.filter((o) => o.fromFiscalYearId).map((o) => [o.fromFiscalYearId!, o.fiscalYearId]));
+}
+
+/** The year a line meant for `fiscalYearId` goes into: the year its balances were carried into, if it was opened since. */
+export async function postingYear(fiscalYearId: string, rolled?: Map<string, string>): Promise<string> {
+  const map = rolled ?? (await rolledYears());
+  let id = fiscalYearId;
+  for (let i = 0; i < 20 && map.has(id); i++) id = map.get(id)!;
+  return id;
 }
 
 function datesBetween(from: string, to: string): string[] {
@@ -60,17 +83,30 @@ function datesBetween(from: string, to: string): string[] {
   return out;
 }
 
-/** A person's days between two dates: off on their weekly off (shift / roster) or a holiday for them. */
-async function calendarFor(person: Person, from: string, to: string): Promise<CalendarDay[]> {
-  const [ctx, holidays] = await Promise.all([shiftService.loadShiftContext([person.id], from, to), attendanceRepo.findHolidays(from, to)]);
-  return datesBetween(from, to).map((date) => {
-    const holiday = holidays.find(
-      (h) => date >= h.start && date <= h.end && (!h.branchIds.length || h.branchIds.includes(person.branchId)) && (!/women/i.test(h.name) || person.gender === "Female")
+/** People's days between two dates: off on their weekly off (shift / roster) or a holiday for them. */
+export async function calendarsFor(people: Person[], from: string, to: string): Promise<Map<string, CalendarDay[]>> {
+  const out = new Map<string, CalendarDay[]>();
+  if (!people.length) return out;
+  const [ctx, holidays] = await Promise.all([shiftService.loadShiftContext(people.map((p) => p.id), from, to), attendanceRepo.findHolidays(from, to)]);
+  const dates = datesBetween(from, to);
+  for (const person of people) {
+    out.set(
+      person.id,
+      dates.map((date) => {
+        const holiday = holidays.find(
+          (h) => date >= h.start && date <= h.end && (!h.branchIds.length || h.branchIds.includes(person.branchId)) && (!/women/i.test(h.name) || person.gender === "Female")
+        );
+        if (holiday) return { date, off: true, why: `Holiday: ${holiday.name}` };
+        if (shiftService.shiftOn(ctx, person, date).plan.off) return { date, off: true, why: "Weekly off" };
+        return { date, off: false };
+      })
     );
-    if (holiday) return { date, off: true, why: `Holiday: ${holiday.name}` };
-    if (shiftService.shiftOn(ctx, person, date).plan.off) return { date, off: true, why: "Weekly off" };
-    return { date, off: false };
-  });
+  }
+  return out;
+}
+
+async function calendarFor(person: Person, from: string, to: string): Promise<CalendarDay[]> {
+  return (await calendarsFor([person], from, to)).get(person.id) ?? [];
 }
 
 // ---------------------------------------------------------------------------
@@ -105,12 +141,13 @@ function parseInput(raw: unknown): { input: RequestInput | null; errors: Record<
 
 /** What a request would take: days counted and skipped, pay, balance, and why it can't be made. */
 async function previewFor(person: Person, type: LeaveRuleType, input: RequestInput, excludeId?: string): Promise<LeavePreview & { fiscalYearId: string | null }> {
-  const [calendar, year, requests, overrides, closed] = await Promise.all([
+  const [calendar, year, requests, overrides, closed, rolled] = await Promise.all([
     calendarFor(person, input.from, input.to),
     leaveYearOf(input.from),
     repo.findRequests({ employeeIds: [person.id], statuses: ["Pending", "Approved"] }),
     attendanceRepo.findOverrides([person.id], input.from, input.to),
     attendanceRepo.findClosedPeriodsOverlapping(input.from, input.to),
+    rolledYears(),
   ]);
   const { counted, skipped, days } = countDays(calendar, type.dayBasis, input.half);
   const { detail, paidDays, unpaidDays } = splitPaid(counted, type);
@@ -128,7 +165,8 @@ async function previewFor(person: Person, type: LeaveRuleType, input: RequestInp
   let balance: LeavePreview["balance"] = null;
   if (type.kind === "balance" && year) {
     const ledger = await repo.findLedger([person.id], year.id);
-    const now = ledgerBalance(ledger.filter((l) => l.leaveTypeId === type.id));
+    // Substitute leave: only grants still valid on the first day of the leave count (oldest first, §42).
+    const now = balanceOn(ledger.filter((l) => l.leaveTypeId === type.id), input.from).available;
     const waiting = requests
       .filter((r) => r.id !== excludeId && r.status === "Pending" && r.leaveTypeId === type.id && r.fiscalYearId === year.id)
       .reduce((n, r) => n + Number(r.noOfDays), 0);
@@ -149,6 +187,8 @@ async function previewFor(person: Person, type: LeaveRuleType, input: RequestInp
     certificateNote: input.certificateNote,
   });
   if (!year) problems.push("These dates are outside every fiscal year set up. Ask HR.");
+  // A leave year whose balances were carried into the next one takes no more balance leave.
+  if (year && type.kind === "balance" && rolled.has(year.id)) problems.push(`${year.label} is closed for leave: its balances were carried into the next year.`);
   return { days, paidDays, unpaidDays, detail, skipped, balance, problems, notes, fiscalYearId: year?.id ?? null };
 }
 
@@ -273,7 +313,8 @@ export async function decide(
       action: "withdrawn",
       note,
       cancelReason: note,
-      ledger: type.kind === "balance" ? [{ employeeId: person.id, leaveTypeId: type.id, fiscalYearId: a.fiscalYearId, entryDate: today, kind: "returned", days, applicationId: id, note: `Cancelled: ${note}`, createdBy: ctx.userId }] : [],
+      // Days of a year already carried over come back in the year they were carried into.
+      ledger: type.kind === "balance" ? [{ employeeId: person.id, leaveTypeId: type.id, fiscalYearId: await postingYear(a.fiscalYearId), entryDate: today, kind: "returned", days, applicationId: id, note: `Cancelled: ${note}`, createdBy: ctx.userId }] : [],
     });
     if (!ok) throw new UserFacingError("Someone else changed this leave a moment ago. Refresh the page.");
     return { employeeId: person.id, status: "Cancelled" };
@@ -357,7 +398,7 @@ export async function adjustBalance(raw: unknown, ctx: { scope: ScopeFilter; use
   if (!year) throw new UserFacingError("No fiscal year covers today. Set one up first.");
   if (days < 0) {
     const ledger = await repo.findLedger([person.id], year.id);
-    const now = ledgerBalance(ledger.filter((l) => l.leaveTypeId === type.id));
+    const now = balanceOn(ledger.filter((l) => l.leaveTypeId === type.id), today).available;
     if (now + days < 0) throw new AttendanceValidationError({ days: `Only ${fmt(now)} days to take away` });
   }
   await repo.postLedgerLines([{ employeeId: person.id, leaveTypeId: type.id, fiscalYearId: year.id, entryDate: today, kind: "adjusted", days, note: reason, createdBy: ctx.userId }]);
@@ -508,7 +549,7 @@ export async function getLeavePage(params: { tab: LeaveTabId; scope: ScopeFilter
           const lines = ledger.filter((l) => l.employeeId === e.id && l.leaveTypeId === t.id);
           return {
             leaveTypeId: t.id,
-            balance: ledgerBalance(lines),
+            balance: balanceOn(lines, today).available,
             taken: Math.round(-lines.filter((l) => l.kind === "taken" || l.kind === "returned").reduce((n, l) => n + l.days, 0) * 100) / 100,
             waiting: rows.filter((r) => r.employeeId === e.id && r.leaveTypeId === t.id && r.status === "Pending").reduce((n, r) => n + Number(r.noOfDays), 0),
           };
@@ -529,6 +570,9 @@ export async function getLeavePage(params: { tab: LeaveTabId; scope: ScopeFilter
     currentUserId: params.userId,
     myEmployeeId: params.scope.employeeId,
     permissions: params.permissions,
+    // Filled by the page for their tabs (leave-entitlement.service).
+    substitute: null,
+    calendar: null,
   };
 }
 
@@ -555,10 +599,27 @@ export async function myBalances(employeeId: string) {
   const balances = types
     .filter((t) => t.kind === "balance" && t.isActive && (t.genderApplicable === "All" || t.genderApplicable === person.gender))
     .map((t) => {
-      const s = ledgerSummary(ledger.filter((l) => l.leaveTypeId === t.id));
-      return { id: t.id, leaveTypeId: t.id, leaveTypeName: t.name, leaveTypeCode: t.code, allotted: s.allotted, taken: s.taken, carriedForward: s.carriedForward, balance: s.balance };
+      const lines = ledger.filter((l) => l.leaveTypeId === t.id);
+      const s = ledgerSummary(lines);
+      // Usable today (substitute grants past their expiry no longer count).
+      return { id: t.id, leaveTypeId: t.id, leaveTypeName: t.name, leaveTypeCode: t.code, allotted: s.allotted, taken: s.taken, carriedForward: s.carriedForward, balance: balanceOn(lines, nepalDateIso()).available };
     });
-  return { balances, fiscalYearId: year.id };
+  return { balances, fiscalYearId: year.id, fiscalYearLabel: year.label };
+}
+
+/**
+ * What would be paid if the employee left today (Labour Act §49: accumulated
+ * home and sick leave, up to 90 / 45 days, at the last basic salary; an
+ * encashable company type up to its cap). Leave salary (4.9) pays it.
+ */
+export async function payableOnLeaving(employeeId: string): Promise<{ leaveTypeName: string; days: number; cap: number | null }[]> {
+  const [{ balances }, types] = await Promise.all([myBalances(employeeId), repo.findRuleTypes()]);
+  return balances.flatMap((b) => {
+    const t = types.find((x) => x.id === b.leaveTypeId);
+    if (!t || !(t.statutoryCode === "HOME" || t.statutoryCode === "SICK" || (!t.isStatutory && t.isEncashable))) return [];
+    const cap = capOf(t);
+    return [{ leaveTypeName: t.name, days: Math.max(0, cap === null ? b.balance : Math.min(b.balance, cap)), cap }];
+  });
 }
 
 /** Types the employee can ask for (active, their gender; the server checks the rest). */
@@ -575,4 +636,133 @@ export async function withdrawOwn(id: string, employeeId: string, userId: string
   if (a.status !== "Pending") throw new UserFacingError(`This request is already ${a.status.toLowerCase()}; ask HR to cancel approved leave.`);
   const ok = await repo.decideRequest({ id, expectedStatus: "Pending", status: "Cancelled", route: null, actorId: userId, action: "withdrawn", note: null, cancelReason: "Withdrawn by the employee", ledger: [] });
   if (!ok) throw new UserFacingError("This request was decided a moment ago. Refresh the page.");
+}
+
+// ---------------------------------------------------------------------------
+// 4.6b: entitlements posted with attendance (month close / reopen) and at hire
+// ---------------------------------------------------------------------------
+
+const monthRef = (period: { calendar: string; year: number; month: number }) => `accrual:${period.calendar}-${period.year}-${period.month}`;
+
+/**
+ * Leave lines that go with closing an attendance month (same transaction):
+ * home leave earned, paid days ÷ 20 (Labour Act §43; closing again after a
+ * reopen posts only the difference), and substitute days that expired
+ * unused by the month end, written off.
+ */
+export async function monthCloseLines(p: {
+  period: { calendar: string; year: number; month: number; label: string; end: string };
+  fiscalYearId: string;
+  paidDays: { employeeId: string; days: number }[];
+  userId: string;
+}): Promise<repo.NewLedgerLine[]> {
+  const ids = p.paidDays.map((x) => x.employeeId);
+  if (!ids.length) return [];
+  const types = await repo.findRuleTypes();
+  const home = types.find((t) => t.statutoryCode === "HOME" && t.kind === "balance" && t.isActive);
+  const substitute = types.find((t) => t.statutoryCode === "SUBSTITUTE" && t.kind === "balance");
+  const rolled = await rolledYears();
+  const lines: repo.NewLedgerLine[] = [];
+  if (home) {
+    const ref = monthRef(p.period);
+    const year = await postingYear(p.fiscalYearId, rolled);
+    const posted = await repo.findLinesByRef(ids, ref);
+    // Before 4.6 the whole year's home leave was given up front (the `opening`
+    // lines of the 4.6a backfill): nothing more is earned in that year.
+    const upFront = new Set((await repo.findLedger(ids, year)).filter((l) => l.leaveTypeId === home.id && l.kind === "opening" && l.days > 0).map((l) => l.employeeId));
+    for (const x of p.paidDays) {
+      if (upFront.has(x.employeeId)) continue;
+      const earned = homeLeaveEarned(x.days, home.accrualEveryDays);
+      const already = Math.round(posted.filter((l) => l.employeeId === x.employeeId && l.ref === ref).reduce((n, l) => n + l.days, 0) * 100) / 100;
+      const diff = Math.round((earned - already) * 100) / 100;
+      if (diff === 0) continue;
+      lines.push({
+        employeeId: x.employeeId,
+        leaveTypeId: home.id,
+        fiscalYearId: year,
+        entryDate: p.period.end,
+        kind: "accrual",
+        days: diff,
+        note: already ? `${p.period.label}: ${fmt(x.days)} paid days, corrected after a reopen` : `${p.period.label}: ${fmt(x.days)} paid days ÷ ${home.accrualEveryDays ?? 20}`,
+        ref,
+        createdBy: p.userId,
+      });
+    }
+  }
+  if (substitute) {
+    const all = await repo.findTypeLines(ids, substitute.id);
+    const done = new Set(all.filter((l) => l.kind === "expired" && l.ref).map((l) => `${l.employeeId}|${l.ref}`));
+    const dayAfter = addDays(p.period.end, 1);
+    for (const id of ids) {
+      // Grants live in one year at a time (opening carries the valid ones over), so per year is enough.
+      const byYear = new Map<string, typeof all>();
+      for (const l of all.filter((x) => x.employeeId === id)) byYear.set(l.fiscalYearId, [...(byYear.get(l.fiscalYearId) ?? []), l]);
+      for (const [yearId, yl] of byYear) {
+        for (const e of balanceOn(yl, dayAfter).expired) {
+          const ref = `expiry:${e.id}`;
+          if (!e.id || done.has(`${id}|${ref}`)) continue;
+          lines.push({ employeeId: id, leaveTypeId: substitute.id, fiscalYearId: await postingYear(yearId, rolled), entryDate: e.expiresOn, kind: "expired", days: -e.days, note: `Not taken by ${e.expiresOn} (Labour Act §42: within 21 days)`, ref, createdBy: p.userId });
+        }
+      }
+    }
+  }
+  return lines;
+}
+
+/** Reopening an attendance month takes its home leave back (closing again posts it afresh). */
+export async function monthReopenLines(p: { period: { calendar: string; year: number; month: number; label: string; end: string }; employeeIds: string[]; reason: string; userId: string }): Promise<repo.NewLedgerLine[]> {
+  const ref = monthRef(p.period);
+  const posted = await repo.findLinesByRef(p.employeeIds, ref);
+  const rolled = await rolledYears();
+  const lines: repo.NewLedgerLine[] = [];
+  const keys = new Map<string, typeof posted>();
+  for (const l of posted) keys.set(`${l.employeeId}|${l.leaveTypeId}`, [...(keys.get(`${l.employeeId}|${l.leaveTypeId}`) ?? []), l]);
+  for (const [, ls] of keys) {
+    const net = Math.round(ls.reduce((n, l) => n + l.days, 0) * 100) / 100;
+    if (net === 0) continue;
+    lines.push({
+      employeeId: ls[0].employeeId,
+      leaveTypeId: ls[0].leaveTypeId,
+      fiscalYearId: await postingYear(ls[ls.length - 1].fiscalYearId, rolled),
+      entryDate: p.period.end,
+      kind: "accrual",
+      days: -net,
+      note: `${p.period.label} reopened: ${p.reason}`,
+      ref,
+      createdBy: p.userId,
+    });
+  }
+  return lines;
+}
+
+/**
+ * A new employee's yearly credits (sick 12, company types), pro-rata from
+ * joining (Labour Act §44); home leave is earned and substitute leave
+ * granted, so they start at 0.
+ */
+export async function creditOnJoining(employee: { id: string; gender: string; joiningDate: string | null }): Promise<void> {
+  const today = nepalDateIso();
+  const join = employee.joiningDate ?? today;
+  const year = await leaveYearOf(join > today ? join : today);
+  if (!year) return;
+  const types = (await repo.findRuleTypes()).filter((t) => t.isActive && creditedYearly(t) && (t.genderApplicable === "All" || t.genderApplicable === employee.gender));
+  const ref = `credit:${year.id}`;
+  const already = new Set((await repo.findLinesByRef([employee.id], ref)).map((l) => l.leaveTypeId));
+  const joined = join > year.start;
+  await repo.postLedgerLines(
+    types
+      .filter((t) => !already.has(t.id))
+      .map((t) => ({
+        employeeId: employee.id,
+        leaveTypeId: t.id,
+        fiscalYearId: year.id,
+        entryDate: joined ? join : year.start,
+        kind: "credit" as const,
+        days: proRata(t.days, join, year),
+        note: joined ? `${year.label}, pro-rata from joining` : year.label,
+        ref,
+        createdBy: null,
+      }))
+      .filter((l) => l.days > 0)
+  );
 }

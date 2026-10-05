@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
-import { approvalActions, leaveTypes, employeeLeaveBalances, leaveApplications, leaveLedger, fiscalYears, employees } from "@/lib/db/schema";
-import { eq, and, desc, or, ilike, gte, lte, inArray, SQL, sql } from "drizzle-orm";
+import { approvalActions, leaveTypes, employeeLeaveBalances, leaveApplications, leaveLedger, leaveYearOpenings, fiscalYears, employees } from "@/lib/db/schema";
+import { eq, and, desc, or, ilike, gte, lte, inArray, like, SQL, sql } from "drizzle-orm";
 import type { DayBasis, EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveKind, LeaveRuleType, LeaveStatus, LeaveFilter, LedgerKind, LedgerLine } from "@/lib/types/leave";
 import type { ApprovalActionKind } from "@/lib/types/approval";
 import { defaultsFor, ledgerSummary, payOf } from "@/lib/engines/leave.engine";
@@ -282,6 +282,10 @@ export async function findRuleTypes(): Promise<LeaveRuleType[]> {
       requiresDocument: r.requiresDocument,
       documentThresholdDays: r.documentThresholdDays,
       accumulationCap: r.accumulationCap !== null ? Number(r.accumulationCap) : null,
+      carryForward: r.carryForward,
+      isEncashable: r.isEncashable,
+      accrualEveryDays: r.accrualEveryDays ?? (r.statutoryCode === "HOME" ? 20 : null),
+      expiryDays: r.expiryDays ?? (r.statutoryCode === "SUBSTITUTE" ? 21 : null),
       isActive: r.isActive,
     };
   });
@@ -302,6 +306,8 @@ export interface NewLedgerLine {
   applicationId?: string | null;
   note?: string | null;
   expiresOn?: string | null;
+  /** What the line is for (never posted twice): accrual:…, substitute:…, opening:…, expiry:…. */
+  ref?: string | null;
   createdBy: string | null;
 }
 
@@ -322,6 +328,7 @@ export async function postLedgerLines(lines: NewLedgerLine[], tx?: Tx): Promise<
         applicationId: l.applicationId ?? null,
         note: l.note ?? null,
         expiresOn: l.expiresOn ?? null,
+        ref: l.ref ?? null,
         createdBy: l.createdBy,
       }))
     );
@@ -351,7 +358,11 @@ export async function findLedger(employeeIds: string[], fiscalYearId: string): P
     .from(leaveLedger)
     .where(and(inArray(leaveLedger.employeeId, employeeIds), eq(leaveLedger.fiscalYearId, fiscalYearId)))
     .orderBy(leaveLedger.entryDate, leaveLedger.createdAt);
-  return rows.map((r) => ({
+  return rows.map(mapLine);
+}
+
+function mapLine(r: typeof leaveLedger.$inferSelect): LedgerLine & { employeeId: string; fiscalYearId: string } {
+  return {
     id: r.id,
     employeeId: r.employeeId,
     leaveTypeId: r.leaveTypeId,
@@ -361,10 +372,63 @@ export async function findLedger(employeeIds: string[], fiscalYearId: string): P
     applicationId: r.applicationId,
     note: r.note,
     expiresOn: r.expiresOn ? String(r.expiresOn).slice(0, 10) : null,
+    ref: r.ref,
+    fiscalYearId: r.fiscalYearId,
     createdBy: r.createdBy,
     createdAt: r.createdAt.toISOString(),
-  }));
+  };
 }
+
+/** Lines whose ref starts with a prefix (any leave year): what was already posted for a month, a worked day or a year. */
+export async function findLinesByRef(employeeIds: string[], refPrefix: string) {
+  if (!employeeIds.length) return [];
+  const rows = await (await getDb())
+    .select()
+    .from(leaveLedger)
+    .where(and(inArray(leaveLedger.employeeId, employeeIds), like(leaveLedger.ref, `${refPrefix.replace(/[%_]/g, "")}%`)))
+    .orderBy(leaveLedger.entryDate, leaveLedger.createdAt);
+  return rows.map(mapLine);
+}
+
+/** Every line of one leave type for some employees, in all leave years (substitute grants and their expiry). */
+export async function findTypeLines(employeeIds: string[], leaveTypeId: string) {
+  if (!employeeIds.length) return [];
+  const rows = await (await getDb())
+    .select()
+    .from(leaveLedger)
+    .where(and(inArray(leaveLedger.employeeId, employeeIds), eq(leaveLedger.leaveTypeId, leaveTypeId)))
+    .orderBy(leaveLedger.entryDate, leaveLedger.createdAt);
+  return rows.map(mapLine);
+}
+
+// ---------------------------------------------------------------------------
+// 4.6b: leave years opened (once per fiscal year)
+// ---------------------------------------------------------------------------
+
+export async function findOpenings() {
+  return (await getDb()).select().from(leaveYearOpenings).orderBy(leaveYearOpenings.openedAt);
+}
+
+/**
+ * Opens a leave year: the opening row (one per fiscal year, so a second
+ * opening fails) and its ledger lines, in one transaction.
+ */
+export async function openYear(p: { fiscalYearId: string; fromFiscalYearId: string | null; people: number; note: string | null; openedBy: string; lines: NewLedgerLine[] }): Promise<boolean> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .insert(leaveYearOpenings)
+      .values({ fiscalYearId: p.fiscalYearId, fromFiscalYearId: p.fromFiscalYearId, people: p.people, note: p.note, openedBy: p.openedBy })
+      .onConflictDoNothing({ target: leaveYearOpenings.fiscalYearId })
+      .returning({ id: leaveYearOpenings.id });
+    if (!rows.length) return false;
+    // Large companies: post in chunks inside the same transaction.
+    for (let i = 0; i < p.lines.length; i += 500) await postLedgerLines(p.lines.slice(i, i + 500), tx);
+    return true;
+  });
+}
+
+export type { Tx as LeaveTx };
 
 // ---------------------------------------------------------------------------
 // 4.6: requests

@@ -13,6 +13,28 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-05 — 4.6b Leave entitlements
+Branch: `redesign/4.6-leaves`
+
+Changed:
+- **Leave year = fiscal year (§50), opened once.** `leave_year_openings` (migration `0043_leave_entitlements`; years with ledger lines when it arrives count as opened). **Open leave year** previews and posts, per employee and balance type: the old year's usable balance carried up to the cap (home 90, sick 45, a company type's own cap if it carries over), the excess marked **to be paid out** at basic salary (statutory and encashable types; paid by leave salary, 4.9) or **lapsed**, substitute grants still valid with their own expiry, and the year's credits (sick 12; company types; pro-rata for joiners, not twice if credited at hire). Blocked while old-year requests wait or attendance months of the old year are open. Requests and decisions in a year that has been carried over are refused for balance types.
+- **Home leave earned at month close (§43):** paid days ÷ 20 per employee, posted in the close transaction; reopening takes it back, closing again posts only the difference (ledger `ref` per month). For the year when 4.6 arrived, home leave was already given in full up front (the 4.6a opening lines), so nothing more is earned that year.
+- **Substitute leave (§42):** a new tab lists days worked on a weekly off or holiday in the last 21 days, with a suggestion from the hours worked; HR grants a full or half day (expires 21 days after the day worked) or records why not. Balances use the grant that expires first; expired days stop counting and are written off at the next month close.
+- **Joining:** sick leave and company types are credited pro-rata from joining; home leave starts at 0 (earned), substitute at 0 (granted).
+- **Leave calendar tab:** a BS month of who is on leave, waiting leave lighter, weekly offs and holidays shaded.
+- **Employee record:** the Leave tab and fact box read the ledger; **Payable on leaving** shows home / sick days due at the last basic salary.
+- Files: `lib/engines/leave.engine.ts` (`balanceOn`, `homeLeaveEarned`, `carryOver`, `proRata`, `capOf`, `planOpening`), `lib/services/leave-entitlement.service.ts` (new), `lib/services/leave.service.ts` (month close / reopen lines, joining credit, payable on leaving), `lib/services/attendance.service.ts` + `lib/repositories/attendance.repository.ts` (ledger lines in the close / reopen transaction), `lib/repositories/leave.repository.ts` (`ref`, openings), `app/actions/leave.actions.ts`, `components/leave/leave-entitlements.tsx`, `components/leave/leave-calendar.tsx`, `components/employee/employee-record-leave.tsx`.
+
+Verified: tsc 0 · eslint: nothing new (two old items in `leave.repository.ts` and `leave-applications-table.tsx`) · 655/655 tests (`tests/leave.engine.test.ts`: expiry and oldest-first, home leave, caps, pro-rata, the opening plan; `tests/security-leave.test.ts`: S24 4.6b, opening blocked exactly by the checklist) · `next build` OK.
+
+Easy to understand (after the first browser check): every leave tab opens with a **"How … works" guide** (new kit `Guide`: numbered plain steps, Hide / "How does this work?", remembered per browser). **Open leave year** was rebuilt around a one-line status, a **Before you can open** checklist (each unmet item says what to do; dates in words, "1 Shrawan 2084 (17 Jul 2027)") and **What opening does** with the company's own limits; it no longer said "into no year to open" or "ended" for a year still running. Substitute leave has **Grant 1 day / ½ day** and **Not granted** on each row (ticking rows still works for many) and empty-list text that says what will appear and when. The calendar is full width, today's date is readable, weekly offs are visible. The employee record's balances show leave type, taken and balance (credited / carried in under Columns).
+
+Browser (after the restart, nothing saved): Balances, Requests, Substitute (hide and bring back the guide), Calendar (Aswin 2083: weekly offs, Dashain shaded, today), Open leave year (FY 2083/84 open; FY 2084/85 not set up yet, so "no next leave year", checklist with the fix), Pramod's record (Home 18, Sick 12, Substitute 0; payable on leaving 18 + 12), 390 px; 0 console errors apart from the screenshot `caret-color` artefact.
+
+Notes: the payout itself (excess each year, everything on leaving) is leave salary, 4.9. Company types' carry-over and encashment settings get their editor in 4.7.
+
+---
+
 ## 2026-10-05 — 4.6a Leaves foundation signed off
 4.6a (leave ledger, rules engine, requests and approvals, balances, self-service, S24) and the fixes found while checking it (grid column menu, English leave names, roster rotations) are signed off. 4.6b Entitlements starts on the same branch.
 

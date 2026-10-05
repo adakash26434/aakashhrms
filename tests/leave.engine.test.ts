@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  balanceOn,
+  capOf,
+  carryOver,
+  creditedYearly,
+  homeLeaveEarned,
+  planOpening,
+  proRata,
   checkRequest,
   countDays,
   defaultsFor,
@@ -36,6 +43,10 @@ const type = (over: Partial<LeaveRuleType> = {}): LeaveRuleType => ({
   requiresDocument: true,
   documentThresholdDays: 3,
   accumulationCap: 45,
+  carryForward: false,
+  isEncashable: false,
+  accrualEveryDays: null,
+  expiryDays: null,
   isActive: true,
   ...over,
 });
@@ -208,5 +219,161 @@ describe('the ledger', () => {
     assert.equal(signed('paid_out', -2), -2);
     assert.equal(signed('accrual', 1.5), 1.5);
     assert.equal(signed('adjusted', -1), -1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.6b entitlements
+// ---------------------------------------------------------------------------
+
+const line = (kind: 'grant' | 'taken' | 'credit' | 'expired' | 'opening', days: number, entryDate: string, expiresOn: string | null = null, id?: string) => ({ id, kind, days, entryDate, expiresOn });
+
+describe('balance on a date (substitute expiry, oldest first)', () => {
+  it('without expiring lines it is the ledger sum', () => {
+    const r = balanceOn([line('opening', 12, '2026-07-17'), line('taken', -2.5, '2026-08-01')], '2026-10-05');
+    assert.equal(r.available, 9.5);
+    assert.deepEqual(r.expired, []);
+  });
+
+  it('leave taken uses the grant that expires first', () => {
+    const lines = [line('grant', 1, '2026-09-01', '2026-09-22', 'a'), line('grant', 1, '2026-09-10', '2026-10-01', 'b'), line('taken', -1, '2026-09-15')];
+    const mid = balanceOn(lines, '2026-09-25');
+    assert.equal(mid.available, 1);
+    assert.deepEqual(mid.buckets.map((b) => b.id), ['b']);
+    assert.deepEqual(mid.expired, []);
+    const after = balanceOn(lines, '2026-10-02');
+    assert.equal(after.available, 0);
+    assert.deepEqual(after.expired, [{ id: 'b', expiresOn: '2026-10-01', days: 1 }]);
+  });
+
+  it('a grant counts up to and including its expiry day, then stops', () => {
+    const lines = [line('grant', 0.5, '2026-09-01', '2026-09-22', 'a')];
+    assert.equal(balanceOn(lines, '2026-09-22').available, 0.5);
+    assert.equal(balanceOn(lines, '2026-09-23').available, 0);
+  });
+
+  it('a written-off expiry line is not counted twice', () => {
+    const lines = [line('grant', 1, '2026-09-01', '2026-09-22', 'a'), line('expired', -1, '2026-09-22')];
+    assert.equal(balanceOn(lines, '2026-10-05').available, 0);
+  });
+
+  it('leave beyond the grants comes off the free balance', () => {
+    const lines = [line('grant', 1, '2026-09-01', '2026-09-22', 'a'), line('taken', -2, '2026-09-05')];
+    const r = balanceOn(lines, '2026-09-10');
+    assert.equal(r.available, -1);
+    assert.equal(r.free, -1);
+  });
+});
+
+describe('home leave, carry-over, pro-rata', () => {
+  it('home leave: 1 day per 20 paid days (Labour Act §43)', () => {
+    assert.equal(homeLeaveEarned(26, 20), 1.3);
+    assert.equal(homeLeaveEarned(21, null), 1.05);
+    assert.equal(homeLeaveEarned(30, 18), 1.67);
+    assert.equal(homeLeaveEarned(0, 20), 0);
+  });
+
+  it('carry-over stops at the cap; a negative balance carries as it is', () => {
+    assert.deepEqual(carryOver(100, 90), { carry: 90, over: 10 });
+    assert.deepEqual(carryOver(30, 45), { carry: 30, over: 0 });
+    assert.deepEqual(carryOver(-2, 90), { carry: -2, over: 0 });
+    assert.deepEqual(carryOver(7, null), { carry: 7, over: 0 });
+  });
+
+  it('pro-rata from joining (Labour Act §44), 1 decimal', () => {
+    const year = { start: '2026-07-17', end: '2027-07-16' };
+    assert.equal(proRata(12, '2026-07-01', year), 12);
+    assert.equal(proRata(12, '2026-07-17', year), 12);
+    assert.equal(proRata(12, '2027-01-15', year), 6);
+    assert.equal(proRata(12, '2027-08-01', year), 0);
+  });
+
+  it("caps: the type's own, else the law's (home 90, sick 45)", () => {
+    assert.equal(capOf({ accumulationCap: null, statutoryCode: 'HOME' }), 90);
+    assert.equal(capOf({ accumulationCap: null, statutoryCode: 'SICK' }), 45);
+    assert.equal(capOf({ accumulationCap: 60, statutoryCode: 'SICK' }), 60);
+    assert.equal(capOf({ accumulationCap: null, statutoryCode: null }), null);
+  });
+
+  it('credited yearly: sick and company types; not home (earned) or substitute (granted)', () => {
+    assert.equal(creditedYearly(type()), true);
+    assert.equal(creditedYearly(type({ statutoryCode: 'HOME', days: 18 })), false);
+    assert.equal(creditedYearly(type({ statutoryCode: 'SUBSTITUTE', days: 0 })), false);
+    assert.equal(creditedYearly(type({ statutoryCode: null, isStatutory: false, days: 5 })), true);
+    assert.equal(creditedYearly(maternity), false);
+  });
+});
+
+describe('opening a leave year (Labour Act §49, §50)', () => {
+  const home = type({ id: 'home', name: 'Home Leave', code: 'HOME', statutoryCode: 'HOME', days: 18, accumulationCap: null, isRight: false });
+  const sick = type({ id: 'sick', accumulationCap: null });
+  const sub = type({ id: 'sub', name: 'Substitute Leave', code: 'SUBSTITUTE', statutoryCode: 'SUBSTITUTE', days: 0, accumulationCap: null, expiryDays: 21 });
+  const study = type({ id: 'study', name: 'Study leave', code: 'STUDY', statutoryCode: null, isStatutory: false, days: 5, accumulationCap: null, isRight: false });
+  const bonus = type({ id: 'bonus', name: 'Long service', code: 'LSL', statutoryCode: null, isStatutory: false, days: 0, accumulationCap: 10, carryForward: true, isEncashable: true, isRight: false });
+  const oldYear = { id: 'y1', label: '2082/83', end: '2026-07-16' };
+  const newYear = { id: 'y2', label: '2083/84', start: '2026-07-17', end: '2027-07-16' };
+  const plan = planOpening({
+    types: [home, sick, sub, study, bonus, { ...maternity, id: 'mat' }],
+    people: [
+      { id: 'p1', gender: 'Male', joiningDate: '2020-01-01', terminationDate: null },
+      { id: 'p2', gender: 'Male', joiningDate: '2027-01-15', terminationDate: null },
+      { id: 'p3', gender: 'Male', joiningDate: '2020-01-01', terminationDate: '2026-07-01' },
+    ],
+    oldYear,
+    newYear,
+    oldLines: new Map([
+      ['p1|home', [line('opening', 100, '2025-07-17')]],
+      ['p1|sick', [line('opening', 30, '2025-07-17')]],
+      ['p1|study', [line('credit', 5, '2025-07-17'), line('taken', -2, '2026-01-10')]],
+      ['p1|bonus', [line('opening', 14, '2025-07-17')]],
+      ['p1|sub', [line('grant', 1, '2026-06-01', '2026-06-22', 'g1'), line('grant', 1, '2026-07-10', '2026-07-31', 'g2')]],
+    ]),
+    creditedInNewYear: new Set(['p2|sick']),
+  });
+  const row = (e: string, t: string) => plan.rows.find((r) => r.employeeId === e && r.leaveTypeId === t);
+  const lines = (e: string, t: string) => plan.lines.filter((l) => l.employeeId === e && l.leaveTypeId === t);
+
+  it('home leave carries up to 90; the excess is marked to be paid out in the old year', () => {
+    assert.deepEqual(row('p1', 'home'), { employeeId: 'p1', leaveTypeId: 'home', closing: 100, carry: 90, over: 10, overKind: 'paid_out', credit: 0, opening: 90 });
+    const out = lines('p1', 'home').find((l) => l.kind === 'paid_out')!;
+    assert.equal(out.days, -10);
+    assert.equal(out.fiscalYearId, 'y1');
+    assert.equal(out.entryDate, '2026-07-16');
+    assert.equal(lines('p1', 'home').find((l) => l.kind === 'carried_forward')!.fiscalYearId, 'y2');
+  });
+
+  it('sick leave carries (under 45) and gets the 12-day credit', () => {
+    assert.deepEqual(row('p1', 'sick'), { employeeId: 'p1', leaveTypeId: 'sick', closing: 30, carry: 30, over: 0, overKind: null, credit: 12, opening: 42 });
+  });
+
+  it('a company type that does not carry over lapses and is credited afresh', () => {
+    const r = row('p1', 'study')!;
+    assert.equal(r.over, 3);
+    assert.equal(r.overKind, 'lapsed');
+    assert.equal(r.opening, 5);
+  });
+
+  it('an encashable company type carries to its cap and the rest is to be paid out', () => {
+    const r = row('p1', 'bonus')!;
+    assert.deepEqual([r.carry, r.over, r.overKind], [10, 4, 'paid_out']);
+  });
+
+  it('substitute leave moves only grants still valid, with their expiry', () => {
+    const moved = lines('p1', 'sub');
+    assert.equal(moved.length, 1);
+    assert.equal(moved[0].expiresOn, '2026-07-31');
+    assert.equal(moved[0].days, 1);
+  });
+
+  it('joiners: pro-rata credit, skipped if already credited at hire; leavers and event types are left out', () => {
+    assert.equal(row('p2', 'study')!.credit, proRata(5, '2027-01-15', newYear));
+    assert.equal(row('p2', 'sick')!.credit, 0);
+    assert.equal(plan.rows.some((r) => r.employeeId === 'p3'), false);
+    assert.equal(plan.rows.some((r) => r.leaveTypeId === 'mat'), false);
+  });
+
+  it('every line says it belongs to this opening', () => {
+    assert.ok(plan.lines.length > 0);
+    assert.ok(plan.lines.every((l) => l.ref === 'opening:y2'));
   });
 });

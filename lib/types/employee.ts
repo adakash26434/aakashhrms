@@ -278,6 +278,8 @@ export interface EmployeeLeaveTabData {
   fiscalYearLabel: string | null;
   balances: { leaveTypeName: string; allotted: number; carriedForward: number; taken: number; balance: number }[];
   requests: { id: string; leaveTypeName: string; from: string; to: string; days: number; status: string; appliedDate: string }[];
+  /** Paid at the last basic salary if the employee left today (Labour Act §49; leave salary 4.9). */
+  payable: { leaveTypeName: string; days: number; cap: number | null }[];
 }
 
 export interface EmployeeAttendanceDay {

@@ -302,6 +302,13 @@
       "when": 1790400000000,
       "tag": "0042_leave_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790500000000,
+      "tag": "0043_leave_entitlements",
+      "breakpoints": true
     }
   ]
 }

@@ -123,3 +123,70 @@ describe('S24 leave security', () => {
     assert.match(fnBody(lt, 'toggleLeaveTypeStatus'), /isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
   });
 });
+
+// S24 (4.6b): opening a leave year, substitute leave, entitlements posted with attendance.
+const entitlements = source('lib/services/leave-entitlement.service.ts');
+const attendanceRepo = source('lib/repositories/attendance.repository.ts');
+const attendanceService = source('lib/services/attendance.service.ts');
+const leavesPage = source('app/(dashboard)/timeAndLeave/leaves/page.tsx');
+
+describe('S24 leave entitlements (4.6b)', () => {
+  it('opening a leave year: company-wide only, never from support view, audited, once', () => {
+    assert.match(fnBody(actions, 'openYearScope'), /checkPermissionWithScope\('EDIT', 'LEAVE_APPLICATIONS'\)[\s\S]*scopeType !== 'GLOBAL'/);
+    assert.match(fnBody(actions, 'leaveOpeningPreviewAction'), /openYearScope\(\)/);
+    const open = fnBody(actions, 'openLeaveYearAction');
+    assert.match(open, /getImpersonationSession\(\)/);
+    assert.match(open, /openYearScope\(\)/);
+    assert.match(open, /result: 'SUCCESS'/);
+    assert.match(open, /fail\(error, '/);
+    assert.match(fnBody(entitlements, 'openingPreview'), /scope\.scopeType !== "GLOBAL"/);
+    // What blocks opening is exactly the checklist the window shows.
+    assert.match(fnBody(entitlements, 'openingPreview'), /const problems = checks\.filter\(\(c\) => !c\.ok\)/);
+    // The year is opened again from the server's own preview (problems stop it), and the database allows one opening per year.
+    const service = fnBody(entitlements, 'openYear');
+    assert.match(service, /openingPreview\(scope\)/);
+    assert.match(service, /preview\.problems\.length\) throw/);
+    const tx = fnBody(repo, 'openYear');
+    assert.match(tx, /onConflictDoNothing\(\{ target: leaveYearOpenings\.fiscalYearId \}\)/);
+    assert.match(tx, /postLedgerLines\(p\.lines\.slice\(i, i \+ 500\), tx\)/);
+    assert.match(leavesPage, /openYear = edit && scope\.scopeType === "GLOBAL"/);
+  });
+
+  it('substitute leave: in scope, never your own, only days attendance shows as worked, decided once', () => {
+    const action = fnBody(actions, 'grantSubstituteLeaveAction');
+    assert.match(action, /checkPermissionWithScope\('EDIT', 'LEAVE_APPLICATIONS'\)/);
+    assert.match(action, /getImpersonationSession\(\)/);
+    assert.match(action, /result: 'SUCCESS'/);
+    assert.match(action, /auditRefusal\(error, scope/);
+    const grant = fnBody(entitlements, 'grantSubstitute');
+    assert.match(grant, /MAX_GRANTS/);
+    assert.match(grant, /isOwnRecord\(ctx\.scope\.employeeId, i\.employeeId\)\)\) throw new OwnAttendanceError/);
+    assert.match(grant, /substituteSuggestions\(ctx\.scope\)/);
+    assert.match(grant, /if \(s\.decided\) throw/);
+    assert.match(grant, /i\.days === 0 && i\.note\.length < 3/);
+    assert.match(grant, /findLinesByRef\([\s\S]*"substitute:"\)[\s\S]*Someone else decided/);
+    // Suggestions read people through the user's scope.
+    assert.match(fnBody(entitlements, 'substituteSuggestions'), /buildEmployeeScopeCondition\(scope\)/);
+    assert.match(fnBody(entitlements, 'leaveCalendar'), /buildEmployeeScopeCondition\(scope\)/);
+  });
+
+  it('home leave is posted with the month close and taken back on reopen, in the same transaction', () => {
+    assert.match(fnBody(attendanceRepo, 'closePeriod'), /postLedgerLines\(params\.ledger, tx\)/);
+    assert.match(fnBody(attendanceRepo, 'reopenPeriod'), /postLedgerLines\(params\.ledger, tx\)/);
+    assert.match(fnBody(attendanceService, 'closeMonth'), /monthCloseLines\([\s\S]*repo\.closePeriod\(\{[\s\S]*?ledger \}\)/);
+    assert.match(fnBody(attendanceService, 'reopenMonth'), /monthReopenLines\([\s\S]*repo\.reopenPeriod\(\{[\s\S]*?ledger \}\)/);
+    // Closing again after a reopen posts only the difference (ref per month), never twice.
+    assert.match(fnBody(service, 'monthCloseLines'), /findLinesByRef\(ids, ref\)[\s\S]*earned - already/);
+  });
+
+  it('balances in force honour substitute expiry (requests, adjustments, self-service)', () => {
+    assert.match(fnBody(service, 'previewFor'), /balanceOn\(/);
+    assert.match(fnBody(service, 'myBalances'), /balanceOn\(/);
+    assert.match(fnBody(service, 'adjustBalance'), /balanceOn\(/);
+  });
+
+  it('the ledger stays append-only', () => {
+    assert.doesNotMatch(repo, /\.update\(leaveLedger\)|\.delete\(leaveLedger\)/);
+    assert.doesNotMatch(entitlements, /\.update\(|\.delete\(/);
+  });
+});

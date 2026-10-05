@@ -17,6 +17,7 @@ import {
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
 import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
 import type { DayResult, MonthSummary, OverrideType, PunchSource } from "@/lib/types/attendance";
+import { postLedgerLines, type NewLedgerLine } from "@/lib/repositories/leave.repository";
 
 // Attendance (4.5): punches, HR overrides, daily results, adjustments
 // (regularization), attendance months per branch and the month summaries
@@ -495,6 +496,8 @@ export async function closePeriod(params: {
   userId: string;
   days: { employeeId: string; fiscalYearId: string; result: DayResult }[];
   summaries: SummaryWrite[];
+  /** 4.6b: leave lines that go with the close (home leave earned, expired substitute days), in the same transaction. */
+  ledger?: NewLedgerLine[];
 }): Promise<void> {
   const db = await getDb();
   const { period } = params;
@@ -569,11 +572,24 @@ export async function closePeriod(params: {
         .values({ employeeId: s.employeeId, fiscalYearId: s.fiscalYearId, bsMonth: s.bsMonth, ...values })
         .onConflictDoUpdate({ target: [leaveOtCalculations.employeeId, leaveOtCalculations.fiscalYearId, leaveOtCalculations.bsMonth], set: values });
     }
+    if (params.ledger?.length) await postLedgerLines(params.ledger, tx);
   });
 }
 
 /** Reopens a branch month: the period and its summaries and days unlock (results stay until it is closed again). */
-export async function reopenPeriod(params: { periodId: string; employeeIds: string[]; start: string; end: string; calendar: string; year: number; month: number; userId: string; reason: string }): Promise<boolean> {
+export async function reopenPeriod(params: {
+  periodId: string;
+  employeeIds: string[];
+  start: string;
+  end: string;
+  calendar: string;
+  year: number;
+  month: number;
+  userId: string;
+  reason: string;
+  /** 4.6b: the month's home leave taken back, in the same transaction. */
+  ledger?: NewLedgerLine[];
+}): Promise<boolean> {
   const db = await getDb();
   return db.transaction(async (tx) => {
     const now = new Date();
@@ -593,6 +609,7 @@ export async function reopenPeriod(params: { periodId: string; employeeIds: stri
         .set({ isLocked: false, updatedAt: now })
         .where(and(inArray(attendanceRecords.employeeId, params.employeeIds), gte(attendanceRecords.attendanceDate, params.start), lte(attendanceRecords.attendanceDate, params.end)));
     }
+    if (params.ledger?.length) await postLedgerLines(params.ledger, tx);
     return true;
   });
 }

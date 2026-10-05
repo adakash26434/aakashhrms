@@ -622,7 +622,7 @@ between one day's shift end and the next start is split in the middle
 (overlapping shifts: the next start). Company setup → Work schedule is
 read-only and shows the default shift.
 
-### Implemented leaves (Phase 4.6a, templates A + C)
+### Implemented leaves (Phase 4.6a + 4.6b, templates A + C)
 
 `/timeAndLeave/leaves` (the old Applications and Approvals pages redirect
 here). Leave types are three layers: the **calendar** (weekly offs from
@@ -644,7 +644,9 @@ recorded work reason.
 | Tab | Layout and rules |
 |---|---|
 | Requests | Waiting for me / All / My leave, type and status filters, bulk approve or reject. DataGrid: from, to, employee, type, days (half, unpaid), reason, status. Detail pane: dates, days counted (unpaid in red), certificate, SSF claim, balance now, the §51 note, Approve / Final approve / Reject / Withdraw / Cancel leave, approval timeline. |
-| Balances | DataGrid: employee × balance types (balance, taken, waiting), branch filter. Detail pane: the leave ledger per type (date, kind, note, who, signed days) and **Adjust balance** (never your own). |
+| Balances | DataGrid: employee × balance types (balance usable today, taken, waiting), branch filter. Detail pane: the leave ledger per type (date, kind, note, who, signed days; substitute grants show "Expires …", struck through once past) and **Adjust balance** (never your own). |
+| Substitute leave | Days worked on a weekly off or holiday in the last 21 days, from attendance. To decide / All, branch filter. DataGrid: employee, worked on, day (weekly off / holiday name), in – out, worked, off-day OT, suggested (full ≥ the full-day hours, half ≥ half-day hours), would expire, decision. Select rows → **Grant as suggested** / Full day / Half day / **Not granted** (reason window). Your own rows can't be decided. Tab badge: days to decide. |
+| Calendar | One BS month (full width): rows = people in scope, columns = days (BS day + weekday letter, today highlighted). Approved leave a solid chip with the type's code (unpaid in red, ½ for half days), waiting leave dashed and lighter, weekly offs grey, holidays amber (each person's own shift, roster and branch holidays). ◀ ▶ month, "This month", branch filter, "Only people on leave", a key, and approved days per person. |
 
 Windows: **New leave request** (employee, type, from / to, part of the day,
 reason, certificate, SSF claim) with a **live preview from the server**:
@@ -653,6 +655,34 @@ now → after, problems that block sending, and notes. **Adjust balance**
 (type, add / take days, whole or half, reason; shows now → after).
 Self-service **Apply for leave** uses the same preview and service; waiting
 requests can be withdrawn there (full My leave redesign: Phase 5).
+
+**Open leave year** (page bar; Leave requests → Edit, company-wide): the
+window starts with one sentence on where things stand ("Ready to open
+2084/85." / "… can't be opened yet." / "There is no next leave year to open
+yet.", with the current year's dates), then two panels: **Before you can
+open**, a checklist (✓ done / dashed circle not yet) where each unmet item
+says what to do (add the fiscal year in Company setup, wait for its first
+day, decide the waiting requests, close the attendance months), and **What
+opening does**, four numbered plain rules using the company's own limits.
+Below, once there is a year to open: totals (employees, carried, to be paid
+out, lapsed, new days given) and a grid per employee and balance type (the
+new balance in bold, then what they had, days over the limit, new days).
+The years opened before close the window. "Open 2084/85" is enabled only
+when every check is met and asks for OPEN to be typed; it happens once per
+year. Home leave is earned at each attendance
+month close (paid days ÷ 20, taken back on reopen), so the opening gives
+it no credit. The employee record's Leave tab shows the balances from the
+ledger and **Payable on leaving** (home ≤ 90, sick ≤ 45, at the last basic
+salary; leave salary 4.9 pays it).
+
+**Guide (kit, `components/kit/guide.tsx`).** Screens whose rules aren't
+obvious open with a "How … works" panel: a title with a help icon, 3–4
+numbered steps (bold step name, one or two plain sentences, no jargon or
+module numbers), an optional note, and **Hide**. Hidden, it leaves a small
+"How does this work?" link that brings it back; the choice is remembered
+per browser (storage blocked: it stays shown). Steps sit in a row on wide
+screens and stack on phones (container queries). Used on all four leave
+tabs; write the steps in the order the user acts.
 
 ### Implemented frame (Phase 2)
 

@@ -2,9 +2,9 @@ import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
-import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as leaveRepository from "@/lib/repositories/leave.repository";
 import * as attendanceService from "@/lib/services/attendance.service";
+import * as leaveService from "@/lib/services/leave.service";
 import * as payrollRepository from "@/lib/repositories/payroll.repository";
 import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as auditRepository from "@/lib/repositories/audit.repository";
@@ -62,13 +62,13 @@ async function buildProfile(employee: Employee): Promise<EmployeeProfile> {
 async function loadTab(tab: EmployeeRecordTab, employeeId: string): Promise<EmployeeRecordTabData> {
   switch (tab) {
     case "leave": {
-      const fiscalYears = await fiscalYearRepository.findAllFiscalYears();
-      const active = fiscalYears.find((fy) => fy.status === "Active");
-      const [balances, requests] = await Promise.all([
-        active ? leaveRepository.findLeaveBalancesWithTypes(employeeId, active.id) : Promise.resolve([]),
+      // Balances from the leave ledger for the leave year (4.6), usable today.
+      const [mine, payable, requests] = await Promise.all([
+        leaveService.myBalances(employeeId),
+        leaveService.payableOnLeaving(employeeId),
         leaveRepository.findRecentLeaveByEmployee(employeeId, 10),
       ]);
-      return { tab, data: { fiscalYearLabel: active?.label ?? null, balances, requests } };
+      return { tab, data: { fiscalYearLabel: mine.fiscalYearLabel ?? null, balances: mine.balances, requests, payable } };
     }
     case "attendance": {
       const today = nepalToday();
@@ -130,12 +130,10 @@ async function loadFacts(employeeId: string, access: RecordTabAccess): Promise<E
       return { monthLabel: month.label, present: totals.present + totals.halfDay / 2, absent: totals.absent, leave: totals.leave, notRecorded: totals.notRecorded };
     }),
     fact(access.leave, async () => {
-      const active = (await fiscalYearRepository.findAllFiscalYears()).find((fy) => fy.status === "Active");
-      if (!active) return null;
-      const balances = await leaveRepository.findLeaveBalancesWithTypes(employeeId, active.id);
+      const { balances, fiscalYearLabel } = await leaveService.myBalances(employeeId);
       if (!balances.length) return null;
       return {
-        fiscalYearLabel: active.label ?? null,
+        fiscalYearLabel: fiscalYearLabel ?? null,
         balance: balances.reduce((n, b) => n + b.balance, 0),
         types: [...balances].sort((a, b) => b.balance - a.balance).slice(0, 3).map((b) => ({ name: b.leaveTypeName, balance: b.balance })),
       };

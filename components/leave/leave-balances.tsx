@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, SlidersHorizontal } from "lucide-react";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
+import { Guide } from "@/components/kit/guide";
 import { SelectField } from "@/components/kit/select-field";
 import { SplitView } from "@/components/kit/split-view";
 import { WindowButton } from "@/components/kit/window";
 import { getLeaveLedgerAction } from "@/app/actions/leave.actions";
-import { fmt, ledgerBalance } from "@/lib/engines/leave.engine";
+import { balanceOn, capOf, fmt } from "@/lib/engines/leave.engine";
 import { LEDGER_KIND_LABEL, type EmployeeBalancesRow, type LeavePageData, type LedgerLine } from "@/lib/types/leave";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,11 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ledger, setLedger] = useState<{ employeeId: string; lines: Line[] | null; error: string | null } | null>(null);
   const balanceTypes = useMemo(() => data.types.filter((t) => t.kind === "balance" && t.isActive), [data.types]);
+  const sickType = data.types.find((t) => t.statutoryCode === "SICK");
+  const homeType = data.types.find((t) => t.statutoryCode === "HOME");
+  const sickDays = sickType?.days ?? 12;
+  const sickCap = (sickType && capOf(sickType)) ?? 45;
+  const homeCap = (homeType && capOf(homeType)) ?? 90;
   const rows = data.balances.filter((b) => !branch || b.employee.branchId === branch);
   const active = data.balances.find((b) => b.employee.id === activeId) ?? null;
 
@@ -83,12 +89,24 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
 
   return (
     <div className="p-3">
+      <Guide
+        id="leave-balances"
+        className="mb-3"
+        title="How leave balances work"
+        steps={[
+          { title: "Sick leave", text: `${fmt(sickDays)} days are given at the start of each leave year (less for someone who joins during the year). Unused days build up to ${sickCap}.` },
+          { title: "Home leave", text: `Earned by working: 1 day for every 20 days paid, added when an attendance month is closed. Unused days build up to ${homeCap}.` },
+          { title: "Substitute leave", text: "Given for working on a weekly off or holiday (Substitute leave tab). It must be taken within 21 days." },
+          { title: "Each new year", text: "Press Open leave year at the top: balances carry over, and days above the limits are paid out at basic salary." },
+        ]}
+        note="Click a name to see every change to that person's balance, with who made it and why. Maternity, maternity care and mourning leave have no balance: they are given each time they are needed."
+      />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="w-56">
           <SelectField name="balance-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branch} onChange={setBranch} placeholder="All branches" allowEmpty />
         </div>
         <span className="text-2xs text-ink-muted">
-          Leave year {data.fiscalYear.label} ({dateText(data.fiscalYear.start)} – {dateText(data.fiscalYear.end)}). Maternity, maternity care and mourning are given per event and have no balance.
+          Leave year {data.fiscalYear.label} ({dateText(data.fiscalYear.start)} – {dateText(data.fiscalYear.end)}). Balances are what can be taken today.
         </span>
       </div>
       <SplitView
@@ -125,7 +143,7 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
                       <section key={t.id} aria-label={t.name} className="rounded-lg border border-line bg-surface px-3 py-2.5">
                         <h3 className="mb-1.5 flex justify-between text-2xs font-semibold uppercase tracking-wide text-ink-muted">
                           <span>{t.name}</span>
-                          <span className="text-ink">{fmt(ledgerBalance(own))}</span>
+                          <span className="text-ink">{fmt(balanceOn(own, data.today).available)}</span>
                         </h3>
                         {own.length === 0 ? (
                           <p className="text-2xs text-ink-muted">Nothing this leave year.</p>
@@ -138,6 +156,7 @@ export function LeaveBalances({ data, onAdjust }: { data: LeavePageData; onAdjus
                                   <td className="py-1 pr-2">
                                     <span className="text-ink">{LEDGER_KIND_LABEL[l.kind]}</span>
                                     {l.note && <span className="block text-ink-muted">{l.note}</span>}
+                                    {l.expiresOn && l.days > 0 && <span className={cn("block", l.expiresOn < data.today ? "text-ink-faint line-through" : "text-warning")}>Expires {dateText(l.expiresOn)}</span>}
                                     {l.createdByName && <span className="block text-ink-faint">by {l.createdByName}</span>}
                                   </td>
                                   <td className={cn("py-1 text-right tabular-nums font-medium", l.days < 0 ? "text-danger" : "text-success")}>

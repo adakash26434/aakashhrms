@@ -5,7 +5,7 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as shiftService from "@/lib/services/shift.service";
-import { approvedLeaveDays } from "@/lib/services/leave.service";
+import { approvedLeaveDays, monthCloseLines, monthReopenLines } from "@/lib/services/leave.service";
 import * as checkinRepo from "@/lib/repositories/checkin.repository";
 import { findUserNames } from "@/lib/repositories/salary-structure.repository";
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
@@ -176,6 +176,42 @@ async function employeesFor(scope: ScopeFilter, from: string, to: string, filter
       (!filter.branchId || e.branchId === filter.branchId) &&
       (!filter.departmentId || e.departmentId === filter.departmentId)
   );
+}
+
+/**
+ * Days worked on a weekly off or a holiday (4.6b: substitute leave, Labour
+ * Act §42), for people in scope between two dates, with the minutes worked
+ * and the shift's full and half day.
+ */
+export async function workedOffDays(
+  scope: ScopeFilter,
+  from: string,
+  to: string
+): Promise<{ employeeId: string; date: string; why: string; firstIn: string | null; lastOut: string | null; workMinutes: number; otOffMinutes: number; fullDayMinutes: number; halfDayMinutes: number }[]> {
+  if (to < from) return [];
+  const people = await employeesFor(scope, from, to);
+  if (!people.length) return [];
+  const ctx = await loadContext(people, from, to);
+  const out: Awaited<ReturnType<typeof workedOffDays>> = [];
+  for (const e of people) {
+    for (const date of datesBetween(from, to)) {
+      const r = resolveFor(ctx, e, date);
+      if ((r.dayType !== "weekly_off" && r.dayType !== "holiday") || r.workMinutes <= 0) continue;
+      const plan = shiftService.shiftOn(ctx.shifts, e, date).plan;
+      out.push({
+        employeeId: e.id,
+        date,
+        why: r.dayType === "holiday" ? `Holiday: ${r.holidayName ?? "public holiday"}` : "Weekly off",
+        firstIn: r.firstIn,
+        lastOut: r.lastOut,
+        workMinutes: r.workMinutes,
+        otOffMinutes: r.otOffDayMinutes,
+        fullDayMinutes: plan.fullDayMinutes,
+        halfDayMinutes: plan.halfDayMinutes,
+      });
+    }
+  }
+  return out;
 }
 
 /** Status words per day for older screens (dashboard, employee record), from the same rules. */
@@ -735,7 +771,14 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
       const summary = summariseMonth(period, results, rules);
       summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, ...amountsFor(summary, pay.salary.get(e.id), pay.multipliers) });
     }
-    await repo.closePeriod({ period: { calendar: period.calendar, year: period.year, month: period.month, start: period.start, end: period.end, days: period.days }, branchId, userId: ctx.userId, days, summaries });
+    // Home leave earned (paid days ÷ 20) and expired substitute days go with the close, in the same transaction (4.6b).
+    const ledger = await monthCloseLines({
+      period: { calendar: period.calendar, year: period.year, month: period.month, label: period.label, end: period.end },
+      fiscalYearId: fyEnd,
+      paidDays: summaries.map((x) => ({ employeeId: x.employeeId, days: x.summary.payableDays })),
+      userId: ctx.userId,
+    });
+    await repo.closePeriod({ period: { calendar: period.calendar, year: period.year, month: period.month, start: period.start, end: period.end, days: period.days }, branchId, userId: ctx.userId, days, summaries, ledger });
     employeesClosed += people.length;
   }
   return { branches: branchIds.length, employees: employeesClosed };
@@ -762,7 +805,9 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const p = (await repo.findPeriods(period.calendar, period.year, period.month)).find((x) => x.branchId === branchId);
   if (!p || p.status !== "closed") throw new UserFacingError("That month is not closed for this branch.");
   const people = (await repo.findEmployees()).filter((e) => e.branchId === branchId);
-  const ok = await repo.reopenPeriod({ periodId: p.id, employeeIds: people.map((e) => e.id), start: period.start, end: period.end, calendar: period.calendar, year: period.year, month: period.month, userId: ctx.userId, reason });
+  // The month's home leave is taken back with the reopen; closing again posts it afresh (4.6b).
+  const ledger = await monthReopenLines({ period: { calendar: period.calendar, year: period.year, month: period.month, label: period.label, end: period.end }, employeeIds: people.map((e) => e.id), reason, userId: ctx.userId });
+  const ok = await repo.reopenPeriod({ periodId: p.id, employeeIds: people.map((e) => e.id), start: period.start, end: period.end, calendar: period.calendar, year: period.year, month: period.month, userId: ctx.userId, reason, ledger });
   if (!ok) throw new UserFacingError("Someone else reopened it a moment ago. Refresh the page.");
   return { branchId };
 }

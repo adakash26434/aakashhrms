@@ -121,6 +121,14 @@ export interface LeaveRuleType {
   requiresDocument: boolean;
   documentThresholdDays: number | null;
   accumulationCap: number | null;
+  /** Company types: what is left at the year end carries over (up to the cap); statutory balance types always do (§49). */
+  carryForward: boolean;
+  /** What can't be carried over is paid out (true) or lapses (false). */
+  isEncashable: boolean;
+  /** Home leave: 1 day per N paid days (Labour Act §43: 20). */
+  accrualEveryDays: number | null;
+  /** Substitute leave: a grant expires N days after the day worked (§42: 21). */
+  expiryDays: number | null;
   isActive: boolean;
 }
 
@@ -131,7 +139,7 @@ export interface LeaveDayDetail {
   pay: LeavePay;
 }
 
-export const LEDGER_KINDS = ["opening", "credit", "accrual", "grant", "taken", "returned", "adjusted", "carried_forward", "paid_out", "expired", "lapsed"] as const;
+export const LEDGER_KINDS = ["opening", "credit", "accrual", "grant", "not_granted", "taken", "returned", "adjusted", "carried_forward", "paid_out", "expired", "lapsed"] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
 export const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
@@ -139,11 +147,12 @@ export const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
   credit: "Yearly credit",
   accrual: "Earned (days worked)",
   grant: "Granted",
+  not_granted: "Not granted",
   taken: "Taken",
   returned: "Returned (cancelled)",
   adjusted: "Adjusted by HR",
   carried_forward: "Carried forward",
-  paid_out: "Paid out",
+  paid_out: "To be paid out",
   expired: "Expired",
   lapsed: "Lapsed",
 };
@@ -157,11 +166,13 @@ export interface LedgerLine {
   applicationId: string | null;
   note: string | null;
   expiresOn: string | null;
+  /** What the line is for, so it is never posted twice (accrual:BS-2083-6, substitute:2026-10-10, opening:<year>, expiry:<grant>). */
+  ref: string | null;
   createdBy: string | null;
   createdAt: string;
 }
 
-export const LEAVE_TABS = ["requests", "balances"] as const;
+export const LEAVE_TABS = ["requests", "balances", "substitute", "calendar"] as const;
 export type LeaveTabId = (typeof LEAVE_TABS)[number];
 
 export interface LeavePerson {
@@ -219,6 +230,52 @@ export interface EmployeeBalancesRow {
   cells: LeaveBalanceCell[];
 }
 
+/** A day worked on a weekly off or holiday in the last 21 days (substitute leave, Labour Act §42). */
+export interface SubstituteSuggestion {
+  employee: LeavePerson;
+  date: string;
+  why: string;
+  firstIn: string | null;
+  lastOut: string | null;
+  workMinutes: number;
+  /** Off-day overtime the attendance rules count for the day (paid at the off-day rate). */
+  otOffMinutes: number;
+  /** From the minutes worked: a full day (1), half (0.5), or less than half (0). */
+  suggested: 1 | 0.5 | 0;
+  expiresOn: string;
+  decided: { granted: boolean; days: number; note: string | null; by: string | null; at: string } | null;
+}
+
+/** What opening the next leave year would do. */
+export interface OpeningPreview {
+  from: { id: string; label: string; start: string; end: string } | null;
+  target: { id: string; label: string; start: string; end: string } | null;
+  /** Why it can't be opened now (empty = it can). */
+  problems: string[];
+  /** The same, as a checklist: each condition, whether it is met, and what to do if not. */
+  checks: { label: string; ok: boolean; fix: string | null }[];
+  /** When there is no year to open yet: the day the next one starts. */
+  nextStart: string | null;
+  types: { id: string; name: string }[];
+  rows: { employee: LeavePerson; cells: import("@/lib/engines/leave.engine").OpeningRow[] }[];
+  totals: { people: number; carried: number; paidOut: number; lapsed: number; credited: number };
+  history: { label: string; openedAt: string; by: string; people: number; note: string | null }[];
+}
+
+export interface LeaveCalendarCell {
+  off: "weekly" | "holiday" | null;
+  offName: string | null;
+  leave: { requestId: string; code: string; name: string; status: "Approved" | "Pending"; half: boolean; unpaid: boolean } | null;
+}
+
+/** Who is on leave in a BS month. */
+export interface LeaveCalendarData {
+  period: { year: number; month: number; label: string; start: string; end: string };
+  days: { date: string; bsDay: number; weekday: number }[];
+  types: { id: string; name: string; code: string }[];
+  rows: { employee: LeavePerson; cells: Record<string, LeaveCalendarCell> }[];
+}
+
 export interface LeavePageData {
   tab: LeaveTabId;
   today: string;
@@ -231,7 +288,11 @@ export interface LeavePageData {
   departments: { id: string; name: string }[];
   currentUserId: string;
   myEmployeeId: string | null;
-  permissions: { add: boolean; edit: boolean; approve: boolean };
+  permissions: { add: boolean; edit: boolean; approve: boolean; openYear: boolean };
+  /** Substitute tab: days worked on a weekly off or holiday (loaded with that tab). */
+  substitute: SubstituteSuggestion[] | null;
+  /** Calendar tab: the month shown (loaded with that tab). */
+  calendar: LeaveCalendarData | null;
 }
 
 /** The server's answer to "how many days would this be?" */

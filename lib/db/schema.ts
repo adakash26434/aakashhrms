@@ -750,12 +750,30 @@ export const leaveLedger = pgTable('leave_ledger', {
   applicationId: uuid('application_id'),
   note: text('note'),
   expiresOn: date('expires_on'),
+  // 4.6b: what the line is for, so it is never posted twice (accrual:BS-2083-6, substitute:2026-10-10, opening:<year>, expiry:<grant>).
+  ref: varchar('ref', { length: 80 }),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   empTypeYearIdx: index('leave_ledger_emp_type_year_idx').on(t.employeeId, t.leaveTypeId, t.fiscalYearId),
   applicationIdx: index('leave_ledger_application_idx').on(t.applicationId),
+  refIdx: index('leave_ledger_emp_ref_idx').on(t.employeeId, t.ref),
 }));
+
+/**
+ * Leave years opened (4.6b, Labour Act §49 / §50): once per fiscal year,
+ * carrying balances over from the year before. The year that was current
+ * when 4.6 arrived is marked opened by the migration.
+ */
+export const leaveYearOpenings = pgTable('leave_year_openings', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull().unique(),
+  fromFiscalYearId: uuid('from_fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }),
+  people: integer('people').default(0).notNull(),
+  note: text('note'),
+  openedBy: uuid('opened_by'),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+});
 
 /**
  * 4. OVERTIME (OT) RULES (Master Configuration)

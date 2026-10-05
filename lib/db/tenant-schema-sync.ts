@@ -577,6 +577,36 @@ WHERE b."taken" > 0
     }
   }
 
+  // Leave entitlements (4.6b, migration 0043): ledger refs and leave-year openings. Years
+  // with ledger lines count as opened, but only when the table is new: later lines posted
+  // into a year that is not open yet must not mark it opened.
+  try {
+    await sql.unsafe(`ALTER TABLE "leave_ledger" ADD COLUMN IF NOT EXISTS "ref" varchar(80)`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "leave_ledger_emp_ref_idx" ON "leave_ledger" ("employee_id", "ref")`);
+    const openings = await sql.unsafe(`SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'leave_year_openings'`);
+    if (openings.length === 0) {
+      await sql.unsafe(`CREATE TABLE IF NOT EXISTS "leave_year_openings" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "fiscal_year_id" uuid NOT NULL UNIQUE REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+  "from_fiscal_year_id" uuid REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+  "people" integer DEFAULT 0 NOT NULL,
+  "note" text,
+  "opened_by" uuid,
+  "opened_at" timestamp DEFAULT now() NOT NULL
+)`);
+      await sql.unsafe(`INSERT INTO "leave_year_openings" ("id", "fiscal_year_id", "people", "note", "opened_at")
+SELECT gen_random_uuid(), fy."id", (SELECT count(DISTINCT l."employee_id") FROM "leave_ledger" l WHERE l."fiscal_year_id" = fy."id"), 'Opened by 4.6', now()
+FROM "fiscal_years" fy
+WHERE fy."start_date_ad" <= now()
+  AND EXISTS (SELECT 1 FROM "leave_ledger" l WHERE l."fiscal_year_id" = fy."id")
+  AND NOT EXISTS (SELECT 1 FROM "leave_year_openings" o WHERE o."fiscal_year_id" = fy."id")`);
+    }
+    await sql.unsafe(`UPDATE "leave_types" SET "accrual_every_days" = 20 WHERE "statutory_code" = 'HOME' AND "accrual_every_days" IS NULL`);
+    await sql.unsafe(`UPDATE "leave_types" SET "expiry_days" = 21 WHERE "statutory_code" = 'SUBSTITUTE' AND "expiry_days" IS NULL`);
+  } catch (err) {
+    console.error("[tenant-schema-sync] leaves 0043:", err instanceof Error ? err.message.slice(0, 200) : err);
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {
