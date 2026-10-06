@@ -737,6 +737,54 @@ optional **Dismiss**. `rounded-md`, `text-xs`, the tone's `*-subtle`
 background with a `/30` border. Don't hand-build tinted `<p>` boxes; use
 Notice. Preview: `/dev/kit`.
 
+### Implemented policies: statutory leave (Phase 4.6c, template A)
+
+`/timeAndLeave/policies` has the Leaves layout: PageBar (**New leave type**
+on the Leave types tab, then Refresh; the description says how many changes
+wait for you), a success Notice, then
+folder tabs **Leave types** (badge: changes waiting for you) · Leave rules ·
+Overtime rules (the last two keep their old screens until 4.6e / 4.7).
+
+Leave types opens with the Guide "How leave policies work" (the law is the
+minimum · propose a change · a second person approves · when it applies),
+a Waiting for me / All switch and the leave year line. A DataGrid lists the
+six statutory types (the pane opens on a click, as on Balances): leave type
+(its Labour Act section on hover), **Settings**
+in words ("12 days a year · saved up to 45 days · certificate after 3 days
+in a row · half days allowed"), **Compared with the law** (More than the law
+/ As the law / Under an exception) and **Changes** (Waiting for approval /
+From <date>). The detail pane: a **Settings** table (setting, yours, the
+minimum), exceptions as info Notices, **Propose a change…** (Leave types →
+Edit, company-wide); the waiting change (what changes, when, the reason,
+who proposed it, Approve / Final approve / Reject / Withdraw, the plain
+reason when you can't, the timeline, and a warning Notice when nobody else
+can approve, linking to Roles & permissions); a scheduled change; and the
+**History** of every change (system changes marked "By the system").
+
+**Propose a change** window: only the type's settings, each with
+"Minimum: …" beside it (always visible); a certificate is a Yes / No plus the days; days
+counted is "Every calendar day (the law)" / "Working days only"; for sick
+leave's days a year, **Days a year apply**: from the next leave year (date)
+or from approval with a top-up for this year; **Why** (required). A live
+preview from the server lists each change and when it applies, the top-up
+("3 employees (Kushal +2.3, …)") and who can approve; errors appear under
+the fields; a value below the minimum turns the preview into "Not in the
+employees' favour…" and disables Send. "Send for approval" never changes
+anything by itself.
+
+Below it, **Company leave types** (`components/leave-policy/company-leave-types.tsx`):
+a heading with a selection toolbar (**Edit…** · **Switch off / on** ·
+**Delete**, enabled when a row is chosen; double-click opens Edit) and a
+DataGrid (leave type with code, pay, days a year, year end in words, certificate,
+who, status). The **New / Edit leave type** window (`PropertyForm`): name,
+code (A–Z and _), pay (paid / half paid / unpaid), days a year (0 = no
+balance), a share for joiners, carried over, can be saved up to, what
+happens to days left (lapse / paid out at basic salary), certificate after
+N days, who can take it, active; hints beside the fields and the whole type
+in one sentence at the bottom. A used type can't be deleted (switch it
+off). 4.6e adds kind, counting, notice, eligibility, monthly crediting and
+limits to this window.
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

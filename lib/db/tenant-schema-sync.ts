@@ -607,6 +607,70 @@ WHERE fy."start_date_ad" <= now()
     console.error("[tenant-schema-sync] leaves 0043:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
 
+  // Leave policies (4.6c–e, migration 0044): every change to a leave type as a version
+  // (second-person approval for statutory types), platform exceptions copied read-only,
+  // company leave type fields; statutory types apply to everyone. The leave_rules copy
+  // runs only when the columns are new, so later edits are never overwritten.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "leave_type_changes" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "leave_type_id" uuid NOT NULL REFERENCES "leave_types"("id") ON DELETE RESTRICT,
+  "before" jsonb NOT NULL,
+  "after" jsonb NOT NULL,
+  "reason" text NOT NULL,
+  "applies" varchar(20) DEFAULT 'approval' NOT NULL,
+  "effective_from" date,
+  "status" varchar(20) DEFAULT 'pending' NOT NULL,
+  "source" varchar(20) DEFAULT 'company' NOT NULL,
+  "exception_id" uuid,
+  "prepared_by" uuid,
+  "prepared_at" timestamp DEFAULT now() NOT NULL,
+  "decided_by" uuid,
+  "decided_at" timestamp,
+  "decision_note" text,
+  "approval_route" varchar(20),
+  "approval_type" varchar(20),
+  "approval_levels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+  "current_level" integer DEFAULT 0 NOT NULL,
+  "applied_at" timestamp
+)`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "leave_type_changes_type_idx" ON "leave_type_changes" ("leave_type_id", "status")`);
+    await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "leave_type_changes_one_pending" ON "leave_type_changes" ("leave_type_id") WHERE "status" = 'pending'`);
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "leave_policy_exceptions" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "statutory_code" varchar(50) NOT NULL,
+  "setting" varchar(40) NOT NULL,
+  "value" numeric(7, 1),
+  "legal_basis" text NOT NULL,
+  "reference" text,
+  "valid_from" date NOT NULL,
+  "valid_until" date,
+  "revoked_at" timestamp,
+  "revoke_reason" text,
+  "granted_at" timestamp DEFAULT now() NOT NULL,
+  "synced_at" timestamp DEFAULT now() NOT NULL
+)`);
+    const fresh = await sql.unsafe(`SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'leave_types' AND column_name = 'payout_fixed_amount'`);
+    await sql.unsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "notice_days" integer`);
+    await sql.unsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "eligible_after_days" integer`);
+    await sql.unsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "credit_mode" varchar(10) DEFAULT 'yearly' NOT NULL`);
+    await sql.unsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "max_days_per_year" numeric(5, 1)`);
+    await sql.unsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "max_days_in_service" numeric(6, 1)`);
+    await sql.unsafe(`ALTER TABLE "leave_types" ADD COLUMN IF NOT EXISTS "payout_fixed_amount" numeric(15, 2)`);
+    await sql.unsafe(`UPDATE "leave_types" SET "applicable_departments" = ARRAY[]::text[], "applicable_designations" = ARRAY[]::text[]
+WHERE "is_statutory" = true AND (cardinality("applicable_departments") > 0 OR cardinality("applicable_designations") > 0)`);
+    if (fresh.length === 0) {
+      await sql.unsafe(`UPDATE "leave_types" t SET "eligible_after_days" = r."min_service_days_for_eligibility"
+FROM "leave_rules" r
+WHERE r."leave_type_id" = t."id" AND t."is_statutory" = false AND t."eligible_after_days" IS NULL AND COALESCE(r."min_service_days_for_eligibility", 0) > 0`);
+      await sql.unsafe(`UPDATE "leave_types" t SET "encashment_basis" = 'Fixed', "payout_fixed_amount" = r."encashment_fixed_amount"
+FROM "leave_rules" r
+WHERE r."leave_type_id" = t."id" AND t."is_statutory" = false AND t."payout_fixed_amount" IS NULL AND r."encashment_rate" = 'FIXED_AMOUNT'`);
+    }
+  } catch (err) {
+    console.error("[tenant-schema-sync] leaves 0044:", err instanceof Error ? err.message.slice(0, 200) : err);
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

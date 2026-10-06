@@ -1269,9 +1269,9 @@ export function EditCompanyModal({
 
               <FormSection
                 title="Statutory Leave Policies"
-                description={`Directly configure days, encashability, and accumulation caps across ${leaveTypes.length} statutory policies.`}
+                description="Read-only here. The company changes its statutory leave itself, only in the employees' favour and with a second person's approval (Time & Leave → Policies). Going below the Labour Act needs a recorded exception."
               >
-                <div className="space-y-2.5">
+                <fieldset disabled aria-label="Statutory leave (read-only)" className="space-y-2.5 opacity-80">
                   {leaveTypes.map((lt, idx) => (
                     <div
                       key={idx}
@@ -1355,7 +1355,7 @@ export function EditCompanyModal({
                       </div>
                     </div>
                   ))}
-                </div>
+                </fieldset>
               </FormSection>
             </div>
           )}

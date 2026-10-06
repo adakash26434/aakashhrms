@@ -180,8 +180,8 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
       {
         key: 'LEAVE_TYPES',
         label: 'Leave Types',
-        description: 'Statutory leave types (Home, Sick, Maternity) and yearly allowances',
-        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+        description: 'Leave types and policies. Edit proposes changes to statutory leave (never below the Labour Act); Approve lets a user approve changes proposed by others (company-wide roles only)',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE', 'APPROVE'],
       },
       {
         key: 'LEAVE_RULES',

@@ -9,11 +9,11 @@ import {
   fiscalYears,
   taxRateSlabs,
   leaveTypes,
-  leaveRules,
   otRules,
   payHeads,
 } from '@/lib/db/schema';
 import { requirePlatformAuth } from '@/lib/platform/auth';
+import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
 import { validatePhoneNumber } from '@/lib/utils/phone';
 import { adToBSString } from '@/lib/utils/bs-calendar';
 import { eq, and, ne } from 'drizzle-orm';
@@ -376,88 +376,37 @@ export async function PATCH(
           }
         }
 
-        // Synchronize leave types & statutory leave rules
+        // Leave types: a company that already has a leave type keeps its own settings.
+        // Statutory leave is changed by the company in the employees' favour, with a
+        // second person's approval (4.6c); going below the Labour Act needs a recorded
+        // exception, never this console. Only a missing statutory type is added, never
+        // below the law, and a blank or 0 cap means the law's cap.
         if (Array.isArray(body.initialSetupPayload?.leaveTypes)) {
           for (const lt of body.initialSetupPayload.leaveTypes) {
+            if (lt.code === 'PUBLIC') continue;
             const [existingLT] = await tenantDb
-              .select()
+              .select({ id: leaveTypes.id })
               .from(leaveTypes)
               .where(eq(leaveTypes.code, lt.code))
               .limit(1);
-
-            let ltId: string;
-            if (existingLT) {
-              await tenantDb
-                .update(leaveTypes)
-                .set({
-                  name: lt.name,
-                  leaveType: lt.isPaid ? 'Pay' : 'Non-Pay',
-                  noOfDays: String(lt.daysPerYear),
-                  carryForward: (lt.maxAccumulation || 0) > 0,
-                  accumulationCap: String(lt.maxAccumulation || 0),
-                  genderApplicable: lt.genderSpecific || 'All',
-                  isEncashable: Boolean(lt.isEncashable),
-                  updatedAt: new Date(),
-                })
-                .where(eq(leaveTypes.id, existingLT.id));
-              ltId = existingLT.id;
-            } else {
-              const [newLT] = await tenantDb
-                .insert(leaveTypes)
-                .values({
-                  name: lt.name,
-                  code: lt.code,
-                  leaveType: lt.isPaid ? 'Pay' : 'Non-Pay',
-                  noOfDays: String(lt.daysPerYear),
-                  carryForward: (lt.maxAccumulation || 0) > 0,
-                  accumulationCap: String(lt.maxAccumulation || 0),
-                  isStatutory: true,
-                  statutoryCode: lt.code,
-                  genderApplicable: lt.genderSpecific || 'All',
-                  isEncashable: Boolean(lt.isEncashable),
-                  encashmentBasis: 'BasicSalary',
-                  proRataForNewJoinees: true,
-                  isPlatformLocked: true,
-                  isActive: true,
-                })
-                .returning({ id: leaveTypes.id });
-              ltId = newLT.id;
-            }
-
-            // Sync corresponding leave rule
-            const isDaysWorked = lt.code === 'HOME' || lt.code === 'SUBSTITUTE';
-            const accrualMethod = isDaysWorked ? 'DAYS_WORKED' : 'FIXED_ANNUAL';
-            const accrualValue = lt.code === 'HOME' ? '20' : String(lt.daysPerYear);
-
-            const [existingRule] = await tenantDb
-              .select()
-              .from(leaveRules)
-              .where(eq(leaveRules.leaveTypeId, ltId))
-              .limit(1);
-
-            if (existingRule) {
-              await tenantDb
-                .update(leaveRules)
-                .set({
-                  accrualMethod,
-                  accrualValue,
-                  updatedAt: new Date(),
-                })
-                .where(eq(leaveRules.id, existingRule.id));
-            } else {
-              await tenantDb.insert(leaveRules).values({
-                leaveTypeId: ltId,
-                ruleName: `${lt.name.split(' (')[0]} Statutory Rule`,
-                ruleCategory: 'STATUTORY',
-                accrualMethod,
-                accrualValue,
-                encashmentRate: 'BASIC_DAILY',
-                encashmentFixedAmount: '0',
-                minServiceDaysForEligibility: 0,
-                isPlatformLocked: true,
-                isActive: true,
-              }).onConflictDoNothing();
-            }
+            if (existingLT) continue;
+            const lawful = lawfulPreset(lt.code, { days: Number(lt.daysPerYear) || 0, cap: lt.maxAccumulation ? Number(lt.maxAccumulation) : null });
+            await tenantDb.insert(leaveTypes).values({
+              name: lt.name,
+              code: lt.code,
+              leaveType: lt.isPaid ? 'Pay' : 'Non-Pay',
+              noOfDays: String(lawful.days),
+              carryForward: lawful.cap !== null,
+              accumulationCap: lawful.cap !== null ? String(lawful.cap) : null,
+              isStatutory: true,
+              statutoryCode: lt.code,
+              genderApplicable: lt.genderSpecific || 'All',
+              isEncashable: Boolean(lt.isEncashable),
+              encashmentBasis: 'BasicSalary',
+              proRataForNewJoinees: true,
+              isPlatformLocked: true,
+              isActive: true,
+            });
           }
         }
 

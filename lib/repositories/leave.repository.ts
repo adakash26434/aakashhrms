@@ -247,6 +247,16 @@ export async function findLeaveApplicationById(id: string): Promise<LeaveApplica
   return mapApp(rows[0]);
 }
 
+/** Whether a leave type has requests or ledger lines (then it can only be switched off, never deleted). */
+export async function leaveTypeInUse(id: string): Promise<boolean> {
+  const db = await getDb();
+  const [app, line] = await Promise.all([
+    db.select({ id: leaveApplications.id }).from(leaveApplications).where(eq(leaveApplications.leaveTypeId, id)).limit(1),
+    db.select({ id: leaveLedger.id }).from(leaveLedger).where(eq(leaveLedger.leaveTypeId, id)).limit(1),
+  ]);
+  return app.length > 0 || line.length > 0;
+}
+
 export const findAllLeaveTypesIncludingInactive = findAllLeaveTypes;
 export const removeLeaveType = deleteLeaveType;
 export const findLeaveBalancesByEmployee = findLeaveBalances;

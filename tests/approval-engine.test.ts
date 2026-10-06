@@ -152,3 +152,24 @@ describe('Your own salary and your own change (S21)', () => {
     assert.deepEqual(applyDecision(r, 'withdraw'), { status: 'withdrawn', currentLevel: 0, route: null });
   });
 });
+
+describe('Leave policy changes: never approved by the proposer (4.6c)', () => {
+  const simple = { status: 'pending' as const, preparedById: 'ram', subjectEmployeeIds: [], flow: { type: 'simple' as const, levels: [] }, currentLevel: 0 };
+  const strict = { ...ctx, preparerMayFinalApprove: false };
+  it('an administrator who proposed it cannot approve or Final approve it, only withdraw', () => {
+    const a = availableActions(simple, actor('ram'), strict);
+    assert.equal(a.approve, null);
+    assert.equal(a.finalApprove, false);
+    assert.equal(a.reject, false);
+    assert.equal(a.withdraw, true);
+    assert.match(a.reason ?? '', /someone else has to approve it/);
+    assert.equal(waitingFor(simple, actor('ram'), strict), false);
+  });
+  it('another person with Approve can approve; an administrator who did not propose it can Final approve', () => {
+    assert.ok(availableActions(simple, actor('gita'), strict).approve);
+    assert.equal(availableActions({ ...simple, preparedById: 'gita' }, actor('ram'), strict).finalApprove, true);
+  });
+  it('salary changes keep "save and approve now" for administrators', () => {
+    assert.equal(availableActions(simple, actor('ram'), ctx).finalApprove, true);
+  });
+});

@@ -2,7 +2,9 @@ export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import { ensureTenantContext } from "@/lib/db";
-import { hasPermission } from "@/lib/auth/check-permission";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
+import { getImpersonationSession } from "@/lib/platform/impersonation";
+import { policyPage } from "@/lib/services/leave-policy.service";
 import { getLeaveTypesWithKPIs } from "@/lib/services/leave-type.service";
 import { getLeaveRulesWithKPIs } from "@/lib/services/leave-rule.service";
 import { getActiveLeaveTypes } from "@/lib/services/leave-type.service";
@@ -11,7 +13,7 @@ import { getSystemControlData } from "@/lib/services/system-control.service";
 import { PoliciesHubClient, type PolicyTab } from "@/components/time-and-leave/policies-hub-client";
 
 export const metadata: Metadata = {
-  title: "Leave & OT Policies | AakashHRMS",
+  title: "Policies | AakashHRMS",
   description: "Configure statutory and custom leave categories, accrual rules, and overtime multipliers.",
 };
 
@@ -46,11 +48,17 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
 
   // 3. Only fetch data for the active tab!
   let typesData = null;
+  let policyData = null;
+  let typePermissions = { add: false, edit: false, delete: false };
   let rulesData = null;
   let otData = null;
 
   if (activeTab === "types") {
-    typesData = await getLeaveTypesWithKPIs();
+    // Statutory leave settings: changes proposed with Leave types → Edit and approved by a second person (4.6c).
+    const scope = await checkPermissionWithScope("VIEW", "LEAVE_TYPES");
+    const [canEdit, canApprove, impersonation] = await Promise.all([hasPermission("EDIT", "LEAVE_TYPES"), hasPermission("APPROVE", "LEAVE_TYPES"), getImpersonationSession()]);
+    [typesData, policyData] = await Promise.all([getLeaveTypesWithKPIs(), policyPage({ scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation })]);
+    typePermissions = { add: await hasPermission("ADD", "LEAVE_TYPES"), edit: canEdit, delete: await hasPermission("DELETE", "LEAVE_TYPES") };
   } else if (activeTab === "rules") {
     const [rData, activeTypes] = await Promise.all([
       getLeaveRulesWithKPIs(),
@@ -79,6 +87,8 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
       allowedTabs={allowedTabs}
       activeTab={activeTab}
       typesData={typesData}
+      policyData={policyData}
+      typePermissions={typePermissions}
       rulesData={rulesData}
       otData={otData}
     />

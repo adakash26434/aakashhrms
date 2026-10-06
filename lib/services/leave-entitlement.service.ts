@@ -1,4 +1,5 @@
 import * as repo from "@/lib/repositories/leave.repository";
+import { ruleTypes } from "@/lib/services/leave-rule-types.service";
 import * as attendanceRepo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -67,7 +68,7 @@ async function nameMaps() {
 export async function openingPreview(scope: ScopeFilter): Promise<OpeningPreview> {
   if (scope.scopeType !== "GLOBAL") throw new UserFacingError("Opening a leave year needs a company-wide role.");
   const today = nepalDateIso();
-  const [years, openings, types, people, names] = await Promise.all([leaveService.leaveYears(), repo.findOpenings(), repo.findRuleTypes(), attendanceRepo.findEmployees(), nameMaps()]);
+  const [years, openings, types, people, names] = await Promise.all([leaveService.leaveYears(), repo.findOpenings(), ruleTypes(), attendanceRepo.findEmployees(), nameMaps()]);
   const opened = new Set(openings.map((o) => o.fiscalYearId));
   const openedYears = years.filter((y) => opened.has(y.id));
   const from = openedYears.at(-1) ?? null;
@@ -131,7 +132,7 @@ export async function openingPreview(scope: ScopeFilter): Promise<OpeningPreview
 }
 
 async function planFor(target: leaveService.LeaveYear, from: leaveService.LeaveYear | null, people: Person[]) {
-  const types = await repo.findRuleTypes();
+  const types = await ruleTypes();
   const ids = people.map((p) => p.id);
   const [oldLedger, newLedger] = await Promise.all([from ? repo.findLedger(ids, from.id) : Promise.resolve([]), repo.findLedger(ids, target.id)]);
   const oldLines = new Map<string, BalanceLine[]>();
@@ -201,7 +202,7 @@ export async function substituteSuggestions(scope: ScopeFilter): Promise<Substit
   const to = addDays(today, -1);
   const [worked, types, people, names] = await Promise.all([
     attendanceService.workedOffDays(scope, from, to),
-    repo.findRuleTypes(),
+    ruleTypes(),
     attendanceRepo.findEmployees(buildEmployeeScopeCondition(scope)),
     nameMaps(),
   ]);
@@ -256,7 +257,7 @@ export async function grantSubstitute(
   if (items.some((i) => i.days === 0 && i.note.length < 3)) throw new AttendanceValidationError({ note: "Say why it is not granted (e.g. paid as overtime)" });
   if (items.some((i) => isOwnRecord(ctx.scope.employeeId, i.employeeId))) throw new OwnAttendanceError("You can't grant substitute leave to yourself. Ask someone else.");
   const suggestions = await substituteSuggestions(ctx.scope);
-  const types = await repo.findRuleTypes();
+  const types = await ruleTypes();
   const substitute = types.find((t) => t.statutoryCode === "SUBSTITUTE" && t.kind === "balance");
   if (!substitute || !substitute.isActive) throw new UserFacingError("Substitute leave is not in use.");
   const rolled = await leaveService.rolledYears();
@@ -303,7 +304,7 @@ export async function leaveCalendar(scope: ScopeFilter, bsYear: number, bsMonth:
   } catch {
     period = periodContaining("BS", nepalDateIso());
   }
-  const [all, types, names] = await Promise.all([attendanceRepo.findEmployees(buildEmployeeScopeCondition(scope)), repo.findRuleTypes(), nameMaps()]);
+  const [all, types, names] = await Promise.all([attendanceRepo.findEmployees(buildEmployeeScopeCondition(scope)), ruleTypes(), nameMaps()]);
   const people = all
     .filter((e) => e.joiningDate <= period.end && (!e.terminationDate || e.terminationDate >= period.start) && (e.status === "Active" || !!e.terminationDate))
     .sort((a, b) => a.fullName.localeCompare(b.fullName));

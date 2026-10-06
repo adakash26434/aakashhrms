@@ -20,6 +20,7 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
   const canSeeSalary = !context?.isImpersonating && Boolean(context?.allowedModules.includes("SALARY_MAPPING"));
   const attendancePending = context?.pendingAttendanceCount ?? 0;
   const canSeeAttendance = !context?.isImpersonating && Boolean(context?.allowedModules.includes("ATTENDANCE"));
+  const policyPending = context?.pendingLeavePolicyCount ?? 0;
   // Staff who are also employees clock in here too (never platform support).
   const canClock = !context?.isImpersonating && Boolean(context?.myEmployeeId);
 
@@ -93,7 +94,7 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
           {canClock && <ClockButton />}
 
           {(canSeeApprovals || canSeeSalary || canSeeAttendance) && (
-            <ApprovalsBell leave={canSeeApprovals ? pending : null} salary={canSeeSalary ? salaryPending : null} attendance={canSeeAttendance ? attendancePending : null} />
+            <ApprovalsBell leave={canSeeApprovals ? pending : null} salary={canSeeSalary ? salaryPending : null} attendance={canSeeAttendance ? attendancePending : null} policy={policyPending > 0 ? policyPending : null} />
           )}
 
           <button
@@ -117,18 +118,20 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
 /**
  * Alerts bell: requests waiting for this user. Leave requests (approvers),
  * salary changes they can act on now (4.4 approvals), and attendance
- * adjustments and remote clock-ins (4.5). One kind links straight to it;
+ * adjustments and remote clock-ins (4.5), and leave policy changes to approve
+ * (4.6c, shown only when there are some). One kind links straight to it;
  * more open a small menu.
  */
-function ApprovalsBell({ leave, salary, attendance }: { leave: number | null; salary: number | null; attendance: number | null }) {
+function ApprovalsBell({ leave, salary, attendance, policy }: { leave: number | null; salary: number | null; attendance: number | null; policy: number | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const total = (leave ?? 0) + (salary ?? 0) + (attendance ?? 0);
+  const total = (leave ?? 0) + (salary ?? 0) + (attendance ?? 0) + (policy ?? 0);
   const label = total > 0 ? `${total} request${total === 1 ? "" : "s"} waiting for you` : "Nothing waiting for you";
   const items = [
-    leave !== null ? { href: "/timeAndLeave/leaves?tab=approvals", label: "Leave requests", count: leave } : null,
+    leave !== null ? { href: "/timeAndLeave/leaves?tab=requests", label: "Leave requests", count: leave } : null,
     salary !== null ? { href: "/workforce/salary-mapping?tab=approvals", label: "Salary changes", count: salary } : null,
     attendance !== null ? { href: "/timeAndLeave/attendance?tab=adjustments", label: "Attendance adjustments", count: attendance } : null,
+    policy !== null ? { href: "/timeAndLeave/policies?tab=types", label: "Leave policy changes", count: policy } : null,
   ].filter((x): x is { href: string; label: string; count: number } => !!x);
 
   useEffect(() => {

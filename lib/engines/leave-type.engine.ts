@@ -28,8 +28,9 @@ export function validateLeaveTypeForm(
     errors.leaveType = "Pay type is required";
   }
 
-  if (data.noOfDays <= 0) {
-    errors.noOfDays = "Number of days must be greater than 0";
+  // Unpaid leave has no balance, so 0 days is fine; a paid type needs days.
+  if (data.noOfDays < 0 || (data.noOfDays === 0 && data.leaveType !== "Non-Pay")) {
+    errors.noOfDays = "Enter the days a year (0 only for unpaid leave)";
   }
 
   if (data.accumulationCap !== null && data.accumulationCap < 0) {

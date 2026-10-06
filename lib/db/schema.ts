@@ -668,6 +668,13 @@ export const leaveTypes = pgTable('leave_types', {
   isRight: boolean('is_right').default(false).notNull(), // Labour Act §51
   accrualEveryDays: integer('accrual_every_days'),
   expiryDays: integer('expiry_days'),
+  // 4.6e company leave types: notice, eligibility, monthly crediting, limits, payout rate.
+  noticeDays: integer('notice_days'),
+  eligibleAfterDays: integer('eligible_after_days'),
+  creditMode: varchar('credit_mode', { length: 10 }).default('yearly').notNull(), // yearly | monthly
+  maxDaysPerYear: numeric('max_days_per_year', { precision: 5, scale: 1 }),
+  maxDaysInService: numeric('max_days_in_service', { precision: 6, scale: 1 }),
+  payoutFixedAmount: numeric('payout_fixed_amount', { precision: 15, scale: 2 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
@@ -773,6 +780,58 @@ export const leaveYearOpenings = pgTable('leave_year_openings', {
   note: text('note'),
   openedBy: uuid('opened_by'),
   openedAt: timestamp('opened_at').defaultNow().notNull(),
+});
+
+/**
+ * Leave policy changes (4.6c): every change to a leave type's settings as a version.
+ * Statutory types: proposed by one person, approved by another, never below the
+ * Labour Act (or an active platform exception). `after` holds only the settings that
+ * change; settings for the next leave year wait until `effective_from`. System changes
+ * (raised back to the law) are approved and applied at once.
+ */
+export const leaveTypeChanges = pgTable('leave_type_changes', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  leaveTypeId: uuid('leave_type_id').references(() => leaveTypes.id, { onDelete: 'restrict' }).notNull(),
+  before: jsonb('before').$type<Record<string, unknown>>().notNull(),
+  after: jsonb('after').$type<Record<string, unknown>>().notNull(),
+  reason: text('reason').notNull(),
+  applies: varchar('applies', { length: 20 }).default('approval').notNull(), // approval | next_year | top_up
+  effectiveFrom: date('effective_from'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn
+  source: varchar('source', { length: 20 }).default('company').notNull(), // company | system
+  exceptionId: uuid('exception_id'),
+  preparedBy: uuid('prepared_by'),
+  preparedAt: timestamp('prepared_at').defaultNow().notNull(),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  appliedAt: timestamp('applied_at'),
+}, (table) => ({
+  typeIdx: index('leave_type_changes_type_idx').on(table.leaveTypeId, table.status),
+}));
+
+/**
+ * Platform exceptions (4.6d), copied from the platform read-only: an active one lowers
+ * the Labour Act minimum of one setting of one statutory type, within its dates (e.g.
+ * a regulator's directive). Only platform routes write this table.
+ */
+export const leavePolicyExceptions = pgTable('leave_policy_exceptions', {
+  id: uuid('id').primaryKey(),
+  statutoryCode: varchar('statutory_code', { length: 50 }).notNull(),
+  setting: varchar('setting', { length: 40 }).notNull(),
+  value: numeric('value', { precision: 7, scale: 1 }),
+  legalBasis: text('legal_basis').notNull(),
+  reference: text('reference'),
+  validFrom: date('valid_from').notNull(),
+  validUntil: date('valid_until'),
+  revokedAt: timestamp('revoked_at'),
+  revokeReason: text('revoke_reason'),
+  grantedAt: timestamp('granted_at').defaultNow().notNull(),
+  syncedAt: timestamp('synced_at').defaultNow().notNull(),
 });
 
 /**

@@ -1,4 +1,5 @@
 import * as repo from "@/lib/repositories/leave.repository";
+import { ruleTypes } from "@/lib/services/leave-rule-types.service";
 import * as attendanceRepo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -28,7 +29,7 @@ const switchRef = (yearId: string) => `home-earned:${yearId}`;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 async function homeType(): Promise<LeaveRuleType | null> {
-  return (await repo.findRuleTypes()).find((t) => t.statutoryCode === "HOME" && t.kind === "balance" && t.isActive) ?? null;
+  return (await ruleTypes()).find((t) => t.statutoryCode === "HOME" && t.kind === "balance" && t.isActive) ?? null;
 }
 
 /** The attendance months of a leave year, in the attendance calendar. */
@@ -298,7 +299,7 @@ const MAX_START_CELLS = 5000;
 
 /** Balance types that take a starting balance (substitute leave expires in 21 days, so it starts at 0). */
 async function startTypes(): Promise<LeaveRuleType[]> {
-  return (await repo.findRuleTypes()).filter((t) => t.kind === "balance" && t.isActive && t.statutoryCode !== "SUBSTITUTE");
+  return (await ruleTypes()).filter((t) => t.kind === "balance" && t.isActive && t.statutoryCode !== "SUBSTITUTE");
 }
 
 /** Months that can be the start: the current leave year, from its first month up to the current one. */

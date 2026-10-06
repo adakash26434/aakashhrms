@@ -9,7 +9,7 @@ import type {
   LeaveTypeValidationErrors,
 } from "@/lib/types/leave-type";
 
-const STATUTORY_LOCKED = "Statutory leave follows the Labour Act and can't be changed here. Changes in the employees' favour, approved by a second person, come with the leave policy settings.";
+const STATUTORY_LOCKED = "Statutory leave follows the Labour Act and can't be changed here. Choose it under Statutory leave on this tab and Propose a change: only in the employees' favour, approved by a second person.";
 
 export class LeaveTypeValidationError extends Error {
   constructor(public errors: LeaveTypeValidationErrors) {
@@ -48,9 +48,8 @@ export async function saveLeaveType(
   if (id) {
     // Check if trying to edit a statutory leave type
     const existing = await repository.findLeaveTypeById(id);
-    // Statutory types follow the Labour Act. Until 4.6c (changes only in the
-    // employee's favour, approved by a second person) they can't be changed here,
-    // so nothing can go below the law (S24).
+    // Statutory types follow the Labour Act: they change only through a proposal a
+    // second person approves (leave-policy.service), never below the law (S24).
     if (existing && existing.isStatutory) throw new UserFacingError(STATUTORY_LOCKED);
 
     const updated = await repository.updateLeaveType(id, {
@@ -99,13 +98,10 @@ export async function saveLeaveType(
 
 export async function deleteLeaveType(id: string): Promise<boolean> {
   const existing = await repository.findLeaveTypeById(id);
-  if (!existing) throw new Error("Leave type not found");
-
-  // Statutory leave types cannot be deleted
-  if (existing.isStatutory) {
-    throw new Error("Statutory leave types cannot be deleted. They are mandated by Nepal Labour Act 2074.");
-  }
-
+  if (!existing) throw new UserFacingError("This leave type no longer exists.");
+  if (existing.isStatutory) throw new UserFacingError("Statutory leave follows the Labour Act and can't be deleted.");
+  // Requests and the leave ledger keep their history: a used type is switched off instead.
+  if (await repository.leaveTypeInUse(id)) throw new UserFacingError(`${existing.name} has been used in requests or balances, so it can't be deleted. Switch it off instead.`);
   return repository.removeLeaveType(id);
 }
 

@@ -14,6 +14,7 @@ import {
   PayHeadPreset,
 } from '../../types/onboarding';
 import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '../policy-pack-data';
+import { lawfulPreset } from '../../engines/leave-policy.engine';
 import { ensureEmployeeSelfServiceRole } from '../../auth/employee-self-service-role';
 import { STANDARD_SHRENI_LEVELS } from '../../constants/industry-types';
 
@@ -349,15 +350,17 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
         .limit(1);
 
       if (existingLT.length === 0) {
+        // Never below the Labour Act; a blank or 0 cap means the law's cap (0 would lapse every saved day).
+        const lawful = lawfulPreset(lt.code, { days: Number(lt.daysPerYear) || 0, cap: lt.maxAccumulation ? Number(lt.maxAccumulation) : null });
         const [insertedLT] = await tenantDb
           .insert(schema.leaveTypes)
           .values({
             name: lt.name,
             code: lt.code,
             leaveType: lt.isPaid ? 'Pay' : 'Non-Pay',
-            noOfDays: String(lt.daysPerYear),
-            carryForward: (lt.maxAccumulation || 0) > 0,
-            accumulationCap: String(lt.maxAccumulation || 0),
+            noOfDays: String(lawful.days),
+            carryForward: lawful.cap !== null,
+            accumulationCap: lawful.cap !== null ? String(lawful.cap) : null,
             isStatutory: true,
             statutoryCode: lt.code,
             genderApplicable: lt.genderSpecific || 'All',

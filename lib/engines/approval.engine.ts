@@ -131,6 +131,8 @@ export interface ApprovalWording {
   ownSubject: string;
   /** "You cannot approve salary changes." */
   noPermission: string;
+  /** "You proposed this change, so someone else has to approve it." (default: "prepared") */
+  preparer?: string;
 }
 
 export const SALARY_WORDING: ApprovalWording = {
@@ -138,24 +140,34 @@ export const SALARY_WORDING: ApprovalWording = {
   noPermission: "You cannot approve salary changes.",
 };
 
+/**
+ * How a module's requests may be decided. `preparerMayFinalApprove: false`
+ * (leave policy changes) means nobody ever approves a change they proposed,
+ * administrators included; salary changes keep "save and approve now".
+ */
+export interface DecisionContext {
+  approvers: readonly ApproverInfo[];
+  today: string;
+  wording?: ApprovalWording;
+  preparerMayFinalApprove?: boolean;
+}
+
 /** What this person may do with a request now, and the plain reason when they cannot approve. */
-export function availableActions(
-  request: ApprovalRequest,
-  actor: ApprovalActor,
-  ctx: { approvers: readonly ApproverInfo[]; today: string; wording?: ApprovalWording }
-): AvailableActions {
+export function availableActions(request: ApprovalRequest, actor: ApprovalActor, ctx: DecisionContext): AvailableActions {
   const words = ctx.wording ?? SALARY_WORDING;
   const none: AvailableActions = { approve: null, finalApprove: false, reject: false, withdraw: false, reason: null, stuck: null };
   if (request.status !== "pending") return { ...none, reason: `This change was already ${request.status}.` };
   const preparer = !!actor.userId && request.preparedById === actor.userId;
   const ownSubject = includesOwnRecord(actor.employeeId, request.subjectEmployeeIds);
+  const strict = ctx.preparerMayFinalApprove === false;
   const out: AvailableActions = { ...none, withdraw: preparer };
-  out.finalApprove = actor.isAdministrator && !ownSubject;
+  out.finalApprove = actor.isAdministrator && !ownSubject && !(strict && preparer);
+  const preparerReason = words.preparer ?? "You prepared this change, so someone else has to approve it.";
 
   let reason: string | null = null;
   if (ownSubject) reason = words.ownSubject;
   else if (request.flow.type === "simple") {
-    if (preparer) reason = actor.isAdministrator ? null : "You prepared this change, so someone else has to approve it.";
+    if (preparer) reason = actor.isAdministrator && !strict ? null : preparerReason;
     else if (!actor.canApprove) reason = words.noPermission;
     else out.approve = { level: 0, onBehalfOf: null };
   } else {
@@ -165,7 +177,7 @@ export function availableActions(
     else if (!approver || !approver.active || !approver.canApprove) {
       out.stuck = `The Level ${level.level} approver (${approver?.name ?? "removed user"}) can no longer approve. A company administrator can Final approve, or update the approval settings for new changes.`;
       reason = out.stuck;
-    } else if (preparer) reason = actor.isAdministrator ? null : "You prepared this change, so someone else has to approve it.";
+    } else if (preparer) reason = actor.isAdministrator && !strict ? null : preparerReason;
     else if (actor.userId === level.userId) out.approve = { level: level.level, onBehalfOf: null };
     else if (activeDelegate(approver, actor.userId, ctx.today)) out.approve = { level: level.level, onBehalfOf: level.userId };
     else reason = `Waiting for Level ${level.level}: ${approver.name}.`;
@@ -200,7 +212,7 @@ export function statusText(request: Pick<ApprovalRequest, "status" | "flow" | "c
 }
 
 /** True when this person can act on the request now (for "Waiting for me" and the bell). */
-export function waitingFor(request: ApprovalRequest, actor: ApprovalActor, ctx: { approvers: readonly ApproverInfo[]; today: string; wording?: ApprovalWording }): boolean {
+export function waitingFor(request: ApprovalRequest, actor: ApprovalActor, ctx: DecisionContext): boolean {
   const a = availableActions(request, actor, ctx);
   // Administrators see everything they could Final approve only when it is theirs to move: their own request, or one that is stuck.
   return !!a.approve || (a.finalApprove && (request.preparedById === actor.userId || !!a.stuck));

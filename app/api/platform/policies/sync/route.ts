@@ -6,6 +6,7 @@ import { getTenantDb } from '@/lib/db/tenant-pool-manager';
 import { leaveTypes, otRules, auditLogs, payHeads, taxRateSlabs, fiscalYears } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { DEFAULT_NEPAL_POLICY_PACK_V1, StatutoryPolicyPackPayload } from '@/lib/platform/policy-pack-data';
+import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
 
 export async function POST(request: Request) {
   const authResult = await requirePlatformAuth(request);
@@ -79,15 +80,16 @@ export async function POST(request: Request) {
           if (lr.statutoryCode === 'PUBLIC' || lr.code === 'PUBLIC') continue;
           // English-only screens for now; older packs carry the Nepali name in brackets.
           const name = lr.name.replace(/ *[(][\u0900-\u097F /]+[)]/g, '').trim();
+          const lawful = lawfulPreset(lr.statutoryCode, { days: Number(lr.daysPerYear) || 0, cap: lr.maxAccumulation ? Number(lr.maxAccumulation) : null, paidDays: lr.maxPaidDays ? Number(lr.maxPaidDays) : null });
           await tenantDb
             .insert(leaveTypes)
             .values({
               name,
               code: lr.code,
               leaveType: lr.leaveType,
-              noOfDays: String(lr.daysPerYear),
-              accumulationCap: lr.maxAccumulation ? String(lr.maxAccumulation) : null,
-              maxPaidDays: lr.maxPaidDays ? String(lr.maxPaidDays) : null,
+              noOfDays: String(lawful.days),
+              accumulationCap: lawful.cap !== null ? String(lawful.cap) : null,
+              maxPaidDays: lawful.paidDays !== null ? String(lawful.paidDays) : null,
               isStatutory: true,
               statutoryCode: lr.statutoryCode,
               genderApplicable: lr.genderApplicable || 'All',
@@ -99,19 +101,18 @@ export async function POST(request: Request) {
               platformCode: lr.code,
               isActive: true,
             })
+            // An existing type keeps the company's own numbers (days, caps, paid days, the
+            // certificate rule): companies change those in the employees' favour with a second
+            // person's approval (4.6c), and the company raises anything below the Labour Act
+            // back to it itself, as a recorded system change. The sync only sets what the
+            // platform locks, so it can never lower an approved setting.
             .onConflictDoUpdate({
               target: leaveTypes.code,
               set: {
                 name,
                 leaveType: lr.leaveType,
-                noOfDays: String(lr.daysPerYear),
-                accumulationCap: lr.maxAccumulation ? String(lr.maxAccumulation) : null,
-                maxPaidDays: lr.maxPaidDays ? String(lr.maxPaidDays) : null,
                 isStatutory: true,
                 genderApplicable: lr.genderApplicable || 'All',
-                requiresDocument: Boolean(lr.requiresDocument),
-                isEncashable: Boolean(lr.isEncashable),
-                encashmentBasis: lr.encashmentBasis || 'BasicSalary',
                 isPlatformLocked: true,
                 platformCode: lr.code,
                 isActive: true,

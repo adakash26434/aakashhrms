@@ -1,25 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { CalendarDays, ScrollText, Timer, type LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { PageFrame } from "@/components/layout/page-frame";
-import { PageHeader } from "@/components/ui/page-header";
-import { LeaveTypesClient } from "@/components/leave-types/leave-types-client";
+import { useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { CalendarDays, Plus, RefreshCw, ScrollText, Timer } from "lucide-react";
+import { PageBar } from "@/components/frame/page-bar";
+import { Notice } from "@/components/kit/notice";
+import { Tabs, type TabItem } from "@/components/kit/tabs";
+import { LeavePolicy } from "@/components/leave-policy/leave-policy";
+import { CompanyLeaveTypes, type CompanyTypePermissions } from "@/components/leave-policy/company-leave-types";
 import { LeaveRulesClient } from "@/components/leave-rules/leave-rules-client";
 import { OtRulesClient } from "@/components/ot-rules/ot-rules-client";
 import type { LeaveTypeRecord, LeaveTypeKPIs } from "@/lib/types/leave-type";
 import type { LeaveRule, LeaveRuleKPIs } from "@/lib/types/leave-rule";
 import type { OtRule, OtRuleKPIs } from "@/lib/types/ot-rule";
+import type { LeavePolicyPageData } from "@/lib/types/leave-policy";
 
 export type PolicyTab = "types" | "rules" | "ot-rules";
-
-interface PolicyTabMeta {
-  id: PolicyTab;
-  label: string;
-  icon: LucideIcon;
-  count?: number;
-}
 
 interface PoliciesHubClientProps {
   allowedTabs: PolicyTab[];
@@ -28,6 +24,10 @@ interface PoliciesHubClientProps {
     types: LeaveTypeRecord[];
     kpis: LeaveTypeKPIs;
   } | null;
+  /** Statutory leave settings with their changes (4.6c). */
+  policyData?: LeavePolicyPageData | null;
+  /** What this user may do with the company's own leave types. */
+  typePermissions?: CompanyTypePermissions;
   rulesData?: {
     rules: LeaveRule[];
     kpis: LeaveRuleKPIs;
@@ -41,123 +41,70 @@ interface PoliciesHubClientProps {
   } | null;
 }
 
-export function PoliciesHubClient({
-  allowedTabs,
-  activeTab,
-  typesData,
-  rulesData,
-  otData,
-}: PoliciesHubClientProps) {
+/**
+ * Time & Leave → Policies, laid out like Leaves and Attendance: the page bar,
+ * then folder tabs. Leave types: statutory leave (the Labour Act's minimum,
+ * changes approved by a second person) and the company's own types; Leave
+ * rules and Overtime rules keep their screens until they are redesigned.
+ */
+export function PoliciesHubClient({ allowedTabs, activeTab, typesData, policyData, typePermissions, rulesData, otData }: PoliciesHubClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [refreshing, startRefresh] = useTransition();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  const allTabs: PolicyTabMeta[] = [
-    {
-      id: "types",
-      label: "Leave Types",
-      icon: CalendarDays,
-      count: typesData?.types?.length,
-    },
-    {
-      id: "rules",
-      label: "Leave Rules",
-      icon: ScrollText,
-      count: rulesData?.rules?.length,
-    },
-    {
-      id: "ot-rules",
-      label: "Overtime (OT) Rules",
-      icon: Timer,
-      count: otData?.rules?.length,
-    },
+  const all: (TabItem & { id: PolicyTab })[] = [
+    { id: "types", label: "Leave types", icon: CalendarDays, badge: policyData?.waitingForMe || undefined },
+    { id: "rules", label: "Leave rules", icon: ScrollText },
+    { id: "ot-rules", label: "Overtime rules", icon: Timer },
   ];
-
-  // Filter tabs strictly to user's permissions
-  const visibleTabs = allTabs.filter((t) => allowedTabs.includes(t.id));
-
-  const handleTabChange = (next: PolicyTab) => {
+  const tabs = all.filter((t) => allowedTabs.includes(t.id));
+  const changeTab = (next: string) => {
     if (next === activeTab) return;
-    router.push(`/timeAndLeave/policies?tab=${next}`);
+    setNotice(null);
+    startRefresh(() => router.push(`${pathname}?tab=${next}`, { scroll: false }));
+  };
+  const done = (text: string) => {
+    setNotice(text);
+    router.refresh();
   };
 
   return (
-    <PageFrame size="wide" spacing="default">
-      <PageHeader
-        title="Leave & Overtime Policies"
-        description="Configure statutory and custom leave entitlements, rule calculations, and corporate overtime multipliers."
+    <div>
+      <PageBar
+        title="Policies"
+        description={policyData?.waitingForMe ? `${policyData.waitingForMe} leave policy change${policyData.waitingForMe === 1 ? "" : "s"} waiting for you` : "Leave types, leave rules and overtime rules"}
+        actions={[
+          { id: "new-type", label: "New leave type", icon: Plus, group: "create", primary: true, hidden: activeTab !== "types" || !typePermissions?.add, onClick: () => setCreating(true) },
+          { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
+        ]}
       />
-
-      {/* Tab bar */}
-      {visibleTabs.length > 1 && (
-        <div
-          role="tablist"
-          aria-label="Policy Hub Tabs"
-          className="inline-flex w-full max-w-xl rounded-2xl border border-payroll-light/80 bg-white p-1.5 shadow-payroll-xs"
-        >
-          {visibleTabs.map((t) => {
-            const isActive = t.id === activeTab;
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => handleTabChange(t.id)}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer select-none",
-                  isActive
-                    ? "bg-payroll-primary text-white shadow-payroll-xs"
-                    : "text-gray-600 hover:bg-payroll-cream hover:text-payroll-navy",
-                )}
-              >
-                <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-white" : "text-gray-400")} />
-                <span>{t.label}</span>
-                {typeof t.count === "number" && (
-                  <span
-                    className={cn(
-                      "ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums",
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-payroll-light/60 text-payroll-navy",
-                    )}
-                  >
-                    {t.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+      {notice && (
+        <Notice tone="success" className="mb-3" onDismiss={() => setNotice(null)}>
+          {notice}
+        </Notice>
       )}
-
-      {/* Active Tab Panel Only — strict isolation */}
-      <div className="pt-1">
-        {activeTab === "types" && typesData && (
-          <LeaveTypesClient
-            initialTypes={typesData.types}
-            initialKpis={typesData.kpis}
-            embedded={true}
-          />
+      <Tabs variant="folder" items={tabs} value={activeTab} onChange={changeTab} label="Policy views">
+        {activeTab === "types" && (
+          <div>
+            {policyData && <LeavePolicy data={policyData} onDone={done} />}
+            {typesData && (
+              <CompanyLeaveTypes types={typesData.types} permissions={typePermissions ?? { add: false, edit: false, delete: false }} creating={creating} onCloseCreate={() => setCreating(false)} onDone={done} />
+            )}
+          </div>
         )}
-
         {activeTab === "rules" && rulesData && (
-          <LeaveRulesClient
-            initialRules={rulesData.rules}
-            initialKpis={rulesData.kpis}
-            leaveTypes={rulesData.leaveTypes}
-            embedded={true}
-          />
+          <div className="p-3">
+            <LeaveRulesClient initialRules={rulesData.rules} initialKpis={rulesData.kpis} leaveTypes={rulesData.leaveTypes} embedded={true} />
+          </div>
         )}
-
         {activeTab === "ot-rules" && otData && (
-          <OtRulesClient
-            initialOtRules={otData.rules}
-            initialOtKPIs={otData.kpis}
-            otMultiplierOfficeDay={otData.otMultiplierOfficeDay}
-            otMultiplierOffDay={otData.otMultiplierOffDay}
-            embedded={true}
-          />
+          <div className="p-3">
+            <OtRulesClient initialOtRules={otData.rules} initialOtKPIs={otData.kpis} otMultiplierOfficeDay={otData.otMultiplierOfficeDay} otMultiplierOffDay={otData.otMultiplierOffDay} embedded={true} />
+          </div>
         )}
-      </div>
-    </PageFrame>
+      </Tabs>
+    </div>
   );
 }

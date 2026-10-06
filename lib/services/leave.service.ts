@@ -1,4 +1,5 @@
 import * as repo from "@/lib/repositories/leave.repository";
+import { ruleTypes } from "@/lib/services/leave-rule-types.service";
 import * as attendanceRepo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -218,7 +219,7 @@ export async function monthsWaitingForClose(branchId: string, year: LeaveYear): 
 }
 
 async function typeById(id: string): Promise<LeaveRuleType> {
-  const t = (await repo.findRuleTypes()).find((x) => x.id === id);
+  const t = (await ruleTypes()).find((x) => x.id === id);
   if (!t) throw new UserFacingError("That leave type no longer exists. Refresh the page.");
   return t;
 }
@@ -438,7 +439,7 @@ export async function adjustBalance(raw: unknown, ctx: { scope: ScopeFilter; use
 export async function approvedLeaveDays(employeeIds: string[], from: string, to: string): Promise<Map<string, { name: string; pay: LeavePay; half: boolean }>> {
   const out = new Map<string, { name: string; pay: LeavePay; half: boolean }>();
   if (!employeeIds.length) return out;
-  const [requests, types] = await Promise.all([repo.findRequests({ employeeIds, from, to, statuses: ["Approved"] }), repo.findRuleTypes()]);
+  const [requests, types] = await Promise.all([repo.findRequests({ employeeIds, from, to, statuses: ["Approved"] }), ruleTypes()]);
   const typeOf = new Map(types.map((t) => [t.id, t]));
   for (const r of requests) {
     const t = typeOf.get(r.leaveTypeId);
@@ -473,7 +474,7 @@ export async function countWaitingFor(scope: ScopeFilter, canApprove: boolean): 
 export async function getLeavePage(params: { tab: LeaveTabId; scope: ScopeFilter; userId: string; permissions: LeavePageData["permissions"] }): Promise<LeavePageData> {
   const today = nepalDateIso();
   const [types, people, branches, departments, year] = await Promise.all([
-    repo.findRuleTypes(),
+    ruleTypes(),
     employeesFor(params.scope),
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
@@ -624,7 +625,7 @@ export async function myBalances(employeeId: string) {
   const [person] = await attendanceRepo.findEmployeesByIds([employeeId]);
   const year = await leaveYearOf(nepalDateIso());
   if (!person || !year) return { balances: [], fiscalYearId: year?.id };
-  const [types, ledger] = await Promise.all([repo.findRuleTypes(), repo.findLedger([employeeId], year.id)]);
+  const [types, ledger] = await Promise.all([ruleTypes(), repo.findLedger([employeeId], year.id)]);
   const balances = types
     .filter((t) => t.kind === "balance" && t.isActive && (t.genderApplicable === "All" || t.genderApplicable === person.gender))
     .map((t) => {
@@ -642,7 +643,7 @@ export async function myBalances(employeeId: string) {
  * encashable company type up to its cap). Leave salary (4.9) pays it.
  */
 export async function payableOnLeaving(employeeId: string): Promise<{ leaveTypeName: string; days: number; cap: number | null }[]> {
-  const [{ balances }, types] = await Promise.all([myBalances(employeeId), repo.findRuleTypes()]);
+  const [{ balances }, types] = await Promise.all([myBalances(employeeId), ruleTypes()]);
   return balances.flatMap((b) => {
     const t = types.find((x) => x.id === b.leaveTypeId);
     if (!t || !(t.statutoryCode === "HOME" || t.statutoryCode === "SICK" || (!t.isStatutory && t.isEncashable))) return [];
@@ -655,7 +656,7 @@ export async function payableOnLeaving(employeeId: string): Promise<{ leaveTypeN
 export async function myRequestableTypes(employeeId: string): Promise<LeaveRuleType[]> {
   const [person] = await attendanceRepo.findEmployeesByIds([employeeId]);
   if (!person) return [];
-  return (await repo.findRuleTypes()).filter((t) => t.isActive && (t.genderApplicable === "All" || t.genderApplicable === person.gender));
+  return (await ruleTypes()).filter((t) => t.isActive && (t.genderApplicable === "All" || t.genderApplicable === person.gender));
 }
 
 /** The employee withdraws their own waiting request. */
@@ -687,7 +688,7 @@ export async function monthCloseLines(p: {
 }): Promise<repo.NewLedgerLine[]> {
   const ids = p.paidDays.map((x) => x.employeeId);
   if (!ids.length) return [];
-  const types = await repo.findRuleTypes();
+  const types = await ruleTypes();
   const home = types.find((t) => t.statutoryCode === "HOME" && t.kind === "balance" && t.isActive);
   const substitute = types.find((t) => t.statutoryCode === "SUBSTITUTE" && t.kind === "balance");
   const rolled = await rolledYears();
@@ -784,7 +785,7 @@ export async function creditOnJoining(employee: { id: string; gender: string; jo
   const join = employee.joiningDate ?? today;
   const year = await leaveYearOf(join > today ? join : today);
   if (!year) return;
-  const types = (await repo.findRuleTypes()).filter((t) => t.isActive && creditedYearly(t) && (t.genderApplicable === "All" || t.genderApplicable === employee.gender));
+  const types = (await ruleTypes()).filter((t) => t.isActive && creditedYearly(t) && (t.genderApplicable === "All" || t.genderApplicable === employee.gender));
   const ref = `credit:${year.id}`;
   const already = new Set((await repo.findLinesByRef([employee.id], ref)).map((l) => l.leaveTypeId));
   const joined = join > year.start;

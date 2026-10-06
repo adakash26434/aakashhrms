@@ -13,6 +13,25 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-06 — 4.6c Statutory leave settings
+Branch: `redesign/4.6-leaves`
+
+Plan (your decisions): companies change statutory leave **only in the employees' favour**, every change approved by **a second person** (strict: a company with nobody else waits and is told how to add one); exceptions come from the platform (4.6d); company leave types and the end of Leave rules move here from 4.7 (4.6e), so 4.7 becomes Overtime policies.
+
+Changed:
+- **Policies → Leave types** redesigned (Leaves layout: page bar, folder tabs, Guide, Notices). Statutory leave: a grid of the six types with their settings in words, against the law, and waiting / scheduled changes; the pane shows yours vs the minimum, exceptions, the waiting change (Approve / Final approve / Reject / Withdraw, timeline) and the history. **Propose a change…**: only the type's settings, the minimum beside each, the reason, a live preview from the server; a value below the minimum is refused and Send disabled; sick leave's days a year from the next leave year or now with a pro-rata top-up.
+- **Second person:** proposed with Leave types → Edit (company-wide, never support view), approved with Leave types → Approve (company-wide) or an administrator's Final approve, **never by the proposer** (new approval-engine option `preparerMayFinalApprove: false`; salary changes unchanged). Roles & permissions now offers Leave types → Approve. The bell counts leave policy changes waiting for you.
+- **Applying:** on approval in one transaction (status still pending, settings, top-up ledger lines with ref `policy:<change>`, replaced scheduled changes); days a year for the next leave year apply on its first day, once. Before leave types are read (`ruleTypes()`), due changes are applied and anything below the Labour Act is raised back to it as a recorded system change.
+- **Company leave types** in the same desktop style: kit grid with Edit / Switch off / Delete and a New / Edit window (page bar **New leave type**); unpaid leave can be saved with 0 days (the old form refused it); a used type can't be deleted (switch it off; the database error no longer shows); saves, deletes and switches are audited with safe errors.
+- **Platform fixes:** the policy sync no longer overwrites a company's days, caps or paid days (an approved 15 sick days would have gone back to 12); "Edit Leaves & OT" shows statutory leave read-only for existing companies and only adds missing types; sync, console and provisioning never create a statutory type below the law, and a blank cap is the law's cap, not 0 (`lawfulPreset`).
+- Bell link "Leave requests" went to a tab that doesn't exist; it opens Requests.
+- Migration `0044_leave_policy` (+ `ensureTenantSchema`): `leave_type_changes`, `leave_policy_exceptions`, and the 4.6e leave type columns (copied once from `leave_rules`); statutory types apply to everyone.
+- Files: `lib/engines/leave-policy.engine.ts`, `lib/types/leave-policy.ts`, `lib/repositories/leave-policy.repository.ts`, `lib/services/leave-policy.service.ts`, `lib/services/leave-rule-types.service.ts`, `app/actions/leave-policy.actions.ts`, `components/leave-policy/leave-policy.tsx`, `components/leave-policy/company-leave-types.tsx`, `components/time-and-leave/policies-hub-client.tsx`, `app/(dashboard)/timeAndLeave/policies/page.tsx`, `lib/engines/approval.engine.ts`, `lib/types/role.ts`, `lib/services/workspace-context.service.ts`, `components/frame/title-bar.tsx`, `app/actions/leave-type.actions.ts`, `lib/services/leave-type.service.ts`, `lib/engines/leave-type.engine.ts`, `app/api/platform/policies/sync/route.ts`, `app/api/platform/companies/[id]/route.ts`, `lib/platform/provisioning/seed-tenant.ts`, `components/platform/edit-company-modal.tsx`.
+
+Verified: tsc 0 · eslint: nothing new (the platform files keep their old `any` counts) · 696/696 tests (`tests/leave-policy.engine.test.ts` new; S24 4.6c in `tests/security-leave.test.ts`; proposer rule in `tests/approval-engine.test.ts`) · `next build` OK · browser after the restart (nothing saved): Leave types at 1366 and 390 px; Sick leave pane; Propose window: 12 → 15 days a year previews "from 2027-07-17", home leave 1 per 25 days refused with the law and Send disabled, "nobody else can approve" shown (this company has one administrator), cancelled and discarded; Unpaid leave in the new Edit window, cancelled; 0 console errors. Approving needs a second login (not tried).
+
+---
+
 ## 2026-10-06 — 4.6b Leaves: design and ease-of-use pass
 Branch: `redesign/4.6-leaves`
 

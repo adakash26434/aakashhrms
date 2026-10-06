@@ -15,13 +15,13 @@ import type { DayBasis, LeaveDayDetail, LeaveHalf, LeaveKind, LeavePay, LeaveRul
 /** Maternity can be extended by an unpaid month on a doctor's advice (§45(4)). */
 export const MATERNITY_EXTENSION_DAYS = 30;
 /** The Labour Act's floor for statutory types (4.6c lets companies go higher, never lower). */
-export const STATUTORY_FLOOR: Record<string, { days?: number; paidDays?: number; cap?: number; accrualEveryDays?: number; certificateAfter?: number }> = {
+export const STATUTORY_FLOOR: Record<string, { days?: number; paidDays?: number; cap?: number; accrualEveryDays?: number; certificateAfter?: number; expiryDays?: number }> = {
   HOME: { cap: 90, accrualEveryDays: 20 },
   SICK: { days: 12, cap: 45, certificateAfter: 3 },
   MATERNITY: { days: 98, paidDays: 60 },
   PATERNITY: { days: 15 },
   MOURNING: { days: 13 },
-  SUBSTITUTE: {},
+  SUBSTITUTE: { expiryDays: 21 },
 };
 
 /**

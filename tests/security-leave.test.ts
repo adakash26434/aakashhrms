@@ -262,3 +262,100 @@ describe('S24 starting balances (4.6b)', () => {
     assert.match(fnBody(service, 'monthCloseLines'), /l\.kind === "opening" && !l\.ref/);
   });
 });
+
+describe('S24 leave policies (4.6c)', () => {
+  const policyActions = source('app/actions/leave-policy.actions.ts');
+  const policyService = source('lib/services/leave-policy.service.ts');
+  const policyRepo = source('lib/repositories/leave-policy.repository.ts');
+  const ruleTypesService = source('lib/services/leave-rule-types.service.ts');
+
+  it('every action checks Leave types with scope, refuses support view and returns safe errors', () => {
+    assert.match(fnBody(policyActions, 'policyCtx'), /checkPermissionWithScope\('VIEW', 'LEAVE_TYPES'\)[\s\S]*hasPermission\('EDIT', 'LEAVE_TYPES'\)[\s\S]*hasPermission\('APPROVE', 'LEAVE_TYPES'\)[\s\S]*getImpersonationSession\(\)/);
+    for (const name of ['previewLeavePolicyAction', 'proposeLeavePolicyAction', 'decideLeavePolicyAction']) {
+      const body = fnBody(policyActions, name);
+      assert.match(body, /ensureTenantContext\(\)/, name);
+      assert.match(body, /policyCtx\(\)/, name);
+      assert.match(body, /fail\(error, 'leave-policy\./, name);
+    }
+    assert.match(fnBody(policyActions, 'fail'), /toActionError\(error, context\)/);
+    assert.match(fnBody(policyActions, 'proposeLeavePolicyAction'), /Support view can't change/);
+    assert.match(fnBody(policyService, 'decideChanges'), /if \(ctx\.impersonation\) throw/);
+  });
+
+  it('proposing needs Edit and a company-wide role; the minimum is checked when proposed and again when approved', () => {
+    for (const name of ['previewChange', 'proposeChange']) assert.match(fnBody(policyService, name), /if \(!ctx\.canEdit \|\| !companyWide\(ctx\)\) throw/, name);
+    assert.match(fnBody(policyService, 'planOf'), /policyErrors\(type\.statutoryCode, current, change, floorOn\(type\.statutoryCode, today, exceptions\)\)/);
+    assert.match(fnBody(policyService, 'decideChanges'), /const errors = policyErrors\(type\.statutoryCode, current, after, floorOn\(/);
+    assert.match(fnBody(policyService, 'decideChanges'), /It can't be approved/);
+  });
+
+  it('nobody approves a change they proposed, administrators included; approving needs a company-wide role', () => {
+    assert.match(policyService, /const decisionCtx = \(today: string\) => \(\{ approvers: \[\], today, wording: WORDING, preparerMayFinalApprove: false \}\)/);
+    assert.match(fnBody(policyService, 'actorOf'), /ctx\.canApprove && companyWide\(ctx\)/);
+    assert.match(fnBody(policyActions, 'decideLeavePolicyAction'), /r\.refusal === 'self'\) await recordAuditLog\([\s\S]*DENIED_SELF/);
+  });
+
+  it('a change applies only once approved, in one transaction guarded by its status; due parts apply once', () => {
+    const decide = fnBody(policyRepo, 'decideChange');
+    assert.match(decide, /eq\(leaveTypeChanges\.status, "pending"\)/);
+    assert.match(decide, /if \(!done\.length\) return false/);
+    assert.match(decide, /if \(p\.status === "approved"\) \{[\s\S]*applyToType/);
+    assert.match(decide, /postLedgerLines\(p\.ledger, tx\)/);
+    assert.match(fnBody(policyRepo, 'applyDue'), /isNull\(leaveTypeChanges\.appliedAt\)/);
+    assert.match(fnBody(policyRepo, 'createChange'), /status: "pending"/);
+  });
+
+  it('the top-up is posted once per change (policy: ref) and only for a raise', () => {
+    const lines = fnBody(policyService, 'topUpLines');
+    assert.match(lines, /ref: `policy:\$\{changeId\}`/);
+    assert.match(lines, /plan\.change\.days <= plan\.current\.days\) return/);
+  });
+
+  it('statutory types never stay below the minimum; this never stops leave from working', () => {
+    const due = fnBody(ruleTypesService, 'applyDueChanges');
+    assert.match(due, /raiseToFloor\(t\.statutoryCode, values, floor\)/);
+    assert.match(due, /recordSystemChange\(/);
+    assert.match(due, /catch \(err\)[\s\S]*return false/);
+    assert.match(fnBody(policyRepo, 'recordSystemChange'), /\.for\("update"\)/);
+    for (const file of ['lib/services/leave.service.ts', 'lib/services/leave-entitlement.service.ts', 'lib/services/home-leave.service.ts']) {
+      assert.doesNotMatch(source(file), /repo\.findRuleTypes\(\)/, `${file} reads leave types without applying due changes`);
+    }
+  });
+
+  it('only platform code writes exceptions; company code reads them', () => {
+    for (const file of ['app/actions/leave-policy.actions.ts', 'lib/services/leave-policy.service.ts', 'lib/repositories/leave-policy.repository.ts', 'lib/services/leave-rule-types.service.ts']) {
+      assert.doesNotMatch(source(file), /(insert|update|delete)\(leavePolicyExceptions\)/, file);
+    }
+  });
+
+  it('the platform can never lower a company setting or create one below the law', () => {
+    const sync = source('app/api/platform/policies/sync/route.ts');
+    const conflict = sync.slice(sync.indexOf('onConflictDoUpdate({\n              target: leaveTypes.code'), sync.indexOf('// B. Upsert Statutory Overtime Rules'));
+    assert.doesNotMatch(conflict, /noOfDays|accumulationCap|maxPaidDays|requiresDocument/);
+    assert.match(sync, /lawfulPreset\(lr\.statutoryCode/);
+    const company = source('app/api/platform/companies/[id]/route.ts');
+    assert.match(company, /if \(existingLT\) continue;/);
+    assert.doesNotMatch(company, /update\(leaveTypes\)/);
+    assert.match(company, /lawfulPreset\(lt\.code/);
+    assert.match(source('lib/platform/provisioning/seed-tenant.ts'), /lawfulPreset\(lt\.code/);
+    assert.doesNotMatch(source('lib/platform/provisioning/seed-tenant.ts'), /accumulationCap: String\(lt\.maxAccumulation \|\| 0\)/);
+  });
+
+  it('company leave types: a used type is switched off, never deleted; changes audited with safe errors', () => {
+    const types = source('lib/services/leave-type.service.ts');
+    assert.match(fnBody(types, 'deleteLeaveType'), /leaveTypeInUse\(id\)\) throw new UserFacingError/);
+    const typeActions = source('app/actions/leave-type.actions.ts');
+    for (const name of ['saveLeaveTypeAction', 'deleteLeaveTypeAction', 'toggleLeaveTypeStatusAction']) {
+      const body = fnBody(typeActions, name);
+      assert.match(body, /recordAuditLog\(/, name);
+      assert.match(body, /toActionError\(error, 'leave-type\./, name);
+      assert.doesNotMatch(body, /error\.message/, name);
+    }
+  });
+
+  it('the old leave type editor still refuses statutory types', () => {
+    const types = source('lib/services/leave-type.service.ts');
+    assert.match(fnBody(types, 'saveLeaveType'), /existing\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
+    assert.match(fnBody(types, 'toggleLeaveTypeStatus'), /isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
+  });
+});

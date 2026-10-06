@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { countWaitingFor as countSalaryWaitingFor } from '@/lib/services/salary-structure.service';
 import { countAdjustmentsWaitingFor } from '@/lib/services/attendance.service';
 import { countWaitingFor as countLeaveWaitingFor } from '@/lib/services/leave.service';
+import { countPolicyWaitingFor } from '@/lib/services/leave-policy.service';
 import { hasPermission } from '@/lib/auth/check-permission';
 import { auth } from '@/lib/auth';
 import { getUserAllowedModulesArray } from '@/lib/auth/get-user-permissions';
@@ -44,6 +45,8 @@ export interface WorkspaceContext {
   pendingSalaryApprovalsCount: number;
   /** Attendance adjustments and remote clock-ins this user can decide (supervisor, or Approve in scope; never their own). */
   pendingAttendanceCount: number;
+  /** Leave policy changes this user can approve (a second person, never the proposer). */
+  pendingLeavePolicyCount: number;
   /** The signed-in user's employee record (turns on the Clock button), if linked. */
   myEmployeeId: string | null;
   allowedModules: string[];
@@ -196,6 +199,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
       // Platform support never approves company salary changes, decides attendance or clocks in.
       pendingSalaryApprovalsCount: 0,
       pendingAttendanceCount: 0,
+      pendingLeavePolicyCount: 0,
       myEmployeeId: null,
       allowedModules: [], // Impersonation has full access, sidebar shows all
       isImpersonating: true,
@@ -390,6 +394,18 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     }
   }
 
+  // Leave policy changes waiting for a second person (company-wide Leave types → Approve).
+  let policyPending = 0;
+  if (userId && allowedModules.includes('LEAVE_TYPES')) {
+    try {
+      const scope = await resolveUserScope(userId, tenantSlug);
+      const [canApprove, canEdit] = await Promise.all([hasPermission('APPROVE', 'LEAVE_TYPES'), hasPermission('EDIT', 'LEAVE_TYPES')]);
+      if (canApprove) policyPending = await countPolicyWaitingFor({ scope, userId, canApprove, canEdit, impersonation: false });
+    } catch (err) {
+      console.error('Error counting leave policy approvals:', err);
+    }
+  }
+
   return {
     user: {
       id: userId,
@@ -417,6 +433,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     pendingApprovalsCount: pendingCount,
     pendingSalaryApprovalsCount: salaryPending,
     pendingAttendanceCount: attendancePending,
+    pendingLeavePolicyCount: policyPending,
     myEmployeeId,
     allowedModules,
     isImpersonating: false,
