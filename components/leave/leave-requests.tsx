@@ -9,18 +9,20 @@ import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { Guide } from "@/components/kit/guide";
 import { Notice } from "@/components/kit/notice";
 import { SplitView } from "@/components/kit/split-view";
+import { PaneActions, PaneFields, PaneSection, PaneTimeline, approvalSteps } from "@/components/kit/pane";
 import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
 import { ReasonWindow } from "@/components/attendance/attendance-windows";
 import { decideLeaveRequestsAction } from "@/app/actions/leave.actions";
 import { fmt } from "@/lib/engines/leave.engine";
 import type { LeavePageData, LeaveRequestView } from "@/lib/types/leave";
+import type { ApprovalActionKind } from "@/lib/types/approval";
 import { cn } from "@/lib/utils";
 import { daysText, weekday } from "./leave-windows";
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw" | "cancel";
 const STATUS: Record<LeaveRequestView["status"], string> = { Pending: "pending", Approved: "approved", Rejected: "rejected", Cancelled: "cancelled" };
-const ACTION_LABEL: Record<string, string> = { submitted: "Requested", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn / cancelled" };
+const ACTION_LABEL: Partial<Record<ApprovalActionKind, string>> = { submitted: "Requested", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn / cancelled" };
 const DONE_WORD: Record<Decision, string> = { approve: "approved", final_approve: "approved", reject: "rejected", withdraw: "withdrawn", cancel: "cancelled" };
 
 /**
@@ -181,105 +183,7 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
         onCloseDetail={() => setActiveId(null)}
         detail={
           active ? (
-            <div className="space-y-3 text-xs">
-              <div className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium text-ink">
-                    {dateText(active.from)}
-                    {active.to !== active.from && ` – ${dateText(active.to)}`} · {daysText(active.days)}
-                    {active.half && ` (${active.half === "first" ? "first" : "second"} half)`}
-                  </p>
-                  <StatusChip status={STATUS[active.status]} label={active.status === "Pending" ? "Waiting" : undefined} />
-                </div>
-                {active.unpaidDays > 0 && (
-                  <p className="mt-0.5 text-ink-muted">
-                    {fmt(active.paidDays)} paid, <span className="text-danger">{fmt(active.unpaidDays)} unpaid</span>
-                  </p>
-                )}
-                <p className="mt-1 text-ink">“{active.reason}”</p>
-                {active.certificateNote && <p className="mt-1 text-2xs text-ink-muted">Certificate: {active.certificateNote}</p>}
-                {active.ssfClaim && <p className="mt-1 text-2xs text-ink-muted">SSF claim: the SSF pays the unpaid days (Labour Act §47).</p>}
-                {active.detail && (
-                  <ul className="mt-2 flex flex-wrap gap-1" aria-label="Days counted">
-                    {active.detail.map((d) => (
-                      <li key={d.date} className={cn("rounded px-1.5 py-0.5 text-2xs", d.pay === "none" ? "bg-danger-subtle text-danger" : "bg-info-subtle text-info")}>
-                        {weekday(d.date)} {dateText(d.date)}
-                        {d.part < 1 ? " ½" : ""}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {(() => {
-                  const b = balanceOf(active);
-                  return b ? (
-                    <p className="mt-2 text-2xs text-ink-muted">
-                      Balance now {fmt(b.balance)}
-                      {b.waiting ? ` · ${fmt(b.waiting)} in waiting requests` : ""}
-                    </p>
-                  ) : null;
-                })()}
-                <p className="mt-2 text-2xs text-ink-muted">
-                  {activeType?.isRight
-                    ? `${active.leaveTypeName} is a right (Labour Act §51): refuse it only when a condition is not met, e.g. no medical certificate.`
-                    : `${active.leaveTypeName} is not a right (Labour Act §51): it may be refused or moved for a work reason, which is recorded.`}
-                </p>
-              </div>
-              {(active.status === "Pending" || active.can.cancel) && (
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap gap-2">
-                    {active.can.approve && (
-                      <WindowButton variant="primary" onClick={() => setPending({ ids: [active.id], decision: "approve" })}>
-                        <Check className="h-3.5 w-3.5" /> Approve
-                      </WindowButton>
-                    )}
-                    {active.can.finalApprove && (
-                      <WindowButton variant="primary" onClick={() => setPending({ ids: [active.id], decision: "final_approve" })}>
-                        <ShieldCheck className="h-3.5 w-3.5" /> Final approve
-                      </WindowButton>
-                    )}
-                    {active.can.reject && (
-                      <WindowButton variant="danger" onClick={() => setPending({ ids: [active.id], decision: "reject" })}>
-                        <X className="h-3.5 w-3.5" /> Reject
-                      </WindowButton>
-                    )}
-                    {active.can.withdraw && (
-                      <WindowButton onClick={() => setPending({ ids: [active.id], decision: "withdraw" })}>
-                        <Undo2 className="h-3.5 w-3.5" /> Withdraw
-                      </WindowButton>
-                    )}
-                    {active.can.cancel && (
-                      <WindowButton variant="danger" onClick={() => setPending({ ids: [active.id], decision: "cancel" })}>
-                        <Ban className="h-3.5 w-3.5" /> Cancel leave
-                      </WindowButton>
-                    )}
-                  </div>
-                  {active.status === "Pending" && active.can.reason && !active.can.approve && <p className="text-2xs text-ink-muted">{active.can.reason}</p>}
-                </div>
-              )}
-              <section aria-label="Approval timeline" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Approval</h3>
-                <ol className="space-y-1.5">
-                  {active.timeline.length === 0 && (
-                    <li>
-                      <span className="font-medium text-ink">Requested</span> <span className="text-ink-muted">· {active.preparedBy} · {dateText(active.appliedDate)}</span>
-                    </li>
-                  )}
-                  {active.timeline.map((t) => (
-                    <li key={t.id}>
-                      <span className="font-medium text-ink">{ACTION_LABEL[t.action] ?? t.action}</span> <span className="text-ink-muted">· {t.actorName} · {dateText(t.at)}</span>
-                      {t.note && <span className="block text-2xs text-ink-muted">“{t.note}”</span>}
-                    </li>
-                  ))}
-                  {active.timeline.length === 0 && active.decidedBy && (
-                    <li>
-                      <span className="font-medium text-ink">{active.status}</span> <span className="text-ink-muted">· {active.decidedBy}{active.decidedAt ? ` · ${dateText(active.decidedAt)}` : ""}</span>
-                      {active.decisionNote && <span className="block text-2xs text-ink-muted">“{active.decisionNote}”</span>}
-                    </li>
-                  )}
-                  {active.status === "Pending" && <li className="text-ink-muted">Waiting for the supervisor or a leave approver</li>}
-                </ol>
-              </section>
-            </div>
+            <RequestPane r={active} isRight={!!activeType?.isRight} balance={balanceOf(active)} onDecide={(decision) => setPending({ ids: [active.id], decision })} />
           ) : null
         }
         master={
@@ -360,3 +264,94 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
     </div>
   );
 }
+
+/** One request: its buttons, the dates and days counted, pay, balance, the §51 note, and the approval timeline. */
+function RequestPane({ r, isRight, balance, onDecide }: { r: LeaveRequestView; isRight: boolean; balance: { balance: number; waiting: number } | null; onDecide: (decision: Decision) => void }) {
+  const dateText = useDateText();
+  const steps = approvalSteps(r.timeline, { label: ACTION_LABEL, dateText, waiting: r.status === "Pending" ? "the supervisor or a leave approver" : null });
+  // Requests made before the approval timeline existed: requested and decided from the request itself.
+  if (r.timeline.length === 0) {
+    steps.unshift({ id: "requested", label: "Requested", who: r.preparedBy, when: dateText(r.appliedDate), tone: "done" });
+    if (r.decidedBy) steps.splice(1, 0, { id: "decided", label: r.status, who: r.decidedBy, when: r.decidedAt ? dateText(r.decidedAt) : undefined, note: r.decisionNote ? `“${r.decisionNote}”` : undefined, tone: r.status === "Rejected" ? "rejected" : r.status === "Cancelled" ? "neutral" : "done" });
+  }
+  const hasActions = r.status === "Pending" || r.can.cancel;
+  return (
+    <div className="text-xs">
+      {hasActions && (
+        <PaneActions hint={r.status === "Pending" && r.can.reason && !r.can.approve ? r.can.reason : undefined}>
+          {r.can.approve && (
+            <WindowButton variant="primary" onClick={() => onDecide("approve")}>
+              <Check className="h-3.5 w-3.5" /> Approve
+            </WindowButton>
+          )}
+          {r.can.finalApprove && (
+            <WindowButton variant="primary" onClick={() => onDecide("final_approve")}>
+              <ShieldCheck className="h-3.5 w-3.5" /> Final approve
+            </WindowButton>
+          )}
+          {r.can.reject && (
+            <WindowButton variant="danger" onClick={() => onDecide("reject")}>
+              <X className="h-3.5 w-3.5" /> Reject
+            </WindowButton>
+          )}
+          {r.can.withdraw && (
+            <WindowButton onClick={() => onDecide("withdraw")}>
+              <Undo2 className="h-3.5 w-3.5" /> Withdraw
+            </WindowButton>
+          )}
+          {r.can.cancel && (
+            <WindowButton variant="danger" onClick={() => onDecide("cancel")}>
+              <Ban className="h-3.5 w-3.5" /> Cancel leave
+            </WindowButton>
+          )}
+        </PaneActions>
+      )}
+      <PaneSection>
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-medium text-ink">
+            <span className="whitespace-nowrap">{dateText(r.from)}</span>
+            {r.to !== r.from && (
+              <>
+                {" "}
+                – <span className="whitespace-nowrap">{dateText(r.to)}</span>
+              </>
+            )}{" "}
+            · {daysText(r.days)}
+            {r.half && ` (${r.half === "first" ? "first" : "second"} half)`}
+          </p>
+          <StatusChip status={STATUS[r.status]} label={r.status === "Pending" ? "Waiting" : undefined} />
+        </div>
+        <p className="mt-1 text-ink">“{r.reason}”</p>
+      </PaneSection>
+      <PaneSection title="Days and pay">
+        {r.detail && (
+          <ul className="mb-2 flex flex-wrap gap-1" aria-label="Days counted">
+            {r.detail.map((d) => (
+              <li key={d.date} className={cn("rounded px-1.5 py-0.5 text-2xs", d.pay === "none" ? "bg-danger-subtle text-danger" : "bg-info-subtle text-info")}>
+                {weekday(d.date)} {dateText(d.date)}
+                {d.part < 1 ? " ½" : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+        <PaneFields
+          rows={[
+            { label: "Paid", value: r.unpaidDays > 0 ? `${fmt(r.paidDays)} paid` : "All days paid", note: r.unpaidDays > 0 ? <span className="text-danger">{fmt(r.unpaidDays)} unpaid</span> : undefined },
+            ...(balance ? [{ label: "Balance now", value: fmt(balance.balance), note: balance.waiting ? `${fmt(balance.waiting)} in waiting requests` : undefined }] : []),
+            ...(r.certificateNote ? [{ label: "Certificate", value: r.certificateNote }] : []),
+            ...(r.ssfClaim ? [{ label: "SSF claim", value: "The SSF pays the unpaid days", note: "Labour Act §47" }] : []),
+          ]}
+        />
+        <p className="mt-2 text-2xs text-ink-muted">
+          {isRight
+            ? `${r.leaveTypeName} is a right (Labour Act §51): refuse it only when a condition is not met, e.g. no medical certificate.`
+            : `${r.leaveTypeName} is not a right (Labour Act §51): it may be refused or moved for a work reason, which is recorded.`}
+        </p>
+      </PaneSection>
+      <PaneSection title="Approval">
+        <PaneTimeline steps={steps} />
+      </PaneSection>
+    </div>
+  );
+}
+

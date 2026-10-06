@@ -9,6 +9,7 @@ import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { Guide } from "@/components/kit/guide";
 import { Notice } from "@/components/kit/notice";
 import { SplitView } from "@/components/kit/split-view";
+import { PaneActions, PaneSection } from "@/components/kit/pane";
 import { WindowButton } from "@/components/kit/window";
 import { getHomeLeaveYearAction, getLeaveLedgerAction } from "@/app/actions/leave.actions";
 import { balanceOn, capOf, fmt } from "@/lib/engines/leave.engine";
@@ -25,7 +26,6 @@ type Line = LedgerLine & { createdByName: string | null };
  * leave taken and adjustment, never edited or deleted.
  */
 export function LeaveBalances({ data, inBranch, onAdjust, onSwitchHome }: { data: LeavePageData; inBranch: (branchId: string) => boolean; onAdjust: (employeeId: string) => void; onSwitchHome: () => void }) {
-  const dateText = useDateText();
   const [filters, setFilters] = useState<FilterValues>({});
   const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -166,64 +166,35 @@ export function LeaveBalances({ data, inBranch, onAdjust, onSwitchHome }: { data
         onCloseDetail={() => setActiveId(null)}
         detail={
           active ? (
-            <div className="space-y-3 text-xs">
+            <div className="text-xs">
               {data.permissions.edit && (
-                <div className="space-y-1">
+                <PaneActions hint={own ? "This is your own balance, so someone else has to adjust it." : undefined}>
                   <WindowButton onClick={() => onAdjust(active.employee.id)} disabled={own}>
                     <SlidersHorizontal className="h-3.5 w-3.5" /> Adjust balance
                   </WindowButton>
-                  {own && <p className="text-2xs text-ink-muted">This is your own balance, so someone else has to adjust it.</p>}
-                </div>
+                </PaneActions>
               )}
-              {homeYear?.employeeId === active.employee.id && homeYear.year && <HomeLeaveYearView year={homeYear.year} />}
-              {ledger?.error && <Notice tone="danger">{ledger.error}</Notice>}
+              {homeYear?.employeeId === active.employee.id && homeYear.year && (
+                <PaneSection title={`Home leave · ${homeYear.year.yearLabel}`} aside="1 day for every 20 paid days">
+                  <HomeLeaveYearView year={homeYear.year} bare />
+                </PaneSection>
+              )}
+              {ledger?.error && (
+                <PaneSection>
+                  <Notice tone="danger">{ledger.error}</Notice>
+                </PaneSection>
+              )}
               {!lines && !ledger?.error && (
-                <p className="flex items-center gap-1.5 text-ink-muted">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading the ledger…
-                </p>
+                <PaneSection>
+                  <p className="flex items-center gap-1.5 text-ink-muted">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading the ledger…
+                  </p>
+                </PaneSection>
               )}
               {lines &&
                 balanceTypes
                   .filter((t) => active.cells.some((c) => c.leaveTypeId === t.id))
-                  .map((t) => {
-                    const own = lines.filter((l) => l.leaveTypeId === t.id);
-                    return (
-                      <section key={t.id} aria-label={t.name} className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                        <h3 className="mb-1.5 flex justify-between text-2xs font-semibold uppercase tracking-wide text-ink-muted">
-                          <span>{t.name}</span>
-                          <span className="text-ink">{fmt(balanceOn(own, data.today).available)}</span>
-                        </h3>
-                        {own.length === 0 ? (
-                          <p className="text-2xs text-ink-muted">Nothing this leave year.</p>
-                        ) : (
-                          <table className="w-full table-fixed text-2xs">
-                            <colgroup>
-                              <col className="w-24" />
-                              <col />
-                              <col className="w-12" />
-                            </colgroup>
-                            <tbody>
-                              {own.map((l) => (
-                                <tr key={l.id} className="border-t border-line first:border-0 align-top">
-                                  <td className="py-1 pr-2 whitespace-nowrap text-ink-muted">{dateText(l.entryDate)}</td>
-                                  <td className="py-1 pr-2">
-                                    <span className="text-ink">{LEDGER_KIND_LABEL[l.kind]}</span>
-                                    {l.note && <span className="block text-ink-muted">{l.note}</span>}
-                                    {l.expiresOn && l.days > 0 && <span className={cn("block", l.expiresOn < data.today ? "text-ink-faint line-through" : "text-warning")}>Expires {dateText(l.expiresOn)}</span>}
-                                    {l.createdByName && <span className="block text-ink-faint">by {l.createdByName}</span>}
-                                  </td>
-                                  <td className={cn("py-1 text-right tabular-nums font-medium", l.days < 0 ? "text-danger" : "text-success")}>
-                                    {l.days > 0 ? "+" : ""}
-                                    {fmt(l.days)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </section>
-                    );
-                  })}
+                  .map((t) => <TypeLedger key={t.id} name={t.name} lines={lines.filter((l) => l.leaveTypeId === t.id)} today={data.today} />)}
             </div>
           ) : null
         }
@@ -246,3 +217,51 @@ export function LeaveBalances({ data, inBranch, onAdjust, onSwitchHome }: { data
     </div>
   );
 }
+
+/** One leave type's ledger lines this leave year: the latest few, with the earlier ones a click away; the balance in the heading. */
+function TypeLedger({ name, lines, today }: { name: string; lines: Line[]; today: string }) {
+  const dateText = useDateText();
+  const [all, setAll] = useState(false);
+  const LIMIT = 6;
+  const shown = all ? lines : lines.slice(-LIMIT);
+  return (
+    <PaneSection title={name} aside={<span className="font-semibold tabular-nums">{fmt(balanceOn(lines, today).available)}</span>}>
+      {lines.length === 0 ? (
+        <p className="text-2xs text-ink-muted">Nothing this leave year.</p>
+      ) : (
+        <>
+          {lines.length > LIMIT && (
+            <button type="button" onClick={() => setAll((a) => !a)} className="mb-1.5 cursor-pointer text-2xs font-medium text-brand hover:underline">
+              {all ? "Show the latest only" : `Show earlier lines (${lines.length - LIMIT})`}
+            </button>
+          )}
+          <table className="w-full table-fixed text-2xs">
+            <colgroup>
+              <col className="w-24" />
+              <col />
+              <col className="w-12" />
+            </colgroup>
+            <tbody>
+              {shown.map((l) => (
+                <tr key={l.id} className="border-t border-line align-top first:border-0">
+                  <td className="whitespace-nowrap py-1 pr-2 text-ink-muted">{dateText(l.entryDate)}</td>
+                  <td className="py-1 pr-2">
+                    <span className="text-ink">{LEDGER_KIND_LABEL[l.kind]}</span>
+                    {l.note && <span className="block text-ink-muted">{l.note}</span>}
+                    {l.expiresOn && l.days > 0 && <span className={cn("block", l.expiresOn < today ? "text-ink-faint line-through" : "text-warning")}>Expires {dateText(l.expiresOn)}</span>}
+                    {l.createdByName && <span className="block text-ink-faint">by {l.createdByName}</span>}
+                  </td>
+                  <td className={cn("py-1 text-right font-medium tabular-nums", l.days < 0 ? "text-danger" : "text-success")}>
+                    {l.days > 0 ? "+" : ""}
+                    {fmt(l.days)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </PaneSection>
+  );
+}
+

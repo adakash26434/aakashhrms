@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, Check, CircleDot, Loader2, Plus, Save, ShieldCheck, SkipForward, Trash2, Undo2, UserCheck, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Loader2, Plus, Save, ShieldCheck, Trash2, UserCheck } from "lucide-react";
 import { Combobox } from "@/components/kit/combobox";
 import { useDateText } from "@/components/kit/date-cell";
+import { PaneTimeline, approvalSteps, type TimelineStep } from "@/components/kit/pane";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { saveSalaryApprovalSettingsAction } from "@/app/actions/salary-structure.actions";
 import { buildFlow, statusText, type ApprovalActor, type SubmitOutcome } from "@/lib/engines/approval.engine";
 import { changedLines, earliestOpenDate, finalisedConflicts } from "@/lib/engines/salary-structure.engine";
-import type { ApprovalActionKind, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry, ApprovalType } from "@/lib/types/approval";
+import type { ApprovalActionKind, ApprovalPolicy, ApprovalRoute, ApprovalType } from "@/lib/types/approval";
 import type { BatchRow, RetirementScheme, SalaryStructureData, StructureLines } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
 
@@ -140,56 +141,13 @@ export function ApprovalTimeline({ batch, data }: { batch: BatchRow; data: Salar
   const dateText = useDateText();
   const name = nameOf(data);
   const done = new Set(batch.timeline.filter((t) => t.action === "approved").map((t) => t.level));
-  const upcoming =
-    batch.status === "pending" && batch.flow.type === "multi_level" ? batch.flow.levels.filter((l) => !l.skipped && !done.has(l.level)) : [];
-  const icon = (a: ApprovalTimelineEntry["action"]) =>
-    a === "rejected" ? <X className="h-3 w-3" /> : a === "withdrawn" ? <Undo2 className="h-3 w-3" /> : a === "skipped" ? <SkipForward className="h-3 w-3" /> : <Check className="h-3 w-3" />;
-  return (
-    <ol aria-label="Approval timeline" className="space-y-2 text-xs">
-      {batch.timeline.map((t) => (
-        <li key={t.id} className="flex gap-2">
-          <span
-            className={cn(
-              "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-              t.action === "rejected" ? "bg-danger-subtle text-danger" : t.action === "skipped" || t.action === "withdrawn" ? "bg-surface-sunken text-ink-muted" : "bg-success-subtle text-success"
-            )}
-          >
-            {icon(t.action)}
-          </span>
-          <div className="min-w-0">
-            <p className="text-ink">
-              <span className="font-medium">{ACTION_LABEL[t.action]}</span>
-              {t.level > 0 && <span className="text-ink-muted"> · Level {t.level}</span>}
-              {t.action !== "skipped" && <span className="text-ink-muted"> · {t.actorName}</span>}
-              {t.onBehalfOfName && <span className="text-ink-muted"> on behalf of {t.onBehalfOfName}</span>}
-            </p>
-            <p className="text-3xs text-ink-faint">{dateText(t.at)}</p>
-            {t.note && <p className="text-2xs text-ink-muted">{t.action === "skipped" ? t.note : `“${t.note}”`}</p>}
-          </div>
-        </li>
-      ))}
-      {upcoming.map((l, i) => (
-        <li key={`up-${l.level}`} className="flex gap-2">
-          <span className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full", i === 0 ? "bg-warning-subtle text-warning" : "bg-surface-sunken text-ink-faint")}>
-            <CircleDot className="h-3 w-3" />
-          </span>
-          <p className={i === 0 ? "text-ink" : "text-ink-muted"}>
-            <span className="font-medium">{i === 0 ? "Waiting" : "Then"}</span> · Level {l.level} · {name(l.userId)}
-          </p>
-        </li>
-      ))}
-      {batch.status === "pending" && batch.flow.type === "simple" && (
-        <li className="flex gap-2">
-          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning-subtle text-warning">
-            <CircleDot className="h-3 w-3" />
-          </span>
-          <p className="text-ink">
-            <span className="font-medium">Waiting</span> · any approver other than {batch.preparedBy}
-          </p>
-        </li>
-      )}
-    </ol>
-  );
+  const upcoming = batch.status === "pending" && batch.flow.type === "multi_level" ? batch.flow.levels.filter((l) => !l.skipped && !done.has(l.level)) : [];
+  const steps: TimelineStep[] = [
+    ...approvalSteps(batch.timeline, { label: ACTION_LABEL, dateText }),
+    ...upcoming.map((l, i) => ({ id: `up-${l.level}`, label: i === 0 ? "Waiting" : "Then", detail: `Level ${l.level}`, who: name(l.userId), tone: (i === 0 ? "waiting" : "next") as TimelineStep["tone"] })),
+    ...(batch.status === "pending" && batch.flow.type === "simple" ? [{ id: "waiting", label: "Waiting", who: `any approver other than ${batch.preparedBy}`, tone: "waiting" as const }] : []),
+  ];
+  return <PaneTimeline steps={steps} />;
 }
 
 /** The current user's standing for the approval rules, shown on the Approvals tab. */

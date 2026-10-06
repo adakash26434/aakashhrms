@@ -6,17 +6,19 @@ import { Confirm } from "@/components/kit/confirm";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
 import { SplitView } from "@/components/kit/split-view";
+import { PaneActions, PaneFields, PaneSection, PaneTimeline, approvalSteps } from "@/components/kit/pane";
 import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
 import { decideAttendanceAdjustmentsAction } from "@/app/actions/attendance.actions";
 import { localClock } from "@/lib/engines/attendance-day.engine";
 import { ADJUSTMENT_KIND_LABEL, type AdjustmentView, type AttendancePageData } from "@/lib/types/attendance";
+import type { ApprovalActionKind } from "@/lib/types/approval";
 import { cn } from "@/lib/utils";
 import { ReasonWindow } from "./attendance-windows";
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw";
 const STATUS: Record<AdjustmentView["status"], string> = { pending: "pending", approved: "approved", rejected: "rejected", withdrawn: "cancelled" };
-const ACTION_LABEL: Record<string, string> = { submitted: "Raised", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn" };
+const ACTION_LABEL: Partial<Record<ApprovalActionKind, string>> = { submitted: "Raised", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn" };
 
 /**
  * Adjustments (regularization): missed / wrong check-ins, field work, mark
@@ -109,62 +111,7 @@ export function AttendanceAdjustments({ data, onNew, onDone }: { data: Attendanc
         onCloseDetail={() => setActiveId(null)}
         detail={
           active ? (
-            <div className="space-y-3 text-xs">
-              <div className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                <p className="font-medium text-ink">{ADJUSTMENT_KIND_LABEL[active.kind]}</p>
-                <p className="mt-0.5 text-ink-muted">
-                  {[localClock(active.requestedIn) && `In ${localClock(active.requestedIn)}`, localClock(active.requestedOut) && `Out ${localClock(active.requestedOut)}`].filter(Boolean).join(" · ") || "No times"}
-                </p>
-                <p className="mt-1 text-ink">“{active.reason}”</p>
-                {active.place && (
-                  <p className="mt-1.5 text-2xs text-ink-muted">
-                    Made {active.place.distanceM !== null ? `${active.place.distanceM >= 1000 ? `${(active.place.distanceM / 1000).toFixed(1)} km` : `${active.place.distanceM} m`} from the office` : "without a location"}
-                    {active.place.accuracyM !== null ? ` (±${active.place.accuracyM} m)` : ""}
-                    {active.place.ip ? ` · IP ${active.place.ip}` : ""}
-                    {active.place.latitude !== null ? ` · ${active.place.latitude}, ${active.place.longitude}` : ""}
-                  </p>
-                )}
-              </div>
-              {active.status === "pending" && (
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap gap-2">
-                    {active.can.approve && (
-                      <WindowButton variant="primary" onClick={() => setPending({ ids: [active.id], decision: "approve" })}>
-                        <Check className="h-3.5 w-3.5" /> Approve
-                      </WindowButton>
-                    )}
-                    {active.can.finalApprove && (
-                      <WindowButton variant="primary" onClick={() => setPending({ ids: [active.id], decision: "final_approve" })}>
-                        <ShieldCheck className="h-3.5 w-3.5" /> Final approve
-                      </WindowButton>
-                    )}
-                    {active.can.reject && (
-                      <WindowButton variant="danger" onClick={() => setPending({ ids: [active.id], decision: "reject" })}>
-                        <X className="h-3.5 w-3.5" /> Reject
-                      </WindowButton>
-                    )}
-                    {active.can.withdraw && (
-                      <WindowButton onClick={() => setPending({ ids: [active.id], decision: "withdraw" })}>
-                        <Undo2 className="h-3.5 w-3.5" /> Withdraw
-                      </WindowButton>
-                    )}
-                  </div>
-                  {active.can.reason && !active.can.approve && <p className="text-2xs text-ink-muted">{active.can.reason}</p>}
-                </div>
-              )}
-              <section aria-label="Approval timeline" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Approval</h3>
-                <ol className="space-y-1.5">
-                  {active.timeline.map((t) => (
-                    <li key={t.id}>
-                      <span className="font-medium text-ink">{ACTION_LABEL[t.action] ?? t.action}</span> <span className="text-ink-muted">· {t.actorName} · {dateText(t.at)}</span>
-                      {t.note && <span className="block text-2xs text-ink-muted">“{t.note}”</span>}
-                    </li>
-                  ))}
-                  {active.status === "pending" && <li className="text-ink-muted">Waiting for the supervisor or an attendance approver</li>}
-                </ol>
-              </section>
-            </div>
+            <AdjustmentPane a={active} onDecide={(decision) => setPending({ ids: [active.id], decision })} />
           ) : null
         }
         master={
@@ -219,3 +166,66 @@ export function AttendanceAdjustments({ data, onNew, onDone }: { data: Attendanc
     </div>
   );
 }
+
+/** One adjustment: its buttons, what was asked and why, where it was made, and the approval timeline. */
+function AdjustmentPane({ a, onDecide }: { a: AdjustmentView; onDecide: (decision: Decision) => void }) {
+  const dateText = useDateText();
+  const times = [localClock(a.requestedIn) && `In ${localClock(a.requestedIn)}`, localClock(a.requestedOut) && `Out ${localClock(a.requestedOut)}`].filter(Boolean).join(" · ") || "No times";
+  const place = a.place;
+  return (
+    <div className="text-xs">
+      {a.status === "pending" && (
+        <PaneActions hint={a.can.reason && !a.can.approve ? a.can.reason : undefined}>
+          {a.can.approve && (
+            <WindowButton variant="primary" onClick={() => onDecide("approve")}>
+              <Check className="h-3.5 w-3.5" /> Approve
+            </WindowButton>
+          )}
+          {a.can.finalApprove && (
+            <WindowButton variant="primary" onClick={() => onDecide("final_approve")}>
+              <ShieldCheck className="h-3.5 w-3.5" /> Final approve
+            </WindowButton>
+          )}
+          {a.can.reject && (
+            <WindowButton variant="danger" onClick={() => onDecide("reject")}>
+              <X className="h-3.5 w-3.5" /> Reject
+            </WindowButton>
+          )}
+          {a.can.withdraw && (
+            <WindowButton onClick={() => onDecide("withdraw")}>
+              <Undo2 className="h-3.5 w-3.5" /> Withdraw
+            </WindowButton>
+          )}
+        </PaneActions>
+      )}
+      <PaneSection>
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-medium text-ink">{ADJUSTMENT_KIND_LABEL[a.kind]}</p>
+          <StatusChip status={STATUS[a.status]} />
+        </div>
+        <p className="mt-1 text-ink">“{a.reason}”</p>
+      </PaneSection>
+      <PaneSection title="Details">
+        <PaneFields
+          rows={[
+            { label: "Day", value: dateText(a.date) },
+            { label: "Times asked for", value: times },
+            ...(place
+              ? [
+                  {
+                    label: "Made from",
+                    value: place.distanceM !== null ? `${place.distanceM >= 1000 ? `${(place.distanceM / 1000).toFixed(1)} km` : `${place.distanceM} m`} from the office` : "Without a location",
+                    note: [place.accuracyM !== null ? `±${place.accuracyM} m` : "", place.latitude !== null ? `${place.latitude}, ${place.longitude}` : "", place.ip ? `IP ${place.ip}` : ""].filter(Boolean).join(" · ") || undefined,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </PaneSection>
+      <PaneSection title="Approval">
+        <PaneTimeline steps={approvalSteps(a.timeline, { label: ACTION_LABEL, dateText, waiting: a.status === "pending" ? "the supervisor or an attendance approver" : null })} />
+      </PaneSection>
+    </div>
+  );
+}
+

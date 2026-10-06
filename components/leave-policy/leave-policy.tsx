@@ -13,7 +13,8 @@ import { Notice } from "@/components/kit/notice";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { PaneFields, PaneSection, SplitView, useShowAll } from "@/components/kit/split-view";
+import { SplitView } from "@/components/kit/split-view";
+import { PaneActions, PaneFields, PaneSection, PaneTimeline, approvalSteps, useShowAll } from "@/components/kit/pane";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
@@ -21,11 +22,12 @@ import { ReasonWindow } from "@/components/attendance/attendance-windows";
 import { cancelLeaveExceptionRequestAction, decideLeavePolicyAction, previewLeavePolicyAction, proposeLeavePolicyAction, requestLeaveExceptionAction } from "@/app/actions/leave-policy.actions";
 import { STATUTORY_FLOOR, fmt } from "@/lib/engines/leave.engine";
 import { SETTING_LABEL, changeLines, daysBetween, exceptionErrors, exceptionState, floorText, valueText } from "@/lib/engines/leave-policy.engine";
+import type { ApprovalActionKind } from "@/lib/types/approval";
 import type { ExceptionRequestRow, LeavePolicyPageData, PolicyApplies, PolicyChangeView, PolicyException, PolicyPreview, PolicySetting, PolicyTypeRow, PolicyValues } from "@/lib/types/leave-policy";
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw";
 
-const ACTION_LABEL: Record<string, string> = { submitted: "Proposed", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn", not_required: "Changed by the system" };
+const ACTION_LABEL: Partial<Record<ApprovalActionKind, string>> = { submitted: "Proposed", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn", not_required: "Changed by the system" };
 const REQUEST_STATUS: Record<ExceptionRequestRow["status"], { status: string; label: string }> = {
   PENDING: { status: "pending", label: "Waiting for the platform" },
   APPROVED: { status: "approved", label: "Granted" },
@@ -333,7 +335,7 @@ function PolicyPane({
   return (
     <div className="text-xs">
       {(data.permissions.propose || canAsk) && (
-        <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
+        <PaneActions>
           {data.permissions.propose && (
             <WindowButton variant="primary" onClick={onPropose} disabled={!!p} title={p ? "A change is already waiting for approval" : undefined}>
               <Pencil className="h-3.5 w-3.5" /> Propose a change…
@@ -344,7 +346,7 @@ function PolicyPane({
               <FileText className="h-3.5 w-3.5" /> Ask for an exception…
             </WindowButton>
           )}
-        </div>
+        </PaneActions>
       )}
 
       {p && (
@@ -539,17 +541,9 @@ function HistoryList({ history }: { history: PolicyChangeView[] }) {
 function Timeline({ change }: { change: PolicyChangeView }) {
   const dateText = useDateText();
   return (
-    <ol className="mt-2 space-y-1 border-t border-line pt-2 text-2xs">
-      {change.timeline.map((t) => (
-        <li key={t.id}>
-          <span className="font-medium text-ink">{ACTION_LABEL[t.action] ?? t.action}</span>{" "}
-          <span className="text-ink-muted">
-            · {t.actorName} · {dateText(t.at.slice(0, 10))}
-          </span>
-        </li>
-      ))}
-      {change.status === "pending" && <li className="text-ink-muted">Waiting for a second person with Leave types → Approve</li>}
-    </ol>
+    <div className="mt-3 border-t border-line pt-3">
+      <PaneTimeline steps={approvalSteps(change.timeline, { label: ACTION_LABEL, dateText, waiting: change.status === "pending" ? "a second person with Leave types → Approve" : null })} />
+    </div>
   );
 }
 

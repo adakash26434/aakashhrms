@@ -284,3 +284,13 @@ describe('Salary structure security (S20)', () => {
     assert.equal(resolveStructureTab('x'), 'structures');
   });
 });
+
+describe('approval timeline back-fill (runs on every restart)', () => {
+  it('fills only changes that have no steps of their own, so nothing shows twice', () => {
+    const sync = readFileSync(join(__dirname, '..', 'lib', 'db', 'tenant-schema-sync.ts'), 'utf8');
+    const fills = sync.match(/INSERT INTO "approval_actions"[\s\S]*?ON CONFLICT \("id"\) DO NOTHING/g) ?? [];
+    assert.equal(fills.length, 2);
+    for (const q of fills) assert.match(q, /NOT EXISTS \(SELECT 1 FROM "approval_actions" a WHERE a\."module" = 'SALARY_MAPPING' AND a\."request_id" = b\."id" AND a\."id" NOT IN/);
+  });
+});
+

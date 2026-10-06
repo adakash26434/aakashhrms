@@ -10,7 +10,8 @@ import { Notice } from "@/components/kit/notice";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { PaneFields, PaneSection, SplitView, useShowAll } from "@/components/kit/split-view";
+import { SplitView } from "@/components/kit/split-view";
+import { PaneActions, PaneFields, PaneSection, useShowAll } from "@/components/kit/pane";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
@@ -268,11 +269,11 @@ function TypePane({ type, history, departments, designations, canEdit, onEdit }:
   return (
     <div className="text-xs">
       {canEdit && (
-        <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
+        <PaneActions>
           <WindowButton variant="primary" onClick={onEdit}>
             <Pencil className="h-3.5 w-3.5" /> Edit…
           </WindowButton>
-        </div>
+        </PaneActions>
       )}
       <PaneSection title="What it is">
         <p className="mb-2 text-ink">{describeLeaveType(f)}</p>

@@ -13,6 +13,22 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-06 — One detail pane layout on every register
+Branch: `redesign/4.6-leaves`
+
+Your decision: move all registers to the new pane layout in one pass.
+
+Changed:
+- **Pane kit** (`components/kit/pane.tsx`, moved out of `split-view.tsx`): `PaneActions`, `PaneSection`, `PaneFields` (`columns` for words, `figures` for amounts), `PaneFigures`, `useShowAll`, and one approval timeline (`PaneTimeline` + `approvalSteps`; it replaces three copies). The default pane width is now a third of the area (380–560px), so registers like Leave balances fit without scrolling sideways.
+- **Every register** now reads the same way: buttons on top (with the reason when one is missing), a summary, sections divided by lines (no boxes inside the pane), long lists cut with "Show all", the approval timeline or history last: Employees, Organization (all five kinds), Salary structure, Salary approvals, Attendance adjustments, Leave requests, Leave balances (ledger per type: the latest lines first, earlier ones on request), Leave types.
+- **Fixed (4.4)**: the restart-time schema sync back-filled a "Submitted" and a decision step for every salary change, also for changes that already had their own, so after a restart a change could show its steps twice (seen on the Approvals tab: Submitted ×2, Final approved ×2). It now fills only changes without steps of their own. The copies already made are still in the database (see below). Timelines also always put "Submitted" first.
+
+Verified: tsc 0 · eslint clean on the touched files · 728/728 tests (a test that the back-fill never fills a change that has its own steps) · `next build` OK · browser at 1920px, every pane opened: Leave requests, Leave balances (Kushal), Employees (Kushal), Organization → Departments (Finance & Accounts), Salary structure (Kushal), Salary approvals (the bulk edit of 2026-10-04), Attendance adjustments (clock-out outside the office), Leave types; Organization at 390px (full-screen pane, labels above values). Nothing saved.
+
+Open: the duplicate steps already written for salary changes saved before this fix stay until removed; a one-off migration can delete the back-filled copy wherever the change has its own step (asked before adding it).
+
+---
+
 ## 2026-10-06 — 4.6e follow-up: an easier detail pane
 Branch: `redesign/4.6-leaves`
 

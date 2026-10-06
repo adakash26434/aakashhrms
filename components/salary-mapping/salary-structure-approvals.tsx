@@ -10,6 +10,7 @@ import { useDateText } from "@/components/kit/date-cell";
 import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { inputClass } from "@/components/kit/property-form";
 import { SplitView } from "@/components/kit/split-view";
+import { PaneActions, PaneFigures, PaneSection, useShowAll } from "@/components/kit/pane";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton } from "@/components/kit/window";
 import { decideSalaryChangesAction } from "@/app/actions/salary-structure.actions";
@@ -214,83 +215,52 @@ export function SalaryStructureApprovals({ data, onSettings }: { data: SalaryStr
         onCloseDetail={() => setActiveId(null)}
         detail={
           active && can ? (
-            <div className="space-y-3 text-xs">
-              <div className="rounded-lg border border-line bg-surface px-3 py-2.5">
+            <div className="text-xs">
+              {active.status === "pending" && (
+                <PaneActions hint={can.reason || undefined} hintTone={can.stuck ? "warning" : "muted"}>
+                  {can.approve && (
+                    <WindowButton variant="primary" onClick={() => setPending({ ids: [active.id], decision: "approve" })}>
+                      <Check className="h-3.5 w-3.5" />
+                      {can.approve.onBehalfOf ? `Approve for ${data.approvers.find((x) => x.userId === can.approve!.onBehalfOf)?.name ?? "approver"}` : can.approve.level ? `Approve Level ${can.approve.level}` : "Approve"}
+                    </WindowButton>
+                  )}
+                  {can.finalApprove && (active.flow.type === "multi_level" || !can.approve) && (
+                    <WindowButton variant={can.approve ? "default" : "primary"} onClick={() => setPending({ ids: [active.id], decision: "final_approve" })} title="Approve it now, skipping any remaining levels (recorded)">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Final approve
+                    </WindowButton>
+                  )}
+                  {can.reject && (
+                    <WindowButton variant="danger" onClick={() => setPending({ ids: [active.id], decision: "reject" })}>
+                      <X className="h-3.5 w-3.5" /> Reject
+                    </WindowButton>
+                  )}
+                  {can.withdraw && (
+                    <WindowButton onClick={() => setPending({ ids: [active.id], decision: "withdraw" })}>
+                      <Undo2 className="h-3.5 w-3.5" /> Withdraw
+                    </WindowButton>
+                  )}
+                </PaneActions>
+              )}
+
+              <PaneSection>
                 <p className="font-medium text-ink">{active.reason}</p>
                 <p className="mt-1 text-ink-muted">
                   {batchStatusText(active, data)}
                   {active.approvalRoute && ` · ${APPROVAL_ROUTE_LABEL[active.approvalRoute]}`}
                 </p>
-              </div>
+              </PaneSection>
 
-              {active.status === "pending" && (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    {can.approve && (
-                      <WindowButton variant="primary" onClick={() => setPending({ ids: [active.id], decision: "approve" })}>
-                        <Check className="h-3.5 w-3.5" />
-                        {can.approve.onBehalfOf ? `Approve for ${data.approvers.find((a) => a.userId === can.approve!.onBehalfOf)?.name ?? "approver"}` : can.approve.level ? `Approve Level ${can.approve.level}` : "Approve"}
-                      </WindowButton>
-                    )}
-                    {can.finalApprove && (active.flow.type === "multi_level" || !can.approve) && (
-                      <WindowButton variant={can.approve ? "default" : "primary"} onClick={() => setPending({ ids: [active.id], decision: "final_approve" })} title="Approve it now, skipping any remaining levels (recorded)">
-                        <ShieldCheck className="h-3.5 w-3.5" /> Final approve
-                      </WindowButton>
-                    )}
-                    {can.reject && (
-                      <WindowButton variant="danger" onClick={() => setPending({ ids: [active.id], decision: "reject" })}>
-                        <X className="h-3.5 w-3.5" /> Reject
-                      </WindowButton>
-                    )}
-                    {can.withdraw && (
-                      <WindowButton onClick={() => setPending({ ids: [active.id], decision: "withdraw" })}>
-                        <Undo2 className="h-3.5 w-3.5" /> Withdraw
-                      </WindowButton>
-                    )}
-                  </div>
-                  {can.reason && <p className={cn("text-2xs", can.stuck ? "text-warning" : "text-ink-muted")}>{can.reason}</p>}
-                </div>
-              )}
+              <PaneSection title="Effect a month">
+                <BatchEffect batch={active} />
+              </PaneSection>
 
-              <section aria-label="Approval timeline" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Approval</h3>
+              <PaneSection title="Employees" count={active.lines.length}>
+                <BatchLines batch={active} data={data} />
+              </PaneSection>
+
+              <PaneSection title="Approval">
                 <ApprovalTimeline batch={active} data={data} />
-              </section>
-
-              <BatchEffect batch={active} />
-
-              <table className="w-full tabular-nums">
-                <thead>
-                  <tr className="border-b border-line text-left text-3xs uppercase tracking-wide text-ink-muted">
-                    <th className="py-1">Employee</th>
-                    <th className="py-1 text-right">Gross</th>
-                    <th className="py-1 text-right">New</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {active.lines.map((l) => {
-                    const diff = l.after.totals.gross - (l.before?.totals.gross ?? 0);
-                    return (
-                      <tr key={l.employeeId} className="border-b border-line align-top">
-                        <td className="py-1">
-                          {l.fullName} <span className="font-code text-3xs text-ink-faint">{l.employeeCode}</span>
-                          {l.employeeId === data.me.employeeId && <span className="ml-1 text-3xs font-semibold text-warning">you</span>}
-                          {(l.before ? describeChanges(l.before.lines, l.after.lines, data.heads) : ["New structure"]).map((p) => (
-                            <span key={p} className="block text-3xs text-ink-muted">
-                              {p}
-                            </span>
-                          ))}
-                        </td>
-                        <td className="py-1 text-right text-ink-muted">{l.before ? <Amount value={l.before.totals.gross} /> : "—"}</td>
-                        <td className="py-1 text-right font-medium">
-                          <Amount value={l.after.totals.gross} />
-                          {diff !== 0 && <span className={cn("ml-1 text-3xs", diff > 0 ? "text-success" : "text-danger")}>{diff > 0 ? "+" : ""}{money(diff)}</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              </PaneSection>
             </div>
           ) : null
         }
@@ -373,16 +343,59 @@ function BatchEffect({ batch }: { batch: BatchRow }) {
     { label: "Employer cost", value: sum((t) => t.employerCost) },
   ];
   return (
-    <dl className="grid grid-cols-3 gap-2 rounded-lg border border-line bg-surface px-3 py-2">
-      {items.map((i) => (
-        <div key={i.label}>
-          <dt className="text-3xs uppercase tracking-wide text-ink-muted">{i.label} / month</dt>
-          <dd className={cn("font-semibold tabular-nums", i.value > 0 ? "text-success" : i.value < 0 ? "text-danger" : "text-ink")}>
-            {i.value > 0 ? "+" : ""}
-            {money(i.value)}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <PaneFigures
+      items={items.map((i) => ({
+        label: i.label,
+        value: `${i.value > 0 ? "+" : ""}${money(i.value)}`,
+        tone: i.value > 0 ? ("success" as const) : i.value < 0 ? ("danger" as const) : ("default" as const),
+      }))}
+    />
+  );
+}
+
+/** Each employee in the change: gross before and after, and what changed (the first ten, then "Show all"). */
+function BatchLines({ batch, data }: { batch: BatchRow; data: SalaryStructureData }) {
+  const { shown, toggle } = useShowAll(batch.lines, 10);
+  return (
+    <>
+      <table className="w-full tabular-nums">
+        <thead>
+          <tr className="border-b border-line text-left text-3xs uppercase tracking-wide text-ink-muted">
+            <th className="py-1">Employee</th>
+            <th className="py-1 text-right">Gross</th>
+            <th className="py-1 text-right">New</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((l) => {
+            const diff = l.after.totals.gross - (l.before?.totals.gross ?? 0);
+            return (
+              <tr key={l.employeeId} className="border-b border-line align-top last:border-0">
+                <td className="py-1">
+                  {l.fullName} <span className="font-code text-3xs text-ink-faint">{l.employeeCode}</span>
+                  {l.employeeId === data.me.employeeId && <span className="ml-1 text-3xs font-semibold text-warning">you</span>}
+                  {(l.before ? describeChanges(l.before.lines, l.after.lines, data.heads) : ["New structure"]).map((p) => (
+                    <span key={p} className="block text-3xs text-ink-muted">
+                      {p}
+                    </span>
+                  ))}
+                </td>
+                <td className="py-1 text-right text-ink-muted">{l.before ? <Amount value={l.before.totals.gross} /> : "—"}</td>
+                <td className="py-1 text-right font-medium">
+                  <Amount value={l.after.totals.gross} />
+                  {diff !== 0 && (
+                    <span className={cn("ml-1 text-3xs", diff > 0 ? "text-success" : "text-danger")}>
+                      {diff > 0 ? "+" : ""}
+                      {money(diff)}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {toggle}
+    </>
   );
 }

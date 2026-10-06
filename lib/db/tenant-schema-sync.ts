@@ -259,14 +259,18 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
 WHERE "status" = 'approved' AND "approval_route" IS NULL`,
     `UPDATE "salary_change_batches" SET "approval_type" = CASE WHEN "kind" IN ('hire', 'policy') OR "approval_route" = 'not_required' THEN 'none' ELSE 'simple' END
 WHERE "approval_type" IS NULL`,
+    // Only changes made before the timeline existed (no steps of their own): changes saved by the
+    // app already have theirs, and a second "Submitted" / decision would show twice on every restart.
     `INSERT INTO "approval_actions" ("id", "module", "request_id", "level", "actor_id", "action", "created_at")
-SELECT md5("id"::text || ':submitted')::uuid, 'SALARY_MAPPING', "id", 0, "prepared_by", 'submitted', "created_at" FROM "salary_change_batches"
+SELECT md5(b."id"::text || ':submitted')::uuid, 'SALARY_MAPPING', b."id", 0, b."prepared_by", 'submitted', b."created_at" FROM "salary_change_batches" b
+WHERE NOT EXISTS (SELECT 1 FROM "approval_actions" a WHERE a."module" = 'SALARY_MAPPING' AND a."request_id" = b."id" AND a."id" NOT IN (md5(b."id"::text || ':submitted')::uuid, md5(b."id"::text || ':decided')::uuid))
 ON CONFLICT ("id") DO NOTHING`,
     `INSERT INTO "approval_actions" ("id", "module", "request_id", "level", "actor_id", "action", "note", "created_at")
-SELECT md5("id"::text || ':decided')::uuid, 'SALARY_MAPPING', "id", 0, "decided_by",
-  CASE "status" WHEN 'approved' THEN (CASE "approval_route" WHEN 'final_approve' THEN 'final_approved' WHEN 'simple' THEN 'approved' WHEN 'levels' THEN 'approved' ELSE 'not_required' END) ELSE "status" END,
-  "decision_note", COALESCE("decided_at", "created_at")
-FROM "salary_change_batches" WHERE "status" <> 'pending'
+SELECT md5(b."id"::text || ':decided')::uuid, 'SALARY_MAPPING', b."id", 0, b."decided_by",
+  CASE b."status" WHEN 'approved' THEN (CASE b."approval_route" WHEN 'final_approve' THEN 'final_approved' WHEN 'simple' THEN 'approved' WHEN 'levels' THEN 'approved' ELSE 'not_required' END) ELSE b."status" END,
+  b."decision_note", COALESCE(b."decided_at", b."created_at")
+FROM "salary_change_batches" b WHERE b."status" <> 'pending'
+AND NOT EXISTS (SELECT 1 FROM "approval_actions" a WHERE a."module" = 'SALARY_MAPPING' AND a."request_id" = b."id" AND a."id" NOT IN (md5(b."id"::text || ':submitted')::uuid, md5(b."id"::text || ':decided')::uuid))
 ON CONFLICT ("id") DO NOTHING`,
   ]) {
     try {

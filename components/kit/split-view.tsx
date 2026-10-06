@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ArrowLeft, ChevronRight, Maximize2, Minimize2, X } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2, X } from "lucide-react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,7 @@ export function SplitView({
   detail: ReactNode | null;
   detailTitle?: string;
   onCloseDetail: () => void;
-  /** Width before the user drags the divider (default: about a third of the area, 400–600px). */
+  /** Width before the user drags the divider (default: a third of the area, 380–560px). */
   defaultWidth?: number;
 }) {
   const key = `aakash.split.${id}`;
@@ -69,7 +69,7 @@ export function SplitView({
     return () => ro.disconnect();
   }, []);
 
-  const fallback = defaultWidth ?? (areaWidth ? Math.max(400, Math.min(600, areaWidth * 0.36)) : 420);
+  const fallback = defaultWidth ?? (areaWidth ? Math.max(380, Math.min(560, areaWidth * 0.33)) : 420);
   const wanted = dragWidth ?? (stored ? clamp(stored) : fallback);
   // Never squeeze the register below MASTER_MIN (it would cut its columns); never below MIN either.
   const width = Math.round(areaWidth ? Math.max(MIN, Math.min(wanted, areaWidth - MASTER_MIN)) : wanted);
@@ -185,89 +185,4 @@ export function SplitView({
       )}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Pane content: the same building blocks in every detail pane
-// ---------------------------------------------------------------------------
-
-/**
- * A titled block in a detail pane. `count` and a "Show all" toggle keep long
- * lists short (the first `limit` items show); `collapsed` starts it folded
- * (for things that no longer apply, e.g. past exceptions).
- */
-export function PaneSection({
-  title,
-  aside,
-  count,
-  collapsed,
-  tone = "default",
-  children,
-}: {
-  title: string;
-  aside?: ReactNode;
-  count?: number;
-  /** Starts folded; the title opens it. */
-  collapsed?: boolean;
-  tone?: "default" | "warning";
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(!collapsed);
-  const heading = (
-    <>
-      <span>
-        {title}
-        {count !== undefined && <span className="ml-1 font-normal text-ink-faint">({count})</span>}
-      </span>
-      {aside && <span className="font-normal normal-case tracking-normal">{aside}</span>}
-    </>
-  );
-  return (
-    <section aria-label={title} className={cn("border-b border-line px-4 py-3 last:border-0", tone === "warning" && "bg-warning-subtle/40")}>
-      {collapsed ? (
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full cursor-pointer items-center gap-1 text-left text-2xs font-semibold uppercase tracking-wide text-ink-muted hover:text-ink">
-          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
-          {heading}
-        </button>
-      ) : (
-        <h3 className="flex items-baseline justify-between gap-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">{heading}</h3>
-      )}
-      {open && <div className="mt-2">{children}</div>}
-    </section>
-  );
-}
-
-/**
- * Label / value rows for a pane: label and value side by side when the pane
- * is wide enough, the label above the value when it is narrow. `note` is a
- * quieter line under the value (e.g. "Law: at least 90 days").
- */
-export function PaneFields({ rows }: { rows: { label: string; value: ReactNode; note?: ReactNode }[] }) {
-  return (
-    <dl className="divide-y divide-line text-xs">
-      {rows.map((r) => (
-        <div key={r.label} className="grid grid-cols-1 gap-x-3 gap-y-0.5 py-1.5 first:pt-0 last:pb-0 @min-[30rem]:grid-cols-[10rem_minmax(0,1fr)]">
-          <dt className="text-2xs text-ink-muted @min-[30rem]:pt-px @min-[30rem]:text-xs">{r.label}</dt>
-          <dd className="min-w-0">
-            <span className="font-medium text-ink">{r.value}</span>
-            {r.note && <span className="mt-0.5 block text-2xs text-ink-muted">{r.note}</span>}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/** "Show all (12)" under a list cut to its first few items. */
-export function useShowAll<T>(items: T[], limit = 3): { shown: T[]; toggle: ReactNode } {
-  const [all, setAll] = useState(false);
-  if (items.length <= limit) return { shown: items, toggle: null };
-  return {
-    shown: all ? items : items.slice(0, limit),
-    toggle: (
-      <button type="button" onClick={() => setAll((a) => !a)} className="mt-2 cursor-pointer text-2xs font-medium text-brand hover:underline">
-        {all ? "Show fewer" : `Show all (${items.length})`}
-      </button>
-    ),
-  };
 }

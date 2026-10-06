@@ -749,16 +749,39 @@ least 520px, so its columns are never squeezed into a sideways scroll.
 (**Show the list** or Esc goes back; the list keeps its sort and page).
 Below 1024px the pane is a full-height panel, as before.
 
-Pane content uses the same blocks: an action row at the top (the record's
-buttons), then `PaneSection`s (an uppercase title with an optional count
-and a note on the right; `collapsed` folds what no longer applies, e.g.
-past exceptions; tone warning for something waiting), `PaneFields` (label
-and value side by side when the pane is wide, stacked when narrow, with a
-quieter note under the value such as "Law: at least 90 days"), and
-`useShowAll` (the first few items of a long list, then "Show all (n)").
-Dates in a range never break inside a date. The Leave types panes use
-these blocks first; other registers keep their content until each is
-revisited.
+Pane content (`components/kit/pane.tsx`) is built the same way on every
+register, top to bottom, with a line between blocks and no boxes inside the
+pane's box:
+
+1. **PaneActions**: the record's buttons (primary first), and under them a
+   hint for an action that is missing or disabled ("This is your own
+   balance…", "In use, so it is kept…", why you can't approve).
+2. **Summary**: a `PaneSection` without a title: what the record is, with
+   its status chip on the right (dates, reason in quotes).
+3. **Details**: `PaneSection`s with uppercase titles (a count and a note on
+   the right where useful). `PaneFields` for label / value rows:
+   `columns` for words (label beside the value when the pane is wide,
+   above it when narrow, a quieter note line under the value), `figures`
+   for amounts and counts read down a column (value on the right).
+   `PaneFigures` for two or three key numbers side by side. Something that
+   needs attention first gets `tone="warning"` (records to fix, a waiting
+   change); things that no longer apply fold (`collapsed`).
+4. **Lists**: the first few items, then "Show all (n)" (`useShowAll`); a
+   ledger shows the latest lines with "Show earlier lines".
+5. **Approval / History** last: `PaneTimeline` (via `approvalSteps`) is
+   the one timeline: a tick for done, a cross for rejected, a dot for
+   withdrawn or skipped, then **Waiting** · who it waits for, and later
+   levels as **Then**; "Submitted" always comes first.
+
+Dates in a range never break inside a date. All registers use these blocks:
+Employees (Open record / Edit; records to fix; job, contact, pay),
+Organization (Edit and whether it can be deleted; details, designations,
+used by, people), Salary structure (Revise; current figures, earnings,
+deductions, history with letters), Salary approvals (decision buttons;
+reason and route; effect a month; employees; approval), Attendance
+adjustments and Leave requests (decision buttons; summary; details or days
+and pay; approval), Leave balances (Adjust balance; home leave; a ledger
+per type with the balance in its heading), and both Leave types panes.
 
 ### Implemented policies: statutory leave (Phase 4.6c, template A)
 
