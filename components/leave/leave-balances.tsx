@@ -168,7 +168,7 @@ export function LeaveBalances({ data, inBranch, onAdjust, onSwitchHome }: { data
           active ? (
             <div className="space-y-3 text-xs">
               {data.permissions.edit && (
-                <div className="space-y-1 rounded-lg border border-line bg-surface px-3 py-2.5">
+                <div className="space-y-1">
                   <WindowButton onClick={() => onAdjust(active.employee.id)} disabled={own}>
                     <SlidersHorizontal className="h-3.5 w-3.5" /> Adjust balance
                   </WindowButton>
@@ -196,7 +196,12 @@ export function LeaveBalances({ data, inBranch, onAdjust, onSwitchHome }: { data
                         {own.length === 0 ? (
                           <p className="text-2xs text-ink-muted">Nothing this leave year.</p>
                         ) : (
-                          <table className="w-full text-2xs">
+                          <table className="w-full table-fixed text-2xs">
+                            <colgroup>
+                              <col className="w-24" />
+                              <col />
+                              <col className="w-12" />
+                            </colgroup>
                             <tbody>
                               {own.map((l) => (
                                 <tr key={l.id} className="border-t border-line first:border-0 align-top">

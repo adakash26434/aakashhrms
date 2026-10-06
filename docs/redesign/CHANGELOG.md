@@ -29,6 +29,14 @@ Changed (screens only; no rules or data changed):
 
 Verified: tsc 0 · eslint on the leave files and kit: 0 problems · 668/668 tests · `next build` OK · browser: Requests at 1366 px (page bar, context strip, guide, FilterStrip, grid; the Dates column was widened after it cut off a range) and Notice / Guide in `/dev/kit`. The other tabs at 1366 / 390 px are checked after sign-in (the test browser was signed out).
 
+Browser pass after sign-in (1366 and 390 px, nothing saved), fixed in a follow-up commit:
+- Requests: New request appeared twice (page bar and tab), now only in the page bar (an empty list offers it); the grid scrolled sideways at 1366 (Status cut off), now fits (employee 170, reason 190); the detail pane shows the status chip.
+- Balances pane: ledger rows of different leave types didn't line up (auto-width table), now fixed columns; Adjust balance no longer sits in a card of its own.
+- Substitute leave: the search squeezed into a narrow box pushed Views onto a second line, now the same full-width FilterStrip row as Requests; shorter empty-list text.
+- Calendar: a 32-day month scrolled at 1366, now fits (24 px days); the empty month said "Nobody in your scope" when a branch was chosen, now "Nobody in this branch this month · Choose All branches above".
+- Checked: branch kept in the URL across month changes, This month, Balances notices, the home leave panel chips, phone layout. Console: 0 errors apart from the screenshot `caret-color` artefact.
+- Re-verified: tsc 0 · eslint 0 · 668/668 tests · `next build` OK.
+
 ---
 
 ## 2026-10-05 — 4.6b Leave entitlements

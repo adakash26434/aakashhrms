@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/kit/empty-state";
 import { WindowButton } from "@/components/kit/window";
 import { fmt } from "@/lib/engines/leave.engine";
 import type { LeaveCalendarCell, LeavePageData } from "@/lib/types/leave";
@@ -103,17 +104,22 @@ export function LeaveCalendar({ data, inBranch, loading, onMonth }: { data: Leav
       </ul>
 
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-line bg-surface p-4 text-xs text-ink-muted">{onlyLeave ? "Nobody is on leave this month." : "Nobody in your scope was employed this month."}</p>
+        <div className="rounded-lg border border-line bg-surface">
+          <EmptyState
+            title={onlyLeave ? "Nobody is on leave this month" : cal.rows.length === 0 ? "Nobody was employed this month" : "Nobody in this branch this month"}
+            description={onlyLeave ? "Untick Only people on leave to see everyone." : cal.rows.length > 0 ? "Choose All branches above to see everyone." : "People in your scope appear here for the months they are employed."}
+          />
+        </div>
       ) : (
         <div className="max-h-[70vh] overflow-auto rounded-lg border border-line bg-surface">
           <table className="w-full border-separate border-spacing-0 text-2xs" aria-label={`Leave calendar, ${cal.period.label}`}>
             <thead className="sticky top-0 z-20 bg-surface-panel">
               <tr>
-                <th scope="col" className="sticky left-0 z-30 min-w-44 border-b border-r border-line bg-surface-panel px-2 py-1 text-left font-semibold text-ink">
+                <th scope="col" className="sticky left-0 z-30 min-w-36 border-b border-r border-line bg-surface-panel px-2 py-1 text-left font-semibold text-ink">
                   Employee
                 </th>
                 {cal.days.map((d) => (
-                  <th key={d.date} scope="col" title={d.date === data.today ? `Today, ${d.date}` : d.date} className={cn("w-7 min-w-7 border-b border-line px-0 py-1 text-center font-medium", d.date === data.today ? "bg-brand-subtle font-bold text-brand-strong" : d.weekday === 6 ? "text-ink-muted" : "text-ink")}>
+                  <th key={d.date} scope="col" title={d.date === data.today ? `Today, ${d.date}` : d.date} className={cn("w-6 min-w-6 border-b border-line px-0 py-1 text-center font-medium", d.date === data.today ? "bg-brand-subtle font-bold text-brand-strong" : d.weekday === 6 ? "text-ink-muted" : "text-ink")}>
                     <span className="block tabular-nums">{d.bsDay}</span>
                     <span className="block text-3xs font-normal">{DAY_LETTER[d.weekday]}</span>
                     <span className="block text-3xs font-normal text-ink-faint">{d.date.slice(8)}</span>
@@ -130,7 +136,7 @@ export function LeaveCalendar({ data, inBranch, loading, onMonth }: { data: Leav
                 return (
                   <tr key={r.employee.id}>
                     <th scope="row" className="sticky left-0 z-10 border-b border-r border-line bg-surface px-2 py-1 text-left font-medium text-ink">
-                      <span className="block max-w-48 truncate">{r.employee.fullName}</span>
+                      <span className="block max-w-36 truncate">{r.employee.fullName}</span>
                       <span className="block truncate text-3xs font-normal text-ink-faint">{r.employee.departmentName || r.employee.branchName}</span>
                     </th>
                     {cal.days.map((d) => {

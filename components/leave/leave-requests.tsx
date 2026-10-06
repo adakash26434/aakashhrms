@@ -74,7 +74,7 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
 
   const columns = useMemo<GridColumn<LeaveRequestView>[]>(
     () => [
-      { id: "name", header: "Employee", width: 180, sticky: true, value: (r) => r.employee.fullName, cell: (r) => <span className="font-medium text-ink">{r.employee.fullName} <span className="font-code text-3xs text-ink-faint">{r.employee.employeeCode}</span></span> },
+      { id: "name", header: "Employee", width: 170, sticky: true, value: (r) => r.employee.fullName, cell: (r) => <span className="font-medium text-ink">{r.employee.fullName} <span className="font-code text-3xs text-ink-faint">{r.employee.employeeCode}</span></span> },
       { id: "type", header: "Leave type", width: 140, value: (r) => r.leaveTypeName },
       {
         id: "from",
@@ -102,7 +102,7 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
           </span>
         ),
       },
-      { id: "reason", header: "Reason", width: 220, value: (r) => r.reason, cell: (r) => <span className="block truncate" title={r.reason}>{r.reason}</span> },
+      { id: "reason", header: "Reason", width: 190, value: (r) => r.reason, cell: (r) => <span className="block truncate" title={r.reason}>{r.reason}</span> },
       { id: "by", header: "Raised by", width: 150, value: (r) => r.preparedBy, defaultHidden: true },
       { id: "dept", header: "Department", width: 150, value: (r) => r.employee.departmentName, defaultHidden: true },
       { id: "status", header: "Status", width: 110, value: (r) => r.status, cell: (r) => <StatusChip status={STATUS[r.status]} label={r.status === "Pending" ? "Waiting" : undefined} /> },
@@ -123,7 +123,7 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
         className="mb-3"
         title="How leave requests work"
         steps={[
-          { title: "Ask", text: "Employees apply in self-service, or HR uses New request. Weekly offs and holidays inside the dates aren't counted." },
+          { title: "Ask", text: "Employees apply in self-service, or HR uses New request at the top." },
           { title: "Approve", text: "The supervisor or a leave approver decides it under Waiting for me. Nobody approves their own leave." },
           { title: "Taken", text: "Approved days come off the balance and show as leave in attendance and payroll." },
           { title: "Plans change", text: "Withdraw a waiting request, or cancel approved leave to give the days back (not in a closed month)." },
@@ -137,11 +137,6 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
             </button>
           ))}
         </div>
-        {data.permissions.add && (
-          <WindowButton onClick={onNew}>
-            <Plus className="h-3.5 w-3.5" /> New request
-          </WindowButton>
-        )}
         {bulk.length > 0 && (
           <span className="ml-auto flex items-center gap-2 text-xs">
             <span className="text-ink-muted">{bulk.length} selected</span>
@@ -188,11 +183,14 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
           active ? (
             <div className="space-y-3 text-xs">
               <div className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                <p className="font-medium text-ink">
-                  {dateText(active.from)}
-                  {active.to !== active.from && ` – ${dateText(active.to)}`} · {daysText(active.days)}
-                  {active.half && ` (${active.half === "first" ? "first" : "second"} half)`}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-ink">
+                    {dateText(active.from)}
+                    {active.to !== active.from && ` – ${dateText(active.to)}`} · {daysText(active.days)}
+                    {active.half && ` (${active.half === "first" ? "first" : "second"} half)`}
+                  </p>
+                  <StatusChip status={STATUS[active.status]} label={active.status === "Pending" ? "Waiting" : undefined} />
+                </div>
                 {active.unpaidDays > 0 && (
                   <p className="mt-0.5 text-ink-muted">
                     {fmt(active.paidDays)} paid, <span className="text-danger">{fmt(active.unpaidDays)} unpaid</span>
@@ -302,7 +300,15 @@ export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePa
             empty={
               view === "waiting"
                 ? { title: "Nothing waiting for you", description: "Leave requests you can approve appear here." }
-                : { title: "No leave requests", description: "Requests from the last three months and all waiting ones appear here, from HR or self-service." }
+                : {
+                    title: "No leave requests",
+                    description: "Requests from the last three months and all waiting ones appear here, from HR or self-service.",
+                    action: data.permissions.add ? (
+                      <WindowButton onClick={onNew}>
+                        <Plus className="h-3.5 w-3.5" /> New request
+                      </WindowButton>
+                    ) : undefined,
+                  }
             }
           />
         }

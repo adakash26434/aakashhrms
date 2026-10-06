@@ -504,9 +504,6 @@ export function LeaveSubstitute({ data, inBranch, onDone }: { data: LeavePageDat
             </button>
           ))}
         </div>
-        <div className="w-60">
-          <FilterStrip id="leave-substitute" filters={[]} values={{}} onChange={() => {}} search={{ value: search, onChange: setSearch, placeholder: "Name or code" }} />
-        </div>
         {chosen.length > 0 && (
           <span className="ml-auto flex flex-wrap items-center gap-2 text-xs">
             <span className="text-ink-muted">{chosen.length} selected</span>
@@ -525,6 +522,7 @@ export function LeaveSubstitute({ data, inBranch, onDone }: { data: LeavePageDat
           </span>
         )}
       </div>
+      <FilterStrip id="leave-substitute" className="mb-3" filters={[]} values={{}} onChange={() => {}} search={{ value: search, onChange: setSearch, placeholder: "Name or code" }} />
       {message && (
         <Notice tone="danger" className="mb-3" onDismiss={() => setMessage(null)}>
           {message}
@@ -548,7 +546,7 @@ export function LeaveSubstitute({ data, inBranch, onDone }: { data: LeavePageDat
           pageSize={100}
           empty={
             show === "open"
-              ? { title: "Nothing to decide", description: (list ?? []).length ? "Every day worked on a day off has been decided. See All for the decisions." : "Nobody worked on a weekly off or holiday in the last 21 days. When someone does, the day shows here once their attendance for it is in." }
+              ? { title: "Nothing to decide", description: (list ?? []).length ? "Every day worked on a day off has been decided. See All for the decisions." : "Nobody worked on a weekly off or holiday in the last 21 days. It appears here once that day's attendance is in." }
               : { title: "No days worked on a day off", description: "Nobody in your scope worked on a weekly off or holiday in the last 21 days." }
           }
         />
