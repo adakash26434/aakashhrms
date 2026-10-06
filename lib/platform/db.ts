@@ -240,6 +240,30 @@ export async function ensurePlatformTablesExist(): Promise<void> {
           CREATE INDEX IF NOT EXISTS idx_company_change_requests_status ON company_change_requests(status);
         `);
 
+        // 4.6d: change requests have a kind; leave exceptions lower one Labour Act minimum for one company.
+        await pSql.unsafe(`
+          ALTER TABLE company_change_requests ADD COLUMN IF NOT EXISTS kind VARCHAR(30) NOT NULL DEFAULT 'company_details';
+          CREATE TABLE IF NOT EXISTS company_leave_exceptions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+            request_id UUID REFERENCES company_change_requests(id) ON DELETE SET NULL,
+            statutory_code VARCHAR(50) NOT NULL,
+            setting VARCHAR(40) NOT NULL,
+            value NUMERIC(7, 1),
+            legal_basis TEXT NOT NULL,
+            reference TEXT,
+            valid_from DATE NOT NULL,
+            valid_until DATE,
+            granted_by UUID REFERENCES platform_users(id) ON DELETE SET NULL,
+            granted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+            revoked_by UUID REFERENCES platform_users(id) ON DELETE SET NULL,
+            revoked_at TIMESTAMP WITH TIME ZONE,
+            revoke_reason TEXT,
+            synced_at TIMESTAMP WITH TIME ZONE
+          );
+          CREATE INDEX IF NOT EXISTS idx_company_leave_exceptions_company ON company_leave_exceptions(company_id);
+        `);
+
 
         // 3. Ensure initial Super Admin account is seeded
         const email = (process.env.SUPER_ADMIN_EMAIL || 'superadmin@aakashhrms.com').toLowerCase().trim();

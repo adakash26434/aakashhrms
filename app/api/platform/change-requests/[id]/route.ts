@@ -82,6 +82,11 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Change request not found.' }, { status: 404 });
     }
 
+    // Leave exception requests are reviewed on the Leave exceptions page (granted with dates, never as company details).
+    if (req.kind !== 'company_details') {
+      return NextResponse.json({ success: false, error: 'Review this request under Leave exceptions.' }, { status: 400 });
+    }
+
     if (req.status !== 'PENDING') {
       return NextResponse.json(
         { success: false, error: `Cannot review a request with status "${req.status}".` },

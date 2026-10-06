@@ -394,13 +394,14 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     }
   }
 
-  // Leave policy changes waiting for a second person (company-wide Leave types → Approve).
+  // Leave policy changes waiting for a second person (company-wide Leave types → Approve),
+  // and exceptions ending within 30 days (company-wide Leave types → Edit).
   let policyPending = 0;
   if (userId && allowedModules.includes('LEAVE_TYPES')) {
     try {
       const scope = await resolveUserScope(userId, tenantSlug);
       const [canApprove, canEdit] = await Promise.all([hasPermission('APPROVE', 'LEAVE_TYPES'), hasPermission('EDIT', 'LEAVE_TYPES')]);
-      if (canApprove) policyPending = await countPolicyWaitingFor({ scope, userId, canApprove, canEdit, impersonation: false });
+      if (canApprove || canEdit) policyPending = await countPolicyWaitingFor({ scope, userId, canApprove, canEdit, impersonation: false });
     } catch (err) {
       console.error('Error counting leave policy approvals:', err);
     }

@@ -46,6 +46,8 @@ export interface PolicyException {
   validFrom: string;
   validUntil: string | null;
   revokedAt: string | null;
+  /** Why the platform withdrew it (shown to the company). */
+  revokeReason?: string | null;
 }
 
 export interface PolicyChangeView {
@@ -70,6 +72,24 @@ export interface PolicyChangeView {
   can: AvailableActions;
 }
 
+/** A company's request to the platform for an exception (4.6d). */
+export interface ExceptionRequestRow {
+  id: string;
+  setting: PolicySetting;
+  value: number | null;
+  legalBasis: string;
+  reference: string;
+  validFrom: string;
+  validUntil: string;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  requestedBy: string;
+  requestedAt: string;
+  rejectionReason: string | null;
+  /** What the platform granted (it may adjust the value and dates). */
+  granted: { value: number | null; validFrom: string; validUntil: string | null } | null;
+}
+
 export interface PolicyTypeRow {
   id: string;
   name: string;
@@ -79,11 +99,16 @@ export interface PolicyTypeRow {
   values: PolicyValues;
   /** The minimum today (the law, lowered by any active exception). */
   floor: PolicyFloor;
+  /** Where each minimum comes from ("Labour Act §44", or "Exception: …"). */
+  floorSource: Partial<Record<string, string>>;
   /** The settings this type has (sick: days, cap, certificate, half days). */
   editable: PolicySetting[];
   /** Days a year are credited at the year opening (sick): those can wait for the next leave year. */
   creditedYearly: boolean;
   exceptions: PolicyException[];
+  /** Settings an exception can lower (those the Labour Act sets a minimum for). */
+  exceptionSettings: PolicySetting[];
+  exceptionRequests: ExceptionRequestRow[];
   pending: PolicyChangeView | null;
   scheduled: PolicyChangeView | null;
   history: PolicyChangeView[];
@@ -100,7 +125,13 @@ export interface LeavePolicyPageData {
     propose: boolean;
     approve: boolean;
     isAdministrator: boolean;
+    /** Ask the platform for an exception (same as propose). */
+    askException: boolean;
   };
+  /** Exceptions in force that end within 30 days, with the leave type's name. */
+  endingSoon: { typeName: string; exception: PolicyException }[];
+  /** The platform could not be reached: exception requests aren't shown. */
+  platformUnavailable: boolean;
   /** Other people who could approve a change this user proposes (company-wide, Leave types → Approve). */
   otherApprovers: string[];
   waitingForMe: number;

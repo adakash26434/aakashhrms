@@ -5,6 +5,8 @@ import { ensureTenantContext } from "@/lib/db";
 import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { policyPage } from "@/lib/services/leave-policy.service";
+import { auth } from "@/lib/auth";
+import { resolvePlatformCompanyForTenant } from "@/lib/platform/company-resolver";
 import { getLeaveTypesWithKPIs } from "@/lib/services/leave-type.service";
 import { getLeaveRulesWithKPIs } from "@/lib/services/leave-rule.service";
 import { getActiveLeaveTypes } from "@/lib/services/leave-type.service";
@@ -57,7 +59,10 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
     // Statutory leave settings: changes proposed with Leave types → Edit and approved by a second person (4.6c).
     const scope = await checkPermissionWithScope("VIEW", "LEAVE_TYPES");
     const [canEdit, canApprove, impersonation] = await Promise.all([hasPermission("EDIT", "LEAVE_TYPES"), hasPermission("APPROVE", "LEAVE_TYPES"), getImpersonationSession()]);
-    [typesData, policyData] = await Promise.all([getLeaveTypesWithKPIs(), policyPage({ scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation })]);
+    // The company on the platform, for exception requests (4.6d); leave works without it.
+    const session = await auth();
+    const companyId = await resolvePlatformCompanyForTenant(session?.user?.tenantSlug || undefined).then((c) => c.id, () => null);
+    [typesData, policyData] = await Promise.all([getLeaveTypesWithKPIs(), policyPage({ scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation, companyId })]);
     typePermissions = { add: await hasPermission("ADD", "LEAVE_TYPES"), edit: canEdit, delete: await hasPermission("DELETE", "LEAVE_TYPES") };
   } else if (activeTab === "rules") {
     const [rData, activeTypes] = await Promise.all([

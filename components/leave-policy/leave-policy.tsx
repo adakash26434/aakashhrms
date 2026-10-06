@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Loader2, Pencil, Send, ShieldCheck, Undo2, X } from "lucide-react";
+import { Check, FileText, Loader2, Pencil, Send, ShieldCheck, Undo2, X } from "lucide-react";
 import { Confirm } from "@/components/kit/confirm";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
+import { DateField } from "@/components/kit/date-field";
 import { FormGrid, GridField } from "@/components/kit/form-grid";
 import { Guide } from "@/components/kit/guide";
 import { Notice } from "@/components/kit/notice";
@@ -17,14 +18,20 @@ import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { ReasonWindow } from "@/components/attendance/attendance-windows";
-import { decideLeavePolicyAction, previewLeavePolicyAction, proposeLeavePolicyAction } from "@/app/actions/leave-policy.actions";
+import { cancelLeaveExceptionRequestAction, decideLeavePolicyAction, previewLeavePolicyAction, proposeLeavePolicyAction, requestLeaveExceptionAction } from "@/app/actions/leave-policy.actions";
 import { STATUTORY_FLOOR, fmt } from "@/lib/engines/leave.engine";
-import { SETTING_LABEL, changeLines, floorText, valueText } from "@/lib/engines/leave-policy.engine";
-import type { LeavePolicyPageData, PolicyApplies, PolicyChangeView, PolicyPreview, PolicySetting, PolicyTypeRow, PolicyValues } from "@/lib/types/leave-policy";
+import { SETTING_LABEL, changeLines, daysBetween, exceptionErrors, exceptionState, floorText, valueText } from "@/lib/engines/leave-policy.engine";
+import type { ExceptionRequestRow, LeavePolicyPageData, PolicyApplies, PolicyChangeView, PolicyException, PolicyPreview, PolicySetting, PolicyTypeRow, PolicyValues } from "@/lib/types/leave-policy";
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw";
 
 const ACTION_LABEL: Record<string, string> = { submitted: "Proposed", approved: "Approved", final_approved: "Final approved", rejected: "Rejected", withdrawn: "Withdrawn", not_required: "Changed by the system" };
+const REQUEST_STATUS: Record<ExceptionRequestRow["status"], { status: string; label: string }> = {
+  PENDING: { status: "pending", label: "Waiting for the platform" },
+  APPROVED: { status: "approved", label: "Granted" },
+  REJECTED: { status: "rejected", label: "Rejected" },
+  CANCELLED: { status: "cancelled", label: "Withdrawn" },
+};
 const STATUS_LABEL: Record<string, { status: string; label: string }> = {
   approved: { status: "approved", label: "Approved" },
   rejected: { status: "rejected", label: "Rejected" },
@@ -91,6 +98,8 @@ export function LeavePolicy({ data, onDone }: { data: LeavePolicyPageData; onDon
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = data.types.find((t) => t.id === activeId) ?? null;
   const [proposing, setProposing] = useState<PolicyTypeRow | null>(null);
+  const [asking, setAsking] = useState<PolicyTypeRow | null>(null);
+  const [withdrawing, setWithdrawing] = useState<ExceptionRequestRow | null>(null);
   const [deciding, setDeciding] = useState<{ change: PolicyChangeView; decision: Decision; typeName: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -185,6 +194,16 @@ export function LeavePolicy({ data, onDone }: { data: LeavePolicyPageData; onDon
           {data.nextYearStart ? ` · the next one starts ${dateText(data.nextYearStart)}` : ""}
         </span>
       </div>
+      {data.endingSoon.map(({ typeName, exception: e }) => (
+        <Notice key={e.id} tone="warning" className="mb-3" title={`${typeName}: the exception "${e.legalBasis}" ends ${e.validUntil ? dateText(e.validUntil) : ""}`}>
+          From the next day the minimum for &quot;{SETTING_LABEL[e.setting]}&quot; is the Labour Act&apos;s again, unless the platform grants a new exception. Ask now if the directive still applies.
+        </Notice>
+      ))}
+      {data.platformUnavailable && (
+        <Notice tone="info" className="mb-3">
+          The platform could not be reached, so exception requests aren&apos;t shown. Everything else works.
+        </Notice>
+      )}
       {message && (
         <Notice tone="danger" className="mb-3" onDismiss={() => setMessage(null)}>
           {message}
@@ -194,7 +213,18 @@ export function LeavePolicy({ data, onDone }: { data: LeavePolicyPageData; onDon
         id="leave-policy"
         detailTitle={active ? active.name : undefined}
         onCloseDetail={() => setActiveId(null)}
-        detail={active ? <PolicyPane row={active} data={data} onPropose={() => setProposing(active)} onDecide={(change, decision) => setDeciding({ change, decision, typeName: active.name })} /> : null}
+        detail={
+          active ? (
+            <PolicyPane
+              row={active}
+              data={data}
+              onPropose={() => setProposing(active)}
+              onAsk={() => setAsking(active)}
+              onWithdrawAsk={setWithdrawing}
+              onDecide={(change, decision) => setDeciding({ change, decision, typeName: active.name })}
+            />
+          ) : null
+        }
         master={
           <DataGrid
             id="leave-policy"
@@ -211,6 +241,21 @@ export function LeavePolicy({ data, onDone }: { data: LeavePolicyPageData; onDon
         }
       />
 
+      {asking && <AskExceptionWindow row={asking} today={data.today} onClose={() => setAsking(null)} onSaved={(text) => { setAsking(null); onDone(text); }} />}
+      <Confirm
+        open={!!withdrawing}
+        title="Withdraw this exception request?"
+        message="The platform will not review it. You can ask again later."
+        confirmLabel="Withdraw"
+        onConfirm={async () => {
+          if (!withdrawing) return;
+          const r = await cancelLeaveExceptionRequestAction(withdrawing.id);
+          setWithdrawing(null);
+          if (!r.success) setMessage(r.error);
+          else onDone("The exception request was withdrawn.");
+        }}
+        onCancel={() => setWithdrawing(null)}
+      />
       {proposing && <ProposeWindow row={proposing} data={data} onClose={() => setProposing(null)} onSaved={(text) => { setProposing(null); onDone(text); }} />}
       <Confirm
         open={deciding?.decision === "approve" || deciding?.decision === "final_approve"}
@@ -265,7 +310,21 @@ function whenText(change: PolicyChangeView, dateText: (d: string) => string): st
   return "Once approved, for new requests, month closes and grants.";
 }
 
-function PolicyPane({ row, data, onPropose, onDecide }: { row: PolicyTypeRow; data: LeavePolicyPageData; onPropose: () => void; onDecide: (change: PolicyChangeView, decision: Decision) => void }) {
+function PolicyPane({
+  row,
+  data,
+  onPropose,
+  onAsk,
+  onWithdrawAsk,
+  onDecide,
+}: {
+  row: PolicyTypeRow;
+  data: LeavePolicyPageData;
+  onPropose: () => void;
+  onAsk: () => void;
+  onWithdrawAsk: (r: ExceptionRequestRow) => void;
+  onDecide: (change: PolicyChangeView, decision: Decision) => void;
+}) {
   const dateText = useDateText();
   const p = row.pending;
   return (
@@ -293,24 +352,29 @@ function PolicyPane({ row, data, onPropose, onDecide }: { row: PolicyTypeRow; da
               <tr key={s} className="border-t border-line align-top">
                 <td className="py-1 pr-2 text-ink-muted">{SETTING_LABEL[s]}</td>
                 <td className="py-1 pr-2 font-medium text-ink">{s === "days" ? `${fmt(row.values.days)} days ${row.creditedYearly ? "a year" : "each time"}` : valueText(s, row.values[s])}</td>
-                <td className="py-1 text-ink-muted">{floorText(s, row.floor) ?? "—"}</td>
+                <td className="py-1 text-ink-muted">
+                  {floorText(s, row.floor) ?? "—"}
+                  {row.floorSource[s]?.startsWith("Exception") && <span className="block text-3xs text-info">under an exception</span>}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
         {row.exceptions.map((e) => (
-          <Notice key={e.id} tone="info" className="mt-2" title={`Exception: ${e.legalBasis}`}>
-            {SETTING_LABEL[e.setting]}: {e.value === null ? "not required" : fmt(e.value)} · from {dateText(e.validFrom)}
-            {e.validUntil ? ` until ${dateText(e.validUntil)}` : ""}
-            {e.reference ? ` · ${e.reference}` : ""}
-            {e.revokedAt ? " · withdrawn" : ""}
-          </Notice>
+          <ExceptionNote key={e.id} e={e} today={data.today} />
         ))}
-        {data.permissions.propose && !p && (
-          <WindowButton variant="primary" className="mt-2" onClick={onPropose}>
-            <Pencil className="h-3.5 w-3.5" /> Propose a change…
-          </WindowButton>
-        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {data.permissions.propose && !p && (
+            <WindowButton variant="primary" onClick={onPropose}>
+              <Pencil className="h-3.5 w-3.5" /> Propose a change…
+            </WindowButton>
+          )}
+          {data.permissions.askException && row.exceptionSettings.length > 0 && (
+            <WindowButton onClick={onAsk} title="For a regulated company whose regulator sets a different minimum">
+              <FileText className="h-3.5 w-3.5" /> Ask for an exception…
+            </WindowButton>
+          )}
+        </div>
         {!data.permissions.propose && <p className="mt-2 text-2xs text-ink-muted">Changes are proposed by someone with a company-wide role and Leave types → Edit.</p>}
       </section>
 
@@ -366,6 +430,39 @@ function PolicyPane({ row, data, onPropose, onDecide }: { row: PolicyTypeRow; da
         <Notice tone="info" title={`Approved: from ${dateText(row.scheduled.effectiveFrom ?? "")}`}>
           {changeLines(row.scheduled.before, row.scheduled.after).join(" · ")}. Applies on the first day of the next leave year.
         </Notice>
+      )}
+
+      {row.exceptionRequests.length > 0 && (
+        <section aria-label="Exception requests" className="rounded-lg border border-line bg-surface px-3 py-2.5">
+          <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Exception requests</h3>
+          <ol className="space-y-2">
+            {row.exceptionRequests.slice(0, 5).map((r) => (
+              <li key={r.id} className="border-t border-line pt-2 first:border-0 first:pt-0">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-ink">
+                    {SETTING_LABEL[r.setting]}: {r.value === null ? "—" : fmt(r.value)} · {dateText(r.validFrom)} – {dateText(r.validUntil)}
+                  </span>
+                  <StatusChip status={REQUEST_STATUS[r.status].status} label={REQUEST_STATUS[r.status].label} />
+                </div>
+                <p className="text-2xs text-ink-muted">
+                  {r.legalBasis}
+                  {r.reference ? ` · ${r.reference}` : ""} · asked by {r.requestedBy} · {dateText(r.requestedAt.slice(0, 10))}
+                </p>
+                {r.status === "REJECTED" && r.rejectionReason && <p className="text-2xs text-danger">Rejected: “{r.rejectionReason}”</p>}
+                {r.status === "APPROVED" && r.granted && (r.granted.validUntil !== r.validUntil || r.granted.validFrom !== r.validFrom || r.granted.value !== r.value) && (
+                  <p className="text-2xs text-ink-muted">
+                    Granted as {r.granted.value === null ? "—" : fmt(r.granted.value)}, {dateText(r.granted.validFrom)} – {r.granted.validUntil ? dateText(r.granted.validUntil) : "open"}
+                  </p>
+                )}
+                {r.status === "PENDING" && data.permissions.askException && (
+                  <WindowButton className="mt-1" onClick={() => onWithdrawAsk(r)}>
+                    <Undo2 className="h-3.5 w-3.5" /> Withdraw
+                  </WindowButton>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
 
       <section aria-label="History" className="rounded-lg border border-line bg-surface px-3 py-2.5">
@@ -599,6 +696,134 @@ function ProposeWindow({ row, data, onClose, onSaved }: { row: PolicyTypeRow; da
               ? `Approved by someone else: ${data.otherApprovers.slice(0, 4).join(", ")}${data.otherApprovers.length > 4 ? ", …" : ""}.`
               : "Nobody else can approve it yet: give a second user a company-wide role with Leave types → Approve."}
           </p>
+        </div>
+      </PropertyForm>
+    </Window>
+  );
+}
+
+/** One exception in the settings box: what it lowers, the directive, its dates, and how long is left. */
+function ExceptionNote({ e, today }: { e: PolicyException; today: string }) {
+  const dateText = useDateText();
+  const state = exceptionState(e, today);
+  const left = e.validUntil ? daysBetween(today, e.validUntil) : null;
+  const tone = state === "active" && left !== null && left <= 30 ? "warning" : "info";
+  const when = state === "revoked" ? "withdrawn by the platform" : state === "ended" ? "ended" : state === "scheduled" ? `starts ${dateText(e.validFrom)}` : left !== null ? `${left} day${left === 1 ? "" : "s"} left` : "in force";
+  return (
+    <Notice tone={tone} className="mt-2" title={`Exception: ${e.legalBasis}`}>
+      {SETTING_LABEL[e.setting]}: down to {valueText(e.setting, e.value ?? undefined)} · {dateText(e.validFrom)} – {e.validUntil ? dateText(e.validUntil) : "open"} · {when}
+      {e.reference ? ` · ${e.reference}` : ""}
+      {state === "revoked" && e.revokeReason ? `: “${e.revokeReason}”` : ""}
+      {state === "active" ? ". Propose the change to use it." : ""}
+    </Notice>
+  );
+}
+
+/**
+ * Ask the platform to lower one Labour Act minimum for this company, with the
+ * directive that allows it (e.g. a regulator's). Checked here as you type with
+ * the same rules the platform uses; nothing changes until it is granted.
+ */
+function AskExceptionWindow({ row, today, onClose, onSaved }: { row: PolicyTypeRow; today: string; onClose: () => void; onSaved: (text: string) => void }) {
+  const dateText = useDateText();
+  const yearOn = (iso: string) => `${Number(iso.slice(0, 4)) + 1}${iso.slice(4)}`;
+  // Starts at the law's own value for the setting: nothing is asked until it is changed.
+  const lawValue = (s: string) => (row.floor as Record<string, number | undefined>)[s] ?? 0;
+  const [start] = useState(() => ({ setting: row.exceptionSettings[0] as string, value: lawValue(row.exceptionSettings[0]), legalBasis: "", reference: "", validFrom: today, validUntil: yearOn(today), reason: "" }));
+  const [form, setForm] = useState(start);
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
+  const [failure, setFailure] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [tried, setTried] = useState(false);
+  const saveRef = useRef<HTMLButtonElement>(null);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    setServerErrors({});
+  };
+  const setting = form.setting as PolicySetting;
+  const lawText = floorText(setting, row.floor);
+  const live = exceptionErrors({ statutoryCode: row.statutoryCode, setting, value: form.value, legalBasis: form.legalBasis, reference: form.reference, validFrom: form.validFrom, validUntil: form.validUntil }, today);
+  // A changed value is checked at once; everything else once Send was tried.
+  const errors = { ...(tried ? live : live.value && form.value !== lawValue(form.setting) ? { value: live.value } : {}), ...serverErrors };
+  const integer = setting === "accrualEveryDays" || setting === "certificateAfter" || setting === "expiryDays";
+
+  const save = async () => {
+    setTried(true);
+    if (Object.keys(live).length || form.reason.trim().length < 8) {
+      if (form.reason.trim().length < 8) setServerErrors({ reason: "Say why the company needs it (at least a sentence)" });
+      return;
+    }
+    setSaving(true);
+    setFailure(null);
+    const r = await requestLeaveExceptionAction({ statutoryCode: row.statutoryCode, ...form });
+    setSaving(false);
+    if (!r.success) {
+      setServerErrors(r.validationErrors ?? {});
+      setFailure(r.error);
+      return;
+    }
+    onSaved(`The exception request for ${r.data.typeName} was sent to the platform. You'll see their answer here.`);
+  };
+
+  return (
+    <Window
+      open
+      onClose={saving ? () => {} : onClose}
+      dirty={JSON.stringify(form) !== JSON.stringify(start)}
+      size="lg"
+      title={`Ask for an exception: ${row.name}`}
+      description="Only for a company whose regulator (e.g. Nepal Rastra Bank) or another law sets a different minimum. The platform checks the directive and grants it for set dates."
+      footer={
+        <>
+          {failure && (
+            <p role="alert" className="mr-auto rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1 text-xs text-danger">
+              {failure}
+            </p>
+          )}
+          <WindowCancel disabled={saving} />
+          <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Send to the platform
+          </WindowButton>
+        </>
+      }
+    >
+      <PropertyForm onSubmit={save} enterNavigation={{ end: () => saveRef.current }} className="-mx-4 -my-4 space-y-0 bg-surface-panel">
+        <FormGrid columns={2}>
+          <GridField label="Setting" required error={errors.setting} size="lg">
+            <SelectField
+              name="setting"
+              options={row.exceptionSettings.map((s) => ({ value: s, label: SETTING_LABEL[s] }))}
+              value={form.setting}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, setting: v, value: lawValue(v) }));
+                setServerErrors({});
+              }}
+            />
+          </GridField>
+          <GridField label="Down to" required error={errors.value} size="code" suffix={lawText ? `Law: ${lawText}` : undefined} help={lawText ? `The Labour Act: ${lawText}` : undefined}>
+            <NumberField name="value" value={form.value} onChange={(v) => set("value", v)} decimals={integer ? 0 : 1} max={365} selectOnFocus showZero aria-label="Value under the exception" />
+          </GridField>
+          <GridField label="Directive or law" required error={errors.legalBasis} span={2} size="full">
+            <input name="legalBasis" value={form.legalBasis} maxLength={300} onChange={(e) => set("legalBasis", e.target.value)} placeholder="e.g. Nepal Rastra Bank directive 3/2083 on staff service" className={inputClass} />
+          </GridField>
+          <GridField label="Number and date" error={errors.reference} span={2} size="full">
+            <input name="reference" value={form.reference} maxLength={300} onChange={(e) => set("reference", e.target.value)} placeholder="e.g. Ref. 12, issued 1 Asar 2083" className={inputClass} />
+          </GridField>
+          <GridField label="From" required error={errors.validFrom} size="date">
+            <DateField name="validFrom" value={form.validFrom} onChange={(v) => set("validFrom", v)} />
+          </GridField>
+          <GridField label="Until" required error={errors.validUntil} size="date">
+            <DateField name="validUntil" value={form.validUntil} onChange={(v) => set("validUntil", v)} />
+          </GridField>
+          <GridField label="Why" required error={errors.reason} span={2} size="full">
+            <input name="reason" value={form.reason} maxLength={1000} onChange={(e) => set("reason", e.target.value)} placeholder="e.g. The directive stops staff saving up annual leave from Shrawan 2083" className={inputClass} />
+          </GridField>
+        </FormGrid>
+        <div className="space-y-1 border-t border-line px-4 py-3 text-xs">
+          <p className="text-ink">
+            {SETTING_LABEL[setting]}: the law&apos;s {lawText ?? "minimum"} → {valueText(setting, form.value)}, {form.validFrom ? dateText(form.validFrom) : "…"} – {form.validUntil ? dateText(form.validUntil) : "…"}.
+          </p>
+          <p className="text-2xs text-ink-muted">If it is granted, you still propose the change here and a second person approves it. When it ends, the setting goes back to the law by itself.</p>
         </div>
       </PropertyForm>
     </Window>

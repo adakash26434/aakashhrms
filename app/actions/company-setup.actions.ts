@@ -96,6 +96,7 @@ export async function submitCompanyChangeRequestAction(payload: {
       .where(
         and(
           eq(companyChangeRequests.companyId, company.id),
+          eq(companyChangeRequests.kind, 'company_details'),
           eq(companyChangeRequests.status, 'PENDING')
         )
       )
@@ -154,7 +155,7 @@ export async function cancelCompanyChangeRequestAction(requestId: string) {
     const [request] = await platformDb
       .select()
       .from(companyChangeRequests)
-      .where(eq(companyChangeRequests.id, requestId))
+      .where(and(eq(companyChangeRequests.id, requestId), eq(companyChangeRequests.kind, 'company_details')))
       .limit(1);
 
     if (!request) {
@@ -193,7 +194,7 @@ export async function getCompanyChangeRequestStatusAction() {
     const [latest] = await platformDb
       .select()
       .from(companyChangeRequests)
-      .where(eq(companyChangeRequests.companyId, company.id))
+      .where(and(eq(companyChangeRequests.companyId, company.id), eq(companyChangeRequests.kind, 'company_details')))
       .orderBy(desc(companyChangeRequests.createdAt))
       .limit(1);
 

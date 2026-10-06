@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 // S24 (4.6): leave requests, approvals and balances.
@@ -357,5 +357,70 @@ describe('S24 leave policies (4.6c)', () => {
     const types = source('lib/services/leave-type.service.ts');
     assert.match(fnBody(types, 'saveLeaveType'), /existing\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
     assert.match(fnBody(types, 'toggleLeaveTypeStatus'), /isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
+  });
+});
+
+describe('S24 leave exceptions (4.6d)', () => {
+  const platform = source('lib/platform/leave-exceptions.ts');
+  const policyActions = source('app/actions/leave-policy.actions.ts');
+  const policyService = source('lib/services/leave-policy.service.ts');
+
+  it('every platform route needs a platform session and answers with safe errors', () => {
+    for (const file of ['app/api/platform/leave-exceptions/route.ts', 'app/api/platform/leave-exceptions/[id]/route.ts', 'app/api/platform/leave-exceptions/requests/[id]/route.ts']) {
+      const src = source(file);
+      const handlers = src.match(/export async function (GET|POST|PATCH)/g) ?? [];
+      assert.ok(handlers.length > 0, file);
+      assert.equal((src.match(/await requirePlatformAuth\(request\)/g) ?? []).length, handlers.length, file);
+      assert.match(src, /exceptionFailure\(error, 'leave-exceptions\./, file);
+    }
+    assert.match(fnBody(platform, 'exceptionFailure'), /Something went wrong\. Nothing was changed\./);
+  });
+
+  it('a grant is checked by the engine, never overlaps, reviews a request once, and is audited', () => {
+    const grant = fnBody(platform, 'grantException');
+    assert.match(grant, /exceptionErrors\(p\.input, today\)/);
+    assert.match(grant, /overlapping\(e, \{ \.\.\.p\.input, revokedAt: null \}\)/);
+    assert.match(grant, /eq\(companyChangeRequests\.kind, LEAVE_EXCEPTION\), eq\(companyChangeRequests\.status, 'PENDING'\)/);
+    assert.match(grant, /action: 'LEAVE_EXCEPTION_GRANTED'/);
+    assert.match(grant, /pushQuietly\(p\.companyId\)/);
+  });
+
+  it('revoking and rejecting need a reason, are audited, and revoking reaches the company', () => {
+    const revoke = fnBody(platform, 'revokeException');
+    assert.match(revoke, /reason\.length < 5/);
+    assert.match(revoke, /isNull\(companyLeaveExceptions\.revokedAt\)/);
+    assert.match(revoke, /'LEAVE_EXCEPTION_REVOKED'/);
+    assert.match(revoke, /pushQuietly\(done\.companyId\)/);
+    const reject = fnBody(platform, 'rejectExceptionRequest');
+    assert.match(reject, /reason\.length < 5/);
+    assert.match(reject, /'LEAVE_EXCEPTION_REQUEST_REJECTED'/);
+    assert.match(source('app/api/platform/policies/sync/route.ts'), /await pushToCompany\(company\.id\)/);
+  });
+
+  it('only the platform module writes the company copy of exceptions', () => {
+    const walk = (dir: string): string[] => readdirSync(join(root, dir)).flatMap((f) => (statSync(join(root, dir, f)).isDirectory() ? walk(`${dir}/${f}`) : [`${dir}/${f}`]));
+    const writers = ['app', 'lib', 'components']
+      .flatMap(walk)
+      .filter((f) => /\.(ts|tsx)$/.test(f))
+      .filter((f) => /\.(insert|update|delete)\(leavePolicyExceptions\)/.test(source(f)));
+    assert.deepEqual(writers, ['lib/platform/leave-exceptions.ts']);
+  });
+
+  it('a company asks only with a company-wide editing role, never from support view, for its own company from the session', () => {
+    const ask = fnBody(policyService, 'requestException');
+    assert.match(ask, /askingRole\(ctx\)/);
+    assert.match(policyService, /if \(ctx\.impersonation\) throw new UserFacingError\("Support view can't ask for exceptions/);
+    assert.match(policyService, /if \(!ctx\.canEdit \|\| !companyWide\(ctx\)\) throw new UserFacingError\("Asking for an exception needs/);
+    const ctx = fnBody(policyActions, 'policyCtx');
+    assert.match(ctx, /resolvePlatformCompanyForTenant\(session\?\.user\?\.tenantSlug/);
+    assert.match(fnBody(policyActions, 'requestLeaveExceptionAction'), /policyCtx\(true\)[\s\S]*recordAuditLog\(/);
+    assert.match(fnBody(platform, 'cancelExceptionRequest'), /eq\(companyChangeRequests\.companyId, p\.companyId\)/);
+  });
+
+  it('company-details requests and leave exceptions never mix', () => {
+    assert.match(source('app/api/platform/change-requests/[id]/route.ts'), /if \(req\.kind !== 'company_details'\)/);
+    assert.match(source('app/api/platform/change-requests/route.ts'), /eq\(companyChangeRequests\.kind, 'company_details'\)/);
+    const setup = source('app/actions/company-setup.actions.ts');
+    assert.equal((setup.match(/eq\(companyChangeRequests\.kind, 'company_details'\)/g) ?? []).length, 3);
   });
 });

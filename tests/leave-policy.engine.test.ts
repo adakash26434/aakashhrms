@@ -11,6 +11,12 @@ import {
   topUpDays,
   valuesOf,
   dayAfter,
+  endingSoon,
+  exceptionErrors,
+  exceptionSettings,
+  exceptionState,
+  overlapping,
+  type ExceptionInput,
 } from '../lib/engines/leave-policy.engine';
 import type { PolicyException, PolicyValues } from '../lib/types/leave-policy';
 import type { LeaveRuleType } from '../lib/types/leave';
@@ -115,5 +121,44 @@ describe('Values and platform presets', () => {
     assert.deepEqual(lawfulPreset('HOME', { days: 18, cap: null }), { days: 18, cap: 90, paidDays: null });
     assert.deepEqual(lawfulPreset('MATERNITY', { days: 98, cap: null, paidDays: 45 }), { days: 98, cap: null, paidDays: 60 });
     assert.deepEqual(lawfulPreset(null, { days: 5, cap: 0 }), { days: 5, cap: null, paidDays: null });
+  });
+});
+
+describe('Exceptions: what can be asked for and granted (4.6d)', () => {
+  const ask = (over: Partial<ExceptionInput> = {}): ExceptionInput => ({
+    statutoryCode: 'HOME', setting: 'cap', value: 0, legalBasis: 'NRB directive 3/2083', reference: 'Ref 12', validFrom: '2026-10-06', validUntil: '2027-07-16', ...over,
+  });
+  it('only lowers a setting the Labour Act sets a minimum for, and only below it', () => {
+    assert.deepEqual(exceptionErrors(ask(), '2026-10-06'), {});
+    assert.deepEqual(exceptionSettings('HOME'), ['accrualEveryDays', 'cap']);
+    assert.deepEqual(exceptionSettings('SICK'), ['days', 'cap', 'certificateAfter']);
+    assert.ok(exceptionErrors(ask({ setting: 'allowHalfDay' }), '2026-10-06').setting);
+    assert.match(exceptionErrors(ask({ value: 120 }), '2026-10-06').value, /no exception is needed/);
+    assert.deepEqual(exceptionErrors(ask({ setting: 'accrualEveryDays', value: 30 }), '2026-10-06'), {});
+    assert.ok(exceptionErrors(ask({ setting: 'accrualEveryDays', value: 18 }), '2026-10-06').value);
+    assert.ok(exceptionErrors(ask({ statutoryCode: 'PUBLIC' }), '2026-10-06').statutoryCode);
+  });
+  it('names the directive and runs between two dates of at most five years that have not passed', () => {
+    assert.ok(exceptionErrors(ask({ legalBasis: 'NRB' }), '2026-10-06').legalBasis);
+    assert.ok(exceptionErrors(ask({ validUntil: '' }), '2026-10-06').validUntil);
+    assert.ok(exceptionErrors(ask({ validUntil: '2026-01-01' }), '2026-10-06').validUntil);
+    assert.ok(exceptionErrors(ask({ validFrom: '2026-01-01', validUntil: '2026-06-01' }), '2026-10-06').validUntil);
+    assert.ok(exceptionErrors(ask({ validUntil: '2032-01-01' }), '2026-10-06').validUntil);
+  });
+  it('two exceptions for the same setting may not overlap; revoked ones never count', () => {
+    const a = { statutoryCode: 'HOME', setting: 'cap', validFrom: '2026-07-17', validUntil: '2027-07-16', revokedAt: null };
+    assert.equal(overlapping(a, { ...a, validFrom: '2027-07-16', validUntil: '2028-07-16' }), true);
+    assert.equal(overlapping(a, { ...a, validFrom: '2027-07-17', validUntil: '2028-07-16' }), false);
+    assert.equal(overlapping(a, { ...a, setting: 'accrualEveryDays' }), false);
+    assert.equal(overlapping(a, { ...a, revokedAt: '2026-10-01T00:00:00Z' }), false);
+  });
+  it('warns 30 days before the end; states read as people do', () => {
+    assert.equal(endingSoon([exception({ validUntil: '2026-11-01' })], '2026-10-06').length, 1);
+    assert.equal(endingSoon([exception({ validUntil: '2026-12-01' })], '2026-10-06').length, 0);
+    assert.equal(endingSoon([exception({ validUntil: '2026-11-01', revokedAt: '2026-10-01T00:00:00Z' })], '2026-10-06').length, 0);
+    assert.equal(exceptionState(exception(), '2026-10-06'), 'active');
+    assert.equal(exceptionState(exception({ validFrom: '2026-12-01' }), '2026-10-06'), 'scheduled');
+    assert.equal(exceptionState(exception(), '2027-07-17'), 'ended');
+    assert.equal(exceptionState(exception({ revokedAt: '2026-10-01T00:00:00Z' }), '2026-10-06'), 'revoked');
   });
 });

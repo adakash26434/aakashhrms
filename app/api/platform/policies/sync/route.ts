@@ -7,6 +7,7 @@ import { leaveTypes, otRules, auditLogs, payHeads, taxRateSlabs, fiscalYears } f
 import { eq, desc } from 'drizzle-orm';
 import { DEFAULT_NEPAL_POLICY_PACK_V1, StatutoryPolicyPackPayload } from '@/lib/platform/policy-pack-data';
 import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
+import { pushToCompany } from '@/lib/platform/leave-exceptions';
 
 export async function POST(request: Request) {
   const authResult = await requirePlatformAuth(request);
@@ -120,6 +121,9 @@ export async function POST(request: Request) {
               },
             });
         }
+
+        // Leave exceptions granted to this company (4.6d), copied read-only.
+        await pushToCompany(company.id);
 
         // B. Upsert Statutory Overtime Rules
         for (const ot of packPayload.otRules || []) {

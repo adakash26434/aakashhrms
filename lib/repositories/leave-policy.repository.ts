@@ -255,5 +255,6 @@ export async function findExceptions(): Promise<PolicyException[]> {
     validFrom: String(r.validFrom).slice(0, 10),
     validUntil: r.validUntil ? String(r.validUntil).slice(0, 10) : null,
     revokedAt: r.revokedAt ? r.revokedAt.toISOString() : null,
+    revokeReason: r.revokeReason,
   }));
 }

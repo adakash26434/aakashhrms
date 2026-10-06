@@ -16,6 +16,7 @@ import {
   Gift,
   Percent,
   ShieldAlert,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +61,12 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/platform/change-requests",
         exact: false,
         icon: ShieldAlert,
+      },
+      {
+        label: "Leave Exceptions",
+        href: "/platform/leave-exceptions",
+        exact: false,
+        icon: Scale,
       },
     ],
   },

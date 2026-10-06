@@ -13,6 +13,22 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-06 — 4.6d Leave exceptions
+Branch: `redesign/4.6-leaves`
+
+Your decisions: the company asks and the platform grants (or the platform grants directly); when an exception ends, the setting goes back to the law by itself.
+
+Changed:
+- **Company (Policies → Leave types):** **Ask for an exception…** next to Propose (company-wide Leave types → Edit, never support view): setting (only those the law sets a minimum for), "Down to" with the law beside it (starts at the law's value), directive or law, number and date, from / until (an end is required, at most five years), why; checked as you type with the platform's own rules. The pane lists **Exception requests** (Waiting for the platform / Granted, with the dates granted when the platform changed them / Rejected with the reason / Withdrawn; Withdraw while waiting) and each exception (directive, "down to", dates, days left, "withdrawn by the platform: reason"); the Minimum column says "under an exception". From 30 days before an exception ends, a warning on the tab and in the bell ("Leave policies").
+- **Platform → Leave exceptions** (new page, kit grid and windows): requests from companies (Grant… with the value and dates adjustable, Reject… with a reason the company sees), exceptions granted (In force / Starts later / Ended / Revoked, when copied to the company; Revoke… with a reason), **New exception…** for a chosen company. Every grant, reject and revoke is in the platform audit (`LEAVE_EXCEPTION_GRANTED` / `_REQUEST_REJECTED` / `_REVOKED`).
+- **Rules** (`lib/engines/leave-policy.engine.ts`): `exceptionErrors` (a lower value than the law for a setting the law sets, a named directive, dates with an end), `overlapping` (no two for the same setting at once), `endingSoon`, `exceptionState`. The copy in the company is written only by `lib/platform/leave-exceptions.ts` (`pushToCompany`: on grant, revoke and every policy sync).
+- Platform DB: `company_leave_exceptions`, `company_change_requests.kind`. Company-details change requests are kept apart (list, review and Company setup check the kind).
+- Files: `lib/platform/leave-exceptions.ts`, `lib/platform/schema.ts`, `lib/platform/db.ts`, `app/api/platform/leave-exceptions/*`, `app/(platform)/platform/(admin)/leave-exceptions/page.tsx`, `components/platform/leave-exceptions-client.tsx`, `components/platform/platform-nav.tsx`, `app/api/platform/change-requests/*`, `app/api/platform/policies/sync/route.ts`, `app/actions/company-setup.actions.ts`, `lib/engines/leave-policy.engine.ts`, `lib/services/leave-policy.service.ts`, `lib/repositories/leave-policy.repository.ts`, `lib/types/leave-policy.ts`, `app/actions/leave-policy.actions.ts`, `components/leave-policy/leave-policy.tsx`, `lib/services/workspace-context.service.ts`, `components/frame/title-bar.tsx`.
+
+Verified: tsc 0 · eslint: nothing new (the change-requests routes keep their old `any`s) · 706/706 tests (exception rules in `tests/leave-policy.engine.test.ts`; S24 4.6d in `tests/security-leave.test.ts`, including a scan that only the platform module writes the company copy) · `next build` OK · browser, with your permission (all marked TEST ONLY, company settings never changed): request 1 (Home leave, can be saved up to 0) → a second request for the same setting refused → rejected on the platform with a reason → the company sees "Rejected" and the reason; request 2 → granted with the end shortened to 2026-10-20 → copied at once → the company shows the exception, "under an exception" minimum 0, the 30-day warning and the bell (1), Propose accepts 0 (cancelled) → revoked with a reason → the company's minimum is back to 90, warning and bell gone, "withdrawn by the platform: reason"; three platform audit entries; 0 console errors apart from the screenshot `caret-color` artefact. After the test the window starts at the law's value (it first showed an error before anything was typed) and the wording was tidied.
+
+---
+
 ## 2026-10-06 — 4.6c Statutory leave settings
 Branch: `redesign/4.6-leaves`
 

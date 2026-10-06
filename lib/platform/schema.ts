@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { pgTable, timestamp, uuid, varchar, text, integer, boolean, jsonb, pgEnum, date } from 'drizzle-orm/pg-core';
+import { pgTable, timestamp, uuid, varchar, text, integer, boolean, jsonb, pgEnum, date, numeric } from 'drizzle-orm/pg-core';
 
 // -----------------------------------------------------------------------------
 // ENUMS FOR CONTROL PLANE
@@ -164,6 +164,8 @@ export const companyChangeRequests = pgTable('company_change_requests', {
   companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
   requestedByUserId: uuid('requested_by_user_id'),
   requestedByUserEmail: varchar('requested_by_user_email', { length: 255 }).notNull(),
+  // company_details (legal name, PAN…) | leave_exception (4.6d: lower one Labour Act minimum, with the directive)
+  kind: varchar('kind', { length: 30 }).default('company_details').notNull(),
   status: varchar('status', { length: 20 }).default('PENDING').notNull(), // PENDING, APPROVED, REJECTED, CANCELLED
   currentValues: jsonb('current_values').notNull(),
   proposedValues: jsonb('proposed_values').notNull(),
@@ -179,3 +181,32 @@ export const companyChangeRequests = pgTable('company_change_requests', {
 export type CompanyChangeRequest = typeof companyChangeRequests.$inferSelect;
 export type NewCompanyChangeRequest = typeof companyChangeRequests.$inferInsert;
 
+// -----------------------------------------------------------------------------
+// 10. LEAVE EXCEPTIONS (4.6d): a Labour Act minimum lowered for one company
+// -----------------------------------------------------------------------------
+/**
+ * Granted by a super admin for a regulated company (e.g. a Nepal Rastra Bank
+ * directive), for one setting of one statutory leave type, between two dates,
+ * with the legal basis. Never deleted: revoked with a reason. Copied read-only
+ * into the company's leave_policy_exceptions on every grant, revoke and sync.
+ */
+export const companyLeaveExceptions = pgTable('company_leave_exceptions', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  requestId: uuid('request_id').references(() => companyChangeRequests.id, { onDelete: 'set null' }),
+  statutoryCode: varchar('statutory_code', { length: 50 }).notNull(),
+  setting: varchar('setting', { length: 40 }).notNull(),
+  value: numeric('value', { precision: 7, scale: 1 }),
+  legalBasis: text('legal_basis').notNull(),
+  reference: text('reference'),
+  validFrom: date('valid_from').notNull(),
+  validUntil: date('valid_until'),
+  grantedBy: uuid('granted_by').references(() => platformUsers.id, { onDelete: 'set null' }),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow().notNull(),
+  revokedBy: uuid('revoked_by').references(() => platformUsers.id, { onDelete: 'set null' }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  revokeReason: text('revoke_reason'),
+  syncedAt: timestamp('synced_at', { withTimezone: true }),
+});
+
+export type CompanyLeaveException = typeof companyLeaveExceptions.$inferSelect;

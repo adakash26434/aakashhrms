@@ -6,7 +6,8 @@ import { ruleTypes } from "@/lib/services/leave-rule-types.service";
 import { leaveYearOf, postingYear } from "@/lib/services/leave.service";
 import { availableActions, isCompanyAdministrator, waitingFor, type ApprovalActor, type ApprovalRequest, type ApprovalWording } from "@/lib/engines/approval.engine";
 import { creditedYearly, fmt } from "@/lib/engines/leave.engine";
-import { EDITABLE, LAW, asksWhen, changeLines, dayAfter, diffValues, floorOn, policyErrors, splitChange, topUpDays, valuesOf } from "@/lib/engines/leave-policy.engine";
+import { EDITABLE, LAW, asksWhen, changeLines, dayAfter, diffValues, endingSoon, exceptionSettings, floorOn, policyErrors, splitChange, topUpDays, valuesOf } from "@/lib/engines/leave-policy.engine";
+import { cancelExceptionRequest, createExceptionRequest, exceptionRequestsFor, readExceptionInput, type CompanyExceptionRequest } from "@/lib/platform/leave-exceptions";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
@@ -15,6 +16,7 @@ import type { LeaveRuleType } from "@/lib/types/leave";
 import {
   POLICY_SETTINGS,
   type LeavePolicyPageData,
+  type ExceptionRequestRow,
   type PolicyApplies,
   type PolicyChangeStatus,
   type PolicyChangeView,
@@ -49,6 +51,10 @@ export interface PolicyCtx {
   canEdit: boolean;
   /** Platform support view: can look, never propose or decide. */
   impersonation: boolean;
+  /** The company on the platform (for exception requests); null when it can't be resolved. */
+  companyId?: string | null;
+  /** Who is asking (the platform shows it with the request). */
+  email?: string | null;
 }
 
 const WORDING: ApprovalWording = {
@@ -315,6 +321,15 @@ export async function policyPage(ctx: PolicyCtx): Promise<LeavePolicyPageData> {
   const today = nepalDateIso();
   const [types, exceptions, approvers, year] = await Promise.all([ruleTypes(), policyRepo.findExceptions(), policyRepo.findPolicyApprovers(), leaveYearOf(today)]);
   const rows = policyTypes(types);
+  let requests: CompanyExceptionRequest[] = [];
+  let platformUnavailable = false;
+  if (ctx.companyId) {
+    try {
+      requests = await exceptionRequestsFor(ctx.companyId);
+    } catch {
+      platformUnavailable = true;
+    }
+  }
   const changes = await policyRepo.findChanges(rows.map((t) => t.id));
   const actions = await policyRepo.findApprovalActions(changes.map((c) => c.id));
   const names = await findUserNames([...changes.flatMap((c) => [c.preparedBy ?? "", c.decidedBy ?? ""]), ...actions.map((a) => a.actorId ?? "")]);
@@ -339,9 +354,12 @@ export async function policyPage(ctx: PolicyCtx): Promise<LeavePolicyPageData> {
       law: LAW[t.statutoryCode!] ?? "Labour Act",
       values: valuesOf(t),
       floor: floorOn(t.statutoryCode!, today, exceptions).floor,
+      floorSource: floorOn(t.statutoryCode!, today, exceptions).source,
       editable: EDITABLE[t.statutoryCode!],
       creditedYearly: creditedYearly(t),
       exceptions: exceptions.filter((e) => e.statutoryCode === t.statutoryCode),
+      exceptionSettings: exceptionSettings(t.statutoryCode!),
+      exceptionRequests: requests.filter((r) => r.input.statutoryCode === t.statutoryCode).map(requestRow),
       pending: mine.find((v) => v.status === "pending") ?? null,
       scheduled: mine.find((v) => v.scheduled) ?? null,
       history: mine.filter((v) => v.status !== "pending"),
@@ -353,19 +371,80 @@ export async function policyPage(ctx: PolicyCtx): Promise<LeavePolicyPageData> {
     leaveYear: year ? { label: year.label, start: year.start, end: year.end } : null,
     nextYearStart: year ? dayAfter(year.end) : null,
     types: typeRows,
-    permissions: { propose: ctx.canEdit && companyWide(ctx), approve: actor.canApprove, isAdministrator: actor.isAdministrator },
+    permissions: { propose: ctx.canEdit && companyWide(ctx), approve: actor.canApprove, isAdministrator: actor.isAdministrator, askException: ctx.canEdit && companyWide(ctx) && !!ctx.companyId },
+    endingSoon: endingSoon(exceptions, today).map((e) => ({ typeName: rows.find((t) => t.statutoryCode === e.statutoryCode)?.name ?? e.statutoryCode, exception: e })),
+    platformUnavailable,
     otherApprovers: approvers.filter((a) => a.userId !== ctx.userId).map((a) => a.name),
     waitingForMe: waiting,
   };
 }
 
-/** Leave policy changes this user can act on now (for the bell). */
+/**
+ * For the bell: leave policy changes this user can approve now, plus (for
+ * people who can change policies) exceptions that end within 30 days.
+ */
 export async function countPolicyWaitingFor(ctx: PolicyCtx): Promise<number> {
   try {
     const today = nepalDateIso();
     const actor = actorOf(ctx);
-    return (await policyRepo.findPendingChanges()).filter((c) => waitingFor(requestOf(c), actor, decisionCtx(today))).length;
+    const waiting = actor.canApprove ? (await policyRepo.findPendingChanges()).filter((c) => waitingFor(requestOf(c), actor, decisionCtx(today))).length : 0;
+    const ending = ctx.canEdit && companyWide(ctx) ? endingSoon(await policyRepo.findExceptions(), today).length : 0;
+    return waiting + ending;
   } catch {
     return 0;
   }
+}
+
+function requestRow(r: CompanyExceptionRequest): ExceptionRequestRow {
+  return {
+    id: r.id,
+    setting: r.input.setting as PolicySetting,
+    value: r.input.value,
+    legalBasis: r.input.legalBasis,
+    reference: r.input.reference,
+    validFrom: r.input.validFrom,
+    validUntil: r.input.validUntil,
+    reason: r.reason,
+    status: r.status as ExceptionRequestRow["status"],
+    requestedBy: r.requestedBy,
+    requestedAt: r.requestedAt,
+    rejectionReason: r.rejectionReason,
+    granted: r.granted,
+  };
+}
+
+const askingRole = (ctx: PolicyCtx) => {
+  if (ctx.impersonation) throw new UserFacingError("Support view can't ask for exceptions for the company.");
+  if (!ctx.canEdit || !companyWide(ctx)) throw new UserFacingError("Asking for an exception needs a company-wide role with Leave types → Edit.");
+  if (!ctx.companyId) throw new UserFacingError("The platform could not be reached. Try again later.");
+  return ctx.companyId;
+};
+
+/**
+ * Asks the platform to lower one Labour Act minimum for this company, with
+ * the directive. Nothing changes until the platform grants it, and then the
+ * company still proposes the change with a second person's approval.
+ */
+export async function requestException(input: unknown, ctx: PolicyCtx): Promise<{ id: string; typeName: string }> {
+  const companyId = askingRole(ctx);
+  const i = readExceptionInput(input);
+  const type = policyTypes(await ruleTypes()).find((t) => t.statutoryCode === i.statutoryCode);
+  if (!type) throw new UserFacingError("Choose a statutory leave type.");
+  const reason = String((input as { reason?: unknown })?.reason ?? "");
+  const current = valuesOf(type);
+  const id = await createExceptionRequest({
+    companyId,
+    userId: ctx.userId,
+    email: ctx.email || "unknown",
+    input: i,
+    reason,
+    current: { leaveType: type.name, setting: i.setting, companyValue: current[i.setting as PolicySetting] ?? null, lawMinimum: (floorOn(i.statutoryCode, nepalDateIso(), []).floor as Record<string, number | undefined>)[i.setting] ?? null },
+  });
+  return { id, typeName: type.name };
+}
+
+/** Withdraws the company's own waiting exception request. */
+export async function cancelExceptionAsk(requestId: string, ctx: PolicyCtx): Promise<void> {
+  const companyId = askingRole(ctx);
+  await cancelExceptionRequest({ companyId, requestId });
 }

@@ -260,3 +260,81 @@ export function lawfulPreset(statutoryCode: string | null, preset: { days: numbe
   const paidDays = law.paidDays !== undefined ? Math.max(preset.paidDays || 0, law.paidDays) : preset.paidDays ?? null;
   return { days, cap, paidDays };
 }
+
+// ---------------------------------------------------------------------------
+// Exceptions (4.6d): granted by the platform for a regulated company, read-only here
+// ---------------------------------------------------------------------------
+
+/** What a company asks for, or the platform grants. */
+export interface ExceptionInput {
+  statutoryCode: string;
+  setting: string;
+  value: number | null;
+  legalBasis: string;
+  reference: string;
+  validFrom: string;
+  validUntil: string;
+}
+
+/** The settings of a type the Labour Act sets a minimum for: the only ones an exception can lower. */
+export function exceptionSettings(statutoryCode: string): PolicySetting[] {
+  const law = STATUTORY_FLOOR[statutoryCode] ?? {};
+  return (EDITABLE[statutoryCode] ?? []).filter((s) => (FLOORED as readonly string[]).includes(s) && (law as Record<string, number | undefined>)[s] !== undefined);
+}
+
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const addYears = (iso: string, n: number) => `${Number(iso.slice(0, 4)) + n}${iso.slice(4)}`;
+
+/**
+ * What stops an exception (field → message). It must lower a setting the law
+ * sets a minimum for (otherwise none is needed), name the directive or law,
+ * and run between two dates of at most five years that have not passed.
+ */
+export function exceptionErrors(i: ExceptionInput, today: string): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!EDITABLE[i.statutoryCode]) errors.statutoryCode = "Choose a statutory leave type";
+  const settings = exceptionSettings(i.statutoryCode);
+  if (!errors.statutoryCode && !settings.includes(i.setting as PolicySetting)) errors.setting = "Choose a setting the Labour Act sets a minimum for";
+  const s = i.setting as Floored;
+  const v = i.value;
+  if (!errors.setting && !errors.statutoryCode) {
+    const law = (STATUTORY_FLOOR[i.statutoryCode] as Record<string, number>)[s];
+    if (typeof v !== "number" || !Number.isFinite(v)) errors.value = "Enter a number";
+    else if (v < 0 || v > 365) errors.value = "Between 0 and 365";
+    else if ((s === "accrualEveryDays" || s === "certificateAfter" || s === "expiryDays") && (!isWhole(v) || v < 1)) errors.value = "A whole number of days, at least 1";
+    else if (!isHalfStep(v)) errors.value = "Whole or half days";
+    else if (!(higherIsWorse(s) ? v > law : v < law)) errors.value = `The law already allows this (${floorText(s, { [s]: law })}): no exception is needed`;
+  }
+  if (i.legalBasis.trim().length < 5) errors.legalBasis = "Name the directive or law (e.g. Nepal Rastra Bank directive 3/2083)";
+  if (!ISO.test(i.validFrom)) errors.validFrom = "Choose the first day";
+  if (!ISO.test(i.validUntil)) errors.validUntil = "Choose the last day: every exception ends (it can be granted again)";
+  else if (ISO.test(i.validFrom) && i.validUntil < i.validFrom) errors.validUntil = "Not before the first day";
+  else if (ISO.test(i.validFrom) && i.validUntil > addYears(i.validFrom, 5)) errors.validUntil = "At most five years";
+  else if (i.validUntil < today) errors.validUntil = "This day has passed";
+  return errors;
+}
+
+/** Two exceptions for the same setting of the same type whose dates meet (revoked ones never count). */
+type Dated = { statutoryCode: string; setting: string; validFrom: string; validUntil: string | null; revokedAt: string | null };
+export function overlapping(a: Dated, b: Dated): boolean {
+  if (a.revokedAt || b.revokedAt || a.statutoryCode !== b.statutoryCode || a.setting !== b.setting) return false;
+  const aEnd = a.validUntil ?? "9999-12-31";
+  const bEnd = b.validUntil ?? "9999-12-31";
+  return a.validFrom <= bEnd && b.validFrom <= aEnd;
+}
+
+/** Days from one date to another (negative when past). */
+export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+
+/** Exceptions in force that end within `days` (30 by default): the company is warned before the law applies again. */
+export function endingSoon(exceptions: readonly PolicyException[], today: string, days = 30): PolicyException[] {
+  return exceptions.filter((e) => exceptionActive(e, today) && !!e.validUntil && daysBetween(today, e.validUntil) <= days);
+}
+
+/** "Active", "Starts 1 Shrawan", "Ended", "Withdrawn" as a status word. */
+export function exceptionState(e: PolicyException, today: string): "active" | "scheduled" | "ended" | "revoked" {
+  if (e.revokedAt) return "revoked";
+  if (e.validFrom > today) return "scheduled";
+  if (e.validUntil && e.validUntil < today) return "ended";
+  return "active";
+}

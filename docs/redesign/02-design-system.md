@@ -772,6 +772,28 @@ the fields; a value below the minimum turns the preview into "Not in the
 employees' favour…" and disables Send. "Send for approval" never changes
 anything by itself.
 
+**Exceptions (4.6d).** In the pane, an exception in force shows as an info
+Notice ("Exception: <directive> · Can be saved up to may go down to 0 ·
+dates · N days left"), a warning Notice from 30 days before it ends, and
+the same warning at the top of the tab (the bell counts it for people who
+can change policies). **Ask for an exception…** (next to Propose; company-wide
+Leave types → Edit) opens a window: setting (only those the law sets a
+minimum for), "Down to" with "Law: …" beside it, directive or law, number
+and date, from / until (an end is required, at most five years), why; it
+is checked as you type by the platform's own rules and says that, once
+granted, the change is still proposed and approved here. The pane lists the
+type's **Exception requests** (Waiting for the platform / Granted / Rejected
+with the reason / Withdrawn; Withdraw while waiting).
+
+**Platform → Leave exceptions** (`/platform/leave-exceptions`, kit grid and
+windows): **New exception…** and Refresh at the top; **Requests from
+companies** (company, asks for, directive, dates, asked by, status; the
+selected request's reason shown above the grid; **Grant…** / **Reject…**
+with a reason); **Exceptions granted** (company, exception, directive, dates,
+copied to company, status In force / Starts later / Ended / Revoked;
+**Revoke…** with a reason). The Grant window shows the law beside the value
+and lets the value and dates be adjusted; it is checked as you type.
+
 Below it, **Company leave types** (`components/leave-policy/company-leave-types.tsx`):
 a heading with a selection toolbar (**Edit…** · **Switch off / on** ·
 **Delete**, enabled when a row is chosen; double-click opens Edit) and a

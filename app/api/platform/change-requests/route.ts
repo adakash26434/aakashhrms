@@ -17,7 +17,8 @@ export async function GET(request: Request) {
     const statusFilter = searchParams.get('status');
     const companyIdFilter = searchParams.get('companyId');
 
-    const conditions = [];
+    // Company details only; leave exceptions have their own page (4.6d).
+    const conditions = [eq(companyChangeRequests.kind, 'company_details')];
     if (statusFilter && ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(statusFilter)) {
       conditions.push(eq(companyChangeRequests.status, statusFilter));
     }
@@ -52,9 +53,7 @@ export async function GET(request: Request) {
       .leftJoin(platformUsers, eq(companyChangeRequests.reviewedByPlatformUserId, platformUsers.id))
       .orderBy(desc(companyChangeRequests.createdAt));
 
-    const rows = conditions.length > 0
-      ? await query.where(and(...conditions))
-      : await query;
+    const rows = await query.where(and(...conditions));
 
     return NextResponse.json({
       success: true,

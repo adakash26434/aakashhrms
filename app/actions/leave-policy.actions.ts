@@ -6,6 +6,9 @@ import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permis
 import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
+import { auth } from '@/lib/auth';
+import { resolvePlatformCompanyForTenant } from '@/lib/platform/company-resolver';
+import { ExceptionValidationError } from '@/lib/platform/leave-exceptions';
 import * as service from '@/lib/services/leave-policy.service';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
 import type { PolicyPreview } from '@/lib/types/leave-policy';
@@ -27,14 +30,25 @@ function refresh() {
   revalidatePath('/timeAndLeave/leaves');
 }
 
-async function policyCtx(): Promise<service.PolicyCtx> {
+async function policyCtx(withCompany = false): Promise<service.PolicyCtx> {
   const scope = await checkPermissionWithScope('VIEW', 'LEAVE_TYPES');
   const [canEdit, canApprove, impersonation] = await Promise.all([hasPermission('EDIT', 'LEAVE_TYPES'), hasPermission('APPROVE', 'LEAVE_TYPES'), getImpersonationSession()]);
-  return { scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation };
+  const ctx: service.PolicyCtx = { scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation };
+  if (withCompany) {
+    // The company comes from the signed-in session, never from the browser.
+    const session = await auth();
+    ctx.email = session?.user?.email ?? null;
+    try {
+      ctx.companyId = (await resolvePlatformCompanyForTenant(session?.user?.tenantSlug || undefined)).id;
+    } catch {
+      ctx.companyId = null;
+    }
+  }
+  return ctx;
 }
 
 function fail(error: unknown, context: string): Fail {
-  if (error instanceof service.PolicyValidationError) return { success: false, error: 'Check the highlighted fields.', validationErrors: error.errors };
+  if (error instanceof service.PolicyValidationError || error instanceof ExceptionValidationError) return { success: false, error: 'Check the highlighted fields.', validationErrors: error.errors };
   return toActionError(error, context);
 }
 
@@ -91,5 +105,39 @@ export async function decideLeavePolicyAction(ids: unknown, decision: unknown, n
     return { success: true, data: { done, failed } };
   } catch (error: unknown) {
     return fail(error, 'leave-policy.decide');
+  }
+}
+
+/**
+ * Asks the platform for an exception to one Labour Act minimum, with the
+ * directive (4.6d). Company-wide Leave types → Edit, never support view; the
+ * company comes from the session. Audited.
+ */
+export async function requestLeaveExceptionAction(input: unknown): Promise<{ success: true; data: { id: string; typeName: string } } | Fail> {
+  await ensureTenantContext();
+  try {
+    const ctx = await policyCtx(true);
+    const r = await service.requestException(input, ctx);
+    const i = (input ?? {}) as Record<string, unknown>;
+    await recordAuditLog({ userId: ctx.userId, action: 'EDIT', module: 'LEAVE_TYPES', recordId: r.id, result: 'SUCCESS', newValues: { exceptionRequested: r.typeName, setting: i.setting ?? null, value: i.value ?? null, legalBasis: i.legalBasis ?? null, from: i.validFrom ?? null, until: i.validUntil ?? null } });
+    refresh();
+    return { success: true, data: r };
+  } catch (error: unknown) {
+    return fail(error, 'leave-policy.requestException');
+  }
+}
+
+/** Withdraws the company's own waiting exception request. Audited. */
+export async function cancelLeaveExceptionRequestAction(requestId: unknown): Promise<{ success: true } | Fail> {
+  await ensureTenantContext();
+  try {
+    if (typeof requestId !== 'string' || !UUID.test(requestId)) throw new UserFacingError('Choose a request.');
+    const ctx = await policyCtx(true);
+    await service.cancelExceptionAsk(requestId, ctx);
+    await recordAuditLog({ userId: ctx.userId, action: 'EDIT', module: 'LEAVE_TYPES', recordId: requestId, result: 'SUCCESS', newValues: { exceptionRequestWithdrawn: true } });
+    refresh();
+    return { success: true };
+  } catch (error: unknown) {
+    return fail(error, 'leave-policy.cancelException');
   }
 }

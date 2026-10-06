@@ -131,7 +131,7 @@ function ApprovalsBell({ leave, salary, attendance, policy }: { leave: number | 
     leave !== null ? { href: "/timeAndLeave/leaves?tab=requests", label: "Leave requests", count: leave } : null,
     salary !== null ? { href: "/workforce/salary-mapping?tab=approvals", label: "Salary changes", count: salary } : null,
     attendance !== null ? { href: "/timeAndLeave/attendance?tab=adjustments", label: "Attendance adjustments", count: attendance } : null,
-    policy !== null ? { href: "/timeAndLeave/policies?tab=types", label: "Leave policy changes", count: policy } : null,
+    policy !== null ? { href: "/timeAndLeave/policies?tab=types", label: "Leave policies", count: policy } : null,
   ].filter((x): x is { href: string; label: string; count: number } => !!x);
 
   useEffect(() => {
