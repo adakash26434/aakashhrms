@@ -37,6 +37,8 @@ Browser pass after sign-in (1366 and 390 px, nothing saved), fixed in a follow-u
 - Checked: branch kept in the URL across month changes, This month, Balances notices, the home leave panel chips, phone layout. Console: 0 errors apart from the screenshot `caret-color` artefact.
 - Re-verified: tsc 0 · eslint 0 · 668/668 tests · `next build` OK.
 
+**No roadmap numbers on screens** (you asked what "Balance before 4.6" meant). The 4.6 migration wrote the notes "Balance before 4.6" / "Taken before 4.6" on the lines it carried over from the old leave screens; "4.6" is our roadmap step, meaningless to users. The ledger is never edited, so the Balances history now shows them as "Balance from the old system" / "Taken in the old system" (`plainLedgerNote` in `lib/engines/leave.engine.ts`, used by `ledgerFor`; test in `tests/leave.engine.test.ts`), as attendance already does for "Recorded before 4.5" ("Entered in the old attendance screen"). A search of every screen found no other step numbers in text users see ("Opened by 4.6" on leave year openings is stored but never shown). Rule added to `02-design-system.md` §7.
+
 ---
 
 ## 2026-10-05 — 4.6b Leave entitlements

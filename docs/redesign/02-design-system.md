@@ -806,6 +806,14 @@ rule.
   token map in §3. Preview everything at `/dev/kit`, the development-only
   gallery.
 - No arbitrary font sizes. Use the type scale.
+- **No roadmap numbers on screens.** Step numbers ("4.5", "4.6c", "Phase 5")
+  are for the team and docs, never for users: not in labels, messages,
+  guides or notes. Text a migration writes into data that users will see
+  (ledger notes, reasons) is plain words ("Balance from the old system").
+  Notes already stored with a number are translated where they are shown,
+  never edited: `plainNote` (attendance: "Recorded before 4.5" → "Entered in
+  the old attendance screen") and `plainLedgerNote` (leave: "Balance / Taken
+  before 4.6" → "… the old system"). Code comments may keep step numbers.
 - New lists must use `DataGrid`, new dialogs `Window`, new forms
   `PropertyForm`.
 - Pop-ups (lists, calendars, pickers) use `usePopupPosition` (screen

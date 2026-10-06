@@ -12,7 +12,7 @@ import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { addDays, periodContaining } from "@/lib/engines/pay-period.engine";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording } from "@/lib/engines/approval.engine";
-import { balanceOn, capOf, checkRequest, countDays, fmt, homeLeaveEarned, ledgerSummary, proRata, creditedYearly, splitPaid, type CalendarDay } from "@/lib/engines/leave.engine";
+import { balanceOn, capOf, checkRequest, countDays, fmt, homeLeaveEarned, ledgerSummary, plainLedgerNote, proRata, creditedYearly, splitPaid, type CalendarDay } from "@/lib/engines/leave.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import type { EmployeeBalancesRow, LeaveDayDetail, LeaveHalf, LeavePageData, LeavePay, LeavePerson, LeavePreview, LeaveRequestView, LeaveRuleType, LeaveStatus, LeaveTabId, LedgerLine } from "@/lib/types/leave";
 
@@ -612,7 +612,7 @@ export async function ledgerFor(employeeId: string, scope: ScopeFilter): Promise
   if (!year) return [];
   const lines = await repo.findLedger([employeeId], year.id);
   const names = await findUserNames(lines.map((l) => l.createdBy ?? ""));
-  return lines.map((l) => ({ ...l, createdByName: l.createdBy ? names.get(l.createdBy) ?? null : null }));
+  return lines.map((l) => ({ ...l, note: plainLedgerNote(l.note), createdByName: l.createdBy ? names.get(l.createdBy) ?? null : null }));
 }
 
 // ---------------------------------------------------------------------------

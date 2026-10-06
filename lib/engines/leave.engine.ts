@@ -238,6 +238,17 @@ export interface BalanceBucket {
 }
 
 /**
+ * Notes that migration 0042 wrote on the lines it carried over from the old
+ * leave screens. They name a roadmap step, which means nothing to users, and
+ * the ledger is never edited, so they are put in plain words when shown.
+ */
+const OLD_SYSTEM_NOTES: Record<string, string> = {
+  "Balance before 4.6": "Balance from the old system",
+  "Taken before 4.6": "Taken in the old system",
+};
+export const plainLedgerNote = (note: string | null): string | null => (note !== null && OLD_SYSTEM_NOTES[note]) || note;
+
+/**
  * The balance usable on a date. Lines with an expiry (substitute leave
  * grants, §42) are used oldest-expiry first and stop counting once they
  * expire; everything else counts as it is. Days that expired unused are

@@ -15,6 +15,7 @@ import {
   defaultsFor,
   ledgerBalance,
   ledgerSummary,
+  plainLedgerNote,
   signed,
   splitPaid,
   statutoryFloorProblems,
@@ -472,5 +473,14 @@ describe('balance on the first day of the start month (starting balances)', () =
   it("the year's credit on its first day counts; a starting balance entered later counts too", () => {
     assert.equal(balanceAtStart([l('credit', 12, year)], year), 12);
     assert.equal(balanceAtStart([l('credit', 12, year), l('opening', -4, year, 'start:y')], year), 8);
+  });
+});
+
+describe('plainLedgerNote', () => {
+  it('puts the migration notes in plain words and leaves every other note alone', () => {
+    assert.equal(plainLedgerNote('Balance before 4.6'), 'Balance from the old system');
+    assert.equal(plainLedgerNote('Taken before 4.6'), 'Taken in the old system');
+    assert.equal(plainLedgerNote('Cancelled: plans changed'), 'Cancelled: plans changed');
+    assert.equal(plainLedgerNote(null), null);
   });
 });
