@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRightLeft, CalendarPlus, Check, CheckCircle2, CircleDashed, Loader2, X } from "lucide-react";
+import { ArrowRightLeft, CalendarPlus, Check, CheckCircle2, CircleDashed, Loader2, X } from "lucide-react";
 import { Confirm } from "@/components/kit/confirm";
+import { FilterStrip } from "@/components/kit/filter-strip";
 import { Guide } from "@/components/kit/guide";
+import { Notice } from "@/components/kit/notice";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
-import { SelectField } from "@/components/kit/select-field";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { ReasonWindow } from "@/components/attendance/attendance-windows";
@@ -351,18 +352,12 @@ export function SwitchHomeLeaveWindow({ onClose, onSaved }: { onClose: () => voi
             </ol>
           </section>
           {!closed.length && (
-            <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-ink">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-              <span>Balances will show only what was brought forward until {names(open.slice(0, 1)) || "the first month"} is closed. Switching now or after closing those months gives the same result.</span>
-            </p>
+            <Notice tone="warning">Balances will show only what was brought forward until {names(open.slice(0, 1)) || "the first month"} is closed. Switching now or after closing those months gives the same result.</Notice>
           )}
           {below > 0 && (
-            <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-subtle px-3 py-2 text-ink">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-              <span>
+            <Notice tone="warning">
                 {below} {below === 1 ? "person has" : "people have"} taken more home leave than earned so far, so the balance goes below 0 until the coming months make it up. New home leave requests are refused while the balance is short.
-              </span>
-            </p>
+              </Notice>
           )}
           <DataGrid id="leave-home-switch" label="Home leave before and after" columns={columns} rows={preview.rows} getRowId={(r) => r.employee.id} defaultSort={{ columnId: "name", direction: "asc" }} pageSize={100} maxHeight="45vh" empty={{ title: "Nothing to switch", description: "Everyone's home leave is already earned month by month." }} />
         </div>
@@ -396,16 +391,19 @@ type Grant = { employeeId: string; date: string; days: 1 | 0.5 | 0; note?: strin
  * the oldest grant is used first) or records why not (e.g. paid as
  * overtime). Never your own.
  */
-export function LeaveSubstitute({ data, onDone }: { data: LeavePageData; onDone: (text: string) => void }) {
+export function LeaveSubstitute({ data, inBranch, onDone }: { data: LeavePageData; inBranch: (branchId: string) => boolean; onDone: (text: string) => void }) {
   const dateText = useDateText();
   const [show, setShow] = useState<"open" | "all">("open");
-  const [branch, setBranch] = useState("");
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [refusing, setRefusing] = useState<string[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const list = data.substitute;
-  const rows = useMemo(() => (list ?? []).filter((s) => (show === "all" || !s.decided) && (!branch || s.employee.branchId === branch)), [list, show, branch]);
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (list ?? []).filter((s) => (show === "all" || !s.decided) && inBranch(s.employee.branchId) && (!q || s.employee.fullName.toLowerCase().includes(q) || s.employee.employeeCode.toLowerCase().includes(q)));
+  }, [list, show, inBranch, search]);
   const canGrant = data.permissions.edit;
   const grantable = (s: SubstituteSuggestion) => canGrant && !s.decided && s.employee.id !== data.myEmployeeId;
   const chosen = rows.filter((s) => selected.has(keyOf(s)) && grantable(s));
@@ -487,10 +485,10 @@ export function LeaveSubstitute({ data, onDone }: { data: LeavePageData; onDone:
         className="mb-3"
         title="How substitute leave works"
         steps={[
-          { title: "Someone works on a day off", text: "When attendance shows work on a person's weekly off or a holiday, the day appears here by itself (the last 21 days)." },
-          { title: "Look at the hours", text: "A full shift suggests a full day off, at least half a shift suggests a half day. In – out and hours worked are shown." },
-          { title: "Decide", text: "Press Grant on the row, or tick several rows and use the buttons above the list. Choose Not granted, with a reason, if you pay off-day overtime for it instead." },
-          { title: "The employee takes it", text: "It is added to their Substitute leave balance and must be taken within 21 days of the day worked (Labour Act §42), or it expires. The oldest day is used first." },
+          { title: "Work on a day off", text: "Days worked on a weekly off or holiday in the last 21 days appear here from attendance." },
+          { title: "Check the hours", text: "A full shift suggests a full day off; half a shift, a half day." },
+          { title: "Decide", text: "Grant on the row, or tick rows and use the buttons. Not granted (with a reason) if it is paid as overtime." },
+          { title: "Take it in 21 days", text: "It joins the Substitute leave balance and expires 21 days after the day worked (§42); oldest first." },
         ]}
       />
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -506,8 +504,8 @@ export function LeaveSubstitute({ data, onDone }: { data: LeavePageData; onDone:
             </button>
           ))}
         </div>
-        <div className="w-56">
-          <SelectField name="substitute-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branch} onChange={setBranch} placeholder="All branches" allowEmpty />
+        <div className="w-60">
+          <FilterStrip id="leave-substitute" filters={[]} values={{}} onChange={() => {}} search={{ value: search, onChange: setSearch, placeholder: "Name or code" }} />
         </div>
         {chosen.length > 0 && (
           <span className="ml-auto flex flex-wrap items-center gap-2 text-xs">
@@ -528,9 +526,9 @@ export function LeaveSubstitute({ data, onDone }: { data: LeavePageData; onDone:
         )}
       </div>
       {message && (
-        <p role="alert" className="mb-3 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">
+        <Notice tone="danger" className="mb-3" onDismiss={() => setMessage(null)}>
           {message}
-        </p>
+        </Notice>
       )}
       {list === null ? (
         <p className="flex items-center gap-1.5 p-2 text-xs text-ink-muted">

@@ -1,9 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { SelectField } from "@/components/kit/select-field";
 import { WindowButton } from "@/components/kit/window";
 import { fmt } from "@/lib/engines/leave.engine";
 import type { LeaveCalendarCell, LeavePageData } from "@/lib/types/leave";
@@ -25,17 +23,14 @@ function cellTitle(name: string, date: string, c: LeaveCalendarCell | undefined)
  * solid, waiting requests lighter and dashed, weekly offs and holidays
  * shaded (from each person's own shift, roster and branch holidays).
  */
-export function LeaveCalendar({ data }: { data: LeavePageData }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [moving, startMove] = useTransition();
-  const [branch, setBranch] = useState("");
+export function LeaveCalendar({ data, inBranch, loading, onMonth }: { data: LeavePageData; inBranch: (branchId: string) => boolean; loading: boolean; onMonth: (month: { year: number; month: number } | null) => void }) {
+  const moving = loading;
   const [onlyLeave, setOnlyLeave] = useState(false);
   const cal = data.calendar;
 
   const rows = useMemo(
-    () => (cal?.rows ?? []).filter((r) => (!branch || r.employee.branchId === branch) && (!onlyLeave || Object.values(r.cells).some((c) => c.leave))),
-    [cal, branch, onlyLeave]
+    () => (cal?.rows ?? []).filter((r) => inBranch(r.employee.branchId) && (!onlyLeave || Object.values(r.cells).some((c) => c.leave))),
+    [cal, inBranch, onlyLeave]
   );
   const usedTypes = useMemo(() => {
     const codes = new Set(rows.flatMap((r) => Object.values(r.cells).flatMap((c) => (c.leave ? [c.leave.code] : []))));
@@ -50,35 +45,32 @@ export function LeaveCalendar({ data }: { data: LeavePageData }) {
     );
   }
 
-  const go = (year: number, month: number) => startMove(() => router.push(`${pathname}?tab=calendar&y=${year}&m=${month}`, { scroll: false }));
   const step = (delta: number) => {
     const i = cal.period.year * 12 + (cal.period.month - 1) + delta;
-    go(Math.floor(i / 12), (i % 12) + 1);
+    onMonth({ year: Math.floor(i / 12), month: (i % 12) + 1 });
   };
+  const current = data.today >= cal.period.start && data.today <= cal.period.end;
   const onLeaveToday = rows.filter((r) => r.cells[data.today]?.leave?.status === "Approved").length;
 
   return (
     <div className="p-3">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <WindowButton onClick={() => step(-1)} disabled={moving} aria-label="Previous month">
+        <div className="inline-flex items-center gap-1 rounded-md border border-line-input bg-surface p-0.5">
+          <WindowButton onClick={() => step(-1)} disabled={moving} aria-label="Previous month" title="Previous month">
             <ChevronLeft className="h-3.5 w-3.5" />
           </WindowButton>
-          <span className="min-w-36 text-center text-sm font-semibold text-ink" aria-live="polite">
+          <span className="min-w-36 px-2 text-center text-sm font-semibold text-ink" aria-live="polite">
             {moving ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : cal.period.label}
           </span>
-          <WindowButton onClick={() => step(1)} disabled={moving} aria-label="Next month">
+          <WindowButton onClick={() => step(1)} disabled={moving} aria-label="Next month" title="Next month">
             <ChevronRight className="h-3.5 w-3.5" />
           </WindowButton>
-          {!(data.today >= cal.period.start && data.today <= cal.period.end) && (
-            <WindowButton onClick={() => startMove(() => router.push(`${pathname}?tab=calendar`, { scroll: false }))} disabled={moving}>
-              This month
-            </WindowButton>
-          )}
         </div>
-        <div className="w-56">
-          <SelectField name="calendar-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branch} onChange={setBranch} placeholder="All branches" allowEmpty />
-        </div>
+        {!current && (
+          <WindowButton onClick={() => onMonth(null)} disabled={moving}>
+            This month
+          </WindowButton>
+        )}
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink">
           <input type="checkbox" checked={onlyLeave} onChange={(e) => setOnlyLeave(e.target.checked)} className="h-3.5 w-3.5 accent-brand" />
           Only people on leave
@@ -123,7 +115,8 @@ export function LeaveCalendar({ data }: { data: LeavePageData }) {
                 {cal.days.map((d) => (
                   <th key={d.date} scope="col" title={d.date === data.today ? `Today, ${d.date}` : d.date} className={cn("w-7 min-w-7 border-b border-line px-0 py-1 text-center font-medium", d.date === data.today ? "bg-brand-subtle font-bold text-brand-strong" : d.weekday === 6 ? "text-ink-muted" : "text-ink")}>
                     <span className="block tabular-nums">{d.bsDay}</span>
-                    <span className="block text-3xs opacity-75">{DAY_LETTER[d.weekday]}</span>
+                    <span className="block text-3xs font-normal">{DAY_LETTER[d.weekday]}</span>
+                    <span className="block text-3xs font-normal text-ink-faint">{d.date.slice(8)}</span>
                   </th>
                 ))}
                 <th scope="col" className="border-b border-l border-line px-2 py-1 text-right font-semibold text-ink" title="Approved leave days this month">

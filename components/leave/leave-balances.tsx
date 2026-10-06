@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ArrowRightLeft, ClipboardList, Info, Loader2, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, Loader2, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
+import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { Guide } from "@/components/kit/guide";
-import { SelectField } from "@/components/kit/select-field";
+import { Notice } from "@/components/kit/notice";
 import { SplitView } from "@/components/kit/split-view";
 import { WindowButton } from "@/components/kit/window";
 import { getHomeLeaveYearAction, getLeaveLedgerAction } from "@/app/actions/leave.actions";
@@ -23,9 +24,10 @@ type Line = LedgerLine & { createdByName: string | null };
  * mourning …) has no balance. The pane shows the ledger: every credit,
  * leave taken and adjustment, never edited or deleted.
  */
-export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances }: { data: LeavePageData; onAdjust: (employeeId: string) => void; onSwitchHome: () => void; onStartingBalances: () => void }) {
+export function LeaveBalances({ data, inBranch, onAdjust, onSwitchHome }: { data: LeavePageData; inBranch: (branchId: string) => boolean; onAdjust: (employeeId: string) => void; onSwitchHome: () => void }) {
   const dateText = useDateText();
-  const [branch, setBranch] = useState("");
+  const [filters, setFilters] = useState<FilterValues>({});
+  const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ledger, setLedger] = useState<{ employeeId: string; lines: Line[] | null; error: string | null } | null>(null);
   const [homeYear, setHomeYear] = useState<{ employeeId: string; year: HomeLeaveYear | null } | null>(null);
@@ -35,7 +37,10 @@ export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances
   const sickDays = sickType?.days ?? 12;
   const sickCap = (sickType && capOf(sickType)) ?? 45;
   const homeCap = (homeType && capOf(homeType)) ?? 90;
-  const rows = data.balances.filter((b) => !branch || b.employee.branchId === branch);
+  const q = search.trim().toLowerCase();
+  const rows = data.balances.filter(
+    (b) => inBranch(b.employee.branchId) && (!filters.department || b.employee.departmentId === filters.department) && (!q || b.employee.fullName.toLowerCase().includes(q) || b.employee.employeeCode.toLowerCase().includes(q))
+  );
   const active = data.balances.find((b) => b.employee.id === activeId) ?? null;
 
   useEffect(() => {
@@ -63,7 +68,7 @@ export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances
           id: `t-${t.id}`,
           header: t.name,
           type: "number",
-          width: t.statutoryCode === "HOME" ? 210 : 140,
+          width: t.statutoryCode === "HOME" ? 180 : 140,
           value: (b) => b.cells.find((c) => c.leaveTypeId === t.id)?.balance ?? null,
           cell: (b) => {
             const c = b.cells.find((x) => x.leaveTypeId === t.id);
@@ -73,7 +78,7 @@ export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances
               return (
                 <span className="tabular-nums" title={h.givenUpFront !== null ? `${fmt(h.givenUpFront)} days given up front by the old system; not switched to earned home leave yet` : `Earned ${fmt(h.earned)} so far this year; up to ${fmt(h.upTo)} by the year end if every day is paid. Taken ${fmt(c.taken)}.`}>
                   <span className={cn("font-semibold", c.balance < 0 ? "text-danger" : "text-ink")}>{fmt(c.balance)}</span>
-                  <span className="text-2xs text-ink-muted"> · {h.givenUpFront !== null ? "given up front" : `earned ${fmt(h.earned)} of up to ${fmt(h.upTo)}`}</span>
+                  <span className="text-2xs text-ink-muted"> · {h.givenUpFront !== null ? "given up front" : `up to ${fmt(h.upTo)} this year`}</span>
                 </span>
               );
             }
@@ -109,63 +114,52 @@ export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances
         className="mb-3"
         title="How leave balances work"
         steps={[
-          { title: "Sick leave", text: `${fmt(sickDays)} days are given at the start of each leave year (less for someone who joins during the year). Unused days build up to ${sickCap}.` },
-          { title: "Home leave", text: `Earned by working: 1 day for every 20 days paid, added when an attendance month is closed. Unused days build up to ${homeCap}.` },
-          { title: "Substitute leave", text: "Given for working on a weekly off or holiday (Substitute leave tab). It must be taken within 21 days." },
-          { title: "Each new year", text: "Press Open leave year at the top: balances carry over, and days above the limits are paid out at basic salary." },
+          { title: "Sick leave", text: `${fmt(sickDays)} days at the start of each leave year (a share for joiners); up to ${sickCap} can be saved.` },
+          { title: "Home leave", text: `1 day for every 20 paid days, added as each attendance month is closed; up to ${homeCap} can be saved.` },
+          { title: "Substitute leave", text: "For working on a weekly off or holiday; to be taken within 21 days." },
+          { title: "Each new year", text: "Open leave year carries balances over; days above the limits are paid out." },
         ]}
-        note="Click a name to see every change to that person's balance, with who made it and why. Maternity, maternity care and mourning leave have no balance: they are given each time they are needed."
+        note="Balances are what can be taken today. Click a name for the month-by-month home leave and every change, with who made it and why. Maternity, maternity care and mourning have no balance: they are given each time."
       />
       {data.homeSwitch && (
-        <div role="status" className="mb-3 flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-warning/30 bg-warning-subtle px-3 py-2.5 text-xs text-ink">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">Home leave for {data.fiscalYear.label} was given up front by the old system.</p>
-            <p className="mt-0.5 text-ink-muted">
-              {data.homeSwitch.people} {data.homeSwitch.people === 1 ? "employee has" : "employees have"} home leave given in full for the year ({fmt(data.homeSwitch.givenUpFront)} days in all). The law gives it as it is earned: 1 day for every 20 paid days. Switching replaces the up-front days with what each person has earned, and from then on every closed attendance month adds its days.
-              {!data.permissions.openYear && " Someone with a company-wide leave role can make the switch."}
-            </p>
-          </div>
-          {data.permissions.openYear && (
-            <WindowButton variant="primary" onClick={onSwitchHome}>
-              <ArrowRightLeft className="h-3.5 w-3.5" /> Switch to earned home leave…
-            </WindowButton>
-          )}
-        </div>
+        <Notice
+          tone="warning"
+          className="mb-3"
+          title={`Home leave for ${data.fiscalYear.label} was given up front by the old system`}
+          action={
+            data.permissions.openYear ? (
+              <WindowButton variant="primary" onClick={onSwitchHome}>
+                <ArrowRightLeft className="h-3.5 w-3.5" /> Switch to earned home leave…
+              </WindowButton>
+            ) : undefined
+          }
+        >
+          {data.homeSwitch.people} {data.homeSwitch.people === 1 ? "employee has" : "employees have"} the whole year&apos;s home leave already ({fmt(data.homeSwitch.givenUpFront)} days in all). The law gives it as it is earned, 1 day for every 20 paid days; switching replaces it with what each person has earned.
+          {!data.permissions.openYear && " Someone with a company-wide leave role can make the switch."}
+        </Notice>
       )}
       {data.homeMonthsToClose.length > 0 && (
-        <div role="status" className="mb-3 flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-info/30 bg-info-subtle px-3 py-2.5 text-xs text-ink">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">Home leave for {data.homeMonthsToClose.map((m) => m.label).join(", ")} isn&apos;t added yet.</p>
-            <p className="mt-0.5 text-ink-muted">
-              {data.homeMonthsToClose.length === 1 ? "The month has" : "These months have"} ended, but attendance isn&apos;t closed for {Math.max(...data.homeMonthsToClose.map((m) => m.people))} employee{Math.max(...data.homeMonthsToClose.map((m) => m.people)) === 1 ? "" : "s"}. Home leave is added when a month is closed in Attendance → Month close.
-            </p>
-          </div>
-          <Link href={`/timeAndLeave/attendance?tab=close&year=${data.homeMonthsToClose[0].year}&month=${data.homeMonthsToClose[0].month}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-xs font-medium text-ink hover:bg-surface-sunken">
-            Go to month close <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        <Notice
+          tone="info"
+          className="mb-3"
+          title={`Home leave for ${data.homeMonthsToClose.map((m) => m.label).join(", ")} isn't added yet`}
+          action={
+            <Link href={`/timeAndLeave/attendance?tab=close&year=${data.homeMonthsToClose[0].year}&month=${data.homeMonthsToClose[0].month}`} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-sunken">
+              Go to month close <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          }
+        >
+          {data.homeMonthsToClose.length === 1 ? "The month has" : "These months have"} ended but {data.homeMonthsToClose.length === 1 ? "isn't" : "aren't"} closed in Attendance. Each month&apos;s home leave is added when it is closed.
+        </Notice>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="w-56">
-          <SelectField name="balance-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branch} onChange={setBranch} placeholder="All branches" allowEmpty />
-        </div>
-        {data.permissions.openYear && (
-          <WindowButton onClick={onStartingBalances}>
-            <ClipboardList className="h-3.5 w-3.5" /> Starting balances…
-          </WindowButton>
-        )}
-        <span className="text-2xs text-ink-muted">
-          Leave year {data.fiscalYear.label} ({dateText(data.fiscalYear.start)} – {dateText(data.fiscalYear.end)}).{" "}
-          {data.leaveStart
-            ? `Leave is kept here from ${data.leaveStart.label}; earlier balances came in as starting balances.`
-            : data.permissions.openYear
-              ? "Starting to keep leave here? Enter everyone's balances from the old records with Starting balances."
-              : null}{" "}
-          Balances are what can be taken today.
-        </span>
-      </div>
+      <FilterStrip
+        id="leave-balances"
+        className="mb-3"
+        values={filters}
+        onChange={setFilters}
+        search={{ value: search, onChange: setSearch, placeholder: "Name or code" }}
+        filters={[{ id: "department", label: "Department", allLabel: "All departments", options: data.departments.map((d) => ({ value: d.id, label: d.name })) }]}
+      />
       <SplitView
         id="leave-balances"
         detailTitle={active ? `${active.employee.fullName} · balances` : undefined}
@@ -182,11 +176,7 @@ export function LeaveBalances({ data, onAdjust, onSwitchHome, onStartingBalances
                 </div>
               )}
               {homeYear?.employeeId === active.employee.id && homeYear.year && <HomeLeaveYearView year={homeYear.year} />}
-              {ledger?.error && (
-                <p role="alert" className="text-danger">
-                  {ledger.error}
-                </p>
-              )}
+              {ledger?.error && <Notice tone="danger">{ledger.error}</Notice>}
               {!lines && !ledger?.error && (
                 <p className="flex items-center gap-1.5 text-ink-muted">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading the ledger…

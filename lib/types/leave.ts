@@ -352,6 +352,8 @@ export interface LeavePageData {
   homeMonthsToClose: { label: string; year: number; month: number; people: number }[];
   /** The month leave is kept in AakashHRMS from (balances before it are starting balances), or null. */
   leaveStart: { label: string; start: string } | null;
+  /** The branch shown on every tab ("" = all), from the URL. */
+  branchFilter: string;
 }
 
 /** The server's answer to "how many days would this be?" */

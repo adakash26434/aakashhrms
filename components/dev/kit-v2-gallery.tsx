@@ -13,6 +13,8 @@ import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { DateCell } from "@/components/kit/date-cell";
 import { FactBox } from "@/components/kit/fact-box";
 import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
+import { Guide } from "@/components/kit/guide";
+import { Notice } from "@/components/kit/notice";
 import { FieldGroup, FieldRow, PropertyForm, inputClass } from "@/components/kit/property-form";
 import { FormSkeleton } from "@/components/kit/skeleton";
 import { SplitView } from "@/components/kit/split-view";
@@ -274,6 +276,27 @@ function GalleryBody() {
             <span>BS date (hover for AD): <DateCell value="2026-10-02" /></span>
             <span>Long: <DateCell value="2026-10-02" variant="long" /></span>
           </div>
+        </div>
+      </Section>
+
+      <Section title="Notice + Guide (4.6)" note="Notice: one line of feedback or a condition to act on, never colour alone. Guide: how a tab works, hidden with Got it (remembered per browser).">
+        <div className="space-y-2">
+          <Notice tone="success" onDismiss={() => {}}>Leave approved for Pramod Shrestha (3 days).</Notice>
+          <Notice tone="info" title="Home leave for Bhadra isn't added yet" action={<WindowButton>Go to month close</WindowButton>}>
+            The month has ended but isn&apos;t closed in Attendance.
+          </Notice>
+          <Notice tone="warning" title="Given up front by the old system">Switching replaces it with what each person has earned.</Notice>
+          <Notice tone="danger">The balance is short: 2 days left, 3 asked.</Notice>
+          <Guide
+            id="kit-demo"
+            title="How leave requests work"
+            steps={[
+              { title: "Ask", text: "Employees apply in self-service, or HR uses New request." },
+              { title: "Approve", text: "The supervisor or a leave approver decides it." },
+              { title: "Taken", text: "Approved days come off the balance." },
+              { title: "Plans change", text: "Withdraw or cancel to give the days back." },
+            ]}
+          />
         </div>
       </Section>
 

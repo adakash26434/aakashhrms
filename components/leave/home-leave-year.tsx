@@ -1,17 +1,20 @@
 "use client";
 
-import { Info } from "lucide-react";
+import { Notice } from "@/components/kit/notice";
+import { StatusChip } from "@/components/kit/status-chip";
 import { fmt } from "@/lib/engines/leave.engine";
+import type { StatusKey } from "@/lib/kit/status";
 import type { HomeLeaveYear } from "@/lib/types/leave";
 import { cn } from "@/lib/utils";
 
-const STATUS: Record<HomeLeaveYear["months"][number]["status"], { label: string; className: string }> = {
-  closed: { label: "Added", className: "bg-success-subtle text-success" },
-  waiting: { label: "Waiting for month close", className: "bg-warning-subtle text-warning" },
-  open: { label: "This month · added when closed", className: "bg-info-subtle text-info" },
-  to_come: { label: "To come", className: "bg-surface-sunken text-ink-muted" },
-  before: { label: "In the starting balance", className: "bg-surface-sunken text-ink-muted" },
-  outside: { label: "Not employed", className: "bg-surface-sunken text-ink-faint" },
+// The kit's status vocabulary (icon + label), so these read like every other status.
+const STATUS: Record<HomeLeaveYear["months"][number]["status"], { key: StatusKey; label: string }> = {
+  closed: { key: "approved", label: "Added" },
+  waiting: { key: "pending", label: "Waiting for month close" },
+  open: { key: "review", label: "This month" },
+  to_come: { key: "draft", label: "To come" },
+  before: { key: "inactive", label: "In the starting balance" },
+  outside: { key: "inactive", label: "Not employed" },
 };
 
 /**
@@ -38,12 +41,9 @@ export function HomeLeaveYearView({ year, mine = false, className }: { year: Hom
       </h3>
 
       {year.givenUpFront !== null && (
-        <p className="mb-2 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-subtle px-2.5 py-1.5 text-ink">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-          <span>
-            {fmt(year.givenUpFront)} days were given up front for this year by the old system. {mine ? "Once HR switches to earned home leave, your balance becomes the days you have actually earned." : "After the switch to earned home leave (Balances tab), the balance becomes the days actually earned."}
-          </span>
-        </p>
+        <Notice tone="warning" className="mb-2">
+          {fmt(year.givenUpFront)} days were given up front for this year by the old system. {mine ? "Once HR switches to earned home leave, your balance becomes the days you have actually earned." : "After the switch to earned home leave (Balances tab), the balance becomes the days actually earned."}
+        </Notice>
       )}
 
       <dl className="grid grid-cols-2 gap-1.5 @md:grid-cols-5">
@@ -76,7 +76,7 @@ export function HomeLeaveYearView({ year, mine = false, className }: { year: Hom
                 {m.earned === null ? "—" : m.status === "closed" ? `+${fmt(m.earned)}` : `≈ ${fmt(m.earned)}`}
               </td>
               <td className="py-1">
-                <span className={cn("inline-block rounded px-1.5 py-0.5 text-3xs font-medium", STATUS[m.status].className)}>{STATUS[m.status].label}</span>
+                <StatusChip status={STATUS[m.status].key} label={STATUS[m.status].label} />
               </td>
             </tr>
           ))}

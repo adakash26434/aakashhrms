@@ -641,12 +641,23 @@ leave year. Sick, mourning and maternity are rights (§51): a rejection must
 say which condition is not met; other leave may be refused or moved for a
 recorded work reason.
 
+**Layout (same order as Attendance).** PageBar: **New request** (create) ·
+**Starting balances** · **Open leave year** (output group, company-wide role
+only) · Refresh. Below it one **context strip**: the branch (a SelectField
+that filters every tab and is kept in the URL, `?branch=`) and one line of
+context ("Leave year FY 2083/84 (dates) · kept in AakashHRMS from Shrawan
+2083 · weekly offs and holidays inside a leave are not counted"). Then a
+success **Notice** after an action, then the folder tabs. Inside a tab: the
+compact Guide, the tab's own view switch and button, a **FilterStrip**
+(search "Name or code" plus the tab's filters, saved views), any Notices,
+then the DataGrid / SplitView. Branch is never repeated inside a tab.
+
 | Tab | Layout and rules |
 |---|---|
-| Requests | Waiting for me / All / My leave, type and status filters, bulk approve or reject. DataGrid: from, to, employee, type, days (half, unpaid), reason, status. Detail pane: dates, days counted (unpaid in red), certificate, SSF claim, balance now, the §51 note, Approve / Final approve / Reject / Withdraw / Cancel leave, approval timeline. |
-| Balances | DataGrid: employee × balance types (balance usable today, taken, waiting), branch filter. Detail pane: the leave ledger per type (date, kind, note, who, signed days; substitute grants show "Expires …", struck through once past) and **Adjust balance** (never your own). |
-| Substitute leave | Days worked on a weekly off or holiday in the last 21 days, from attendance. To decide / All, branch filter. DataGrid: employee, worked on, day (weekly off / holiday name), in – out, worked, off-day OT, suggested (full ≥ the full-day hours, half ≥ half-day hours), would expire, decision. Select rows → **Grant as suggested** / Full day / Half day / **Not granted** (reason window). Your own rows can't be decided. Tab badge: days to decide. |
-| Calendar | One BS month (full width): rows = people in scope, columns = days (BS day + weekday letter, today highlighted). Approved leave a solid chip with the type's code (unpaid in red, ½ for half days), waiting leave dashed and lighter, weekly offs grey, holidays amber (each person's own shift, roster and branch holidays). ◀ ▶ month, "This month", branch filter, "Only people on leave", a key, and approved days per person. |
+| Requests | Waiting for me / All / My leave; FilterStrip: name or code, leave type, status (Waiting / Approved / Rejected / Cancelled); bulk approve or reject. DataGrid: employee (sticky), leave type, **dates** (one column, "from – to", a single day shown once), days (half, unpaid), reason (one line, full text on hover), raised by and department (under Columns), status. Detail pane: dates, days counted (unpaid in red), certificate, SSF claim, balance now, the §51 note, Approve / Final approve / Reject / Withdraw / Cancel leave, approval timeline. |
+| Balances | FilterStrip: name or code, department. Notices above the grid: **warning** while home leave is still the old system's up-front days (action **Switch to earned home leave…**), **info** for months that have ended but aren't closed (action **Go to month close**). DataGrid: employee × balance types (balance usable today, taken, waiting; home leave "0.5 · up to 15.8 this year"). Detail pane: the leave ledger per type (date, kind, note, who, signed days; substitute grants show "Expires …", struck through once past) and **Adjust balance** (never your own). |
+| Substitute leave | Days worked on a weekly off or holiday in the last 21 days, from attendance. To decide / All, name or code search. DataGrid: employee, worked on, day (weekly off / holiday name), in – out, worked, off-day OT, suggested (full ≥ the full-day hours, half ≥ half-day hours), would expire, decision. Select rows → **Grant as suggested** / Full day / Half day / **Not granted** (reason window). Your own rows can't be decided. Tab badge: days to decide. |
+| Calendar | One BS month (full width): rows = people in scope, columns = days (BS day + weekday letter, today highlighted). Approved leave a solid chip with the type's code (unpaid in red, ½ for half days), waiting leave dashed and lighter, weekly offs grey, holidays amber (each person's own shift, roster and branch holidays). A month navigator in one bordered group (◀ month ▶, as in Attendance), "This month", each day's AD date in small grey under the BS day, "Only people on leave", a key, and approved days per person. |
 
 Windows: **New leave request** (employee, type, from / to, part of the day,
 reason, certificate, SSF claim) with a **live preview from the server**:
@@ -682,15 +693,18 @@ year** = earned + what the remaining days can give if paid) and a month table
 (month, paid days, earned, status: **Added** for a closed month, **Waiting
 for month close** for one that has ended, **This month · added when closed**
 with "so far" figures, **To come**), then one line on what counts as a paid
-day. The Balances grid's Home Leave cell reads "0.5 · earned 0.5 of up to
-15.8". While a year's home leave is still the old system's up-front days, a
-banner on Balances explains it and offers **Switch to earned home leave…**
+day. Month statuses use StatusChip (Added = approved, Waiting for month
+close = pending, This month = review, To come = draft, In the starting
+balance / Not employed = inactive). The Balances grid's Home Leave cell
+reads "0.5 · up to 15.8 this year". While a year's home leave is still the
+old system's up-front days, a warning Notice on Balances explains it and
+offers **Switch to earned home leave…**
 (company-wide role): a window lists what happens in four numbered steps,
 warns when no month is closed yet or someone goes below 0, previews each
 person (given up front struck through, brought forward, earned so far,
 taken, balance now → after) and asks for SWITCH to be typed.
 
-**Starting balances** (Balances tab button, company-wide role): for a
+**Starting balances** (page bar, company-wide role): for a
 company that starts keeping leave in AakashHRMS during a leave year. Four
 numbered points explain it; "Leave is kept here from [month]" (this leave
 year up to the current month; suggested: the first month already closed;
@@ -698,21 +712,30 @@ fixed with a lock once saved); an EditGrid of employees employed on that
 day × balance types (not substitute), showing the balance on the month's
 first day, typed or pasted from Excel, changed cells marked, warnings over
 a type's limit, your own row locked. Saving records only the difference.
-The Balances tab then says "Leave is kept here from …"; until set, it
-suggests Starting balances. A blue notice lists months that have ended but
-aren't closed ("Home leave for Bhadra 2083 isn't added yet", with **Go to
+The context strip then says "kept in AakashHRMS from …". An info Notice on
+Balances lists months that have ended but aren't closed ("Home leave for Bhadra 2083 isn't added yet", with **Go to
 month close**). Months before the start show "In the starting balance" in
 the home leave table. Month close says what it added ("Home leave added:
 1.6 days for 3 employees").
 
 **Guide (kit, `components/kit/guide.tsx`).** Screens whose rules aren't
-obvious open with a "How … works" panel: a title with a help icon, 3–4
-numbered steps (bold step name, one or two plain sentences, no jargon or
-module numbers), an optional note, and **Hide**. Hidden, it leaves a small
-"How does this work?" link that brings it back; the choice is remembered
-per browser (storage blocked: it stays shown). Steps sit in a row on wide
-screens and stack on phones (container queries). Used on all four leave
-tabs; write the steps in the order the user acts.
+obvious open with a compact "How … works" panel (light info tint, `px-3
+py-2`): a title with a help icon, 3–4 numbered steps (bold step name and
+one short sentence, no jargon or module numbers), an optional note, and
+**Got it**. Hidden, it leaves a small "How does this work?" link that
+brings it back; the choice is remembered per browser (storage blocked: it
+stays shown). Steps sit four in a row on wide screens, two on medium, one
+on phones (container queries). Used on the leave tabs; write the steps in
+the order the user acts and keep each to one line at 1366 px.
+
+**Notice (kit, `components/kit/notice.tsx`).** The one pattern for a
+message inside a page: tone `success` (an action worked), `info` (something
+to know or do next), `warning` (a condition that needs a decision) or
+`danger` (an error; `role="alert"`). Icon + words (never colour alone), an
+optional bold title, an optional action on the right (a button or link) and
+optional **Dismiss**. `rounded-md`, `text-xs`, the tone's `*-subtle`
+background with a `/30` border. Don't hand-build tinted `<p>` boxes; use
+Notice. Preview: `/dev/kit`.
 
 ### Implemented frame (Phase 2)
 

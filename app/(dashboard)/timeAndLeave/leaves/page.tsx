@@ -5,7 +5,7 @@ import { ensureTenantContext } from "@/lib/db";
 import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 import { getLeavePage } from "@/lib/services/leave.service";
 import { leaveCalendar, substituteSuggestions } from "@/lib/services/leave-entitlement.service";
-import { addHomeLeave } from "@/lib/services/home-leave.service";
+import { addHomeLeave, leaveStartView } from "@/lib/services/home-leave.service";
 import { LeaveClient } from "@/components/leave/leave-client";
 import { LEAVE_TABS, type LeaveTabId } from "@/lib/types/leave";
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description: "Leave requests and approvals, balances from the leave ledger, substitute leave and the leave calendar.",
 };
 
-export default async function LeavesPage({ searchParams }: { searchParams: Promise<{ tab?: string; y?: string; m?: string }> }) {
+export default async function LeavesPage({ searchParams }: { searchParams: Promise<{ tab?: string; y?: string; m?: string; branch?: string }> }) {
   await ensureTenantContext();
   // Leave follows the user's employee scope (S24): Leave requests → View, or Leave approvals → View.
   const scope = (await hasPermission("VIEW", "LEAVE_APPLICATIONS"))
@@ -26,8 +26,11 @@ export default async function LeavesPage({ searchParams }: { searchParams: Promi
   // Opening a leave year changes everyone's balances: company-wide editors only (S24).
   const openYear = edit && scope.scopeType === "GLOBAL";
   const data = await getLeavePage({ tab, scope, userId: scope.userId, permissions: { add, edit, approve, openYear } });
+  // The context strip and the tab badges are the same on every tab.
+  data.branchFilter = data.branches.some((b) => b.id === sp.branch) ? sp.branch! : "";
+  data.leaveStart = await leaveStartView();
+  data.substitute = await substituteSuggestions(scope);
   if (tab === "balances") await addHomeLeave(data, scope);
-  if (tab === "substitute") data.substitute = await substituteSuggestions(scope);
   if (tab === "calendar") data.calendar = await leaveCalendar(scope, Number(sp.y), Number(sp.m));
   return <LeaveClient data={data} />;
 }

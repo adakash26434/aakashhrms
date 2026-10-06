@@ -5,8 +5,9 @@ import { Ban, Check, Plus, ShieldCheck, Undo2, X } from "lucide-react";
 import { Confirm } from "@/components/kit/confirm";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { useDateText } from "@/components/kit/date-cell";
+import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { Guide } from "@/components/kit/guide";
-import { SelectField } from "@/components/kit/select-field";
+import { Notice } from "@/components/kit/notice";
 import { SplitView } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
@@ -28,19 +29,26 @@ const DONE_WORD: Record<Decision, string> = { approve: "approved", final_approve
  * approve); never their own leave. The detail pane shows the days counted,
  * the pay split, the balance and the approval timeline.
  */
-export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; onNew: () => void; onDone: (text: string) => void }) {
+export function LeaveRequests({ data, inBranch, onNew, onDone }: { data: LeavePageData; inBranch: (branchId: string) => boolean; onNew: () => void; onDone: (text: string) => void }) {
   const dateText = useDateText();
   const waiting = useMemo(() => data.requests.filter((r) => r.status === "Pending" && (r.can.approve || r.can.finalApprove)), [data.requests]);
   const own = useMemo(() => data.requests.filter((r) => r.employee.id === data.myEmployeeId), [data.requests, data.myEmployeeId]);
   const [view, setView] = useState<"waiting" | "all" | "own">(waiting.length ? "waiting" : "all");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [filters, setFilters] = useState<FilterValues>({});
+  const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<{ ids: string[]; decision: Decision } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const base = view === "waiting" ? waiting : view === "own" ? own : data.requests;
-  const rows = base.filter((r) => (!typeFilter || r.leaveTypeId === typeFilter) && (!statusFilter || r.status === statusFilter));
+  const q = search.trim().toLowerCase();
+  const rows = base.filter(
+    (r) =>
+      inBranch(r.employee.branchId) &&
+      (!filters.type || r.leaveTypeId === filters.type) &&
+      (!filters.status || r.status === filters.status) &&
+      (!q || r.employee.fullName.toLowerCase().includes(q) || r.employee.employeeCode.toLowerCase().includes(q))
+  );
   const active = data.requests.find((r) => r.id === activeId) ?? null;
   const activeType = active ? data.types.find((t) => t.id === active.leaveTypeId) : undefined;
   const bulk = [...selected].filter((id) => waiting.some((r) => r.id === id && r.can.approve));
@@ -66,15 +74,25 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
 
   const columns = useMemo<GridColumn<LeaveRequestView>[]>(
     () => [
-      { id: "from", header: "From", type: "date", value: (r) => r.from },
-      { id: "to", header: "To", type: "date", value: (r) => r.to },
-      { id: "name", header: "Employee", width: 190, value: (r) => r.employee.fullName, cell: (r) => <span className="font-medium text-ink">{r.employee.fullName} <span className="font-code text-3xs text-ink-faint">{r.employee.employeeCode}</span></span> },
-      { id: "type", header: "Leave type", width: 170, value: (r) => r.leaveTypeName },
+      { id: "name", header: "Employee", width: 180, sticky: true, value: (r) => r.employee.fullName, cell: (r) => <span className="font-medium text-ink">{r.employee.fullName} <span className="font-code text-3xs text-ink-faint">{r.employee.employeeCode}</span></span> },
+      { id: "type", header: "Leave type", width: 140, value: (r) => r.leaveTypeName },
+      {
+        id: "from",
+        header: "Dates",
+        width: 230,
+        value: (r) => r.from,
+        cell: (r) => (
+          <span className="tabular-nums">
+            {dateText(r.from)}
+            {r.to !== r.from && <span className="text-ink-muted"> – {dateText(r.to)}</span>}
+          </span>
+        ),
+      },
       {
         id: "days",
         header: "Days",
         type: "number",
-        width: 110,
+        width: 120,
         value: (r) => r.days,
         cell: (r) => (
           <span className="tabular-nums">
@@ -84,12 +102,12 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
           </span>
         ),
       },
-      { id: "reason", header: "Reason", width: 240, value: (r) => r.reason },
+      { id: "reason", header: "Reason", width: 220, value: (r) => r.reason, cell: (r) => <span className="block truncate" title={r.reason}>{r.reason}</span> },
       { id: "by", header: "Raised by", width: 150, value: (r) => r.preparedBy, defaultHidden: true },
       { id: "dept", header: "Department", width: 150, value: (r) => r.employee.departmentName, defaultHidden: true },
       { id: "status", header: "Status", width: 110, value: (r) => r.status, cell: (r) => <StatusChip status={STATUS[r.status]} label={r.status === "Pending" ? "Waiting" : undefined} /> },
     ],
-    []
+    [dateText]
   );
 
   const views = [
@@ -105,12 +123,11 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
         className="mb-3"
         title="How leave requests work"
         steps={[
-          { title: "Ask", text: "Employees apply in self-service, or HR presses New request for them. The days are counted for them: weekly offs and holidays inside the dates are skipped." },
-          { title: "Approve", text: "The employee's supervisor or a leave approver decides it under Waiting for me. Company administrators can Final approve. Nobody approves their own leave." },
-          { title: "Taken", text: "Approved days come off the balance and show as leave in attendance, so payroll pays them (or deducts unpaid days)." },
-          { title: "Plans change", text: "A waiting request can be withdrawn; approved leave can be cancelled and the days go back, unless that attendance month is already closed." },
+          { title: "Ask", text: "Employees apply in self-service, or HR uses New request. Weekly offs and holidays inside the dates aren't counted." },
+          { title: "Approve", text: "The supervisor or a leave approver decides it under Waiting for me. Nobody approves their own leave." },
+          { title: "Taken", text: "Approved days come off the balance and show as leave in attendance and payroll." },
+          { title: "Plans change", text: "Withdraw a waiting request, or cancel approved leave to give the days back (not in a closed month)." },
         ]}
-        note="Requests from the last three months and all waiting ones are shown. Click a request to see the days counted and its history."
       />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Which requests" className="inline-flex rounded-md border border-line-input bg-surface p-0.5 text-xs">
@@ -119,24 +136,6 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
               {label}
             </button>
           ))}
-        </div>
-        <div className="w-48">
-          <SelectField name="leave-type-filter" options={data.types.map((t) => ({ value: t.id, label: t.name }))} value={typeFilter} onChange={setTypeFilter} placeholder="All leave types" allowEmpty />
-        </div>
-        <div className="w-36">
-          <SelectField
-            name="leave-status-filter"
-            options={[
-              { value: "Pending", label: "Waiting" },
-              { value: "Approved", label: "Approved" },
-              { value: "Rejected", label: "Rejected" },
-              { value: "Cancelled", label: "Cancelled" },
-            ]}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            placeholder="Any status"
-            allowEmpty
-          />
         </div>
         {data.permissions.add && (
           <WindowButton onClick={onNew}>
@@ -155,10 +154,31 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
           </span>
         )}
       </div>
+      <FilterStrip
+        id="leave-requests"
+        className="mb-3"
+        values={filters}
+        onChange={setFilters}
+        search={{ value: search, onChange: setSearch, placeholder: "Name or code" }}
+        filters={[
+          { id: "type", label: "Leave type", allLabel: "All leave types", options: data.types.map((t) => ({ value: t.id, label: t.name })) },
+          {
+            id: "status",
+            label: "Status",
+            allLabel: "Any status",
+            options: [
+              { value: "Pending", label: "Waiting" },
+              { value: "Approved", label: "Approved" },
+              { value: "Rejected", label: "Rejected" },
+              { value: "Cancelled", label: "Cancelled" },
+            ],
+          },
+        ]}
+      />
       {message && (
-        <p role="alert" className="mb-3 rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">
+        <Notice tone="danger" className="mb-3" onDismiss={() => setMessage(null)}>
           {message}
-        </p>
+        </Notice>
       )}
       <SplitView
         id="leave-requests"
@@ -279,7 +299,11 @@ export function LeaveRequests({ data, onNew, onDone }: { data: LeavePageData; on
             onOpen={(r) => setActiveId(r.id)}
             defaultSort={{ columnId: "from", direction: "desc" }}
             pageSize={50}
-            empty={view === "waiting" ? { title: "Nothing waiting for you", description: "Leave requests you can approve appear here." } : { title: "No leave requests", description: "Requests made here or from self-service appear in this list." }}
+            empty={
+              view === "waiting"
+                ? { title: "Nothing waiting for you", description: "Leave requests you can approve appear here." }
+                : { title: "No leave requests", description: "Requests from the last three months and all waiting ones appear here, from HR or self-service." }
+            }
           />
         }
       />

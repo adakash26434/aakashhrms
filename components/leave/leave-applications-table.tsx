@@ -16,7 +16,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { LeaveApplication } from "@/lib/types/leave";
 const STATUS_VARIANT: Record<LeaveApplication["status"], "warning" | "success" | "danger" | "neutral"> = { Pending: "warning", Approved: "success", Rejected: "danger", Cancelled: "neutral" };
-import { cn } from "@/lib/utils";
 
 interface EnrichedApplication extends LeaveApplication {
   employeeName: string;

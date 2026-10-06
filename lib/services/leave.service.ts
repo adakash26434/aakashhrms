@@ -601,6 +601,7 @@ export async function getLeavePage(params: { tab: LeaveTabId; scope: ScopeFilter
     homeSwitch: null,
     homeMonthsToClose: [],
     leaveStart: null,
+    branchFilter: "",
   };
 }
 

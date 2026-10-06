@@ -60,29 +60,28 @@ export function Guide({ id, title, steps, note, className }: { id: string; title
     );
   }
   return (
-    <section aria-label={title} className={cn("@container rounded-lg border border-info/25 bg-info-subtle/60 px-3 py-2.5", className)}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <section aria-label={title} className={cn("@container rounded-md border border-info/25 bg-info-subtle/50 px-3 py-2", className)}>
+      <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-xs font-semibold text-ink">
           <CircleHelp className="h-3.5 w-3.5 text-info" /> {title}
         </h3>
-        <button type="button" onClick={() => set(true)} className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-2xs font-medium text-ink-muted hover:bg-surface hover:text-ink" aria-label={`Hide: ${title}`}>
-          <X className="h-3 w-3" /> Hide
+        <button type="button" onClick={() => set(true)} className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-2xs font-medium text-ink-muted hover:bg-surface hover:text-ink" aria-label={`Got it, hide: ${title}`}>
+          <X className="h-3 w-3" /> Got it
         </button>
       </div>
-      <ol className={cn("grid gap-2", steps.length >= 4 ? "@2xl:grid-cols-4 @lg:grid-cols-2" : "@xl:grid-cols-3")}>
+      <ol className={cn("mt-1.5 grid gap-x-5 gap-y-1.5", steps.length >= 4 ? "@xl:grid-cols-2 @5xl:grid-cols-4" : "@3xl:grid-cols-3")}>
         {steps.map((s, i) => (
-          <li key={s.title} className="flex gap-2 rounded-md bg-surface px-2.5 py-2">
-            <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-info text-3xs font-bold text-white">
+          <li key={s.title} className="flex gap-1.5 text-2xs leading-snug text-ink-muted">
+            <span aria-hidden className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-info text-3xs font-bold text-white">
               {i + 1}
             </span>
-            <span className="min-w-0 text-2xs leading-relaxed text-ink-muted">
-              <span className="block text-xs font-semibold text-ink">{s.title}</span>
-              {s.text}
+            <span className="min-w-0">
+              <span className="font-semibold text-ink">{s.title}.</span> {s.text}
             </span>
           </li>
         ))}
       </ol>
-      {note && <p className="mt-2 text-2xs text-ink-muted">{note}</p>}
+      {note && <p className="mt-1.5 text-2xs text-ink-muted">{note}</p>}
     </section>
   );
 }

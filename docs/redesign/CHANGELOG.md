@@ -13,6 +13,24 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-06 — 4.6b Leaves: design and ease-of-use pass
+Branch: `redesign/4.6-leaves`
+
+Changed (screens only; no rules or data changed):
+- **One layout, as in Attendance.** The page bar holds New request · Starting balances · Open leave year · Refresh (Starting balances moved up from the Balances tab). A **context strip** under it has the branch (filters every tab, kept in the URL) and one line: the leave year with its dates, the month leave is kept from, and that weekly offs and holidays inside a leave aren't counted. The branch pickers inside Requests, Balances, Substitute and Calendar are gone.
+- **FilterStrip on every list** (search "Name or code", saved views): Requests (leave type, status), Balances (department), Substitute (search).
+- **Requests grid:** employee first (sticky), one **Dates** column ("from – to" in the chosen date format, a single day once) instead of From / To, reason on one line with the full text on hover, raised by and department under Columns.
+- **New kit `Notice`** (success / info / warning / danger: icon + words, optional title, action and Dismiss) replaces the hand-built tinted boxes: the success message, errors, the home leave switch banner (warning, with the Switch button), months not closed (info, with Go to month close), the substitute switch-window warnings and the given-up-front note in Home leave this year.
+- **Guide is compact:** light tint, one-sentence steps, four in a row on wide screens, **Got it** instead of Hide.
+- **Calendar:** month navigator in one bordered group like Attendance's, AD date under each BS day; month changes keep the branch.
+- **Home leave this year** uses the standard status chips (Added, Waiting for month close, This month, To come, In the starting balance, Not employed). Balances' home cell reads "0.5 · up to 15.8 this year".
+- `/dev/kit` shows Notice and Guide. Removed an unused import in `leave-applications-table.tsx` (old lint warning).
+- Files: `components/kit/notice.tsx` (new), `components/kit/guide.tsx`, `components/leave/leave-client.tsx`, `leave-requests.tsx`, `leave-balances.tsx`, `leave-entitlements.tsx`, `leave-calendar.tsx`, `home-leave-year.tsx`, `app/(dashboard)/timeAndLeave/leaves/page.tsx` (`?branch=`), `lib/types/leave.ts` (`branchFilter`), `components/dev/kit-v2-gallery.tsx`; `02-design-system.md` (leaves layout, Guide, Notice).
+
+Verified: tsc 0 · eslint on the leave files and kit: 0 problems · 668/668 tests · `next build` OK · browser: Requests at 1366 px (page bar, context strip, guide, FilterStrip, grid; the Dates column was widened after it cut off a range) and Notice / Guide in `/dev/kit`. The other tabs at 1366 / 390 px are checked after sign-in (the test browser was signed out).
+
+---
+
 ## 2026-10-05 — 4.6b Leave entitlements
 Branch: `redesign/4.6-leaves`
 
