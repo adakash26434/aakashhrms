@@ -10,6 +10,7 @@
 
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { isOwnRecord } from "@/lib/auth/self-action";
+import { addDays } from "@/lib/engines/pay-period.engine";
 import type { DayBasis, LeaveDayDetail, LeaveHalf, LeaveKind, LeavePay, LeaveRuleType, LeaveStatus, LedgerKind } from "@/lib/types/leave";
 
 /** Maternity can be extended by an unpaid month on a doctor's advice (§45(4)). */
@@ -137,6 +138,13 @@ export interface RequestCheck {
   /** Balance kinds: balance minus other waiting requests. */
   available: number | null;
   certificateNote: string;
+  /** The day the request was made (notice before leave is counted from it). */
+  appliedOn?: string;
+  /** Who asks: the employee (self-service) or HR on their behalf. */
+  source?: "hr" | "self_service";
+  /** Days of this type in the person's other waiting / approved requests: this leave year and over the whole service. */
+  usedThisYear?: number;
+  usedInService?: number;
 }
 
 /** Why a request can't be made (empty = it can), and notes that don't block. */
@@ -165,6 +173,23 @@ export function checkRequest(c: RequestCheck): { problems: string[]; notes: stri
           ? `${t.name} is ${t.days} days.`
           : `${t.name} is at most ${limit} days per request.`
     );
+  }
+  // Company types only (4.6e): rights and statutory leave are never limited this way (§51).
+  if (!t.isStatutory && !t.isRight) {
+    if (t.eligibleAfterDays && c.from < addDays(c.person.joiningDate, t.eligibleAfterDays)) {
+      problems.push(`${t.name} can be taken after ${fmt(t.eligibleAfterDays)} days of service: from ${addDays(c.person.joiningDate, t.eligibleAfterDays)}.`);
+    }
+    if (t.noticeDays && c.appliedOn && daysFrom(c.appliedOn, c.from) < t.noticeDays) {
+      const text = `${t.name} needs ${fmt(t.noticeDays)} day${t.noticeDays === 1 ? "" : "s"}' notice: the first day can be ${addDays(c.appliedOn, t.noticeDays)} or later.`;
+      if (c.source === "self_service") problems.push(text);
+      else notes.push(`Less notice than the ${fmt(t.noticeDays)} days ${t.name} asks for.`);
+    }
+    if (t.maxDaysPerYear && (c.usedThisYear ?? 0) + c.days > t.maxDaysPerYear) {
+      problems.push(`${t.name} is at most ${fmt(t.maxDaysPerYear)} days a leave year: ${fmt(c.usedThisYear ?? 0)} already taken or waiting.`);
+    }
+    if (t.maxDaysInService && (c.usedInService ?? 0) + c.days > t.maxDaysInService) {
+      problems.push(`${t.name} is at most ${fmt(t.maxDaysInService)} days over the whole service: ${fmt(c.usedInService ?? 0)} already taken or waiting.`);
+    }
   }
   if (c.overlaps) problems.push("These dates overlap another leave request.");
   if (c.hrDays) problems.push("HR has already set some of these days in the register. Ask HR to clear them first.");
@@ -385,6 +410,8 @@ export function carryOver(closing: number, cap: number | null): { carry: number;
 }
 
 const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86400000;
+/** Days from one date to another (0 = the same day). */
+export const daysFrom = (from: string, to: string) => dayNumber(to) - dayNumber(from);
 
 /** A yearly credit for someone who joins during the year: the share of the year left from joining (1 decimal). */
 export function proRata(days: number, joiningDate: string, year: { start: string; end: string }): number {
@@ -400,15 +427,61 @@ export function capOf(t: Pick<LeaveRuleType, "accumulationCap" | "statutoryCode"
   return t.accumulationCap ?? (t.statutoryCode ? STATUTORY_FLOOR[t.statutoryCode]?.cap ?? null : null);
 }
 
-/** Types credited a number of days each year (sick 12, company types); home leave is earned and substitute leave granted. */
-export const creditedYearly = (t: Pick<LeaveRuleType, "kind" | "statutoryCode" | "days">) =>
-  t.kind === "balance" && t.statutoryCode !== "HOME" && t.statutoryCode !== "SUBSTITUTE" && t.days > 0;
+/** Types credited a number of days at the start of each year (sick 12, company types given yearly); home leave is earned, substitute leave granted, monthly types credited at each month close. */
+export const creditedYearly = (t: Pick<LeaveRuleType, "kind" | "statutoryCode" | "days"> & { creditMode?: LeaveRuleType["creditMode"] }) =>
+  t.kind === "balance" && t.statutoryCode !== "HOME" && t.statutoryCode !== "SUBSTITUTE" && t.days > 0 && t.creditMode !== "monthly";
+
+/** Company types given month by month: days ÷ 12 at each attendance month close (4.6e). */
+export const creditedMonthly = (t: Pick<LeaveRuleType, "kind" | "isStatutory" | "days" | "creditMode">) => t.kind === "balance" && !t.isStatutory && t.days > 0 && t.creditMode === "monthly";
+
+/** Whether a type is for a person: gender, and a company type's departments and designations (statutory types are for everyone). */
+export function typeAppliesTo(
+  t: Pick<LeaveRuleType, "genderApplicable" | "isStatutory" | "applicableDepartments" | "applicableDesignations">,
+  p: { gender: string; departmentId?: string | null; designationId?: string | null }
+): boolean {
+  if (t.genderApplicable !== "All" && t.genderApplicable !== p.gender) return false;
+  if (t.isStatutory) return true;
+  if (t.applicableDepartments.length && p.departmentId !== undefined && !t.applicableDepartments.includes(p.departmentId ?? "")) return false;
+  if (t.applicableDesignations.length && p.designationId !== undefined && !t.applicableDesignations.includes(p.designationId ?? "")) return false;
+  return true;
+}
+
+/** A joiner's share of the year's days: pro-rata from joining, unless a company type gives joiners the whole year. */
+export const yearShare = (t: Pick<LeaveRuleType, "isStatutory" | "proRataForJoiners">, days: number, joiningDate: string, year: { start: string; end: string }) =>
+  !t.isStatutory && !t.proRataForJoiners ? (joiningDate > year.end ? 0 : days) : proRata(days, joiningDate, year);
+
+/**
+ * One month of a type given month by month: days a year ÷ 12, for the part
+ * of the month the person was employed (joined or left during it).
+ */
+export function monthlyCredit(daysAYear: number, month: { start: string; end: string }, person: { joiningDate: string; terminationDate: string | null }): number {
+  const from = person.joiningDate > month.start ? person.joiningDate : month.start;
+  const to = person.terminationDate && person.terminationDate < month.end ? person.terminationDate : month.end;
+  if (to < from) return 0;
+  const share = (dayNumber(to) - dayNumber(from) + 1) / (dayNumber(month.end) - dayNumber(month.start) + 1);
+  return Math.round((daysAYear / 12) * share * 100) / 100;
+}
+
+/**
+ * "Also this year" when a company type's days a year change (4.6e): the
+ * line that brings a person's credit this year to the new figure. Someone
+ * whose balance came from starting balances and was never credited is left
+ * alone; a lower figure never takes more than the balance left.
+ */
+export function thisYearChange(p: { target: number; credited: number; hasStart: boolean; balance: number }): number {
+  if (p.credited === 0 && p.hasStart) return 0;
+  let diff = Math.round((p.target - p.credited) * 100) / 100;
+  if (diff < 0) diff = Math.max(diff, -Math.max(0, p.balance));
+  return Math.round(diff * 100) / 100 || 0;
+}
 
 export interface OpeningPerson {
   id: string;
   gender: string;
   joiningDate: string;
   terminationDate: string | null;
+  departmentId?: string | null;
+  designationId?: string | null;
 }
 
 export interface OpeningRow {
@@ -465,7 +538,7 @@ export function planOpening(p: {
     if (e.terminationDate && e.terminationDate < p.newYear.start) continue;
     if (e.joiningDate > p.newYear.end) continue;
     for (const t of types) {
-      if (t.genderApplicable !== "All" && t.genderApplicable !== e.gender) continue;
+      if (!typeAppliesTo(t, e)) continue;
       const key = `${e.id}|${t.id}`;
       const old = p.oldYear ? balanceOn(p.oldLines.get(key) ?? [], p.oldYear.end) : null;
       const closing = old?.available ?? 0;
@@ -520,7 +593,7 @@ export function planOpening(p: {
       }
       let credit = 0;
       if (creditedYearly(t) && !p.creditedInNewYear.has(key)) {
-        credit = proRata(t.days, e.joiningDate, p.newYear);
+        credit = yearShare(t, t.days, e.joiningDate, p.newYear);
         if (credit > 0) {
           const joined = e.joiningDate > p.newYear.start;
           lines.push({

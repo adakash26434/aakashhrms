@@ -428,7 +428,7 @@ export async function saveEmployee(
     // Leave on hire (4.6b): yearly credits (sick 12, company types), pro-rata from joining, in
     // the leave year; home leave is earned at month close and substitute leave granted.
     try {
-      await creditOnJoining({ id: employee.id, gender: employee.gender, joiningDate: employee.joiningDate ? String(employee.joiningDate).slice(0, 10) : null });
+      await creditOnJoining({ id: employee.id, gender: employee.gender, departmentId: employee.departmentId, designationId: employee.designationId, joiningDate: employee.joiningDate ? String(employee.joiningDate).slice(0, 10) : null });
     } catch (err) {
       console.error(`Failed to credit leave for employee ${employee.id}:`, err);
       // Non-blocking: HR can adjust the balance.

@@ -97,6 +97,10 @@ export type LeaveHalf = "first" | "second";
 /** Pay of a type: full (Pay), none (Non-Pay) or half (Partial-Pay). */
 export type LeavePay = "full" | "none" | "half";
 
+/** How a balance type is given: all at the start of the leave year, or earned month by month at each attendance month close. */
+export const CREDIT_MODES = ["yearly", "monthly"] as const;
+export type CreditMode = (typeof CREDIT_MODES)[number];
+
 /** A leave type as the rules need it. */
 export interface LeaveRuleType {
   id: string;
@@ -129,6 +133,17 @@ export interface LeaveRuleType {
   accrualEveryDays: number | null;
   /** Substitute leave: a grant expires N days after the day worked (§42: 21). */
   expiryDays: number | null;
+  /** Company types: asked for at least N days before the first day (self-service is refused; HR gets a note). */
+  noticeDays: number | null;
+  /** Company types: can be taken only after N days of service (e.g. after probation). */
+  eligibleAfterDays: number | null;
+  /** Balance types: given at the year start, or 1/12 at each month close. */
+  creditMode: CreditMode;
+  /** A joiner gets a share of the year's days (statutory types always do). */
+  proRataForJoiners: boolean;
+  /** No-balance and event types: most days a leave year and over the whole service. */
+  maxDaysPerYear: number | null;
+  maxDaysInService: number | null;
   isActive: boolean;
 }
 
@@ -144,7 +159,7 @@ export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
 export const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
   opening: "Opening balance",
-  credit: "Yearly credit",
+  credit: "Credited",
   accrual: "Earned (days worked)",
   grant: "Granted",
   not_granted: "Not granted",

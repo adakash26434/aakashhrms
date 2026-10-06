@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { postLedgerLines, type NewLedgerLine } from "@/lib/repositories/leave.repository";
 import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
 import type { PolicyApplies, PolicyChangeStatus, PolicyException, PolicySetting, PolicyValues } from "@/lib/types/leave-policy";
+import type { LeaveTypeFormData } from "@/lib/types/leave-type";
 
 // Leave policies (4.6c): versions of leave type settings, their approval
 // timeline (module LEAVE_TYPES) and the platform's exceptions (read-only here).
@@ -257,4 +258,122 @@ export async function findExceptions(): Promise<PolicyException[]> {
     revokedAt: r.revokedAt ? r.revokedAt.toISOString() : null,
     revokeReason: r.revokeReason,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// 4.6e: company leave types (no minimum, so they apply when saved; each save
+// is a version in the same history, source company, approval not required)
+// ---------------------------------------------------------------------------
+
+/** The leave_types columns of a company type's form (never statutory). */
+function companyColumns(f: LeaveTypeFormData): Partial<typeof leaveTypes.$inferInsert> {
+  const n = (v: number | null) => (v === null ? null : String(v));
+  return {
+    name: f.name,
+    code: f.code,
+    leaveType: f.leaveType,
+    noOfDays: String(f.noOfDays),
+    kind: f.kind,
+    dayBasis: f.dayBasis,
+    allowHalfDay: f.allowHalfDay,
+    maxDaysPerRequest: n(f.maxDaysPerRequest),
+    paidDaysPerEvent: n(f.paidDaysPerEvent),
+    maxPaidDays: n(f.paidDaysPerEvent),
+    creditMode: f.creditMode,
+    proRataForNewJoinees: f.proRataForNewJoinees,
+    carryForward: f.carryForward,
+    accumulationCap: n(f.accumulationCap),
+    isEncashable: f.isEncashable,
+    encashmentBasis: f.encashmentBasis,
+    payoutFixedAmount: n(f.payoutFixedAmount),
+    requiresDocument: f.requiresDocument,
+    documentThresholdDays: f.documentThresholdDays,
+    noticeDays: f.noticeDays,
+    eligibleAfterDays: f.eligibleAfterDays,
+    maxDaysPerYear: n(f.maxDaysPerYear),
+    maxDaysInService: n(f.maxDaysInService),
+    genderApplicable: f.genderApplicable,
+    applicableDepartments: f.applicableDepartments,
+    applicableDesignations: f.applicableDesignations,
+    isActive: f.isActive,
+    isStatutory: false,
+    statutoryCode: null,
+    isRight: false,
+  };
+}
+
+/**
+ * Saves a company leave type with its history row and any "also this year"
+ * ledger lines, in one transaction. An edit locks the type and is refused
+ * (false) when it is statutory or someone saved it since it was read.
+ */
+export async function saveCompanyType(p: {
+  id: string | null;
+  changeId: string;
+  form: LeaveTypeFormData;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  note: string;
+  userId: string;
+  today: string;
+  /** The type's updated_at when it was read (edits only). */
+  readAt?: Date;
+  ledger?: NewLedgerLine[];
+}): Promise<{ id: string } | null> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const at = new Date();
+    let id = p.id;
+    if (id) {
+      const [current] = await tx.select().from(leaveTypes).where(eq(leaveTypes.id, id)).for("update");
+      if (!current || current.isStatutory || (p.readAt && current.updatedAt.getTime() !== p.readAt.getTime())) return null;
+      await tx.update(leaveTypes).set({ ...companyColumns(p.form), updatedAt: at }).where(eq(leaveTypes.id, id));
+    } else {
+      const [row] = await tx.insert(leaveTypes).values({ ...(companyColumns(p.form) as typeof leaveTypes.$inferInsert), createdAt: at, updatedAt: at }).returning({ id: leaveTypes.id });
+      id = row.id;
+    }
+    await tx.insert(leaveTypeChanges).values({
+      id: p.changeId,
+      leaveTypeId: id,
+      before: p.before,
+      after: p.after,
+      reason: p.note,
+      applies: "approval",
+      effectiveFrom: p.today,
+      status: "approved",
+      source: "company",
+      preparedBy: p.userId,
+      preparedAt: at,
+      decidedBy: p.userId,
+      decidedAt: at,
+      approvalRoute: "not_required",
+      approvalType: "none",
+      appliedAt: at,
+    });
+    if (p.ledger?.length) await postLedgerLines(p.ledger.map((l) => ({ ...l, leaveTypeId: id! })), tx);
+    return { id };
+  });
+}
+
+/** Deletes a company type that was never used, with its own history rows. */
+export async function deleteUnusedCompanyType(id: string): Promise<boolean> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(leaveTypes).where(eq(leaveTypes.id, id)).for("update");
+    if (!current || current.isStatutory) return false;
+    await tx.delete(leaveTypeChanges).where(eq(leaveTypeChanges.leaveTypeId, id));
+    const done = await tx.delete(leaveTypes).where(and(eq(leaveTypes.id, id), eq(leaveTypes.isStatutory, false))).returning({ id: leaveTypes.id });
+    return done.length > 0;
+  });
+}
+
+/** Saved versions of company types, newest first, with who saved them. */
+export async function findCompanyTypeChanges(leaveTypeIds: string[]) {
+  if (!leaveTypeIds.length) return [];
+  return (await getDb())
+    .select({ change: leaveTypeChanges, name: users.name, email: users.email })
+    .from(leaveTypeChanges)
+    .leftJoin(users, eq(users.id, leaveTypeChanges.preparedBy))
+    .where(and(inArray(leaveTypeChanges.leaveTypeId, leaveTypeIds), eq(leaveTypeChanges.source, "company")))
+    .orderBy(desc(leaveTypeChanges.preparedAt));
 }

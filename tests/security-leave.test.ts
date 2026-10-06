@@ -48,7 +48,7 @@ describe('S24 leave security', () => {
 
   it('the server counts the days; the browser never sends them', () => {
     const create = fnBody(service, 'createRequest');
-    assert.match(create, /previewFor\(person, type, input\)/);
+    assert.match(create, /previewFor\(person, type, input, \{ source: ctx\.source, appliedOn: nepalDateIso\(\) \}\)/);
     assert.match(create, /days: p\.days/);
     assert.doesNotMatch(create, /r\.(noOfDays|days)\b/);
     assert.doesNotMatch(fnBody(service, 'parseInput'), /\br\.(noOfDays|days|paidDays)\b/);
@@ -119,7 +119,7 @@ describe('S24 leave security', () => {
 
   it('statutory leave types cannot be changed or switched off in the old editor (no going below the law)', () => {
     const lt = source('lib/services/leave-type.service.ts');
-    assert.match(fnBody(lt, 'saveLeaveType'), /existing\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
+    assert.match(fnBody(lt, 'saveLeaveType'), /existing\?\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
     assert.match(fnBody(lt, 'toggleLeaveTypeStatus'), /isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
   });
 });
@@ -355,7 +355,7 @@ describe('S24 leave policies (4.6c)', () => {
 
   it('the old leave type editor still refuses statutory types', () => {
     const types = source('lib/services/leave-type.service.ts');
-    assert.match(fnBody(types, 'saveLeaveType'), /existing\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
+    assert.match(fnBody(types, 'saveLeaveType'), /existing\?\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
     assert.match(fnBody(types, 'toggleLeaveTypeStatus'), /isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
   });
 });
@@ -422,5 +422,71 @@ describe('S24 leave exceptions (4.6d)', () => {
     assert.match(source('app/api/platform/change-requests/route.ts'), /eq\(companyChangeRequests\.kind, 'company_details'\)/);
     const setup = source('app/actions/company-setup.actions.ts');
     assert.equal((setup.match(/eq\(companyChangeRequests\.kind, 'company_details'\)/g) ?? []).length, 3);
+  });
+});
+
+describe('S24 company leave types and Leave rules retired (4.6e)', () => {
+  const typeActions = source('app/actions/leave-type.actions.ts');
+  const typeService = source('lib/services/leave-type.service.ts');
+  const policyRepo = source('lib/repositories/leave-policy.repository.ts');
+
+  it('every company type action checks Leave types with scope, needs a company-wide role and returns safe errors', () => {
+    assert.match(fnBody(typeActions, 'typeCtx'), /checkPermissionWithScope\(action, 'LEAVE_TYPES'\)[\s\S]*companyWide: scope\.scopeType === 'GLOBAL'/);
+    for (const name of ['saveLeaveTypeAction', 'previewLeaveTypeThisYearAction', 'deleteLeaveTypeAction', 'toggleLeaveTypeStatusAction']) {
+      const body = fnBody(typeActions, name);
+      assert.match(body, /ensureTenantContext\(\)/, name);
+      assert.match(body, /await typeCtx\('(ADD|EDIT|DELETE)'\)|await typeCtx\(id \? 'EDIT' : 'ADD'\)/, name);
+      assert.match(body, /toActionError\(error, 'leave-type\./, name);
+    }
+    for (const name of ['saveLeaveType', 'previewThisYear', 'deleteLeaveType', 'toggleLeaveTypeStatus']) assert.match(fnBody(typeService, name), /assertCompanyWide\(ctx\)/, name);
+  });
+
+  it('the server checks the form itself and never saves a statutory type or a stale edit', () => {
+    const save = fnBody(typeService, 'saveLeaveType');
+    assert.match(save, /if \(existing\?\.isStatutory\) throw new UserFacingError\(STATUTORY_LOCKED\)/);
+    assert.match(save, /options\.version && existing\.updatedAt\.toISOString\(\) !== options\.version/);
+    assert.match(fnBody(typeService, 'checkedForm'), /normalizeLeaveTypeForm\([\s\S]*validateLeaveTypeForm\(form\)[\s\S]*Another leave type has this code/);
+    const repoSave = fnBody(policyRepo, 'saveCompanyType');
+    assert.match(repoSave, /\.for\("update"\)[\s\S]*current\.isStatutory \|\| \(p\.readAt && current\.updatedAt\.getTime\(\) !== p\.readAt\.getTime\(\)\)/);
+    assert.match(fnBody(policyRepo, 'companyColumns'), /isStatutory: false,\s*statutoryCode: null,\s*isRight: false/);
+    assert.match(repoSave, /source: "company"[\s\S]*approvalRoute: "not_required"/, 'every save is a version in the history');
+  });
+
+  it('a used type is never deleted and its kind never changes; "also this year" never takes more than is left', () => {
+    assert.match(fnBody(typeService, 'deleteLeaveType'), /leaveTypeInUse\(id\)[\s\S]*Switch it off instead/);
+    assert.match(fnBody(typeService, 'saveLeaveType'), /before!\.kind !== form\.kind && \(await repository\.leaveTypeInUse\(existing\.id\)\)/);
+    assert.match(fnBody(typeService, 'thisYearLines'), /thisYearChange\(\{[\s\S]*balance: balanceOn\(mine, today\)\.available/);
+    assert.match(fnBody(typeService, 'thisYearLines'), /ref: `policy:\$\{changeId\}`/);
+  });
+
+  it('rights and statutory leave are never limited by notice, service or yearly limits', () => {
+    assert.match(fnBody(source('lib/engines/leave.engine.ts'), 'checkRequest'), /if \(!t\.isStatutory && !t\.isRight\) \{[\s\S]*eligibleAfterDays[\s\S]*noticeDays[\s\S]*maxDaysPerYear[\s\S]*maxDaysInService/);
+    assert.match(fnBody(repo, 'findRuleTypes'), /noticeDays: r\.isStatutory \? null : c\.noticeDays/);
+    // Notice is counted from the day the request was made, also when it is approved later.
+    assert.match(fnBody(service, 'decide'), /appliedOn: String\(a\.appliedDate\)\.slice\(0, 10\)/);
+  });
+
+  it('monthly credits post once per month and come back on reopen; reopening one month never touches another', () => {
+    const close = fnBody(service, 'monthCloseLines');
+    assert.match(close, /creditedMonthly\(t\)[\s\S]*givenYearly\.has\(e\.id\) \|\| !typeAppliesTo\(t, e\)[\s\S]*due - already/);
+    assert.match(close, /l\.leaveTypeId === home\.id && l\.ref === ref/);
+    assert.match(fnBody(service, 'monthReopenLines'), /findLinesByRef\(p\.employeeIds, ref\)\)\.filter\(\(l\) => l\.ref === ref\)/);
+  });
+
+  it('leave salary reads the leave type\'s payout rate; a fixed rate is never below basic', () => {
+    const salary = source('lib/services/leave-salary.service.ts');
+    assert.match(fnBody(salary, 'payoutOf'), /payoutRate\(leaveType,/);
+    assert.equal((salary.match(/await payoutOf\(leaveType\)/g) ?? []).length, 2);
+    assert.match(source('lib/engines/leave-salary.engine.ts'), /Decimal\.max\(new Decimal\(args\.fixedDailyAmount\), new Decimal\(args\.basicSalary\)\.dividedBy\(workDays\)\)/);
+  });
+
+  it('nothing writes leave_rules any more; onboarding adds only lawful statutory types', () => {
+    for (const file of ['lib/platform/provisioning/seed-tenant.ts', 'lib/repositories/onboarding.repository.ts', 'app/api/platform/policies/sync/route.ts', 'app/api/platform/companies/[id]/route.ts']) {
+      assert.doesNotMatch(source(file), /insert\((schema\.)?leaveRules\)|update\((schema\.)?leaveRules\)/, file);
+    }
+    const onboarding = fnBody(source('lib/repositories/onboarding.repository.ts'), 'bootstrapStatutoryLeavesAndOT');
+    assert.match(onboarding, /!STATUTORY_FLOOR\[lt\.code\]\) continue/);
+    assert.match(onboarding, /lawfulPreset\(lt\.code/);
+    assert.match(source('app/(dashboard)/timeAndLeave/leave-rules/page.tsx'), /redirect\("\/timeAndLeave\/policies\?tab=types"\)/);
   });
 });

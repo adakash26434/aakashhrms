@@ -336,13 +336,13 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
       }
     }
 
-    // 7. SEED STATUTORY LEAVE TYPES & LEAVE RULES (Nepal Labour Act 2074)
+    // 7. SEED STATUTORY LEAVE TYPES (Nepal Labour Act 2074; leave rules were retired in 4.6e:
+    // how a type is given, counted and paid out is on the type itself)
     const targetLeaveTypes = leaveTypes && leaveTypes.length > 0 ? leaveTypes : DEFAULT_NEPAL_LEAVE_TYPES;
 
     for (const lt of targetLeaveTypes) {
       // Public holidays are the Holiday calendar, not a leave type (4.6); older saved setups may still list them.
       if (lt.code === 'PUBLIC') continue;
-      let leaveTypeId: string;
       const existingLT = await tenantDb
         .select()
         .from(schema.leaveTypes)
@@ -352,7 +352,7 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
       if (existingLT.length === 0) {
         // Never below the Labour Act; a blank or 0 cap means the law's cap (0 would lapse every saved day).
         const lawful = lawfulPreset(lt.code, { days: Number(lt.daysPerYear) || 0, cap: lt.maxAccumulation ? Number(lt.maxAccumulation) : null });
-        const [insertedLT] = await tenantDb
+        await tenantDb
           .insert(schema.leaveTypes)
           .values({
             name: lt.name,
@@ -369,38 +369,7 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
             proRataForNewJoinees: true,
             isPlatformLocked: true,
             isActive: true,
-          })
-          .returning({ id: schema.leaveTypes.id });
-        leaveTypeId = insertedLT.id;
-      } else {
-        leaveTypeId = existingLT[0].id;
-      }
-
-      // Seed matching statutory Leave Rule
-      const existingRule = await tenantDb
-        .select()
-        .from(schema.leaveRules)
-        .where(eq(schema.leaveRules.leaveTypeId, leaveTypeId))
-        .limit(1);
-
-      if (existingRule.length === 0) {
-        const isDaysWorked = lt.code === 'HOME' || lt.code === 'SUBSTITUTE';
-        const ruleName = `${lt.name.split(' (')[0]} Statutory Rule`;
-        const accrualMethod = isDaysWorked ? 'DAYS_WORKED' : 'FIXED_ANNUAL';
-        const accrualValue = lt.code === 'HOME' ? '20' : String(lt.daysPerYear);
-
-        await tenantDb.insert(schema.leaveRules).values({
-          leaveTypeId,
-          ruleName,
-          ruleCategory: 'STATUTORY',
-          accrualMethod,
-          accrualValue,
-          encashmentRate: 'BASIC_DAILY',
-          encashmentFixedAmount: '0',
-          minServiceDaysForEligibility: 0,
-          isPlatformLocked: true,
-          isActive: true,
-        });
+          });
       }
     }
 

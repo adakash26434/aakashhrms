@@ -7,7 +7,6 @@ import {
   departments,
   designations,
   leaveTypes,
-  leaveRules,
   otRules,
   payHeads,
   users,
@@ -24,6 +23,8 @@ import type {
 import { platformDb } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
 import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '@/lib/platform/policy-pack-data';
+import { STATUTORY_FLOOR } from '@/lib/engines/leave.engine';
+import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
 
 export async function getOnboardingStatus(
   currentUserId: string,
@@ -312,65 +313,34 @@ export async function bootstrapStatutoryLeavesAndOT(
 ): Promise<void> {
   const db = (await getDb());
 
-  // 1. Insert Leave Types and matching Statutory Leave Rules
+  // 1. Statutory leave types still missing (the platform seeds them when the company is created).
+  // Only the Labour Act's own types, never below the law (a blank or 0 cap is the law's cap); the
+  // numbers sent by the browser can only raise them. Leave rules were retired in 4.6e.
   for (const lt of data.leaveTypes) {
     // Public holidays are the Holiday calendar, not a leave type (4.6).
-    if (lt.code === 'PUBLIC') continue;
-    let leaveTypeId: string;
+    if (lt.code === 'PUBLIC' || !STATUTORY_FLOOR[lt.code]) continue;
     const existing = await db
-      .select()
+      .select({ id: leaveTypes.id })
       .from(leaveTypes)
       .where(eq(leaveTypes.code, lt.code));
-
-    if (existing.length === 0) {
-      const [inserted] = await db
-        .insert(leaveTypes)
-        .values({
-          name: lt.name,
-          code: lt.code,
-          leaveType: lt.isPaid ? 'Pay' : 'Non-Pay',
-          noOfDays: String(lt.daysPerYear),
-          carryForward: lt.maxAccumulation > 0,
-          accumulationCap: String(lt.maxAccumulation),
-          isStatutory: true,
-          statutoryCode: lt.code,
-          genderApplicable: lt.genderSpecific || 'All',
-          isEncashable: lt.isEncashable,
-          encashmentBasis: 'BasicSalary',
-          proRataForNewJoinees: true,
-          isActive: true,
-        })
-        .returning({ id: leaveTypes.id });
-      leaveTypeId = inserted.id;
-    } else {
-      leaveTypeId = existing[0].id;
-    }
-
-    // Seed matching statutory Leave Rule
-    const existingRule = await db
-      .select()
-      .from(leaveRules)
-      .where(eq(leaveRules.leaveTypeId, leaveTypeId));
-
-    if (existingRule.length === 0) {
-      const isDaysWorked = lt.code === 'HOME' || lt.code === 'SUBSTITUTE';
-      const ruleName = `${lt.name.split(' (')[0]} Statutory Rule`;
-      const accrualMethod = isDaysWorked ? 'DAYS_WORKED' : 'FIXED_ANNUAL';
-      const accrualValue = lt.code === 'HOME' ? '20' : String(lt.daysPerYear);
-
-      await db.insert(leaveRules).values({
-        leaveTypeId,
-        ruleName,
-        ruleCategory: 'STATUTORY',
-        accrualMethod,
-        accrualValue,
-        encashmentRate: lt.isEncashable ? 'BASIC_DAILY' : 'BASIC_DAILY',
-        encashmentFixedAmount: '0',
-        minServiceDaysForEligibility: 0,
-        isPlatformLocked: true,
-        isActive: true,
-      });
-    }
+    if (existing.length > 0) continue;
+    const lawful = lawfulPreset(lt.code, { days: Number(lt.daysPerYear) || 0, cap: lt.maxAccumulation ? Number(lt.maxAccumulation) : null });
+    await db.insert(leaveTypes).values({
+      name: lt.name,
+      code: lt.code,
+      leaveType: lt.isPaid ? 'Pay' : 'Non-Pay',
+      noOfDays: String(lawful.days),
+      carryForward: lawful.cap !== null,
+      accumulationCap: lawful.cap !== null ? String(lawful.cap) : null,
+      isStatutory: true,
+      statutoryCode: lt.code,
+      genderApplicable: lt.genderSpecific || 'All',
+      isEncashable: Boolean(lt.isEncashable),
+      encashmentBasis: 'BasicSalary',
+      proRataForNewJoinees: true,
+      isPlatformLocked: true,
+      isActive: true,
+    });
   }
 
   // 2. Insert / Update Default Overtime Rule

@@ -13,7 +13,7 @@ import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { addDays, periodContaining } from "@/lib/engines/pay-period.engine";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording } from "@/lib/engines/approval.engine";
-import { balanceOn, capOf, checkRequest, countDays, fmt, homeLeaveEarned, ledgerSummary, plainLedgerNote, proRata, creditedYearly, splitPaid, type CalendarDay } from "@/lib/engines/leave.engine";
+import { balanceOn, capOf, checkRequest, countDays, creditedMonthly, fmt, homeLeaveEarned, ledgerSummary, monthlyCredit, plainLedgerNote, creditedYearly, splitPaid, typeAppliesTo, yearShare, type CalendarDay } from "@/lib/engines/leave.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import type { EmployeeBalancesRow, LeaveDayDetail, LeaveHalf, LeavePageData, LeavePay, LeavePerson, LeavePreview, LeaveRequestView, LeaveRuleType, LeaveStatus, LeaveTabId, LedgerLine } from "@/lib/types/leave";
 
@@ -141,7 +141,13 @@ function parseInput(raw: unknown): { input: RequestInput | null; errors: Record<
 }
 
 /** What a request would take: days counted and skipped, pay, balance, and why it can't be made. */
-async function previewFor(person: Person, type: LeaveRuleType, input: RequestInput, excludeId?: string): Promise<LeavePreview & { fiscalYearId: string | null }> {
+async function previewFor(
+  person: Person,
+  type: LeaveRuleType,
+  input: RequestInput,
+  asked: { source: "hr" | "self_service"; appliedOn: string },
+  excludeId?: string
+): Promise<LeavePreview & { fiscalYearId: string | null }> {
   const [calendar, year, requests, overrides, closed, rolled] = await Promise.all([
     calendarFor(person, input.from, input.to),
     leaveYearOf(input.from),
@@ -173,6 +179,10 @@ async function previewFor(person: Person, type: LeaveRuleType, input: RequestInp
       .reduce((n, r) => n + Number(r.noOfDays), 0);
     balance = { now, waiting, after: Math.round((now - waiting - days) * 100) / 100 };
   }
+  // Company types with a yearly or whole-service limit (4.6e): days in the person's other waiting and approved requests.
+  const others = requests.filter((r) => r.id !== excludeId && r.leaveTypeId === type.id);
+  const usedInService = Math.round(others.reduce((n, r) => n + Number(r.noOfDays), 0) * 100) / 100;
+  const usedThisYear = Math.round(others.filter((r) => year && r.fiscalYearId === year.id).reduce((n, r) => n + Number(r.noOfDays), 0) * 100) / 100;
   const { problems, notes } = checkRequest({
     type,
     person: { gender: person.gender, departmentId: person.departmentId, designationId: person.designationId, joiningDate: person.joiningDate, terminationDate: person.terminationDate },
@@ -186,6 +196,10 @@ async function previewFor(person: Person, type: LeaveRuleType, input: RequestInp
     closed: isClosed,
     available: balance ? Math.round((balance.now - balance.waiting) * 100) / 100 : null,
     certificateNote: input.certificateNote,
+    appliedOn: asked.appliedOn,
+    source: asked.source,
+    usedThisYear,
+    usedInService,
   });
   if (!year) problems.push("These dates are outside every fiscal year set up. Ask HR.");
   // A leave year whose balances were carried into the next one takes no more balance leave.
@@ -231,7 +245,7 @@ export async function preview(raw: unknown, ctx: { scope: ScopeFilter }): Promis
   if (!input) throw new AttendanceValidationError(errors);
   const person = (await employeesFor(ctx.scope)).find((e) => e.id === r.employeeId);
   if (!person) throw new OutOfScopeError();
-  const { fiscalYearId: _fy, ...p } = await previewFor(person, await typeById(input.leaveTypeId), input);
+  const { fiscalYearId: _fy, ...p } = await previewFor(person, await typeById(input.leaveTypeId), input, { source: "hr", appliedOn: nepalDateIso() });
   void _fy;
   return p;
 }
@@ -242,7 +256,7 @@ export async function previewOwn(raw: unknown, employeeId: string): Promise<Leav
   if (!input) throw new AttendanceValidationError(errors);
   const [person] = await attendanceRepo.findEmployeesByIds([employeeId]);
   if (!person) throw new UserFacingError("Your employee record was not found. Contact HR.");
-  const { fiscalYearId: _fy, ...p } = await previewFor(person, await typeById(input.leaveTypeId), input);
+  const { fiscalYearId: _fy, ...p } = await previewFor(person, await typeById(input.leaveTypeId), input, { source: "self_service", appliedOn: nepalDateIso() });
   void _fy;
   return p;
 }
@@ -270,7 +284,7 @@ export async function createRequest(
   else person = (await employeesFor(ctx.scope!)).find((e) => e.id === r.employeeId);
   if (!person) throw ctx.source === "self_service" ? new UserFacingError("Your employee record was not found. Contact HR.") : new OutOfScopeError();
   const type = await typeById(input.leaveTypeId);
-  const p = await previewFor(person, type, input);
+  const p = await previewFor(person, type, input, { source: ctx.source, appliedOn: nepalDateIso() });
   if (p.problems.length) throw new UserFacingError(p.problems[0]);
   const id = await repo.insertRequest({
     employeeId: person.id,
@@ -380,7 +394,7 @@ export async function decide(
       to: String(a.effectiveTo).slice(0, 10),
       half: (a.half as LeaveHalf | null) ?? null,
       certificateNote: a.certificateNote ?? "",
-    }, id);
+    }, { source: a.source === "self_service" ? "self_service" : "hr", appliedOn: String(a.appliedDate).slice(0, 10) }, id);
     const blocking = p.problems.filter((x) => !x.startsWith(`${type.name} is not in use`));
     if (blocking.length) throw new UserFacingError(`Can't approve: ${blocking[0]}`);
     if (type.kind === "balance") ledger.push({ employeeId: person.id, leaveTypeId: type.id, fiscalYearId: a.fiscalYearId, entryDate: String(a.effectiveFrom).slice(0, 10), kind: "taken", days: -days, applicationId: id, note: `Leave ${fmt(days)} day${days === 1 ? "" : "s"}`, createdBy: ctx.userId });
@@ -652,11 +666,11 @@ export async function payableOnLeaving(employeeId: string): Promise<{ leaveTypeN
   });
 }
 
-/** Types the employee can ask for (active, their gender; the server checks the rest). */
+/** Types the employee can ask for (active, for their gender, department and designation; the server checks the rest). */
 export async function myRequestableTypes(employeeId: string): Promise<LeaveRuleType[]> {
   const [person] = await attendanceRepo.findEmployeesByIds([employeeId]);
   if (!person) return [];
-  return (await ruleTypes()).filter((t) => t.isActive && (t.genderApplicable === "All" || t.genderApplicable === person.gender));
+  return (await ruleTypes()).filter((t) => t.isActive && typeAppliesTo(t, person));
 }
 
 /** The employee withdraws their own waiting request. */
@@ -710,7 +724,7 @@ export async function monthCloseLines(p: {
     for (const x of p.paidDays) {
       if (upFront.has(x.employeeId)) continue;
       const earned = homeLeaveEarned(x.days, home.accrualEveryDays);
-      const already = Math.round(posted.filter((l) => l.employeeId === x.employeeId && l.ref === ref).reduce((n, l) => n + l.days, 0) * 100) / 100;
+      const already = Math.round(posted.filter((l) => l.employeeId === x.employeeId && l.leaveTypeId === home.id && l.ref === ref).reduce((n, l) => n + l.days, 0) * 100) / 100;
       const diff = Math.round((earned - already) * 100) / 100;
       if (diff === 0) continue;
       lines.push({
@@ -724,6 +738,40 @@ export async function monthCloseLines(p: {
         ref,
         createdBy: p.userId,
       });
+    }
+  }
+  // Company types given month by month (4.6e): days a year ÷ 12 for the part of the month each
+  // person was employed. Someone already given this year's days at the year start (before the
+  // type was switched to monthly) gets nothing more this year; closing again after a reopen posts
+  // only the difference.
+  const monthly = types.filter((t) => t.isActive && creditedMonthly(t));
+  if (monthly.length && !(start && p.period.end < start.start)) {
+    const ref = monthRef(p.period);
+    const year = await postingYear(p.fiscalYearId, rolled);
+    const posted = await repo.findLinesByRef(ids, ref);
+    const yearLines = await repo.findLedger(ids, year);
+    const people = await attendanceRepo.findEmployeesByIds(ids);
+    const month = { start: periodContaining(p.period.calendar === "AD" ? "AD" : "BS", p.period.end).start, end: p.period.end };
+    for (const t of monthly) {
+      const givenYearly = new Set(yearLines.filter((l) => l.leaveTypeId === t.id && l.kind === "credit" && l.ref !== null && (l.ref.startsWith("opening:") || l.ref.startsWith("credit:"))).map((l) => l.employeeId));
+      for (const e of people) {
+        if (givenYearly.has(e.id) || !typeAppliesTo(t, e)) continue;
+        const due = monthlyCredit(t.days, month, { joiningDate: e.joiningDate, terminationDate: e.terminationDate });
+        const already = Math.round(posted.filter((l) => l.employeeId === e.id && l.leaveTypeId === t.id && l.ref === ref).reduce((n, l) => n + l.days, 0) * 100) / 100;
+        const diff = Math.round((due - already) * 100) / 100;
+        if (diff === 0) continue;
+        lines.push({
+          employeeId: e.id,
+          leaveTypeId: t.id,
+          fiscalYearId: year,
+          entryDate: p.period.end,
+          kind: "credit",
+          days: diff,
+          note: already ? `${p.period.label}: corrected after a reopen` : `${p.period.label}: ${fmt(t.days)} days a year ÷ 12${due < Math.round((t.days / 12) * 100) / 100 ? ", for the days employed" : ""}`,
+          ref,
+          createdBy: p.userId,
+        });
+      }
     }
   }
   if (substitute) {
@@ -752,7 +800,8 @@ export async function monthReopenLines(p: { period: { calendar: string; year: nu
   const start = await repo.findLeaveStart();
   if (start && p.period.end < start.start) return [];
   const ref = monthRef(p.period);
-  const posted = await repo.findLinesByRef(p.employeeIds, ref);
+  // The ref is matched as a prefix ("accrual:BS-2083-1" would also find months 10–12): keep this month's lines only.
+  const posted = (await repo.findLinesByRef(p.employeeIds, ref)).filter((l) => l.ref === ref);
   const rolled = await rolledYears();
   const lines: repo.NewLedgerLine[] = [];
   const keys = new Map<string, typeof posted>();
@@ -765,7 +814,8 @@ export async function monthReopenLines(p: { period: { calendar: string; year: nu
       leaveTypeId: ls[0].leaveTypeId,
       fiscalYearId: await postingYear(ls[ls.length - 1].fiscalYearId, rolled),
       entryDate: p.period.end,
-      kind: "accrual",
+      // Home leave earned (accrual) or a monthly credit (credit), taken back the same way.
+      kind: ls[0].kind,
       days: -net,
       note: `${p.period.label} reopened: ${p.reason}`,
       ref,
@@ -780,12 +830,12 @@ export async function monthReopenLines(p: { period: { calendar: string; year: nu
  * joining (Labour Act §44); home leave is earned and substitute leave
  * granted, so they start at 0.
  */
-export async function creditOnJoining(employee: { id: string; gender: string; joiningDate: string | null }): Promise<void> {
+export async function creditOnJoining(employee: { id: string; gender: string; joiningDate: string | null; departmentId?: string | null; designationId?: string | null }): Promise<void> {
   const today = nepalDateIso();
   const join = employee.joiningDate ?? today;
   const year = await leaveYearOf(join > today ? join : today);
   if (!year) return;
-  const types = (await ruleTypes()).filter((t) => t.isActive && creditedYearly(t) && (t.genderApplicable === "All" || t.genderApplicable === employee.gender));
+  const types = (await ruleTypes()).filter((t) => t.isActive && creditedYearly(t) && typeAppliesTo(t, employee));
   const ref = `credit:${year.id}`;
   const already = new Set((await repo.findLinesByRef([employee.id], ref)).map((l) => l.leaveTypeId));
   const joined = join > year.start;
@@ -798,7 +848,7 @@ export async function creditOnJoining(employee: { id: string; gender: string; jo
         fiscalYearId: year.id,
         entryDate: joined ? join : year.start,
         kind: "credit" as const,
-        days: proRata(t.days, join, year),
+        days: yearShare(t, t.days, join, year),
         note: joined ? `${year.label}, pro-rata from joining` : year.label,
         ref,
         createdBy: null,

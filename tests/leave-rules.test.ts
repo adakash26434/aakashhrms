@@ -2,6 +2,7 @@ import test, { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateLeaveTypeForm,
+  normalizeLeaveTypeForm,
   calculateProRataLeaveDays,
   isLeaveTypeApplicableForGender,
   calculateLeaveTypeKPIs,
@@ -18,53 +19,13 @@ import type { LeaveRule, LeaveRuleFormData } from '../lib/types/leave-rule';
 describe('Leave Types & Nepal Labour Act Rules Module', () => {
   describe('Leave Type Form Validation', () => {
     it('should pass valid leave type payload', () => {
-      const validForm: LeaveTypeFormData = {
-        name: 'Special Project Leave',
-        code: 'SPECIAL_PROJECT',
-        leaveType: 'Pay',
-        noOfDays: 5,
-        carryForward: false,
-        accumulationCap: null,
-        maxPaidDays: null,
-        isStatutory: false,
-        statutoryCode: null,
-        genderApplicable: 'All',
-        requiresDocument: false,
-        documentThresholdDays: null,
-        isEncashable: false,
-        encashmentBasis: 'BasicSalary',
-        proRataForNewJoinees: true,
-        applicableDepartments: [],
-        applicableDesignations: [],
-        isActive: true,
-      };
-
+      const validForm = normalizeLeaveTypeForm({ name: 'Special Project Leave', code: 'SPECIAL_PROJECT', leaveType: 'Pay', kind: 'balance', noOfDays: 5 });
       const errors = validateLeaveTypeForm(validForm);
       assert.deepEqual(errors, {});
     });
 
     it('should reject invalid codes or missing required fields', () => {
-      const invalidForm: LeaveTypeFormData = {
-        name: '',
-        code: 'invalid-lowercase-code',
-        leaveType: 'Pay',
-        noOfDays: 0,
-        carryForward: false,
-        accumulationCap: null,
-        maxPaidDays: null,
-        isStatutory: false,
-        statutoryCode: null,
-        genderApplicable: 'All',
-        requiresDocument: true,
-        documentThresholdDays: null,
-        isEncashable: false,
-        encashmentBasis: 'BasicSalary',
-        proRataForNewJoinees: true,
-        applicableDepartments: [],
-        applicableDesignations: [],
-        isActive: true,
-      };
-
+      const invalidForm: LeaveTypeFormData = { ...normalizeLeaveTypeForm({ name: '', code: 'x', leaveType: 'Pay', kind: 'balance', noOfDays: 0, requiresDocument: true }), code: 'invalid-lowercase-code' };
       const errors = validateLeaveTypeForm(invalidForm);
       assert.ok(errors.name, 'Expected error on empty name');
       assert.ok(errors.code, 'Expected error on lowercase code');

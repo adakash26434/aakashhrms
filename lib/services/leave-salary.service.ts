@@ -11,6 +11,8 @@ import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository
 import { calculateLeaveSalary, validateEncashmentRequest } from "@/lib/engines/leave-salary.engine";
 import type { LeaveSalaryRun, LeaveSalaryRunStatus, LeaveSalarySetupPayload, PaymentMethod, EncashmentType } from "@/lib/types/payroll";
 import type { EncashmentRate } from "@/lib/types/leave-rule";
+import type { LeaveTypeRecord } from "@/lib/types/leave-type";
+import { payoutRate } from "@/lib/engines/leave-type.engine";
 
 // ---------------------------------------------------------------------------
 // Error Classes
@@ -82,6 +84,18 @@ export async function getEmployeeLeaveBalanceForEncashment(employeeId: string, l
   };
 }
 
+/**
+ * A day's payout rate: the leave type's (statutory leave always basic salary
+ * per day, §49; a company type's fixed amount is never paid below basic per
+ * day, see calculateLeaveSalary). Types saved before 4.6e without a rate
+ * fall back to their leave rule.
+ */
+async function payoutOf(leaveType: LeaveTypeRecord): Promise<{ encashmentRate: EncashmentRate; fixedDailyAmount: number }> {
+  const oldRule = leaveType.encashmentBasis || leaveType.isStatutory ? null : await leaveRuleRepository.findLeaveRuleByLeaveTypeId(leaveType.id);
+  const rate = payoutRate(leaveType, oldRule ? { encashmentRate: oldRule.encashmentRate ?? null, encashmentFixedAmount: oldRule.encashmentFixedAmount ?? null } : null);
+  return { encashmentRate: rate.rate, fixedDailyAmount: rate.fixed ?? 0 };
+}
+
 // ---------------------------------------------------------------------------
 // Create Leave Salary
 // ---------------------------------------------------------------------------
@@ -136,10 +150,8 @@ export async function createLeaveSalary(
     throw new Error("Cannot compute leave salary: No active salary mapping found for this employee.");
   }
 
-  // 6. Load leave rule for encashment rate (ARCH-2 / GAP-4 fix)
-  const leaveRule = await leaveRuleRepository.findLeaveRuleByLeaveTypeId(leaveTypeId);
-  const encashmentRate = (leaveRule?.encashmentRate ?? 'BASIC_DAILY') as EncashmentRate;
-  const fixedDailyAmount = leaveRule?.encashmentFixedAmount ?? 0;
+  // 6. The payout rate is the leave type's (4.6e); old types without one fall back to their leave rule.
+  const { encashmentRate, fixedDailyAmount } = await payoutOf(leaveType);
 
   // 7. Compute totals via engine (B5: gradeAmount removed, B6: encashmentRate wired)
   const result = calculateLeaveSalary({
@@ -231,9 +243,8 @@ export async function updateLeaveSalaryDraft(
     throw new Error("Cannot compute leave salary: No active salary mapping found.");
   }
 
-  const leaveRule = await leaveRuleRepository.findLeaveRuleByLeaveTypeId(existing.leaveTypeId);
-  const encashmentRate = (leaveRule?.encashmentRate ?? 'BASIC_DAILY') as EncashmentRate;
-  const fixedDailyAmount = leaveRule?.encashmentFixedAmount ?? 0;
+  if (!leaveType) throw new LeaveTypeNotEncashableError(existing.leaveTypeId);
+  const { encashmentRate, fixedDailyAmount } = await payoutOf(leaveType);
 
   const result = calculateLeaveSalary({
     basicSalary: salaryMap.basicSalary.toString(),

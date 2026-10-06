@@ -1,7 +1,7 @@
 import { getDb } from "@/lib/db";
 import { approvalActions, leaveTypes, employeeLeaveBalances, leaveApplications, leaveLedger, leaveYearOpenings, fiscalYears, employees, systemConfig } from "@/lib/db/schema";
 import { eq, and, desc, or, ilike, gte, lte, inArray, like, SQL, sql } from "drizzle-orm";
-import type { DayBasis, EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveKind, LeaveRuleType, LeaveStatus, LeaveFilter, LedgerKind, LedgerLine } from "@/lib/types/leave";
+import type { CreditMode, DayBasis, EmployeeLeaveBalance, LeaveApplication, LeaveDuration, LeaveKind, LeaveRuleType, LeaveStatus, LeaveFilter, LedgerKind, LedgerLine } from "@/lib/types/leave";
 import type { ApprovalActionKind } from "@/lib/types/approval";
 import { defaultsFor, ledgerSummary, payOf } from "@/lib/engines/leave.engine";
 import type { LeaveTypeRecord, LeavePayType, GenderApplicable, StatutoryCode } from "@/lib/types/leave-type";
@@ -27,8 +27,29 @@ function mapLeaveType(row: typeof leaveTypes.$inferSelect): LeaveTypeRecord {
     applicableDepartments: row.applicableDepartments || [],
     applicableDesignations: row.applicableDesignations || [],
     isActive: row.isActive,
+    ...countingOf(row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+const numOrNull = (v: string | number | null) => (v === null ? null : Number(v));
+
+/** How a type counts (nulls fall back to the defaults for its statutory code) and the 4.6e settings. */
+function countingOf(r: typeof leaveTypes.$inferSelect) {
+  const d = defaultsFor(r.statutoryCode, payOf(r.leaveType));
+  return {
+    kind: (r.kind as LeaveKind | null) ?? d.kind,
+    dayBasis: (r.dayBasis as DayBasis | null) ?? d.dayBasis,
+    allowHalfDay: r.allowHalfDay,
+    maxDaysPerRequest: numOrNull(r.maxDaysPerRequest),
+    paidDaysPerEvent: r.paidDaysPerEvent !== null ? Number(r.paidDaysPerEvent) : d.paidDaysPerEvent,
+    noticeDays: r.noticeDays,
+    eligibleAfterDays: r.eligibleAfterDays,
+    creditMode: (r.creditMode === "monthly" ? "monthly" : "yearly") as CreditMode,
+    maxDaysPerYear: numOrNull(r.maxDaysPerYear),
+    maxDaysInService: numOrNull(r.maxDaysInService),
+    payoutFixedAmount: numOrNull(r.payoutFixedAmount),
   };
 }
 
@@ -95,63 +116,7 @@ export async function findLeaveTypeByStatutoryCode(code: StatutoryCode): Promise
   return mapLeaveType(rows[0]);
 }
 
-export async function createLeaveType(data: {
-  name: string;
-  code: string;
-  leaveType: string;
-  noOfDays: number;
-  carryForward?: boolean;
-  accumulationCap?: number | null;
-  maxPaidDays?: number | null;
-  isStatutory?: boolean;
-  statutoryCode?: string | null;
-  genderApplicable?: string;
-  requiresDocument?: boolean;
-  documentThresholdDays?: number | null;
-  isEncashable?: boolean;
-  encashmentBasis?: string | null;
-  proRataForNewJoinees?: boolean;
-  applicableDepartments?: string[];
-  applicableDesignations?: string[];
-  isActive?: boolean;
-}): Promise<LeaveTypeRecord> {
-  const rows = await (await getDb()).insert(leaveTypes).values({
-    name: data.name,
-    code: data.code,
-    leaveType: data.leaveType,
-    noOfDays: data.noOfDays.toString(),
-    carryForward: data.carryForward ?? false,
-    accumulationCap: data.accumulationCap?.toString() ?? null,
-    maxPaidDays: data.maxPaidDays?.toString() ?? null,
-    isStatutory: data.isStatutory ?? false,
-    statutoryCode: data.statutoryCode ?? null,
-    genderApplicable: data.genderApplicable ?? "All",
-    requiresDocument: data.requiresDocument ?? false,
-    documentThresholdDays: data.documentThresholdDays ?? 3,
-    isEncashable: data.isEncashable ?? false,
-    encashmentBasis: data.encashmentBasis ?? "BasicSalary",
-    proRataForNewJoinees: data.proRataForNewJoinees ?? false,
-    applicableDepartments: data.applicableDepartments ?? [],
-    applicableDesignations: data.applicableDesignations ?? [],
-    isActive: data.isActive ?? true,
-  }).returning();
-  return mapLeaveType(rows[0]);
-}
-
-export async function updateLeaveType(id: string, data: Partial<Omit<LeaveTypeRecord, "id" | "createdAt" | "updatedAt">>): Promise<LeaveTypeRecord> {
-  const existing = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.id, id)).limit(1);
-  if (!existing.length) {
-    throw new Error("Leave type not found");
-  }
-
-  const updateVals: any = { ...data, updatedAt: new Date() };
-  if (data.noOfDays !== undefined) updateVals.noOfDays = data.noOfDays.toString();
-  if (data.accumulationCap !== undefined) updateVals.accumulationCap = data.accumulationCap?.toString() ?? null;
-  if (data.maxPaidDays !== undefined) updateVals.maxPaidDays = data.maxPaidDays?.toString() ?? null;
-
-  const rows = await (await getDb()).update(leaveTypes).set(updateVals).where(eq(leaveTypes.id, id)).returning();
-  return mapLeaveType(rows[0]);
-}
+// Company leave types are saved with their history by leave-policy.repository (saveCompanyType).
 
 export async function deleteLeaveType(id: string): Promise<boolean> {
   const existing = await (await getDb()).select().from(leaveTypes).where(eq(leaveTypes.id, id)).limit(1);
@@ -272,18 +237,19 @@ export async function findRuleTypes(): Promise<LeaveRuleType[]> {
   return rows.filter((r) => (r.statutoryCode ?? r.code) !== "PUBLIC").map((r) => {
     const pay = payOf(r.leaveType);
     const d = defaultsFor(r.statutoryCode, pay);
+    const c = countingOf(r);
     return {
       id: r.id,
       name: r.name,
       code: r.code,
       statutoryCode: r.statutoryCode,
       isStatutory: r.isStatutory,
-      kind: (r.kind as LeaveKind | null) ?? d.kind,
-      dayBasis: (r.dayBasis as DayBasis | null) ?? d.dayBasis,
+      kind: c.kind,
+      dayBasis: c.dayBasis,
       pay,
       days: Number(r.noOfDays) || 0,
-      paidDaysPerEvent: r.paidDaysPerEvent !== null ? Number(r.paidDaysPerEvent) : d.paidDaysPerEvent,
-      maxDaysPerRequest: r.maxDaysPerRequest !== null ? Number(r.maxDaysPerRequest) : null,
+      paidDaysPerEvent: c.paidDaysPerEvent,
+      maxDaysPerRequest: c.maxDaysPerRequest,
       allowHalfDay: r.allowHalfDay,
       isRight: r.isRight || d.isRight,
       genderApplicable: (r.genderApplicable as LeaveRuleType["genderApplicable"]) || "All",
@@ -296,6 +262,13 @@ export async function findRuleTypes(): Promise<LeaveRuleType[]> {
       isEncashable: r.isEncashable,
       accrualEveryDays: r.accrualEveryDays ?? (r.statutoryCode === "HOME" ? 20 : null),
       expiryDays: r.expiryDays ?? (r.statutoryCode === "SUBSTITUTE" ? 21 : null),
+      // 4.6e: company types only (statutory leave is never limited this way, §51).
+      noticeDays: r.isStatutory ? null : c.noticeDays,
+      eligibleAfterDays: r.isStatutory ? null : c.eligibleAfterDays,
+      creditMode: r.isStatutory ? "yearly" : c.creditMode,
+      proRataForJoiners: r.isStatutory || r.proRataForNewJoinees,
+      maxDaysPerYear: r.isStatutory ? null : c.maxDaysPerYear,
+      maxDaysInService: r.isStatutory ? null : c.maxDaysInService,
       isActive: r.isActive,
     };
   });

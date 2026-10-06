@@ -3,9 +3,10 @@ import Decimal from "decimal.js";
 /**
  * Calculates leave salary/encashment.
  *
- * Supports two encashment rate modes (from leaveRules table):
+ * Two payout rates (the leave type's, 4.6e):
  *  - BASIC_DAILY (default): dailyRate = basicSalary / workingDays
- *  - FIXED_AMOUNT:          dailyRate = fixedDailyAmount
+ *  - FIXED_AMOUNT:          dailyRate = fixedDailyAmount, never less than
+ *    basicSalary / workingDays (a fixed rate may only pay more than basic)
  *
  * Nepal Labour Act standard: leave encashment based on basic salary only.
  * The gradeAmount parameter has been removed (ARCH-1 fix) — grade is not
@@ -27,7 +28,7 @@ export function calculateLeaveSalary(args: {
   let dailyRate: Decimal;
 
   if (args.encashmentRate === 'FIXED_AMOUNT' && args.fixedDailyAmount) {
-    dailyRate = new Decimal(args.fixedDailyAmount);
+    dailyRate = Decimal.max(new Decimal(args.fixedDailyAmount), new Decimal(args.basicSalary).dividedBy(workDays));
   } else {
     // Default: BASIC_DAILY — Nepal Labour Act standard
     dailyRate = new Decimal(args.basicSalary).dividedBy(workDays);

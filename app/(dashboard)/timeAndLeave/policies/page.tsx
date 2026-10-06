@@ -7,16 +7,14 @@ import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { policyPage } from "@/lib/services/leave-policy.service";
 import { auth } from "@/lib/auth";
 import { resolvePlatformCompanyForTenant } from "@/lib/platform/company-resolver";
-import { getLeaveTypesWithKPIs } from "@/lib/services/leave-type.service";
-import { getLeaveRulesWithKPIs } from "@/lib/services/leave-rule.service";
-import { getActiveLeaveTypes } from "@/lib/services/leave-type.service";
+import { companyTypesData } from "@/lib/services/leave-type.service";
 import { getOtRulesWithKPIs } from "@/lib/services/ot-rule.service";
 import { getSystemControlData } from "@/lib/services/system-control.service";
 import { PoliciesHubClient, type PolicyTab } from "@/components/time-and-leave/policies-hub-client";
 
 export const metadata: Metadata = {
   title: "Policies | AakashHRMS",
-  description: "Configure statutory and custom leave categories, accrual rules, and overtime multipliers.",
+  description: "Statutory and company leave types, and overtime rules.",
 };
 
 interface PoliciesPageProps {
@@ -28,13 +26,12 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
   const resolvedParams = searchParams ? await searchParams : {};
 
   // 1. Permission checks
+  // Leave rules were retired in 4.6e: how leave is given, counted and paid out is set on each leave type.
   const canTypes = await hasPermission("VIEW", "LEAVE_TYPES");
-  const canRules = await hasPermission("VIEW", "LEAVE_RULES");
   const canOt = await hasPermission("VIEW", "OT_RULES");
 
   const allowedTabs: PolicyTab[] = [];
   if (canTypes) allowedTabs.push("types");
-  if (canRules) allowedTabs.push("rules");
   if (canOt) allowedTabs.push("ot-rules");
 
   if (allowedTabs.length === 0) {
@@ -52,7 +49,6 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
   let typesData = null;
   let policyData = null;
   let typePermissions = { add: false, edit: false, delete: false };
-  let rulesData = null;
   let otData = null;
 
   if (activeTab === "types") {
@@ -62,18 +58,10 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
     // The company on the platform, for exception requests (4.6d); leave works without it.
     const session = await auth();
     const companyId = await resolvePlatformCompanyForTenant(session?.user?.tenantSlug || undefined).then((c) => c.id, () => null);
-    [typesData, policyData] = await Promise.all([getLeaveTypesWithKPIs(), policyPage({ scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation, companyId })]);
-    typePermissions = { add: await hasPermission("ADD", "LEAVE_TYPES"), edit: canEdit, delete: await hasPermission("DELETE", "LEAVE_TYPES") };
-  } else if (activeTab === "rules") {
-    const [rData, activeTypes] = await Promise.all([
-      getLeaveRulesWithKPIs(),
-      getActiveLeaveTypes(),
-    ]);
-    rulesData = {
-      rules: rData.rules,
-      kpis: rData.kpis,
-      leaveTypes: activeTypes.map((t) => ({ id: t.id, name: t.name, code: t.code })),
-    };
+    [typesData, policyData] = await Promise.all([companyTypesData(), policyPage({ scope, userId: scope.userId, canEdit, canApprove, impersonation: !!impersonation, companyId })]);
+    // Company types apply to everyone: changing them needs a company-wide role (the server checks again).
+    const companyWide = scope.scopeType === "GLOBAL";
+    typePermissions = { add: companyWide && (await hasPermission("ADD", "LEAVE_TYPES")), edit: companyWide && canEdit, delete: companyWide && (await hasPermission("DELETE", "LEAVE_TYPES")) };
   } else if (activeTab === "ot-rules") {
     const [otRulesData, systemData] = await Promise.all([
       getOtRulesWithKPIs(),
@@ -94,7 +82,6 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
       typesData={typesData}
       policyData={policyData}
       typePermissions={typePermissions}
-      rulesData={rulesData}
       otData={otData}
     />
   );

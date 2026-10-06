@@ -140,7 +140,7 @@ async function planFor(target: leaveService.LeaveYear, from: leaveService.LeaveY
   const creditedInNewYear = new Set(newLedger.filter((l) => l.kind === "credit" || l.kind === "opening").map((l) => `${l.employeeId}|${l.leaveTypeId}`));
   return planOpening({
     types,
-    people: people.map((p) => ({ id: p.id, gender: p.gender, joiningDate: p.joiningDate, terminationDate: p.terminationDate })),
+    people: people.map((p) => ({ id: p.id, gender: p.gender, joiningDate: p.joiningDate, terminationDate: p.terminationDate, departmentId: p.departmentId, designationId: p.designationId })),
     oldYear: from ? { id: from.id, label: from.label, end: from.end } : null,
     newYear: target,
     oldLines,

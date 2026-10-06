@@ -5,8 +5,14 @@ import {
   balanceOn,
   capOf,
   carryOver,
+  creditedMonthly,
   creditedYearly,
+  daysFrom,
   homeLeaveEarned,
+  monthlyCredit,
+  thisYearChange,
+  typeAppliesTo,
+  yearShare,
   homeLeaveMonths,
   planOpening,
   proRata,
@@ -50,6 +56,12 @@ const type = (over: Partial<LeaveRuleType> = {}): LeaveRuleType => ({
   isEncashable: false,
   accrualEveryDays: null,
   expiryDays: null,
+  noticeDays: null,
+  eligibleAfterDays: null,
+  creditMode: 'yearly',
+  proRataForJoiners: true,
+  maxDaysPerYear: null,
+  maxDaysInService: null,
   isActive: true,
   ...over,
 });
@@ -484,3 +496,78 @@ describe('plainLedgerNote', () => {
     assert.equal(plainLedgerNote(null), null);
   });
 });
+
+describe('company leave types: notice, service, limits, crediting (4.6e)', () => {
+  const study = type({ id: 'study', name: 'Study leave', code: 'STUDY', statutoryCode: null, isStatutory: false, isRight: false, requiresDocument: false, days: 10 });
+  const unpaid = type({ id: 'unpaid', name: 'Special unpaid leave', code: 'UNPAID', statutoryCode: null, isStatutory: false, isRight: false, requiresDocument: false, kind: 'none', pay: 'none', days: 0, maxDaysPerYear: 30, maxDaysInService: 60 });
+
+  it('notice: self-service is refused, HR gets a note; statutory leave and rights are never limited', () => {
+    const t = { ...study, noticeDays: 7 };
+    assert.match(checkRequest(check({ type: t, appliedOn: '2026-10-01', source: 'self_service' })).problems.join(), /needs 7 days' notice: the first day can be 2026-10-08 or later/);
+    assert.equal(checkRequest(check({ type: t, appliedOn: '2026-09-29', source: 'self_service' })).problems.length, 0);
+    const hr = checkRequest(check({ type: t, appliedOn: '2026-10-01', source: 'hr' }));
+    assert.equal(hr.problems.length, 0);
+    assert.ok(hr.notes.some((n) => n.includes('Less notice')));
+    assert.equal(checkRequest(check({ type: type({ noticeDays: 7, eligibleAfterDays: 500, maxDaysPerYear: 1 }), appliedOn: '2026-10-06', source: 'self_service', usedThisYear: 5 })).problems.length, 0);
+    assert.equal(daysFrom('2026-10-01', '2026-10-08'), 7);
+  });
+
+  it('available after N days of service (e.g. probation)', () => {
+    const t = { ...study, eligibleAfterDays: 180 };
+    assert.match(checkRequest(check({ type: t, person: { ...check().person, joiningDate: '2026-06-01' } })).problems.join(), /after 180 days of service: from 2026-11-28/);
+    assert.equal(checkRequest(check({ type: t, person: { ...check().person, joiningDate: '2026-04-09' } })).problems.length, 0);
+  });
+
+  it('most days a leave year and over the whole service count waiting and approved requests', () => {
+    assert.equal(checkRequest(check({ type: unpaid, available: null, days: 2, usedThisYear: 28, usedInService: 40 })).problems.length, 0);
+    assert.match(checkRequest(check({ type: unpaid, available: null, days: 3, usedThisYear: 28, usedInService: 40 })).problems.join(), /at most 30 days a leave year: 28 already/);
+    assert.match(checkRequest(check({ type: unpaid, available: null, days: 2, usedThisYear: 0, usedInService: 59 })).problems.join(), /at most 60 days over the whole service: 59 already/);
+  });
+
+  it('monthly types are not credited at the year start; a twelfth each month for the days employed', () => {
+    const monthly = { ...study, creditMode: 'monthly' as const };
+    assert.equal(creditedYearly(monthly), false);
+    assert.equal(creditedMonthly(monthly), true);
+    assert.equal(creditedYearly(study), true);
+    assert.equal(creditedMonthly(type({ creditMode: 'monthly' })), false, 'statutory types are never monthly');
+    const month = { start: '2026-07-17', end: '2026-08-16' };
+    assert.equal(monthlyCredit(12, month, { joiningDate: '2020-01-01', terminationDate: null }), 1);
+    assert.equal(monthlyCredit(12, month, { joiningDate: '2026-08-01', terminationDate: null }), 0.52);
+    assert.equal(monthlyCredit(12, month, { joiningDate: '2020-01-01', terminationDate: '2026-07-16' }), 0);
+  });
+
+  it('who a type is for; joiners get a share unless the type gives the whole year', () => {
+    const finance = { ...study, applicableDepartments: ['fin'] };
+    assert.equal(typeAppliesTo(finance, { gender: 'Male', departmentId: 'fin', designationId: 'x' }), true);
+    assert.equal(typeAppliesTo(finance, { gender: 'Male', departmentId: 'hr', designationId: 'x' }), false);
+    assert.equal(typeAppliesTo({ ...type(), applicableDepartments: ['fin'] }, { gender: 'Male', departmentId: 'hr' }), true, 'statutory types are for everyone');
+    const year = { start: '2026-07-17', end: '2027-07-16' };
+    assert.equal(yearShare(study, 10, '2027-01-15', year), 5);
+    assert.equal(yearShare({ ...study, proRataForJoiners: false }, 10, '2027-01-15', year), 10);
+    assert.equal(yearShare({ ...type(), proRataForJoiners: false }, 12, '2027-01-15', year), proRata(12, '2027-01-15', year), 'statutory types are always pro-rata');
+  });
+
+  it('"also this year" brings the credit to the new figure, never below what is left', () => {
+    assert.equal(thisYearChange({ target: 12, credited: 10, hasStart: false, balance: 10 }), 2);
+    assert.equal(thisYearChange({ target: 8, credited: 10, hasStart: false, balance: 1 }), -1);
+    assert.equal(thisYearChange({ target: 8, credited: 10, hasStart: false, balance: 0 }), 0);
+    assert.equal(thisYearChange({ target: 10, credited: 0, hasStart: true, balance: 7 }), 0, 'starting balances are left alone');
+    assert.equal(thisYearChange({ target: 10, credited: 0, hasStart: false, balance: 0 }), 10, 'a new type gives the year');
+  });
+
+  it('the year opening skips types not for the person and monthly types', () => {
+    const plan = planOpening({
+      types: [{ ...study, applicableDepartments: ['fin'] }, { ...study, id: 'monthly', creditMode: 'monthly' }],
+      people: [
+        { id: 'a', gender: 'Male', joiningDate: '2020-01-01', terminationDate: null, departmentId: 'fin', designationId: 'x' },
+        { id: 'b', gender: 'Male', joiningDate: '2020-01-01', terminationDate: null, departmentId: 'hr', designationId: 'x' },
+      ],
+      oldYear: null,
+      newYear: { id: 'y2', label: '2083/84', start: '2026-07-17', end: '2027-07-16' },
+      oldLines: new Map(),
+      creditedInNewYear: new Set(),
+    });
+    assert.deepEqual(plan.lines.filter((l) => l.kind === 'credit').map((l) => `${l.employeeId}|${l.leaveTypeId}|${l.days}`), ['a|study|10']);
+  });
+});
+

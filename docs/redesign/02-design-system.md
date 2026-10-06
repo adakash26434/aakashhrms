@@ -742,8 +742,9 @@ Notice. Preview: `/dev/kit`.
 `/timeAndLeave/policies` has the Leaves layout: PageBar (**New leave type**
 on the Leave types tab, then Refresh; the description says how many changes
 wait for you), a success Notice, then
-folder tabs **Leave types** (badge: changes waiting for you) · Leave rules ·
-Overtime rules (the last two keep their old screens until 4.6e / 4.7).
+folder tabs **Leave types** (badge: changes waiting for you) · Overtime
+rules (keeps its old screen until 4.7). The Leave rules tab was retired in
+4.6e: each leave type holds its own rules, and old links open Leave types.
 
 Leave types opens with the Guide "How leave policies work" (the law is the
 minimum · propose a change · a second person approves · when it applies),
@@ -794,18 +795,35 @@ copied to company, status In force / Starts later / Ended / Revoked;
 **Revoke…** with a reason). The Grant window shows the law beside the value
 and lets the value and dates be adjusted; it is checked as you type.
 
-Below it, **Company leave types** (`components/leave-policy/company-leave-types.tsx`):
-a heading with a selection toolbar (**Edit…** · **Switch off / on** ·
-**Delete**, enabled when a row is chosen; double-click opens Edit) and a
-DataGrid (leave type with code, pay, days a year, year end in words, certificate,
-who, status). The **New / Edit leave type** window (`PropertyForm`): name,
-code (A–Z and _), pay (paid / half paid / unpaid), days a year (0 = no
-balance), a share for joiners, carried over, can be saved up to, what
-happens to days left (lapse / paid out at basic salary), certificate after
-N days, who can take it, active; hints beside the fields and the whole type
-in one sentence at the bottom. A used type can't be deleted (switch it
-off). 4.6e adds kind, counting, notice, eligibility, monthly crediting and
-limits to this window.
+Below it, **Company leave types** (`components/leave-policy/company-leave-types.tsx`, 4.6e):
+a heading with a selection toolbar kept on one line (**Edit…** · **Switch
+off / on** · **Delete**, enabled when a row is chosen; double-click opens
+Edit) and a SplitView: the DataGrid (leave type with code, pay, days — "10
+days a year", "5 days each time", "No balance" —, year end in words, rules
+— notice, service, limits, certificate —, who, status) and the pane (the
+type in one sentence, its settings, and its **History**: each save's
+changes in words, the note, who and when).
+
+The **New / Edit leave type** window (`PropertyForm`, grouped under small
+headings): **The leave** — name, code (A–Z and _), pay, "Days are" (a
+balance / given each time / no balance), days a year or each time, paid
+days each time (event), given at the start of the year or month by month,
+what joiners get (a share / the whole year), in use; **Counting and
+limits** — working or calendar days, half days allowed, most days a
+request, most days a year and in all (no-balance and event types);
+**Year end** (balance) — carried over, can be saved up to, days left lapse
+or are paid out, payout rate (basic salary / a fixed amount per day, "never
+below basic"); **Rules** — notice (days before), after service of (days),
+certificate after N days in a row; **Who can take it** — gender,
+departments and designations (tick lists; none ticked = all). At the bottom
+the whole type in one sentence, **Give this year's days now / Also change
+this year's balances** (balance types given yearly whose days are new or
+changed) with a live preview ("FY 2083/84: 3 people, 29.7 days added. For
+example …"), and **Why (optional)** for the history. Fields that mean
+nothing for the kind are hidden and cleared by the server; 0 means no
+limit. Errors show after Save is pressed and clear as each field is put
+right. A used type can't be deleted or change its kind (switch it off and
+add a new one).
 
 ### Implemented frame (Phase 2)
 

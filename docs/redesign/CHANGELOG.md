@@ -13,6 +13,23 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-06 — 4.6e Company leave types; Leave rules retired
+Branch: `redesign/4.6-leaves`
+
+Changed:
+- **Policies → Leave types → Company leave types**: a grid (days in words, year end, rules, who, status) with a pane (the type in one sentence, its settings, its history). The **New / Edit** window has every rule the leave engine uses: how days are given (a balance a year, a set number each time, or no balance), at the start of the year or month by month, what joiners get, working or calendar days, half days, most days a request / a year / over the whole service, year end with carry-over, cap and payout (basic salary or a fixed amount per day, never below basic), notice before leave, available after N days of service, certificate, gender, departments and designations. "Give this year's days now" / "Also change this year's balances" shows who is affected before saving. Each save is kept in the type's history with an optional note.
+- **Requests** (`checkRequest`, company types only, never statutory leave or rights): notice (self-service is refused, HR gets a note; counted from the day asked, also at approval), service needed, yearly and whole-service limits (waiting and approved requests count). Self-service lists only types for the person's gender, department and designation.
+- **Crediting**: types given month by month get days ÷ 12 at each attendance month close (for the days employed; posted once, taken back on reopen; not for someone already given this year's days at the year start). The year opening and new joiners skip types not for the person, and a type that gives joiners the whole year does so (the old "share for joiners" switch was saved but never used).
+- **Leave rules retired**: the tab is gone, `/timeAndLeave/leave-rules`, `/leave-rules` and `/leave-types` open Policies → Leave types, Leave Rules is no longer on the Roles screen or in the menu's requirements. Provisioning and tenant onboarding no longer write `leave_rules` (onboarding now adds only the Labour Act's own types, never below the law). The table stays until Phase 8.
+- **Leave salary** reads the payout rate from the leave type (statutory leave always basic salary per day); a fixed amount never pays below basic. Old types without a rate fall back to their leave rule.
+- **Fixed (4.6b)**: reopening an attendance month matched its ledger lines by prefix, so reopening month 1 would also have taken back the home leave of months 10–12 of that BS year. Reopen now matches its own month only; the month close compares home leave per leave type.
+- Removed dead code: the old leave types and leave rules screens (`components/leave-types/*`, `components/leave-rules/*`), `app/actions/leave-rule.actions.ts`, `lib/services/leave-rule.service.ts`.
+- Files: `lib/engines/leave-type.engine.ts`, `lib/engines/leave.engine.ts`, `lib/engines/leave-salary.engine.ts`, `lib/types/leave-type.ts`, `lib/types/leave.ts`, `lib/services/leave-type.service.ts`, `lib/services/leave.service.ts`, `lib/services/leave-entitlement.service.ts`, `lib/services/leave-salary.service.ts`, `lib/services/employee.service.ts`, `lib/repositories/leave-policy.repository.ts`, `lib/repositories/leave.repository.ts`, `lib/repositories/onboarding.repository.ts`, `lib/platform/provisioning/seed-tenant.ts`, `app/actions/leave-type.actions.ts`, `app/(dashboard)/timeAndLeave/policies/page.tsx`, `app/(dashboard)/timeAndLeave/leave-rules/page.tsx`, `components/leave-policy/company-leave-types.tsx`, `components/time-and-leave/policies-hub-client.tsx`, `lib/types/role.ts`, `lib/frame/navigation.ts`, `next.config.ts`. No migration (0044 added the columns).
+
+Verified: tsc 0 · eslint: nothing new (onboarding and provisioning keep their old warnings) · 727/727 tests (`tests/leave-type.engine.test.ts` new; 4.6e rules in `tests/leave.engine.test.ts`; S24 4.6e in `tests/security-leave.test.ts`; the Roles screen now lists 26 modules) · `next build` OK · browser (nothing saved): the grid, pane and Edit window of Unpaid Leave; a new type filled in shows its sentence and the this-year preview (FY 2083/84: 3 people, 29.7 days, Kushal +9.7 pro-rata), Save with no code is refused before anything is sent, Discard closes; the old Leave rules link opens Leave types; 390 px; 0 console errors. After the check, the toolbar keeps its buttons on one line, half days reads "Half days allowed: Yes / No", and the note field sits in the form grid.
+
+---
+
 ## 2026-10-06 — 4.6d Leave exceptions
 Branch: `redesign/4.6-leaves`
 
