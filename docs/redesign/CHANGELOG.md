@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-06 — 4.6e follow-up: an easier detail pane
+Branch: `redesign/4.6-leaves`
+
+Your decision: improve the shared pane for every register, and rework the Leave types panes.
+
+Changed:
+- **Shared pane** (`components/kit/split-view.tsx`, used by 9 registers): default width about a third of the area (400–600px) instead of a fixed 420px; the register always keeps at least 520px, so its columns no longer scroll sideways when a record is open; **Expand** shows the record across the whole area (**Show the list** or Esc goes back, the list keeps its place). New pane blocks: `PaneSection` (title, count, folded sections), `PaneFields` (label and value side by side, stacked when narrow, with a note line), `useShowAll` ("Show all (n)").
+- **Statutory leave pane**: buttons at the top; each setting shows yours with "Law: …" under it (and "under an exception"); a waiting change is highlighted; an exception in force is a short notice (what, dates, days left, directive); ended and withdrawn exceptions fold into **Past exceptions**; exception requests and history show the latest few with "Show all"; date ranges no longer break inside a date.
+- **Company leave type pane**: the same layout (Edit at the top, what it is, settings, history).
+
+Verified: tsc 0 · eslint clean on the touched files · 727/727 tests · `next build` OK · browser at 1920px: Home Leave with the grid's columns all visible beside the pane, Expand / Show the list, Past exceptions folded; Leave requests still opens its pane (wider, with Expand). Test data, with your permission: **TEST ONLY Study leave** (10 days, 7 days' notice, after 180 days, carried over up to 20, Finance & Accounts only) added, changed to 12 days with a note, switched off and on; its history showed all 4 versions; a request preview for Kushal Pokhrel (not sent) showed "can be taken after 180 days of service: from 2027-01-23", no balance (this year's days were not given) and the HR note about notice; then the type was deleted (never used). The audit log keeps its add, edit, switch and delete entries. 0 console errors.
+
+---
+
 ## 2026-10-06 — 4.6e Company leave types; Leave rules retired
 Branch: `redesign/4.6-leaves`
 

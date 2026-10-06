@@ -13,7 +13,7 @@ import { Notice } from "@/components/kit/notice";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { SplitView } from "@/components/kit/split-view";
+import { PaneFields, PaneSection, SplitView, useShowAll } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
@@ -327,63 +327,28 @@ function PolicyPane({
 }) {
   const dateText = useDateText();
   const p = row.pending;
+  const current = row.exceptions.filter((e) => ["active", "scheduled"].includes(exceptionState(e, data.today)));
+  const past = row.exceptions.filter((e) => !current.includes(e));
+  const canAsk = data.permissions.askException && row.exceptionSettings.length > 0;
   return (
-    <div className="space-y-3 text-xs">
-      <section aria-label="Settings" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-        <h3 className="mb-1.5 flex justify-between text-2xs font-semibold uppercase tracking-wide text-ink-muted">
-          <span>Settings</span>
-          <span className="font-normal normal-case tracking-normal">{row.law}</span>
-        </h3>
-        <table className="w-full table-fixed text-2xs">
-          <colgroup>
-            <col className="w-32" />
-            <col />
-            <col className="w-40" />
-          </colgroup>
-          <thead>
-            <tr className="text-left text-ink-faint">
-              <th className="pb-1 font-medium">Setting</th>
-              <th className="pb-1 font-medium">Yours</th>
-              <th className="pb-1 font-medium">Minimum</th>
-            </tr>
-          </thead>
-          <tbody>
-            {row.editable.map((s) => (
-              <tr key={s} className="border-t border-line align-top">
-                <td className="py-1 pr-2 text-ink-muted">{SETTING_LABEL[s]}</td>
-                <td className="py-1 pr-2 font-medium text-ink">{s === "days" ? `${fmt(row.values.days)} days ${row.creditedYearly ? "a year" : "each time"}` : valueText(s, row.values[s])}</td>
-                <td className="py-1 text-ink-muted">
-                  {floorText(s, row.floor) ?? "—"}
-                  {row.floorSource[s]?.startsWith("Exception") && <span className="block text-3xs text-info">under an exception</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {row.exceptions.map((e) => (
-          <ExceptionNote key={e.id} e={e} today={data.today} />
-        ))}
-        <div className="mt-2 flex flex-wrap gap-2">
-          {data.permissions.propose && !p && (
-            <WindowButton variant="primary" onClick={onPropose}>
+    <div className="text-xs">
+      {(data.permissions.propose || canAsk) && (
+        <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
+          {data.permissions.propose && (
+            <WindowButton variant="primary" onClick={onPropose} disabled={!!p} title={p ? "A change is already waiting for approval" : undefined}>
               <Pencil className="h-3.5 w-3.5" /> Propose a change…
             </WindowButton>
           )}
-          {data.permissions.askException && row.exceptionSettings.length > 0 && (
+          {canAsk && (
             <WindowButton onClick={onAsk} title="For a regulated company whose regulator sets a different minimum">
               <FileText className="h-3.5 w-3.5" /> Ask for an exception…
             </WindowButton>
           )}
         </div>
-        {!data.permissions.propose && <p className="mt-2 text-2xs text-ink-muted">Changes are proposed by someone with a company-wide role and Leave types → Edit.</p>}
-      </section>
+      )}
 
       {p && (
-        <section aria-label="Waiting for approval" className="rounded-lg border border-warning/40 bg-surface px-3 py-2.5">
-          <h3 className="mb-1.5 flex items-center justify-between text-2xs font-semibold uppercase tracking-wide text-ink-muted">
-            <span>Waiting for approval</span>
-            <StatusChip status="pending" label="Waiting" />
-          </h3>
+        <PaneSection title="Waiting for approval" tone="warning" aside={<StatusChip status="pending" label="Waiting" />}>
           <ChangeLines change={p} />
           <p className="mt-1 text-2xs text-ink-muted">{whenText(p, dateText)}</p>
           <p className="mt-1 text-ink">“{p.reason}”</p>
@@ -423,73 +388,151 @@ function PolicyPane({
             </Notice>
           )}
           <Timeline change={p} />
-        </section>
+        </PaneSection>
       )}
 
+      <PaneSection title="Settings" aside={row.law}>
+        <PaneFields
+          rows={row.editable.map((s) => {
+            const law = floorText(s, row.floor);
+            const relaxed = row.floorSource[s]?.startsWith("Exception");
+            return {
+              label: SETTING_LABEL[s],
+              value: s === "days" ? `${fmt(row.values.days)} days ${row.creditedYearly ? "a year" : "each time"}` : valueText(s, row.values[s]),
+              note: law ? (
+                <>
+                  Law: {law}
+                  {relaxed && <span className="text-info"> · under an exception</span>}
+                </>
+              ) : undefined,
+            };
+          })}
+        />
+        {!data.permissions.propose && <p className="mt-2 text-2xs text-ink-muted">Changes are proposed by someone with a company-wide role and Leave types → Edit.</p>}
+      </PaneSection>
+
       {row.scheduled && (
-        <Notice tone="info" title={`Approved: from ${dateText(row.scheduled.effectiveFrom ?? "")}`}>
-          {changeLines(row.scheduled.before, row.scheduled.after).join(" · ")}. Applies on the first day of the next leave year.
-        </Notice>
+        <PaneSection title={`Approved, from ${dateText(row.scheduled.effectiveFrom ?? "")}`}>
+          <ChangeLines change={row.scheduled} />
+          <p className="mt-1 text-2xs text-ink-muted">Applies on the first day of the next leave year.</p>
+        </PaneSection>
+      )}
+
+      {current.length > 0 && (
+        <PaneSection title="Exception in force" count={current.length > 1 ? current.length : undefined}>
+          <div className="space-y-2">
+            {current.map((e) => (
+              <ExceptionNote key={e.id} e={e} today={data.today} />
+            ))}
+          </div>
+        </PaneSection>
       )}
 
       {row.exceptionRequests.length > 0 && (
-        <section aria-label="Exception requests" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-          <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Exception requests</h3>
-          <ol className="space-y-2">
-            {row.exceptionRequests.slice(0, 5).map((r) => (
-              <li key={r.id} className="border-t border-line pt-2 first:border-0 first:pt-0">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-ink">
-                    {SETTING_LABEL[r.setting]}: {r.value === null ? "—" : fmt(r.value)} · {dateText(r.validFrom)} – {dateText(r.validUntil)}
-                  </span>
-                  <StatusChip status={REQUEST_STATUS[r.status].status} label={REQUEST_STATUS[r.status].label} />
-                </div>
-                <p className="text-2xs text-ink-muted">
-                  {r.legalBasis}
-                  {r.reference ? ` · ${r.reference}` : ""} · asked by {r.requestedBy} · {dateText(r.requestedAt.slice(0, 10))}
-                </p>
-                {r.status === "REJECTED" && r.rejectionReason && <p className="text-2xs text-danger">Rejected: “{r.rejectionReason}”</p>}
-                {r.status === "APPROVED" && r.granted && (r.granted.validUntil !== r.validUntil || r.granted.validFrom !== r.validFrom || r.granted.value !== r.value) && (
-                  <p className="text-2xs text-ink-muted">
-                    Granted as {r.granted.value === null ? "—" : fmt(r.granted.value)}, {dateText(r.granted.validFrom)} – {r.granted.validUntil ? dateText(r.granted.validUntil) : "open"}
-                  </p>
-                )}
-                {r.status === "PENDING" && data.permissions.askException && (
-                  <WindowButton className="mt-1" onClick={() => onWithdrawAsk(r)}>
-                    <Undo2 className="h-3.5 w-3.5" /> Withdraw
-                  </WindowButton>
-                )}
-              </li>
-            ))}
-          </ol>
-        </section>
+        <PaneSection title="Exception requests" count={row.exceptionRequests.length}>
+          <RequestList requests={row.exceptionRequests} canWithdraw={data.permissions.askException} onWithdraw={onWithdrawAsk} />
+        </PaneSection>
       )}
 
-      <section aria-label="History" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-        <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-muted">History</h3>
-        {row.history.length === 0 ? (
-          <p className="text-2xs text-ink-muted">No changes yet: the settings are the platform&apos;s, from the Labour Act.</p>
-        ) : (
-          <ol className="space-y-2">
-            {row.history.map((h) => (
-              <li key={h.id} className="border-t border-line pt-2 first:border-0 first:pt-0">
-                <div className="flex items-start justify-between gap-2">
-                  <ChangeLines change={h} />
-                  <StatusChip status={h.source === "system" ? "locked" : STATUS_LABEL[h.status]?.status ?? h.status} label={h.source === "system" ? "By the system" : h.scheduled ? "Scheduled" : STATUS_LABEL[h.status]?.label} />
-                </div>
-                <p className="mt-0.5 text-2xs text-ink-muted">“{h.reason}”</p>
-                <p className="text-2xs text-ink-faint">
-                  {h.source === "system" ? "" : `Proposed by ${h.preparedBy} · `}
-                  {dateText(h.preparedAt.slice(0, 10))}
-                  {h.decidedBy ? ` · ${h.status === "approved" ? "approved" : h.status} by ${h.decidedBy}` : ""}
-                  {h.decisionNote && h.status === "rejected" ? `: “${h.decisionNote}”` : ""}
-                </p>
-              </li>
+      {past.length > 0 && (
+        <PaneSection title="Past exceptions" count={past.length} collapsed>
+          <ul className="space-y-2">
+            {past.map((e) => (
+              <ExceptionLine key={e.id} e={e} today={data.today} />
             ))}
-          </ol>
-        )}
-      </section>
+          </ul>
+        </PaneSection>
+      )}
+
+      <PaneSection title="History" count={row.history.length || undefined}>
+        {row.history.length === 0 ? <p className="text-2xs text-ink-muted">No changes yet: the settings are the platform&apos;s, from the Labour Act.</p> : <HistoryList history={row.history} />}
+      </PaneSection>
     </div>
+  );
+}
+
+/** A date range that never breaks inside a date. */
+function Range({ from, to }: { from: string; to: string | null }) {
+  const dateText = useDateText();
+  return (
+    <>
+      <span className="whitespace-nowrap">{dateText(from)}</span> – <span className="whitespace-nowrap">{to ? dateText(to) : "open"}</span>
+    </>
+  );
+}
+
+function RequestList({ requests, canWithdraw, onWithdraw }: { requests: ExceptionRequestRow[]; canWithdraw: boolean; onWithdraw: (r: ExceptionRequestRow) => void }) {
+  const dateText = useDateText();
+  const { shown, toggle } = useShowAll(requests, 2);
+  return (
+    <>
+      <ol className="space-y-2.5">
+        {shown.map((r) => {
+          const changed = r.status === "APPROVED" && r.granted && (r.granted.validUntil !== r.validUntil || r.granted.validFrom !== r.validFrom || r.granted.value !== r.value);
+          return (
+            <li key={r.id} className="border-t border-line pt-2.5 first:border-0 first:pt-0">
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-medium text-ink">
+                  {SETTING_LABEL[r.setting]}: down to {r.value === null ? "—" : valueText(r.setting, r.value)}
+                </span>
+                <StatusChip status={REQUEST_STATUS[r.status].status} label={REQUEST_STATUS[r.status].label} />
+              </div>
+              <p className="text-2xs text-ink-muted">
+                {changed && r.granted ? (
+                  <>
+                    Granted <Range from={r.granted.validFrom} to={r.granted.validUntil} />
+                    {r.granted.value !== r.value ? ` as ${r.granted.value === null ? "—" : valueText(r.setting, r.granted.value)}` : ""} (asked <Range from={r.validFrom} to={r.validUntil} />)
+                  </>
+                ) : (
+                  <Range from={r.validFrom} to={r.validUntil} />
+                )}
+              </p>
+              <p className="text-2xs text-ink-muted">
+                {r.legalBasis}
+                {r.reference ? ` · ${r.reference}` : ""}
+              </p>
+              <p className="text-2xs text-ink-faint">
+                Asked by {r.requestedBy} · {dateText(r.requestedAt.slice(0, 10))}
+              </p>
+              {r.status === "REJECTED" && r.rejectionReason && <p className="mt-0.5 text-2xs text-danger">Rejected: “{r.rejectionReason}”</p>}
+              {r.status === "PENDING" && canWithdraw && (
+                <WindowButton className="mt-1" onClick={() => onWithdraw(r)}>
+                  <Undo2 className="h-3.5 w-3.5" /> Withdraw
+                </WindowButton>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {toggle}
+    </>
+  );
+}
+
+function HistoryList({ history }: { history: PolicyChangeView[] }) {
+  const dateText = useDateText();
+  const { shown, toggle } = useShowAll(history, 3);
+  return (
+    <>
+      <ol className="space-y-2.5">
+        {shown.map((h) => (
+          <li key={h.id} className="border-t border-line pt-2.5 first:border-0 first:pt-0">
+            <div className="flex items-start justify-between gap-2">
+              <ChangeLines change={h} />
+              <StatusChip status={h.source === "system" ? "locked" : STATUS_LABEL[h.status]?.status ?? h.status} label={h.source === "system" ? "By the system" : h.scheduled ? "Scheduled" : STATUS_LABEL[h.status]?.label} />
+            </div>
+            <p className="mt-0.5 text-2xs text-ink-muted">“{h.reason}”</p>
+            <p className="text-2xs text-ink-faint">
+              {h.source === "system" ? "" : `Proposed by ${h.preparedBy} · `}
+              {dateText(h.preparedAt.slice(0, 10))}
+              {h.decidedBy ? ` · ${h.status === "approved" ? "approved" : h.status} by ${h.decidedBy}` : ""}
+              {h.decisionNote && h.status === "rejected" ? `: “${h.decisionNote}”` : ""}
+            </p>
+          </li>
+        ))}
+      </ol>
+      {toggle}
+    </>
   );
 }
 
@@ -703,19 +746,43 @@ function ProposeWindow({ row, data, onClose, onSaved }: { row: PolicyTypeRow; da
 }
 
 /** One exception in the settings box: what it lowers, the directive, its dates, and how long is left. */
+/** An exception in force or starting later: what it allows, until when, and how long is left. */
 function ExceptionNote({ e, today }: { e: PolicyException; today: string }) {
-  const dateText = useDateText();
   const state = exceptionState(e, today);
   const left = e.validUntil ? daysBetween(today, e.validUntil) : null;
-  const tone = state === "active" && left !== null && left <= 30 ? "warning" : "info";
-  const when = state === "revoked" ? "withdrawn by the platform" : state === "ended" ? "ended" : state === "scheduled" ? `starts ${dateText(e.validFrom)}` : left !== null ? `${left} day${left === 1 ? "" : "s"} left` : "in force";
+  const ending = state === "active" && left !== null && left <= 30;
+  const when = state === "scheduled" ? "starts later" : left !== null ? `${left} day${left === 1 ? "" : "s"} left` : "in force";
   return (
-    <Notice tone={tone} className="mt-2" title={`Exception: ${e.legalBasis}`}>
-      {SETTING_LABEL[e.setting]}: down to {valueText(e.setting, e.value ?? undefined)} · {dateText(e.validFrom)} – {e.validUntil ? dateText(e.validUntil) : "open"} · {when}
-      {e.reference ? ` · ${e.reference}` : ""}
-      {state === "revoked" && e.revokeReason ? `: “${e.revokeReason}”` : ""}
-      {state === "active" ? ". Propose the change to use it." : ""}
+    <Notice tone={ending ? "warning" : "info"} title={`${SETTING_LABEL[e.setting]}: down to ${valueText(e.setting, e.value ?? undefined)}`}>
+      <span className="block">
+        <Range from={e.validFrom} to={e.validUntil} /> · {when}
+      </span>
+      <span className="block">
+        {e.legalBasis}
+        {e.reference ? ` · ${e.reference}` : ""}
+      </span>
+      {state === "active" && <span className="block">Propose the change to use it.</span>}
     </Notice>
+  );
+}
+
+/** An exception that ended or was withdrawn, kept for the record. */
+function ExceptionLine({ e, today }: { e: PolicyException; today: string }) {
+  const state = exceptionState(e, today);
+  return (
+    <li className="border-t border-line pt-2 first:border-0 first:pt-0">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-ink">
+          {SETTING_LABEL[e.setting]}: down to {valueText(e.setting, e.value ?? undefined)}
+        </span>
+        <StatusChip status={state === "revoked" ? "rejected" : "inactive"} label={state === "revoked" ? "Withdrawn" : "Ended"} />
+      </div>
+      <p className="text-2xs text-ink-muted">
+        <Range from={e.validFrom} to={e.validUntil} /> · {e.legalBasis}
+        {e.reference ? ` · ${e.reference}` : ""}
+      </p>
+      {state === "revoked" && e.revokeReason && <p className="text-2xs text-ink-muted">Withdrawn by the platform: “{e.revokeReason}”</p>}
+    </li>
   );
 }
 

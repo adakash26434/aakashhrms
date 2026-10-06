@@ -737,6 +737,29 @@ optional **Dismiss**. `rounded-md`, `text-xs`, the tone's `*-subtle`
 background with a `/30` border. Don't hand-build tinted `<p>` boxes; use
 Notice. Preview: `/dev/kit`.
 
+### Detail pane (SplitView, all registers; updated in 4.6e)
+
+`components/kit/split-view.tsx` is the one detail pane used by every
+register (Employees, Organization, Salary structure register and approvals,
+Attendance adjustments, Leave requests and balances, both Leave types
+grids). Its default width is about a third of the area (400–600px; a
+dragged width is remembered per screen) and the register always keeps at
+least 520px, so its columns are never squeezed into a sideways scroll.
+**Expand** in the pane header shows the record across the whole area
+(**Show the list** or Esc goes back; the list keeps its sort and page).
+Below 1024px the pane is a full-height panel, as before.
+
+Pane content uses the same blocks: an action row at the top (the record's
+buttons), then `PaneSection`s (an uppercase title with an optional count
+and a note on the right; `collapsed` folds what no longer applies, e.g.
+past exceptions; tone warning for something waiting), `PaneFields` (label
+and value side by side when the pane is wide, stacked when narrow, with a
+quieter note under the value such as "Law: at least 90 days"), and
+`useShowAll` (the first few items of a long list, then "Show all (n)").
+Dates in a range never break inside a date. The Leave types panes use
+these blocks first; other registers keep their content until each is
+revisited.
+
 ### Implemented policies: statutory leave (Phase 4.6c, template A)
 
 `/timeAndLeave/policies` has the Leaves layout: PageBar (**New leave type**
@@ -802,7 +825,8 @@ Edit) and a SplitView: the DataGrid (leave type with code, pay, days — "10
 days a year", "5 days each time", "No balance" —, year end in words, rules
 — notice, service, limits, certificate —, who, status) and the pane (the
 type in one sentence, its settings, and its **History**: each save's
-changes in words, the note, who and when).
+changes in words, the note, who and when; the latest three, then "Show
+all").
 
 The **New / Edit leave type** window (`PropertyForm`, grouped under small
 headings): **The leave** — name, code (A–Z and _), pay, "Days are" (a

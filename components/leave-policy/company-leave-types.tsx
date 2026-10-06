@@ -10,7 +10,7 @@ import { Notice } from "@/components/kit/notice";
 import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
-import { SplitView } from "@/components/kit/split-view";
+import { PaneFields, PaneSection, SplitView, useShowAll } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
@@ -248,67 +248,65 @@ export function CompanyLeaveTypes({
 
 /** The selected type: what it is in words, its settings, and its history. */
 function TypePane({ type, history, departments, designations, canEdit, onEdit }: { type: LeaveTypeRecord; history: CompanyTypeChange[]; departments: Named; designations: Named; canEdit: boolean; onEdit: () => void }) {
-  const dateText = useDateText();
   const f = formOfRecord(type);
   const names = (ids: string[], list: Named) =>
     ids
       .map((id) => list.find((x) => x.id === id)?.name)
       .filter(Boolean)
       .join(", ");
-  const settings: [string, string][] = [
-    ["Pay", PAY_LABEL[type.leaveType] ?? type.leaveType],
-    ["Days", givenText(type)],
-    ...(type.kind === "balance" ? ([["Year end", yearEnd(type)]] as [string, string][]) : []),
-    ...(type.kind === "balance" && type.isEncashable
-      ? ([["Payout rate", type.encashmentBasis === "Fixed" && type.payoutFixedAmount ? `Rs ${type.payoutFixedAmount.toLocaleString("en-IN")} a day, never less than basic` : "Basic salary per day"]] as [string, string][])
-      : []),
-    ["Days counted", `${type.dayBasis === "calendar" ? "Calendar days" : "Working days"}${type.allowHalfDay ? ", half days allowed" : ", no half days"}`],
-    ["Rules", rulesText(type)],
-    ["Departments", names(type.applicableDepartments, departments) || "All"],
-    ["Designations", names(type.applicableDesignations, designations) || "All"],
-    ["Who", WHO_LABEL[type.genderApplicable] ?? type.genderApplicable],
+  const rows: { label: string; value: string }[] = [
+    { label: "Pay", value: PAY_LABEL[type.leaveType] ?? type.leaveType },
+    { label: "Days", value: givenText(type) },
+    ...(type.kind === "balance" ? [{ label: "Year end", value: yearEnd(type) }] : []),
+    ...(type.kind === "balance" && type.isEncashable ? [{ label: "Payout rate", value: type.encashmentBasis === "Fixed" && type.payoutFixedAmount ? `Rs ${type.payoutFixedAmount.toLocaleString("en-IN")} a day, never less than basic` : "Basic salary per day" }] : []),
+    { label: "Days counted", value: `${type.dayBasis === "calendar" ? "Calendar days" : "Working days"}${type.allowHalfDay ? ", half days allowed" : ", no half days"}` },
+    { label: "Rules", value: rulesText(type) },
+    { label: "Gender", value: WHO_LABEL[type.genderApplicable] ?? type.genderApplicable },
+    { label: "Departments", value: names(type.applicableDepartments, departments) || "All" },
+    { label: "Designations", value: names(type.applicableDesignations, designations) || "All" },
   ];
   return (
-    <div className="space-y-3 text-xs">
-      <section aria-label="What it is" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-        <p className="text-ink">{describeLeaveType(f)}</p>
-        <dl className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-2 gap-y-1 text-2xs">
-          {settings.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-ink-muted">{k}</dt>
-              <dd className="text-ink">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        {canEdit && (
-          <WindowButton className="mt-2" variant="primary" onClick={onEdit}>
+    <div className="text-xs">
+      {canEdit && (
+        <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
+          <WindowButton variant="primary" onClick={onEdit}>
             <Pencil className="h-3.5 w-3.5" /> Edit…
           </WindowButton>
-        )}
-      </section>
-      <section aria-label="History" className="rounded-lg border border-line bg-surface px-3 py-2.5">
-        <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-muted">History</h3>
-        {history.length === 0 ? (
-          <p className="text-2xs text-ink-muted">No changes recorded yet.</p>
-        ) : (
-          <ol className="space-y-2">
-            {history.map((h) => (
-              <li key={h.id} className="border-t border-line pt-2 first:border-0 first:pt-0">
-                <ul className="space-y-0.5 text-ink">
-                  {h.lines.map((l) => (
-                    <li key={l}>{l}</li>
-                  ))}
-                </ul>
-                <p className="text-2xs text-ink-muted">
-                  {h.note !== "Added" && h.note !== "Changed" ? `“${h.note}” · ` : ""}
-                  {h.by} · {dateText(h.at.slice(0, 10))}
-                </p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+        </div>
+      )}
+      <PaneSection title="What it is">
+        <p className="mb-2 text-ink">{describeLeaveType(f)}</p>
+        <PaneFields rows={rows} />
+      </PaneSection>
+      <PaneSection title="History" count={history.length || undefined}>
+        {history.length === 0 ? <p className="text-2xs text-ink-muted">No changes recorded yet.</p> : <TypeHistory history={history} />}
+      </PaneSection>
     </div>
+  );
+}
+
+function TypeHistory({ history }: { history: CompanyTypeChange[] }) {
+  const dateText = useDateText();
+  const { shown, toggle } = useShowAll(history, 3);
+  return (
+    <>
+      <ol className="space-y-2.5">
+        {shown.map((h) => (
+          <li key={h.id} className="border-t border-line pt-2.5 first:border-0 first:pt-0">
+            <ul className="space-y-0.5 text-ink">
+              {h.lines.map((l) => (
+                <li key={l}>{l}</li>
+              ))}
+            </ul>
+            <p className="mt-0.5 text-2xs text-ink-muted">
+              {!["Added", "Changed", "Switched on", "Switched off"].includes(h.note) ? `“${h.note}” · ` : ""}
+              {h.by} · {dateText(h.at.slice(0, 10))}
+            </p>
+          </li>
+        ))}
+      </ol>
+      {toggle}
+    </>
   );
 }
 

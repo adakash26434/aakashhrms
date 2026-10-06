@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Maximize2, Minimize2, X } from "lucide-react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 const MIN = 320;
 const MAX = 760;
+/** The register always keeps at least this much room beside the pane. */
+const MASTER_MIN = 520;
 const EVENT = "aakash:split-width";
 
 function clamp(n: number) {
@@ -16,7 +18,9 @@ function clamp(n: number) {
 /**
  * Split view (3.3): register on the left, record detail on the right.
  * ≥1024px the divider can be dragged (or moved with ←/→ when focused) and the
- * width is remembered; below that the detail opens as a full-height panel.
+ * width is remembered; the register always keeps room for its columns, and
+ * Expand shows the record across the whole area (Esc or "Show the list" goes
+ * back). Below 1024px the detail opens as a full-height panel.
  */
 export function SplitView({
   id,
@@ -24,7 +28,7 @@ export function SplitView({
   detail,
   detailTitle,
   onCloseDetail,
-  defaultWidth = 420,
+  defaultWidth,
 }: {
   id: string;
   master: ReactNode;
@@ -32,6 +36,7 @@ export function SplitView({
   detail: ReactNode | null;
   detailTitle?: string;
   onCloseDetail: () => void;
+  /** Width before the user drags the divider (default: about a third of the area, 400–600px). */
   defaultWidth?: number;
 }) {
   const key = `aakash.split.${id}`;
@@ -50,9 +55,32 @@ export function SplitView({
     () => 0
   );
   const [dragWidth, setDragWidth] = useState<number | null>(null);
-  const width = dragWidth ?? (stored ? clamp(stored) : defaultWidth);
+  const [areaWidth, setAreaWidth] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const wide = useMediaQuery("(min-width: 1024px)");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // The area's width decides the default and how wide the pane may get.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setAreaWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const fallback = defaultWidth ?? (areaWidth ? Math.max(400, Math.min(600, areaWidth * 0.36)) : 420);
+  const wanted = dragWidth ?? (stored ? clamp(stored) : fallback);
+  // Never squeeze the register below MASTER_MIN (it would cut its columns); never below MIN either.
+  const width = Math.round(areaWidth ? Math.max(MIN, Math.min(wanted, areaWidth - MASTER_MIN)) : wanted);
+  const showExpanded = expanded && !!detail && wide;
+
+  // Closing the record ends Expand: the next one opens beside the list again.
+  const [hadDetail, setHadDetail] = useState(!!detail);
+  if (hadDetail !== !!detail) {
+    setHadDetail(!!detail);
+    if (!detail) setExpanded(false);
+  }
 
   const persist = (w: number) => {
     try {
@@ -77,18 +105,21 @@ export function SplitView({
     window.addEventListener("pointerup", onUp);
   };
 
-  // Esc closes the narrow-screen panel.
+  // Esc closes the narrow-screen panel, or shows the list again from Expand.
   useEffect(() => {
-    if (!detail || wide) return;
+    if (!detail || (wide && !expanded)) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseDetail();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (wide) setExpanded(false);
+      else onCloseDetail();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detail, wide, onCloseDetail]);
+  }, [detail, wide, expanded, onCloseDetail]);
 
+  const iconButton = "flex h-7 shrink-0 items-center justify-center gap-1 rounded-md px-1.5 text-ink-faint hover:bg-surface-sunken hover:text-ink cursor-pointer";
   const header = (
-    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
+    <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
       {!wide && (
         <button type="button" onClick={onCloseDetail} className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken cursor-pointer" aria-label="Back to list">
           <ArrowLeft className="h-4 w-4" />
@@ -96,7 +127,13 @@ export function SplitView({
       )}
       <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{detailTitle}</p>
       {wide && (
-        <button type="button" onClick={onCloseDetail} className="flex h-7 w-7 items-center justify-center rounded-md text-ink-faint hover:bg-surface-sunken hover:text-ink cursor-pointer" aria-label="Close detail">
+        <button type="button" onClick={() => setExpanded((x) => !x)} className={cn(iconButton, "text-2xs font-medium")} title={showExpanded ? "Show the list again (Esc)" : "Show this record across the whole area"}>
+          {showExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {showExpanded ? "Show the list" : "Expand"}
+        </button>
+      )}
+      {wide && (
+        <button type="button" onClick={onCloseDetail} className={cn(iconButton, "w-7 px-0")} aria-label="Close detail">
           <X className="h-4 w-4" />
         </button>
       )}
@@ -105,44 +142,132 @@ export function SplitView({
 
   return (
     <div ref={containerRef} className="flex min-h-0 gap-0">
-      <div className="min-w-0 flex-1">{master}</div>
+      {/* Kept mounted while expanded, so the list keeps its sort, page and selection. */}
+      <div className={cn("min-w-0 flex-1", showExpanded && "hidden")}>{master}</div>
       {detail && wide && (
         <>
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize detail pane"
-            aria-valuenow={width}
-            aria-valuemin={MIN}
-            aria-valuemax={MAX}
-            tabIndex={0}
-            onPointerDown={startDrag}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-                e.preventDefault();
-                persist(width + (e.key === "ArrowLeft" ? 32 : -32));
-              }
-            }}
-            className="group mx-1 flex w-2 shrink-0 cursor-col-resize items-center justify-center touch-none focus-visible:outline-none"
-          >
-            <span className="h-10 w-0.5 rounded-full bg-line-strong group-hover:bg-brand group-focus-visible:bg-brand" />
-          </div>
+          {!showExpanded && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize detail pane"
+              aria-valuenow={width}
+              aria-valuemin={MIN}
+              aria-valuemax={MAX}
+              tabIndex={0}
+              onPointerDown={startDrag}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                  e.preventDefault();
+                  persist(width + (e.key === "ArrowLeft" ? 32 : -32));
+                }
+              }}
+              className="group mx-1 flex w-2 shrink-0 cursor-col-resize items-center justify-center touch-none focus-visible:outline-none"
+            >
+              <span className="h-10 w-0.5 rounded-full bg-line-strong group-hover:bg-brand group-focus-visible:bg-brand" />
+            </div>
+          )}
           <aside
             aria-label={detailTitle ?? "Details"}
-            className="sticky top-0 flex max-h-[calc(100vh-150px)] shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-surface"
-            style={{ width }}
+            className={cn("sticky top-0 flex max-h-[calc(100vh-150px)] flex-col overflow-hidden rounded-lg border border-line bg-surface", showExpanded ? "min-w-0 flex-1" : "shrink-0")}
+            style={showExpanded ? undefined : { width }}
           >
             {header}
-            <div className="min-h-0 flex-1 overflow-y-auto">{detail}</div>
+            <div className="@container min-h-0 flex-1 overflow-y-auto">{detail}</div>
           </aside>
         </>
       )}
       {detail && !wide && (
         <div role="dialog" aria-modal="true" aria-label={detailTitle ?? "Details"} className={cn("fixed inset-0 z-[70] flex flex-col bg-surface animate-[panelIn_160ms_var(--ease-out-quint)]")}>
           {header}
-          <div className="min-h-0 flex-1 overflow-y-auto">{detail}</div>
+          <div className="@container min-h-0 flex-1 overflow-y-auto">{detail}</div>
         </div>
       )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Pane content: the same building blocks in every detail pane
+// ---------------------------------------------------------------------------
+
+/**
+ * A titled block in a detail pane. `count` and a "Show all" toggle keep long
+ * lists short (the first `limit` items show); `collapsed` starts it folded
+ * (for things that no longer apply, e.g. past exceptions).
+ */
+export function PaneSection({
+  title,
+  aside,
+  count,
+  collapsed,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  aside?: ReactNode;
+  count?: number;
+  /** Starts folded; the title opens it. */
+  collapsed?: boolean;
+  tone?: "default" | "warning";
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(!collapsed);
+  const heading = (
+    <>
+      <span>
+        {title}
+        {count !== undefined && <span className="ml-1 font-normal text-ink-faint">({count})</span>}
+      </span>
+      {aside && <span className="font-normal normal-case tracking-normal">{aside}</span>}
+    </>
+  );
+  return (
+    <section aria-label={title} className={cn("border-b border-line px-4 py-3 last:border-0", tone === "warning" && "bg-warning-subtle/40")}>
+      {collapsed ? (
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full cursor-pointer items-center gap-1 text-left text-2xs font-semibold uppercase tracking-wide text-ink-muted hover:text-ink">
+          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
+          {heading}
+        </button>
+      ) : (
+        <h3 className="flex items-baseline justify-between gap-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted">{heading}</h3>
+      )}
+      {open && <div className="mt-2">{children}</div>}
+    </section>
+  );
+}
+
+/**
+ * Label / value rows for a pane: label and value side by side when the pane
+ * is wide enough, the label above the value when it is narrow. `note` is a
+ * quieter line under the value (e.g. "Law: at least 90 days").
+ */
+export function PaneFields({ rows }: { rows: { label: string; value: ReactNode; note?: ReactNode }[] }) {
+  return (
+    <dl className="divide-y divide-line text-xs">
+      {rows.map((r) => (
+        <div key={r.label} className="grid grid-cols-1 gap-x-3 gap-y-0.5 py-1.5 first:pt-0 last:pb-0 @min-[30rem]:grid-cols-[10rem_minmax(0,1fr)]">
+          <dt className="text-2xs text-ink-muted @min-[30rem]:pt-px @min-[30rem]:text-xs">{r.label}</dt>
+          <dd className="min-w-0">
+            <span className="font-medium text-ink">{r.value}</span>
+            {r.note && <span className="mt-0.5 block text-2xs text-ink-muted">{r.note}</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** "Show all (12)" under a list cut to its first few items. */
+export function useShowAll<T>(items: T[], limit = 3): { shown: T[]; toggle: ReactNode } {
+  const [all, setAll] = useState(false);
+  if (items.length <= limit) return { shown: items, toggle: null };
+  return {
+    shown: all ? items : items.slice(0, limit),
+    toggle: (
+      <button type="button" onClick={() => setAll((a) => !a)} className="mt-2 cursor-pointer text-2xs font-medium text-brand hover:underline">
+        {all ? "Show fewer" : `Show all (${items.length})`}
+      </button>
+    ),
+  };
 }
