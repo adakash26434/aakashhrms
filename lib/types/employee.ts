@@ -53,6 +53,8 @@ export interface Employee {
   documents?: EmployeeDocument[];
   /** No Citizenship / NID with its issued date and a scan (Records to fix). */
   identityScanMissing?: boolean;
+  /** Only basic + grade from the employee form: the salary structure is to be set up (4.4b, Records to fix). */
+  salarySetupMissing?: boolean;
   /** The employee's photo (4.2b), shown from /api/employees/photos/<id>; null = none. */
   photoId?: string | null;
   panNumber?: string | null;
@@ -157,7 +159,7 @@ export interface EmployeeFilter {
 }
 
 /** A record gap that stops the employee being paid or reported correctly. */
-export type EmployeeRecordGap = "pan" | "bank" | "basic" | "documents";
+export type EmployeeRecordGap = "pan" | "bank" | "basic" | "salary" | "documents";
 
 /**
  * One register row (S18): list columns only. Identity documents, family,

@@ -5,7 +5,8 @@ import { join } from 'node:path';
 
 // S24 (4.6): leave requests, approvals and balances.
 const root = join(__dirname, '..');
-const source = (file: string) => readFileSync(join(root, file), 'utf8');
+// LF line endings whatever git checked out (core.autocrlf writes CRLF on Windows).
+const source = (file: string) => readFileSync(join(root, file), 'utf8').replace(/\r\n/g, '\n');
 const fnBody = (src: string, name: string) => {
   const start = src.indexOf(`function ${name}(`);
   assert.ok(start >= 0, `${name} not found`);

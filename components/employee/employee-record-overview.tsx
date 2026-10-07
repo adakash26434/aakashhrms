@@ -5,7 +5,7 @@ import { Amount } from "@/components/kit/amount";
 import { DateCell } from "@/components/kit/date-cell";
 import { DescriptionList, InfoCard, StatTile } from "@/components/kit/description-list";
 import { addressLine } from "@/lib/constants/nepal-locations";
-import { RECORD_GAP_LABEL, RECORD_GAP_SECTION } from "@/lib/engines/employee.engine";
+import { RECORD_GAP_LABEL, recordGapHref } from "@/lib/engines/employee.engine";
 import type { EmployeeFacts, EmployeeProfile, EmployeeRecordTab } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
 import { formatPhoneNumber } from "@/lib/utils/phone";
@@ -125,7 +125,7 @@ export function EmployeeRecordOverview({
           </InfoCard>
         )}
 
-        <InfoCard title="Records & login" icon={p.gaps.length ? TriangleAlert : CircleCheck} action={p.gaps.length ? editHref(RECORD_GAP_SECTION[p.gaps[0]]) : undefined}>
+        <InfoCard title="Records & login" icon={p.gaps.length ? TriangleAlert : CircleCheck} action={p.gaps.length && canEdit ? { label: "Fix", href: recordGapHref(p.gaps[0], p.id) } : undefined}>
           {p.gaps.length ? (
             <ul className="mb-3 space-y-1">
               {p.gaps.map((g) => (

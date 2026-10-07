@@ -8,7 +8,7 @@ import { PaneActions, PaneFields, PaneSection } from "@/components/kit/pane";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Avatar } from "@/components/kit/avatar";
 import { photoUrl } from "@/lib/engines/employee-document.engine";
-import { RECORD_GAP_LABEL, RECORD_GAP_SECTION } from "@/lib/engines/employee.engine";
+import { RECORD_GAP_LABEL, recordGapHref } from "@/lib/engines/employee.engine";
 import type { EmployeeListRow } from "@/lib/types/employee";
 import { formatPhoneNumber } from "@/lib/utils/phone";
 
@@ -45,7 +45,7 @@ export function EmployeeQuickView({ row, canEdit }: { row: EmployeeListRow; canE
 
       {row.gaps.length > 0 && (
         <PaneSection title="Records to fix" count={row.gaps.length} tone="warning">
-          <PaneFields layout="figures" rows={row.gaps.map((g) => ({ label: RECORD_GAP_LABEL[g], value: "Fix", tone: "warning" as const, href: canEdit ? `${recordHref}/edit#section-${RECORD_GAP_SECTION[g]}` : undefined }))} />
+          <PaneFields layout="figures" rows={row.gaps.map((g) => ({ label: RECORD_GAP_LABEL[g], value: "Fix", tone: "warning" as const, href: canEdit ? recordGapHref(g, row.id) : undefined }))} />
         </PaneSection>
       )}
 

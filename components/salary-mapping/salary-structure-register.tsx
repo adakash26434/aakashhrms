@@ -1,10 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ListPlus, Plus } from "lucide-react";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
+import { Notice } from "@/components/kit/notice";
+import { WindowButton } from "@/components/kit/window";
 import { SplitView } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
+import { needsStructure } from "@/lib/engines/salary-structure.engine";
 import type { SalaryStructureData, StructureRow } from "@/lib/types/salary-structure";
 import { SalaryStructureDetail } from "./salary-structure-detail";
 import { batchStatusText } from "./salary-structure-approval";
@@ -13,6 +17,7 @@ const STATUS_LABEL: Record<StructureRow["status"], { key: string; label: string 
   current: { key: "active", label: "Current" },
   future: { key: "review", label: "Takes effect later" },
   pending: { key: "pending", label: "Change waiting" },
+  setup: { key: "onHold", label: "Basic + grade only" },
   none: { key: "draft", label: "No structure" },
 };
 
@@ -22,11 +27,17 @@ export function SalaryStructureRegister({
   selectedId,
   onSelect,
   onRevise,
+  onAdd,
+  onBulkAdd,
 }: {
   data: SalaryStructureData;
   selectedId: string | null;
   onSelect: (row: StructureRow | null) => void;
   onRevise?: (row: StructureRow) => void;
+  /** Add new: choose one employee and add their structure. */
+  onAdd?: () => void;
+  /** Bulk add: everyone who needs a structure, in the bulk table. */
+  onBulkAdd?: () => void;
 }) {
   const [filters, setFilters] = useState<FilterValues>({});
   const [search, setSearch] = useState("");
@@ -42,6 +53,8 @@ export function SalaryStructureRegister({
     );
   }, [data.rows, filters, search]);
   const active = data.rows.find((r) => r.employeeId === selectedId) ?? null;
+  const toAdd = data.rows.filter(needsStructure);
+  const basicOnly = toAdd.filter((r) => r.status === "setup").length;
 
   const columns = useMemo<GridColumn<StructureRow>[]>(
     () => [
@@ -50,12 +63,19 @@ export function SalaryStructureRegister({
       { id: "department", header: "Department", width: 150, value: (r) => r.departmentName },
       { id: "designation", header: "Designation", width: 160, value: (r) => r.designationName, defaultHidden: true },
       { id: "level", header: "Level", type: "code", width: 96, value: (r) => r.levelCode },
-      { id: "basic", header: "Basic", type: "amount", width: 124, value: (r) => r.current?.lines.basic ?? null, total: "sum" },
-      { id: "grade", header: "Grade", type: "amount", width: 112, value: (r) => r.current?.lines.gradeAmount ?? null, total: "sum" },
+      // Salary sheet: earnings, then deductions, then net payable (the payslip's terms).
+      { id: "basic", header: "Basic", type: "amount", width: 116, value: (r) => r.current?.totals.basic ?? null, total: "sum" },
+      { id: "grade", header: "Grade", type: "amount", width: 104, value: (r) => r.current?.totals.grade ?? null, total: "sum" },
       { id: "allowances", header: "Allowances", type: "amount", width: 136, value: (r) => r.current?.totals.allowances ?? null, total: "sum" },
-      { id: "gross", header: "Gross", type: "amount", width: 130, value: (r) => r.current?.totals.gross ?? null, total: "sum" },
-      { id: "deductions", header: "Deductions", type: "amount", width: 136, value: (r) => (r.current ? r.current.totals.deductions + r.current.totals.retirementEmployee : null), total: "sum" },
-      { id: "net", header: "Net before tax", type: "amount", width: 150, value: (r) => r.current?.totals.netBeforeTax ?? null, total: "sum" },
+      { id: "totalSalary", header: "Total salary", type: "amount", width: 140, value: (r) => r.current?.totals.totalSalary ?? null, total: "sum" },
+      { id: "ssfEmployer", header: "SSF employer 20%", type: "amount", width: 164, value: (r) => r.current?.totals.employerInEarnings ?? null, total: "sum", defaultHidden: true },
+      { id: "grossEarnings", header: "Gross earnings", type: "amount", width: 156, value: (r) => r.current?.totals.grossEarnings ?? null, total: "sum" },
+      { id: "retirement", header: "SSF / PF deduction", type: "amount", width: 176, value: (r) => r.current?.totals.retirementDeduction ?? null, total: "sum" },
+      { id: "otherDeductions", header: "Other deductions", type: "amount", width: 168, value: (r) => r.current?.totals.otherDeductions ?? null, total: "sum" },
+      { id: "incomeTax", header: "Income tax (est.)", type: "amount", width: 164, value: (r) => r.current?.totals.incomeTax ?? null, total: "sum" },
+      { id: "totalDeductions", header: "Total deductions", type: "amount", width: 164, value: (r) => r.current?.totals.totalDeductions ?? null, total: "sum" },
+      { id: "netPayable", header: "Net payable (est.)", type: "amount", width: 176, value: (r) => r.current?.totals.netPayable ?? null, total: "sum" },
+      { id: "costToCompany", header: "Cost to company", type: "amount", width: 160, value: (r) => r.current?.totals.costToCompany ?? null, total: "sum", defaultHidden: true },
       { id: "scheme", header: "Scheme", width: 92, value: (r) => (r.current ? r.current.lines.scheme.toUpperCase().replace("NONE", "—") : "") },
       { id: "effective", header: "Effective from", type: "date", value: (r) => r.current?.effectiveFrom ?? null },
       {
@@ -97,6 +117,38 @@ export function SalaryStructureRegister({
           },
         ]}
       />
+      {toAdd.length > 0 && (
+        <Notice
+          tone="warning"
+          className="mb-3"
+          title={`${toAdd.length} employee${toAdd.length === 1 ? " needs" : "s need"} a salary structure`}
+          action={
+            onAdd || onBulkAdd ? (
+              <>
+                {onAdd && (
+                  <WindowButton onClick={onAdd}>
+                    <Plus className="h-3.5 w-3.5" /> Add new
+                  </WindowButton>
+                )}
+                {onBulkAdd && (
+                  <WindowButton variant="primary" onClick={onBulkAdd}>
+                    <ListPlus className="h-3.5 w-3.5" /> Bulk add
+                  </WindowButton>
+                )}
+              </>
+            ) : undefined
+          }
+        >
+          {basicOnly === toAdd.length
+            ? "They have only basic + grade from the employee form."
+            : basicOnly
+              ? `${basicOnly} with only basic + grade from the employee form, ${toAdd.length - basicOnly} with no salary at all.`
+              : "They have no salary yet, so payroll leaves them out."}{" "}
+          {basicOnly
+            ? "Add the retirement scheme, allowances and deductions (a template fills them), or confirm that none apply, so payroll pays them in full."
+            : "Add their basic, grade, retirement scheme, allowances and deductions."}
+        </Notice>
+      )}
       <SplitView
         id="salary-structures"
         detailTitle={active ? `${active.fullName} · ${active.employeeCode}` : undefined}
@@ -112,7 +164,7 @@ export function SalaryStructureRegister({
             activeRowId={selectedId}
             onActiveRowChange={onSelect}
             onOpen={(r) => (onRevise && r.status !== "pending" ? onRevise(r) : onSelect(r))}
-            rowTone={(r) => (r.status === "none" ? "warning" : r.status === "pending" ? "info" : undefined)}
+            rowTone={(r) => (r.status === "none" || r.status === "setup" ? "warning" : r.status === "pending" ? "info" : undefined)}
             defaultSort={{ columnId: "name", direction: "asc" }}
             pageSize={100}
             exportModule={data.permissions.export ? "SALARY_MAPPING" : undefined}

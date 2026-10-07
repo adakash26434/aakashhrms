@@ -51,7 +51,13 @@ export function EmployeeFormAccess({
         <>
           <GridField
             label="Create a login"
-            help={form.companyEmail ? `A temporary password is emailed to ${form.companyEmail}.` : "Needs the company email under Contact."}
+            help={
+              options.createLogin === false
+                ? "No login: this person cannot sign in to self-service until one is created."
+                : form.companyEmail
+                  ? `A temporary password is emailed to ${form.companyEmail}.`
+                  : "Needs the company email under Contact."
+            }
             size="md"
           >
             <YesNoField name="accessCreate" value={options.createLogin !== false} onChange={(on) => onOptions({ ...options, createLogin: on })} />

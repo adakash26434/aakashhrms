@@ -6,17 +6,23 @@ import * as departmentRepository from "@/lib/repositories/department.repository"
 import * as designationRepository from "@/lib/repositories/designation.repository";
 import * as shreniRepository from "@/lib/repositories/shreni.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
+import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
+import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
+import { findAllEmploymentTypes } from "@/lib/repositories/employment-type.repository";
 import {
   EMPTY_LINES,
   batchSummary,
   changedLines,
   classifyHead,
   earliestOpenDate,
+  estimatePay,
   finalisedConflicts,
   gradeAmountFor,
   headsFromLines,
   latestApproved,
   linesFromHeads,
+  needsSetup,
+  resolveLevelCode,
   structureTotals,
   validateLines,
   type PayHeadLike,
@@ -47,6 +53,7 @@ import type {
   BatchLine,
   BatchRow,
   BatchStatus,
+  PayProfile,
   RevisionStatus,
   RevisionSummary,
   RetirementScheme,
@@ -55,6 +62,7 @@ import type {
   StructureLines,
   StructureRow,
   StructureTab,
+  TaxRules,
   TemplateInput,
   TemplateRow,
 } from "@/lib/types/salary-structure";
@@ -95,6 +103,9 @@ const toLike = (h: PayHead): PayHeadLike => ({
   isSsfEmployerHead: !!h.flags.isSsfEmployerHead,
   isRemoteAllowance: !!h.flags.isRemoteAllowance,
   isCitHead: !!h.flags.isCitHead,
+  effectOnTax: h.effectOnTax,
+  applicableDepartmentIds: h.applicableDepartmentIds ?? [],
+  applicableDesignationIds: h.applicableDesignationIds ?? [],
 });
 
 async function loadContext() {
@@ -105,6 +116,53 @@ async function loadContext() {
     pfPercent: 10,
   };
   return { heads, settings, totalsSettings };
+}
+
+/**
+ * The tax rules for estimates: the active fiscal year's slabs (all slabs when
+ * none is marked active), and the statutory and insurance limits.
+ */
+async function loadTaxRules(settings: Awaited<ReturnType<typeof systemControlRepository.findSettings>>): Promise<TaxRules> {
+  const [years, slabs] = await Promise.all([fiscalYearRepository.findAllFiscalYears(), taxRateRepository.findAllSlabs()]);
+  const active = years.find((y) => y.status === "Active");
+  const mine = active ? slabs.filter((s) => s.fiscalYearId === active.id) : [];
+  return {
+    slabs: (mine.length ? mine : slabs).map((s) => ({
+      id: s.id,
+      category: s.category,
+      amountFrom: String(s.amountFrom),
+      amountTo: s.amountTo === null ? null : String(s.amountTo),
+      ratePercent: String(s.ratePercent),
+      fixedDeduction: String(s.fixedDeduction),
+    })),
+    limits: settings.statutoryDeductionLimits,
+    insurance: settings.insuranceDiscounts,
+  };
+}
+
+/** The employee details payroll's tax reads. */
+const profileOf = (e: Employee): PayProfile => ({
+  taxStatus: e.taxStatus,
+  isDisabled: !!e.isDisabled,
+  category: e.category,
+  gender: e.gender,
+  joiningDate: isoDate(e.joiningDate),
+});
+
+const isoDate = (d: Date | string | null | undefined): string => {
+  if (!d) return "";
+  if (typeof d === "string") return d.slice(0, 10);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+};
+
+/** SSF is the expected scheme: the company has SSF and the employee's employment type allows it. */
+async function ssfExpectation(settings: Awaited<ReturnType<typeof systemControlRepository.findSettings>>): Promise<(category: string) => boolean> {
+  if (!settings.statutoryDeductionLimits.companyHasSsf) return () => false;
+  const types = await findAllEmploymentTypes();
+  return (category) => {
+    const t = types.find((x) => x.name === category || x.code.toUpperCase() === category.toUpperCase());
+    return t ? t.isSsfEligible : true;
+  };
 }
 
 /** Employees within the user's scope (active only unless asked). */
@@ -118,7 +176,8 @@ function toSummary(
   stored: repository.StoredHead[],
   heads: StructureHead[],
   settings: TotalsSettings,
-  names: Map<string, string>
+  names: Map<string, string>,
+  pay: { profile: PayProfile; tax: TaxRules } | null
 ): RevisionSummary {
   const lines = linesFromHeads(
     { basic: Number(r.basicSalary) || 0, gradeCount: r.gradeCount ?? 0, gradeAmount: Number(r.gradeAmount) || 0, gradeManual: !!r.gradeManual },
@@ -132,7 +191,8 @@ function toSummary(
     status: (r.status as RevisionStatus) ?? "approved",
     reason: r.reason ?? "",
     lines,
-    totals: structureTotals(lines, heads, settings),
+    // As payroll would pay it (income tax estimated) when the employee is known.
+    totals: pay ? estimatePay(lines, heads, pay.profile, pay.tax, settings) : structureTotals(lines, heads, settings),
     preparedBy: r.createdBy ? names.get(r.createdBy) ?? null : null,
     approvedBy: r.approvedBy ? names.get(r.approvedBy) ?? null : null,
     createdAt: r.createdAt.toISOString(),
@@ -165,7 +225,14 @@ export async function getStructureData(params: {
   const actions = await repository.findApprovalActions(batches.map((b) => b.id));
   const userName = new Map(approvers.map((a) => [a.userId, a.name]));
   const ids = employees.map((e) => e.id);
-  const [{ revisions, heads: stored }, finalisedUntil] = await Promise.all([repository.findRevisions(ids), repository.findFinalisedUntil(ids)]);
+  const [{ revisions, heads: stored }, finalisedUntil, tax, ssfExpected] = await Promise.all([
+    repository.findRevisions(ids),
+    repository.findFinalisedUntil(ids),
+    loadTaxRules(settings),
+    ssfExpectation(settings),
+  ]);
+  const profiles = new Map(employees.map((e) => [e.id, profileOf(e)]));
+  const batchKind = new Map(batches.map((b) => [b.id, b.kind]));
   const names = await repository.findUserNames([...revisions.flatMap((r) => [r.createdBy ?? "", r.approvedBy ?? ""]), ...batches.flatMap((b) => [b.preparedBy ?? "", b.decidedBy ?? ""])]);
   const branchName = new Map(branches.map((b) => [b.id, b.name]));
   const departmentName = new Map(departments.map((d) => [d.id, d.name]));
@@ -176,7 +243,8 @@ export async function getStructureData(params: {
   const summariesByEmployee = new Map<string, RevisionSummary[]>();
   for (const r of revisions) {
     const list = summariesByEmployee.get(r.employeeId) ?? [];
-    list.push(toSummary(r, stored, heads, totalsSettings, names));
+    const profile = profiles.get(r.employeeId);
+    list.push(toSummary(r, stored, heads, totalsSettings, names, profile ? { profile, tax } : null));
     summariesByEmployee.set(r.employeeId, list);
   }
 
@@ -185,6 +253,7 @@ export async function getStructureData(params: {
     history[e.id] = [...list].sort((a, b) => (a.effectiveFrom === b.effectiveFrom ? b.createdAt.localeCompare(a.createdAt) : b.effectiveFrom.localeCompare(a.effectiveFrom)));
     const current = latestApproved(list);
     const pending = list.find((s) => s.status === "pending");
+    const setup = needsSetup(current, current?.batchId ? batchKind.get(current.batchId) : null);
     return {
       employeeId: e.id,
       employeeCode: e.employeeCode,
@@ -195,9 +264,13 @@ export async function getStructureData(params: {
       departmentName: departmentName.get(e.departmentId) ?? "",
       designationId: e.designationId,
       designationName: designationName.get(e.designationId) ?? "",
-      levelCode: e.shreni ?? "",
+      levelCode: resolveLevelCode(e.shreni ?? "", levels),
+      levelKnown: levels.some((l) => l.code === resolveLevelCode(e.shreni ?? "", levels)),
       category: e.category,
-      status: pending ? "pending" : !current ? "none" : current.effectiveFrom > today ? "future" : "current",
+      joiningDate: isoDate(e.joiningDate),
+      profile: profiles.get(e.id)!,
+      ssfExpected: ssfExpected(e.category),
+      status: pending ? "pending" : !current ? "none" : setup ? "setup" : current.effectiveFrom > today ? "future" : "current",
       current,
       pendingBatchId: pending?.batchId ?? null,
     };
@@ -274,6 +347,7 @@ export async function getStructureData(params: {
     gradePolicy: settings.gradePolicy ?? null,
     ssfBase: totalsSettings.ssfBase,
     pfPercent: totalsSettings.pfPercent,
+    tax,
     approvalPolicy: policy,
     approvers,
     today: nepalDateIso(),
@@ -384,8 +458,12 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
     const names = [...pending.keys()].map((id) => byId.get(id)?.fullName).filter(Boolean).slice(0, 5).join(", ");
     throw new UserFacingError(`A change is already waiting for approval for: ${names}. Approve, reject or withdraw it first.`);
   }
-  const { revisions, heads: stored } = await repository.findRevisions(input.rows.map((r) => r.employeeId));
-  const levelStart = (code: string) => levels.find((l) => l.code === code || l.name === code)?.minSalary ?? 0;
+  const [{ revisions, heads: stored }, allBatches] = await Promise.all([
+    repository.findRevisions(input.rows.map((r) => r.employeeId)),
+    input.kind === "setup" ? repository.findBatches() : Promise.resolve([]),
+  ]);
+  const batchKind = new Map(allBatches.map((b) => [b.id, b.kind]));
+  const levelStart = (saved: string) => levels.find((l) => l.code === resolveLevelCode(saved, levels))?.minSalary ?? 0;
 
   const errors: Record<string, Record<string, string>> = {};
   const prepared: { revision: repository.NewRevision; before: ReturnType<typeof structureTotals> | null; after: ReturnType<typeof structureTotals> }[] = [];
@@ -406,7 +484,13 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
           heads
         )
       : null;
-    if (current && !changedLines(current, lines).length) continue;
+    if (input.kind === "setup") {
+      // Adding a structure (Add new / Bulk add): only for someone with none yet, or with
+      // basic + grade from the employee form; the latter may be confirmed unchanged.
+      if (current && !needsSetup({ lines: current }, currentRow?.batchId ? batchKind.get(currentRow.batchId) : null)) {
+        throw new UserFacingError(`${emp.fullName} already has a salary structure. Use Revise salary to change it.`);
+      }
+    } else if (current && !changedLines(current, lines).length) continue;
     const after = structureTotals(lines, heads, totalsSettings);
     prepared.push({
       revision: {
@@ -488,7 +572,7 @@ export async function createStartingStructure(params: {
     kind: "hire",
     effectiveFrom: params.joiningDate,
     reason: "Starting salary",
-    monthlyChange: totals.gross,
+    monthlyChange: totals.totalSalary,
     preparedBy: params.userId,
     approvedRoute: "on_hire",
     approvalType: "none",
@@ -525,7 +609,7 @@ export async function applyPolicyGrades(policy: Parameters<typeof gradeAmountFor
     const before = structureTotals(lines, heads, totalsSettings);
     const next = { ...lines, gradeAmount: grade };
     const after = structureTotals(next, heads, totalsSettings);
-    monthlyChange += after.gross - before.gross;
+    monthlyChange += after.totalSalary - before.totalSalary;
     changes.push({ employeeId: e.id, basic: next.basic, gradeCount: next.gradeCount, gradeAmount: grade, gradeManual: false, netAmount: after.netBeforeTax, heads: headsFromLines(next, heads) });
   }
   if (!changes.length) return 0;
@@ -725,13 +809,14 @@ export interface LetterData {
 
 export async function getLetter(revisionId: string, scope: ScopeFilter): Promise<LetterData | null> {
   const employees = await employeesInScope(scope);
-  const { heads, totalsSettings } = await loadContext();
+  const { heads, settings, totalsSettings } = await loadContext();
   const { revisions, heads: stored } = await repository.findRevisions(employees.map((e) => e.id));
   const rev = revisions.find((r) => r.id === revisionId);
   if (!rev || rev.status !== "approved") return null;
   const emp = employees.find((e) => e.id === rev.employeeId)!;
-  const names = await repository.findUserNames([rev.createdBy ?? "", rev.approvedBy ?? ""]);
-  const mine = revisions.filter((r) => r.employeeId === rev.employeeId).map((r) => toSummary(r, stored, heads, totalsSettings, names));
+  const [names, tax] = await Promise.all([repository.findUserNames([rev.createdBy ?? "", rev.approvedBy ?? ""]), loadTaxRules(settings)]);
+  const pay = { profile: profileOf(emp), tax };
+  const mine = revisions.filter((r) => r.employeeId === rev.employeeId).map((r) => toSummary(r, stored, heads, totalsSettings, names, pay));
   const revision = mine.find((s) => s.id === revisionId)!;
   const previous = latestApproved(mine.filter((s) => s.id !== revisionId && (s.effectiveFrom < revision.effectiveFrom || (s.effectiveFrom === revision.effectiveFrom && s.createdAt < revision.createdAt))));
   const [departments, designations, branches] = await Promise.all([departmentRepository.findAllDepartments(), designationRepository.findAllDesignations(), branchRepository.findAllBranches()]);
@@ -775,7 +860,7 @@ function normalizeLines(raw: unknown): StructureLines {
 
 export function normalizeBatch(raw: unknown): BatchInput {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const kind = (["single", "bulk", "import"].includes(o.kind as string) ? o.kind : "bulk") as BatchInput["kind"];
+  const kind = (["single", "bulk", "import", "setup"].includes(o.kind as string) ? o.kind : "bulk") as BatchInput["kind"];
   const effectiveFrom = str(o.effectiveFrom, 10);
   const reason = str(o.reason, 500).trim();
   if (!ISO.test(effectiveFrom)) throw new UserFacingError("Choose the date the change takes effect.");

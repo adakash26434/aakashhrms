@@ -419,3 +419,29 @@ export async function countPendingFor(employeeIds: string[]): Promise<Map<string
   return new Map(rows.map((r) => [r.employeeId, r.batchId ?? ""]));
 }
 
+
+/**
+ * Employees whose current salary is still only the basic + grade saved with
+ * the employee form (a hire revision with no pay heads): their structure is
+ * to be set up in Salary structure (4.4b). Same rule as needsSetup().
+ */
+export async function employeesNeedingSetup(): Promise<Set<string>> {
+  const db = await getDb();
+  const approved = await db
+    .select({ id: employeeSalaryMap.id, employeeId: employeeSalaryMap.employeeId, batchId: employeeSalaryMap.batchId, effectiveFrom: employeeSalaryMap.effectiveFrom, status: employeeSalaryMap.status, createdAt: employeeSalaryMap.createdAt })
+    .from(employeeSalaryMap)
+    .where(eq(employeeSalaryMap.status, "approved"));
+  const byEmployee = new Map<string, typeof approved>();
+  for (const r of approved) byEmployee.set(r.employeeId, [...(byEmployee.get(r.employeeId) ?? []), r]);
+  const current = [...byEmployee.values()].map((list) => latestApproved(list)).filter((r): r is (typeof approved)[number] => !!r && !!r.batchId);
+  if (!current.length) return new Set();
+  const hires = new Set(
+    (await db.select({ id: salaryChangeBatches.id }).from(salaryChangeBatches).where(and(eq(salaryChangeBatches.kind, "hire"), inArray(salaryChangeBatches.id, [...new Set(current.map((r) => r.batchId!))])))).map((b) => b.id)
+  );
+  const candidates = current.filter((r) => hires.has(r.batchId!));
+  if (!candidates.length) return new Set();
+  const withHeads = new Set(
+    (await db.selectDistinct({ id: employeeSalaryHeads.salaryMapId }).from(employeeSalaryHeads).where(inArray(employeeSalaryHeads.salaryMapId, candidates.map((r) => r.id)))).map((h) => h.id)
+  );
+  return new Set(candidates.filter((r) => !withHeads.has(r.id)).map((r) => r.employeeId));
+}

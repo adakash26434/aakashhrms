@@ -3,7 +3,8 @@
 // person; standard templates; printable revision letters.
 
 import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry, ApproverInfo } from "@/lib/types/approval";
-import type { GradePolicySettings } from "@/lib/types/system-control";
+import type { PayHeadInput, TaxSlabInput } from "@/lib/engines/payroll.engine";
+import type { GradePolicySettings, InsuranceDiscountsSettings, StatutoryDeductionLimitsSettings } from "@/lib/types/system-control";
 
 export const STRUCTURE_TABS = ["structures", "bulk", "approvals", "templates"] as const;
 export type StructureTab = (typeof STRUCTURE_TABS)[number];
@@ -39,6 +40,10 @@ export interface StructureHead {
    * stored on one is shown (with a warning) because payroll pays it on top.
    */
   labelOnly?: boolean;
+  /** The pay head as payroll reads it (flags, calculation, taxable): pay estimates use it. */
+  payroll: Omit<PayHeadInput, "amount">;
+  /** Departments / designations the head is for (empty = everyone), from Pay heads. */
+  appliesTo: { departmentIds: string[]; designationIds: string[] };
 }
 
 /** The editable content of a revision. */
@@ -54,17 +59,69 @@ export interface StructureLines {
   computed: string[];
 }
 
+/** One named line of a breakdown (an allowance or a fixed deduction). */
+export interface BreakdownItem {
+  id: string;
+  name: string;
+  type: "allowance" | "deduction";
+  amount: number;
+}
+
+/**
+ * A structure's monthly breakdown, in the payslip's terms (SSF shown as the
+ * payslip shows it: the employer's 20% in earnings, the full 31% deducted):
+ *
+ *   Total salary    = basic + grade + allowances
+ *   Gross earnings  = total salary + SSF employer 20%
+ *   Total deductions = SSF 31% / PF employee + other deductions + income tax
+ *   Net payable     = gross earnings − total deductions
+ *   Cost to company = gross earnings + PF employer
+ */
 export interface StructureTotals {
+  basic: number;
+  grade: number;
+  /** Monthly allowances (fixed and percentage; festival / remote left out). */
   allowances: number;
-  /** Fixed deductions + CIT (before tax and retirement). */
-  deductions: number;
+  totalSalary: number;
+  /** SSF employer 20% shown in earnings (0 without SSF). */
+  employerInEarnings: number;
+  grossEarnings: number;
+  /** SSF 31% (11% + 20%) or provident fund (employee). */
+  retirementDeduction: number;
+  /** The employee's own share: SSF 11% or PF employee. */
   retirementEmployee: number;
+  /** The company's share: SSF 20% or PF employer. */
   retirementEmployer: number;
-  gross: number;
-  /** Gross − deductions − employee retirement contribution (TDS not included). */
+  /** Fixed deductions and CIT. */
+  otherDeductions: number;
+  /** Monthly income tax as payroll would estimate it; null when not estimated (no employee, e.g. a template). */
+  incomeTax: number | null;
+  totalDeductions: number;
+  /** Take-home: gross earnings − total deductions (before income tax when incomeTax is null). */
+  netPayable: number;
+  /** Total salary − other deductions − the employee's retirement share (stored on the revision as net_amount). */
   netBeforeTax: number;
-  /** Gross + employer retirement contribution. */
-  employerCost: number;
+  costToCompany: number;
+  /** Named allowances and fixed deductions, as payroll works them out. */
+  items: BreakdownItem[];
+  /** Why the estimate could not be worked out (e.g. deductions above earnings). */
+  problem?: string;
+}
+
+/** The employee details payroll's tax needs. */
+export interface PayProfile {
+  taxStatus: string;
+  isDisabled: boolean;
+  category: string;
+  gender: string;
+  joiningDate: string;
+}
+
+/** The company's tax rules for estimates (the active fiscal year's slabs). */
+export interface TaxRules {
+  slabs: TaxSlabInput[];
+  limits: StatutoryDeductionLimitsSettings;
+  insurance: InsuranceDiscountsSettings;
 }
 
 export type RevisionStatus = "approved" | "pending" | "rejected" | "withdrawn";
@@ -94,14 +151,26 @@ export interface StructureRow {
   designationId: string;
   designationName: string;
   levelCode: string;
+  /** The level is in Setup (by code or name); if not, templates by level and the level's scale do not apply. */
+  levelKnown: boolean;
   category: string;
-  /** current: an approved structure; future: the latest takes effect later; pending: a change waits for approval. */
-  status: "current" | "future" | "pending" | "none";
+  /** Joining date (AD, YYYY-MM-DD): a new hire's structure is set up from it. */
+  joiningDate: string;
+  /** For the income tax estimate. */
+  profile: PayProfile;
+  /** SSF is the expected scheme: the company has SSF and the employment type allows it. */
+  ssfExpected: boolean;
+  /**
+   * current: an approved structure; future: the latest takes effect later;
+   * pending: a change waits for approval; setup: only basic + grade from the
+   * employee form (no scheme, no pay heads yet); none: no structure.
+   */
+  status: "current" | "future" | "pending" | "setup" | "none";
   current: RevisionSummary | null;
   pendingBatchId: string | null;
 }
 
-export type BatchKind = "single" | "bulk" | "import" | "hire" | "policy";
+export type BatchKind = "single" | "bulk" | "import" | "hire" | "policy" | "setup";
 export type BatchStatus = "pending" | "approved" | "rejected" | "withdrawn";
 
 export type { ApprovalRoute } from "@/lib/types/approval";
@@ -166,6 +235,8 @@ export interface SalaryStructureData {
   gradePolicy: GradePolicySettings | null;
   ssfBase: "BasicSalary" | "BasicPlusGrade";
   pfPercent: number;
+  /** Tax rules for the income tax estimate (same as payroll). */
+  tax: TaxRules;
   /** Company approval setting for salary changes, and who can approve. */
   approvalPolicy: ApprovalPolicy;
   approvers: ApproverInfo[];
@@ -203,7 +274,8 @@ export interface RevisionInput {
 }
 
 export interface BatchInput {
-  kind: "single" | "bulk" | "import";
+  /** setup: completing new hires' structures (basic + grade only); may be submitted unchanged. */
+  kind: "single" | "bulk" | "import" | "setup";
   effectiveFrom: string;
   reason: string;
   rows: RevisionInput[];

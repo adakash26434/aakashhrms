@@ -1,20 +1,22 @@
 "use client";
 
+import { Fragment } from "react";
 import { Printer } from "lucide-react";
 import { bothCalendars } from "@/components/kit/date-cell";
 import { WindowButton } from "@/components/kit/window";
 import { addressLine } from "@/lib/constants/nepal-locations";
 import type { LetterData } from "@/lib/services/salary-structure.service";
 import type { CompanyProfileSetupData } from "@/lib/types/company-setup";
-import type { StructureLines } from "@/lib/types/salary-structure";
+import { breakdownRows, BREAKDOWN_NOTE, type BreakdownRow } from "./salary-breakdown";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { cn } from "@/lib/utils";
 
 /** One line of the old / new table. */
-function LetterLine({ r, strong, showOld }: { r: { label: string; old: number | null; now: number }; strong?: boolean; showOld: boolean }) {
+function LetterLine({ r, showOld }: { r: LetterRow; showOld: boolean }) {
   const diff = r.old === null ? null : r.now - r.old;
+  const strong = r.style === "total" || r.style === "subtotal" || r.style === "net";
   return (
-    <tr className={cn("border-b border-line", strong && "font-semibold")}>
+    <tr className={cn("border-b border-line", strong && "font-semibold", r.style === "muted" && "text-ink-muted")}>
       <td className="py-1.5 pr-3">{r.label}</td>
       {showOld && <td className="py-1.5 pr-3 text-right">{r.old === null ? "—" : money(r.old)}</td>}
       <td className="py-1.5 pr-3 text-right">{money(r.now)}</td>
@@ -23,43 +25,39 @@ function LetterLine({ r, strong, showOld }: { r: { label: string; old: number | 
   );
 }
 
+interface LetterRow {
+  key: string;
+  label: string;
+  section: BreakdownRow["section"];
+  style?: BreakdownRow["style"];
+  old: number | null;
+  now: number;
+}
+
 const money = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** The revised breakdown, with the previous amount of each line (lines only in the previous one included). */
+function letterRows(now: BreakdownRow[], before: BreakdownRow[] | null): LetterRow[] {
+  const old = new Map((before ?? []).map((r) => [r.key, r]));
+  const rows: LetterRow[] = now.map((r) => ({ key: r.key, label: r.label, section: r.section, style: r.style, now: r.amount, old: before ? old.get(r.key)?.amount ?? 0 : null }));
+  for (const r of before ?? []) {
+    if (rows.some((x) => x.key === r.key)) continue;
+    // A line that went away (an allowance removed): shown before its section's subtotal.
+    const at = rows.findIndex((x) => x.section === r.section && (x.style === "subtotal" || x.style === "total"));
+    rows.splice(at < 0 ? rows.length : at, 0, { key: r.key, label: r.label, section: r.section, style: r.style, now: 0, old: r.amount });
+  }
+  return rows;
+}
+
 /**
- * Salary revision letter (4.4), A4, in English: old and new pay per
- * component, totals, effective date and reason, with a signature line.
+ * Salary revision letter (4.4), A4, in English: the salary breakdown (4.4b),
+ * previous and revised, effective date and reason, with a signature line.
  * Print with Ctrl+P; the app frame is hidden in print.
  */
 export function SalaryStructureLetter({ letter, company }: { letter: LetterData; company: CompanyProfileSetupData | null }) {
-  const { employee, revision, previous, heads } = letter;
-  const prev = previous?.lines ?? null;
-  const rows: { label: string; old: number | null; now: number }[] = [
-    { label: "Basic salary", old: prev?.basic ?? null, now: revision.lines.basic },
-    { label: `Grade${revision.lines.gradeCount ? ` (${revision.lines.gradeCount})` : ""}`, old: prev?.gradeAmount ?? null, now: revision.lines.gradeAmount },
-  ];
-  const amountRow = (lines: StructureLines | null, id: string) => (lines ? lines.amounts[id] ?? 0 : null);
-  for (const h of heads.filter((x) => x.kind === "amount" && x.type === "allowance")) {
-    const now = revision.lines.amounts[h.id] ?? 0;
-    const old = amountRow(prev, h.id);
-    if (now || old) rows.push({ label: h.name, old, now });
-  }
-  const totals = [
-    { label: "Monthly gross", old: previous?.totals.gross ?? null, now: revision.totals.gross },
-    { label: "Net before tax", old: previous?.totals.netBeforeTax ?? null, now: revision.totals.netBeforeTax },
-  ];
-  const deductions: { label: string; old: number | null; now: number }[] = [];
-  for (const h of heads.filter((x) => x.kind === "amount" && x.type === "deduction")) {
-    const now = revision.lines.amounts[h.id] ?? 0;
-    const old = amountRow(prev, h.id);
-    if (now || old) deductions.push({ label: h.name, old, now });
-  }
-  if (revision.lines.scheme !== "none" || previous?.lines.scheme !== "none") {
-    deductions.push({
-      label: revision.lines.scheme === "ssf" ? "SSF 11% (employee)" : revision.lines.scheme === "pf" ? "Provident fund (employee)" : "Retirement contribution",
-      old: previous ? previous.totals.retirementEmployee : null,
-      now: revision.totals.retirementEmployee,
-    });
-  }
+  const { employee, revision, previous } = letter;
+  const rows = letterRows(breakdownRows(revision.totals, revision.lines), previous ? breakdownRows(previous.totals, previous.lines) : null);
+  const sections = (["earnings", "deductions", "result"] as const).map((section) => ({ section, rows: rows.filter((r) => r.section === section) }));
   const name = company?.displayName || company?.legalName || "";
   return (
     <div className="mx-auto max-w-3xl">
@@ -104,18 +102,24 @@ export function SalaryStructureLetter({ letter, company }: { letter: LetterData;
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <LetterLine key={r.label} r={r} showOld={!!previous} />
+            {sections.map(({ section, rows: list }) => (
+              <Fragment key={section}>
+                {section !== "result" && (
+                  <tr>
+                    <td colSpan={previous ? 4 : 2} className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                      {section === "earnings" ? "Earnings" : "Deductions"}
+                    </td>
+                  </tr>
+                )}
+                {list.map((r) => (
+                  <LetterLine key={r.key} r={r} showOld={!!previous} />
+                ))}
+              </Fragment>
             ))}
-            <LetterLine r={totals[0]} showOld={!!previous} strong />
-            {deductions.map((r) => (
-              <LetterLine key={r.label} r={r} showOld={!!previous} />
-            ))}
-            <LetterLine r={totals[1]} showOld={!!previous} strong />
           </tbody>
         </table>
         <p className="mb-10 text-xs text-ink-muted">
-          Income tax (TDS) is deducted each month as required by law. All other terms of your employment remain unchanged.
+          Income tax is an estimate on the current tax rules; the payslip each month is final. {BREAKDOWN_NOTE} All other terms of your employment remain unchanged.
         </p>
         <div className="flex justify-between pt-10 text-xs">
           <div>

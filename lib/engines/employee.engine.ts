@@ -472,6 +472,8 @@ export interface RecordCheckSubject {
   basicSalary?: number | null;
   /** No Citizenship / NID with its issued date and a scan (worked out by the repository). */
   identityScanMissing?: boolean;
+  /** Only basic + grade from the employee form; the salary structure is not set up (worked out by the repository). */
+  salarySetupMissing?: boolean;
 }
 
 export const EMPLOYEE_RECORD_CHECKS: {
@@ -485,6 +487,13 @@ export const EMPLOYEE_RECORD_CHECKS: {
   { id: "pan", label: "PAN missing or invalid", impact: "TDS cannot be reported against the employee", payroll: true, failing: (e) => !isValidPan(e.panNumber) },
   { id: "bank", label: "No bank account", impact: "Left out of the bank transfer file", payroll: true, failing: (e) => !e.bankAccountNumber || e.bankAccountNumber.trim() === "" },
   { id: "basic", label: "Basic salary is zero", impact: "Payslip will calculate as nil", payroll: true, failing: (e) => !(Number(e.basicSalary) > 0) },
+  {
+    id: "salary",
+    label: "Salary structure not set up",
+    impact: "Basic + grade only: payroll adds no SSF, allowances or deductions",
+    payroll: true,
+    failing: (e) => e.salarySetupMissing === true && Number(e.basicSalary) > 0,
+  },
   { id: "documents", label: "ID scan or issue date missing", impact: "No copy of the citizenship or National ID on file", payroll: false, failing: (e) => e.identityScanMissing === true },
 ];
 
@@ -496,6 +505,7 @@ export const RECORD_GAP_LABEL: Record<EmployeeRecordGap, string> = {
   pan: "PAN missing or invalid",
   bank: "No bank account",
   basic: "Basic salary is zero",
+  salary: "Salary structure not set up",
   documents: "ID scan or issue date missing",
 };
 
@@ -504,6 +514,7 @@ export const RECORD_GAP_SHORT: Record<EmployeeRecordGap, string> = {
   pan: "PAN",
   bank: "Bank",
   basic: "Basic salary",
+  salary: "Salary set-up",
   documents: "ID scan",
 };
 
@@ -512,8 +523,14 @@ export const RECORD_GAP_SECTION: Record<EmployeeRecordGap, string> = {
   pan: "documents",
   bank: "bank",
   basic: "pay",
+  salary: "pay",
   documents: "documents",
 };
+
+/** Where a gap is fixed: the edit form's section, or Salary structure for the salary set-up. */
+export function recordGapHref(gap: EmployeeRecordGap, employeeId: string): string {
+  return gap === "salary" ? `/workforce/salary-mapping?employee=${employeeId}` : `/workforce/employees/${employeeId}/edit#section-${RECORD_GAP_SECTION[gap]}`;
+}
 
 // ---------------------------------------------------------------------------
 // Scope and audit (security plan S18)
