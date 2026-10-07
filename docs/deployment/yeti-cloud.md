@@ -33,6 +33,7 @@ PostgreSQL
 | Platform | Yeti Cloud (Jelastic), one Node.js application server, node ID 26201 |
 | App directory | `/home/jelastic/ROOT`, a git clone of `github.com/adakash26434/aakashhrms`, branch `main` |
 | Node | v20 or newer (Next.js 16 needs ≥ 20.9) |
+| PostgreSQL | 16.15 on its own node, `node26200-aakash-hrms` (local development uses PostgreSQL 10, so tenant SQL must stay PostgreSQL 10 compatible) |
 | Process manager | PM2. Check the real name with `pm2 status` |
 | Ports | The load balancer only reaches **8080**; Next.js listens on 3000; `app.js` bridges the two |
 | Secrets | `/home/jelastic/ROOT/.env`, git-ignored (`.env*`), so `git reset --hard` never touches it |
@@ -141,13 +142,30 @@ cd /home/jelastic/ROOT && git status --short && git log -1 --oneline && pm2 stat
 
 **S2. Check `.env`** with the commands in section 1, and add any new variables for this release.
 
-**S3. Back up the databases** (platform and every `pay_t_<slug>`), either with Yeti's database node backup or:
+**S3. Back up the databases** (platform and every `pay_t_<slug>`)
+- **Where:** open Web SSH on the **PostgreSQL node** (`node26200`), not the Node.js one.
+- **Login:** use the user and password from `DATABASE_URL` (`webadmin`) and connect **through the host name**.
+  - Through `127.0.0.1` the login is refused ("Ident authentication").
+  - Through the local socket it asks for the `postgres` password, which we don't have.
+- **Don't use "Reset password"** on the PostgreSQL node: the app connects as `webadmin`.
+- **The Yeti "Backup" add-on** needs a separate paid Backup Storage environment. It is not set up.
+- **Paste one line at a time** and type the password at each prompt. While a prompt is waiting, it swallows any further pasted lines as the password.
+
 ```bash
-mkdir -p ~/backups
-pg_dump -Fc -h <db-host> -U <db-user> -d payroll_platform -f ~/backups/payroll_platform-$(date +%F).dump
-# repeat for each company database (list them: SELECT db_name FROM tenant_databases;)
+H=node26200-aakash-hrms.ktm.yetiappcloud.com
+psql -h $H -U webadmin -d postgres -At -c "select datname from pg_database order by 1"
 ```
-Keep the files until the release has been checked.
+- **The databases on 2026-10-07:** `payroll_platform`, `pay_t_bihani_saccos`, `pay_t_janaki_finance`, `pay_t_kahunkot_saccos`, `pay_t_pokhara_saccos`.
+- **Back up each one** (each line asks for the password):
+```bash
+mkdir -p ~/backups && cd ~/backups
+pg_dump -h $H -U webadmin -Fc -d payroll_platform -f payroll_platform-$(date +%F).dump && echo saved
+pg_dump -h $H -U webadmin -Fc -d pay_t_bihani_saccos -f pay_t_bihani_saccos-$(date +%F).dump && echo saved
+# … one line per pay_t_ database, then:
+ls -lh ~/backups
+```
+- **Expect** files of roughly 25–150 KB on 2026-10-07. Keep them until the release has been checked.
+- **Never send a screenshot that shows a password** (for example the `DATABASE_URL` line).
 
 **S4. Stop the app and fetch the code**
 ```bash
@@ -255,4 +273,4 @@ Newest first. One line per deploy: date · tag · commit · what went live · mi
 
 | Date | Tag | Commit | Contents | Migrations | Notes |
 |---|---|---|---|---|---|
-| 2026-10-07 | `deploy-2026-10-07` | (filled in after the deploy) | First redesign release (v0.2.0): security phase 0, design system, app frame, kit, Home, Employees (incl. documents and photo), Organization, Salary structure, Attendance (shifts, web clock-in), Leaves (ledger, entitlements, policies, exceptions, company types) | 0035–0046, plus platform `company_leave_exceptions` and `company_change_requests.kind` | New required env: `PLATFORM_SESSION_SECRET`. `npm ci` needed. Backup required (0038, 0039, 0042, 0044, 0046 change data). Rollback tag `pre-redesign` = `7f20aaf` |
+| 2026-10-07 | `deploy-2026-10-07` | `56314a9` | First redesign release (v0.2.0): security phase 0, design system, app frame, kit, Home, Employees (incl. documents and photo), Organization, Salary structure, Attendance (shifts, web clock-in), Leaves (ledger, entitlements, policies, exceptions, company types) | 0035–0046, plus platform `company_leave_exceptions` and `company_change_requests.kind` | New required env: `PLATFORM_SESSION_SECRET`. `npm ci` needed. Backup required (0038, 0039, 0042, 0044, 0046 change data). Rollback tag `pre-redesign` = `7f20aaf`. **Result: live.** Backups taken; secrets checked (all different); `sync-schema` ✅ for all 4 companies; build OK; app online (v0.2.0), `/login` 200 with the security headers. The logs show "column already exists" NOTICEs (harmless) and bots probing server actions ("Server Reference ID … Received \"x\"", rejected). The `[security] WARNING` about `FORCE_SSL` remains: set `FORCE_SSL=true` once HTTPS is confirmed everywhere. **Follow-up:** the database password was shown in a screenshot during this deploy, so change it (`webadmin` on the PostgreSQL node, and `DATABASE_URL` / `PLATFORM_DATABASE_URL` together, plus any tenant credentials that use `webadmin`). |

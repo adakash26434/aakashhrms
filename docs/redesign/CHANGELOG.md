@@ -13,6 +13,23 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-07 — Deploy result (v0.2.0 live)
+Branch: `redesign/4.4b-salary-structure`
+
+**v0.2.0 is live on Yeti Cloud** (`56314a9`, tag `deploy-2026-10-07`).
+- All 4 company databases synced; build and start were clean.
+- `docs/deployment/yeti-cloud.md` now records:
+  - the result in the release log;
+  - the server's PostgreSQL 16.15;
+  - the backup method that worked: `pg_dump` through the database host name as `webadmin`, one line at a time.
+
+**Follow-ups:**
+- change the database password (it was shown in a screenshot);
+- set `FORCE_SSL=true`;
+- quieten the "column already exists" notices.
+
+---
+
 ## 2026-10-07 — Deploy to Yeti Cloud (first redesign release, v0.2.0)
 Branch: `redesign/4.4b-salary-structure` → fast-forwarded into `main`, tagged `deploy-2026-10-07`
 
