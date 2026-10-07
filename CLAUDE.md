@@ -119,6 +119,13 @@ UI conventions for new code:
 - Employee documents and photo (4.2b): migration `0045_employee_documents` adds `employee_documents` (one row per type per employee: number, issuing district, issuing office, issued date), `employee_document_files` (one scan per document, front and back in one file, `side` always `scan`, as `bytea` in the company database; `document_id` null = uploaded in a form not saved yet, deleted after a day) and `employee_photos` (512 × 512 JPG; `employee_id` null = not saved yet), copying the old `employee_personal` document columns once (restart the dev server). Those columns stay as a **mirror** written on every save (`legacyDocumentColumns`; citizenship `''` when only an NID) for older readers such as self-service, and are dropped in Phase 8. Rules: `lib/engines/employee-document.engine.ts`; uploads and opening: `app/api/employees/documents/files/*` → `employee-document.service.ts` (route handlers do their own same-origin, size and permission checks: `proxy.ts` skips `/api`); scans and the photo are saved with the employee in `saveDocumentsTx` / `savePhotoTx` (inside the employee transaction); photos are served by `app/api/employees/photos/[id]` (scope, or the signed-in employee's own). Never select `employee_document_files.content` / `employee_photos.content` outside `findFileContent` / `findPhotoContent` (a test checks).
 - Stored payroll run totals (`payroll_runs.total_*`) can lag behind the payslips (Shrawan 2083: run net 62,068.75 vs payslips and salary sheet 68,068.75). Reports and the dashboard read the payslips; fix the run-total update in 4.8 (Payroll run).
 
+## Deployment
+
+- Live on Yeti Cloud (Jelastic): PM2 runs `app.js` (port 8080 bridge) in front of the Next.js standalone server; one PostgreSQL platform database plus one database per company.
+- The guide, checklist, server runbook, rollback and release log are in `docs/deployment/yeti-cloud.md`. Read it before any deploy, and add a release-log line after each one.
+- Database changes reach the server only through `scripts/sync-schema.ts` (platform tables + `ensureTenantSchema` per company), so every migration must be mirrored in `lib/db/tenant-schema-sync.ts`, and platform tables in `ensurePlatformTablesExist`.
+- The server follows `main`: a deploy fast-forwards `main` to the signed-off tip, tags `deploy-YYYY-MM-DD` and pushes (only when the user asks).
+
 ## Git
 
 - Commit only when asked or when completing an agreed roadmap step. Prefer new commits over amending. Do not push or merge without being asked.

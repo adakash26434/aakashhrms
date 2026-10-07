@@ -13,6 +13,34 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-07 — Deploy to Yeti Cloud (first redesign release, v0.2.0)
+Branch: `redesign/4.4b-salary-structure` → fast-forwarded into `main`, tagged `deploy-2026-10-07`
+
+Your decision: put everything signed off so far live before the Salary structure change. Leave unneeded-file clean-up until after the redesign.
+
+Changed:
+- New `docs/deployment/yeti-cloud.md`:
+  - how the server is set up;
+  - `.env` variable names, and how to check them without showing values;
+  - the branch and release model;
+  - a pre-deploy checklist;
+  - the server runbook (S1–S9) and rollback;
+  - troubleshooting, scripts never to run on the server, clean-up candidates;
+  - the release log.
+  - It is based on the Yeti Cloud guide you wrote.
+- `CLAUDE.md`: a Deployment section pointing to it.
+- `.env.example`: Yeti line for `TRUSTED_PROXY_HOPS`.
+- `package.json` version 0.2.0. The status bar shows it, so the live build can be recognised.
+- Tag `pre-redesign` on `7f20aaf` (GitHub `main` before this release) as the rollback point.
+
+What goes live:
+- the new environment variable `PLATFORM_SESSION_SECRET` (required);
+- `npm ci`;
+- migrations 0035–0046 and the platform leave-exception tables, through `sync-schema.ts`;
+- a database backup first, because 0038, 0039, 0042, 0044 and 0046 change existing data.
+
+---
+
 ## 2026-10-07 — 4.4 fix: duplicate approval steps removed (migration 0046)
 Branch: `redesign/4.4b-salary-structure` (from `redesign/4.2b-employee-documents`)
 
