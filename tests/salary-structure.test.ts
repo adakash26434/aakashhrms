@@ -294,3 +294,27 @@ describe('approval timeline back-fill (runs on every restart)', () => {
   });
 });
 
+describe('approval timeline clean-up (migration 0046)', () => {
+  const sync = readFileSync(join(__dirname, '..', 'lib', 'db', 'tenant-schema-sync.ts'), 'utf8');
+  const migration = readFileSync(join(__dirname, '..', 'lib', 'db', 'migrations', '0046_salary_timeline_cleanup.sql'), 'utf8');
+  const deletes = (src: string) => src.match(/DELETE FROM "approval_actions" a[\s\S]*?\n {0,2}\)/g) ?? [];
+
+  it('deletes only back-filled copies, and only where the change has its own matching step', () => {
+    for (const src of [sync, migration]) {
+      const [submitted, decided] = deletes(src);
+      assert.ok(submitted && decided, 'two delete statements');
+      // Only the back-filled ids (md5 of the batch), never a step the app wrote itself.
+      assert.match(submitted, /a\."id" = md5\(a\."request_id"::text \|\| ':submitted'\)::uuid/);
+      assert.match(decided, /a\."id" = md5\(a\."request_id"::text \|\| ':decided'\)::uuid/);
+      // Kept unless an own step of the same kind exists.
+      assert.match(submitted, /EXISTS[\s\S]*o\."action" = 'submitted'[\s\S]*o\."id" NOT IN/);
+      assert.match(decided, /EXISTS[\s\S]*o\."action" <> 'submitted'[\s\S]*o\."id" NOT IN/);
+      for (const q of [submitted, decided]) assert.match(q, /a\."module" = 'SALARY_MAPPING'/);
+    }
+  });
+
+  it('runs after the back-fill in the restart-time sync', () => {
+    assert.ok(sync.indexOf(':decided\')::uuid, \'SALARY_MAPPING\'') < sync.indexOf('DELETE FROM "approval_actions" a'));
+  });
+});
+

@@ -13,6 +13,26 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-07 — 4.4 fix: duplicate approval steps removed (migration 0046)
+Branch: `redesign/4.4b-salary-structure` (from `redesign/4.2b-employee-documents`)
+
+Your decision: remove the duplicate timeline steps left by the earlier back-fill, before the Salary structure change.
+
+Changed:
+- Migration `0046_salary_timeline_cleanup` (and the same two statements in `ensureTenantSchema`, after the back-fill; restart needed).
+- It deletes only the back-filled copies (ids `md5(<change>:submitted / :decided)`):
+  - the Submitted copy, where the change has its own Submitted step;
+  - the decision copy, where it has its own decision.
+- Changes with no steps of their own keep the back-filled ones. Nothing the app wrote itself is touched.
+- The cause was fixed in the 4.6e follow-up: the back-fill now fills only changes without steps.
+
+Verified:
+- tsc 0
+- 756/756 tests (a test that both deletes touch only back-filled ids, only where an own matching step exists, and run after the back-fill)
+- Browser: before the restart, the bulk edit of 2026-10-04 showed Submitted ×2 and Final approved ×2; after it, Submitted and Final approved once each (with the note), and the single-employee change of the same day is also clean. Console 0 errors.
+
+---
+
 ## 2026-10-07 — 4.2b Employee form: tabs, identity documents, photo
 Branch: `redesign/4.2b-employee-documents` (from `redesign/4.6-leaves`)
 

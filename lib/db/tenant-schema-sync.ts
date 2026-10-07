@@ -272,6 +272,25 @@ SELECT md5(b."id"::text || ':decided')::uuid, 'SALARY_MAPPING', b."id", 0, b."de
 FROM "salary_change_batches" b WHERE b."status" <> 'pending'
 AND NOT EXISTS (SELECT 1 FROM "approval_actions" a WHERE a."module" = 'SALARY_MAPPING' AND a."request_id" = b."id" AND a."id" NOT IN (md5(b."id"::text || ':submitted')::uuid, md5(b."id"::text || ':decided')::uuid))
 ON CONFLICT ("id") DO NOTHING`,
+    // Migration 0046: remove the copies the earlier back-fill added to changes that had their own
+    // steps (a Submitted copy where there is an own Submitted, a decision copy where there is an own
+    // decision). Changes with no steps of their own keep the back-filled ones.
+    `DELETE FROM "approval_actions" a
+WHERE a."module" = 'SALARY_MAPPING'
+  AND a."id" = md5(a."request_id"::text || ':submitted')::uuid
+  AND EXISTS (
+    SELECT 1 FROM "approval_actions" o
+    WHERE o."module" = 'SALARY_MAPPING' AND o."request_id" = a."request_id" AND o."action" = 'submitted'
+      AND o."id" NOT IN (md5(a."request_id"::text || ':submitted')::uuid, md5(a."request_id"::text || ':decided')::uuid)
+  )`,
+    `DELETE FROM "approval_actions" a
+WHERE a."module" = 'SALARY_MAPPING'
+  AND a."id" = md5(a."request_id"::text || ':decided')::uuid
+  AND EXISTS (
+    SELECT 1 FROM "approval_actions" o
+    WHERE o."module" = 'SALARY_MAPPING' AND o."request_id" = a."request_id" AND o."action" <> 'submitted'
+      AND o."id" NOT IN (md5(a."request_id"::text || ':submitted')::uuid, md5(a."request_id"::text || ':decided')::uuid)
+  )`,
   ]) {
     try {
       await sql.unsafe(q);
