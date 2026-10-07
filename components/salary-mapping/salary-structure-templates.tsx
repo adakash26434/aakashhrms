@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Save, TriangleAlert } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
+import { Confirm } from "@/components/kit/confirm";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { FormGrid, GridField, GridValue } from "@/components/kit/form-grid";
 import { Notice } from "@/components/kit/notice";
@@ -13,7 +14,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { YesNoField } from "@/components/kit/yes-no-field";
-import { saveSalaryTemplateAction, setSalaryTemplateActiveAction } from "@/app/actions/salary-structure.actions";
+import { deleteSalaryTemplateAction, saveSalaryTemplateAction, setSalaryTemplateActiveAction } from "@/app/actions/salary-structure.actions";
 import { EMPTY_LINES, applyTemplate, estimatePay, needsStructure, setupLines, templateCoverage, templateFits } from "@/lib/engines/salary-structure.engine";
 import type { SalaryStructureData, StructureLines, StructureRow, TemplateInput, TemplateRow } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
@@ -39,15 +40,29 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
   const [editing, setEditing] = useState<TemplateRow | "new" | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<TemplateRow | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const canEdit = data.permissions.edit;
+  const canDelete = data.permissions.delete;
   const desigName = (id: string) => data.designations.find((d) => d.id === id)?.name ?? "";
   const coverage = useMemo(() => templateCoverage(data.templates, data.rows), [data.templates, data.rows]);
   // Levels without a starting salary: "basic from level" keeps the person's basic there.
   const noScale = (t: TemplateRow) =>
     t.basicMode === "level_start" ? (t.levelCodes.length ? t.levelCodes : data.levels.map((l) => l.code)).filter((c) => !(data.levels.find((l) => l.code === c)?.minSalary ?? 0)) : [];
 
+  const remove = async (t: TemplateRow) => {
+    const result = await deleteSalaryTemplateAction(t.id);
+    // Shown inside the confirmation window, which stays open.
+    if (!result.success) throw new Error(result.error);
+    setDeleting(null);
+    setActiveId(null);
+    setDone(`Template "${t.name}" deleted.`);
+    router.refresh();
+  };
+
   const toggleActive = async (t: TemplateRow) => {
     setFailure(null);
+    setDone(null);
     const result = await setSalaryTemplateActiveAction(t.id, !t.isActive);
     if (!result.success) {
       setFailure(result.error);
@@ -59,12 +74,12 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
   const columns = useMemo<GridColumn<TemplateRow>[]>(
     () => [
       { id: "code", header: "Code", type: "code", width: 90, value: (t) => t.code },
-      { id: "name", header: "Template", width: 160, value: (t) => t.name, cell: (t) => <span className="font-medium text-ink">{t.name}</span> },
-      { id: "fits", header: "Fits", width: 150, value: (t) => [t.levelCodes.join(", "), t.designationIds.map(desigName).join(", ")].filter(Boolean).join(" · ") || "Everyone" },
+      { id: "name", header: "Template", width: 150, value: (t) => t.name, cell: (t) => <span className="font-medium text-ink">{t.name}</span> },
+      { id: "fits", header: "Fits", width: 130, value: (t) => [t.levelCodes.join(", "), t.designationIds.map(desigName).join(", ")].filter(Boolean).join(" · ") || "Everyone" },
       {
         id: "employees",
         header: "Employees",
-        width: 110,
+        width: 120,
         value: (t) => coverage.get(t.id)?.count ?? 0,
         cell: (t) => {
           const c = coverage.get(t.id);
@@ -83,7 +98,7 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
       {
         id: "basic",
         header: "Basic",
-        width: 175,
+        width: 165,
         value: (t) => (t.basicMode === "level_start" ? "Level's starting salary" : t.basicAmount),
         cell: (t) => {
           if (t.basicMode !== "level_start") return <Amount value={t.basicAmount} />;
@@ -95,23 +110,25 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
           );
         },
       },
-      { id: "scheme", header: "Scheme", width: 100, value: (t) => SCHEME_TEXT[t.scheme] ?? t.scheme },
+      { id: "scheme", header: "Scheme", width: 90, value: (t) => SCHEME_TEXT[t.scheme] ?? t.scheme },
       { id: "heads", header: "Pay heads", type: "number", width: 110, value: (t) => t.heads.length, defaultHidden: true },
       { id: "status", header: "Status", width: 100, value: (t) => (t.isActive ? "active" : "inactive"), cell: (t) => <StatusChip status={t.isActive ? "active" : "inactive"} /> },
       {
         id: "actions",
         header: "Actions",
-        width: 250,
+        width: canDelete ? 290 : 240,
         sortable: false,
         hideable: false,
         value: () => "",
         cell: (t) =>
-          canEdit ? (
+          canEdit || canDelete ? (
             <span className="flex gap-3 text-2xs font-medium">
-              <button type="button" tabIndex={-1} className="cursor-pointer text-brand-strong hover:underline" onClick={(e) => { e.stopPropagation(); setEditing(t); }}>
-                Edit
-              </button>
-              {onApply && t.isActive && (
+              {canEdit && (
+                <button type="button" tabIndex={-1} className="cursor-pointer text-brand-strong hover:underline" onClick={(e) => { e.stopPropagation(); setEditing(t); }}>
+                  Edit
+                </button>
+              )}
+              {canEdit && onApply && t.isActive && (
                 <button
                   type="button"
                   tabIndex={-1}
@@ -126,23 +143,40 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
                   Apply to employees
                 </button>
               )}
-              <button
-                type="button"
-                tabIndex={-1}
-                className="cursor-pointer text-ink-muted hover:underline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void toggleActive(t);
-                }}
-              >
-                {t.isActive ? "Make inactive" : "Make active"}
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="cursor-pointer text-ink-muted hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void toggleActive(t);
+                  }}
+                >
+                  {t.isActive ? "Make inactive" : "Make active"}
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="cursor-pointer text-danger hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFailure(null);
+                    setDone(null);
+                    setDeleting(t);
+                  }}
+                >
+                  Delete
+                </button>
+              )}
             </span>
           ) : null,
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canEdit, data.levels, data.designations, coverage, onApply]
+    [canEdit, canDelete, data.levels, data.designations, coverage, onApply]
   );
 
   return (
@@ -164,6 +198,11 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
           {failure}
         </p>
       )}
+      {done && (
+        <p role="status" className="mb-3 rounded-md border border-success/30 bg-success-subtle px-3 py-2 text-xs text-ink">
+          {done}
+        </p>
+      )}
       <DataGrid
         id="salary-templates"
         label="Salary templates"
@@ -174,6 +213,31 @@ export function SalaryStructureTemplates({ data, onApply }: { data: SalaryStruct
         onActiveRowChange={(t) => setActiveId(t.id)}
         onOpen={(t) => canEdit && setEditing(t)}
         empty={{ title: "No templates yet", description: "Create one for each level or designation that shares a standard salary." }}
+      />
+      <Confirm
+        open={!!deleting}
+        tone="danger"
+        title={deleting ? `Delete template · ${deleting.name}` : "Delete template"}
+        confirmLabel="Delete template"
+        message={
+          deleting && (
+            <>
+              <p>
+                <strong>{deleting.name}</strong> ({deleting.code}) is removed for good. Salaries already filled from it do not change: each salary keeps its
+                own amounts.
+              </p>
+              {(coverage.get(deleting.id)?.count ?? 0) > 0 && deleting.isActive && (
+                <p className="mt-2">
+                  It fits {coverage.get(deleting.id)!.count} employee{coverage.get(deleting.id)!.count === 1 ? "" : "s"} now, so Add new will no longer offer it
+                  to them.
+                </p>
+              )}
+              <p className="mt-2 text-ink-muted">To keep it for later, use Make inactive instead.</p>
+            </>
+          )
+        }
+        onConfirm={() => (deleting ? remove(deleting) : undefined)}
+        onCancel={() => setDeleting(null)}
       />
       {editing && (
         <TemplateWindow

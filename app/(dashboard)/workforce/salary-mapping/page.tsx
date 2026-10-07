@@ -16,9 +16,10 @@ export default async function SalaryStructurePage({ searchParams }: { searchPara
   // Salary data follows the user's employee scope (S20).
   const scope = await checkPermissionWithScope("VIEW", "SALARY_MAPPING");
   const { tab, employee } = await searchParams;
-  const [add, edit, approve, exportAllowed] = await Promise.all([
+  const [add, edit, remove, approve, exportAllowed] = await Promise.all([
     hasPermission("ADD", "SALARY_MAPPING"),
     hasPermission("EDIT", "SALARY_MAPPING"),
+    hasPermission("DELETE", "SALARY_MAPPING"),
     hasPermission("APPROVE", "SALARY_MAPPING"),
     hasPermission("EXPORT", "SALARY_MAPPING"),
   ]);
@@ -26,7 +27,7 @@ export default async function SalaryStructurePage({ searchParams }: { searchPara
     tab: resolveStructureTab(tab),
     scope,
     userId: scope.userId,
-    permissions: { add, edit, approve, export: exportAllowed },
+    permissions: { add, edit, delete: remove, approve, export: exportAllowed },
   });
   // ?employee=<id> (from the employee form) opens with that person selected.
   return <SalaryStructureClient data={data} initialEmployeeId={typeof employee === "string" ? employee : null} />;

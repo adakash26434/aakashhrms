@@ -794,6 +794,16 @@ export async function setTemplateActive(id: string, active: boolean): Promise<vo
   await repository.setTemplateActive(id, active);
 }
 
+/**
+ * Deletes a template. Salaries already filled from it are not touched: a
+ * revision stores its own amounts and never points at a template.
+ */
+export async function deleteTemplate(id: string): Promise<{ code: string; name: string }> {
+  const row = await repository.deleteTemplate(id);
+  if (!row) throw new UserFacingError("That template no longer exists. Refresh the page.");
+  return { code: row.code, name: row.name };
+}
+
 
 
 // ---------------------------------------------------------------------------

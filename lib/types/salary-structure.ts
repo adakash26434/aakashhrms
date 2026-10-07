@@ -259,6 +259,8 @@ export interface SalaryStructureData {
   permissions: {
     add: boolean;
     edit: boolean;
+    /** Delete templates (salary revisions are never deleted). */
+    delete: boolean;
     approve: boolean;
     export: boolean;
   };

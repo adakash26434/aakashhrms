@@ -314,6 +314,12 @@ export async function setTemplateActive(id: string, active: boolean): Promise<vo
   await (await getDb()).update(salaryTemplates).set({ isActive: active, updatedAt: new Date() }).where(eq(salaryTemplates.id, id));
 }
 
+/** Deletes a template; returns it, or null when there is none with that id. */
+export async function deleteTemplate(id: string): Promise<TemplateRowDb | null> {
+  const [row] = await (await getDb()).delete(salaryTemplates).where(eq(salaryTemplates.id, id)).returning();
+  return row ?? null;
+}
+
 const POLICY_KEY = "approvals.salaryRevision";
 const LEGACY_KEY = "salaryRevision.requireApproval";
 

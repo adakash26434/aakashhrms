@@ -505,6 +505,15 @@ describe('New hires: basic + grade, then set up in Salary structure', () => {
     assert.deepEqual(cov.get('c'), { count: 1, overlaps: [] });
   });
 
+  it('deleting a template needs the Delete permission and is audited; salaries are not touched', () => {
+    const src = read('app/actions/salary-structure.actions.ts').replace(/\r\n/g, '\n');
+    assert.match(src, /export async function deleteSalaryTemplateAction[\s\S]*?checkPermissionWithScope\('DELETE', 'SALARY_MAPPING'\)[\s\S]*?recordAuditLog\(\{[^}]*action: 'DELETE'/);
+    const repo = read('lib/repositories/salary-structure.repository.ts').replace(/\r\n/g, '\n');
+    const body = repo.match(/export async function deleteTemplate[\s\S]*?\n\}/)![0];
+    assert.match(body, /delete\(salaryTemplates\)/);
+    assert.doesNotMatch(body, /employeeSalaryMap|salaryChangeBatches/);
+  });
+
   it('templates that fit the level / designation come first; inactive ones are left out', () => {
     const list = [t({ id: 'a', name: 'A', levelCodes: ['S5'] }), t({ id: 'b', name: 'B', levelCodes: ['S9'] }), t({ id: 'c', name: 'C', isActive: false })];
     const { fitting, other } = templatesFor(list, { levelCode: 'S5', designationId: 'd' });
