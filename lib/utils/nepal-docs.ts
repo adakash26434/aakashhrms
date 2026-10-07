@@ -120,6 +120,26 @@ export function validateVoterIdNo(val: string): DocValidationResult {
 }
 
 /**
+ * Validates a Nepal driving licence number.
+ * Smart licences read like `01-06-12345678` (office, category, serial); older ones vary,
+ * so digits with optional hyphens or spaces are accepted: 6 to 20 characters, at least 6 digits.
+ */
+export function validateDrivingLicenceNo(val: string): DocValidationResult {
+  if (!val || !val.trim()) {
+    return { isValid: true };
+  }
+  const clean = val.trim();
+  const digits = clean.replace(/[\s\-]/g, "");
+  if (!/^[0-9][0-9\s\-]*$/.test(clean) || clean.length < 6 || clean.length > 20 || digits.length < 6) {
+    return {
+      isValid: false,
+      error: "Licence number must be 6 to 20 digits (hyphens allowed)",
+    };
+  }
+  return { isValid: true, formatted: clean };
+}
+
+/**
  * Validates Nepal IRD PAN Number.
  * Standard: Exactly 9 numeric digits (e.g. `123456789`).
  */

@@ -13,6 +13,60 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-07 — 4.2b Employee form: tabs, identity documents, photo
+Branch: `redesign/4.2b-employee-documents` (from `redesign/4.6-leaves`)
+
+Your decisions:
+- Documents become a list. Citizenship or NID is required. PAN stays a plain number.
+- Scans are kept in the company database, PDF / JPG / PNG, up to 3 MB.
+- A new Citizenship / NID needs a scan; older records without one can still be saved and show under Records to fix.
+- Types: Citizenship, NID, Passport, Driving licence, Voter ID.
+- After the first look, you asked for:
+  - tabs instead of the section sidebar;
+  - better field widths;
+  - an issuing office;
+  - one scan holding both sides, with a note;
+  - row icons for documents;
+  - a window for adding and editing;
+  - a profile photo.
+- Issuing office: pre-filled from the type and district.
+- The photo is cropped to a square and shown on the record, the quick view and self-service.
+- Enter on a tab's last field opens the next tab.
+
+Changed:
+- **Data:** migration `0045_employee_documents` (and its `ensureTenantSchema` block; restart needed).
+  - `employee_documents` (with `issuing_office`), `employee_document_files` (one scan per document, `bytea`) and `employee_photos`.
+  - The old citizenship / NID / passport / voter columns are copied once and kept as a mirror (dropped in Phase 8).
+- **Rules** (`lib/engines/employee-document.engine.ts`):
+  - Citizenship or NID required, each type once.
+  - Numbers checked by type (new driving licence check).
+  - One of the 77 districts.
+  - New documents need an issuing office and an issued date (never in the future or before birth).
+  - A new Citizenship / NID needs its scan.
+  - The file type is taken from the content; safe file names.
+  - `suggestedIssuingOffice`.
+- **Form:**
+  - Tabs above the form with badges; F6 switches tabs; Enter flows into the next tab; Save opens the tab with the first error; `#section-…` links open their tab.
+  - Fields sized to their content (new `sm` size).
+- **Documents tab:** a table with View / Edit / Delete on each row; Add / Edit in a window with one scan and the note about both sides; Delete asks first.
+- **Photo:** General tab field with a crop window (512 × 512 JPG). New kit `Avatar` and `ImageCropWindow`. Photo shown on the record header, quick view, form header and self-service My profile (initials fixed there too: "RS", not "RA").
+- **Routes:** `/api/employees/documents/files` and `/[id]`, `/api/employees/photos` and `/[id]`. Uploads are attached when the employee is saved, in the same transaction.
+- **Records to fix:** new "ID scan or issue date missing" (not on payroll readiness). "Fix" links open the right tab.
+- **Audit:** "Identity documents" and "Photo" as changed fields (names only). Uploads and scan opens are logged with ids and sizes.
+- **Security S25.**
+- **Fixed (4.2):** the record Overview's "Leave left" tile showed float noise ("12.3999999999…"): the per-type balances were added as plain numbers. The sum is now rounded to the ledger's 2 decimals, and the tile, the record's Leave tab and the self-service "Leave left" tile show days like the leave module (`fmt`: at most one decimal, no trailing .0; Kushal: 12.4 days).
+
+Verified:
+- tsc 0
+- eslint clean on the touched files (the 5 `any` errors in `employee.repository.ts` and the 6 in self-service My profile were already there)
+- 754/754 tests, including `tests/employee-documents.test.ts` and `tests/security-employee-documents.test.ts`
+- `next build` OK
+- Browser (after the restart, 1920 / 390): tabs, badges, F6, Enter into the next tab, a refused save opening the first tab with errors; Add document window (pre-filled office, scan required, a renamed text file and a 4 MB file refused, PDF viewer); row icons and delete confirm; photo crop; Kushal's copied documents and Records to fix. Fixed on the way: the crop window failing on its first open in dev, the office not pre-filled for older documents, focus on Document for a second document. Checked by you on real data (Kushal Pokhrel); signed off 2026-10-07.
+
+Notes: deploy needs the restart (tables created and old documents copied on the first pool open). Existing employees' documents have no issuing office, issued date or scan until someone adds them, so they show under Records to fix.
+
+---
+
 ## 2026-10-06 — One detail pane layout on every register
 Branch: `redesign/4.6-leaves`
 

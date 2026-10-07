@@ -30,6 +30,7 @@ function createValidEmployeeData(): EmployeeFormData {
   return {
     attendanceCode: "ATD-101",
     employeeCode: "EMP-101",
+    photoId: "",
     fullName: "Aarav Sharma",
     gender: "Male",
     dateOfBirth: "1995-05-15", // ~31 years old
@@ -49,14 +50,12 @@ function createValidEmployeeData(): EmployeeFormData {
     gradeCount: 0,
     gradeAmount: 45000,
     gradeManual: false,
-    citizenshipNo: "27-01-75-01234",
-    issuingDistrict: "Kathmandu",
-    nidNo: "123-456-7890",
-    nidIssuingDistrict: "Kathmandu",
-    passportNo: "PA1234567",
-    passportIssuingDistrict: "Kathmandu",
-    votersId: "12345678",
-    voterIdIssuingDistrict: "Kathmandu",
+    documents: [
+      { id: "doc-1", type: "citizenship", number: "27-01-75-01234", district: "Kathmandu", office: "District Administration Office, Kathmandu", issuedDate: "2012-05-10", file: { id: "f-1", name: "scan.jpg", size: 1000, mime: "image/jpeg" } },
+      { id: "doc-2", type: "nid", number: "123-456-7890", district: "Kathmandu", office: "", issuedDate: "2020-01-15", file: null },
+      { id: "doc-3", type: "passport", number: "PA1234567", district: "Kathmandu", office: "", issuedDate: "2019-03-01", file: null },
+      { id: "doc-4", type: "voter_id", number: "12345678", district: "Kathmandu", office: "", issuedDate: "2017-09-01", file: null },
+    ],
     panNumber: "123456789",
     phoneHome: "015551234",
     mobileNo: "9841123456",
@@ -309,13 +308,13 @@ describe("Step-by-Step Per-Tab Validation Engine (validateEmployeeTab)", () => {
 
   it("validates Tab 2 (Personal Info & Documents & Addresses) in isolation", () => {
     const data = createValidEmployeeData();
-    data.citizenshipNo = "!@#$";
-    data.nidNo = "123"; // invalid 3 digits
+    data.documents[0].number = "!@#$";
+    data.documents[1].number = "123"; // invalid 3 digits
     data.permanentAddress = "";
 
-    const tab2Errors = validateEmployeeTab(data, 2);
-    assert.ok(tab2Errors.citizenshipNo);
-    assert.ok(tab2Errors.nidNo);
+    const tab2Errors = validateEmployeeTab(data, 2, { today: "2026-10-06" });
+    assert.ok(tab2Errors["documents.0.number"]);
+    assert.ok(tab2Errors["documents.1.number"]);
     assert.equal(tab2Errors.permanentAddress, "Permanent address is required");
   });
 

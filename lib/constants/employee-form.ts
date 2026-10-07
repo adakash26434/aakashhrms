@@ -19,7 +19,7 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
   {
     id: "general",
     label: "General",
-    fields: ["fullName", "employeeCode", "attendanceCode", "gender", "dateOfBirth", "taxStatus", "isDisabled"],
+    fields: ["photoId", "fullName", "employeeCode", "attendanceCode", "gender", "dateOfBirth", "taxStatus", "isDisabled"],
     required: ["fullName", "employeeCode", "attendanceCode", "gender", "dateOfBirth", "taxStatus"],
   },
   {
@@ -37,8 +37,9 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
   {
     id: "documents",
     label: "Identity documents",
-    fields: ["citizenshipNo", "issuingDistrict", "nidNo", "nidIssuingDistrict", "passportNo", "passportIssuingDistrict", "votersId", "voterIdIssuingDistrict", "panNumber"],
-    required: ["citizenshipNo", "issuingDistrict"],
+    // documents: the list (Citizenship or NID required); row errors are keyed documents.<row>.<field>.
+    fields: ["documents", "panNumber"],
+    required: ["documents"],
   },
   {
     id: "contact",
@@ -70,6 +71,7 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
 export const EMPLOYEE_FIELD_LABELS: Partial<Record<EmployeeField, string>> = {
   employeeCode: "Employee code",
   attendanceCode: "Attendance code",
+  photoId: "Photo",
   fullName: "Full name",
   dateOfBirth: "Date of birth",
   gender: "Gender",
@@ -89,14 +91,7 @@ export const EMPLOYEE_FIELD_LABELS: Partial<Record<EmployeeField, string>> = {
   gradeCount: "Grade count",
   gradeAmount: "Grade amount",
   gradeManual: "Grade by hand",
-  citizenshipNo: "Citizenship no.",
-  issuingDistrict: "Citizenship district",
-  nidNo: "National ID (NID)",
-  nidIssuingDistrict: "NID district",
-  passportNo: "Passport no.",
-  passportIssuingDistrict: "Passport district",
-  votersId: "Voter ID",
-  voterIdIssuingDistrict: "Voter ID district",
+  documents: "Identity documents",
   panNumber: "PAN",
   companyEmail: "Company email",
   personalEmail: "Personal email",
@@ -119,6 +114,37 @@ export const EMPLOYEE_FIELD_LABELS: Partial<Record<EmployeeField, string>> = {
   terminationRemarks: "Remarks",
 };
 
+/** Labels for a document row's fields (documents.<row>.<field>). */
+export const DOCUMENT_FIELD_LABELS: Record<string, string> = {
+  type: "Document",
+  number: "Document number",
+  district: "Issuing district",
+  office: "Issuing office",
+  issuedDate: "Issued date",
+  file: "Scan",
+};
+
+/** Old document field names, still in the audit history of records saved before the documents list. */
+const LEGACY_LABELS: Record<string, string> = {
+  citizenshipNo: "Citizenship no.",
+  issuingDistrict: "Citizenship district",
+  nidNo: "National ID (NID)",
+  nidIssuingDistrict: "NID district",
+  passportNo: "Passport no.",
+  passportIssuingDistrict: "Passport district",
+  votersId: "Voter ID",
+  voterIdIssuingDistrict: "Voter ID district",
+};
+
 export function fieldLabel(field: string): string {
-  return EMPLOYEE_FIELD_LABELS[field as EmployeeField] ?? field;
+  const row = /^documents\.(\d+)\.(\w+)$/.exec(field);
+  if (row) return `${DOCUMENT_FIELD_LABELS[row[2]] ?? row[2]} (document ${Number(row[1]) + 1})`;
+  return EMPLOYEE_FIELD_LABELS[field as EmployeeField] ?? LEGACY_LABELS[field] ?? field;
+}
+
+/** The form tab a field, or an error key such as documents.0.number, is on. */
+export function sectionOfField(field: string): string | undefined {
+  if (field === "bankAccountConfirm") return "bank";
+  const base = field.split(".")[0];
+  return EMPLOYEE_FORM_SECTIONS.find((s) => s.id === base || s.fields.includes(base as EmployeeField))?.id;
 }

@@ -12,13 +12,9 @@ import { maskAccountNumber } from "@/lib/utils/mask";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { validatePhoneNumber } from "@/lib/utils/phone";
 import { validateMobileNumber } from "@/lib/utils/phone-mobile";
-import {
-  validateCitizenshipNo,
-  validateNIDNo,
-  validatePassportNo,
-  validateVoterIdNo,
-  validatePanNo,
-} from "@/lib/utils/nepal-docs";
+import { validatePanNo } from "@/lib/utils/nepal-docs";
+import { nepalDateIso } from "@/lib/utils/nepal-time";
+import { documentsChanged, isPrimaryDocument, validateDocuments } from "@/lib/engines/employee-document.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 
 const WARD_ERROR = "Ward number must be between 1 and 35";
@@ -61,7 +57,7 @@ export function calculateAgeInYears(birthDate: Date, referenceDate: Date = new D
  * Validates a single specific tab/section of the employee form.
  * Used when user clicks "Next" or navigates between sections.
  */
-export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): EmployeeValidationErrors {
+export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, options: { today?: string } = {}): EmployeeValidationErrors {
   const errors: EmployeeValidationErrors = {};
 
   if (tabIndex === 0) {
@@ -150,48 +146,8 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
     }
   } else if (tabIndex === 2) {
     // 2: Personal Information, Identity Documents, Contacts & Addresses
-    if (!data.citizenshipNo?.trim()) {
-      errors.citizenshipNo = "Citizenship number is required";
-    } else {
-      const res = validateCitizenshipNo(data.citizenshipNo);
-      if (!res.isValid) {
-        errors.citizenshipNo = res.error || "Invalid citizenship number";
-      }
-    }
-
-    if (data.citizenshipNo?.trim() && !data.issuingDistrict?.trim()) {
-      errors.issuingDistrict = "Citizenship issuing district is required";
-    }
-
-    if (data.nidNo && data.nidNo.trim()) {
-      const res = validateNIDNo(data.nidNo);
-      if (!res.isValid) {
-        errors.nidNo = res.error || "Invalid NID number";
-      }
-      if (!data.nidIssuingDistrict?.trim()) {
-        errors.nidIssuingDistrict = "NID issuing district is required when NID is entered";
-      }
-    }
-
-    if (data.passportNo && data.passportNo.trim()) {
-      const res = validatePassportNo(data.passportNo);
-      if (!res.isValid) {
-        errors.passportNo = res.error || "Invalid passport number";
-      }
-      if (!data.passportIssuingDistrict?.trim()) {
-        errors.passportIssuingDistrict = "Passport issuing district is required when passport is entered";
-      }
-    }
-
-    if (data.votersId && data.votersId.trim()) {
-      const res = validateVoterIdNo(data.votersId);
-      if (!res.isValid) {
-        errors.votersId = res.error || "Invalid voter ID";
-      }
-      if (!data.voterIdIssuingDistrict?.trim()) {
-        errors.voterIdIssuingDistrict = "Voter ID issuing district is required when voter ID is entered";
-      }
-    }
+    // Documents (4.2b): Citizenship or NID required; numbers, districts, issued dates and scans.
+    Object.assign(errors, validateDocuments(data.documents ?? [], { dateOfBirth: data.dateOfBirth || "", today: options.today ?? nepalDateIso() }));
 
     if (data.panNumber && data.panNumber.trim()) {
       const res = validatePanNo(data.panNumber);
@@ -325,11 +281,11 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number): E
 /**
  * Validates the entire employee form across all 5 sections.
  */
-export function validateEmployee(data: EmployeeFormData): EmployeeValidationErrors {
+export function validateEmployee(data: EmployeeFormData, options: { today?: string } = {}): EmployeeValidationErrors {
   return {
     ...validateEmployeeTab(data, 0),
     ...validateEmployeeTab(data, 1),
-    ...validateEmployeeTab(data, 2),
+    ...validateEmployeeTab(data, 2, options),
     ...validateEmployeeTab(data, 3),
     ...validateEmployeeTab(data, 4),
   };
@@ -371,6 +327,7 @@ export function toEmployeeListRow(e: Employee, names: RegisterNames): EmployeeLi
     gradeAmount: Number(e.gradeAmount) || 0,
     bankAccountMasked: maskAccountNumber(e.bankAccountNumber),
     bankName: e.bankName,
+    photoId: e.photoId ?? null,
     gaps: missingRecords(e),
   };
 }
@@ -513,17 +470,22 @@ export interface RecordCheckSubject {
   panNumber?: string | null;
   bankAccountNumber?: string | null;
   basicSalary?: number | null;
+  /** No Citizenship / NID with its issued date and a scan (worked out by the repository). */
+  identityScanMissing?: boolean;
 }
 
 export const EMPLOYEE_RECORD_CHECKS: {
   id: EmployeeRecordGap;
   label: string;
   impact: string;
+  /** Stops payroll or its reports (the dashboard's readiness card shows only these). */
+  payroll: boolean;
   failing: (e: RecordCheckSubject) => boolean;
 }[] = [
-  { id: "pan", label: "PAN missing or invalid", impact: "TDS cannot be reported against the employee", failing: (e) => !isValidPan(e.panNumber) },
-  { id: "bank", label: "No bank account", impact: "Left out of the bank transfer file", failing: (e) => !e.bankAccountNumber || e.bankAccountNumber.trim() === "" },
-  { id: "basic", label: "Basic salary is zero", impact: "Payslip will calculate as nil", failing: (e) => !(Number(e.basicSalary) > 0) },
+  { id: "pan", label: "PAN missing or invalid", impact: "TDS cannot be reported against the employee", payroll: true, failing: (e) => !isValidPan(e.panNumber) },
+  { id: "bank", label: "No bank account", impact: "Left out of the bank transfer file", payroll: true, failing: (e) => !e.bankAccountNumber || e.bankAccountNumber.trim() === "" },
+  { id: "basic", label: "Basic salary is zero", impact: "Payslip will calculate as nil", payroll: true, failing: (e) => !(Number(e.basicSalary) > 0) },
+  { id: "documents", label: "ID scan or issue date missing", impact: "No copy of the citizenship or National ID on file", payroll: false, failing: (e) => e.identityScanMissing === true },
 ];
 
 export function missingRecords(e: RecordCheckSubject): EmployeeRecordGap[] {
@@ -534,6 +496,7 @@ export const RECORD_GAP_LABEL: Record<EmployeeRecordGap, string> = {
   pan: "PAN missing or invalid",
   bank: "No bank account",
   basic: "Basic salary is zero",
+  documents: "ID scan or issue date missing",
 };
 
 /** Short form for the register's Records column. */
@@ -541,6 +504,15 @@ export const RECORD_GAP_SHORT: Record<EmployeeRecordGap, string> = {
   pan: "PAN",
   bank: "Bank",
   basic: "Basic salary",
+  documents: "ID scan",
+};
+
+/** Where on the edit form each gap is fixed. */
+export const RECORD_GAP_SECTION: Record<EmployeeRecordGap, string> = {
+  pan: "documents",
+  bank: "bank",
+  basic: "pay",
+  documents: "documents",
 };
 
 // ---------------------------------------------------------------------------
@@ -574,8 +546,7 @@ const AUDITED_FIELDS: readonly (keyof EmployeeFormData & keyof Employee)[] = [
   "employeeCode", "attendanceCode", "fullName", "gender", "dateOfBirth", "taxStatus", "isDisabled",
   "category", "shreni", "departmentId", "designationId", "branchId", "supervisorId", "isSupervisor",
   "joiningDate", "confirmationDate", "status", "basicSalary", "gradeCount", "gradeAmount", "gradeManual",
-  "citizenshipNo", "issuingDistrict", "nidNo", "nidIssuingDistrict", "passportNo", "passportIssuingDistrict",
-  "votersId", "voterIdIssuingDistrict", "panNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
+  "panNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
   "permanentAddress", "temporaryAddress", "fatherName", "motherName", "spouseName", "grandfatherName",
   "bankName", "bankBranch", "bankAccountNumber", "informedDate", "terminationDate", "terminationType",
   "terminationReason", "terminationPlan", "terminationRemarks",
@@ -596,10 +567,14 @@ function comparable(value: unknown): string {
  * never the values, so PAN, bank and salary figures stay out of it.
  */
 export function changedEmployeeFields(before: Partial<Employee>, after: Partial<EmployeeFormData>): string[] {
-  return AUDITED_FIELDS.filter((field) => {
+  const changed: string[] = AUDITED_FIELDS.filter((field) => {
     if (!(field in after)) return false;
     return comparable(before[field]) !== comparable(after[field]);
   });
+  // Identity documents (4.2b): one name for any change to the list, its dates or its scans.
+  if (after.documents && documentsChanged(before.documents ?? [], after.documents)) changed.push("documents");
+  if (typeof after.photoId === "string" && after.photoId !== (before.photoId ?? "")) changed.push("photoId");
+  return changed;
 }
 
 // ---------------------------------------------------------------------------
@@ -699,8 +674,7 @@ export function tenureLabel(joining: Date | string | null | undefined, today: Da
 const FIELD_RULE_GROUP: Partial<Record<EmployeeField, number>> = {
   employeeCode: 0, attendanceCode: 0, fullName: 0, dateOfBirth: 0,
   departmentId: 1, branchId: 1, designationId: 1, shreni: 1, gradeCount: 1, gradeAmount: 1, joiningDate: 1, confirmationDate: 1,
-  citizenshipNo: 2, issuingDistrict: 2, nidNo: 2, nidIssuingDistrict: 2, passportNo: 2, passportIssuingDistrict: 2,
-  votersId: 2, voterIdIssuingDistrict: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
+  documents: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
   fatherName: 3, motherName: 3, grandfatherName: 3, spouseName: 3,
   bankName: 4, bankBranch: 4, bankAccountNumber: 4, informedDate: 4, terminationDate: 4, terminationType: 4, terminationReason: 4,
 };
@@ -709,8 +683,8 @@ const FIELD_RULE_GROUP: Partial<Record<EmployeeField, number>> = {
  * The error for one field, using exactly the rules the server applies on save
  * (validateEmployeeTab). Null when the field is fine or has no rule.
  */
-export function validateEmployeeField(data: EmployeeFormData, field: EmployeeField): string | null {
-  const group = FIELD_RULE_GROUP[field];
+export function validateEmployeeField(data: EmployeeFormData, field: EmployeeField | `documents.${number}.${string}`): string | null {
+  const group = FIELD_RULE_GROUP[field.startsWith("documents.") ? "documents" : (field as EmployeeField)];
   if (group === undefined) return null;
   return validateEmployeeTab(data, group)[field] ?? null;
 }
@@ -734,6 +708,7 @@ export function codeConflicts(
 }
 
 function isFilled(data: EmployeeFormData, field: EmployeeField): boolean {
+  if (field === "documents") return (data.documents ?? []).some((d) => isPrimaryDocument(d.type) && d.number.trim() !== "");
   const value = data[field];
   if (typeof value === "number") return value > 0;
   if (typeof value === "boolean") return true;
@@ -761,7 +736,8 @@ export function sectionProgress(
   sections: readonly EmployeeFormSection[] = EMPLOYEE_FORM_SECTIONS
 ): SectionProgress[] {
   return sections.map((section) => {
-    const count = section.fields.filter((f) => errors[f]).length;
+    // Row errors (documents.0.number) count for their list field.
+    const count = Object.keys(errors).filter((k) => errors[k] && section.fields.some((f) => k === f || k.startsWith(`${f}.`))).length;
     const required = [...section.required];
     if (section.id === "family" && data.taxStatus === "Married") required.push("spouseName");
     const filled = required.filter((f) => isFilled(data, f)).length;

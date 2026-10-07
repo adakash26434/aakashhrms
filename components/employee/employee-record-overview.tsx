@@ -5,10 +5,11 @@ import { Amount } from "@/components/kit/amount";
 import { DateCell } from "@/components/kit/date-cell";
 import { DescriptionList, InfoCard, StatTile } from "@/components/kit/description-list";
 import { addressLine } from "@/lib/constants/nepal-locations";
-import { RECORD_GAP_LABEL } from "@/lib/engines/employee.engine";
+import { RECORD_GAP_LABEL, RECORD_GAP_SECTION } from "@/lib/engines/employee.engine";
 import type { EmployeeFacts, EmployeeProfile, EmployeeRecordTab } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
 import { formatPhoneNumber } from "@/lib/utils/phone";
+import { fmt } from "@/lib/engines/leave.engine";
 
 export const addressText = addressLine;
 
@@ -50,7 +51,7 @@ export function EmployeeRecordOverview({
           <StatTile
             label="Leave left"
             icon={Plane}
-            value={leave ? `${leave.balance} days` : "—"}
+            value={leave ? `${fmt(leave.balance)} ${leave.balance === 1 ? "day" : "days"}` : "—"}
             sub={leave?.fiscalYearLabel ?? "No balances yet"}
             onClick={() => onOpenTab("leave")}
           />
@@ -124,7 +125,7 @@ export function EmployeeRecordOverview({
           </InfoCard>
         )}
 
-        <InfoCard title="Records & login" icon={p.gaps.length ? TriangleAlert : CircleCheck} action={p.gaps.length ? editHref("general") : undefined}>
+        <InfoCard title="Records & login" icon={p.gaps.length ? TriangleAlert : CircleCheck} action={p.gaps.length ? editHref(RECORD_GAP_SECTION[p.gaps[0]]) : undefined}>
           {p.gaps.length ? (
             <ul className="mb-3 space-y-1">
               {p.gaps.map((g) => (

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index } from 'drizzle-orm/pg-core';
+import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index } from 'drizzle-orm/pg-core';
 
 
 // -----------------------------------------------------------------------------
@@ -475,6 +475,71 @@ export const employeeBank = pgTable('employee_bank', {
   isActive: boolean('is_active').default(true).notNull(),
 }, (table) => ({
   employeeIdIdx: index('employee_bank_employee_id_idx').on(table.employeeId),
+}));
+
+// -----------------------------------------------------------------------------
+// EMPLOYEE IDENTITY DOCUMENTS (4.2b): one row per document type, with its scans.
+// employee_personal's citizenship / NID / passport / voter columns are a mirror
+// of these rows for older readers (dropped in Phase 8).
+// -----------------------------------------------------------------------------
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => 'bytea',
+});
+
+export const employeeDocuments = pgTable('employee_documents', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  docType: varchar('doc_type', { length: 20 }).notNull(), // citizenship | nid | passport | driving_licence | voter_id
+  docNumber: varchar('doc_number', { length: 100 }).notNull(),
+  issuedDistrict: varchar('issued_district', { length: 100 }).notNull(),
+  issuedDate: date('issued_date'), // null only for documents copied from before 4.2b
+  issuingOffice: varchar('issuing_office', { length: 150 }).default('').notNull(), // '' only for documents copied from before 4.2b
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  employeeIdIdx: index('employee_documents_employee_id_idx').on(table.employeeId),
+  oneOfEachType: unique('employee_documents_employee_type_key').on(table.employeeId, table.docType),
+}));
+
+/**
+ * A document's scan (one per document, front and back in one file; side is always 'scan').
+ * `document_id` null = uploaded in a form that has not been saved yet (kept 24 hours).
+ */
+export const employeeDocumentFiles = pgTable('employee_document_files', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  documentId: uuid('document_id').references(() => employeeDocuments.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
+  side: varchar('side', { length: 10 }).notNull(), // 'scan' (one file per document)
+  fileName: varchar('file_name', { length: 150 }).notNull(),
+  mimeType: varchar('mime_type', { length: 50 }).notNull(), // from the file's content, never the browser
+  sizeBytes: integer('size_bytes').notNull(),
+  sha256: varchar('sha256', { length: 64 }).notNull(),
+  content: bytea('content').notNull(),
+  uploadedBy: uuid('uploaded_by').notNull(),
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+}, (table) => ({
+  documentIdIdx: index('employee_document_files_document_id_idx').on(table.documentId),
+  uploadedByIdx: index('employee_document_files_uploaded_by_idx').on(table.uploadedBy, table.uploadedAt),
+  oneFilePerSide: unique('employee_document_files_document_side_key').on(table.documentId, table.side),
+}));
+
+/**
+ * An employee's photo (4.2b): a 512 x 512 JPG cropped in the browser, kept in the company's
+ * database. `employee_id` null = uploaded in a form that has not been saved yet (kept 24 hours).
+ */
+export const employeePhotos = pgTable('employee_photos', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).unique('employee_photos_employee_key'),
+  mimeType: varchar('mime_type', { length: 50 }).notNull(), // from the file's content
+  sizeBytes: integer('size_bytes').notNull(),
+  sha256: varchar('sha256', { length: 64 }).notNull(),
+  content: bytea('content').notNull(),
+  uploadedBy: uuid('uploaded_by').notNull(),
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+}, (table) => ({
+  uploadedByIdx: index('employee_photos_uploaded_by_idx').on(table.uploadedBy, table.uploadedAt),
 }));
 
 // -----------------------------------------------------------------------------

@@ -135,7 +135,8 @@ describe('Employee form (4.2)', () => {
     ...EMPTY_EMPLOYEE_FORM,
     employeeCode: 'EMP-010', attendanceCode: 'ATD-010', fullName: 'Sita Rai', dateOfBirth: '1995-04-14',
     departmentId: 'd1', designationId: 'g1', branchId: 'b1', shreni: 'L5', joiningDate: '2023-07-17', basicSalary: 30000,
-    citizenshipNo: '27-01-75-12345', issuingDistrict: 'Kaski', companyEmail: 'sita@example.test', mobileNo: '+9779841123456',
+    documents: [{ type: 'citizenship', number: '27-01-75-12345', district: 'Kaski', office: 'District Administration Office, Kaski', issuedDate: '2013-02-01', file: { id: 'f1', name: 'c.jpg', size: 900, mime: 'image/jpeg' } }],
+    companyEmail: 'sita@example.test', mobileNo: '+9779841123456',
     permanentAddress: JSON.stringify({ province: 'P4', district: 'Kaski', localLevel: 'Pokhara Metropolitan City', wardNo: '4', tole: '' }),
     fatherName: 'A', motherName: 'B', grandfatherName: 'C', bankName: 'Nabil Bank Limited', bankBranch: 'Lakeside', bankAccountNumber: '001122',
   };
@@ -166,7 +167,9 @@ describe('Employee form (4.2)', () => {
     const done = sectionProgress(filled, {});
     assert.ok(done.filter((p) => p.id !== 'access' && p.id !== 'separation').every((p) => p.state === 'complete'), JSON.stringify(done));
     assert.equal(sectionProgress({ ...filled, taxStatus: 'Married' }, {}).find((p) => p.id === 'family')?.state, 'todo');
-    assert.deepEqual(sectionProgress(filled, { panNumber: 'x', citizenshipNo: 'y' }).find((p) => p.id === 'documents'), { id: 'documents', label: 'Identity documents', state: 'error', errors: 2, filled: 2, required: 2 });
+    assert.deepEqual(sectionProgress(filled, { panNumber: 'x', 'documents.0.number': 'y' }).find((p) => p.id === 'documents'), { id: 'documents', label: 'Identity documents', state: 'error', errors: 2, filled: 1, required: 1 });
+    // The new-employee form starts with an empty Citizenship row: not filled until it has a number.
+    assert.equal(sectionProgress(EMPTY_EMPLOYEE_FORM, {}).find((p) => p.id === 'documents')?.filled, 0);
   });
 
   it('labels every field the form lays out', () => {

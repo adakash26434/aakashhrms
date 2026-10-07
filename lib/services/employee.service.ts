@@ -36,6 +36,7 @@ import * as systemControlRepository from "@/lib/repositories/system-control.repo
 import { resolvePay } from "@/lib/engines/grade-policy.engine";
 import * as salaryStructureService from "@/lib/services/salary-structure.service";
 import { pickable, placementErrors } from "@/lib/engines/organization.engine";
+import { legacyDocumentColumns, normalizeDocuments } from "@/lib/engines/employee-document.engine";
 
 const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
 
@@ -293,6 +294,13 @@ export async function saveEmployee(
     designationRepository.findAllDesignations(),
     id ? repository.findById(id) : Promise.resolve(null),
   ]);
+  // Documents (4.2b): cleaned, and a row counts as saved before only when its id is one of this
+  // employee's documents with the same type (new rows need their issued date and scan).
+  const storedDocs = stored?.documents ?? [];
+  formData = {
+    ...formData,
+    documents: normalizeDocuments(formData.documents).map((d) => (d.id && storedDocs.some((s) => s.id === d.id && s.type === d.type) ? d : { ...d, id: undefined })),
+  };
   const errors = {
     ...engine.validateEmployee(formData),
     // Codes are unique company-wide; say so on the field instead of failing on the constraint.
@@ -363,14 +371,8 @@ export async function saveEmployee(
     gradeCount: formData.gradeCount ?? 0,
     gradeAmount: formData.gradeAmount,
     gradeManual: formData.gradeManual,
-    citizenshipNo: formData.citizenshipNo,
-    issuingDistrict: formData.issuingDistrict,
-    nidNo: formData.nidNo || null,
-    nidIssuingDistrict: formData.nidIssuingDistrict || null,
-    passportNo: formData.passportNo || null,
-    passportIssuingDistrict: formData.passportIssuingDistrict || null,
-    votersId: formData.votersId || null,
-    voterIdIssuingDistrict: formData.voterIdIssuingDistrict || null,
+    // The old columns mirror the documents list for older readers (until Phase 8).
+    ...legacyDocumentColumns(formData.documents),
     panNumber: formData.panNumber || null,
     phoneHome: toE164Phone(formData.phoneHome) || null,
     mobileNo: toE164Phone(formData.mobileNo),
@@ -396,9 +398,11 @@ export async function saveEmployee(
     terminationRemarks: formData.terminationRemarks || null,
   };
 
-  // 3. Persist via repository
+  // 3. Persist via repository (documents and their scans in the same transaction)
+  if (!payAccess.userId) throw new Error("saveEmployee needs the acting user for the documents");
+  const documents = { rows: formData.documents, photoId: isUuid(formData.photoId) ? formData.photoId : "", userId: payAccess.userId };
   if (id) {
-    const updated = await repository.update(id, employeeData);
+    const updated = await repository.update(id, employeeData, documents);
 
     // =======================================================================
     // EMPLOYEE-USER SYNC ON UPDATE
@@ -413,7 +417,7 @@ export async function saveEmployee(
 
     return { employee: updated, ...syncResult };
   } else {
-    const employee = await repository.create(employeeData);
+    const employee = await repository.create(employeeData, documents);
     
     // =======================================================================
     // EMPLOYEE-USER SYNC (STAGE A ARCHITECTURE)
@@ -519,8 +523,7 @@ export const EMPTY_EMPLOYEE_FORM: EmployeeFormData = {
   attendanceCode: "", employeeCode: "", fullName: "", gender: "Male", dateOfBirth: "", taxStatus: "Normal Single", isDisabled: false,
   category: "Permanent", shreni: "", departmentId: "", designationId: "", branchId: "", isSupervisor: false, supervisorId: "",
   joiningDate: "", confirmationDate: "", status: "Active", basicSalary: 0, gradePercent: 0, gradeCount: 0, gradeAmount: 0, gradeManual: false,
-  citizenshipNo: "", issuingDistrict: "", nidNo: "", nidIssuingDistrict: "", passportNo: "", passportIssuingDistrict: "",
-  votersId: "", voterIdIssuingDistrict: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
+  documents: [], photoId: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
   personalEmail: "", permanentAddress: "", temporaryAddress: "", fatherName: "", motherName: "", spouseName: "",
   grandfatherName: "", bankName: "", bankBranch: "", bankAccountNumber: "", informedDate: "", terminationDate: "",
   terminationType: "", terminationReason: "", terminationPlan: "", terminationRemarks: "",
@@ -551,14 +554,8 @@ export function employeeToForm(emp: Employee): EmployeeFormData {
     gradeCount: emp.gradeCount ?? 0,
     gradeAmount: emp.gradeAmount,
     gradeManual: !!emp.gradeManual,
-    citizenshipNo: emp.citizenshipNo,
-    issuingDistrict: emp.issuingDistrict,
-    nidNo: emp.nidNo || "",
-    nidIssuingDistrict: emp.nidIssuingDistrict || "",
-    passportNo: emp.passportNo || "",
-    passportIssuingDistrict: emp.passportIssuingDistrict || "",
-    votersId: emp.votersId || "",
-    voterIdIssuingDistrict: emp.voterIdIssuingDistrict || "",
+    documents: (emp.documents ?? []).map((d) => ({ id: d.id, type: d.type, number: d.number, district: d.district, office: d.office, issuedDate: d.issuedDate ?? "", file: d.file })),
+    photoId: emp.photoId ?? "",
     panNumber: emp.panNumber || "",
     phoneHome: emp.phoneHome || "",
     mobileNo: emp.mobileNo,

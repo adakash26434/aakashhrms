@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { BriefcaseBusiness, Contact, IdCard, Landmark, LogOut, ShieldCheck, UserRound, Users, Wallet } from "lucide-react";
+import { BriefcaseBusiness, Contact, IdCard, Landmark, LogOut, Paperclip, ShieldCheck, UserRound, Users, Wallet } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
 import { DateCell } from "@/components/kit/date-cell";
 import { DescriptionList, InfoCard } from "@/components/kit/description-list";
@@ -10,6 +11,8 @@ import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeProfile } from "@/lib/types/employee";
 import { addressText } from "./employee-record-overview";
 import { formatPhoneNumber } from "@/lib/utils/phone";
+import { DOCUMENT_TYPE_LABEL, type EmployeeDocument } from "@/lib/types/employee-document";
+import { DocumentViewer } from "./employee-document-viewer";
 
 const TAX_STATUS: Record<string, string> = { "Normal Single": "Single", Married: "Married (couple slab)", Widow: "Widow / widower" };
 const date = (v: Date | string | null | undefined) => (v ? <DateCell value={v} /> : null);
@@ -28,14 +31,7 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
   const edit = (section: string) => (canEdit ? { label: "Edit", href: `/workforce/employees/${p.id}/edit#section-${section}` } : undefined);
   const separated = p.status !== "Active" || !!p.terminationDate;
   const sameAddress = !p.temporaryAddress || p.temporaryAddress === p.permanentAddress;
-  const doc = (no: string | null | undefined, district: string | null | undefined) =>
-    no ? (
-      <span>
-        <span className="font-code">{no}</span>
-        {district && <span className="ml-1.5 font-sans text-xs font-normal text-ink-muted">· {district}</span>}
-      </span>
-    ) : null;
-
+  const [viewing, setViewing] = useState<EmployeeDocument | null>(null);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <InfoCard title="Primary details" icon={UserRound} action={edit("general")}>
@@ -100,13 +96,13 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
       <InfoCard title="Identity documents" icon={IdCard} action={edit("documents")}>
         <DescriptionList
           items={[
-            { label: "Citizenship no.", value: doc(p.citizenshipNo, p.issuingDistrict), wide: true },
+            ...(p.documents ?? []).map((d) => ({ label: DOCUMENT_TYPE_LABEL[d.type], value: <DocumentValue doc={d} onView={() => setViewing(d)} />, wide: true })),
+            ...((p.documents ?? []).length === 0 ? [{ label: "Citizenship or National ID", value: "Not added", tone: "warning" as const, wide: true }] : []),
             { label: "PAN", value: p.panNumber, mono: true, tone: p.gaps.includes("pan") ? "warning" : undefined, copy: p.panNumber || undefined },
-            { label: "National ID (NID)", value: doc(p.nidNo, p.nidIssuingDistrict) },
-            { label: "Passport no.", value: doc(p.passportNo, p.passportIssuingDistrict) },
-            { label: "Voter ID", value: doc(p.votersId, p.voterIdIssuingDistrict) },
           ]}
         />
+        {p.gaps.includes("documents") && <p className="mt-3 text-3xs text-warning">Add the issued date and a scan of the citizenship certificate or the National ID.</p>}
+        {viewing && <DocumentViewer open title={DOCUMENT_TYPE_LABEL[viewing.type]} file={viewing.file} onClose={() => setViewing(null)} />}
       </InfoCard>
 
       <InfoCard title="Contact & addresses" icon={Contact} action={edit("contact")}>
@@ -167,5 +163,26 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
         </InfoCard>
       )}
     </div>
+  );
+}
+
+/** One document: number · district · issued date, the issuing office, then its scan (opens the viewer). */
+function DocumentValue({ doc, onView }: { doc: EmployeeDocument; onView: () => void }) {
+  return (
+    <span className="block">
+      <span className="font-code">{doc.number}</span>
+      {doc.district && <span className="ml-1.5 font-sans text-xs font-normal text-ink-muted">· {doc.district}</span>}
+      <span className="ml-1.5 font-sans text-xs font-normal text-ink-muted">· {doc.issuedDate ? <>Issued <DateCell value={doc.issuedDate} /></> : <span className="text-warning">issued date missing</span>}</span>
+      {doc.office && <span className="block font-sans text-xs font-normal text-ink-muted">{doc.office}</span>}
+      <span className="mt-1 flex flex-wrap gap-1.5 font-sans text-xs font-normal">
+        {doc.file ? (
+          <button type="button" onClick={onView} className="inline-flex cursor-pointer items-center gap-1 rounded border border-line px-1.5 py-0.5 text-2xs font-medium text-brand hover:bg-brand-subtle">
+            <Paperclip aria-hidden className="h-3 w-3" /> View scan
+          </button>
+        ) : (
+          <span className="text-ink-faint">No scan</span>
+        )}
+      </span>
+    </span>
   );
 }

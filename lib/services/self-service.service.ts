@@ -15,6 +15,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import * as leaveService from '@/lib/services/leave.service';
 import * as homeLeaveService from '@/lib/services/home-leave.service';
 import { assertSessionUsable } from '@/lib/auth/session-updates';
+import { findPhotoIdFor } from "@/lib/repositories/employee-photo.repository";
 
 // ---------------------------------------------------------------------------
 // Session-Based Employee ID Resolution
@@ -116,7 +117,10 @@ export async function getMyProfile() {
     .from(employeeBank)
     .where(eq(employeeBank.employeeId, employeeId));
 
-  return { ...profileResult, bankDetails };
+  // Photo (4.2b): shown from /api/employees/photos/<id>, which lets an employee see their own.
+  const photoId = await findPhotoIdFor(employeeId).catch(() => null);
+
+  return { ...profileResult, bankDetails, photoId };
 }
 
 // ---------------------------------------------------------------------------

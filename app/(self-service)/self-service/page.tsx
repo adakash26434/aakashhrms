@@ -20,6 +20,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { fmt } from "@/lib/engines/leave.engine";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +104,7 @@ export default async function SelfServiceDashboardPage() {
 
       <section aria-labelledby="personal-summary-title" className="grid grid-cols-2 divide-x divide-payroll-light/70 border-y border-payroll-light/70 bg-white sm:grid-cols-4">
         <DashboardMetric icon={Clock} label="Attendance" value="—" subtext="Current month" href="/self-service/my-attendance" />
-        <DashboardMetric icon={CalendarDays} label="Leave left" value={`${leave.totalBalance} days`} subtext={`${leave.totalTaken} taken of ${leave.totalAllotted} allotted`} href="/self-service/my-leave" />
+        <DashboardMetric icon={CalendarDays} label="Leave left" value={`${fmt(leave.totalBalance)} days`} subtext={`${fmt(leave.totalTaken)} taken of ${fmt(leave.totalAllotted)} allotted`} href="/self-service/my-leave" />
         <DashboardMetric icon={Wallet} label="Last net pay" value={payslip ? `NPR ${Number(payslip.netPayable).toLocaleString("en-NP")}` : "—"} subtext={payslip ? `${payslip.payPeriodMonth}/${payslip.payPeriodYear} BS` : "No payslip yet"} href="/self-service/my-payslips" />
         <DashboardMetric icon={Clock3} label="Open requests" value={String(dashboard.pendingLeaveCount)} subtext="Awaiting review" href="/self-service/my-leave" />
       </section>

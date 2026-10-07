@@ -7,10 +7,11 @@ import { DateCell } from "@/components/kit/date-cell";
 import { CopyButton, DescriptionList } from "@/components/kit/description-list";
 import { RecordNavigator } from "@/components/kit/record-navigator";
 import { StatusChip } from "@/components/kit/status-chip";
-import { RECORD_GAP_LABEL, tenureLabel } from "@/lib/engines/employee.engine";
+import { RECORD_GAP_LABEL, RECORD_GAP_SECTION, tenureLabel } from "@/lib/engines/employee.engine";
 import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeProfile, EmployeeRecordData } from "@/lib/types/employee";
-import { initials } from "./employee-quick-view";
+import { Avatar } from "@/components/kit/avatar";
+import { photoUrl } from "@/lib/engines/employee-document.engine";
 import { formatPhoneNumber } from "@/lib/utils/phone";
 
 function ContactLine({ icon: Icon, value, href, label, mono }: { icon: typeof Phone; value: string; href: string; label: string; mono?: boolean }) {
@@ -50,9 +51,7 @@ export function EmployeeRecordIdentity({
     <aside aria-label="Employee identity" className="overflow-hidden rounded-lg border border-line-card bg-surface shadow-sm">
       {/* Identity band */}
       <div className="flex flex-col items-center gap-2 border-b border-line bg-gradient-to-b from-brand-subtle to-surface px-4 pb-4 pt-5 text-center">
-        <span aria-hidden className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-xl font-semibold text-white shadow-sm ring-4 ring-white">
-          {initials(profile.fullName)}
-        </span>
+        <Avatar name={profile.fullName} src={photoUrl(profile.photoId)} size="xl" tone="solid" className="shadow-sm ring-4 ring-white" />
         <div className="min-w-0">
           <p className="text-base font-semibold leading-tight text-ink">{profile.fullName}</p>
           <p className="mt-0.5 text-xs text-ink-muted">{profile.designationName || "No designation"}</p>
@@ -126,7 +125,7 @@ export function EmployeeRecordIdentity({
             ))}
           </ul>
           {canEdit && (
-            <Link href={`/workforce/employees/${profile.id}/edit`} className="mt-2 inline-block text-2xs font-medium text-warning underline underline-offset-2">
+            <Link href={`/workforce/employees/${profile.id}/edit#section-${RECORD_GAP_SECTION[profile.gaps[0]]}`} className="mt-2 inline-block text-2xs font-medium text-warning underline underline-offset-2">
               Fix now
             </Link>
           )}

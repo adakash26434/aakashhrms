@@ -2,25 +2,25 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, SaveAll, TriangleAlert, X } from "lucide-react";
+import { BriefcaseBusiness, Check, Contact, IdCard, Landmark, Loader2, LogOut, Save, SaveAll, ShieldCheck, TriangleAlert, UserRound, Users, Wallet, X, type LucideIcon } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { DiscardBar } from "@/components/kit/discard-bar";
 import { PropertyForm } from "@/components/kit/property-form";
 import { useFieldHelp } from "@/components/kit/form-grid";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Kbd, StatusBar } from "@/components/kit/status-bar";
-import { SectionIndex } from "@/components/kit/section-index";
+import { Tabs } from "@/components/kit/tabs";
 import { useUnsavedGuard } from "@/components/kit/use-unsaved-guard";
 import { scrollIntoContainer } from "@/components/kit/scroll-into-view";
 import { Window, WindowButton } from "@/components/kit/window";
 import { saveEmployeeAction } from "@/app/actions/employee.actions";
-import { EMPLOYEE_FORM_SECTIONS, fieldLabel, type EmployeeField } from "@/lib/constants/employee-form";
+import { EMPLOYEE_FORM_SECTIONS, fieldLabel, sectionOfField, type EmployeeField } from "@/lib/constants/employee-form";
 import { codeConflicts, getNextAttendanceCode, getNextEmployeeCode, sectionProgress, validateEmployee, validateEmployeeField } from "@/lib/engines/employee.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 import type { EmployeeAccessOptions } from "@/lib/services/employee.service";
 import type { EmployeeFormContext, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
-import { SectionProgressContext, type EmployeeFormApi } from "./employee-form-fields";
+import { ActiveSectionContext, type EmployeeFormApi } from "./employee-form-fields";
 import { EmployeeFormHeader } from "./employee-form-header";
 import { EmployeeFormIdentification } from "./employee-form-identification";
 import { EmployeeFormJob } from "./employee-form-job";
@@ -36,14 +36,35 @@ const CARRY_OVER: EmployeeField[] = ["branchId", "departmentId", "category", "jo
 
 type Notice = { kind: "login"; name: string; email: string; tempPassword: string; next: () => void } | { kind: "warning"; message: string; next: () => void };
 
-function focusField(field: string) {
+const SECTION_ICON: Record<string, LucideIcon> = {
+  general: UserRound,
+  job: BriefcaseBusiness,
+  pay: Wallet,
+  documents: IdCard,
+  contact: Contact,
+  family: Users,
+  bank: Landmark,
+  access: ShieldCheck,
+  separation: LogOut,
+};
+
+/** Focus a field on the shown tab (after its tab has been opened). */
+function focusShown(field: string) {
   const el =
-    document.querySelector<HTMLElement>(`[name="${field}"]`) ??
-    document.querySelector<HTMLElement>(`[name^="${field}."]`) ??
-    document.getElementById(`section-${field}`);
+    document.querySelector<HTMLElement>(`section:not([hidden]) [name="${field}"]`) ??
+    document.querySelector<HTMLElement>(`section:not([hidden]) [name^="${field}."]`) ??
+    // A list row's error (documents.0.number) goes to that row's own control (its Edit button).
+    document.querySelector<HTMLElement>(`section:not([hidden]) [name^="${field.split(".").slice(0, 2).join(".")}."]`) ??
+    document.querySelector<HTMLElement>(`section:not([hidden]) [data-field-anchor="${field.split(".")[0]}"]`);
   if (!el) return;
   scrollIntoContainer(el, { block: "center" });
   el.focus({ preventScroll: true });
+}
+
+/** The first field of a tab. */
+function focusFirstOf(section: string) {
+  const el = document.getElementById(`section-${section}`)?.querySelector<HTMLElement>("input:not([readonly]):not([type=file]), button[data-enter-field], textarea, button[data-field-anchor]");
+  el?.focus();
 }
 
 /**
@@ -73,17 +94,17 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       : { createLogin: true, roleId: defaultRole?.id, roleSlug: defaultRole?.slug ?? "employee" }
   );
   const saveRef = useRef<HTMLButtonElement>(null);
+  const [tab, setTab] = useState("general");
 
-  // Arriving from a record card's "Edit" (…/edit#section-bank): open at that section, first field focused.
+  // Arriving from a record card's "Edit" or a "Fix" link (…/edit#section-bank): open that tab, first field focused.
   useEffect(() => {
     const id = window.location.hash.slice(1);
     if (!id.startsWith("section-")) return;
-    const section = document.getElementById(id);
-    if (!section) return;
-    requestAnimationFrame(() => {
-      scrollIntoContainer(section, { block: "start", behavior: "auto" });
-      section.querySelector<HTMLElement>("input:not([readonly]), button[data-enter-field], textarea")?.focus({ preventScroll: true });
-    });
+    const section = id.slice("section-".length);
+    if (!EMPLOYEE_FORM_SECTIONS.some((s) => s.id === section)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is only readable after mount
+    setTab(section);
+    requestAnimationFrame(() => focusFirstOf(section));
   }, []);
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(baseline), [form, baseline]);
@@ -94,7 +115,41 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
   const fieldHelp = useFieldHelp();
   const sections = EMPLOYEE_FORM_SECTIONS.filter((s) => s.id !== "separation" || showSeparation);
   const progress = sectionProgress(form, errors, sections);
-  const progressById = Object.fromEntries(progress.map((p, i) => [p.id, { ...p, index: i + 1 }]));
+  const order = sections.map((s) => s.id);
+
+  /** Show a tab (kept in the address, so a refresh or a shared link opens it again). */
+  const openTab = (id: string, focus?: "first" | string) => {
+    setTab(id);
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}#section-${id}`);
+    if (focus) requestAnimationFrame(() => (focus === "first" ? focusFirstOf(id) : focusShown(focus)));
+  };
+  /** Open the field's tab, then focus it (errors, the error summary). */
+  const focusField = (field: string) => openTab(sectionOfField(field) ?? tab, field);
+
+  // F6 / Shift+F6: next / previous tab (not while a window is open over the form).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F6" || document.querySelector('[aria-modal="true"]')) return;
+      e.preventDefault();
+      const i = order.indexOf(tab);
+      const next = order[(i + (e.shiftKey ? -1 : 1) + order.length) % order.length];
+      setTab(next);
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}#section-${next}`);
+      requestAnimationFrame(() => focusFirstOf(next));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [order, tab]);
+
+  /** Enter past a tab's last field: the next tab's first field; after the last tab, Save. */
+  const endOfTab = (): HTMLElement | null => {
+    const i = order.indexOf(tab);
+    if (i >= 0 && i < order.length - 1) {
+      openTab(order[i + 1], "first");
+      return null;
+    }
+    return saveRef.current;
+  };
   const requiredLeft = progress.reduce((n, p) => n + (p.required - p.filled), 0);
 
   const clearError = (field: string) =>
@@ -118,6 +173,8 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       setForm((f) => ({ ...f, ...values }));
       Object.keys(values).forEach(clearError);
     },
+    update: (fn) => setForm(fn),
+    clear: clearError,
   };
 
   /** The data that is saved: email mirrors the company email; "same address" copies it. */
@@ -149,6 +206,9 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       const a = parseStructuredAddress(form.permanentAddress);
       if (part === "district" && !a.district) message = "Choose the district";
       else if (part === "localLevel" && !a.localLevel) message = "Choose the local level (palika)";
+    } else if (name.startsWith("documents.")) {
+      // A document row's field (documents.0.number): the server's rule for that row.
+      message = validateEmployeeField(payload(), name as `documents.${number}.${string}`);
     } else if (name.includes(".") || name.startsWith("access")) {
       return true;
     } else {
@@ -161,9 +221,9 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
 
   const firstError = (all: EmployeeValidationErrors): string | undefined => {
     for (const section of sections) {
-      const hit = section.fields.find((f) => all[f]);
+      // Row errors (documents.0.number) belong to their list's tab.
+      const hit = Object.keys(all).find((k) => all[k] && sectionOfField(k) === section.id);
       if (hit) return hit;
-      if (section.id === "bank" && all.bankAccountConfirm) return "bankAccountConfirm";
     }
     return Object.keys(all).find((k) => all[k]);
   };
@@ -185,10 +245,8 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       setAccountConfirm("");
       setSameAddress(true);
       setSavedCount((n) => n + 1);
-      requestAnimationFrame(() => {
-        document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
-        focusField("fullName");
-      });
+      openTab("general", "fullName");
+      requestAnimationFrame(() => document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" }));
     } else {
       router.push(`/workforce/employees/${savedId}`);
       router.refresh();
@@ -275,17 +333,33 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
 
       <EmployeeFormHeader form={form} ctx={ctx} isNew={isNew} progress={progress} />
 
-      {/* The section index sits beside the form only when there is room for it and a two-column form
-          (container query); otherwise it becomes the "Jump to section" list above the form. */}
-      <div className="@container">
-        <div className="grid gap-5 @min-[66rem]:grid-cols-[196px_minmax(0,1fr)]">
-          <SectionIndex
-            className="sticky top-0 self-start"
-            items={progress.map((p, i) => ({ id: `section-${p.id}`, label: `${i + 1}. ${p.label}`, state: p.state, errors: p.errors, filled: p.filled, required: p.required }))}
-          />
-          <div className="min-w-0">
-            <SectionProgressContext.Provider value={progressById}>
-            <PropertyForm className="space-y-4" onSubmit={() => save(false)} enterNavigation={{ validate, end: () => saveRef.current }}>
+      {/* One tab per section (4.2b), like the other modules; every tab stays mounted (hidden when not shown). */}
+      <Tabs
+        variant="folder"
+        label="Employee form"
+        value={tab}
+        onChange={(id) => openTab(id)}
+        items={progress.map((p) => ({
+          id: p.id,
+          label: p.label,
+          icon: SECTION_ICON[p.id],
+          badge:
+            p.errors > 0 ? (
+              <span className="rounded-full bg-danger px-1.5 text-3xs font-semibold tabular-nums text-white" aria-label={`${p.errors} to fix`}>
+                {p.errors}
+              </span>
+            ) : p.state === "complete" ? (
+              <Check aria-label="Complete" className="h-3.5 w-3.5 text-success" />
+            ) : p.required > 0 ? (
+              <span className="text-3xs tabular-nums text-ink-faint" aria-label={`${p.filled} of ${p.required} required filled`}>
+                {p.filled}/{p.required}
+              </span>
+            ) : null,
+        }))}
+      >
+        <div className="-m-4 overflow-hidden rounded-lg rounded-tl-none">
+          <ActiveSectionContext.Provider value={tab}>
+            <PropertyForm onSubmit={() => save(false)} enterNavigation={{ validate, end: endOfTab }}>
               <EmployeeFormIdentification api={api} />
               <EmployeeFormJob api={api} />
               <EmployeeFormDocuments api={api} />
@@ -303,9 +377,12 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
               <EmployeeFormAccess api={api} options={access} onOptions={setAccess} />
               {showSeparation && <EmployeeFormSeparation api={api} />}
             </PropertyForm>
-            </SectionProgressContext.Provider>
+          </ActiveSectionContext.Provider>
+        </div>
+      </Tabs>
 
-            {/* Sticky footer: Enter on the last field lands on Save. It reaches into the page padding so nothing shows beneath it. */}
+      <div>
+            {/* Sticky footer: Enter on the last tab's last field lands on Save. It reaches into the page padding so nothing shows beneath it. */}
             <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 mt-6 bg-surface-sunken lg:-bottom-6 lg:-mx-6 lg:-mb-6">
               {leave.pending ? (
                 <DiscardBar onKeep={leave.keep} onDiscard={leave.discard} />
@@ -326,7 +403,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
                         id: "keys",
                         content: (
                           <span className="hidden items-center gap-1 @min-[66rem]:inline-flex">
-                            <Kbd>Enter</Kbd> next <Kbd>F6</Kbd> section <Kbd>Ctrl S</Kbd> save
+                            <Kbd>Enter</Kbd> next <Kbd>F6</Kbd> next tab <Kbd>Ctrl S</Kbd> save
                           </span>
                         ),
                       },
@@ -348,8 +425,6 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
                 </div>
               )}
             </div>
-          </div>
-        </div>
       </div>
 
       <Window

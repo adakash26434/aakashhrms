@@ -256,11 +256,12 @@ describe('Layout follows the space the form has (4.3 review: side panel open)', 
     assert.ok(!/\b(sm|md|lg|xl):grid-cols-/.test(grid), 'no screen-width column rules in the form grid');
   });
 
-  it('the editor puts the section index beside the form only when there is room for it', () => {
+  it('the editor shows one tab per section above a full-width form (4.2b), the other tabs hidden but mounted', () => {
     const editor = readFileSync(join(__dirname, '..', 'components/employee/employee-form.tsx'), 'utf8');
-    const index = readFileSync(join(__dirname, '..', 'components/kit/section-index.tsx'), 'utf8');
-    assert.match(editor, /@min-\[66rem\]:grid-cols-\[196px_minmax\(0,1fr\)\]/);
-    assert.match(index, /@min-\[66rem\]:hidden/);
+    const section = readFileSync(join(__dirname, '..', 'components/employee/employee-form-fields.tsx'), 'utf8');
+    assert.match(editor, /<Tabs\s+variant="folder"/);
+    assert.ok(!/SectionIndex/.test(editor), 'no section index beside the form');
+    assert.match(section, /hidden=\{active !== null && active !== id\}/);
   });
 });
 

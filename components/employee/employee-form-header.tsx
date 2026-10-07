@@ -5,7 +5,8 @@ import { calculateAgeInYears, parseLocalDateParts, tenureLabel, type SectionProg
 import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeFormContext, EmployeeFormData } from "@/lib/types/employee";
 import { cn } from "@/lib/utils";
-import { initials } from "./employee-quick-view";
+import { Avatar } from "@/components/kit/avatar";
+import { photoUrl } from "@/lib/engines/employee-document.engine";
 
 /**
  * Record header of the editor: the card being filled in, updated as you type
@@ -43,15 +44,13 @@ export function EmployeeFormHeader({
   return (
     <section aria-label="Record summary" className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-line-card bg-surface px-4 py-3 shadow-sm">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span
-          aria-hidden
-          className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm font-semibold",
-            name ? "bg-brand-subtle text-brand-strong" : "border border-dashed border-line-strong text-ink-faint"
-          )}
-        >
-          {name ? initials(name) : "?"}
-        </span>
+        {name || form.photoId ? (
+          <Avatar name={name} src={photoUrl(form.photoId)} size="md" className="h-11 w-11" />
+        ) : (
+          <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-dashed border-line-strong text-sm font-semibold text-ink-faint">
+            ?
+          </span>
+        )}
         <div className="min-w-0">
           <p className="flex items-center gap-2 truncate text-sm font-semibold text-ink">
             <span className={cn("truncate", !name && "font-normal italic text-ink-faint")}>{name || (isNew ? "New employee" : "No name")}</span>

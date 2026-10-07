@@ -675,6 +675,74 @@ WHERE r."leave_type_id" = t."id" AND t."is_statutory" = false AND t."payout_fixe
     console.error("[tenant-schema-sync] leaves 0044:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
 
+  // Employee documents and photo (4.2b, migration 0045): a list of identity documents with their scans.
+  // The old employee_personal columns are copied only when the table is new; afterwards they
+  // are a mirror written on every save.
+  try {
+    const existing = await sql.unsafe(`SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'employee_documents'`);
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "employee_documents" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+  "doc_type" varchar(20) NOT NULL,
+  "doc_number" varchar(100) NOT NULL,
+  "issued_district" varchar(100) NOT NULL,
+  "issued_date" date,
+  "issuing_office" varchar(150) DEFAULT '' NOT NULL,
+  "created_by" uuid,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_by" uuid,
+  "updated_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "employee_documents_employee_type_key" UNIQUE ("employee_id", "doc_type")
+)`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "employee_documents_employee_id_idx" ON "employee_documents" ("employee_id")`);
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "employee_document_files" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "document_id" uuid REFERENCES "employee_documents"("id") ON DELETE CASCADE,
+  "employee_id" uuid REFERENCES "employees"("id") ON DELETE CASCADE,
+  "side" varchar(10) NOT NULL,
+  "file_name" varchar(150) NOT NULL,
+  "mime_type" varchar(50) NOT NULL,
+  "size_bytes" integer NOT NULL,
+  "sha256" varchar(64) NOT NULL,
+  "content" bytea NOT NULL,
+  "uploaded_by" uuid NOT NULL,
+  "uploaded_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "employee_document_files_document_side_key" UNIQUE ("document_id", "side")
+)`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "employee_document_files_document_id_idx" ON "employee_document_files" ("document_id")`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "employee_document_files_uploaded_by_idx" ON "employee_document_files" ("uploaded_by", "uploaded_at")`);
+    // Second version of 4.2b: issuing office, one scan per document, the photo.
+    await sql.unsafe(`ALTER TABLE "employee_documents" ADD COLUMN IF NOT EXISTS "issuing_office" varchar(150) DEFAULT '' NOT NULL`);
+    await sql.unsafe(`UPDATE "employee_document_files" SET "side" = 'scan' WHERE "side" = 'front'`);
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "employee_photos" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid REFERENCES "employees"("id") ON DELETE CASCADE,
+  "mime_type" varchar(50) NOT NULL,
+  "size_bytes" integer NOT NULL,
+  "sha256" varchar(64) NOT NULL,
+  "content" bytea NOT NULL,
+  "uploaded_by" uuid NOT NULL,
+  "uploaded_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "employee_photos_employee_key" UNIQUE ("employee_id")
+)`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "employee_photos_uploaded_by_idx" ON "employee_photos" ("uploaded_by", "uploaded_at")`);
+    if (existing.length === 0) {
+      await sql.unsafe(`INSERT INTO "employee_documents" ("id", "employee_id", "doc_type", "doc_number", "issued_district")
+SELECT md5(p."employee_id"::text || ':' || d."doc_type")::uuid, p."employee_id", d."doc_type", trim(d."no"), COALESCE(trim(d."district"), '')
+FROM "employee_personal" p
+CROSS JOIN LATERAL (VALUES
+  ('citizenship', p."citizenship_no", p."issuing_district"),
+  ('nid', p."nid_no", p."nid_issuing_district"),
+  ('passport', p."passport_no", p."passport_issuing_district"),
+  ('voter_id', p."voters_id", p."voter_id_issuing_district")
+) AS d("doc_type", "no", "district")
+WHERE COALESCE(trim(d."no"), '') <> ''
+ON CONFLICT DO NOTHING`);
+    }
+  } catch (err) {
+    console.error("[tenant-schema-sync] employee documents 0045:", err instanceof Error ? err.message.slice(0, 200) : err);
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

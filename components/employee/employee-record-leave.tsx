@@ -5,11 +5,13 @@ import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { Panel } from "@/components/kit/panel";
 import { HomeLeaveYearView } from "@/components/leave/home-leave-year";
 import type { EmployeeLeaveTabData } from "@/lib/types/employee";
+import { fmt } from "@/lib/engines/leave.engine";
 
 type Balance = EmployeeLeaveTabData["balances"][number];
 type Request = EmployeeLeaveTabData["requests"][number];
 
-const days = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+// Days as the leave module shows them: at most one decimal, no trailing .0.
+const days = fmt;
 
 const BALANCE_COLUMNS: GridColumn<Balance>[] = [
   { id: "type", header: "Leave type", width: 170, value: (r) => r.leaveTypeName },

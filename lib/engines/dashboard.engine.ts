@@ -506,7 +506,7 @@ export { isValidPan };
 export const READINESS_SAMPLE_SIZE = 5;
 
 export function payrollReadiness(employees: ReadinessEmployee[], sampleSize = READINESS_SAMPLE_SIZE): ReadinessIssue[] {
-  return EMPLOYEE_RECORD_CHECKS.map((check) => {
+  return EMPLOYEE_RECORD_CHECKS.filter((check) => check.payroll).map((check) => {
     const failing = employees.filter(check.failing);
     return {
       id: check.id,

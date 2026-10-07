@@ -36,6 +36,7 @@ const SIZE = {
   code: "w-36", // codes, PAN, mobile
   date: "w-full max-w-52", // dates (room for the other-calendar line under them)
   amount: "w-44", // money
+  sm: "w-full max-w-44", // short choices: gender, category, yes / no
   md: "w-full max-w-60", // choices, short names
   lg: "w-full max-w-96", // names, emails
   full: "w-full", // addresses, reasons

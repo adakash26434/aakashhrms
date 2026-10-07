@@ -18,6 +18,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Avatar } from "@/components/kit/avatar";
+import { photoUrl } from "@/lib/engines/employee-document.engine";
 
 export const dynamic = "force-dynamic";
 
@@ -99,8 +101,6 @@ export default async function MyProfilePage() {
     );
   }
 
-  const initials = profile.fullName ? profile.fullName.slice(0, 2).toUpperCase() : "EM";
-
   return (
     <div className="space-y-6">
       {/* ── Header / Hero Banner Card ── */}
@@ -108,9 +108,7 @@ export default async function MyProfilePage() {
         <CardContent className="p-6 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-payroll-navy text-white text-xl font-bold border border-white/20 shadow-payroll-sm shrink-0">
-                {initials || "EM"}
-              </div>
+              <Avatar name={profile.fullName || "Employee"} src={photoUrl(profile.photoId)} size="lg" tone="solid" className="shadow-payroll-sm" />
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-extrabold text-payroll-navy tracking-tight">

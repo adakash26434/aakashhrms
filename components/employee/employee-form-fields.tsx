@@ -2,12 +2,11 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { inputClass } from "@/components/kit/property-form";
-import { FormGroup, GridField, type GridFieldSize } from "@/components/kit/form-grid";
+import { FormGrid, GridField, type GridFieldSize } from "@/components/kit/form-grid";
 import { SelectField, type SelectOption } from "@/components/kit/select-field";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { EMPLOYEE_FIELD_LABELS, type EmployeeField } from "@/lib/constants/employee-form";
 import type { EmployeeFormContext, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
-import type { SectionProgress } from "@/lib/engines/employee.engine";
 import { cn } from "@/lib/utils";
 
 /** What every form section receives from employee-form.tsx. */
@@ -16,17 +15,22 @@ export interface EmployeeFormApi {
   errors: EmployeeValidationErrors;
   set: <K extends EmployeeField>(field: K, value: EmployeeFormData[K]) => void;
   patch: (values: Partial<EmployeeFormData>) => void;
+  /** Change the form from its latest state (lists, and changes that finish later, such as uploads). */
+  update: (fn: (form: EmployeeFormData) => EmployeeFormData) => void;
+  /** Clear one error, e.g. a document row's documents.0.number. */
+  clear: (key: string) => void;
   ctx: EmployeeFormContext;
   isNew: boolean;
 }
 
-/** Section numbers and required-field progress, provided by employee-form.tsx. */
-export const SectionProgressContext = createContext<Record<string, SectionProgress & { index: number }>>({});
+/** The tab being shown (employee-form.tsx); every section stays mounted, the others hidden. */
+export const ActiveSectionContext = createContext<string | null>(null);
 
 /**
- * One numbered group box of the form (a "FastTab"). Its number and
- * "n of m required" chip come from SectionProgressContext; the id is what the
- * section index jumps to.
+ * One tab of the form (4.2b: tabs above the form replaced the numbered boxes and the section
+ * index). Only the active tab is shown; the others stay mounted (their state survives, Enter
+ * skips their hidden fields, Save still checks them). A description and side buttons, when
+ * given, sit on a line above the fields.
  */
 export function FormSection({
   id,
@@ -43,19 +47,17 @@ export function FormSection({
   children: ReactNode;
   columns?: 2 | 3;
 }) {
-  const progress = useContext(SectionProgressContext)[id];
+  const active = useContext(ActiveSectionContext);
   return (
-    <FormGroup
-      id={`section-${id}`}
-      index={progress?.index}
-      title={title}
-      description={description}
-      aside={aside}
-      columns={columns}
-      progress={progress ? { filled: progress.filled, required: progress.required, errors: progress.errors } : undefined}
-    >
-      {children}
-    </FormGroup>
+    <section id={`section-${id}`} aria-label={title} hidden={active !== null && active !== id} className="bg-surface-panel">
+      {(description || aside) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line-card bg-surface px-4 py-2.5">
+          {description && <p className="min-w-0 flex-1 text-2xs text-ink-muted">{description}</p>}
+          {aside && <div className="ml-auto flex items-center gap-2">{aside}</div>}
+        </div>
+      )}
+      <FormGrid columns={columns}>{children}</FormGrid>
+    </section>
   );
 }
 
@@ -153,7 +155,7 @@ export function ChoiceField({
 /** A Yes / No answer bound to a boolean field. */
 export function YesNo({ api, field, help, labelText }: { api: EmployeeFormApi; field: EmployeeField; help?: string; labelText?: string }) {
   return (
-    <GridField label={labelText ?? label(field)} help={help} size="md">
+    <GridField label={labelText ?? label(field)} help={help} size="sm">
       <YesNoField name={field} value={!!api.form[field]} onChange={(v) => api.set(field, v as never)} />
     </GridField>
   );

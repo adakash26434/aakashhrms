@@ -137,7 +137,8 @@ async function loadFacts(employeeId: string, access: RecordTabAccess): Promise<E
       if (!balances.length) return null;
       return {
         fiscalYearLabel: fiscalYearLabel ?? null,
-        balance: balances.reduce((n, b) => n + b.balance, 0),
+        // The ledger keeps days to 2 decimals; adding them as floats must not add noise (12.3999…).
+        balance: Math.round(balances.reduce((n, b) => n + b.balance, 0) * 100) / 100,
         types: [...balances].sort((a, b) => b.balance - a.balance).slice(0, 3).map((b) => ({ name: b.leaveTypeName, balance: b.balance })),
       };
     }),

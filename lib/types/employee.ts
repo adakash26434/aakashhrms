@@ -1,4 +1,5 @@
 import type { EmployeeCategory, GradePolicySettings } from "./system-control";
+import type { EmployeeDocument, EmployeeDocumentInput } from "./employee-document";
 
 export type EmployeeStatus = "Active" | "Inactive";
 /**
@@ -48,6 +49,12 @@ export interface Employee {
   passportIssuingDistrict: string | null;
   votersId: string | null;
   voterIdIssuingDistrict: string | null;
+  /** The identity documents list (4.2b); the columns above mirror it for older readers. */
+  documents?: EmployeeDocument[];
+  /** No Citizenship / NID with its issued date and a scan (Records to fix). */
+  identityScanMissing?: boolean;
+  /** The employee's photo (4.2b), shown from /api/employees/photos/<id>; null = none. */
+  photoId?: string | null;
   panNumber?: string | null;
   phoneHome: string | null;
   mobileNo: string;
@@ -110,14 +117,10 @@ export interface EmployeeFormData {
   /** Grade amount typed by hand (needs Salary mapping → Edit); otherwise the policy works it out. */
   gradeManual: boolean;
 
-  citizenshipNo: string;
-  issuingDistrict: string;
-  nidNo: string;
-  nidIssuingDistrict: string;
-  passportNo: string;
-  passportIssuingDistrict: string;
-  votersId: string;
-  voterIdIssuingDistrict: string;
+  /** Identity documents (4.2b): Citizenship or NID required, each type once, one scan each. */
+  documents: EmployeeDocumentInput[];
+  /** The photo (4.2b): a saved photo's id, a new upload's id, or "" for none. */
+  photoId: string;
   panNumber: string;
   phoneHome: string;
   mobileNo: string;
@@ -154,7 +157,7 @@ export interface EmployeeFilter {
 }
 
 /** A record gap that stops the employee being paid or reported correctly. */
-export type EmployeeRecordGap = "pan" | "bank" | "basic";
+export type EmployeeRecordGap = "pan" | "bank" | "basic" | "documents";
 
 /**
  * One register row (S18): list columns only. Identity documents, family,
@@ -184,6 +187,8 @@ export interface EmployeeListRow {
   /** Masked, e.g. "••••4821"; empty when there is no account. */
   bankAccountMasked: string;
   bankName: string;
+  /** Photo for the quick view (4.2b); null = initials. */
+  photoId: string | null;
   gaps: EmployeeRecordGap[];
 }
 
@@ -216,14 +221,7 @@ export interface EmployeeValidationErrors {
   gradePercent?: string;
   gradeCount?: string;
   gradeAmount?: string;
-  citizenshipNo?: string;
-  issuingDistrict?: string;
-  nidNo?: string;
-  nidIssuingDistrict?: string;
-  passportNo?: string;
-  passportIssuingDistrict?: string;
-  votersId?: string;
-  voterIdIssuingDistrict?: string;
+  documents?: string;
   panNumber?: string;
   phoneHome?: string;
   mobileNo?: string;

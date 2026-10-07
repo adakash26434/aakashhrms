@@ -348,9 +348,12 @@ cards, and values as bold text under small labels (not input boxes).
   loans outstanding; each opens its tab) and cards for Job, Contact,
   this month's Attendance, Records & login.
 - **Profile:** topic cards (`InfoCard` + `DescriptionList`): Primary details,
-  Job & placement, Pay, Bank (masked), Identity documents, Contact &
-  addresses, Family, Self-service access, Separation. Each card's **Edit**
-  opens the editor at that section (`/edit#section-…`).
+  Job & placement, Pay, Bank (masked), Identity documents (one line per
+  document: number · district · issued date, the issuing office, and "View
+  scan"), Contact & addresses, Family, Self-service access,
+  Separation. Each card's **Edit** opens the editor at that section
+  (`/edit#section-…`); "Fix now" and the quick view's "Fix" open the section
+  of the first record to fix.
 - Kit: `InfoCard`, `DescriptionList` (label above value, copy buttons),
   `StatTile`. KPI-style tiles appear only on the dashboard and on a single
   record's Overview; module registers stay tables.
@@ -397,9 +400,45 @@ screens):
   accounting software. Errors always show under the field.
 - A `suffix` shows a live hint beside a field (age next to date of birth,
   service length next to joining date, "Below scale" next to basic salary).
-- Repeating groups use a small table (identity documents: number + issuing
-  district per row); an address is one row: district, local level, ward, tole,
-  with the province filled in.
+- **Tabs (4.2b):** the Add / Edit form is one tab per section above the form
+  (kit `Tabs variant="folder"`, as on Organization): General, Job & placement,
+  Pay, Identity documents, Contact & address, Family, Bank, Self-service access
+  (and Separation for an inactive employee), each with its icon and a badge
+  (red error count, ✓ when complete, `1/6` while required fields are missing).
+  The section index sidebar is gone, so the form has the full width. Every tab
+  stays mounted (the others `hidden`), so Save still checks them all and opens
+  the first tab with an error; Enter on a tab's last field opens the next tab;
+  F6 / Shift+F6 switch tabs; the tab is kept in the address (`#section-…`), so
+  "Edit" and "Fix" links open the right one. A tab shows its description and
+  side buttons on one line above its fields.
+- **Field widths:** each field as wide as what it holds: `sm` (11rem) for short
+  choices (gender, Yes / No), `code` / `date` / `amount` / `xs` for codes,
+  dates, money and counts, `md` for picks, `lg` for names and emails, the full
+  row only for addresses and reasons. Photo and full name share the first row.
+- Repeating groups are rows: an address is one row (district, local level,
+  ward, tole, with the province filled in).
+- **Identity documents (4.2b):** a table, one row per document (Document,
+  Number, Issuing district, Issuing office, Issued, Scan) with **View / Edit /
+  Delete** icons on the row; a row's problems show under its name in red, an
+  older document without a date or scan says so in warning colour. **Add
+  document** (and Edit) open a window (`EmployeeDocumentWindow`): Document (only
+  types not yet listed), Number, Issuing district, Issued date, Issuing office
+  (pre-filled from the type and district until typed over, e.g. "District
+  Administration Office, Kaski"), and **one scan** with the note "Scan the front
+  and back into one file: a PDF with both pages, or one image with both sides.
+  PDF, JPG or PNG, up to 3 MB." Delete asks first; the last Citizenship / NID
+  can't be deleted. Changes are saved with the employee. PAN stays a plain
+  number field below the table.
+- **Document viewer** (`DocumentViewer`, a `Window`): the scan fetched with the
+  user's session and shown from a `blob:` (an image, or a PDF in a frame), with
+  Download. Used by the form and the Profile card.
+- **Photo (4.2b):** General's first field: the photo (or initials) with Upload
+  photo / Change / Remove. The kit **`ImageCropWindow`** frames the chosen image
+  in a square with the avatar circle shown (drag to move; slider, mouse wheel or
+  + / − to zoom; arrows nudge) and makes a 512 × 512 JPG. The kit **`Avatar`**
+  shows a photo in a circle, or the initials when there is none; it is used on
+  the record header, the quick view, the form header and self-service My
+  profile.
 - Choices use the kit `SelectField` (not the native `<select>`, whose open
   list swallows Enter on Windows); yes/no answers use `YesNoField` (Y / N /
   Space; Enter moves on) instead of checkboxes.
@@ -426,8 +465,8 @@ type) keep the `Window` editor.
 | Mouse, Tab | Never blocked or redirected |
 
 Read-only, disabled and helper controls (`data-enter-skip`, e.g. "Next free
-code", "Enter by hand") are skipped. Optional documents left empty skip their
-district. Scrolling to a field uses `scrollIntoContainer` (never
+code", "Enter by hand") are skipped, as are the document table's row icons
+and the photo buttons (reached with Tab or the mouse). Scrolling to a field uses `scrollIntoContainer` (never
 `scrollIntoView`, which also moves the app frame) and keeps the field clear of
 the sticky footer.
 

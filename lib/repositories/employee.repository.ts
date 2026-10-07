@@ -5,6 +5,37 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, ilike, or, SQL, sql } from 'drizzle-orm';
 import type { Employee, EmployeeFilter, EmployeeStatus } from '@/lib/types/employee';
+import type { EmployeeDocumentInput } from '@/lib/types/employee-document';
+import { employeesWithIdentityScan, findDocuments, saveDocumentsTx } from './employee-document.repository';
+import { findPhotoIdFor, photoIdsByEmployee, savePhotoTx } from './employee-photo.repository';
+
+/** The documents list and photo to save with the employee (4.2b), and who saves them. */
+export interface DocumentsSave {
+  rows: EmployeeDocumentInput[];
+  /** The photo's id ("" = no photo). */
+  photoId: string;
+  userId: string;
+}
+
+/** Photo ids by employee; empty when the photo table is not there yet (before the restart). */
+async function photoIds(): Promise<Map<string, string>> {
+  try {
+    return await photoIdsByEmployee();
+  } catch (error) {
+    console.error('[EMPLOYEE_REPOSITORY] photos unavailable:', error instanceof Error ? error.message.slice(0, 120) : error);
+    return new Map();
+  }
+}
+
+/** Who has a complete Citizenship / NID; undefined when the documents table is not there yet (before the restart). */
+async function identityScans(): Promise<Set<string> | undefined> {
+  try {
+    return await employeesWithIdentityScan();
+  } catch (error) {
+    console.error('[EMPLOYEE_REPOSITORY] identity documents unavailable:', error instanceof Error ? error.message.slice(0, 120) : error);
+    return undefined;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -188,7 +219,12 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
     }
   }
 
-  return Array.from(uniqueEmpsMap.values()).map(mapRowToEmployee);
+  const [scans, photos] = await Promise.all([identityScans(), photoIds()]);
+  return Array.from(uniqueEmpsMap.values()).map((r) => ({
+    ...mapRowToEmployee(r),
+    identityScanMissing: scans ? !scans.has(r.employees.id) : undefined,
+    photoId: photos.get(r.employees.id) ?? null,
+  }));
 }
 
 /**
@@ -223,14 +259,21 @@ export async function findById(id: string): Promise<Employee | undefined> {
     .where(eq(employees.id, id));
 
   if (!rows.length) return undefined;
-  return mapRowToEmployee(rows[0] as EmployeeJoinedRow);
+  const employee = mapRowToEmployee(rows[0] as EmployeeJoinedRow);
+  try {
+    const [documents, scans, photoId] = await Promise.all([findDocuments(id), employeesWithIdentityScan(), findPhotoIdFor(id)]);
+    return { ...employee, documents, identityScanMissing: !scans.has(id), photoId };
+  } catch (error) {
+    console.error('[EMPLOYEE_REPOSITORY] identity documents unavailable:', error instanceof Error ? error.message.slice(0, 120) : error);
+    return employee;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
 
-export async function create(data: Partial<Employee>): Promise<Employee> {
+export async function create(data: Partial<Employee>, documents?: DocumentsSave): Promise<Employee> {
   return await (await getDb()).transaction(async (tx) => {
     const empInsert = await tx.insert(employees).values({
       employeeCode: data.employeeCode ?? '',
@@ -308,6 +351,11 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
       });
     }
 
+    if (documents) {
+      await saveDocumentsTx(tx, newEmpId, documents.rows, documents.userId);
+      await savePhotoTx(tx, newEmpId, documents.photoId, documents.userId);
+    }
+
     if (data.departmentId) {
       await tx.update(departments).set({ employeeCount: sql`${departments.employeeCount} + 1` }).where(eq(departments.id, data.departmentId));
     }
@@ -330,7 +378,7 @@ export async function create(data: Partial<Employee>): Promise<Employee> {
   });
 }
 
-export async function update(id: string, data: Partial<Employee>): Promise<Employee> {
+export async function update(id: string, data: Partial<Employee>, documents?: DocumentsSave): Promise<Employee> {
   return await (await getDb()).transaction(async (tx) => {
     const oldEmp = await tx.select({ deptId: employees.departmentId, desigId: employees.designationId }).from(employees).where(eq(employees.id, id));
     
@@ -389,6 +437,11 @@ export async function update(id: string, data: Partial<Employee>): Promise<Emplo
       permanentAddress: data.permanentAddress ?? data.address1 ?? '',
       temporaryAddress: data.temporaryAddress ?? data.address2 ?? null,
     }).where(eq(employeePersonal.employeeId, id));
+
+    if (documents) {
+      await saveDocumentsTx(tx, id, documents.rows, documents.userId);
+      await savePhotoTx(tx, id, documents.photoId, documents.userId);
+    }
 
     await tx.update(employeeFamily).set({
       fatherName: data.fatherName || null,

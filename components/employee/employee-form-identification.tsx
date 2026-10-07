@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { inputClass } from "@/components/kit/property-form";
 import { codeConflicts, getNextAttendanceCode, getNextEmployeeCode } from "@/lib/engines/employee.engine";
 import { ChoiceField, FormSection, TextField, YesNo, label, type EmployeeFormApi } from "./employee-form-fields";
+import { EmployeePhotoField } from "./employee-form-photo";
 
 const GENDERS = ["Male", "Female", "Other"].map((g) => ({ value: g, label: g }));
 const TAX_STATUSES = [
@@ -23,10 +24,11 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
 
   return (
     <FormSection id="general" title="General" description="Codes are filled with the next free ones and are unique across the company.">
-      {/* Full name has its own row, so the two codes always share the next one (2 or 3 columns). */}
-      <TextField api={api} field="fullName" required size="lg" span={3} placeholder="As on the citizenship certificate" autoFocus={isNew} />
+      {/* Photo and full name share the first row; the two codes always share the next one. */}
+      <EmployeePhotoField api={api} />
+      <TextField api={api} field="fullName" required size="lg" span={2} placeholder="As on the citizenship certificate" autoFocus={isNew} />
 
-      <GridField label={label("employeeCode")} required error={errors.employeeCode ?? live.employeeCode} size="md">
+      <GridField label={label("employeeCode")} required error={errors.employeeCode ?? live.employeeCode} size="lg">
         <CodeInput
           name="employeeCode"
           value={form.employeeCode}
@@ -39,7 +41,7 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
         required
         error={errors.attendanceCode ?? live.attendanceCode}
         help="The code used on the attendance device."
-        size="md"
+        size="lg"
       >
         <CodeInput
           name="attendanceCode"
@@ -48,7 +50,7 @@ export function EmployeeFormIdentification({ api }: { api: EmployeeFormApi }) {
           onNext={() => set("attendanceCode", getNextAttendanceCode(ctx.codes.map((c) => c.attendanceCode), "ATD-"))}
         />
       </GridField>
-      <ChoiceField api={api} field="gender" options={GENDERS} required size="code" />
+      <ChoiceField api={api} field="gender" options={GENDERS} required size="sm" />
       <GridField label={label("dateOfBirth")} required error={errors.dateOfBirth} help="Must be 18 or older (Labour Act). Type YYYY/MM/DD or press Alt+↓." size="date">
         <DateField name="dateOfBirth" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} />
       </GridField>
@@ -86,7 +88,7 @@ function CodeInput({
         maxLength={30}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={cn(inputClass, "w-28 max-w-none shrink-0 font-code")}
+        className={cn(inputClass, "w-36 max-w-none shrink-0 font-code")}
         {...aria}
       />
       <button
