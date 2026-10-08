@@ -9,23 +9,35 @@ import {
   changedLines,
   classifyHead,
   earliestOpenDate,
+  estimatePay,
   finalisedConflicts,
   gradeAmountFor,
+  headAppliesTo,
   headsFromLines,
   largeChangeWarning,
   latestApproved,
   linesFromHeads,
   matchImport,
+  needsSetup,
+  needsStructure,
+  resolveLevelCode,
+  templateCoverage,
+  payrollHeadsFor,
   resolveStructureTab,
   revisionInForce,
+  setupEffectiveFrom,
+  setupLines,
   structureTotals,
   templateFits,
+  templatesFor,
   validateLines,
   type PayHeadLike,
 } from '../lib/engines/salary-structure.engine';
+import { calculatePayslip, type TaxSlabInput } from '../lib/engines/payroll.engine';
 import { DEFAULT_GRADE_POLICY } from '../lib/engines/grade-policy.engine';
 import { normalizeBatch } from '../lib/services/salary-structure.service';
-import type { StructureLines } from '../lib/types/salary-structure';
+import type { PayProfile, StructureLines, TaxRules, TemplateRow } from '../lib/types/salary-structure';
+import type { SystemControlData } from '../lib/types/system-control';
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 
@@ -64,7 +76,7 @@ describe('Pay heads in a structure', () => {
     assert.equal(classifyHead(head({ code: 'GRADE-X', name: 'Grade bonus' })).labelOnly, undefined);
     // An amount already stored on one is still counted (payroll pays it) and flagged.
     const l = lines({ amounts: { bh: 3500 } });
-    assert.equal(structureTotals(l, [...HEADS, basicHead], settings).gross, 36500);
+    assert.equal(structureTotals(l, [...HEADS, basicHead], settings).totalSalary, 36500);
     assert.ok(validateLines(l, [...HEADS, basicHead]).warnings.bh);
   });
 
@@ -77,21 +89,34 @@ describe('Pay heads in a structure', () => {
   });
 });
 
-describe('Monthly totals (same SSF rule as payroll)', () => {
-  it('basic + grade + allowances; SSF 11% / 20% on basic + grade; deductions; employer cost', () => {
+describe('Monthly breakdown (payslip style, same SSF rule as payroll)', () => {
+  it('total salary, SSF employer 20% in earnings, SSF 31% deducted, net payable, cost to company', () => {
     const t = structureTotals(lines({ amounts: { tran: 2000, cit: 1000 }, computed: ['dear', 'fest'] }), HEADS, settings);
-    // gross = 30,000 + 3,000 + 2,000 + 10% of 30,000 (festival left out: occasional)
-    assert.equal(t.gross, 38000);
+    // Total salary = 30,000 + 3,000 + 2,000 + 10% of 30,000 (festival left out: occasional)
+    assert.equal(t.totalSalary, 38000);
+    assert.equal(t.allowances, 5000);
     assert.equal(t.retirementEmployee, 3630);
     assert.equal(t.retirementEmployer, 6600);
-    assert.equal(t.deductions, 1000);
+    assert.equal(t.employerInEarnings, 6600);
+    assert.equal(t.grossEarnings, 38000 + 6600);
+    assert.equal(t.retirementDeduction, 3630 + 6600);
+    assert.equal(t.otherDeductions, 1000);
+    assert.equal(t.totalDeductions, 1000 + 3630 + 6600);
+    // Take-home is the same as "total salary − 11% − deductions".
+    assert.equal(t.netPayable, 38000 - 1000 - 3630);
     assert.equal(t.netBeforeTax, 38000 - 1000 - 3630);
-    assert.equal(t.employerCost, 38000 + 6600);
+    assert.equal(t.costToCompany, 38000 + 6600);
+    assert.equal(t.incomeTax, null);
+    assert.deepEqual(t.items.map((i) => [i.name, i.amount]), [['Transport', 2000], ['Dearness', 3000], ['CIT', 1000]]);
   });
 
-  it('PF: 10% of basic + grade each side; none: no contribution', () => {
-    assert.equal(structureTotals(lines({ scheme: 'pf' }), HEADS, settings).retirementEmployee, 3300);
-    assert.equal(structureTotals(lines({ scheme: 'none' }), HEADS, settings).retirementEmployee, 0);
+  it('PF: deducted (employee), not in earnings, employer share in cost to company; none: no contribution', () => {
+    const pf = structureTotals(lines({ scheme: 'pf' }), HEADS, settings);
+    assert.equal(pf.retirementDeduction, 3300);
+    assert.equal(pf.employerInEarnings, 0);
+    assert.equal(pf.grossEarnings, 33000);
+    assert.equal(pf.costToCompany, 33000 + 3300);
+    assert.equal(structureTotals(lines({ scheme: 'none' }), HEADS, settings).retirementDeduction, 0);
   });
 
   it('grade follows the policy unless typed by hand', () => {
@@ -122,7 +147,8 @@ describe('Validation and changes', () => {
     assert.deepEqual(changedLines(lines(), lines({ basic: 32000, amounts: { tran: 500 } })), ['basic', 'tran']);
     assert.deepEqual(changedLines(lines(), lines()), []);
     assert.deepEqual(changedLines(null, lines()), ['new']);
-    const t = (gross: number) => ({ ...structureTotals(lines(), HEADS, settings), gross });
+    // The monthly change is in total salary (basic + grade + allowances), as batches always stored it.
+    const t = (totalSalary: number) => ({ ...structureTotals(lines(), HEADS, settings), totalSalary });
     assert.deepEqual(batchSummary([{ before: t(100), after: t(150) }, { before: null, after: t(50) }]), { employeeCount: 2, monthlyChange: 100, before: 100, after: 200 });
   });
 });
@@ -315,6 +341,210 @@ describe('approval timeline clean-up (migration 0046)', () => {
 
   it('runs after the back-fill in the restart-time sync', () => {
     assert.ok(sync.indexOf(':decided\')::uuid, \'SALARY_MAPPING\'') < sync.indexOf('DELETE FROM "approval_actions" a'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.4b: the pay estimate is payroll's own calculation
+// ---------------------------------------------------------------------------
+
+const SLABS: TaxSlabInput[] = [
+  { id: 's1', category: 'Normal Single', amountFrom: '0', amountTo: '500000', ratePercent: '1', fixedDeduction: '0' },
+  { id: 's2', category: 'Normal Single', amountFrom: '500000', amountTo: '700000', ratePercent: '10', fixedDeduction: '0' },
+  { id: 's3', category: 'Normal Single', amountFrom: '700000', amountTo: null, ratePercent: '20', fixedDeduction: '0' },
+  { id: 'm1', category: 'Married', amountFrom: '0', amountTo: '600000', ratePercent: '1', fixedDeduction: '0' },
+  { id: 'm2', category: 'Married', amountFrom: '600000', amountTo: '800000', ratePercent: '10', fixedDeduction: '0' },
+  { id: 'm3', category: 'Married', amountFrom: '800000', amountTo: null, ratePercent: '20', fixedDeduction: '0' },
+];
+const TAX: TaxRules = {
+  slabs: SLABS,
+  limits: { pfMaximumLimitPercent: 30, citLimitNpr: 300000, retirementFundLimitNpr: 500000, companyHasSsf: true, ssfContributionBase: 'BasicPlusGrade' },
+  insurance: { medicalInsuranceNpr: 20000, houseInsuranceNpr: 5000, lifeInsuranceNpr: 40000, womenDiscountPercent: 10, handicappedDiscountPercent: 0, remoteAllowanceNpr: 50000 },
+};
+const PROFILE: PayProfile = { taxStatus: 'Normal Single', isDisabled: false, category: 'Permanent', gender: 'Male', joiningDate: '2024-01-01' };
+
+/** What a pay run would compute for the same lines (the reference). */
+const payrollRun = (l: StructureLines, profile: PayProfile = PROFILE) =>
+  calculatePayslip({
+    employee: { id: 'e', ...profile },
+    salaryMap: { basicSalary: String(l.basic), gradePercent: '0', gradeAmount: String(l.gradeAmount) },
+    assignedHeads: payrollHeadsFor(l, HEADS),
+    attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+    loanDeduction: '0',
+    systemControl: { statutoryDeductionLimits: TAX.limits, insuranceDiscounts: TAX.insurance } as SystemControlData,
+    taxSlabs: SLABS,
+    isFestivalMonth: false,
+    isRemoteMonth: false,
+    isYearEnd: false,
+  });
+
+describe('Pay estimate = payroll (estimatePay → calculatePayslip)', () => {
+  const cases: [string, StructureLines, PayProfile][] = [
+    ['SSF', lines({ basic: 60000, gradeAmount: 4000, amounts: { tran: 5000, cit: 2000 }, computed: ['dear'] }), PROFILE],
+    ['PF', lines({ basic: 60000, gradeAmount: 4000, scheme: 'pf', amounts: { tran: 5000 } }), PROFILE],
+    ['none', lines({ basic: 45000, gradeAmount: 0, scheme: 'none' }), PROFILE],
+    ['married', lines({ basic: 80000, gradeAmount: 5000 }), { ...PROFILE, taxStatus: 'Married' }],
+    ['contract (15% flat)', lines({ basic: 50000, gradeAmount: 0, scheme: 'none' }), { ...PROFILE, category: 'Contract' }],
+    ['trainee (no SSF, no tax)', lines({ basic: 20000, gradeAmount: 0 }), { ...PROFILE, category: 'Trainee' }],
+  ];
+  for (const [name, l, profile] of cases) {
+    it(`${name}: same gross, deductions, tax and net payable as a pay run`, () => {
+      const e = estimatePay(l, HEADS, profile, TAX, settings);
+      const r = payrollRun(l, profile);
+      assert.equal(e.problem, undefined);
+      assert.equal(e.grossEarnings, Number(r.grossEarnings));
+      assert.equal(e.totalDeductions, Number(r.totalDeductions));
+      assert.equal(e.incomeTax, Number(r.tdsThisMonth));
+      assert.equal(e.netPayable, Number(r.netPayable));
+      // The breakdown adds up.
+      assert.equal(e.netPayable, Math.round((e.grossEarnings - e.totalDeductions) * 100) / 100);
+      assert.equal(e.totalSalary, e.basic + e.grade + e.allowances);
+      assert.equal(e.grossEarnings, Math.round((e.totalSalary + e.employerInEarnings) * 100) / 100);
+    });
+  }
+
+  it('SSF: the 20% is added to earnings and the 31% deducted; trainees get no SSF; married slabs differ', () => {
+    const ssf = estimatePay(lines({ basic: 60000, gradeAmount: 4000 }), HEADS, PROFILE, TAX, settings);
+    assert.equal(ssf.employerInEarnings, 12800);
+    assert.equal(ssf.retirementDeduction, 7040 + 12800);
+    assert.ok((ssf.incomeTax ?? 0) > 0);
+    const trainee = estimatePay(lines({ basic: 20000, gradeAmount: 0 }), HEADS, { ...PROFILE, category: 'Trainee' }, TAX, settings);
+    assert.equal(trainee.retirementDeduction, 0);
+    assert.equal(trainee.incomeTax, 0);
+    const single = estimatePay(lines({ basic: 80000, gradeAmount: 5000 }), HEADS, PROFILE, TAX, settings);
+    const married = estimatePay(lines({ basic: 80000, gradeAmount: 5000 }), HEADS, { ...PROFILE, taxStatus: 'Married' }, TAX, settings);
+    assert.ok((married.incomeTax ?? 0) < (single.incomeTax ?? 0));
+  });
+
+  it('PF cost to company adds the employer share; CIT counts as another deduction', () => {
+    const pf = estimatePay(lines({ basic: 60000, gradeAmount: 4000, scheme: 'pf', amounts: { cit: 3000 } }), HEADS, PROFILE, TAX, settings);
+    assert.equal(pf.employerInEarnings, 0);
+    assert.equal(pf.costToCompany, pf.grossEarnings + pf.retirementEmployer);
+    assert.equal(pf.otherDeductions, 3000);
+  });
+
+  it('deductions above earnings: a problem message, never a crash', () => {
+    const e = estimatePay(lines({ basic: 1000, gradeAmount: 0, scheme: 'none', amounts: { cit: 5000 } }), HEADS, PROFILE, TAX, settings);
+    assert.match(e.problem ?? '', /Deductions are more than earnings/);
+  });
+
+  it('a TDS head is always there for payroll, SSF heads only with SSF', () => {
+    const none = payrollHeadsFor(lines({ scheme: 'none' }), HEADS).map((h) => h.id);
+    assert.deepEqual(none, ['tds']);
+    const ssf = payrollHeadsFor(lines(), HEADS).map((h) => h.id).sort();
+    assert.deepEqual(ssf, ['ssf', 'ssfer', 'tds']);
+  });
+
+  it('the service works totals out with the employee (estimatePay) and the active fiscal year slabs', () => {
+    const src = read('lib/services/salary-structure.service.ts');
+    assert.match(src, /estimatePay\(lines, heads, pay\.profile, pay\.tax, settings\)/);
+    assert.match(src, /years\.find\(\(y\) => y\.status === "Active"\)/);
+  });
+});
+
+describe('New hires: basic + grade, then set up in Salary structure', () => {
+  const t = (over: Partial<TemplateRow>): TemplateRow => ({ id: 't', code: 'T', name: 'T', levelCodes: [], designationIds: [], basicMode: 'amount', basicAmount: 0, scheme: 'keep', heads: [], isActive: true, ...over });
+  const hire = { lines: lines({ scheme: 'none', amounts: {}, computed: [] }) };
+
+  it('only basic + grade from a hire counts as "to set up"', () => {
+    assert.equal(needsSetup(hire, 'hire'), true);
+    assert.equal(needsSetup(hire, 'single'), false);
+    assert.equal(needsSetup({ lines: lines({ scheme: 'none', amounts: { tran: 500 } }) }, 'hire'), false);
+    assert.equal(needsSetup({ lines: lines({ scheme: 'ssf' }) }, 'hire'), false);
+    assert.equal(needsSetup(null, 'hire'), false);
+  });
+
+  it('set-up keeps basic and grade, takes the template heads, and SSF when expected', () => {
+    const tpl = t({ basicAmount: 99999, heads: [{ payHeadId: 'tran', amount: 2500 }, { payHeadId: 'dear', amount: 0 }] });
+    const l = setupLines(hire.lines, tpl, true, HEADS, DEFAULT_GRADE_POLICY);
+    assert.equal(l.basic, 30000);
+    assert.equal(l.gradeAmount, 3000);
+    assert.deepEqual(l.amounts, { tran: 2500 });
+    assert.deepEqual(l.computed, ['dear']);
+    assert.equal(l.scheme, 'ssf');
+    assert.equal(setupLines(hire.lines, t({ scheme: 'pf' }), true, HEADS, DEFAULT_GRADE_POLICY).scheme, 'pf');
+    assert.equal(setupLines(hire.lines, null, false, HEADS, DEFAULT_GRADE_POLICY).scheme, 'none');
+  });
+
+  it('with no salary yet, the template basic applies (its amount, or the level start)', () => {
+    const none = { ...EMPTY_LINES };
+    const tpl = t({ basicAmount: 25000, heads: [{ payHeadId: 'tran', amount: 1000 }] });
+    const l = setupLines(none, tpl, true, HEADS, DEFAULT_GRADE_POLICY, { levelStart: 18000 });
+    assert.equal(l.basic, 25000);
+    assert.deepEqual(l.amounts, { tran: 1000 });
+    assert.equal(l.scheme, 'ssf');
+    assert.equal(setupLines(none, t({ basicMode: 'level_start' }), false, HEADS, DEFAULT_GRADE_POLICY, { levelStart: 18000 }).basic, 18000);
+    // Basic + grade from the employee form are still kept.
+    assert.equal(setupLines(hire.lines, tpl, true, HEADS, DEFAULT_GRADE_POLICY).basic, 30000);
+  });
+
+  it('a template leaves out pay heads limited to other departments / designations', () => {
+    const limited = HEADS.map((h) => (h.id === 'tran' ? { ...h, appliesTo: { departmentIds: ['it'], designationIds: [] } } : h));
+    const tpl = t({ basicAmount: 30000, heads: [{ payHeadId: 'tran', amount: 1000 }, { payHeadId: 'cit', amount: 500 }] });
+    assert.deepEqual(applyTemplate(tpl, lines(), limited, 0, DEFAULT_GRADE_POLICY, { departmentId: 'hr', designationId: 'x' }).amounts, { cit: 500 });
+    assert.deepEqual(applyTemplate(tpl, lines(), limited, 0, DEFAULT_GRADE_POLICY, { departmentId: 'it', designationId: 'x' }).amounts, { tran: 1000, cit: 500 });
+    // Without the employee (template previews) nothing is left out.
+    assert.deepEqual(applyTemplate(tpl, lines(), limited, 0, DEFAULT_GRADE_POLICY).amounts, { tran: 1000, cit: 500 });
+  });
+
+  it('an employee level saved as the code or the level name both match; anything else stays as saved', () => {
+    const levels = [{ code: 'S7', name: 'Level 7 (Senior Officer)' }];
+    assert.equal(resolveLevelCode('S7', levels), 'S7');
+    assert.equal(resolveLevelCode(' level 7 (senior officer) ', levels), 'S7');
+    assert.equal(resolveLevelCode('Level 7: Deputy', levels), 'Level 7: Deputy');
+  });
+
+  it('template coverage counts who each fits and names overlapping active templates', () => {
+    const a = t({ id: 'a', name: 'A', levelCodes: ['S5'] });
+    const b = t({ id: 'b', name: 'B' });
+    const c = t({ id: 'c', name: 'C', levelCodes: ['S9'], isActive: false });
+    const people = [{ levelCode: 'S5', designationId: 'd' }, { levelCode: 'S9', designationId: 'd' }];
+    const cov = templateCoverage([a, b, c], people);
+    assert.deepEqual(cov.get('a'), { count: 1, overlaps: ['B'] });
+    assert.deepEqual(cov.get('b'), { count: 2, overlaps: ['A'] });
+    assert.deepEqual(cov.get('c'), { count: 1, overlaps: [] });
+  });
+
+  it('deleting a template needs the Delete permission and is audited; salaries are not touched', () => {
+    const src = read('app/actions/salary-structure.actions.ts').replace(/\r\n/g, '\n');
+    assert.match(src, /export async function deleteSalaryTemplateAction[\s\S]*?checkPermissionWithScope\('DELETE', 'SALARY_MAPPING'\)[\s\S]*?recordAuditLog\(\{[^}]*action: 'DELETE'/);
+    const repo = read('lib/repositories/salary-structure.repository.ts').replace(/\r\n/g, '\n');
+    const body = repo.match(/export async function deleteTemplate[\s\S]*?\n\}/)![0];
+    assert.match(body, /delete\(salaryTemplates\)/);
+    assert.doesNotMatch(body, /employeeSalaryMap|salaryChangeBatches/);
+  });
+
+  it('templates that fit the level / designation come first; inactive ones are left out', () => {
+    const list = [t({ id: 'a', name: 'A', levelCodes: ['S5'] }), t({ id: 'b', name: 'B', levelCodes: ['S9'] }), t({ id: 'c', name: 'C', isActive: false })];
+    const { fitting, other } = templatesFor(list, { levelCode: 'S5', designationId: 'd' });
+    assert.deepEqual(fitting.map((x) => x.id), ['a']);
+    assert.deepEqual(other.map((x) => x.id), ['b']);
+  });
+
+  it('the set-up date is the joining date, or the first day payroll is still open', () => {
+    assert.equal(setupEffectiveFrom('2026-08-01', 'e', {}), '2026-08-01');
+    assert.equal(setupEffectiveFrom('2026-08-01', 'e', { e: '2026-09-16' }), '2026-09-17');
+  });
+
+  it('pay heads limited to departments / designations apply only there', () => {
+    const h = { appliesTo: { departmentIds: ['it'], designationIds: [] } };
+    assert.equal(headAppliesTo(h, { departmentId: 'it', designationId: 'x' }), true);
+    assert.equal(headAppliesTo(h, { departmentId: 'hr', designationId: 'x' }), false);
+    assert.equal(headAppliesTo({ appliesTo: { departmentIds: [], designationIds: [] } }, { departmentId: 'hr', designationId: 'x' }), true);
+  });
+
+  it('a set-up batch is accepted, may be unchanged, and only for new hires to set up', () => {
+    const b = normalizeBatch({ kind: 'setup', effectiveFrom: '2026-08-01', reason: 'Salary structure set up', rows: [{ employeeId: 'e', lines: lines() }] });
+    assert.equal(b.kind, 'setup');
+    const src = read('lib/services/salary-structure.service.ts');
+    // No structure at all is accepted too (Add new); a full structure is refused.
+    assert.match(src, /if \(input\.kind === "setup"\) \{[\s\S]*?if \(current && !needsSetup\([\s\S]*?already has a salary structure[\s\S]*?\} else if \(current && !changedLines\(current, lines\)\.length\) continue;/);
+  });
+
+  it('Add new / Bulk add cover employees with no structure or basic + grade only', () => {
+    assert.equal(needsStructure({ status: 'none' }), true);
+    assert.equal(needsStructure({ status: 'setup' }), true);
+    for (const s of ['current', 'future', 'pending']) assert.equal(needsStructure({ status: s }), false);
   });
 });
 

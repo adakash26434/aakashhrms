@@ -19,7 +19,7 @@ import type { BatchRow, SalaryStructureData } from "@/lib/types/salary-structure
 import { cn } from "@/lib/utils";
 import { APPROVAL_ROUTE_LABEL, ApprovalTimeline, ApproverStanding, batchStatusText, describeChanges, money, salaryActor } from "./salary-structure-approval";
 
-const KIND: Record<BatchRow["kind"], string> = { single: "One employee", bulk: "Bulk edit", import: "CSV import", hire: "Starting salary", policy: "Grade policy" };
+const KIND: Record<BatchRow["kind"], string> = { single: "One employee", bulk: "Bulk edit", import: "CSV import", hire: "Starting salary", policy: "Grade policy", setup: "Salary structure set up" };
 const STATUS: Record<BatchRow["status"], string> = { pending: "pending", approved: "approved", rejected: "rejected", withdrawn: "cancelled" };
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw";
@@ -334,13 +334,13 @@ export function SalaryStructureApprovals({ data, onSettings }: { data: SalaryStr
   );
 }
 
-/** What a batch does to monthly pay: gross, net before tax and employer cost (SSF / PF included). */
+/** What a batch does to monthly pay: total salary, net payable (income tax estimated) and cost to company. */
 function BatchEffect({ batch }: { batch: BatchRow }) {
   const sum = (pick: (t: BatchRow["lines"][number]["after"]["totals"]) => number) => batch.lines.reduce((n, l) => n + pick(l.after.totals) - (l.before ? pick(l.before.totals) : 0), 0);
   const items = [
-    { label: "Gross", value: sum((t) => t.gross) },
-    { label: "Net before tax", value: sum((t) => t.netBeforeTax) },
-    { label: "Employer cost", value: sum((t) => t.employerCost) },
+    { label: "Total salary", value: sum((t) => t.totalSalary) },
+    { label: "Net payable (est.)", value: sum((t) => t.netPayable) },
+    { label: "Cost to company", value: sum((t) => t.costToCompany) },
   ];
   return (
     <PaneFigures
@@ -353,7 +353,7 @@ function BatchEffect({ batch }: { batch: BatchRow }) {
   );
 }
 
-/** Each employee in the change: gross before and after, and what changed (the first ten, then "Show all"). */
+/** Each employee in the change: total salary before and after, and what changed (the first ten, then "Show all"). */
 function BatchLines({ batch, data }: { batch: BatchRow; data: SalaryStructureData }) {
   const { shown, toggle } = useShowAll(batch.lines, 10);
   return (
@@ -362,27 +362,28 @@ function BatchLines({ batch, data }: { batch: BatchRow; data: SalaryStructureDat
         <thead>
           <tr className="border-b border-line text-left text-3xs uppercase tracking-wide text-ink-muted">
             <th className="py-1">Employee</th>
-            <th className="py-1 text-right">Gross</th>
+            <th className="py-1 text-right">Total salary</th>
             <th className="py-1 text-right">New</th>
           </tr>
         </thead>
         <tbody>
           {shown.map((l) => {
-            const diff = l.after.totals.gross - (l.before?.totals.gross ?? 0);
+            const diff = l.after.totals.totalSalary - (l.before?.totals.totalSalary ?? 0);
+            const listed = l.before ? describeChanges(l.before.lines, l.after.lines, data.heads) : ["New structure"];
             return (
               <tr key={l.employeeId} className="border-b border-line align-top last:border-0">
                 <td className="py-1">
                   {l.fullName} <span className="font-code text-3xs text-ink-faint">{l.employeeCode}</span>
                   {l.employeeId === data.me.employeeId && <span className="ml-1 text-3xs font-semibold text-warning">you</span>}
-                  {(l.before ? describeChanges(l.before.lines, l.after.lines, data.heads) : ["New structure"]).map((p) => (
+                  {(listed.length ? listed : ["Confirmed: basic + grade only"]).map((p) => (
                     <span key={p} className="block text-3xs text-ink-muted">
                       {p}
                     </span>
                   ))}
                 </td>
-                <td className="py-1 text-right text-ink-muted">{l.before ? <Amount value={l.before.totals.gross} /> : "—"}</td>
+                <td className="py-1 text-right text-ink-muted">{l.before ? <Amount value={l.before.totals.totalSalary} /> : "—"}</td>
                 <td className="py-1 text-right font-medium">
-                  <Amount value={l.after.totals.gross} />
+                  <Amount value={l.after.totals.totalSalary} />
                   {diff !== 0 && (
                     <span className={cn("ml-1 text-3xs", diff > 0 ? "text-success" : "text-danger")}>
                       {diff > 0 ? "+" : ""}

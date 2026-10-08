@@ -6,6 +6,7 @@ import {
 import { eq, and, ilike, or, SQL, sql } from 'drizzle-orm';
 import type { Employee, EmployeeFilter, EmployeeStatus } from '@/lib/types/employee';
 import type { EmployeeDocumentInput } from '@/lib/types/employee-document';
+import { employeesNeedingSetup } from './salary-structure.repository';
 import { employeesWithIdentityScan, findDocuments, saveDocumentsTx } from './employee-document.repository';
 import { findPhotoIdFor, photoIdsByEmployee, savePhotoTx } from './employee-photo.repository';
 
@@ -24,6 +25,16 @@ async function photoIds(): Promise<Map<string, string>> {
   } catch (error) {
     console.error('[EMPLOYEE_REPOSITORY] photos unavailable:', error instanceof Error ? error.message.slice(0, 120) : error);
     return new Map();
+  }
+}
+
+/** Who still has only basic + grade from the employee form (4.4b); undefined if it cannot be read. */
+async function salarySetups(): Promise<Set<string> | undefined> {
+  try {
+    return await employeesNeedingSetup();
+  } catch (error) {
+    console.error('[EMPLOYEE_REPOSITORY] salary set-up check unavailable:', error instanceof Error ? error.message.slice(0, 120) : error);
+    return undefined;
   }
 }
 
@@ -219,10 +230,11 @@ export async function findAll(filter: EmployeeFilter, scopeCondition?: SQL<unkno
     }
   }
 
-  const [scans, photos] = await Promise.all([identityScans(), photoIds()]);
+  const [scans, photos, setups] = await Promise.all([identityScans(), photoIds(), salarySetups()]);
   return Array.from(uniqueEmpsMap.values()).map((r) => ({
     ...mapRowToEmployee(r),
     identityScanMissing: scans ? !scans.has(r.employees.id) : undefined,
+    salarySetupMissing: setups ? setups.has(r.employees.id) : undefined,
     photoId: photos.get(r.employees.id) ?? null,
   }));
 }
@@ -259,7 +271,8 @@ export async function findById(id: string): Promise<Employee | undefined> {
     .where(eq(employees.id, id));
 
   if (!rows.length) return undefined;
-  const employee = mapRowToEmployee(rows[0] as EmployeeJoinedRow);
+  const setups = await salarySetups();
+  const employee = { ...mapRowToEmployee(rows[0] as EmployeeJoinedRow), salarySetupMissing: setups ? setups.has(id) : undefined };
   try {
     const [documents, scans, photoId] = await Promise.all([findDocuments(id), employeesWithIdentityScan(), findPhotoIdFor(id)]);
     return { ...employee, documents, identityScanMissing: !scans.has(id), photoId };

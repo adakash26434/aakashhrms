@@ -70,11 +70,11 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
             { label: "Basic salary", value: <Amount value={basic} prefix="NPR" />, tone: basic > 0 ? undefined : "warning" },
             { label: "Grade", value: <span>{p.gradeCount ?? 0} grade{(p.gradeCount ?? 0) === 1 ? "" : "s"} · <Amount value={grade} prefix="NPR" /></span> },
             { label: "Grade worked out", value: p.gradeBasis, tone: p.gradeManual ? undefined : "muted" },
-            { label: "Total base pay", value: <Amount value={basic + grade} prefix="NPR" emphasis />, wide: true },
+            { label: "Basic + grade", value: <Amount value={basic + grade} prefix="NPR" emphasis />, wide: true },
           ]}
         />
         <p className="mt-3 text-3xs text-ink-faint">
-          Allowances, deductions and pay changes (dated revisions) are in{" "}
+          The full salary (allowances, SSF / PF, deductions, net payable) and pay changes are in{" "}
           <Link href={`/workforce/salary-mapping?employee=${p.id}`} className="font-medium text-brand-strong hover:underline">
             Salary structure
           </Link>

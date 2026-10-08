@@ -13,6 +13,125 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-07 — 4.4b Salary structure: clear breakdown, new hires set up in Salary structure
+Branch: `redesign/4.4b-salary-structure` (from `main` = v0.2.0)
+
+**Your decisions:**
+- The employee form stays as it is (basic + grade).
+- The full salary is set up in Salary structure, one by one or in bulk, as a salary sheet.
+- SSF is shown payslip-style (+20% in earnings, −31% deducted).
+- An income tax estimate gives Net payable.
+- Setting up a new hire follows the approval settings.
+- Research (Zoho Payroll, greytHR, Keka, NepalHRM, SSF guides): components → templates → per-employee dated salary (single or bulk, with approval) → a salary register of earnings, deductions and net.
+
+**Changed:**
+- **Engine** (`salary-structure.engine.ts`):
+  - `estimatePay` calls payroll's `calculatePayslip`, so the preview and payroll can't drift;
+  - `payrollHeadsFor` builds the heads payroll uses (TDS always, both SSF heads with SSF);
+  - `structureTotals` gives the payslip-style breakdown without tax;
+  - `needsSetup`, `setupLines`, `setupEffectiveFrom`, `templatesFor`, `headAppliesTo`.
+- **`StructureTotals`** now has basic, grade, allowances, total salary, employer in earnings, gross earnings, retirement deduction, other deductions, income tax, total deductions, net payable, cost to company and named items; `gross` / `employerCost` are gone.
+- **Service:**
+  - the totals are estimated with each employee's tax profile and the active fiscal year's slabs;
+  - row status `setup` and `ssfExpected` (company has SSF + employment type eligible);
+  - batch kind `setup` (only for those rows; may be unchanged);
+  - `employeesNeedingSetup()` in the repository feeds Records to fix ("Salary structure not set up", Fix → Salary structure).
+- **Screens:**
+  - new `SalaryBreakdown` component;
+  - register as a salary sheet, with the set-up banner;
+  - detail pane: Total salary / Net payable (est.) / Cost to company, plus the breakdown;
+  - Revise / Set-up window: template picker, set-up defaults, the live breakdown;
+  - Bulk edit: "Set up in bulk" mode, and Total salary / Total deductions / Net payable (est.) columns;
+  - Approvals: Total salary / Net payable / Cost to company; "Salary structure set up" kind;
+  - the letter shows the breakdown (previous / revised);
+  - the record's Pay card says "Basic + grade" and points to Salary structure.
+- **Pay heads limited to departments / designations** are offered only there.
+- **Employee form:**
+  - the "Re-enter account no." field is removed (your decision: only a hassle); the account number is typed once;
+  - with "Create a login" set to No, its hint now says no login is made (it used to keep saying a password is emailed).
+- **No migration.**
+
+**Verified:**
+- tsc 0, 773/773 tests:
+  - `estimatePay` equal to a pay run for SSF, PF, none, married, contract and trainee;
+  - the breakdown adds up;
+  - a problem message when deductions exceed earnings;
+  - set-up rules;
+  - two older tests now read files with LF line endings (git on Windows had checked them out as CRLF).
+- eslint clean on the touched files (`employee.repository.ts` has its 5 older errors, unchanged).
+- `npm run build` OK.
+- **Browser (Goodlife finance, read-only):**
+  - the register's salary-sheet columns and totals;
+  - Sumina's breakdown (total salary 45,166.67, SSF employer 7,233.33, gross earnings 52,400, SSF 31% 11,211.66, tax 0, net payable 41,188.34), the same layout as her Shrawan payslip (gross with the 20%, SSF 31%, TDS 0);
+  - the Revise window's live breakdown;
+  - the Approvals detail (Kushal's CIT change: net payable −1,500);
+  - the letter.
+  - Console 0 errors.
+
+- **TEST ONLY run (your OK), on Goodlife finance:**
+  - Two TEST ONLY hires were added through the employee form; the Bank tab had no re-enter field.
+  - **Register:** each showed "Basic + grade only", the banner and "N to set up". The record showed "Salary structure not set up" under Records to fix.
+  - **Set up one by one:**
+    - the window opened with the joining date, reason "Salary structure set up" and SSF chosen (company has SSF, Permanent eligible);
+    - adding a 3,000 allowance updated the breakdown as typed (total salary 35,000, gross earnings 41,400, SSF 31% 9,920, net payable 31,480);
+    - Submit for approval → "Change waiting";
+    - Approvals showed +3,000 total salary, −200 net payable (SSF 11% replaces the 1% tax of 320) and +9,400 cost to company;
+    - after Final approve: "Current", banner gone.
+  - **Set up in bulk:** only the new hire, SSF filled, date = joining date; review "Scheme None → SSF"; Save and approve → "Current".
+  - **Clean-up:** both employees, their 6 batches, 12 approval steps and the one test login were then removed (`scratch/cleanup-test-only.ts`, a dry run first). Audit entries are kept.
+- **Fixed on the way:** after a Bulk edit save, Next.js reloaded the whole page, so the "Saved …" message never showed. This happened in 4.4 too. The cause was changing the address and refreshing while the save's own page update was being applied. The tab now changes at once and the address just after; the save already sends the fresh page. Checked: no reload, and the message shows.
+
+**Add new / Bulk add buttons (your request):**
+- **Toolbar:** Add new (primary, Ctrl+N) · Bulk add · Revise salary (F2) · Bulk edit. Add new / Bulk add are for employees with no structure or only basic + grade; Revise salary / Bulk edit for those with one. Revise salary no longer turns into "Set up" / "New structure"; for someone without a structure it is disabled with "use Add new".
+- **Add new** opens a picker of the employees needing a structure (new `salary-structure-add-window.tsx`), then the Add salary structure window.
+- **Bulk add** opens the bulk table with all of them pre-filled (template, SSF); rows can be removed or added (only those needing a structure).
+- **Employees with no structure at all** (e.g. saved with basic 0) are now covered too: the server accepts a `setup` batch for them (`needsStructure` in the engine; a full structure is still refused, "already has a salary structure").
+- The banner and the detail pane use the same names (Add new, Bulk add, Add salary structure).
+- **Fixed:** the toolbar read the selected row as it was when clicked, so after a save Revise salary could stay disabled; the selection is now kept by id and read from the fresh data.
+- **Checked (TEST ONLY, your earlier OK):** two copies of an employee with no structure (`scratch/make-test-only.ts`). Add new → picker → window (SSF chosen, live breakdown: total salary 34,000, net payable 30,480) → Save and approve → Current. Bulk add → only the other one → basic 25,000 → review "1 salary structure to add" → Submit for approval (no page reload) → Final approve → Current. Add new / Bulk add then disabled. Console 0 errors. Both removed afterwards (2 employees, 2 batches, 4 approval steps). Tests 774/774, tsc 0, eslint clean on salary-mapping.
+
+**Templates review and the fixes from it (your go-ahead):**
+- **Fixed:**
+  - **Level matching:** an employee's saved level now matches a level by code or by name (`resolveLevelCode`). Pramod (EMP-002) has "Level 7: Deputy / Assistant Manager (तह ७: …)", which matches neither: his detail pane now says "Level not in the level list" with a link to correct it; templates by level and the level's scale do not apply until it is corrected. **His record was not changed** (real data).
+  - **Add new with a template for someone with no salary:** the template's basic now applies (its amount, or the level's starting salary). Basic + grade from the employee form are still kept.
+  - **Pay heads limited to other departments / designations** are left out when a template is applied to that person (Add new, Revise, Bulk edit, Apply to employees).
+  - **"Make inactive"** now reports a failure instead of ignoring it.
+  - **"Sent for approval…" message:** hidden once that change has been approved or rejected (it stayed on screen before).
+- **Templates tab:**
+  - list: **Employees** column (how many it fits, "overlaps" when another active template fits some of the same people); a warning on "Level's starting salary" when a level has none (only S1 and S2 have one at Goodlife); Pay heads count hidden by default; columns narrowed so Actions fit;
+  - **Apply to employees:** opens Bulk edit with everyone it fits (those with a change waiting are left out), the template applied and the reason filled in, ready to review and send through approval;
+  - editor (full-size): levels with their names; pay heads under Allowances / Deductions / Worked out by payroll; "limited" only when Pay heads really leaves some department or designation out (Goodlife's heads have all ticked = everyone); warnings for overlaps and missing starting salaries; **live Preview** of the breakdown for an employee it fits; "Fits N employees now"; the text now says a template fills a salary once and editing it changes nobody.
+- **Bulk edit:** applying a template says it replaces the allowances and deductions and how many rows it did not fit; **Undo template** puts the rows back.
+- **Print wording and layout (your request):**
+  - "letter" is gone from the screens: the toolbar reads **Print salary revision**, the history link and the print page's button read **Print**, the browser tab "Salary revision".
+  - On the printed page the line closing Earnings (Gross earnings, or Total salary without SSF), the one closing Deductions (Total deductions) and the one under Net payable are darker and 2 px thick, so the parts stand apart.
+  - Someone's first salary (nothing before it) prints as "Salary structure … Your salary is set with effect from …" instead of "has been revised", with the amount column headed "Amount" and without "All other terms … remain unchanged".
+  - Checked in the browser (print view) on Kushal's two revisions: the revision (previous / revised / change, CIT +1,500, net payable −1,500) and his first salary; the three dark rules show; console 0 errors.
+- **Delete template (your request):** a Delete action in the Templates list, with a confirmation that says salaries already filled from it do not change (each revision keeps its own amounts; nothing points at a template), how many employees it fits now, and that Make inactive keeps it instead. Needs the **Delete** permission on Salary structure (the HR preset has View / Add / Edit / Export, so HR users see Make inactive but not Delete unless a role grants it); audited as DELETE with the template's code and name. Checked: a TEST ONLY template created and deleted through the screen; the list fits without sideways scrolling. Tests 779/779.
+- **Checked (TEST ONLY):** a "TEST ONLY template" (level S2, basic from level, fuel 1,500) showed the preview for Kushal (total salary 23,500, net payable 21,080, his CIT dropped as a template replaces deductions) and "Fits 1"; Apply to employees opened Bulk edit with Kushal and the template applied (not sent); in Bulk edit, Apply then Undo template brought back his CIT 1,500. Pramod's pane showed the level notice. The template was then deleted (`scratch/delete-test-template.ts`); nothing was saved for Kushal. Console 0 errors. Tests 778/778, tsc 0, eslint clean on salary-mapping, `npm run build` OK.
+
+**Notes:**
+- **Found:** payroll loads tax slabs of every fiscal year (`taxRateRepository.findAllSlabs()` in `payroll.service.ts`); the estimate uses the active year's. Fix in 4.8.
+
+---
+
+## 2026-10-07 — Deploy result (v0.2.0 live)
+Branch: `redesign/4.4b-salary-structure`
+
+**v0.2.0 is live on Yeti Cloud** (`56314a9`, tag `deploy-2026-10-07`).
+- All 4 company databases synced; build and start were clean.
+- `docs/deployment/yeti-cloud.md` now records:
+  - the result in the release log;
+  - the server's PostgreSQL 16.15;
+  - the backup method that worked: `pg_dump` through the database host name as `webadmin`, one line at a time.
+
+**Follow-ups:**
+- change the database password (it was shown in a screenshot);
+- set `FORCE_SSL=true`;
+- quieten the "column already exists" notices.
+
+---
+
 ## 2026-10-07 — Deploy to Yeti Cloud (first redesign release, v0.2.0)
 Branch: `redesign/4.4b-salary-structure` → fast-forwarded into `main`, tagged `deploy-2026-10-07`
 

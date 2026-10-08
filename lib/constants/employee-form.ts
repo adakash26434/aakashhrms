@@ -144,7 +144,6 @@ export function fieldLabel(field: string): string {
 
 /** The form tab a field, or an error key such as documents.0.number, is on. */
 export function sectionOfField(field: string): string | undefined {
-  if (field === "bankAccountConfirm") return "bank";
   const base = field.split(".")[0];
   return EMPLOYEE_FORM_SECTIONS.find((s) => s.id === base || s.fields.includes(base as EmployeeField))?.id;
 }

@@ -85,7 +85,6 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [codes, setCodes] = useState(ctx.codes);
-  const [accountConfirm, setAccountConfirm] = useState("");
   const [sameAddress, setSameAddress] = useState(() => !ctx.initial.temporaryAddress || ctx.initial.temporaryAddress === ctx.initial.permanentAddress);
   const defaultRole = ctx.roles.find((r) => r.slug === "employee") ?? ctx.roles[0];
   const [access, setAccess] = useState<EmployeeAccessOptions>(() =>
@@ -109,7 +108,6 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(baseline), [form, baseline]);
   const leave = useUnsavedGuard(dirty && saving === null);
-  const needsConfirm = !!form.bankAccountNumber && form.bankAccountNumber !== baseline.bankAccountNumber;
   // Status is changed with the Active / Inactive switch (it also turns the login off), not in this form.
   const showSeparation = ctx.initial.status === "Inactive";
   const fieldHelp = useFieldHelp();
@@ -184,10 +182,9 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
     temporaryAddress: sameAddress ? form.permanentAddress : form.temporaryAddress,
   });
 
-  /** Every check the save makes, plus the form-only ones (codes, re-typed account). */
+  /** Every check the save makes, plus the form-only one (codes). */
   const checkAll = (data: EmployeeFormData): EmployeeValidationErrors => {
     const all: EmployeeValidationErrors = { ...validateEmployee(data), ...codeConflicts(codes, data, ctx.employeeId) };
-    if (needsConfirm && accountConfirm !== data.bankAccountNumber) all.bankAccountConfirm = "The account numbers do not match";
     // validateEmployee also reports aliases of these fields under old names; keep one message each.
     delete all.email;
     delete all.address1;
@@ -198,9 +195,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
   const validate = (name: string): boolean => {
     let field = name;
     let message: string | null = null;
-    if (name === "bankAccountConfirm") {
-      message = accountConfirm === form.bankAccountNumber ? null : "The account numbers do not match";
-    } else if (name.startsWith("permanentAddress.")) {
+    if (name.startsWith("permanentAddress.")) {
       field = "permanentAddress";
       const part = name.split(".")[1];
       const a = parseStructuredAddress(form.permanentAddress);
@@ -242,7 +237,6 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       setForm(fresh);
       setErrors({});
       setAttempted(false);
-      setAccountConfirm("");
       setSameAddress(true);
       setSavedCount((n) => n + 1);
       openTab("general", "fullName");
@@ -322,7 +316,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
               {errorList.slice(0, 12).map(([field, message]) => (
                 <li key={field}>
                   <button type="button" onClick={() => focusField(field)} className="cursor-pointer text-left underline underline-offset-2 hover:no-underline">
-                    {field === "bankAccountConfirm" ? "Re-enter account number" : fieldLabel(field)}: {message}
+                    {fieldLabel(field)}: {message}
                   </button>
                 </li>
               ))}
@@ -365,15 +359,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
               <EmployeeFormDocuments api={api} />
               <EmployeeFormContact api={api} sameAddress={sameAddress} onSameAddress={setSameAddress} />
               <EmployeeFormFamily api={api} />
-              <EmployeeFormBank
-                api={api}
-                confirm={accountConfirm}
-                needsConfirm={needsConfirm}
-                onConfirm={(v) => {
-                  setAccountConfirm(v);
-                  clearError("bankAccountConfirm");
-                }}
-              />
+              <EmployeeFormBank api={api} />
               <EmployeeFormAccess api={api} options={access} onOptions={setAccess} />
               {showSeparation && <EmployeeFormSeparation api={api} />}
             </PropertyForm>

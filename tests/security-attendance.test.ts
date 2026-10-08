@@ -9,7 +9,8 @@ import { availableActions } from '../lib/engines/approval.engine';
 // row per day, month close guards, payroll never unlocks or writes, scoped
 // and audited report export.
 
-const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
+// LF line endings whatever git checked out (core.autocrlf writes CRLF on Windows).
+const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const actions = read('app/actions/attendance.actions.ts');
 const service = read('lib/services/attendance.service.ts');
 const repo = read('lib/repositories/attendance.repository.ts');

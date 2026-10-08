@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Columns3, Download, FileUp, ListPlus, Send, Trash2, Wand2 } from "lucide-react";
+import { Columns3, Download, FileUp, ListPlus, Send, Trash2, Undo2, Wand2 } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
+import { Notice } from "@/components/kit/notice";
 import { useDateText } from "@/components/kit/date-cell";
 import { SaveButtons, SaveOutcome, describeChanges, money, saveOutcome, usePayrollLock } from "./salary-structure-approval";
 import { DateField } from "@/components/kit/date-field";
@@ -20,16 +21,21 @@ import {
   EMPTY_LINES,
   applyTemplate,
   changedLines,
+  estimatePay,
   gradeAmountFor,
+  headAppliesTo,
   matchImport,
-  structureTotals,
+  needsStructure,
+  setupEffectiveFrom,
+  setupLines,
   templateFits,
+  templatesFor,
   largeChangeWarning,
   validateLines,
   type ImportColumn,
 } from "@/lib/engines/salary-structure.engine";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
-import type { RetirementScheme, SalaryStructureData, StructureLines, StructureRow, StructureTotals } from "@/lib/types/salary-structure";
+import type { RetirementScheme, SalaryStructureData, StructureLines, StructureRow, StructureTotals, TemplateRow } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
 
 interface GridRow {
@@ -63,24 +69,59 @@ function readHidden(): string[] {
  * Load rows by branch / department / level (or add one person), edit with
  * the keyboard, paste from Excel, fill down, apply a template, or import a
  * CSV; then review the changes and send them as one batch.
+ *
+ * Bulk add (4.4b): everyone with no structure yet or only basic + grade, each
+ * filled from the first template that fits and SSF where expected, sent as
+ * one set-up batch (unchanged rows confirm basic + grade only).
+ *
+ * From a template (Templates → Apply to employees): everyone it fits, with the
+ * template applied, ready to check and send through approval.
  */
-export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructureData; onSubmitted: (result: SubmitResult) => void }) {
+export function SalaryStructureBulk({
+  data,
+  onSubmitted,
+  setup = false,
+  onLeaveSetup,
+  templatePreset = null,
+}: {
+  data: SalaryStructureData;
+  onSubmitted: (result: SubmitResult) => void;
+  setup?: boolean;
+  onLeaveSetup?: () => void;
+  /** Opened from a template's "Apply to employees". */
+  templatePreset?: string | null;
+}) {
   const policy = data.gradePolicy;
   const settings = useMemo(() => ({ ssfBase: data.ssfBase, pfPercent: data.pfPercent }), [data.ssfBase, data.pfPercent]);
   const manualPolicy = policy?.calculationMethod === "MANUAL_INPUT";
   const gradesOff = policy?.calculationMethod === "DISABLED_NO_GRADES";
   const byId = useMemo(() => new Map(data.rows.map((r) => [r.employeeId, r])), [data.rows]);
   const levelStart = useCallback((code: string) => data.levels.find((l) => l.code === code || l.name === code)?.minSalary ?? 0, [data.levels]);
+  const preset = data.templates.find((t) => t.id === templatePreset) ?? null;
 
-  const [ids, setIds] = useState<string[]>([]);
-  const [edited, setEdited] = useState<Record<string, StructureLines>>({});
+  // Bulk add starts with everyone who needs a structure (each filled by startLines below);
+  // Apply to employees with everyone the template fits.
+  const [initial] = useState(() => {
+    if (preset && !setup) {
+      const list = data.rows.filter((r) => r.status !== "pending" && templateFits(preset, r));
+      return { ids: list.map((r) => r.employeeId), effectiveFrom: nepalDateIso(), reason: `Template "${preset.name}" applied`, spread: false, left: data.rows.filter((r) => r.status === "pending" && templateFits(preset, r)).length };
+    }
+    if (!setup) return { ids: [] as string[], effectiveFrom: nepalDateIso(), reason: "", spread: false, left: 0 };
+    const list = data.rows.filter(needsStructure);
+    // One date for the batch: the latest of their start dates (set up one by one to use each joining date).
+    const dates = list.map((r) => setupEffectiveFrom(r.joiningDate, r.employeeId, data.finalisedUntil)).sort();
+    return { ids: list.map((r) => r.employeeId), effectiveFrom: dates[dates.length - 1] ?? nepalDateIso(), reason: "Salary structure set up", spread: dates.length > 1 && dates[0] !== dates[dates.length - 1], left: 0 };
+  });
+  const [ids, setIds] = useState<string[]>(initial.ids);
   const [serverErrors, setServerErrors] = useState<Record<string, Record<string, string>>>({});
   const [filters, setFilters] = useState({ branch: "", dept: "", level: "" });
-  const [effectiveFrom, setEffectiveFrom] = useState(nepalDateIso());
+  const [effectiveFrom, setEffectiveFrom] = useState(initial.effectiveFrom);
   const dateText = useDateText();
   const payrollLock = usePayrollLock(data);
-  const [reason, setReason] = useState("");
-  const [templateId, setTemplateId] = useState("");
+  const [reason, setReason] = useState(initial.reason);
+  const [templateId, setTemplateId] = useState(preset?.id ?? "");
+  // The table as it was before the last template was applied (Undo template).
+  const [undo, setUndo] = useState<{ edited: Record<string, StructureLines>; name: string } | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
   // Browser storage is only readable after hydration.
@@ -89,14 +130,48 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
   const [chooser, setChooser] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState<false | "submit" | "approve">(false);
-  const [notice, setNotice] = useState<{ tone: "info" | "warning" | "danger"; text: string; list?: string[] } | null>(null);
+  const [notice, setNotice] = useState<{ tone: "info" | "warning" | "danger"; text: string; list?: string[] } | null>(() =>
+    preset && !setup
+      ? {
+          tone: "info",
+          text: `Template "${preset.name}" applied to the ${initial.ids.length} employee${initial.ids.length === 1 ? "" : "s"} it fits: their allowances and deductions are replaced by the template's. Check the rows, remove anyone it should not change, then review and send.${initial.left ? ` ${initial.left} with a change waiting for approval are left out.` : ""}`,
+        }
+      : null
+  );
   const [imported, setImported] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // A row's starting lines. Bulk add: from the first template that fits and SSF where
+  // expected, keeping the basic + grade from the employee form (else the level's scale).
   const startLines = useCallback(
-    (r: StructureRow): StructureLines => r.current?.lines ?? { ...EMPTY_LINES, basic: levelStart(r.levelCode), scheme: "ssf" },
-    [levelStart]
+    (r: StructureRow): StructureLines => {
+      if (setup && needsStructure(r)) {
+        const from = r.current?.lines ?? { ...EMPTY_LINES, basic: levelStart(r.levelCode) };
+        return setupLines(from, templatesFor(data.templates, r).fitting[0] ?? null, r.ssfExpected, data.heads, policy, { levelStart: r.current ? null : levelStart(r.levelCode), employee: r });
+      }
+      return r.current?.lines ?? { ...EMPTY_LINES, basic: levelStart(r.levelCode), scheme: "ssf" };
+    },
+    [levelStart, setup, data.templates, data.heads, policy]
   );
+
+  /** A template on one row: as Add new does for someone needing a structure, else as a revision. */
+  const fillFrom = useCallback(
+    (t: TemplateRow, r: StructureRow, l: StructureLines): StructureLines =>
+      setup && needsStructure(r)
+        ? setupLines(l, t, r.ssfExpected, data.heads, policy, { levelStart: r.current ? null : levelStart(r.levelCode), employee: r })
+        : applyTemplate(t, l, data.heads, levelStart(r.levelCode), policy, r),
+    [setup, data.heads, policy, levelStart]
+  );
+
+  const [edited, setEdited] = useState<Record<string, StructureLines>>(() => {
+    if (!preset || setup) return {};
+    const out: Record<string, StructureLines> = {};
+    for (const id of initial.ids) {
+      const r = byId.get(id)!;
+      out[id] = fillFrom(preset, r, startLines(r));
+    }
+    return out;
+  });
 
   const rows: GridRow[] = useMemo(
     () =>
@@ -111,18 +186,20 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
             row: r,
             lines,
             original,
-            totals: structureTotals(lines, data.heads, settings),
+            // As payroll would pay it, income tax estimated (the same calculatePayslip).
+            totals: estimatePay(lines, data.heads, r.profile, data.tax, settings),
             originalTotals: r.current?.totals ?? null,
             errors: { ...check.errors, ...(serverErrors[r.employeeId] ?? {}) },
             warnings: { ...check.warnings, ...(largeChangeWarning(original?.basic, lines.basic) && !check.warnings.basic ? { basic: largeChangeWarning(original?.basic, lines.basic)! } : {}) },
-            changed: !original || changedLines(original, lines).length > 0,
+            // In set-up every row is sent: an unchanged one confirms basic + grade only.
+            changed: setup || !original || changedLines(original, lines).length > 0,
           };
         }),
-    [ids, byId, edited, data.heads, settings, levelStart, startLines, serverErrors]
+    [ids, byId, edited, data.heads, data.tax, settings, levelStart, startLines, serverErrors, setup]
   );
 
-  /** Rows that can be loaded: active, not already in the table, with no change waiting. */
-  const loadable = (r: StructureRow) => r.status !== "pending" && !ids.includes(r.employeeId);
+  /** Rows that can be loaded: active, not already in the table, with no change waiting (Bulk add: those needing a structure). */
+  const loadable = (r: StructureRow) => r.status !== "pending" && !ids.includes(r.employeeId) && (!setup || needsStructure(r));
   const waiting = data.rows.filter((r) => r.status === "pending").length;
 
   const loadRows = () => {
@@ -147,6 +224,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
 
   const onChange = (changes: GridValueChange[]) => {
     setServerErrors({});
+    setUndo(null);
     for (const ch of changes) {
       setLines(ch.rowId, (l) => {
         const v = ch.value;
@@ -199,6 +277,10 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
       });
     }
     cols.push({ id: "scheme", header: "Scheme", group: "Base pay", kind: "choice", width: 78, options: SCHEME_OPTIONS, value: (r) => r.lines.scheme, original: (r) => r.original?.scheme ?? "none", hint: "SSF, PF or None" });
+    // Pay heads set for some departments / designations only (Pay heads) can be typed
+    // only for those employees; one already held outside its list stays, with a warning.
+    const forRow = (h: (typeof amountHeads)[number], r: GridRow) => headAppliesTo(h, r.row);
+    const outside = "This pay head is set for other departments / designations (Pay heads)";
     for (const h of amountHeads.filter((x) => !hidden.includes(x.id))) {
       cols.push({
         id: `head:${h.id}`,
@@ -208,8 +290,9 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
         width: 116,
         value: (r) => r.lines.amounts[h.id] ?? 0,
         original: (r) => r.original?.amounts[h.id] ?? 0,
+        editable: (r) => forRow(h, r) || (r.lines.amounts[h.id] ?? 0) > 0,
         error: (r) => r.errors[h.id],
-        warning: (r) => r.warnings[h.id],
+        warning: (r) => r.warnings[h.id] ?? (!forRow(h, r) && (r.lines.amounts[h.id] ?? 0) > 0 ? outside : undefined),
         hint: h.rule,
       });
     }
@@ -222,19 +305,21 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
         width: 104,
         value: (r) => r.lines.computed.includes(h.id),
         original: (r) => !!r.original?.computed.includes(h.id),
+        editable: (r) => forRow(h, r) || r.lines.computed.includes(h.id),
         hint: h.rule,
       });
     }
     cols.push(
-      { id: "gross", header: "Gross", group: "Monthly", kind: "readonly", width: 112, value: (r) => r.totals.gross, format: money, hint: "Basic + grade + allowances" },
-      { id: "net", header: "Net before tax", group: "Monthly", kind: "readonly", width: 120, value: (r) => r.totals.netBeforeTax, format: money, hint: "Gross − deductions − SSF / PF (employee)" },
+      { id: "totalSalary", header: "Total salary", group: "Monthly", kind: "readonly", width: 116, value: (r) => r.totals.totalSalary, format: money, hint: "Basic + grade + allowances" },
+      { id: "totalDeductions", header: "Total deductions", group: "Monthly", kind: "readonly", width: 120, value: (r) => r.totals.totalDeductions, format: money, hint: "SSF 31% / PF + other deductions + income tax (estimate)" },
+      { id: "netPayable", header: "Net payable (est.)", group: "Monthly", kind: "readonly", width: 128, value: (r) => r.totals.netPayable, format: money, hint: "Gross earnings (total salary + SSF employer 20%) − total deductions" },
       {
         id: "change",
         header: "Change",
         group: "Monthly",
         kind: "readonly",
         width: 104,
-        value: (r) => r.totals.gross - (r.originalTotals?.gross ?? 0),
+        value: (r) => r.totals.totalSalary - (r.originalTotals?.totalSalary ?? 0),
         format: (v) => {
           const n = Number(v);
           if (!n) return <span className="text-ink-faint">—</span>;
@@ -247,10 +332,10 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
 
   const changedRows = rows.filter((r) => r.changed);
   const errorRows = rows.filter((r) => Object.keys(r.errors).length);
-  const before = changedRows.reduce((n, r) => n + (r.originalTotals?.gross ?? 0), 0);
-  const after = changedRows.reduce((n, r) => n + r.totals.gross, 0);
-  // Employer cost (gross + SSF / PF employer share): the budget effect of the change.
-  const costChange = changedRows.reduce((n, r) => n + r.totals.employerCost - (r.originalTotals?.employerCost ?? 0), 0);
+  const before = changedRows.reduce((n, r) => n + (r.originalTotals?.totalSalary ?? 0), 0);
+  const after = changedRows.reduce((n, r) => n + r.totals.totalSalary, 0);
+  // Cost to company (gross earnings + PF employer): the budget effect of the change.
+  const costChange = changedRows.reduce((n, r) => n + r.totals.costToCompany - (r.originalTotals?.costToCompany ?? 0), 0);
 
   // ---------------------------------------------------------------------------
   // Templates, CSV
@@ -259,15 +344,25 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
   const applyTemplateToRows = () => {
     const t = data.templates.find((x) => x.id === templateId);
     if (!t) return;
-    const targets = (selectedRows.length > 1 ? selectedRows : ids).filter((id) => {
-      const r = byId.get(id)!;
-      return templateFits(t, { levelCode: r.levelCode, designationId: r.designationId });
-    });
+    const scope = selectedRows.length > 1 ? selectedRows : ids;
+    const targets = scope.filter((id) => templateFits(t, byId.get(id)!));
+    setUndo({ edited, name: t.name });
     for (const id of targets) {
       const r = byId.get(id)!;
-      setLines(id, (l) => applyTemplate(t, l, data.heads, levelStart(r.levelCode), policy));
+      setLines(id, (l) => fillFrom(t, r, l));
     }
-    setNotice({ tone: "info", text: `Template "${t.name}" applied to ${targets.length} row${targets.length === 1 ? "" : "s"} it fits. Ctrl+Z in the table does not undo a template; reload the rows instead.` });
+    const skipped = scope.length - targets.length;
+    setNotice({
+      tone: "info",
+      text: `Template "${t.name}" applied to ${targets.length} row${targets.length === 1 ? "" : "s"} it fits: their allowances and deductions are replaced by the template's.${skipped ? ` ${skipped} row${skipped === 1 ? "" : "s"} it does not fit ${skipped === 1 ? "was" : "were"} left as ${skipped === 1 ? "it was" : "they were"}.` : ""}`,
+    });
+  };
+
+  const undoTemplate = () => {
+    if (!undo) return;
+    setEdited(undo.edited);
+    setNotice({ tone: "info", text: `Template "${undo.name}" undone: the rows are back as they were before it.` });
+    setUndo(null);
   };
 
   const csvColumns: ImportColumn[] = useMemo(
@@ -345,7 +440,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
   const submit = async (approveNow: boolean) => {
     setSubmitting(approveNow ? "approve" : "submit");
     const result = await submitSalaryChangeAction({
-      kind: imported ? "import" : "bulk",
+      kind: setup ? "setup" : imported ? "import" : "bulk",
       effectiveFrom,
       reason,
       rows: changedRows.map((r) => ({ employeeId: r.row.employeeId, lines: r.lines })),
@@ -386,9 +481,27 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
 
   return (
     <div className="space-y-3 p-3 @container">
+      {setup && (
+        <Notice
+          tone="info"
+          title="Bulk add: salary structures"
+          action={
+            onLeaveSetup && (
+              <WindowButton onClick={onLeaveSetup}>
+                <Undo2 className="h-3.5 w-3.5" /> Switch to Bulk edit
+              </WindowButton>
+            )
+          }
+        >
+          Everyone with no salary structure yet or only basic + grade from the employee form. Each row starts from the first template for its level /
+          designation and SSF where the company has it; check the amounts, remove anyone not ready, then review and save. A basic + grade row left as it is
+          confirms that nothing else applies.
+          {initial.spread ? " They joined on different dates: one effective date applies to all, so set up one by one to start each from their own joining date." : ""}
+        </Notice>
+      )}
       {/* 1. Rows */}
       <div className="flex flex-wrap items-end gap-2 rounded-md border border-line bg-surface-panel px-3 py-2">
-        <StepLabel n={1} text="Employees" hint={ids.length ? `${ids.length} in the table` : "Pick who to revise"} />
+        <StepLabel n={1} text="Employees" hint={ids.length ? `${ids.length} in the table` : setup ? "Pick who to add" : "Pick who to revise"} />
         <label className="w-44 text-2xs font-medium text-ink-label">
           Branch
           <SelectField name="bulk-branch" options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={filters.branch} onChange={(v) => setFilters({ ...filters, branch: v })} placeholder="All branches" allowEmpty />
@@ -483,7 +596,14 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
 
       {notice && (
         <div role={notice.tone === "danger" ? "alert" : "status"} className={cn("rounded-md border px-3 py-2 text-xs", notice.tone === "danger" ? "border-danger/30 bg-danger-subtle text-danger" : notice.tone === "warning" ? "border-warning/40 bg-warning-subtle text-ink" : "border-info/25 bg-info-subtle text-info")}>
-          <p>{notice.text}</p>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{notice.text}</span>
+            {undo && (
+              <button type="button" onClick={undoTemplate} className="cursor-pointer font-medium text-brand-strong underline-offset-2 hover:underline">
+                Undo template
+              </button>
+            )}
+          </p>
           {notice.list && notice.list.length > 0 && (
             <ul className="mt-1 max-h-32 list-disc overflow-y-auto pl-5 text-2xs">
               {notice.list.slice(0, 50).map((l) => (
@@ -526,7 +646,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
         </span>
         {errorRows.length > 0 && <span className="font-medium text-danger">{errorRows.length} row{errorRows.length === 1 ? "" : "s"} with errors</span>}
         <span>
-          <span className="text-ink-muted">Monthly gross</span> <Amount value={before} /> → <Amount value={after} emphasis />
+          <span className="text-ink-muted">Monthly total salary</span> <Amount value={before} /> → <Amount value={after} emphasis />
         </span>
         <span className="text-ink-muted">Difference</span>
         <span className={cn("-ml-3 font-semibold tabular-nums", after - before > 0 ? "text-success" : after - before < 0 ? "text-danger" : "text-ink")}>
@@ -573,7 +693,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
           open
           onClose={submitting ? () => {} : () => setReviewing(false)}
           size="xl"
-          title={`Review ${changedRows.length} salary change${changedRows.length === 1 ? "" : "s"}`}
+          title={setup ? `Review ${changedRows.length} salary structure${changedRows.length === 1 ? "" : "s"} to add` : `Review ${changedRows.length} salary change${changedRows.length === 1 ? "" : "s"}`}
           description={`Effective from ${dateText(effectiveFrom)} · ${reason}`}
           footer={
             <>
@@ -581,7 +701,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
               <WindowButton onClick={() => setReviewing(false)} disabled={!!submitting}>
                 Back to the table
               </WindowButton>
-              <SaveButtons outcome={outcome} saving={submitting} onSave={(now) => void submit(now)} plainLabel="Save changes" />
+              <SaveButtons outcome={outcome} saving={submitting} onSave={(now) => void submit(now)} plainLabel={setup ? "Save structures" : "Save changes"} />
             </>
           }
         >
@@ -591,16 +711,18 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
                 <tr className="border-b border-line-strong text-left text-2xs uppercase tracking-wide text-ink-muted">
                   <th className="py-1.5 pr-2">Employee</th>
                   <th className="py-1.5 pr-2">What changes</th>
-                  <th className="py-1.5 pr-2 text-right">Gross now</th>
-                  <th className="py-1.5 pr-2 text-right">New gross</th>
-                  <th className="py-1.5 text-right">Change</th>
+                  <th className="py-1.5 pr-2 text-right">Total salary now</th>
+                  <th className="py-1.5 pr-2 text-right">New total salary</th>
+                  <th className="py-1.5 pr-2 text-right">Change</th>
+                  <th className="py-1.5 text-right">Net payable (est.)</th>
                 </tr>
               </thead>
               <tbody>
                 {changedRows.map((r) => {
-                  const was = r.originalTotals?.gross ?? 0;
-                  const diff = r.totals.gross - was;
-                  const parts = r.original ? describeChanges(r.original, r.lines, data.heads) : ["New structure"];
+                  const was = r.originalTotals?.totalSalary ?? 0;
+                  const diff = r.totals.totalSalary - was;
+                  const listed = r.original ? describeChanges(r.original, r.lines, data.heads) : ["New structure"];
+                  const parts = listed.length ? listed : ["Confirmed: basic + grade only"];
                   return (
                     <tr key={r.row.employeeId} className="border-b border-line">
                       <td className="py-1.5 pr-2">
@@ -617,12 +739,15 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
                         <Amount value={was} />
                       </td>
                       <td className="py-1.5 pr-2 text-right font-medium">
-                        <Amount value={r.totals.gross} />
+                        <Amount value={r.totals.totalSalary} />
                       </td>
-                      <td className={cn("py-1.5 text-right font-medium", diff > 0 ? "text-success" : diff < 0 ? "text-danger" : "")}>
+                      <td className={cn("py-1.5 pr-2 text-right font-medium", diff > 0 ? "text-success" : diff < 0 ? "text-danger" : "")}>
                         {diff > 0 ? "+" : ""}
                         <Amount value={diff} />
                         {was > 0 && <span className="ml-1 text-3xs">({((diff / was) * 100).toFixed(1)}%)</span>}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        <Amount value={r.totals.netPayable} />
                       </td>
                     </tr>
                   );
@@ -631,7 +756,7 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
               <tfoot>
                 <tr className="font-semibold">
                   <td className="py-2" colSpan={2}>
-                    Total monthly gross
+                    Total monthly salary
                   </td>
                   <td className="py-2 pr-2 text-right">
                     <Amount value={before} />
@@ -639,19 +764,23 @@ export function SalaryStructureBulk({ data, onSubmitted }: { data: SalaryStructu
                   <td className="py-2 pr-2 text-right">
                     <Amount value={after} />
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 pr-2 text-right">
                     {after - before > 0 ? "+" : ""}
                     <Amount value={after - before} />
+                  </td>
+                  <td className="py-2 text-right">
+                    <Amount value={changedRows.reduce((n, r) => n + r.totals.netPayable, 0)} />
                   </td>
                 </tr>
                 <tr className="text-ink-muted">
                   <td className="pb-2" colSpan={4}>
-                    Employer cost per month (gross + employer SSF / PF)
+                    Change in cost to company per month (gross earnings + PF employer)
                   </td>
-                  <td className="pb-2 text-right font-medium">
+                  <td className="pb-2 pr-2 text-right font-medium">
                     {costChange > 0 ? "+" : ""}
                     <Amount value={costChange} />
                   </td>
+                  <td />
                 </tr>
               </tfoot>
             </table>

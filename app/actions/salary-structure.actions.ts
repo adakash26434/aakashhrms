@@ -162,6 +162,20 @@ export async function setSalaryTemplateActiveAction(id: string, active: boolean)
   }
 }
 
+/** Deletes a salary template (Delete permission; Make inactive needs only Edit). */
+export async function deleteSalaryTemplateAction(id: string): Promise<{ success: true } | Fail> {
+  await ensureTenantContext();
+  try {
+    const scope = await checkPermissionWithScope('DELETE', 'SALARY_MAPPING');
+    const removed = await structureService.deleteTemplate(String(id));
+    await recordAuditLog({ userId: scope.userId, action: 'DELETE', module: 'SALARY_MAPPING', recordId: String(id), result: 'SUCCESS', oldValues: { template: removed.code, name: removed.name } });
+    refresh();
+    return { success: true };
+  } catch (error: unknown) {
+    return toActionError(error, 'salary-structure.template-delete');
+  }
+}
+
 /** Approval settings for salary changes (none / simple / multi-level): a company administrator's control. */
 export async function saveSalaryApprovalSettingsAction(input: unknown): Promise<{ success: true; data: { pendingKept: number } } | Fail> {
   await ensureTenantContext();

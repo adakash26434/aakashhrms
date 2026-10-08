@@ -7,7 +7,7 @@ import { DateCell } from "@/components/kit/date-cell";
 import { CopyButton, DescriptionList } from "@/components/kit/description-list";
 import { RecordNavigator } from "@/components/kit/record-navigator";
 import { StatusChip } from "@/components/kit/status-chip";
-import { RECORD_GAP_LABEL, RECORD_GAP_SECTION, tenureLabel } from "@/lib/engines/employee.engine";
+import { RECORD_GAP_LABEL, recordGapHref, tenureLabel } from "@/lib/engines/employee.engine";
 import { nepalToday } from "@/lib/utils/nepal-time";
 import type { EmployeeProfile, EmployeeRecordData } from "@/lib/types/employee";
 import { Avatar } from "@/components/kit/avatar";
@@ -125,7 +125,7 @@ export function EmployeeRecordIdentity({
             ))}
           </ul>
           {canEdit && (
-            <Link href={`/workforce/employees/${profile.id}/edit#section-${RECORD_GAP_SECTION[profile.gaps[0]]}`} className="mt-2 inline-block text-2xs font-medium text-warning underline underline-offset-2">
+            <Link href={recordGapHref(profile.gaps[0], profile.id)} className="mt-2 inline-block text-2xs font-medium text-warning underline underline-offset-2">
               Fix now
             </Link>
           )}

@@ -539,12 +539,12 @@ selected): **Structures · Bulk edit · Changes · Templates**.
 
 | Tab | Layout and rules |
 |---|---|
-| Structures | PageBar (Revise salary / New structure F2, Bulk edit, Print letter, Refresh; counts and waiting changes in the description) · FilterStrip · DataGrid (code and name pinned; level, basic, grade, allowances, deductions, gross, net, effective from, status: Current / Takes effect later / Change waiting / No structure) · SplitView detail: FactBox breakdown per pay head and a **History** list (effective from, gross with % change, reason, Letter link). Enter / double-click opens the Revise window. |
+| Structures | PageBar (4.4b: Add new, Bulk add, Revise salary F2, Bulk edit, Print salary revision, Refresh; counts and waiting changes in the description) · FilterStrip · DataGrid (code and name pinned; level, basic, grade, allowances, deductions, gross, net, effective from, status: Current / Takes effect later / Change waiting / No structure) · SplitView detail: FactBox breakdown per pay head and a **History** list (effective from, gross with % change, reason, Print link). Enter / double-click opens the Revise window. |
 | Revise window | Kit `Window` xl, `FormGrid`, Enter to the next field: effective from (BS), reason, basic, retirement scheme (SSF / PF / none), grade count, grade amount (policy, or by hand where allowed), one field per fixed-amount head, Yes/No per worked-out head ("10% of basic"); a totals aside (gross, SSF 11% / employer 20% on the company base, deductions, net before tax, employer cost, change versus now). |
 | Bulk edit | The **EditGrid** (below). Above it, two numbered strips: **1 Employees** (filters + "Add matching employees", "Add one employee", remove selected) and **2 Change details** (effective from, reason, template, column chooser remembered per browser, CSV download / import). Below it: current versus new monthly gross, the difference, rows changed, errors, and why Review is not yet available ("Give a reason (step 2)"); **Review changes** opens a window listing each change with old → new values ("Basic 22,000.00 → 24,500.00"), gross now / new, and the employer cost change, before Submit. |
 | Changes | One row per change batch (bulk save, single revision, CSV import, starting salary, grade-policy sync): made, effective from, kind, reason, employees, monthly change, prepared by, status. Detail: old → new gross per employee; **Approve** (typed `APPROVE`), **Reject** (reason required) for someone other than the preparer; **Withdraw** for the preparer while pending. The approval setting (on by default) sits on top, switchable only with Approve. |
-| Templates | Register + Window: code, name, fits (levels and / or designations, none = everyone), basic (amount or the level's starting salary), scheme (keep / SSF / PF / none), pay heads. Applied to selected Bulk edit rows; grade counts are kept and the grade recalculated. |
-| Letter | `/workforce/salary-mapping/letter/[revisionId]`: A4 print page (Ctrl+P; frame hidden in print), company header, employee, effective date, reason, previous / revised / change per component, gross and net before tax, signature lines. English only. |
+| Templates | Register + Window: code, name, fits (levels and / or designations, none = everyone), basic (amount or the level's starting salary), scheme (keep / SSF / PF / none), pay heads. Applied to selected Bulk edit rows; grade counts are kept and the grade recalculated. **4.4b:** the register shows **Employees** (how many it fits, "overlaps" when another active template fits some of them) and a warning on "Level's starting salary" when a level has none; actions **Edit · Apply to employees · Make inactive · Delete** (Delete needs the Delete permission on Salary structure, asks for confirmation, and leaves every salary as it is: a revision keeps its own amounts and never points at a template). The editor (full-size window) lists levels with names, pay heads under Allowances / Deductions / Worked out by payroll (a head left out for some departments / designations is marked "limited"), warns about overlaps and missing starting salaries, and shows a live **Preview** (the breakdown for an employee it fits, as Add new / Revise would fill it). |
+| Print (salary revision) | `/workforce/salary-mapping/letter/[revisionId]` (the route keeps its 4.4 name): A4 print page (Ctrl+P; frame hidden in print), company header, employee, effective date, reason, previous / revised / change per component in the salary-breakdown terms, signature lines. Titled "Salary revision", or "Salary structure" for someone's first salary (no previous). The last line of Earnings and of Deductions, and Net payable, have a darker 2 px rule to mark where each part ends. On screen the action reads **Print salary revision** (toolbar) or **Print** (history, print page), never "letter". English only. |
 
 **EditGrid** (`components/kit/edit-grid.tsx`, logic in `lib/kit/edit-grid.ts`).
 Columns declare `kind` (`number`, `choice`, `check`, `readonly`), an optional
@@ -611,6 +611,67 @@ message (e.g. "Copied 3 × 2 cells") and a key reminder.
   the chosen rows, edit in Excel, save as CSV, import. Rows match by employee
   code and columns by header; unknown codes and columns are listed and the
   values land in the table as changes, so the table is the preview.
+
+### Salary breakdown and new-hire set-up (Phase 4.4b)
+
+**One wording on every salary screen**, in the payslip's terms (SSF shown as
+the payslip shows it). It is used by the Structures register, the detail pane,
+the Revise / Set-up window, Bulk edit, Approvals and the revision letter, and
+the payslips in 4.8 should reuse it.
+
+```
+EARNINGS (monthly)
+  Basic salary · Grade (n grades) · each allowance by name
+  Total salary                      = basic + grade + allowances
+  SSF – employer contribution 20%   (only with SSF)
+  Gross earnings                    = total salary + SSF employer 20%   (only with SSF)
+DEDUCTIONS (monthly)
+  SSF 31% (11% employee + 20% employer) | Provident fund – employee
+  each fixed deduction by name (CIT …)
+  Income tax (estimate)
+  Total deductions
+NET PAYABLE (estimate)              = gross earnings − total deductions
+Cost to company                     = gross earnings (+ PF employer)
+```
+
+- **The note:** "Overtime, absence, festival / remote allowances and loan installments are worked out in each month's payroll."
+- **Assigned festival / remote heads** are named ("Also paid in some months: …"), not added.
+
+**Components:**
+- `components/salary-mapping/salary-breakdown.tsx`: `SalaryBreakdown` (compact for panes) and `breakdownRows()` (the letter's previous / revised table).
+
+**Numbers:**
+- `estimatePay()` (`lib/engines/salary-structure.engine.ts`) calls payroll's own `calculatePayslip` for an ordinary month (no attendance, overtime, festival / remote or loans).
+  - So the SSF / PF, CIT and insurance relief, tax slabs (the active fiscal year's), the SSF 1% exemption, 15% flat tax for contract staff and no SSF for trainees are payroll's rules.
+  - With deductions above earnings it shows a warning instead of failing.
+- `structureTotals()` gives the same breakdown without income tax (templates).
+
+**Register = salary sheet:**
+- Basic, Grade, Allowances, **Total salary**, SSF employer 20% (hidden by default), **Gross earnings**, SSF / PF deduction, Other deductions, **Income tax (est.)**, **Total deductions**, **Net payable (est.)**, Cost to company (hidden by default), scheme, effective from, status.
+- Footer totals use the same names.
+- **Monthly change** (batches, approvals, bulk) is the change in **Total salary**; Cost to company is the budget effect.
+
+**New hires (set-up):**
+- The employee form keeps only basic + grade (the starting revision, approved at once).
+- **Status "Basic + grade only"** (`needsSetup`): the current revision comes from a hire and has no pay heads. The row shows in warning colour.
+- **Toolbar (Structures tab):** **Add new** (primary, Ctrl+N) · **Bulk add** · **Revise salary** (F2) · **Bulk edit**.
+  - **Add new / Bulk add** are for employees who need a structure (`needsStructure`): status "No structure" or "Basic + grade only". They are disabled when there is nobody to add.
+  - **Revise salary / Bulk edit** are for those who have one; Revise salary is disabled for someone with no structure ("use Add new").
+  - **Add new** opens a picker window (employees needing a structure, search, double-click or Continue), then the Add salary structure window.
+  - **Bulk add** opens the bulk table with only those employees, each pre-filled (template, SSF); sent as one `setup` batch.
+- **A banner** ("2 employees need a salary structure") offers the same **Add new** and **Bulk add**. "Salary structure not set up" is also under Records to fix; its Fix link opens Salary structure.
+- **The Add salary structure window** (the Revise window in add mode; also for someone with no structure at all, starting from the level's scale):
+  - **Template** picker at the top: templates for the level / designation first.
+  - **How a template fills a salary** (`applyTemplate` / `setupLines`): it replaces the allowances and deductions; pay heads limited to other departments / designations are left out for that person; the scheme is the template's ("keep": SSF where expected for someone with no structure, else their current scheme). Basic + grade from the employee form are kept; someone with no salary yet gets the template's basic (amount or level start).
+  - **A template fills a salary once.** Editing it changes nobody; **Apply to employees** opens Bulk edit with everyone it fits (no change waiting), the template applied, to review and send through approval. Bulk edit's **Undo template** puts the rows back as they were before the last template.
+  - **Levels:** an employee's saved level is matched by code or level name (`resolveLevelCode`); one that matches neither gets a "Level not in the level list" notice in the detail pane (templates by level and the level's scale do not apply).
+  - **Defaults:** the first fitting template; scheme SSF when the company has SSF and the employment type is SSF-eligible; effective from the joining date, or the first open payroll day; reason "Salary structure set up".
+  - **Basic and grade** from the employee form are kept.
+  - **Saving unchanged** confirms basic + grade only.
+- **Bulk set-up:** Bulk edit with only those rows, each filled the same way, one effective date (the latest start date; a note says when joining dates differ).
+- **Both are sent as a `setup` batch** through the company's approval settings.
+
+**Pay heads limited to departments / designations** (Pay heads) are offered only to those employees in the window and the grid. A head already held outside its list stays, with a warning.
 
 ### Implemented attendance (Phase 4.5a, templates A + C)
 

@@ -143,7 +143,6 @@ describe('Employee form tabs and photo (4.2b)', () => {
     assert.equal(sectionOfField('documents'), 'documents');
     assert.equal(sectionOfField('documents.2.issuedDate'), 'documents');
     assert.equal(sectionOfField('panNumber'), 'documents');
-    assert.equal(sectionOfField('bankAccountConfirm'), 'bank');
     assert.equal(sectionOfField('permanentAddress.district'), 'contact');
     assert.equal(sectionOfField('nothing'), undefined);
   });
