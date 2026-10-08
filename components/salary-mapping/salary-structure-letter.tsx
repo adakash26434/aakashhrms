@@ -11,12 +11,12 @@ import { breakdownRows, BREAKDOWN_NOTE, type BreakdownRow } from "./salary-break
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { cn } from "@/lib/utils";
 
-/** One line of the old / new table. */
-function LetterLine({ r, showOld }: { r: LetterRow; showOld: boolean }) {
+/** One line of the old / new table; the line closing a part (earnings, deductions, net payable) has a darker, thicker rule. */
+function LetterLine({ r, showOld, closing }: { r: LetterRow; showOld: boolean; closing: boolean }) {
   const diff = r.old === null ? null : r.now - r.old;
   const strong = r.style === "total" || r.style === "subtotal" || r.style === "net";
   return (
-    <tr className={cn("border-b border-line", strong && "font-semibold", r.style === "muted" && "text-ink-muted")}>
+    <tr className={cn(closing ? "border-b-2 border-ink" : "border-b border-line", strong && "font-semibold", r.style === "muted" && "text-ink-muted")}>
       <td className="py-1.5 pr-3">{r.label}</td>
       {showOld && <td className="py-1.5 pr-3 text-right">{r.old === null ? "—" : money(r.old)}</td>}
       <td className="py-1.5 pr-3 text-right">{money(r.now)}</td>
@@ -50,20 +50,26 @@ function letterRows(now: BreakdownRow[], before: BreakdownRow[] | null): LetterR
 }
 
 /**
- * Salary revision letter (4.4), A4, in English: the salary breakdown (4.4b),
+ * Printable salary revision (4.4), A4, in English: the salary breakdown (4.4b),
  * previous and revised, effective date and reason, with a signature line.
+ * Someone's first salary prints as "Salary structure" (nothing to compare).
  * Print with Ctrl+P; the app frame is hidden in print.
  */
 export function SalaryStructureLetter({ letter, company }: { letter: LetterData; company: CompanyProfileSetupData | null }) {
   const { employee, revision, previous } = letter;
   const rows = letterRows(breakdownRows(revision.totals, revision.lines), previous ? breakdownRows(previous.totals, previous.lines) : null);
   const sections = (["earnings", "deductions", "result"] as const).map((section) => ({ section, rows: rows.filter((r) => r.section === section) }));
+  // The last line of earnings and of deductions, and net payable, close their part.
+  const closingKeys = new Set([
+    ...(["earnings", "deductions"] as const).map((s) => sections.find((x) => x.section === s)!.rows.at(-1)?.key),
+    "netPayable",
+  ].filter((k): k is string => !!k));
   const name = company?.displayName || company?.legalName || "";
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-4 flex justify-end print:hidden">
         <WindowButton variant="primary" onClick={() => window.print()}>
-          <Printer className="h-3.5 w-3.5" /> Print letter
+          <Printer className="h-3.5 w-3.5" /> Print
         </WindowButton>
       </div>
       <article className="rounded-md border border-line bg-white p-10 text-sm leading-relaxed text-ink shadow-sm print:border-0 print:p-0 print:shadow-none">
@@ -85,11 +91,12 @@ export function SalaryStructureLetter({ letter, company }: { letter: LetterData;
           </div>
           <p>Date: {bothCalendars(nepalDateIso())}</p>
         </div>
-        <h1 className="mb-4 text-base font-semibold underline underline-offset-4">Salary revision</h1>
+        <h1 className="mb-4 text-base font-semibold underline underline-offset-4">{previous ? "Salary revision" : "Salary structure"}</h1>
         <p className="mb-4">
           Dear {employee.fullName.split(" ")[0]},
           <br />
-          We are pleased to inform you that your salary has been revised with effect from <strong>{bothCalendars(revision.effectiveFrom)}</strong>
+          {previous ? "We are pleased to inform you that your salary has been revised with effect from " : "Your salary is set with effect from "}
+          <strong>{bothCalendars(revision.effectiveFrom)}</strong>
           {revision.reason ? <> ({revision.reason})</> : null}. Your monthly salary is set out below.
         </p>
         <table className="mb-4 w-full tabular-nums">
@@ -97,7 +104,7 @@ export function SalaryStructureLetter({ letter, company }: { letter: LetterData;
             <tr className="border-b-2 border-line-input text-left text-xs uppercase tracking-wide">
               <th className="py-1.5 pr-3">Component (monthly, NPR)</th>
               {previous && <th className="py-1.5 pr-3 text-right">Previous</th>}
-              <th className="py-1.5 pr-3 text-right">Revised</th>
+              <th className="py-1.5 pr-3 text-right">{previous ? "Revised" : "Amount"}</th>
               {previous && <th className="py-1.5 text-right">Change</th>}
             </tr>
           </thead>
@@ -112,14 +119,15 @@ export function SalaryStructureLetter({ letter, company }: { letter: LetterData;
                   </tr>
                 )}
                 {list.map((r) => (
-                  <LetterLine key={r.key} r={r} showOld={!!previous} />
+                  <LetterLine key={r.key} r={r} showOld={!!previous} closing={closingKeys.has(r.key)} />
                 ))}
               </Fragment>
             ))}
           </tbody>
         </table>
         <p className="mb-10 text-xs text-ink-muted">
-          Income tax is an estimate on the current tax rules; the payslip each month is final. {BREAKDOWN_NOTE} All other terms of your employment remain unchanged.
+          Income tax is an estimate on the current tax rules; the payslip each month is final. {BREAKDOWN_NOTE}
+          {previous ? " All other terms of your employment remain unchanged." : null}
         </p>
         <div className="flex justify-between pt-10 text-xs">
           <div>

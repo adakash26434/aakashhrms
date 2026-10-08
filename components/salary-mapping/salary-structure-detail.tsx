@@ -17,7 +17,7 @@ const SCHEME: Record<string, string> = { ssf: "SSF", pf: "Provident fund", none:
 
 const pct = (a: number, b: number) => (a > 0 ? ((b - a) / a) * 100 : 0);
 
-/** Detail pane: Add salary structure / Revise salary on top, the current breakdown, and every revision (history) with letters. */
+/** Detail pane: Add salary structure / Revise salary on top, the current breakdown, and every revision (history), each printable. */
 export function SalaryStructureDetail({ row, data, onRevise }: { row: StructureRow; data: SalaryStructureData; onRevise?: (row: StructureRow) => void }) {
   const history = data.history[row.employeeId] ?? [];
   const current = row.current;
@@ -123,7 +123,7 @@ function SalaryHistory({ history, data }: { history: RevisionSummary[]; data: Sa
                 </span>
                 {h.status === "approved" && (
                   <a href={`/workforce/salary-mapping/letter/${h.id}`} target="_blank" rel="noopener" className="inline-flex shrink-0 items-center gap-1 font-medium text-brand-strong hover:underline">
-                    <Printer aria-hidden className="h-3 w-3" /> Letter
+                    <Printer aria-hidden className="h-3 w-3" /> Print
                   </a>
                 )}
               </div>

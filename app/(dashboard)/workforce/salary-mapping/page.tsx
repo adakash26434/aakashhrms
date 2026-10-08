@@ -8,7 +8,7 @@ import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permis
 
 export const metadata: Metadata = {
   title: "Salary structure | AakashHRMS",
-  description: "Each employee's pay as dated revisions: single changes, the bulk table, approvals, templates and revision letters.",
+  description: "Each employee's pay as dated revisions: single changes, the bulk table, approvals, templates and printable revisions.",
 };
 
 export default async function SalaryStructurePage({ searchParams }: { searchParams: Promise<{ tab?: string; employee?: string }> }) {

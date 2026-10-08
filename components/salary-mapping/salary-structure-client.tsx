@@ -147,7 +147,7 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
           },
           {
             id: "letter",
-            label: "Print letter",
+            label: "Print salary revision",
             icon: Printer,
             group: "output",
             hidden: tab !== "structures",

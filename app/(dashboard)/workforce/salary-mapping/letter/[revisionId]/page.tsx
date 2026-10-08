@@ -8,8 +8,8 @@ import { ensureTenantContext } from "@/lib/db";
 import { checkPermissionWithScope } from "@/lib/auth/check-permission";
 
 export const metadata: Metadata = {
-  title: "Salary revision letter | AakashHRMS",
-  description: "Printable salary revision letter.",
+  title: "Salary revision | AakashHRMS",
+  description: "Printable salary revision: the monthly breakdown, previous and revised.",
 };
 
 export default async function SalaryLetterPage({ params }: { params: Promise<{ revisionId: string }> }) {
