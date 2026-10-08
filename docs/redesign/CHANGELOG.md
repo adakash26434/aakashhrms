@@ -13,6 +13,13 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-08 — Deploy result (4.4b live)
+Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
+
+**4.4b is live on Yeti Cloud** (`40c0dca`, tag `deploy-2026-10-08`): no migration, no new env, packages unchanged; `sync-schema` ✅ for every company, build OK, screens checked by the user. Recorded in the release log of `docs/deployment/yeti-cloud.md`, with a note to use GitHub's "Rebase and merge" (PR #1 used a merge commit, whose files equal `cafa6c9`).
+
+---
+
 ## 2026-10-07 — 4.4b Salary structure: clear breakdown, new hires set up in Salary structure
 Branch: `redesign/4.4b-salary-structure` (from `main` = v0.2.0)
 
