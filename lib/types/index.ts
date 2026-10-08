@@ -21,7 +21,7 @@ export type {
   RepaymentValidationErrors,
   PaymentMethod as LoanPaymentMethod,
 } from "./loan";
-export type * from "./ot-rule";
+export type * from "./overtime";
 export type {
   PayHeadType,
   CalcBasis,

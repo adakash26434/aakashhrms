@@ -21,7 +21,7 @@ export function SystemControlHero({ onSave, isSaving }: SystemControlHeroProps) 
           System Control
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-gray-500">
-          Configure office hours, overtime rules, statutory deduction limits,
+          Configure office hours, statutory deduction limits,
           insurance thresholds, and employee category permissions. These
           settings apply globally across all branches and fiscal years.
         </p>

@@ -1,9 +1,7 @@
-import Decimal from "decimal.js";
 import * as repo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
-import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as shiftService from "@/lib/services/shift.service";
 import { approvedLeaveDays, monthCloseLines, monthReopenLines } from "@/lib/services/leave.service";
 import * as checkinRepo from "@/lib/repositories/checkin.repository";
@@ -17,6 +15,9 @@ import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalW
 import { addDays, datesIn, periodContaining, periodFor, type PayPeriod } from "@/lib/engines/pay-period.engine";
 import { plannedWeekMinutes, shiftSummary, shiftWarnings } from "@/lib/engines/shift.engine";
 import { clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
+import { otPay, payableMinutes } from "@/lib/engines/overtime.engine";
+import * as overtimeService from "@/lib/services/overtime.service";
+import type { OvertimePolicy } from "@/lib/types/overtime";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import {
   ADJUSTMENT_KINDS,
@@ -735,24 +736,26 @@ export async function countAdjustmentsWaitingFor(scope: ScopeFilter, canApprove:
   ).length;
 }
 
-/** OT pay and unpaid-day deduction for a summary (OT: basic ÷ 240 × multiplier; unifying with OT rules is 4.7). */
-function amountsFor(summary: MonthSummary, salary: { basic: number; grade: number } | undefined, multipliers: { work: number; off: number }) {
-  if (!salary) return { otEarnedAmount: 0, leaveDeductionAmount: 0 };
-  const hourly = new Decimal(salary.basic).dividedBy(240);
-  const ot = hourly
-    .times(summary.otWorkDayMinutes / 60)
-    .times(multipliers.work)
-    .plus(hourly.times(summary.otOffDayMinutes / 60).times(multipliers.off))
-    .toDecimalPlaces(2)
-    .toNumber();
-  return { otEarnedAmount: ot, leaveDeductionAmount: unpaidDeduction(salary.basic + salary.grade, summary) };
+/**
+ * Overtime pay and the unpaid-day deduction for a month (4.7): each day's
+ * overtime rounded by the policy, paid at (basic + grade) ÷ 240 × the policy's
+ * rate for that kind of day (overtime.engine.ts).
+ */
+function amountsFor(summary: MonthSummary, days: readonly DayResult[], salary: { basic: number; grade: number } | undefined, policy: OvertimePolicy) {
+  const minutes = payableMinutes(days, policy);
+  const pay = otPay(minutes, salary, policy);
+  return {
+    otEarnedAmount: pay.amount,
+    otHourlyRate: pay.hourlyRate,
+    otMinutes: minutes,
+    leaveDeductionAmount: salary ? unpaidDeduction(salary.basic + salary.grade, summary) : 0,
+  };
 }
 
 async function payInputs(employeeIds: string[], onDate: string) {
-  const [salaries, settings] = await Promise.all([salaryMappingRepository.findInForceByEmployeeIds(employeeIds, onDate), systemControlRepository.findSettings()]);
+  const [salaries, { policy }] = await Promise.all([salaryMappingRepository.findInForceByEmployeeIds(employeeIds, onDate), overtimeService.getPolicy()]);
   const salary = new Map([...salaries].map(([id, m]) => [id, { basic: Number(m.basicSalary) || 0, grade: Number(m.gradeAmount) || 0 }]));
-  const multipliers = { work: settings.officeTime.otMultiplierOfficeDay ?? 1.5, off: settings.officeTime.otMultiplierOffDay ?? 2 };
-  return { salary, multipliers };
+  return { salary, policy };
 }
 
 /** BS month number of a period (summaries keep it for today's payroll reads). */
@@ -798,7 +801,8 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
       const results = datesIn(period).map((d) => resolveFor(c, e, d));
       for (const res of results) days.push({ employeeId: e.id, fiscalYearId: res.date < period.end && fyStart !== fyEnd ? await repo.fiscalYearFor(res.date) : fyEnd, result: res });
       const summary = summariseMonth(period, results, rules);
-      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, ...amountsFor(summary, pay.salary.get(e.id), pay.multipliers) });
+      const a = amountsFor(summary, results, pay.salary.get(e.id), pay.policy);
+      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, otEarnedAmount: a.otEarnedAmount, otMinutes: a.otMinutes, leaveDeductionAmount: a.leaveDeductionAmount });
     }
     // Home leave earned (paid days ÷ 20) and expired substitute days go with the close, in the same transaction (4.6b).
     const ledger = await monthCloseLines({
@@ -920,8 +924,9 @@ export async function attendanceForPayroll(employeeIds: string[], run: { bsYear:
   const c = await loadContext(people, period.start, period.end, rules);
   const pay = await payInputs(people.map((e) => e.id), period.end);
   for (const e of people) {
-    const summary = summariseMonth(period, datesIn(period).map((d) => resolveFor(c, e, d)), rules);
-    const a = amountsFor(summary, pay.salary.get(e.id), pay.multipliers);
+    const days = datesIn(period).map((d) => resolveFor(c, e, d));
+    const summary = summariseMonth(period, days, rules);
+    const a = amountsFor(summary, days, pay.salary.get(e.id), pay.policy);
     out.set(e.id, { leaveDeductionAmount: String(a.leaveDeductionAmount), otEarnedAmount: String(a.otEarnedAmount), unpaidDays: summary.unpaidDays + summary.notEmployedDays, closed: false, otWarnings: summary.otWarnings.join("\n") || null });
   }
   return out;

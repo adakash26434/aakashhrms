@@ -9,11 +9,11 @@ import {
   fiscalYears,
   taxRateSlabs,
   leaveTypes,
-  otRules,
   payHeads,
 } from '@/lib/db/schema';
 import { requirePlatformAuth } from '@/lib/platform/auth';
 import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
+import { OVERTIME_POLICY_KEY, seedPolicy } from '@/lib/engines/overtime.engine';
 import { validatePhoneNumber } from '@/lib/utils/phone';
 import { adToBSString } from '@/lib/utils/bs-calendar';
 import { eq, and, ne } from 'drizzle-orm';
@@ -345,35 +345,13 @@ export async function PATCH(
           }
         }
 
-        // Synchronize overtime multiplier
+        // Overtime (4.7): the platform's rate only seeds a company that has no policy yet,
+        // never below the law; a company's own policy is never changed from here.
         if (body.initialSetupPayload?.otHourlyMultiplier !== undefined) {
-          const otMult = String(body.initialSetupPayload.otHourlyMultiplier);
-          const [standardOT] = await tenantDb
-            .select()
-            .from(otRules)
-            .where(eq(otRules.platformCode, 'OT_STANDARD'))
-            .limit(1);
-
-          if (standardOT) {
-            await tenantDb
-              .update(otRules)
-              .set({
-                rateOfficeDay: otMult,
-                rateOffDay: otMult,
-                updatedAt: new Date(),
-              })
-              .where(eq(otRules.id, standardOT.id));
-          } else {
-            await tenantDb.insert(otRules).values({
-              ruleName: `Standard Nepal Labour Act Overtime (${otMult}x)`,
-              ruleType: 'Hourly',
-              rateOfficeDay: otMult,
-              rateOffDay: otMult,
-              isPlatformLocked: true,
-              platformCode: 'OT_STANDARD',
-              isActive: true,
-            }).onConflictDoNothing();
-          }
+          await tenantDb
+            .insert(systemConfig)
+            .values({ key: OVERTIME_POLICY_KEY, value: JSON.stringify(seedPolicy(Number(body.initialSetupPayload.otHourlyMultiplier))), dataType: 'json' })
+            .onConflictDoNothing();
         }
 
         // Leave types: a company that already has a leave type keeps its own settings.

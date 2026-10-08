@@ -125,6 +125,11 @@ UI conventions for new code:
     - a current hire revision with no pay heads is status `setup` (`needsSetup`; repository `employeesNeedingSetup` for Records to fix);
     - it is completed with a `setup` batch (approval applies; may be unchanged).
   - **Payroll bug (4.8):** payroll loads tax slabs of every fiscal year (`findAllSlabs()` in `payroll.service.ts`), while the estimate uses the active year's.
+- Overtime (4.7a):
+  - **One policy:** `system_config` key `overtime.policy` (JSON: `workRate`, `offRate`, `rounding` 0 / 15 / 30, `roundingMode` down / nearest, `approval`), read through `overtimeService.getPolicy()` (raised to the law; before a company saves one, it is built from the old `officeTime.otMultiplier*` settings with approval automatic). Rules and the legal numbers: `lib/engines/overtime.engine.ts` (`OT_LEGAL`; change them there if the Act changes).
+  - **Pay:** (basic + grade) ÷ 240 × rate, each day's minutes rounded first (`payableMinutes`, `otPay`), in `attendance.service.ts` → `amountsFor` (month close and payroll figures). Months already closed keep their stored amounts.
+  - **Weekly off / holiday:** only work beyond the shift's full day is overtime (`attendance-day.engine.ts` → `measure`); the normal hours are for the substitute day (Leave).
+  - **Retired:** the `ot_rules` table (nothing reads or writes it; drop in Phase 8), the OT rules screen and its actions / service / repository, and the System control OT multipliers (kept only as the starting point). New companies are seeded with `seedPolicy()` only when they have no policy.
 - Stored payroll run totals (`payroll_runs.total_*`) can lag behind the payslips (Shrawan 2083: run net 62,068.75 vs payslips and salary sheet 68,068.75). Reports and the dashboard read the payslips; fix the run-total update in 4.8 (Payroll run).
 
 ## Deployment

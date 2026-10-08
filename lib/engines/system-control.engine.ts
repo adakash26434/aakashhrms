@@ -134,13 +134,7 @@ export function validateSystemControl(
     errors.remoteAllowanceNpr = "Must be a non-negative whole number.";
   }
 
-  // Overtime multipliers
-  if (data.officeTime.otMultiplierOfficeDay !== undefined && data.officeTime.otMultiplierOfficeDay !== 1.5) {
-    errors.otMultiplierOfficeDay = "Office Day overtime multiplier must be exactly 1.5.";
-  }
-  if (data.officeTime.otMultiplierOffDay !== undefined && data.officeTime.otMultiplierOffDay < 1.5) {
-    errors.otMultiplierOffDay = "Off Day overtime multiplier cannot be less than 1.5.";
-  }
+  // Overtime rates moved to Policies → Overtime (4.7, overtime.engine.ts); the old values are only read as its starting point.
 
   // Grade Policy
   if (data.gradePolicy) {

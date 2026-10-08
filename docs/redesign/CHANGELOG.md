@@ -13,6 +13,31 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-08 — 4.7a Overtime: one policy and the lawful formula
+Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
+
+**Your decisions:** hourly rate (basic + grade) ÷ 240; weekly off / holiday work earns a substitute day for the normal hours and overtime only beyond a full day; approval chosen by each company (new companies required, existing ones automatic until switched); hours above the legal limits paid but needing a reason (4.7b).
+
+**Changed:**
+- **Engine** `lib/engines/overtime.engine.ts`: the legal numbers (`OT_LEGAL`: 1.5 times, 4 h a day, 24 h a week, 240 hours a month), `normalizePolicy` / `validatePolicy` / `lawful`, `hourlyRate`, `roundMinutes` / `payableMinutes` (each day rounded on its own: down to whole blocks or to the nearest block, your choice of both on 2026-10-08), `describeRounding`, `otPay`, `seedPolicy`.
+- **Formula:** month close and payroll figures (`attendance.service.ts` → `amountsFor`) now pay (basic + grade) ÷ 240 × the policy's rate, instead of basic ÷ 240 × the System control multipliers. The month summary's OT hours are the hours paid. Closed months are unchanged.
+- **Weekly off / holiday:** overtime only beyond the shift's full day (`attendance-day.engine.ts`); before, every hour worked was overtime and the substitute day off was suggested as well (paid twice).
+- **Policies → Overtime** (`components/overtime/overtime-policy.tsx`) replaces the Overtime rules tab: guide, rates, rounding (not rounded · down to 15 / 30 · nearest 15 / 30, with a table comparing every choice on the same days), approval, who gets overtime, the shortest overtime per shift, history. Saved by `saveOvertimePolicyAction` (company-wide administrators, audited).
+- **Retired:** the OT rules screen, actions, service, repository, engine, types and mock data; System control's OT multipliers (a link to the new tab instead). `ot_rules` is no longer read or written.
+- **Platform:** the policy pack's overtime is the legal minimum (Sections 30–31); the sync no longer writes company overtime; provisioning, onboarding and the company-setup route only seed a company without a policy, never below 1.5.
+- **Security:** S26 in `03-security-plan.md`.
+- **No migration** (the policy is a `system_config` value).
+
+**Verified:**
+- tsc 0; 797/797 tests (new `tests/overtime.test.ts`, `tests/security-overtime.test.ts`; `attendance-day.test.ts` updated for the off-day split); eslint clean on the new and changed files (the platform and onboarding files keep their older counts, unchanged); `npm run build` OK.
+- Browser (Goodlife finance, nothing saved): the Overtime tab shows the guide, "Not saved yet" with the company's current rates (1.5 / 2, automatic), who gets overtime and the shift minimums; a rate of 1.2 is refused with the §31 message; `/timeAndLeave/ot-rules` opens the tab.
+
+**Notes:**
+- **Pay change in open months:** overtime now includes grade and off-day work counts only beyond a full day. Months already closed keep their amounts.
+- **4.7b next:** approvals (Attendance → Overtime), month close waiting for them, payslip hours × rate, migration 0047.
+
+---
+
 ## 2026-10-08 — Deploy result (4.4b live)
 Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
 

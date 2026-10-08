@@ -883,6 +883,16 @@ adjustments and Leave requests (decision buttons; summary; details or days
 and pay; approval), Leave balances (Adjust balance; home leave; a ledger
 per type with the balance in its heading), and both Leave types panes.
 
+### Implemented overtime policy (Phase 4.7a, template A)
+
+`/timeAndLeave/policies?tab=overtime` (the tab was "Overtime rules"; `?tab=ot-rules` and `/timeAndLeave/ot-rules` open it):
+- **Guide** "How overtime works": only with consent (§29) · paid at least 1.5 times, hourly rate (basic + grade) ÷ 240 (§31) · 4 hours a day, 24 a week (§30) · weekly offs and holidays: the normal hours earn a substitute day off (§42), only hours beyond a full day are overtime.
+- **"Not saved yet"** Notice while the company has no policy of its own: the rates come from the old System control settings and overtime is paid automatically, as before 4.7.
+- **The form** (PropertyForm, FormGrid): Working day rate · Weekly off / holiday rate (× hourly rate, at least 1.5, at most 5) · Rounding (not rounded, recommended / down to whole 15 or 30 minutes / to the nearest 15 or 30 minutes; each day on its own, then added up) · Approval (required, recommended / automatic: days over the legal limit still wait). A worked example under it (basic 30,000 + grade 2,000 → hourly rate 133.33; 2 hours on a working day). Undo changes · Save policy; read-only with a note for anyone but a company-wide administrator.
+- **"What each rounding choice pays for one day"** under the form: every choice against the same days (worked 44 min, 1 h 20 min, 1 h 44 min), the selected one highlighted, fewer minutes than worked in red and more in green.
+- **Side column:** who gets overtime (employment types, eligible / not eligible, link to Organization → Employment types; managers may get other benefits, §31), the shortest overtime per shift (link to Attendance → Shifts), and the history (from the audit log).
+- **Wording:** "Overtime", "× hourly rate", "Weekly off / holiday", never "OT multiplier".
+
 ### Implemented policies: statutory leave (Phase 4.6c, template A)
 
 `/timeAndLeave/policies` has the Leaves layout: PageBar (**New leave type**

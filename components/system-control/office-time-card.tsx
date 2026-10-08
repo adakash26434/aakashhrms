@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
 import { Clock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
@@ -150,56 +151,15 @@ export function OfficeTimeCard({ value, onChange }: OfficeTimeCardProps) {
 
         <div className="h-px w-full bg-payroll-light/60" />
 
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
-            Overtime Multipliers (Nepal Labour Act)
-          </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="ot-mult-office" className="mb-1.5 block text-xs font-medium text-gray-600">
-                Office Day OT Multiplier (Fixed)
-              </label>
-              <div className="flex overflow-hidden rounded-lg border border-payroll-light bg-gray-50">
-                <input
-                  id="ot-mult-office"
-                  type="number"
-                  disabled
-                  value={1.5}
-                  className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-400 cursor-not-allowed focus:outline-none font-mono"
-                />
-                <span className="flex items-center bg-payroll-light/30 px-3 text-xs font-medium text-gray-400">
-                  x Rate
-                </span>
-              </div>
-              <p className="mt-1 text-2xs text-gray-400 font-medium">
-                Fixed standard under Nepal&apos;s Labour Act.
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="ot-mult-off" className="mb-1.5 block text-xs font-medium text-gray-600">
-                Off Day / Holiday OT Multiplier
-              </label>
-              <div className="flex overflow-hidden rounded-lg border border-payroll-light bg-white focus-within:ring-1 focus-within:ring-payroll-primary">
-                <input
-                  id="ot-mult-off"
-                  type="number"
-                  step="0.1"
-                  min="1.5"
-                  max="5"
-                  value={value.otMultiplierOffDay ?? 2.0}
-                  onChange={(e) => onChange({ ...value, otMultiplierOffDay: Number(e.target.value) })}
-                  className="flex-1 bg-transparent px-3 py-2 text-sm text-payroll-navy focus:outline-none font-mono"
-                />
-                <span className="flex items-center bg-payroll-cream px-3 text-xs font-medium text-gray-500">
-                  x Rate
-                </span>
-              </div>
-              <p className="mt-1 text-2xs text-gray-500">
-                Minimum 1.5x as required by law.
-              </p>
-            </div>
-          </div>
+        <div className="space-y-1">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Overtime</h3>
+          <p className="text-sm text-gray-500">
+            Overtime rates, rounding and approval are set in{" "}
+            <Link href="/timeAndLeave/policies?tab=overtime" className="font-medium text-payroll-primary hover:underline">
+              Time &amp; Leave → Policies → Overtime
+            </Link>
+            .
+          </p>
         </div>
       </CardContent>
     </Card>

@@ -483,6 +483,8 @@ export interface SummaryWrite {
   bsMonth: number;
   summary: MonthSummary;
   otEarnedAmount: number;
+  /** Overtime minutes paid (4.7: each day rounded by the policy), stored as the month's OT hours. */
+  otMinutes: { work: number; off: number };
   leaveDeductionAmount: number;
 }
 
@@ -547,8 +549,8 @@ export async function closePeriod(params: {
         absentDays: String(m.absentDays + m.missingPunchDays),
         payLeaveDays: String(m.paidLeaveDays),
         nonPayLeaveDays: String(m.unpaidLeaveDays),
-        totalOtHoursOffice: String(Math.round((m.otWorkDayMinutes / 60) * 100) / 100),
-        totalOtHoursOff: String(Math.round((m.otOffDayMinutes / 60) * 100) / 100),
+        totalOtHoursOffice: String(Math.round((s.otMinutes.work / 60) * 100) / 100),
+        totalOtHoursOff: String(Math.round((s.otMinutes.off / 60) * 100) / 100),
         otEarnedAmount: String(s.otEarnedAmount),
         leaveDeductionAmount: String(s.leaveDeductionAmount),
         otWarnings: m.otWarnings.length ? m.otWarnings.join("\n") : null,

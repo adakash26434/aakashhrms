@@ -8,13 +8,12 @@ import { policyPage } from "@/lib/services/leave-policy.service";
 import { auth } from "@/lib/auth";
 import { resolvePlatformCompanyForTenant } from "@/lib/platform/company-resolver";
 import { companyTypesData } from "@/lib/services/leave-type.service";
-import { getOtRulesWithKPIs } from "@/lib/services/ot-rule.service";
-import { getSystemControlData } from "@/lib/services/system-control.service";
+import { getPolicyData as overtimePolicyData } from "@/lib/services/overtime.service";
 import { PoliciesHubClient, type PolicyTab } from "@/components/time-and-leave/policies-hub-client";
 
 export const metadata: Metadata = {
   title: "Policies | AakashHRMS",
-  description: "Statutory and company leave types, and overtime rules.",
+  description: "Statutory and company leave types, and the overtime policy.",
 };
 
 interface PoliciesPageProps {
@@ -32,14 +31,15 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
 
   const allowedTabs: PolicyTab[] = [];
   if (canTypes) allowedTabs.push("types");
-  if (canOt) allowedTabs.push("ot-rules");
+  if (canOt) allowedTabs.push("overtime");
 
   if (allowedTabs.length === 0) {
     throw new Error("Unauthorized: You do not have permission to view Policies.");
   }
 
   // 2. Active Tab resolution (defaulting to first allowed tab)
-  const requestedTab = resolvedParams.tab as PolicyTab;
+  // "ot-rules" is the old name of the Overtime tab (links from before 4.7).
+  const requestedTab = (resolvedParams.tab === "ot-rules" ? "overtime" : resolvedParams.tab) as PolicyTab;
   const activeTab: PolicyTab =
     requestedTab && allowedTabs.includes(requestedTab)
       ? requestedTab
@@ -62,17 +62,11 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
     // Company types apply to everyone: changing them needs a company-wide role (the server checks again).
     const companyWide = scope.scopeType === "GLOBAL";
     typePermissions = { add: companyWide && (await hasPermission("ADD", "LEAVE_TYPES")), edit: companyWide && canEdit, delete: companyWide && (await hasPermission("DELETE", "LEAVE_TYPES")) };
-  } else if (activeTab === "ot-rules") {
-    const [otRulesData, systemData] = await Promise.all([
-      getOtRulesWithKPIs(),
-      getSystemControlData(),
-    ]);
-    otData = {
-      rules: otRulesData.rules,
-      kpis: otRulesData.kpis,
-      otMultiplierOfficeDay: systemData.officeTime?.otMultiplierOfficeDay,
-      otMultiplierOffDay: systemData.officeTime?.otMultiplierOffDay,
-    };
+  } else if (activeTab === "overtime") {
+    // The overtime policy is a company-wide control (the action checks again, 4.7).
+    const scope = await checkPermissionWithScope("VIEW", "OT_RULES");
+    const [canEdit, impersonation] = await Promise.all([hasPermission("EDIT", "OT_RULES"), getImpersonationSession()]);
+    otData = await overtimePolicyData(canEdit && scope.scopeType === "GLOBAL" && !impersonation);
   }
 
   return (

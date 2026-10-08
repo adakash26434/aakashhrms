@@ -15,6 +15,7 @@ import {
 } from '../../types/onboarding';
 import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '../policy-pack-data';
 import { lawfulPreset } from '../../engines/leave-policy.engine';
+import { OVERTIME_POLICY_KEY, seedPolicy } from '../../engines/overtime.engine';
 import { ensureEmployeeSelfServiceRole } from '../../auth/employee-self-service-role';
 import { STANDARD_SHRENI_LEVELS } from '../../constants/industry-types';
 
@@ -373,25 +374,11 @@ export async function seedTenantDatabase(options: SeedTenantOptions): Promise<{
       }
     }
 
-    // 8. SEED OVERTIME RULES
-    const otRate = String(otHourlyMultiplier || 1.5);
-    const existingOT = await tenantDb
-      .select()
-      .from(schema.otRules)
-      .where(eq(schema.otRules.platformCode, 'OT_STANDARD'))
-      .limit(1);
-
-    if (existingOT.length === 0) {
-      await tenantDb.insert(schema.otRules).values({
-        ruleName: `Standard Nepal Labour Act Overtime (${otRate}x)`,
-        ruleType: 'Hourly',
-        rateOfficeDay: otRate,
-        rateOffDay: otRate,
-        isPlatformLocked: true,
-        platformCode: 'OT_STANDARD',
-        isActive: true,
-      });
-    }
+    // 8. OVERTIME POLICY (4.7): the law's rates (or the platform's, never lower), approval required.
+    await tenantDb
+      .insert(schema.systemConfig)
+      .values({ key: OVERTIME_POLICY_KEY, value: JSON.stringify(seedPolicy(otHourlyMultiplier)), dataType: 'json' })
+      .onConflictDoNothing();
 
     // 9. SEED PAY HEADS (Standard Earnings & Statutory Deductions)
     const targetPayHeads = payHeads && payHeads.length > 0 ? payHeads : DEFAULT_PAY_HEADS;
