@@ -110,7 +110,7 @@ async function caseDetail(row: repo.ExitJoinedRow): Promise<ExitDetail> {
       })
       .sort((a, b) => CLEARANCE_UNITS.findIndex((u) => u.code === a.unit) - CLEARANCE_UNITS.findIndex((u) => u.code === b.unit)),
     blockers: row.status === 'open' ? completionBlockers(states, row.lastWorkingDayAd, today) : [],
-    facts: await repo.exitFacts(row.employeeId),
+    facts: await repo.exitFacts(row.employeeId, row.lastWorkingDayAd),
   };
 }
 
@@ -185,7 +185,8 @@ export async function completeExitCase(id: string, options: CompleteOptions, ctx
 
   const today = toIsoDate(nepalToday());
   const clearances = (await repo.findClearances(id)).map((c) => ({ unit: c.unit, status: (c.status === 'cleared' ? 'cleared' : c.status === 'blocked' ? 'blocked' : 'pending') as 'pending' | 'cleared' | 'blocked' }));
-  const blockers = completionBlockers(clearances, existing.lastWorkingDayAd, today);
+  const { funds, assets } = await repo.exitFacts(existing.employeeId, existing.lastWorkingDayAd);
+  const blockers = completionBlockers(clearances, existing.lastWorkingDayAd, today, funds.map((f) => f.fund), assets.map((a) => a.tag));
   if (blockers.length) throw new UserFacingError(`Not yet: ${blockers[0]}`);
 
   // The experience letter needs the employee row, so it is rendered BEFORE

@@ -10,6 +10,8 @@ import {
   validateCancelReason,
   validateEventForm,
   type EmployeeSnapshot,
+  confirmationGate,
+  probationEndsOn,
 } from '../lib/engines/employee-event.engine';
 
 // Lifecycle events (G2): promotion / transfer / confirmation as dated records
@@ -27,6 +29,7 @@ const employee: EmployeeSnapshot = {
   branch: 'Head office',
   category: 'Contract',
   confirmationDate: null,
+  joiningDate: '2025-01-15',
   status: 'Active',
 };
 
@@ -142,5 +145,21 @@ describe('employee-event letter inputs and register text', () => {
   it('cancel needs a real reason', () => {
     assert.ok(validateCancelReason(' no '));
     assert.equal(validateCancelReason('Scheduled by mistake.'), null);
+  });
+});
+
+describe('probation gating', () => {
+  it('probation end clamps the day', () => {
+    assert.equal(probationEndsOn('2026-01-31', 1), '2026-02-28');
+    assert.equal(probationEndsOn('2025-01-15', 6), '2025-07-15');
+  });
+
+  it('refuses a confirmation inside the probation period; warns without an evaluation', () => {
+    assert.match(confirmationGate('2025-01-15', '2025-06-01', 6, true).blocker ?? '', /runs until 2025-07-15/);
+    assert.deepEqual(confirmationGate('2025-01-15', '2025-07-15', 6, true), { blocker: null, warning: null });
+    const g = confirmationGate('2025-01-15', '2025-08-01', 6, false);
+    assert.equal(g.blocker, null);
+    assert.match(g.warning ?? '', /No final/);
+    assert.deepEqual(confirmationGate('2025-01-15', '2025-01-16', 0, true), { blocker: null, warning: null });
   });
 });

@@ -14,9 +14,32 @@ import { isValidSerial } from '@/lib/engines/device.engine';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const serialTenantCache = new Map<string, { slug: string; at: number }>();
 
+// Unknown serials are remembered briefly so unauthenticated callers cannot make
+// every request scan every company database. Bounded; oldest entries drop first.
+const MISS_TTL_MS = 60 * 1000;
+const MISS_MAX = 500;
+const serialMisses = new Map<string, number>();
+
+function recentlyMissed(serialNo: string): boolean {
+  const at = serialMisses.get(serialNo);
+  if (at === undefined) return false;
+  if (Date.now() - at < MISS_TTL_MS) return true;
+  serialMisses.delete(serialNo);
+  return false;
+}
+
+function rememberMiss(serialNo: string) {
+  if (serialMisses.size >= MISS_MAX) {
+    const oldest = serialMisses.keys().next().value;
+    if (oldest !== undefined) serialMisses.delete(oldest);
+  }
+  serialMisses.set(serialNo, Date.now());
+}
+
 async function findTenantForSerial(serialNo: string): Promise<string | null> {
   const cached = serialTenantCache.get(serialNo);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.slug;
+  if (recentlyMissed(serialNo)) return null;
 
   const { platformDb } = await import('@/lib/platform/db');
   const { companies } = await import('@/lib/platform/schema');
@@ -34,6 +57,7 @@ async function findTenantForSerial(serialNo: string): Promise<string | null> {
       // A company whose database is unreachable just doesn't match.
     }
   }
+  rememberMiss(serialNo);
   return null;
 }
 

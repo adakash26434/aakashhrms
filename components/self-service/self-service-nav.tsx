@@ -4,32 +4,45 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Banknote, CalendarDays, ChevronDown, Clock3, FileText, Home, LogOut, MoreHorizontal, Shield, UserCircle } from "lucide-react";
+import { Banknote, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, Shield, UserCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth.actions";
+import { setEssLanguageAction } from "@/app/actions/ess-extras.actions";
+import { t, type EssKey, type EssLang } from "@/lib/i18n/ess";
 import { cn } from "@/lib/utils";
 
 interface SelfServiceNavProps {
   userEmail: string;
   scopeType: string;
+  lang: EssLang;
 }
 
-const NAV_ITEMS = [
-  { href: "/self-service", label: "Home", exact: true, icon: Home },
-  { href: "/self-service/my-attendance", label: "Attendance", icon: Clock3 },
-  { href: "/self-service/my-leave", label: "Leave", icon: CalendarDays },
-  { href: "/self-service/my-payslips", label: "Payslips", icon: FileText },
-  { href: "/self-service/my-profile", label: "Profile", icon: UserCircle },
-  { href: "/self-service/my-loans", label: "Loans", icon: Banknote },
+const NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home }[] = [
+  { href: "/self-service", key: "nav.home", exact: true, icon: Home },
+  { href: "/self-service/my-attendance", key: "nav.attendance", icon: Clock3 },
+  { href: "/self-service/my-leave", key: "nav.leave", icon: CalendarDays },
+  { href: "/self-service/my-payslips", key: "nav.payslips", icon: FileText },
+  { href: "/self-service/my-notices", key: "nav.notices", icon: Megaphone },
+  { href: "/self-service/my-training", key: "nav.training", icon: GraduationCap },
+  { href: "/self-service/my-claims", key: "nav.claims", icon: Plane },
+  { href: "/self-service/my-profile", key: "nav.profile", icon: UserCircle },
+  { href: "/self-service/my-loans", key: "nav.loans", icon: Banknote },
 ];
 
 const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.slice(0, 4);
 const SECONDARY_ITEMS = NAV_ITEMS.slice(4);
 
-export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
+export function SelfServiceNav({ userEmail, scopeType, lang }: SelfServiceNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const isManagerOrAdmin = scopeType !== "SELF";
+  const label = (item: { key: EssKey }) => t(lang, item.key);
+  const switchLang = async () => {
+    await setEssLanguageAction(lang === "np" ? "en" : "np");
+    router.refresh();
+  };
 
   return (
     <>
@@ -41,12 +54,12 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-sm font-bold">AakashHRMS</span>
-              <span className="mt-1 text-2xs font-bold text-payroll-primary">Self-Service Portal</span>
+              <span className="mt-1 text-2xs font-bold text-payroll-primary">{t(lang, "nav.portal")}</span>
             </div>
           </Link>
         </div>
         <div className="flex flex-1 flex-col px-3 py-5">
-          <p className="px-3 text-2xs font-semibold uppercase tracking-[0.14em] text-payroll-text-muted">My workspace</p>
+          <p className="px-3 text-2xs font-semibold uppercase tracking-[0.14em] text-payroll-text-muted">{t(lang, "nav.workspace")}</p>
           <div className="mt-2 space-y-1">
             {NAV_ITEMS.map((item) => {
               const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -54,7 +67,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
               return (
                 <Link key={item.href} href={item.href} className={cn("flex min-h-10 items-center gap-3 rounded-lg px-3 text-xs font-semibold transition-colors", isActive ? "bg-payroll-primary-light text-payroll-primary" : "text-payroll-navy/70 hover:bg-payroll-cream hover:text-payroll-navy")}>
                   <Icon className={cn("h-4 w-4", isActive && "stroke-[2.5]")} />
-                  <span>{item.label}</span>
+                  <span>{label(item)}</span>
                 </Link>
               );
             })}
@@ -100,6 +113,11 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
               </Link>
             )}
 
+            <button type="button" onClick={switchLang} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-payroll-border bg-white px-3 text-xs font-bold text-payroll-navy shadow-2xs hover:bg-payroll-cream" aria-label={t(lang, "nav.language")} title={t(lang, "nav.language")}>
+              <Languages className="h-3.5 w-3.5 text-payroll-primary" />
+              <span>{lang === "np" ? "EN" : "ने"}</span>
+            </button>
+
             <div className="relative">
               <button
                 type="button"
@@ -126,7 +144,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                   </Link>
                   <button onClick={() => logoutAction()} type="button" className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700">
                     <LogOut className="h-4 w-4" />
-                    <span>Sign Out</span>
+                    <span>{t(lang, "nav.signOut")}</span>
                   </button>
                 </div>
               )}
@@ -154,7 +172,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                 )}
               >
                 <Icon className={cn("h-4 w-4", isActive && "stroke-[2.5]")} />
-                <span>{item.label}</span>
+                <span>{label(item)}</span>
               </Link>
             );
           })}
@@ -177,7 +195,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
                       )}
                     >
                       <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
+                      <span>{label(item)}</span>
                     </Link>
                   );
                 })}
@@ -196,7 +214,7 @@ export function SelfServiceNav({ userEmail, scopeType }: SelfServiceNavProps) {
               aria-label="More self-service options"
             >
               <MoreHorizontal className="h-4 w-4" />
-              <span>More</span>
+              <span>{t(lang, "nav.more")}</span>
             </button>
           </div>
         </div>

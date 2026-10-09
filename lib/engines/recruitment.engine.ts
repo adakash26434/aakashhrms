@@ -53,6 +53,40 @@ export function occupancy(positions: number, filled: number): PositionOccupancy 
 }
 
 // ---------------------------------------------------------------------------
+// Darbandi enforcement (G4 follow-up): what happens when a hire, promotion or
+// transfer would place someone on a designation × branch beyond its approved
+// count — or on one the board never approved at all.
+// ---------------------------------------------------------------------------
+
+export const DARBANDI_MODES = ['off', 'warn', 'block'] as const;
+export type DarbandiMode = (typeof DARBANDI_MODES)[number];
+export const DARBANDI_CONFIG_KEY = 'darbandi.enforce';
+
+export const asDarbandiMode = (v: unknown): DarbandiMode => (v === 'block' || v === 'off' ? v : 'warn');
+
+export interface DarbandiDecision {
+  allowed: boolean;
+  /** Null when the placement is within the approval. */
+  message: string | null;
+}
+
+/**
+ * `approved` is null when no approved_positions row exists for the pair.
+ * Off: always allowed, silently. Warn: allowed with a message. Block: refused
+ * when the post is full or unapproved.
+ */
+export function darbandiDecision(mode: DarbandiMode, label: string, approved: PositionOccupancy | null): DarbandiDecision {
+  if (mode === 'off') return { allowed: true, message: null };
+  const problem = !approved
+    ? `${label} has no approved position (दरबन्दी) — the board has not sanctioned this post.`
+    : approved.vacant <= 0
+      ? `${label} is full: ${approved.filled} of ${approved.positions} approved post${approved.positions === 1 ? '' : 's'} already filled.`
+      : null;
+  if (!problem) return { allowed: true, message: null };
+  return mode === 'block' ? { allowed: false, message: `${problem} Add positions under Recruitment → दरबन्दी first.` } : { allowed: true, message: `${problem} Recorded over darbandi.` };
+}
+
+// ---------------------------------------------------------------------------
 // Forms
 // ---------------------------------------------------------------------------
 

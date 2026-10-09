@@ -1273,3 +1273,49 @@ Branch: (none, docs only)
 Changed: added `docs/redesign/` (analysis, design system, security plan, roadmap, this changelog) and `mockups/app-frame.html` (clickable static mockup of the desktop frame on the Employees register)
 Verified: n/a (documentation)
 Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2 plaintext temp passwords). WIP on `main` (18 modified, 2 untracked files) must be committed before Phase 0.
+
+## Phase G hardening (senior review)
+- Exit Complete deactivates the employee's user login (`completeCaseTx`); `/iclock` negative serial cache. Tests in `security-exit` / `security-devices`. Verification: tsc 0, touched tests pass, lint clean. No migration.
+
+- Exit case shows welfare-fund balances held (`exitFacts.funds`, read-only; payout stays under Funds). Verification: tsc 0, 947/947 tests, lint clean. No migration.
+- Exit Complete is blocked while a welfare-fund balance is held (`completionBlockers` fundsHeld). tsc 0, tests pass.
+
+## G8 Disciplinary & grievance
+- Migration `0055_discipline` (`hr_cases`, append-only `hr_case_events`, DISCIPLINE permission module; mirrored in `ensureTenantSchema`; restart the dev server). Engine `case.engine.ts`, service/repository/actions, `/workforce/discipline`. S34: nobody works or even sees a case about their own record (audited `DENIED_SELF`); status changes claim-first; termination only recommended. Verification: tsc 0, 966/966 tests, lint clean on touched files. Build: CI.
+
+## G7 Training
+- Migration `0056_training` (`training_programs`, `training_participants`, TRAINING permission module; mirrored in `ensureTenantSchema`; restart the dev server). Engine `training.engine.ts` (planned → running → completed / cancelled; attended / absent / completed with score 0–100 and certificate; service bond end date derived with day clamping), service/repository/actions, `/workforce/training`. S35: nobody nominates themselves or marks their own record (`DENIED_SELF`); scope on every participant read. Exit case now lists running training bonds (read-only, not a blocker). Verification: tsc 0, 980/980 tests, lint clean on touched files. Build: CI.
+
+## G13 HR analytics
+- `/reports/hr-analytics`: headcount by branch / department / designation / category / age band with gender split, movement (joined, left, turnover on average headcount), tenure, leave usage, case counts (DISCIPLINE VIEW only), and the DoC / COPOMIS staff return (कर्मचारी विवरण) with gated CSV export. Engine `hr-analytics.engine.ts`; every query scoped; no pay columns (S36 test). No migration. Verification: tsc 0, 991/991 tests, lint clean on touched files. Build: CI.
+
+## G14 Assets & notice board
+- Migration `0057_assets_notices` (`assets`, `asset_handovers`, `notices`, ASSETS + NOTICE_BOARD permission modules; mirrored in `ensureTenantSchema`; restart the dev server). Assets: register, claim-first issue / return (lost retires), handover history, exit facts + Complete blocker. Notices: company / branch audience, publish window, pinned, withdraw (never delete); the Home dashboard shows each reader their board (`boardFor`). Verification: tsc 0, 1005/1005 tests, lint clean on touched files. Build: CI.
+
+## G11 Travel / TA-DA
+- Migration `0058_travel` (`travel_rates`, `travel_claims`, TRAVEL permission module — HR Manager VIEW/ADD/EDIT/APPROVE, Payroll Controller VIEW/LOCK; mirrored in `ensureTenantSchema`; restart the dev server). Engine `travel.engine.ts` (inclusive days, days × DA, lodging capped at nights × ceiling, fare or km × rate, minus advance; paisa arithmetic), amounts frozen on the claim; draft → submitted → approved / rejected / returned → settled, claim-first. S38: nobody decides or settles their own claim. Screen `/payroll/travel` with live preview. Verification: tsc 0, 1017/1017 tests, lint clean on new files (seed-rbac has pre-existing `any` errors). Build: CI.
+
+## Darbandi enforcement (G4 follow-up)
+- `lib/services/darbandi.service.ts` (`checkPlacement`) runs before the employee save and before a lifecycle event is written; `system_config` key `darbandi.enforce` = off | warn | block (default warn), changed on the Recruitment → दरबन्दी tab (RECRUITMENT EDIT, audited). Warnings ride along with the save result (`darbandiWarning` / event `letterWarning`). No migration. Verification: tsc 0, 1022/1022 tests, lint clean (one pre-existing unused-import warning).
+
+## Promotion ranking (G1 / G2 follow-up)
+- `lib/engines/promotion.engine.ts`: composite = का.स.मू. average of the latest N finals × share + seniority in post (since the last applied promotion, else joining; capped) × share + completed training hours (capped) × share − penalty per disciplinary outcome (24 months); weights per company in `system_config` `promotion.weights` (sum 100, default 60/30/10). Ranked per designation, computed on read. Screen `/workforce/promotion` (PERFORMANCE VIEW; weights PERFORMANCE LOCK, audited); "Record promotion" deep-links to `/workforce/lifecycle?new=promotion&employee=…` (EMPLOYEES EDIT; S27 and darbandi apply there). No migration. Verification: tsc 0, 1032/1032 tests, lint clean.
+
+## Payroll accuracy (4.8, two known bugs)
+- Run totals: `payroll.repository.refreshRunTotals(runId)` recomputes `total_*` and `employee_count` from the payslips in one SQL statement, called AFTER each slip-changing transaction commits (`overridePayslipAllowanceDeduction`, `deleteEmployeePayslip`, `recalculateEmployeePayslip`, hence also attendance sync). Before, the sum ran through a second connection inside the transaction and missed the slip being changed (Shrawan 2083: 62,068.75 vs 68,068.75). Hand-summed `updatePayrollRunTotals` calls removed.
+- Tax slabs: payroll now loads `findSlabsByFiscalYear(run's year)` instead of every year's slabs (`findAllSlabs`), in generation, override and recalculation. `tests/payroll-run-totals.test.ts` guards both. Verification: tsc 0, 1035/1035 tests; payroll.service lint count unchanged (pre-existing `any`s).
+
+## Probation gating (G1 / G2 follow-up)
+- `confirmationGate` in `employee-event.engine.ts`: a confirmation (स्थायी) cannot take effect before the employment type's `probationMonths` from joining (blocked, field error); a missing final का.स.मू. evaluation only warns. Wired into `createEvent`. tsc 0, 1038/1038 tests, lint clean.
+
+## Phase G screen verification (local PostgreSQL 16, seeded demo company)
+- Signed-in pass at 1440 / 1024 / 390 over discipline, training, assets, notices, promotion, travel, HR analytics, exit and the dashboard: every page 200, no runtime errors, no horizontal scroll. Interactive flows exercised against the database: notice → dashboard board; asset register → hand over (claim-first); TA-DA rate card → claim (preview and stored amounts 9,400 gross / 6,400 payable) → approve; disciplinary case → decision; training programme → nomination; promotion ranking and analytics case count; exit case facts (asset out, bonds, funds). Fix from the pass: opener / author / actor names fall back to the email when `users.name` is empty (exit, cases, notices, travel). Restricted-role pass done with a BRANCH-scoped HR login (Lekhnath, whose own employee record is in scope): discipline, promotion, training, travel and exit show only Lekhnath staff; the case about the login's own record is invisible and the person cannot be chosen as a subject; training nominees exclude head-office staff; HR analytics answers Access Denied without EMPLOYEES VIEW.
+
+## Payroll feeds (4.8): TA-DA and welfare fund on the payslip
+- Migration `0059_payroll_feeds`: `travel_claims.payroll_run_id` and two system pay heads `TADA` (allowance, not taxable) and `WELFARE_FUND` (deduction), mirrored in `ensureTenantSchema`. `lib/repositories/payroll-feeds.repository.ts` picks approved, unpaid claims whose trip ended by the period end (summed per employee) and the month's fund employee contributions (exact `contrib:<code>:<yyyy>-<mm>` ref); generation adds them as manual-override heads, settles the claims **after** the run commits (claim-first), and deleting a draft run releases them. `tests/payroll-feeds.test.ts`. Verified the feed queries against the demo database (12,800 picked for Aswin, none for Bhadra). tsc 0, 1042/1042 tests.
+
+## G12 Self-service in Nepali + new portal pages
+- `lib/i18n/ess.ts` (EN/NP dictionary, `t(lang, key)`), cookie `ess_lang` read by `essLang()`; toggle in the portal nav. Home, nav and the new pages read it; office screens stay English. New pages: `/self-service/my-notices` (the board), `/self-service/my-training` (own nominations, score, certificate, bond end), `/self-service/my-claims` (own TA-DA claims; submit → the office approves; amounts from the card). `lib/services/ess-extras.service.ts` pins everything to the session employee (S40 test). Travel rule added from the portal pass: a claim is made within a year of the trip. Verified live at 1440 / 390 in both languages, including a claim submitted from the portal. tsc 0, 1047/1047 tests, lint clean.
+
+## Phase G hardening — final gate
+- `npm run build` (webpack, cpus 1) compiles clean with every new route (`/workforce/discipline`, `/workforce/training`, `/workforce/assets`, `/workforce/notices`, `/workforce/promotion`, `/payroll/travel`, `/reports/hr-analytics`, `/self-service/my-*`) and the postbuild standalone copy; the sandbox needed Google Fonts stubbed (network), which CI does not. tsc 0, 1047/1047 tests. Deploy: `scripts/sync-schema.ts` applies migrations 0055–0059 per company; set nothing new in `.env`.

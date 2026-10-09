@@ -1,7 +1,11 @@
 import { getDb } from '@/lib/db';
-import { attendanceDevices, deviceUsers, employeeTermination, employees, exitCases, exitClearances, hrLetters, loans, users } from '@/lib/db/schema';
+import { attendanceDevices, deviceUsers, employeeTermination, employees, exitCases, exitClearances, fundLedger, fundTypes, hrLetters, loans, users } from '@/lib/db/schema';
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { CLEARANCE_UNITS } from '@/lib/engines/exit.engine';
+import { fundBalance } from '@/lib/engines/fund.engine';
+import { bondActive, bondEnds } from '@/lib/engines/training.engine';
+import { bondsFor } from '@/lib/repositories/training.repository';
+import { heldBy } from '@/lib/repositories/asset.repository';
 
 // Exit workflow (G5): Drizzle queries only. Rules live in
 // lib/engines/exit.engine.ts; orchestration in lib/services/exit.service.ts.
@@ -24,7 +28,7 @@ const joined = {
   employeeCode: employees.employeeCode,
   designationId: employees.designationId,
   branchId: employees.branchId,
-  openedByName: users.name,
+  openedByName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})`,
   letterNumber: hrLetters.letterNumber,
 };
 
@@ -131,7 +135,7 @@ export interface TerminationMirror {
 
 /**
  * Completes a case in one transaction: the case is claimed while still open,
- * the employee goes Inactive, and the employee_termination mirror row is
+ * the employee goes Inactive, their login is deactivated, and the employee_termination mirror row is
  * written for older readers (reports, 4.8's settlement later).
  */
 export async function completeCaseTx(id: string, employeeId: string, mirror: TerminationMirror, userId: string): Promise<'closed' | 'stale'> {
@@ -144,6 +148,8 @@ export async function completeCaseTx(id: string, employeeId: string, mirror: Ter
       .returning({ id: exitCases.id });
     if (!claimed) return 'stale';
     await tx.update(employees).set({ status: 'Inactive' }).where(eq(employees.id, employeeId));
+    // An exited employee must not keep a working login (isActive is checked at sign-in and on every permission check).
+    await tx.update(users).set({ isActive: false }).where(eq(users.employeeId, employeeId));
     await tx.insert(employeeTermination).values({ employeeId, ...mirror, plan: null, remarks: 'Recorded by the exit workflow (G5).' });
     return 'closed';
   });
@@ -172,9 +178,12 @@ export interface ExitFacts {
   activeLoans: number;
   loanOutstanding: string; // summed numeric as text
   devicePins: { device: string; pin: string }[];
+  funds: { fund: string; employee: string; employer: string; total: string }[];
+  bonds: { title: string; bondEndsAd: string }[];
+  assets: { tag: string; name: string; issuedAd: string }[];
 }
 
-export async function exitFacts(employeeId: string): Promise<ExitFacts> {
+export async function exitFacts(employeeId: string, lastWorkingDayAd: string): Promise<ExitFacts> {
   const db = await getDb();
   const [loanRow] = await db
     .select({ n: sql<number>`count(*)::int`, outstanding: sql<string>`COALESCE(sum(${loans.remainingAmount}), 0)::text` })
@@ -185,7 +194,25 @@ export async function exitFacts(employeeId: string): Promise<ExitFacts> {
     .from(deviceUsers)
     .innerJoin(attendanceDevices, eq(deviceUsers.deviceId, attendanceDevices.id))
     .where(eq(deviceUsers.employeeId, employeeId));
-  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins };
+  // Read-only: the payout itself is posted under Funds (WELFARE_FUNDS, S33), never from the exit screen.
+  const fundRows = await db
+    .select({
+      fund: fundTypes.name,
+      employee: sql<string>`COALESCE(sum(${fundLedger.employeeAmount}), 0)::text`,
+      employer: sql<string>`COALESCE(sum(${fundLedger.employerAmount}), 0)::text`,
+    })
+    .from(fundLedger)
+    .innerJoin(fundTypes, eq(fundLedger.fundTypeId, fundTypes.id))
+    .where(eq(fundLedger.employeeId, employeeId))
+    .groupBy(fundTypes.name);
+  const funds = fundRows
+    .map((r) => ({ fund: r.fund, ...fundBalance([{ employeeAmount: r.employee, employerAmount: r.employer }]) }))
+    .filter((r) => r.total !== '0.00' || r.employee !== '0.00' || r.employer !== '0.00');
+  const bonds = (await bondsFor(employeeId))
+    .map((b) => ({ title: b.title, bondEndsAd: bondEnds(b.programEndAd, b.bondMonths) }))
+    .filter((b): b is { title: string; bondEndsAd: string } => bondActive(b.bondEndsAd, lastWorkingDayAd));
+  const held = await heldBy(employeeId);
+  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins, funds, bonds, assets: held };
 }
 
 

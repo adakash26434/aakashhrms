@@ -28,6 +28,17 @@ export async function findAllSlabs(): Promise<TaxSlab[]> {
   return rows.map(mapRowToTaxSlab);
 }
 
+/** Every category's slabs for one fiscal year — the run's year, never all years (4.8 fix). */
+export async function findSlabsByFiscalYear(fiscalYearId: string): Promise<TaxSlab[]> {
+  const rows = await (await getDb())
+    .select()
+    .from(taxRateSlabs)
+    .innerJoin(fiscalYears, eq(taxRateSlabs.fiscalYearId, fiscalYears.id))
+    .where(eq(taxRateSlabs.fiscalYearId, fiscalYearId))
+    .orderBy(taxRateSlabs.amountFrom);
+  return rows.map(mapRowToTaxSlab);
+}
+
 export async function findSlabsByFYAndCategory(args: {
   fiscalYearId: string;
   category: TaxCategory;

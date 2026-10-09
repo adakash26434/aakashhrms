@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { toActionError } from '@/lib/errors/action-error';
+import { setDarbandiMode } from '@/lib/services/darbandi.service';
 import * as recruitmentService from '@/lib/services/recruitment.service';
 
 // Recruitment & darbandi (G4): VIEW lists, ADD opens positions / vacancies /
@@ -47,6 +48,20 @@ export async function saveApprovedPositionAction(form: unknown) {
     return { success: true as const, data: { id: row.id } };
   } catch (error: unknown) {
     return validationFailure(error) ?? toActionError(error, 'recruitment.position-save');
+  }
+}
+
+/** Company-wide setting (EDIT on RECRUITMENT): how hire / promotion / transfer treat a full or unapproved post. */
+export async function setDarbandiModeAction(mode: string) {
+  await ensureTenantContext();
+  try {
+    const ctx = await recruitmentCtx('EDIT');
+    const saved = await setDarbandiMode(mode);
+    await recordAuditLog({ userId: ctx.userId, action: 'EDIT', module: 'RECRUITMENT', recordId: 'darbandi.enforce', result: 'SUCCESS', newValues: { mode: saved } });
+    revalidate();
+    return { success: true as const, data: { mode: saved } };
+  } catch (error: unknown) {
+    return toActionError(error, 'recruitment.darbandi-mode');
   }
 }
 

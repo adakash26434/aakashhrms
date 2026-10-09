@@ -14,7 +14,7 @@ import { PropertyForm, FieldGroup, FieldRow, inputClass } from "@/components/kit
 import { SelectField } from "@/components/kit/select-field";
 import { DateField } from "@/components/kit/date-field";
 import { Confirm } from "@/components/kit/confirm";
-import { APPLICANT_STAGES } from "@/lib/engines/recruitment.engine";
+import { APPLICANT_STAGES, DARBANDI_MODES } from "@/lib/engines/recruitment.engine";
 import {
   saveApprovedPositionAction,
   openVacancyAction,
@@ -22,6 +22,7 @@ import {
   getVacancyApplicantsAction,
   addApplicantAction,
   updateApplicantAction,
+  setDarbandiModeAction,
 } from "@/app/actions/recruitment.actions";
 import type { ApplicantView, PositionListRow, RecruitmentPageData, VacancyListRow } from "@/lib/types/recruitment";
 
@@ -94,6 +95,7 @@ export function RecruitmentClient({ data }: { data: RecruitmentPageData }) {
       <Tabs variant="folder" items={tabs} value={tab} onChange={(next) => setTab(next as RecruitTab)} label="Recruitment views">
         {tab === "darbandi" && (
           <div className="p-3">
+            <DarbandiModeBar mode={data.darbandiMode} canEdit={data.permissions.manage} />
             <DataGrid
               id="approved-positions"
               label="Approved positions"
@@ -496,5 +498,43 @@ function ApplicantRowView({ applicant, editable, pending, onUpdate }: { applican
         )}
       </td>
     </tr>
+  );
+}
+
+const MODE_HELP: Record<(typeof DARBANDI_MODES)[number], string> = {
+  off: "Hiring, promotion and transfer ignore the approved positions.",
+  warn: "A hire or move beyond the approved positions is recorded with a warning (default).",
+  block: "A hire or move beyond the approved positions, or onto a post the board never approved, is refused.",
+};
+
+function DarbandiModeBar({ mode, canEdit }: { mode: (typeof DARBANDI_MODES)[number]; canEdit: boolean }) {
+  const router = useRouter();
+  const [value, setValue] = useState<string>(mode);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const change = (next: string) => {
+    setValue(next);
+    startTransition(async () => {
+      setError(null);
+      const result = await setDarbandiModeAction(next);
+      if (!result.success) {
+        setError(result.error);
+        setValue(mode);
+      } else router.refresh();
+    });
+  };
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-sunken px-3 py-2 text-xs">
+      <span className="font-semibold text-ink">Enforcement</span>
+      {canEdit ? (
+        <div className="w-28">
+          <SelectField options={DARBANDI_MODES.map((m) => ({ value: m, label: m[0].toUpperCase() + m.slice(1) }))} value={value} onChange={change} disabled={pending} />
+        </div>
+      ) : (
+        <span className="capitalize">{value}</span>
+      )}
+      <span className="text-ink-muted">{MODE_HELP[(value as (typeof DARBANDI_MODES)[number]) ?? "warn"]}</span>
+      {error && <span className="text-danger">{error}</span>}
+    </div>
   );
 }

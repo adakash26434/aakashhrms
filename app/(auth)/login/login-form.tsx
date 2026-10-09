@@ -146,18 +146,7 @@ export function LoginForm() {
         </button>
       </form>
 
-      {/* Support Help Text */}
-      <div className="text-center pt-1">
-        <p className="text-xs text-gray-500">
-          Need help?{" "}
-          <a
-            href="mailto:support@aakashhrms.com"
-            className="font-semibold text-emerald-700 hover:text-emerald-900 hover:underline transition-colors"
-          >
-            support@aakashhrms.com
-          </a>
-        </p>
-      </div>
+
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
@@ -186,12 +175,8 @@ export function LoginForm() {
             </div>
 
             <div className="rounded-xl bg-gray-50 border border-gray-200/70 p-4 text-xs text-gray-600 space-y-2 leading-relaxed">
-              <p>
-                To maintain enterprise security, employee password resets must be initiated by your company&apos;s Human Resources or System Administrator.
-              </p>
-              <p>
-                If you are a Workspace Administrator or Organization Owner locked out of your account, please contact technical support with your organization details.
-              </p>
+              <p>Passwords are reset by your company&apos;s HR or system administrator (Administration → Users &amp; roles).</p>
+              <p>An administrator who is locked out contacts support with the company code.</p>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">

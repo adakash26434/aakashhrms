@@ -30,11 +30,11 @@ const statusChip = (status: EventListRow["status"]) =>
     <StatusChip status="approved" label="Applied" />
   );
 
-export function LifecycleClient({ data }: { data: EventsPageData }) {
+export function LifecycleClient({ data, preset = null }: { data: EventsPageData; preset?: { kind: string; employeeId: string } | null }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterValues>({});
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(!!preset);
   const [openEvent, setOpenEvent] = useState<EventListRow | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -200,6 +200,7 @@ export function LifecycleClient({ data }: { data: EventsPageData }) {
 
       <NewEventWindow
         open={creating}
+        preset={preset}
         onClose={() => setCreating(false)}
         data={data}
         onSaved={(message, letterId, warning) => {

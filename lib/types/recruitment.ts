@@ -52,5 +52,7 @@ export interface RecruitmentPageData {
   vacancies: VacancyListRow[];
   designations: { id: string; name: string }[];
   branches: { id: string; name: string }[];
+  /** Darbandi enforcement for hire / promotion / transfer: off | warn | block. */
+  darbandiMode: 'off' | 'warn' | 'block';
   permissions: { manage: boolean };
 }

@@ -343,6 +343,28 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
               Device PINs: {detail.facts.devicePins.length === 0 ? "none" : detail.facts.devicePins.map((p) => `${p.device} (${p.pin})`).join(", ")}
               {detail.facts.devicePins.length > 0 && <span className="text-ink-faint"> — unmap under Time &amp; Leave → Devices</span>}
             </p>
+            <p>
+              Welfare funds held:{" "}
+              {detail.facts.funds.length === 0 ? (
+                "none"
+              ) : (
+                detail.facts.funds.map((f, i) => (
+                  <span key={f.fund}>
+                    {i > 0 && ", "}
+                    {f.fund} <Amount value={Number(f.total)} />
+                  </span>
+                ))
+              )}
+              {detail.facts.funds.length > 0 && <span className="text-ink-faint"> — pay out under Payroll → Funds before completing</span>}
+            </p>
+            <p>
+              Assets out: {detail.facts.assets.length === 0 ? "none" : detail.facts.assets.map((a) => `${a.tag} ${a.name}`).join(", ")}
+              {detail.facts.assets.length > 0 && <span className="text-ink-faint"> — record the return under Workforce → Assets before completing</span>}
+            </p>
+            <p>
+              Training bonds running: {detail.facts.bonds.length === 0 ? "none" : detail.facts.bonds.map((b) => `${b.title} (until ${b.bondEndsAd})`).join(", ")}
+              {detail.facts.bonds.length > 0 && <span className="text-ink-faint"> — a settlement matter for Accounts, not a blocker</span>}
+            </p>
           </div>
 
           <div>

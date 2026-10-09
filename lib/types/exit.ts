@@ -39,6 +39,12 @@ export interface ExitDetail extends ExitListRow {
     activeLoans: number;
     loanOutstanding: string;
     devicePins: { device: string; pin: string }[];
+    /** Welfare-fund balances still held for the employee (non-zero only). */
+    funds: { fund: string; employee: string; employer: string; total: string }[];
+    /** Training service bonds still running on the last working day (read-only; a settlement matter). */
+    bonds: { title: string; bondEndsAd: string }[];
+    /** Company assets still out on handover (returned under Assets before Admin can clear). */
+    assets: { tag: string; name: string; issuedAd: string }[];
   };
 }
 

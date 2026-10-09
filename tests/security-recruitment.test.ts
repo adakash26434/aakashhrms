@@ -72,3 +72,24 @@ describe('S32 recruitment: pipeline integrity', () => {
     assert.ok(!/letter\.service|email\.service|employee-event/.test(service), 'no cross-module copies of applicant data');
   });
 });
+
+describe('S32 darbandi enforcement (follow-up)', () => {
+  const employeeService = read('lib/services/employee.service.ts');
+  const eventService = read('lib/services/employee-event.service.ts');
+  const darbandi = read('lib/services/darbandi.service.ts');
+
+  it('hire / edit and lifecycle events are checked before any write', () => {
+    assert.ok(employeeService.indexOf('await checkPlacement(') < employeeService.indexOf('repository.create(employeeData'), 'employee save checks first');
+    assert.ok(eventService.indexOf('await checkPlacement(') < eventService.indexOf('repo.insertEventTx('), 'event checks first');
+  });
+
+  it('block mode throws a user-facing error; an unchanged pair is never checked', () => {
+    assert.match(darbandi, /if \(!decision\.allowed\) throw new UserFacingError/);
+    assert.match(darbandi, /p\.current\.designationId === p\.designationId && p\.current\.branchId === p\.branchId\) return null/);
+  });
+
+  it('the mode is changed only with RECRUITMENT EDIT', () => {
+    const actions = read('app/actions/recruitment.actions.ts');
+    assert.match(body(actions, 'export async function setDarbandiModeAction('), /recruitmentCtx\('EDIT'\)/);
+  });
+});

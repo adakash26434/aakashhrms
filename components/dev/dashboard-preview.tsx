@@ -189,6 +189,10 @@ function buildData(variant: Variant, option: DashboardPeriodOption): DashboardDa
       { id: "3", actor: "Hari Adhikari", action: "EXPORT", module: "Reports salary sheet", result: "DENIED_PERMISSION", at: new Date(Date.now() - 2 * 3600000).toISOString() },
       { id: "4", actor: "Sita Sharma", action: "LOCK", module: "Payroll review", result: "SUCCESS", at: new Date(Date.now() - 26 * 3600000).toISOString() },
     ],
+    notices: [
+      { id: "n1", title: "Dashain holidays", body: "The office is closed from 2083-06-20 to 2083-06-26. Branch counters reopen 2083-06-27.", branch: null, publishAd: "2026-10-01", pinned: true },
+      { id: "n2", title: "AML/KYC refresher", body: "Credit staff attend the refresher on 2083-07-05 at the head office hall.", branch: "Head office", publishAd: "2026-10-05", pinned: false },
+    ],
     failed: [],
   };
 

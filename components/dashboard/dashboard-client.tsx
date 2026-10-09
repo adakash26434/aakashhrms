@@ -27,6 +27,7 @@ import { DashboardDepartmentCostCard } from "./dashboard-department-cost-card";
 import { DashboardLeaveOverview } from "./dashboard-leave-overview";
 import { DashboardHeadcountCard } from "./dashboard-headcount-card";
 import { DashboardActivityCard } from "./dashboard-activity-card";
+import { DashboardNoticeBoard } from "./dashboard-notice-board";
 
 // Recharts loads after the first paint; the cards around the charts render on the server.
 const chartLoading = (height: string) =>
@@ -116,7 +117,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const attendanceFailed = failed("attendance") && !data.attendance;
   const activityFailed = failed("activity") && !data.activity;
   const hasPeople = !!(data.attendance || attendanceFailed || hasLeave || data.headcount || data.upcoming || data.activity || activityFailed);
-  const nothing = !data.payRun && !data.kpis && !hasPayroll && attentionCards.length === 0 && !hasPeople;
+  const hasNotices = !!data.notices?.length;
+  const nothing = !data.payRun && !data.kpis && !hasPayroll && attentionCards.length === 0 && !hasPeople && !hasNotices;
 
   return (
     <PageFrame size="wide" spacing="none">
@@ -154,6 +156,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
       {showFilters && <DashboardFilters filters={filters} />}
+
+      {hasNotices && <DashboardNoticeBoard notices={data.notices!} />}
 
       {nothing ? (
         <div className="rounded-lg border border-line bg-surface">
