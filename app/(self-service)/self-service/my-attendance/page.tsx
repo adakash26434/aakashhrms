@@ -20,7 +20,8 @@ const AD_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
 /**
  * My attendance (4.5c): the month with the same day rules HR and payroll
  * use (not only closed months, as before): each day's code, in, out, hours
- * and why; month totals; clock-ins outside the office and their approval.
+ * and why; month totals; clock-ins outside the office and their approval;
+ * overtime days and whether they are approved and paid (4.7b).
  * Always the signed-in employee.
  */
 export default async function MyAttendancePage({ searchParams }: { searchParams: Promise<{ year?: string; month?: string }> }) {
@@ -37,7 +38,9 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
       </div>
     );
   }
-  const { period, today, days, summary, requests } = data;
+  const { period, today, days, summary, requests, overtime, overtimeApproval } = data;
+  const otPaid = overtime.reduce((n, o) => n + o.paidMinutes, 0);
+  const otWaiting = overtime.filter((o) => o.state === "waiting" || o.state === "changed").length;
   const prev = shiftPeriod(period, -1);
   const next = shiftPeriod(period, 1);
   const ad = (iso: string) => `${Number(iso.slice(8))} ${AD_MONTH[Number(iso.slice(5, 7)) - 1]}`;
@@ -45,7 +48,7 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
     ["Paid days", String(summary.payableDays), "so far this month"],
     ["Unpaid days", String(summary.unpaidDays + summary.notEmployedDays), summary.unpaidDays ? "absent, unpaid leave or half days" : undefined],
     ["Late days", String(summary.lateDays)],
-    ["Overtime", hoursText(summary.otWorkDayMinutes + summary.otOffDayMinutes)],
+    ["Overtime paid", hoursText(otPaid) || "0", otWaiting ? `${otWaiting} day${otWaiting === 1 ? "" : "s"} waiting for approval` : undefined],
   ];
   const waiting = requests.filter((r) => r.status === "pending");
 
@@ -106,6 +109,48 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
                 <span className="min-w-40 flex-1 text-ink-muted">“{r.reason}”</span>
               </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {overtime.length > 0 && (
+        <section aria-label="Overtime" className="rounded-lg border border-line bg-surface">
+          <h2 className="border-b border-line px-3 py-2 text-sm font-semibold text-ink">
+            Overtime {otWaiting > 0 && <span className="ml-1 rounded-full bg-warning-subtle px-1.5 text-3xs font-semibold text-warning">{otWaiting} waiting</span>}
+            <span className="ml-2 text-2xs font-normal text-ink-muted">
+              {overtimeApproval === "required" ? "Paid once your supervisor or HR approves it." : "Paid as recorded; days over 4 hours (or weeks over 24) wait for approval."}
+            </span>
+          </h2>
+          <ul className="divide-y divide-line text-xs">
+            {overtime.map((o) => {
+              const bs = bsDayOf(o.date);
+              return (
+                <li key={`${o.date}-${o.source}`} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2">
+                  <span className="w-32 tabular-nums text-ink">
+                    {bs.day} {BS_MONTHS_EN[bs.month]?.slice(0, 3)} · {ad(o.date)}
+                  </span>
+                  <span className="w-24 font-medium tabular-nums text-ink">{hoursText(o.minutes)}</span>
+                  <span className="text-ink-muted">{o.kind === "off" ? "Weekly off / holiday" : "Working day"}{o.source === "manual" ? " · added by HR" : ""}</span>
+                  <span className={o.state === "waiting" || o.state === "changed" ? "font-medium text-warning" : o.state === "rejected" || o.state === "withdrawn" ? "font-medium text-danger" : "font-medium text-success"}>
+                    {o.state === "waiting" || o.state === "changed" ? (
+                      <>
+                        <Hourglass className="mr-1 inline h-3 w-3" />
+                        Waiting for approval
+                      </>
+                    ) : o.state === "approved" ? (
+                      `Approved: ${hoursText(o.approvedMinutes ?? 0)}`
+                    ) : o.state === "auto" ? (
+                      "Paid"
+                    ) : o.state === "rejected" ? (
+                      "Not approved"
+                    ) : (
+                      "Withdrawn"
+                    )}
+                  </span>
+                  {o.entry?.decisionNote && <span className="min-w-40 flex-1 text-ink-muted">“{o.entry.decisionNote}”</span>}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

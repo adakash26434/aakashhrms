@@ -258,6 +258,7 @@ export async function getStructureData(params: {
       employeeId: e.id,
       employeeCode: e.employeeCode,
       fullName: e.fullName,
+      bankAccountNumber: e.bankAccountNumber || "",
       branchId: e.branchId,
       branchName: branchName.get(e.branchId) ?? "",
       departmentId: e.departmentId,

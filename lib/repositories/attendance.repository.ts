@@ -17,6 +17,7 @@ import {
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
 import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
 import type { DayResult, MonthSummary, OverrideType, PunchSource } from "@/lib/types/attendance";
+import type { OvertimeDetail } from "@/lib/types/overtime";
 import { postLedgerLines, type NewLedgerLine } from "@/lib/repositories/leave.repository";
 
 // Attendance (4.5): punches, HR overrides, daily results, adjustments
@@ -483,6 +484,8 @@ export interface SummaryWrite {
   bsMonth: number;
   summary: MonthSummary;
   otEarnedAmount: number;
+  /** 4.7b: how the amount was worked out (hours, hourly rate, rates). */
+  otDetail: OvertimeDetail;
   /** Overtime minutes paid (4.7: each day rounded by the policy), stored as the month's OT hours. */
   otMinutes: { work: number; off: number };
   leaveDeductionAmount: number;
@@ -552,6 +555,7 @@ export async function closePeriod(params: {
         totalOtHoursOffice: String(Math.round((s.otMinutes.work / 60) * 100) / 100),
         totalOtHoursOff: String(Math.round((s.otMinutes.off / 60) * 100) / 100),
         otEarnedAmount: String(s.otEarnedAmount),
+        otDetail: s.otDetail,
         leaveDeductionAmount: String(s.leaveDeductionAmount),
         otWarnings: m.otWarnings.length ? m.otWarnings.join("\n") : null,
         calendar: m.calendar,

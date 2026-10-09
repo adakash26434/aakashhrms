@@ -762,6 +762,42 @@ ON CONFLICT DO NOTHING`);
     console.error("[tenant-schema-sync] employee documents 0045:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
 
+  // Overtime approvals (4.7b, migration 0047): decided overtime days, and how each month's and
+  // payslip's overtime amount was worked out. Additive only.
+  for (const q of [
+    `CREATE TABLE IF NOT EXISTS "overtime_entries" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+  "work_date" date NOT NULL,
+  "source" varchar(10) NOT NULL,
+  "day_kind" varchar(5) NOT NULL,
+  "detected_minutes" integer DEFAULT 0 NOT NULL,
+  "requested_minutes" integer DEFAULT 0 NOT NULL,
+  "approved_minutes" integer DEFAULT 0 NOT NULL,
+  "status" varchar(20) DEFAULT 'pending' NOT NULL,
+  "over_limit" boolean DEFAULT false NOT NULL,
+  "reason" text,
+  "prepared_by" uuid,
+  "decided_by" uuid,
+  "decided_at" timestamp,
+  "decision_note" text,
+  "approval_route" varchar(20),
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "overtime_entries_employee_date_source_key" UNIQUE ("employee_id", "work_date", "source")
+)`,
+    `CREATE INDEX IF NOT EXISTS "overtime_entries_date_idx" ON "overtime_entries" ("work_date")`,
+    `CREATE INDEX IF NOT EXISTS "overtime_entries_status_idx" ON "overtime_entries" ("status")`,
+    `ALTER TABLE "leave_ot_calculations" ADD COLUMN IF NOT EXISTS "ot_detail" jsonb`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "ot_detail" jsonb`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] overtime 0047:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

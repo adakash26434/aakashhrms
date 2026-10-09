@@ -10,6 +10,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getMyPayslipDetailAction } from "@/app/actions/self-service.actions";
+import { describeDetail } from "@/lib/engines/overtime.engine";
+import type { OvertimeDetail } from "@/lib/types/overtime";
 
 interface PayslipDetailModalProps {
   payslipId: string | null;
@@ -40,6 +42,8 @@ interface PayslipDetailData {
     basicSalary: string | number;
     gradeAmount?: string | number;
     otAmount?: string | number;
+    /** 4.7b: how the overtime was worked out. */
+    otDetail?: OvertimeDetail | null;
     grossEarnings: string | number;
     totalDeductions: string | number;
     ssfEmployee?: string | number;
@@ -248,7 +252,10 @@ export function PayslipDetailModal({
 
                 {Number(slip.otAmount) > 0 && (
                   <div className="flex justify-between py-2.5 border-b border-zinc-100">
-                    <span className="text-zinc-600 font-medium">Overtime Earnings</span>
+                    <span className="text-zinc-600 font-medium">
+                      Overtime Earnings
+                      {slip.otDetail && Math.abs(slip.otDetail.amount - Number(slip.otAmount)) < 0.005 && <span className="block text-2xs font-normal text-zinc-500">{describeDetail(slip.otDetail)}</span>}
+                    </span>
                     <span className="text-zinc-900 font-mono font-semibold">
                       NPR {Number(slip.otAmount).toLocaleString("en-NP")}
                     </span>

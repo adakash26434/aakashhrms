@@ -573,6 +573,7 @@ export async function generatePayrollRun(
         loanDeduction: calcResult.loanDeduction,
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
+        otDetail: leaveOtCalc?.otDetail ?? null,
         bankAccountNumber,
         bankName,
         payslipMonth,
@@ -661,6 +662,7 @@ export async function overridePayslipAllowanceDeduction(
     basicSalary,
     gradeAmount,
     otAmount,
+    otDetail,
     absentDeduction,
     loanDeduction,
     bankName,
@@ -686,6 +688,7 @@ export async function overridePayslipAllowanceDeduction(
     if (basicSalary !== undefined) updatedSlipFields.basicSalary = basicSalary;
     if (gradeAmount !== undefined) updatedSlipFields.gradeAmount = gradeAmount;
     if (otAmount !== undefined) updatedSlipFields.otAmount = otAmount;
+    if (otDetail !== undefined) updatedSlipFields.otDetail = otDetail;
     if (absentDeduction !== undefined) updatedSlipFields.absentDeduction = absentDeduction;
     if (loanDeduction !== undefined) updatedSlipFields.loanDeduction = loanDeduction;
 
@@ -934,6 +937,7 @@ export async function syncPayrollRunAttendance(
       slipId: s.id,
       absentDeduction: calc?.leaveDeductionAmount ?? "0",
       otAmount: calc?.otEarnedAmount ?? "0",
+      otDetail: calc?.otDetail ?? null,
     }, userId);
   }
 
@@ -1242,6 +1246,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         loanDeduction: calcResult.loanDeduction,
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
+        otDetail: leaveOtCalc?.otDetail ?? null,
         updatedAt: new Date()
       })
       .where(eq(payrollSlips.id, slipId));

@@ -13,6 +13,40 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-08 — 4.7b Overtime: approvals, month close blocking, and payslip breakdown
+Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
+
+**Your decisions:**
+- Overtime approvals in Attendance → **Overtime** tab: SplitView master/detail with DataGrid, filter between *Waiting for me* and *All*, bulk and single decisions.
+- Part approval pays the approved minutes rounded by policy; rejecting or part approval requires an explanatory note.
+- Days exceeding the Labour Act limits (4 hours a day, 24 hours a week) are flagged with warning/danger status and require a reason before approval.
+- Overtime added by hand (work without punches, e.g. at client sites) entered via desktop `Window` modal with Enter-navigation; waits for supervisor or attendance approver.
+- Month close blocked when overtime decisions are pending for any branch, displaying a direct link to the Overtime tab.
+- Payslips and printable reports show the exact formula breakdown (e.g. `6.5 h × NPR 199.79 × 1.5`).
+- Self-service *My attendance* displays each overtime day and whether it is paid, waiting, approved, or rejected.
+
+**Changed:**
+- **Schema & Migration:** `0047_overtime.sql` adds `overtime_entries` table (`employee_id`, `work_date`, `source`, `day_kind`, `detected_minutes`, `requested_minutes`, `approved_minutes`, `status`, `over_limit`, `reason`, `prepared_by`, `decided_by`, `decided_at`, `decision_note`, `approval_route`) and `ot_detail` JSONB column on `leave_ot_calculations` and `payroll_slips`. Mirrored in `lib/db/tenant-schema-sync.ts`.
+- **Engine:** `lib/engines/overtime.engine.ts` (`monthOvertime`, `limitBreaches`, `otDetail`, `describeDetail`, `decidable`).
+- **Service & Repositories:** `lib/services/attendance.service.ts`, `lib/repositories/overtime.repository.ts`, `lib/services/payroll.service.ts` (records overtime decisions, ties into month close checks, calculates pay slip details).
+- **Actions:** `app/actions/overtime.actions.ts` (`decideOvertimeAction`, `addOvertimeAction`).
+- **Screens:**
+  - `components/attendance/attendance-overtime.tsx`: desktop-style SplitView with DataGrid, timeline, reason/part-approval windows, and Add Overtime window.
+  - `components/attendance/attendance-close.tsx`: blocked close notice with button to open Overtime tab.
+  - `components/attendance/attendance-client.tsx`: Overtime tab and toolbar integration.
+  - `components/payroll/payslip-detail-modal.tsx`, `components/reports/payslip-printable.tsx`, `components/self-service/payslip-detail-modal.tsx`: formula working lines.
+  - `app/(self-service)/self-service/my-attendance/page.tsx`: personal overtime list and status.
+- **Security:** S21 (nobody approves/decides their own overtime, `DENIED_SELF`) and S26 (scoped authorization, audited decisions and additions).
+
+**Verified:**
+- `npm run type-check`: exit 0.
+- `npm test`: 817/817 tests passing (202 suites).
+- `npx eslint`: clean on all touched overtime files.
+- `npm run build`: production standalone build clean.
+- Browser test data verified and cleaned up (`scratch/cleanup-test-ot.ts --apply`).
+
+---
+
 ## 2026-10-08 — 4.7a Overtime: one policy and the lawful formula
 Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
 

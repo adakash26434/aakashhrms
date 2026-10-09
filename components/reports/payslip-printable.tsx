@@ -3,6 +3,7 @@
 import type { PayslipPrintData, CompanyReportInfo } from "@/lib/types/report";
 import { maskAccountNumber } from "@/lib/engines/report.engine";
 import { useWorkspaceContext } from "@/lib/contexts/workspace-context";
+import { describeDetail } from "@/lib/engines/overtime.engine";
 
 interface PayslipPrintableProps {
   data: PayslipPrintData[];
@@ -180,6 +181,9 @@ export function PayslipPrintable({ data, company }: PayslipPrintableProps) {
                     <div className="flex justify-between py-2.5 border-b border-zinc-100">
                       <span className="text-zinc-600 font-medium">
                         Overtime (OT)
+                        {slip.otDetail && Math.abs(slip.otDetail.amount - Number(slip.otAmount)) < 0.005 && (
+                          <span className="block text-2xs font-normal text-zinc-500">{describeDetail(slip.otDetail)}</span>
+                        )}
                       </span>
                       <span className="font-mono tabular-nums font-semibold text-zinc-900">
                         NPR {Number(slip.otAmount).toLocaleString("en-IN", {

@@ -306,8 +306,12 @@ describe('Salary structure security (S20)', () => {
   });
 
   it('opens a known tab', () => {
-    assert.equal(resolveStructureTab('bulk'), 'bulk');
-    assert.equal(resolveStructureTab('x'), 'structures');
+    assert.equal(resolveStructureTab('approvals'), 'approvals');
+    assert.equal(resolveStructureTab('templates'), 'templates');
+    assert.equal(resolveStructureTab('sheet'), 'sheet');
+    assert.equal(resolveStructureTab('bulk'), 'sheet');
+    assert.equal(resolveStructureTab('structures'), 'sheet');
+    assert.equal(resolveStructureTab('x'), 'sheet');
   });
 });
 

@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { X, Save, AlertCircle, Edit3, Plus, RefreshCw } from "lucide-react";
 import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
+import { describeDetail } from "@/lib/engines/overtime.engine";
+
+/** "6.5 h × NPR 199.79 × 1.5" when the slip's overtime is still the worked-out amount (not changed by hand). */
+const otWorking = (slip: PayrollSlip) => (slip.otDetail && Math.abs(slip.otDetail.amount - Number(slip.otAmount)) < 0.005 && Number(slip.otAmount) > 0 ? describeDetail(slip.otDetail) : null);
 
 interface PayslipDetailModalProps {
   slip: PayrollSlip;
@@ -413,7 +417,10 @@ export function PayslipDetailModal({
                     </div>
                   ) : (
                     <div className="flex justify-between items-center text-xs text-gray-600 font-medium">
-                      <span>Overtime Earned (OT)</span>
+                      <span>
+                        Overtime Earned (OT)
+                        {otWorking(slip) && <span className="block text-2xs font-normal text-gray-400">{otWorking(slip)}</span>}
+                      </span>
                       <div className="flex items-center gap-2">
                         <span className="tabular-nums">Rs. {Number(slip.otAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                         {isEditable && onOverride && (

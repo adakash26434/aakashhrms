@@ -14,10 +14,10 @@ import { ReasonWindow } from "./attendance-windows";
 /**
  * Month close (per branch): every day is worked out, stored and locked, and
  * each person's month summary is ready for payroll. Blocked while
- * adjustments wait; reopening needs a reason and is refused once that
+ * adjustments or overtime days wait for a decision; reopening needs a reason and is refused once that
  * month's payroll is approved or locked.
  */
-export function AttendanceClose({ data, onDone }: { data: AttendancePageData; onDone: (text: string) => void }) {
+export function AttendanceClose({ data, onDone, onOpenOvertime }: { data: AttendancePageData; onDone: (text: string) => void; onOpenOvertime: () => void }) {
   const dateText = useDateText();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
@@ -26,6 +26,7 @@ export function AttendanceClose({ data, onDone }: { data: AttendancePageData; on
   const open = data.months.filter((m) => m.status === "open");
   const chosen = data.months.filter((m) => selected.has(m.branchId) && m.status === "open");
   const blocked = chosen.filter((m) => m.pendingAdjustments > 0);
+  const otBlocked = chosen.filter((m) => m.waitingOvertime > 0);
   const monthEnded = data.period.end < data.today;
 
   const columns = useMemo<GridColumn<BranchMonth>[]>(
@@ -37,6 +38,7 @@ export function AttendanceClose({ data, onDone }: { data: AttendancePageData; on
       { id: "ot", header: "OT hours", type: "number", width: 110, value: (m) => m.otHours },
       { id: "missing", header: "Missing punches", type: "number", width: 160, value: (m) => m.missingPunchDays, cell: (m) => (m.missingPunchDays ? <span className="font-medium text-warning">{m.missingPunchDays}</span> : <span className="text-ink-faint">0</span>) },
       { id: "pending", header: "Waiting adjustments", type: "number", width: 190, value: (m) => m.pendingAdjustments, cell: (m) => (m.pendingAdjustments ? <span className="font-medium text-danger">{m.pendingAdjustments}</span> : <span className="text-ink-faint">0</span>) },
+      { id: "overtime", header: "Waiting overtime", type: "number", width: 170, value: (m) => m.waitingOvertime, cell: (m) => (m.waitingOvertime && m.status === "open" ? <span className="font-medium text-danger">{m.waitingOvertime}</span> : <span className="text-ink-faint">0</span>) },
       { id: "closed", header: "Closed by", width: 200, value: (m) => m.closedBy ?? "", cell: (m) => (m.closedBy ? <span className="text-2xs text-ink-muted">{m.closedBy} · {m.closedAt ? dateText(m.closedAt) : ""}</span> : m.reopenReason ? <span className="text-2xs text-ink-muted">Reopened: “{m.reopenReason}”</span> : <span className="text-ink-faint">—</span>) },
       {
         id: "actions",
@@ -83,7 +85,7 @@ export function AttendanceClose({ data, onDone }: { data: AttendancePageData; on
     <div className="p-3">
       <div className="mb-3 rounded-md border border-line bg-surface-panel px-3 py-2.5 text-xs text-ink-muted">
         <p>
-          <span className="font-medium text-ink">Closing {data.period.label}</span> works out every day for the branch, stores it, locks it for payroll, and adds the home leave earned in it (1 day for every 20 paid days; reopening takes it back). Days can then only change after reopening, which is no longer possible once that month&apos;s payroll is approved or locked.
+          <span className="font-medium text-ink">Closing {data.period.label}</span> works out every day for the branch, stores it, locks it for payroll (overtime as decided on the Overtime tab), and adds the home leave earned in it (1 day for every 20 paid days; reopening takes it back). Days can then only change after reopening, which is no longer possible once that month&apos;s payroll is approved or locked.
         </p>
         {!monthEnded && <p className="mt-1 text-warning">This month has not ended yet: it can be closed after its last day.</p>}
       </div>
@@ -95,10 +97,18 @@ export function AttendanceClose({ data, onDone }: { data: AttendancePageData; on
       {data.permissions.lock && open.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-ink-muted">{chosen.length ? `${chosen.length} branch${chosen.length === 1 ? "" : "es"} selected` : "Select open branches to close"}</span>
-          <WindowButton variant="primary" disabled={!chosen.length || !!blocked.length || !monthEnded} onClick={() => setConfirming(true)}>
+          <WindowButton variant="primary" disabled={!chosen.length || !!blocked.length || !!otBlocked.length || !monthEnded} onClick={() => setConfirming(true)}>
             <LockKeyhole className="h-3.5 w-3.5" /> Close month
           </WindowButton>
           {blocked.length > 0 && <span className="text-danger">Decide the waiting adjustments first ({blocked.map((m) => m.branchName).join(", ")}).</span>}
+          {otBlocked.length > 0 && (
+            <span className="text-danger">
+              Decide the waiting overtime first ({otBlocked.map((m) => m.branchName).join(", ")}).{" "}
+              <button type="button" className="cursor-pointer font-medium text-brand-strong hover:underline" onClick={onOpenOvertime}>
+                Open the Overtime tab
+              </button>
+            </span>
+          )}
         </div>
       )}
       <DataGrid
@@ -110,7 +120,7 @@ export function AttendanceClose({ data, onDone }: { data: AttendancePageData; on
         selectable={data.permissions.lock}
         selected={selected}
         onSelectedChange={setSelected}
-        rowTone={(m) => (m.status === "closed" ? undefined : m.pendingAdjustments ? "danger" : m.missingPunchDays ? "warning" : undefined)}
+        rowTone={(m) => (m.status === "closed" ? undefined : m.pendingAdjustments || m.waitingOvertime ? "danger" : m.missingPunchDays ? "warning" : undefined)}
         empty={{ title: "No branches this month", description: "Nobody in your scope worked in this month." }}
       />
       <Confirm

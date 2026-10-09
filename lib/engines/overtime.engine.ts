@@ -9,7 +9,8 @@
 // only the hours beyond a full day are overtime (attendance-day.engine.ts).
 
 import Decimal from "decimal.js";
-import type { OvertimePolicy } from "@/lib/types/overtime";
+import { addDays, weekdayOf } from "@/lib/engines/pay-period.engine";
+import type { OvertimeDetail, OvertimeEntry, OvertimeLine, OvertimePolicy, OvertimeState } from "@/lib/types/overtime";
 
 export const OT_LEGAL = {
   /** §31: overtime is paid at least 1.5 times the hourly rate. */
@@ -137,4 +138,140 @@ export function otPay(minutes: { work: number; off: number }, salary: { basic: n
 export function describeRates(p: Pick<OvertimePolicy, "workRate" | "offRate">): string {
   const x = (n: number) => `${Number(n.toFixed(2))}×`;
   return `${x(p.workRate)} on working days, ${x(p.offRate)} beyond a full day on weekly offs and holidays`;
+}
+
+/** The amount with how it was worked out (kept on the month summary and the payslip). */
+export function otDetail(minutes: { work: number; off: number }, salary: { basic: number; grade: number } | undefined, policy: Pick<OvertimePolicy, "workRate" | "offRate">): OvertimeDetail {
+  const p = otPay(minutes, salary, policy);
+  return { amount: p.amount, hourlyRate: p.hourlyRate, workHours: p.workHours, offHours: p.offHours, workRate: policy.workRate, offRate: policy.offRate };
+}
+
+/** "6.5 h × NPR 199.79 × 1.5" (and the off-day part when there is one): the payslip's overtime line. */
+export function describeDetail(d: OvertimeDetail): string {
+  const money = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const part = (hours: number, rate: number) => `${Number(hours.toFixed(2))} h × NPR ${money(d.hourlyRate)} × ${Number(rate.toFixed(2))}`;
+  const parts = [d.workHours > 0 ? part(d.workHours, d.workRate) : "", d.offHours > 0 ? `${part(d.offHours, d.offRate)} (weekly off / holiday)` : ""].filter(Boolean);
+  return parts.join(" + ");
+}
+
+// ---------------------------------------------------------------------------
+// 4.7b Approvals: what each overtime day pays, and what waits for a decision
+// ---------------------------------------------------------------------------
+
+/** Longest overtime one entry may ask for (a whole day). */
+export const OT_MAX_ENTRY_MINUTES = 720;
+
+/** States that need a decision (and stop the month from closing). */
+export const WAITING_STATES: readonly OvertimeState[] = ["waiting", "changed"];
+
+/**
+ * Days over the legal limits (§30): more than 4 hours of overtime that day,
+ * or in a week (Sunday to Saturday) with more than 24 hours. Text by date.
+ */
+export function limitBreaches(minutesByDate: ReadonlyMap<string, number>): Map<string, string> {
+  const out = new Map<string, string>();
+  const weeks = new Map<string, { total: number; dates: string[] }>();
+  for (const [date, minutes] of minutesByDate) {
+    if (minutes <= 0) continue;
+    if (minutes > OT_LEGAL.dailyMinutes) out.set(date, "Over 4 hours this day");
+    const sunday = addDays(date, -weekdayOf(date));
+    const w = weeks.get(sunday) ?? { total: 0, dates: [] };
+    w.total += minutes;
+    w.dates.push(date);
+    weeks.set(sunday, w);
+  }
+  for (const w of weeks.values()) {
+    if (w.total <= OT_LEGAL.weeklyMinutes) continue;
+    for (const date of w.dates) if (!out.has(date)) out.set(date, "Week over 24 hours");
+  }
+  return out;
+}
+
+/** What an entry counts towards the day's overtime (for the limits): asked for or approved; nothing once refused. */
+const entryMinutes = (e: OvertimeEntry) => (e.status === "approved" ? e.approvedMinutes : e.status === "pending" ? e.requestedMinutes : 0);
+
+/**
+ * One employee's overtime for some days: a line per day with detected
+ * overtime and per overtime added by hand, what each pays (rounded day by
+ * day) and how many wait for a decision.
+ * - Approval required: only decided (approved) minutes are paid.
+ * - Automatic: detected overtime is paid, except days over the legal limits,
+ *   which wait.
+ * - A decided day whose detected minutes have changed since waits again.
+ * - Added by hand: always decided.
+ */
+export function monthOvertime(
+  employeeId: string,
+  days: readonly { date: string; otWorkDayMinutes: number; otOffDayMinutes: number }[],
+  entries: readonly OvertimeEntry[],
+  policy: Pick<OvertimePolicy, "approval" | "rounding" | "roundingMode">
+): { lines: OvertimeLine[]; paid: { work: number; off: number }; waiting: number } {
+  const mine = entries.filter((e) => e.employeeId === employeeId);
+  const detectedEntry = new Map(mine.filter((e) => e.source === "detected").map((e) => [e.workDate, e]));
+  const manual = mine.filter((e) => e.source === "manual");
+  const detected = days
+    .map((d) => ({ date: d.date, minutes: Math.max(0, d.otWorkDayMinutes) + Math.max(0, d.otOffDayMinutes), kind: d.otOffDayMinutes > 0 ? ("off" as const) : ("work" as const) }))
+    .filter((d) => d.minutes > 0);
+
+  const total = new Map<string, number>();
+  for (const d of detected) total.set(d.date, (total.get(d.date) ?? 0) + d.minutes);
+  for (const e of manual) total.set(e.workDate, (total.get(e.workDate) ?? 0) + entryMinutes(e));
+  const limits = limitBreaches(total);
+
+  const lines: OvertimeLine[] = [];
+  for (const d of detected) {
+    const entry = detectedEntry.get(d.date) ?? null;
+    const overLimit = limits.has(d.date);
+    let state: OvertimeState;
+    let paid = 0;
+    if (entry && entry.detectedMinutes === d.minutes && (entry.status === "approved" || entry.status === "rejected")) {
+      state = entry.status;
+      paid = entry.status === "approved" ? Math.min(entry.approvedMinutes, d.minutes) : 0;
+    } else if (entry && (entry.status === "approved" || entry.status === "rejected")) {
+      state = "changed";
+    } else if (policy.approval === "auto" && !overLimit) {
+      state = "auto";
+      paid = d.minutes;
+    } else {
+      state = "waiting";
+    }
+    lines.push({
+      employeeId,
+      date: d.date,
+      source: "detected",
+      kind: d.kind,
+      minutes: d.minutes,
+      approvedMinutes: entry && (entry.status === "approved" || entry.status === "rejected") ? entry.approvedMinutes : null,
+      paidMinutes: roundMinutes(paid, policy),
+      state,
+      overLimit,
+      limitText: limits.get(d.date) ?? null,
+      entry,
+    });
+  }
+  for (const e of manual) {
+    const state: OvertimeState = e.status === "pending" ? "waiting" : e.status;
+    lines.push({
+      employeeId,
+      date: e.workDate,
+      source: "manual",
+      kind: e.dayKind,
+      minutes: e.requestedMinutes,
+      approvedMinutes: e.status === "approved" || e.status === "rejected" ? e.approvedMinutes : null,
+      paidMinutes: e.status === "approved" ? roundMinutes(e.approvedMinutes, policy) : 0,
+      state,
+      overLimit: limits.has(e.workDate),
+      limitText: limits.get(e.workDate) ?? null,
+      entry: e,
+    });
+  }
+  lines.sort((a, b) => a.date.localeCompare(b.date) || a.source.localeCompare(b.source));
+  const paid = { work: 0, off: 0 };
+  for (const l of lines) paid[l.kind] += l.paidMinutes;
+  return { lines, paid, waiting: lines.filter((l) => WAITING_STATES.includes(l.state)).length };
+}
+
+/** Whether an approver may decide a line now: it waits, or it is paid automatically (it may still be cut or refused). */
+export function decidable(line: Pick<OvertimeLine, "state">): boolean {
+  return line.state === "waiting" || line.state === "changed" || line.state === "auto";
 }

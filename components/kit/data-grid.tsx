@@ -103,7 +103,7 @@ function readPrefsRaw(id: string): string {
   }
 }
 
-function usePersistedPrefs(id: string, columnIds: string[]): [GridPrefs, (next: GridPrefs | null) => void, boolean] {
+export function usePersistedPrefs(id: string, columnIds: string[]): [GridPrefs, (next: GridPrefs | null) => void, boolean] {
   const raw = useSyncExternalStore(
     (cb) => {
       window.addEventListener(PREFS_EVENT, cb);

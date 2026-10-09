@@ -1014,6 +1014,8 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
   leaveDeductionAmount: numeric('leave_deduction_amount', { precision: 15, scale: 2 }).default('0').notNull(),
   
   otWarnings: text('ot_warnings'),
+  // 4.7b: how the overtime amount was worked out (hours, hourly rate, rates).
+  otDetail: jsonb('ot_detail').$type<import('@/lib/types/overtime').OvertimeDetail>(),
 
   // 4.5: the attendance month (BS or AD) and the day counts payroll uses.
   calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
@@ -1090,6 +1092,36 @@ export const attendanceAdjustments = pgTable('attendance_adjustments', {
 }, (t) => ({
   empDateIdx: index('attendance_adjustments_emp_date_idx').on(t.employeeId, t.attendanceDate),
   statusIdx: index('attendance_adjustments_status_idx').on(t.status),
+}));
+
+/**
+ * 4.7b: decided overtime days. "detected": written when an approver decides the
+ * overtime the punches show (detected_minutes at that moment; a later change
+ * sends the day back for a decision). "manual": overtime added by hand.
+ */
+export const overtimeEntries = pgTable('overtime_entries', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  workDate: date('work_date').notNull(),
+  source: varchar('source', { length: 10 }).notNull(), // detected | manual
+  dayKind: varchar('day_kind', { length: 5 }).notNull(), // work | off
+  detectedMinutes: integer('detected_minutes').default(0).notNull(),
+  requestedMinutes: integer('requested_minutes').default(0).notNull(),
+  approvedMinutes: integer('approved_minutes').default(0).notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn
+  overLimit: boolean('over_limit').default(false).notNull(),
+  reason: text('reason'),
+  preparedBy: uuid('prepared_by'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  uniqueDay: unique('overtime_entries_employee_date_source_key').on(t.employeeId, t.workDate, t.source),
+  dateIdx: index('overtime_entries_date_idx').on(t.workDate),
+  statusIdx: index('overtime_entries_status_idx').on(t.status),
 }));
 
 /** 4.5: an attendance month per branch (BS now, AD with 4.8): open, or closed for payroll. */
@@ -1321,6 +1353,8 @@ export const payrollSlips = pgTable('payroll_slips', {
   loanDeduction: numeric('loan_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
   absentDeduction: numeric('absent_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
   otAmount: numeric('ot_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  // 4.7b: how ot_amount was worked out (the payslip's overtime line); absent on older slips.
+  otDetail: jsonb('ot_detail').$type<import('@/lib/types/overtime').OvertimeDetail>(),
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),

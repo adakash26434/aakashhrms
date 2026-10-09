@@ -696,8 +696,10 @@ export function setupEffectiveFrom(joiningDate: string, employeeId: string, fina
   return open && open > joiningDate ? open : joiningDate;
 }
 
-/** The tab to open: a known one, else Structures. */
+/** The tab to open: a known one, else Salary sheet. */
 export function resolveStructureTab(raw: string | undefined | null): StructureTab {
   if (raw === "changes") return "approvals"; // the tab's earlier name
-  return (STRUCTURE_TABS as readonly string[]).includes(raw ?? "") ? (raw as StructureTab) : "structures";
+  if (raw === "structures" || raw === "bulk") return "sheet";
+  if (raw && (STRUCTURE_TABS as readonly string[]).includes(raw)) return raw as StructureTab;
+  return "sheet";
 }

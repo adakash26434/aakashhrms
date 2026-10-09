@@ -61,6 +61,8 @@ export interface PayrollSlip {
   loanDeduction: string;
   absentDeduction: string;
   otAmount: string;
+  /** 4.7b: how otAmount was worked out (hours, hourly rate, rates); null on older slips. */
+  otDetail?: import('@/lib/types/overtime').OvertimeDetail | null;
   bankAccountNumber: string;
   bankName: string;
   payslipMonth: number | null;
@@ -140,6 +142,8 @@ export interface PayrollSlipOverridePayload {
   basicSalary?: string;
   gradeAmount?: string;
   otAmount?: string;
+  /** 4.7b: kept with the attendance figures when they are read again. */
+  otDetail?: import('@/lib/types/overtime').OvertimeDetail | null;
   absentDeduction?: string;
   loanDeduction?: string;
   bankName?: string;
