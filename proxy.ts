@@ -139,6 +139,8 @@ export const config = {
      * - favicon.ico, robots.txt
      * - static files with extensions (.svg, .png, .jpg, .jpeg, .gif, .webp, .ico)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    // iclock: ZKTeco ADMS devices call /iclock/* on the bare host (the path is fixed in
+    // their firmware), so those route handlers do their own checks like /api (G3).
+    '/((?!api|iclock|_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

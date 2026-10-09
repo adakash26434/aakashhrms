@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G3: attendance devices — ZKTeco ADMS push, PIN mapping, punch import
+Branch: `feature/performance-evaluation` (stacked)
+
+The 4.5 "Devices later" step, specified in the gap analysis: terminals push punches themselves; the day engine and HR review stay the only things that decide attendance.
+
+Changed:
+- **Schema (migration `0051_attendance_devices`, mirrored in `tenant-schema-sync.ts`):** `attendance_devices` (name, branch, **serial number as the trust anchor**, enabled, device tz offset — ATTLOG carries the device's local clock — last seen / last punch), `device_users` (PIN ↔ employee per device) and `device_unmatched_punches` (unknown PINs wait here). Matched punches land in **`attendance_punches` (source `device`)** — already unique on (employee, instant, source), so resends are free idempotency.
+- **Engine (`device.engine.ts`, 6 suites):** iclock handshake block (TimeZone 5.75, Realtime), ATTLOG parsing (malformed lines counted, never fatal; reset clocks refused), device-local → instant conversion, batch de-duplication, serial validation, health grading (online ≤15 min · quiet ≤24 h · silent · never).
+- **Endpoints:** `app/iclock/cdata` (GET handshake, POST ATTLOG with declared-and-actual body caps) and `app/iclock/getrequest` (command poll) — the paths ZKTeco firmware actually calls, so `proxy.ts` now skips `/iclock` like `/api` and the handlers own their checks: **registered + enabled serial or a bare 404**, no sessions anywhere near them. Multi-tenant: the serial finds its company across ACTIVE tenants (cached ~10 min, **re-verified inside the tenant on every request**, stale entries re-resolve once).
+- **UI (`/timeAndLeave/devices`, ATTENDANCE module):** device register with health chips, Add/Edit window (with the terminal-side setup line), **PIN mapping window** (mapping claims waiting punches in one transaction), unknown-PIN list with "Map PIN", and **paste-import** of USB-export (.dat) lines through the same pipeline as a push. Navigation: Time & Leave → Devices.
+
+Verified: `tsc` exit 0 · 896/896 tests (17 new: `device.engine`, `security-devices`) · lint clean on touched files. `proxy.ts` changed (matcher), so the next deploy's build + a signed-in pass matter (the gate's shell-change rule).
+Notes: auto shift by first punch stays with 4.5's roadmap line (the day engine already reads these punches); per-device comm-key auth can be added when a customer's fleet supports it; device user sync (pushing names to terminals) would use the getrequest command queue — not needed for punches.
+
 ## 2026-10-09 — G6: automation & reminders — jobs tick, compliance/probation/birthday emails
 Branch: `feature/performance-evaluation` (stacked)
 

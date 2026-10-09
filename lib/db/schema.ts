@@ -1591,3 +1591,56 @@ export const jobRuns = pgTable('job_runs', {
 }, (t) => ({
   jobCodeIdx: index('job_runs_job_code_idx').on(t.jobCode, t.startedAt),
 }));
+
+// -----------------------------------------------------------------------------
+// ATTENDANCE DEVICES (G3 — docs/redesign/06-hrms-gap-analysis.md; the 4.5
+// "Devices later" step). ZKTeco-class terminals push punches themselves
+// (ADMS / iclock: the device POSTs ATTLOG lines to /api/devices/iclock/cdata
+// with its serial number). A device is trusted by its registered serial
+// number + enabled flag; punches from unknown device user ids (PINs) wait in
+// device_unmatched_punches until HR maps the PIN to an employee. Matched
+// punches land in attendance_punches (source 'device'), which the 4.5 day
+// engine already reads — devices change no attendance rules.
+// -----------------------------------------------------------------------------
+
+export const attendanceDevices = pgTable('attendance_devices', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }).notNull(),
+  serialNo: varchar('serial_no', { length: 60 }).notNull().unique(),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** Minutes the device clock is ahead of UTC (Nepal: 345). ATTLOG carries local time. */
+  tzOffsetMinutes: integer('tz_offset_minutes').default(345).notNull(),
+  lastSeenAt: timestamp('last_seen_at'),
+  lastPunchAt: timestamp('last_punch_at', { withTimezone: true }),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+/** The device's user id (PIN) for an employee, per device. */
+export const deviceUsers = pgTable('device_users', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  deviceId: uuid('device_id').references(() => attendanceDevices.id, { onDelete: 'cascade' }).notNull(),
+  deviceUserId: varchar('device_user_id', { length: 30 }).notNull(), // the PIN on the terminal
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  onePinPerDevice: unique('device_users_device_pin_key').on(t.deviceId, t.deviceUserId),
+  employeeIdIdx: index('device_users_employee_id_idx').on(t.employeeId),
+}));
+
+/** Punches whose PIN has no mapping yet; claimed into attendance_punches when HR maps the PIN. */
+export const deviceUnmatchedPunches = pgTable('device_unmatched_punches', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  deviceId: uuid('device_id').references(() => attendanceDevices.id, { onDelete: 'cascade' }).notNull(),
+  deviceUserId: varchar('device_user_id', { length: 30 }).notNull(),
+  punchedAt: timestamp('punched_at', { withTimezone: true }).notNull(),
+  raw: varchar('raw', { length: 200 }).default('').notNull(),
+  receivedAt: timestamp('received_at').defaultNow().notNull(),
+}, (t) => ({
+  uniqueUnmatched: unique('device_unmatched_punches_key').on(t.deviceId, t.deviceUserId, t.punchedAt),
+  deviceIdx: index('device_unmatched_punches_device_idx').on(t.deviceId, t.receivedAt),
+}));

@@ -152,6 +152,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["punch", "present", "absent", "ot"],
       },
       {
+        id: "devices",
+        label: "Devices",
+        href: "/timeAndLeave/devices",
+        icon: Table,
+        description: "Biometric terminals: ADMS push, PIN mapping, punch import",
+        requires: ["ATTENDANCE"],
+        keywords: ["device", "biometric", "zkteco", "fingerprint", "adms", "terminal", "punch import"],
+      },
+      {
         id: "leaves",
         label: "Leaves",
         href: "/timeAndLeave/leaves",
