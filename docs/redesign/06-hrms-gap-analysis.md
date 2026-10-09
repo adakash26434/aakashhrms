@@ -216,3 +216,16 @@ clearance hook. Build last; both are small template-A screens.
 - [MoHA — कार्यसम्पादन मूल्याङ्कन forms](https://www.moha.gov.np/page/performance-evaluation) · [half-yearly form](https://daodarchula.moha.gov.np/post/half-yearly-work-editing-evaluation-form)
 - [Cooperative Rules 2075](https://lawcommission.gov.np/content/13046/13046-cooperative-regulation-2075/)
 - [ZKTeco ADMS push integration example](https://apps.odoo.com/apps/modules/17.0/zkteco_adms_attendance)
+
+## Hardening pass (senior review) and next plan
+
+Done on `feature/phase-g-hardening`:
+- Exit Complete now deactivates the exited employee's login in the same transaction (before: employee Inactive but the user could still sign in).
+- `/iclock` serial lookup keeps a bounded 60 s negative cache, so unauthenticated unknown-serial requests no longer scan every company database.
+
+Still to review/do (ordered by value for a sahakari):
+1. Welfare-fund payout at exit (use the exit case facts; Bonus Act 2030 §13 welfare-fund and the Contribution-based Social Security Act are the statutory neighbours — cooperative staff funds follow the bylaw, so keep rates/caps as per-company config).
+2. G8 Disciplinary & grievance, G7 Training, G13 HR analytics and COPOMIS/DoC returns.
+3. दरबन्दी enforcement in hiring / promotion / transfer; promotion score composite (का.स.मू. + seniority) feeding the बढुवा event.
+4. G10 core-banking voucher export — needs real Pumari / MFin / FinPro sample files from the customer.
+5. Duplicate device serial across two companies resolves to the first active match; consider a platform-level serial registry.

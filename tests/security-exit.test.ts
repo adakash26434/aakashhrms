@@ -89,6 +89,12 @@ describe('S31 exit: completion integrity', () => {
     assert.match(tx, /return 'stale'/);
   });
 
+  it('Complete also deactivates the exited employee\'s login inside the same transaction', () => {
+    const tx = body(repo, 'export async function completeCaseTx(');
+    assert.match(tx, /update\(users\)\.set\(\{ isActive: false \}\)\.where\(eq\(users\.employeeId, employeeId\)\)/);
+    assert.ok(tx.indexOf('update(users)') > tx.indexOf("status: 'Inactive'") && tx.indexOf('update(users)') < tx.indexOf('insert(employeeTermination)'));
+  });
+
   it('cancel touches open cases only, and nothing deletes cases or clearances', () => {
     assert.match(body(repo, 'export async function cancelCase('), /eq\(exitCases\.status, 'open'\)/);
     assert.ok(!repo.includes('.delete(exitCases)') && !repo.includes('.delete(exitClearances)'), 'cases are never deleted');

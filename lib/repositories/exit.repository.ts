@@ -131,7 +131,7 @@ export interface TerminationMirror {
 
 /**
  * Completes a case in one transaction: the case is claimed while still open,
- * the employee goes Inactive, and the employee_termination mirror row is
+ * the employee goes Inactive, their login is deactivated, and the employee_termination mirror row is
  * written for older readers (reports, 4.8's settlement later).
  */
 export async function completeCaseTx(id: string, employeeId: string, mirror: TerminationMirror, userId: string): Promise<'closed' | 'stale'> {
@@ -144,6 +144,8 @@ export async function completeCaseTx(id: string, employeeId: string, mirror: Ter
       .returning({ id: exitCases.id });
     if (!claimed) return 'stale';
     await tx.update(employees).set({ status: 'Inactive' }).where(eq(employees.id, employeeId));
+    // An exited employee must not keep a working login (isActive is checked at sign-in and on every permission check).
+    await tx.update(users).set({ isActive: false }).where(eq(users.employeeId, employeeId));
     await tx.insert(employeeTermination).values({ employeeId, ...mirror, plan: null, remarks: 'Recorded by the exit workflow (G5).' });
     return 'closed';
   });

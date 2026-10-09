@@ -1273,3 +1273,6 @@ Branch: (none, docs only)
 Changed: added `docs/redesign/` (analysis, design system, security plan, roadmap, this changelog) and `mockups/app-frame.html` (clickable static mockup of the desktop frame on the Employees register)
 Verified: n/a (documentation)
 Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2 plaintext temp passwords). WIP on `main` (18 modified, 2 untracked files) must be committed before Phase 0.
+
+## Phase G hardening (senior review)
+- Exit Complete deactivates the employee's user login (`completeCaseTx`); `/iclock` negative serial cache. Tests in `security-exit` / `security-devices`. Verification: tsc 0, touched tests pass, lint clean. No migration.
