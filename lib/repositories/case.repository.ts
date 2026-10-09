@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { employees, hrCaseEvents, hrCases, users } from '@/lib/db/schema';
-import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 
 // Disciplinary & grievance (G8): Drizzle queries only. Rules live in
 // lib/engines/case.engine.ts; orchestration in lib/services/case.service.ts.
@@ -15,7 +15,7 @@ export interface CaseJoinedRow extends CaseRow {
   openedByName: string | null;
 }
 
-const joined = { c: hrCases, employeeName: employees.fullName, employeeCode: employees.employeeCode, openedByName: users.name };
+const joined = { c: hrCases, employeeName: employees.fullName, employeeCode: employees.employeeCode, openedByName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})` };
 const flatten = (r: { c: CaseRow; employeeName: string; employeeCode: string; openedByName: string | null }): CaseJoinedRow => ({
   ...r.c,
   employeeName: r.employeeName,
@@ -118,7 +118,7 @@ export async function addNote(caseId: string, text: string, userId: string): Pro
 export async function eventsFor(caseId: string): Promise<(CaseEventRow & { actorName: string | null })[]> {
   const db = await getDb();
   const rows = await db
-    .select({ e: hrCaseEvents, actorName: users.name })
+    .select({ e: hrCaseEvents, actorName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})` })
     .from(hrCaseEvents)
     .leftJoin(users, eq(hrCaseEvents.actorId, users.id))
     .where(eq(hrCaseEvents.caseId, caseId))
@@ -129,6 +129,6 @@ export async function eventsFor(caseId: string): Promise<(CaseEventRow & { actor
 export async function userNames(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map();
   const db = await getDb();
-  const rows = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids));
-  return new Map(rows.map((r) => [r.id, r.name ?? "—"]));
+  const rows = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, ids));
+  return new Map(rows.map((r) => [r.id, r.name || r.email || '—']));
 }

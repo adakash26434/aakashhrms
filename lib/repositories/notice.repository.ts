@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { branches, employees, notices, users } from '@/lib/db/schema';
-import { and, desc, eq, inArray, isNull, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 
 // Notice board (G14): Drizzle queries only. Rules in lib/engines/notice.engine.ts.
 
@@ -11,7 +11,7 @@ export interface NoticeJoined extends NoticeRecord {
   authorName: string | null;
 }
 
-const joined = { n: notices, branch: branches.name, authorName: users.name };
+const joined = { n: notices, branch: branches.name, authorName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})` };
 const flatten = (r: { n: NoticeRecord; branch: string | null; authorName: string | null }): NoticeJoined => ({ ...r.n, branch: r.branch, authorName: r.authorName });
 
 export async function listNotices(): Promise<NoticeJoined[]> {

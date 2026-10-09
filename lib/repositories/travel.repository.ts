@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { designations, employees, travelClaims, travelRates, users } from '@/lib/db/schema';
-import { and, asc, desc, eq, inArray, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 
 // TA-DA (G11): Drizzle queries only. Rules in lib/engines/travel.engine.ts;
 // orchestration in lib/services/travel.service.ts. Claims are always read
@@ -64,7 +64,7 @@ export interface ClaimJoined extends ClaimRecord {
 async function selectClaims(where: SQL<unknown> | undefined, limit: number): Promise<ClaimJoined[]> {
   const db = await getDb();
   const rows = await db
-    .select({ c: travelClaims, employeeName: employees.fullName, employeeCode: employees.employeeCode, designationId: employees.designationId, createdByName: users.name })
+    .select({ c: travelClaims, employeeName: employees.fullName, employeeCode: employees.employeeCode, designationId: employees.designationId, createdByName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})` })
     .from(travelClaims)
     .innerJoin(employees, eq(travelClaims.employeeId, employees.id))
     .leftJoin(users, eq(travelClaims.createdBy, users.id))
@@ -74,7 +74,7 @@ async function selectClaims(where: SQL<unknown> | undefined, limit: number): Pro
   const deciderIds = [...new Set(rows.map((r) => r.c.decidedBy).filter((x): x is string => !!x))];
   const names = new Map<string, string>();
   if (deciderIds.length) {
-    for (const u of await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, deciderIds))) names.set(u.id, u.name ?? '—');
+    for (const u of await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, deciderIds))) names.set(u.id, u.name || u.email || '—');
   }
   return rows.map((r) => ({ ...r.c, employeeName: r.employeeName, employeeCode: r.employeeCode, designationId: r.designationId, createdByName: r.createdByName, decidedByName: r.c.decidedBy ? names.get(r.c.decidedBy) ?? '—' : null }));
 }

@@ -28,7 +28,7 @@ const joined = {
   employeeCode: employees.employeeCode,
   designationId: employees.designationId,
   branchId: employees.branchId,
-  openedByName: users.name,
+  openedByName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})`,
   letterNumber: hrLetters.letterNumber,
 };
 

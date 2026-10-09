@@ -1307,3 +1307,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## Probation gating (G1 / G2 follow-up)
 - `confirmationGate` in `employee-event.engine.ts`: a confirmation (स्थायी) cannot take effect before the employment type's `probationMonths` from joining (blocked, field error); a missing final का.स.मू. evaluation only warns. Wired into `createEvent`. tsc 0, 1038/1038 tests, lint clean.
+
+## Phase G screen verification (local PostgreSQL 16, seeded demo company)
+- Signed-in pass at 1440 / 1024 / 390 over discipline, training, assets, notices, promotion, travel, HR analytics, exit and the dashboard: every page 200, no runtime errors, no horizontal scroll. Interactive flows exercised against the database: notice → dashboard board; asset register → hand over (claim-first); TA-DA rate card → claim (preview and stored amounts 9,400 gross / 6,400 payable) → approve; disciplinary case → decision; training programme → nomination; promotion ranking and analytics case count; exit case facts (asset out, bonds, funds). Fix from the pass: opener / author / actor names fall back to the email when `users.name` is empty (exit, cases, notices, travel). Restricted-role pass (BRANCH scope) still to do by hand.
