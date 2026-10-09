@@ -63,6 +63,9 @@ describe('exit clearance and completion', () => {
     const pending = completionBlockers([...all('cleared').slice(0, 3), { unit: 'hr', status: 'pending' }], '2026-09-01', TODAY);
     assert.match(pending[0], /HR has not cleared/);
     assert.match(completionBlockers([{ unit: 'accounts', status: 'blocked' }], '2026-09-01', TODAY)[0], /blocked/);
+    const funds = completionBlockers(all('cleared'), '2026-09-01', TODAY, ['Staff welfare fund']);
+    assert.equal(funds.length, 1);
+    assert.match(funds[0], /Welfare fund balance is still held \(Staff welfare fund\)/);
   });
 
   it('blocking a clearance needs a note; cancel needs a reason', () => {
