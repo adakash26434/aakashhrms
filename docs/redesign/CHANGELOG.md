@@ -1288,3 +1288,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## G13 HR analytics
 - `/reports/hr-analytics`: headcount by branch / department / designation / category / age band with gender split, movement (joined, left, turnover on average headcount), tenure, leave usage, case counts (DISCIPLINE VIEW only), and the DoC / COPOMIS staff return (कर्मचारी विवरण) with gated CSV export. Engine `hr-analytics.engine.ts`; every query scoped; no pay columns (S36 test). No migration. Verification: tsc 0, 991/991 tests, lint clean on touched files. Build: CI.
+
+## G14 Assets & notice board
+- Migration `0057_assets_notices` (`assets`, `asset_handovers`, `notices`, ASSETS + NOTICE_BOARD permission modules; mirrored in `ensureTenantSchema`; restart the dev server). Assets: register, claim-first issue / return (lost retires), handover history, exit facts + Complete blocker. Notices: company / branch audience, publish window, pinned, withdraw (never delete); the Home dashboard shows each reader their board (`boardFor`). Verification: tsc 0, 1005/1005 tests, lint clean on touched files. Build: CI.

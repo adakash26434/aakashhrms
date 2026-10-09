@@ -43,6 +43,8 @@ type PermissionModule =
   | 'RECRUITMENT'
   | 'DISCIPLINE'
   | 'TRAINING'
+  | 'ASSETS'
+  | 'NOTICE_BOARD'
   | 'WELFARE_FUNDS';
 
 type PermissionAction = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'APPROVE' | 'EXPORT' | 'LOCK';

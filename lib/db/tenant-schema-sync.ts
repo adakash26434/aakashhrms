@@ -21,6 +21,8 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'WELFARE_FUNDS',
     'DISCIPLINE',
     'TRAINING',
+    'ASSETS',
+    'NOTICE_BOARD',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -1294,6 +1296,88 @@ ON CONFLICT DO NOTHING`);
     } catch {
       // Ignored until the referenced tables exist, or until the TRAINING enum
       // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Assets & notice board (G14, migration 0057): register, handovers, notices,
+  // plus the ASSETS and NOTICE_BOARD permission modules (the 0047 pattern).
+  const assetNoticeQueries = [
+    `CREATE TABLE IF NOT EXISTS "assets" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "tag" varchar(50) NOT NULL,
+        "name" varchar(200) NOT NULL,
+        "category" varchar(30) NOT NULL,
+        "branch_id" uuid REFERENCES "branches"("id") ON DELETE SET NULL,
+        "note" text,
+        "status" varchar(12) DEFAULT 'available' NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "assets_tag_key" UNIQUE ("tag")
+      )`,
+    `CREATE TABLE IF NOT EXISTS "asset_handovers" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "asset_id" uuid NOT NULL REFERENCES "assets"("id") ON DELETE CASCADE,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "issued_ad" date NOT NULL,
+        "returned_ad" date,
+        "condition" varchar(12),
+        "note" text,
+        "issued_by" uuid,
+        "returned_by" uuid
+      )`,
+    `CREATE TABLE IF NOT EXISTS "notices" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "title" varchar(200) NOT NULL,
+        "body" text NOT NULL,
+        "branch_id" uuid REFERENCES "branches"("id") ON DELETE CASCADE,
+        "publish_ad" date NOT NULL,
+        "expires_ad" date,
+        "pinned" boolean DEFAULT false NOT NULL,
+        "status" varchar(10) DEFAULT 'published' NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "assets_status_idx" ON "assets" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "asset_handovers_employee_idx" ON "asset_handovers" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "asset_handovers_asset_idx" ON "asset_handovers" ("asset_id")`,
+    `CREATE INDEX IF NOT EXISTS "notices_publish_idx" ON "notices" ("status", "publish_ad")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':ASSETS')::uuid, a::action, 'ASSETS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'ASSETS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':NOTICE_BOARD')::uuid, a::action, 'NOTICE_BOARD'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'NOTICE_BOARD'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'DELETE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of assetNoticeQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the enum values from
+      // step 1 are committed (the next sync pass completes it).
     }
   }
 

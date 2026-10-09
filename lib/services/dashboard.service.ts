@@ -31,6 +31,7 @@ import { adToBS } from "@/lib/utils/bs-calendar";
 import { nepalDateIso, nepalToday, toIsoDate, toLocalDate } from "@/lib/utils/nepal-time";
 import type { Employee } from "@/lib/types/employee";
 import type { DashboardAccess, DashboardActivity, DashboardData } from "@/lib/types/dashboard";
+import { boardFor } from "@/lib/services/notice.service";
 
 /** Latest entries that fit a dashboard card; the full history is one click away. */
 const ACTIVITY_LIMIT = 6;
@@ -277,6 +278,9 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
       }))
     : null;
 
+  // The notice board is for everyone signed in (support view reads nothing personal: notices are company content).
+  const notices = await section("notices", failed, () => boardFor(scope));
+
   return {
     generatedAt: new Date().toISOString(),
     todayIso,
@@ -299,6 +303,7 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     onLeaveToday,
     headcount,
     activity,
+    notices: notices ?? null,
     failed: [...new Set(failed)],
   };
 }

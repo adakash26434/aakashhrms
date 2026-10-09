@@ -358,6 +358,10 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
               {detail.facts.funds.length > 0 && <span className="text-ink-faint"> — pay out under Payroll → Funds before completing</span>}
             </p>
             <p>
+              Assets out: {detail.facts.assets.length === 0 ? "none" : detail.facts.assets.map((a) => `${a.tag} ${a.name}`).join(", ")}
+              {detail.facts.assets.length > 0 && <span className="text-ink-faint"> — record the return under Workforce → Assets before completing</span>}
+            </p>
+            <p>
               Training bonds running: {detail.facts.bonds.length === 0 ? "none" : detail.facts.bonds.map((b) => `${b.title} (until ${b.bondEndsAd})`).join(", ")}
               {detail.facts.bonds.length > 0 && <span className="text-ink-faint"> — a settlement matter for Accounts, not a blocker</span>}
             </p>

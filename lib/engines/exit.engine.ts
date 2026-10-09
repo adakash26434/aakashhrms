@@ -100,7 +100,7 @@ export function clearanceProgress(clearances: ClearanceState[]): { cleared: numb
  * Complete needs every unit cleared and the last working day arrived — an
  * employee is never switched off while still serving or still owing.
  */
-export function completionBlockers(clearances: ClearanceState[], lastWorkingDayAd: string, today: string, fundsHeld: string[] = []): string[] {
+export function completionBlockers(clearances: ClearanceState[], lastWorkingDayAd: string, today: string, fundsHeld: string[] = [], assetsHeld: string[] = []): string[] {
   const blockers: string[] = [];
   for (const c of clearances) {
     if (c.status !== 'cleared') {
@@ -109,6 +109,7 @@ export function completionBlockers(clearances: ClearanceState[], lastWorkingDayA
     }
   }
   if (lastWorkingDayAd > today) blockers.push(`The last working day (${lastWorkingDayAd}) has not arrived.`);
+  if (assetsHeld.length) blockers.push(`Company assets are still out (${assetsHeld.join(', ')}) — record their return under Assets first.`);
   if (fundsHeld.length) blockers.push(`Welfare fund balance is still held (${fundsHeld.join(', ')}) — pay it out or adjust it under Payroll → Funds first.`);
   return blockers;
 }

@@ -60,6 +60,8 @@ export async function recordAuditLog(params: {
     | "RECRUITMENT"
     | "DISCIPLINE"
     | "TRAINING"
+    | "ASSETS"
+    | "NOTICE_BOARD"
     | "WELFARE_FUNDS";
   recordId?: string | null;
   result?: "SUCCESS" | "DENIED_PERMISSION" | "DENIED_SCOPE" | string;

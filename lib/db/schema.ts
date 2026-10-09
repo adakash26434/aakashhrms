@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1881,4 +1881,60 @@ export const trainingParticipants = pgTable('training_participants', {
 }, (t) => ({
   onePerPerson: unique('training_participants_key').on(t.programId, t.employeeId),
   employeeIdx: index('training_participants_employee_idx').on(t.employeeId),
+}));
+
+// -----------------------------------------------------------------------------
+// ASSETS & NOTICE BOARD (G14 — docs/redesign/06-hrms-gap-analysis.md)
+// assets: the register (laptop, phone, keys, ID card…); asset_handovers: who
+// holds what since when, returned when — an asset has at most one open
+// handover; the exit case shows unreturned items. notices: the board.
+// -----------------------------------------------------------------------------
+
+export const assets = pgTable('assets', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  tag: varchar('tag', { length: 50 }).notNull(), // asset tag / serial, unique
+  name: varchar('name', { length: 200 }).notNull(),
+  category: varchar('category', { length: 30 }).notNull(), // laptop | phone | key | id_card | vehicle | furniture | other
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
+  note: text('note'),
+  status: varchar('status', { length: 12 }).default('available').notNull(), // available | issued | retired
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  tagKey: unique('assets_tag_key').on(t.tag),
+  statusIdx: index('assets_status_idx').on(t.status),
+}));
+
+export const assetHandovers = pgTable('asset_handovers', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  issuedAd: date('issued_ad').notNull(),
+  returnedAd: date('returned_ad'),
+  condition: varchar('condition', { length: 12 }), // on return: good | damaged | lost
+  note: text('note'),
+  issuedBy: uuid('issued_by'),
+  returnedBy: uuid('returned_by'),
+}, (t) => ({
+  employeeIdx: index('asset_handovers_employee_idx').on(t.employeeId),
+  assetIdx: index('asset_handovers_asset_idx').on(t.assetId),
+}));
+
+export const notices = pgTable('notices', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  body: text('body').notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }), // null = whole company
+  publishAd: date('publish_ad').notNull(),
+  expiresAd: date('expires_ad'),
+  pinned: boolean('pinned').default(false).notNull(),
+  status: varchar('status', { length: 10 }).default('published').notNull(), // draft | published | withdrawn
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  publishIdx: index('notices_publish_idx').on(t.status, t.publishAd),
 }));

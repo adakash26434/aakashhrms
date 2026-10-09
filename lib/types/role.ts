@@ -35,6 +35,8 @@ export type ModuleType =
   | 'RECRUITMENT'
   | 'DISCIPLINE'
   | 'TRAINING'
+  | 'ASSETS'
+  | 'NOTICE_BOARD'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -168,6 +170,18 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         key: 'RECRUITMENT',
         label: 'Recruitment & Darbandi',
         description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'ASSETS',
+        label: 'Assets',
+        description: 'Company assets and who holds them (laptops, phones, keys, ID cards): Add registers and issues, Edit returns and retires',
+        allowedActions: ['VIEW', 'ADD', 'EDIT'],
+      },
+      {
+        key: 'NOTICE_BOARD',
+        label: 'Notice board',
+        description: 'Company and branch notices on the Home screen: Add posts, Edit changes, Delete withdraws',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
       },
       {

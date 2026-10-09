@@ -5,6 +5,7 @@ import { CLEARANCE_UNITS } from '@/lib/engines/exit.engine';
 import { fundBalance } from '@/lib/engines/fund.engine';
 import { bondActive, bondEnds } from '@/lib/engines/training.engine';
 import { bondsFor } from '@/lib/repositories/training.repository';
+import { heldBy } from '@/lib/repositories/asset.repository';
 
 // Exit workflow (G5): Drizzle queries only. Rules live in
 // lib/engines/exit.engine.ts; orchestration in lib/services/exit.service.ts.
@@ -179,6 +180,7 @@ export interface ExitFacts {
   devicePins: { device: string; pin: string }[];
   funds: { fund: string; employee: string; employer: string; total: string }[];
   bonds: { title: string; bondEndsAd: string }[];
+  assets: { tag: string; name: string; issuedAd: string }[];
 }
 
 export async function exitFacts(employeeId: string, lastWorkingDayAd: string): Promise<ExitFacts> {
@@ -209,7 +211,8 @@ export async function exitFacts(employeeId: string, lastWorkingDayAd: string): P
   const bonds = (await bondsFor(employeeId))
     .map((b) => ({ title: b.title, bondEndsAd: bondEnds(b.programEndAd, b.bondMonths) }))
     .filter((b): b is { title: string; bondEndsAd: string } => bondActive(b.bondEndsAd, lastWorkingDayAd));
-  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins, funds, bonds };
+  const held = await heldBy(employeeId);
+  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins, funds, bonds, assets: held };
 }
 
 
