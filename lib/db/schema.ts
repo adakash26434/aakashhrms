@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1753,4 +1753,49 @@ export const applicants = pgTable('applicants', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
   vacancyIdx: index('applicants_vacancy_idx').on(t.vacancyId, t.stage),
+}));
+
+// -----------------------------------------------------------------------------
+// WELFARE / MEDICAL / GRATUITY FUNDS (G9 — docs/redesign/06-hrms-gap-analysis.md)
+// Sahakari staff funds that accrue per month and pay out at events. The
+// ledger follows leave_ledger's discipline: APPEND-ONLY — never update or
+// delete a line; a mistake is corrected by an adjustment line; `ref` says
+// what a line is for (contrib:<fund>:<bsYear>-<bsMonth>, opening:<fund>,
+// payout:<id>, adjust:<id>) and is checked before posting so nothing posts
+// twice. A balance is the sum of a member's lines.
+// -----------------------------------------------------------------------------
+
+export const fundTypes = pgTable('fund_types', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }).default('').notNull(),
+  /** 'fixed' = amounts per month; 'percent_basic' = percent of the employee's basic salary. */
+  contributionMode: varchar('contribution_mode', { length: 15 }).default('fixed').notNull(),
+  employeeValue: numeric('employee_value', { precision: 15, scale: 2 }).default('0').notNull(),
+  employerValue: numeric('employer_value', { precision: 15, scale: 2 }).default('0').notNull(),
+  note: text('note'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+export const fundLedger = pgTable('fund_ledger', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fundTypeId: uuid('fund_type_id').references(() => fundTypes.id, { onDelete: 'restrict' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // contribution | opening | payout | adjustment
+  /** Signed, in NPR: contributions positive, payouts negative. */
+  employeeAmount: numeric('employee_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  employerAmount: numeric('employer_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  /** What this line is for; unique per employee+fund so nothing posts twice. */
+  ref: varchar('ref', { length: 80 }).notNull(),
+  note: text('note'),
+  postedBy: uuid('posted_by'),
+  postedAt: timestamp('posted_at').defaultNow().notNull(),
+}, (t) => ({
+  onePerRef: unique('fund_ledger_ref_key').on(t.fundTypeId, t.employeeId, t.ref),
+  employeeIdx: index('fund_ledger_employee_idx').on(t.employeeId, t.fundTypeId),
 }));

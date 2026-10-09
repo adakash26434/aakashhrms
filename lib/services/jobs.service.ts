@@ -1,5 +1,6 @@
 import * as repo from '@/lib/repositories/jobs.repository';
 import { applyDueEvents } from '@/lib/services/employee-event.service';
+import { postMonthlyContributions } from '@/lib/services/fund.service';
 import { sendNoticeEmail } from '@/lib/services/email.service';
 import { getCompanyProfileSetup } from '@/lib/repositories/company-setup.repository';
 import {
@@ -35,6 +36,11 @@ async function runJob(def: JobDefinition, bsDay: number, bsMonthName: string, pr
   if (def.code === 'apply-scheduled-events') {
     const applied = await applyDueEvents();
     return { detail: applied ? `${applied} scheduled event(s) applied.` : 'Nothing due.', items: applied };
+  }
+
+  if (def.code === 'fund-contributions') {
+    const result = await postMonthlyContributions();
+    return { detail: result.funds ? `${result.posted} contribution line(s) posted across ${result.funds} fund(s).` : 'No active funds.', items: result.posted };
   }
 
   if (def.code === 'compliance-reminders') {

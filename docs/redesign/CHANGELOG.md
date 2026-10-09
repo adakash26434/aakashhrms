@@ -13,6 +13,18 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G9: welfare / medical / gratuity funds — ledger, monthly contributions, payouts
+Branch: `feature/welfare-funds` (stacked on `feature/exit-workflow`) — first Phase G **Tier B** item.
+
+Changed:
+- **Schema (migration `0054_welfare_funds`, mirrored in `tenant-schema-sync.ts`):** `fund_types` (contribution rule: fixed per month or percent of basic, employee + employer shares; a fund's **code never changes** — refs embed it) and `fund_ledger` — **append-only like `leave_ledger`**: never update or delete a line, mistakes are corrected by adjustment lines, and `ref` is unique per employee + fund (`contrib:<fund>:<bsYear>-<bsMonth>`, `opening:…`, `payout:…`, `adjust:…`) so nothing posts twice. New `WELFARE_FUNDS` permission module (System Administrator all; HR Manager and **Payroll Controller** VIEW/ADD/EDIT; Roles matrix now 30).
+- **Engine (`fund.engine.ts`, 8 suites):** all arithmetic in **paisa** (the kit's no-float-drift discipline); fixed and percent-of-basic contributions (half-up to the paisa; zero basic contributes nothing); balances; posting rules — openings non-negative, **payouts entered positive, capped per share, stored negative** (a fund never goes below zero on either side), adjustments need a note and can't cross zero either.
+- **Automation:** a fifth job, `fund-contributions` (BS day 1), posts the previous BS month's contributions for every active fund × active employee through the same claim-first, idempotent job machinery (G6). No browser action can run it.
+- **Service / actions / UI (`/payroll/funds`, template A):** Balances tab (per member per fund, share columns with footer totals, row-open → the member's ledger lines), Funds tab (rule, members, **provision total** per fund for the auditor), posting window (payout भुक्तानी / opening / adjustment), fund editor. **S33**: nobody posts to their own fund (audited `DENIED_SELF`); employee scope on every read. Navigation: Payroll → Welfare funds.
+
+Verified: `tsc` exit 0 · 944/944 tests (16 new: `fund.engine`, `security-funds`; role matrix count now 30) · lint clean on touched files.
+Notes: payout-at-exit lands on the exit case's facts next (G5 hook); gratuity provision for non-SSF staff per the bylaws is a rule the fixed/percent modes already express; payroll-slip visibility of fund deductions joins 4.8.
+
 ## 2026-10-09 — G4: recruitment & दरबन्दी — approved positions, vacancies, merit list
 Branch: `feature/exit-workflow` (stacked) — **completes Phase G Tier A** (G1 · G2 · G3 · G4 · G5 · G6 all built this cycle).
 

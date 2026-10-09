@@ -32,7 +32,8 @@ export type ModuleType =
   | 'SELF_SERVICE'
   | 'HR_LETTERS'
   | 'PERFORMANCE'
-  | 'RECRUITMENT';
+  | 'RECRUITMENT'
+  | 'WELFARE_FUNDS';
 
 export interface Role {
   id: string;
@@ -240,6 +241,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Loans & Advances',
         description: 'Manage staff loan disbursements, monthly EMI deductions, and repayments',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE', 'APPROVE', 'EXPORT'],
+      },
+      {
+        key: 'WELFARE_FUNDS',
+        label: 'Welfare Funds',
+        description: 'Staff welfare / medical / gratuity funds: monthly contributions, balances and payouts (append-only ledger). Add posts openings and payouts, Edit manages fund types',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'EXPORT'],
       },
     ],
   },

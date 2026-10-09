@@ -110,6 +110,9 @@ export async function seedRbacForDb(targetDb: any) {
   // 4. MAP REPORT PERMISSIONS TO FUNCTIONAL ROLES
   const roleReportMappings: Record<string, { action: string; module: string }[]> = {
     hr_manager: [
+      { action: 'VIEW', module: 'WELFARE_FUNDS' },
+      { action: 'ADD', module: 'WELFARE_FUNDS' },
+      { action: 'EDIT', module: 'WELFARE_FUNDS' },
       { action: 'VIEW', module: 'RECRUITMENT' },
       { action: 'ADD', module: 'RECRUITMENT' },
       { action: 'EDIT', module: 'RECRUITMENT' },
@@ -136,6 +139,9 @@ export async function seedRbacForDb(targetDb: any) {
       { action: 'EXPORT', module: 'REPORTS_LOAN' },
     ],
     payroll_controller: [
+      { action: 'VIEW', module: 'WELFARE_FUNDS' },
+      { action: 'ADD', module: 'WELFARE_FUNDS' },
+      { action: 'EDIT', module: 'WELFARE_FUNDS' },
       { action: 'VIEW', module: 'REPORTS_SALARY_SHEET' },
       { action: 'EXPORT', module: 'REPORTS_SALARY_SHEET' },
       { action: 'VIEW', module: 'REPORTS_PAYSLIP' },

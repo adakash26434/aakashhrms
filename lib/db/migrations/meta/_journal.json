@@ -379,6 +379,13 @@
       "when": 1791500000000,
       "tag": "0053_recruitment",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791600000000,
+      "tag": "0054_welfare_funds",
+      "breakpoints": true
     }
   ]
 }

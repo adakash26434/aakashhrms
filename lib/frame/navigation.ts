@@ -243,6 +243,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         requires: ["LOANS"],
         keywords: ["advance", "emi", "repayment"],
       },
+      {
+        id: "funds",
+        label: "Welfare funds",
+        href: "/payroll/funds",
+        icon: Wallet,
+        description: "Staff welfare, medical and gratuity funds: contributions, balances, payouts",
+        requires: ["WELFARE_FUNDS"],
+        keywords: ["welfare", "kalyan kosh", "gratuity", "medical fund", "provision", "payout"],
+      },
     ],
   },
   {

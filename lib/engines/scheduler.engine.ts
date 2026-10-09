@@ -38,6 +38,12 @@ export const JOB_DEFINITIONS: readonly JobDefinition[] = [
     cadence: { kind: 'weekday', day: 0 },
   },
   {
+    code: 'fund-contributions',
+    name: 'Welfare fund contributions',
+    description: "Posts the previous BS month's welfare / medical / gratuity fund contributions for every active fund and employee (idempotent by ref).",
+    cadence: { kind: 'bs-days', days: [1] },
+  },
+  {
     code: 'birthday-greetings',
     name: 'Birthdays today',
     description: "Today's birthdays, emailed to administrators for a greeting.",
