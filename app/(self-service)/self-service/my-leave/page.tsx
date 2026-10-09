@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApplyLeaveModal, WithdrawLeaveButton } from "@/components/self-service/apply-leave-modal";
 
+import { essLang } from "@/lib/i18n/ess-server";
+import { t } from "@/lib/i18n/ess";
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -16,6 +19,7 @@ export const metadata = {
 };
 
 export default async function MyLeavePage() {
+  const lang = await essLang();
   let balancesData, applications, types, home;
   try {
     [balancesData, applications, types, home] = await Promise.all([
@@ -46,10 +50,10 @@ export default async function MyLeavePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-payroll-navy tracking-tight">
-            Leave Entitlement & Applications
+            {t(lang, "leave.title")}
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-            Your leave balances for this leave year and your requests. Weekly offs and holidays inside a leave are not counted.
+            {t(lang, "leave.description")}
           </p>
         </div>
 

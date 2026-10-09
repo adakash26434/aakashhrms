@@ -21,6 +21,7 @@ const DICT = {
   'nav.notices': ['Notices', 'सूचना'],
   'nav.training': ['Training', 'तालिम'],
   'nav.claims': ['Travel claims', 'भ्रमण भत्ता'],
+  'nav.letters': ['My letters', 'मेरा पत्र'],
   'nav.workspace': ['My workspace', 'मेरो कार्यक्षेत्र'],
   'nav.portal': ['Self-Service Portal', 'कर्मचारी सेवा पोर्टल'],
   'nav.signOut': ['Sign out', 'बाहिर निस्कनुहोस्'],
@@ -50,7 +51,7 @@ const DICT = {
   'home.noPayslip': ['No payslip yet', 'तलब पर्ची छैन'],
   // notices
   'notices.title': ['Notices', 'सूचना'],
-  'notices.description': ['Company and branch notices addressed to you.', 'तपाईंलाई सम्बोधित संस्था र शाखाका सूचना।'],
+  'notices.description': ['Notices addressed to you: the whole company, your branch, your department, or you personally.', 'तपाईंलाई सम्बोधित सूचना: संस्था, तपाईंको शाखा, विभाग वा व्यक्तिगत।'],
   'notices.pinned': ['Pinned', 'पिन गरिएको'],
   // training
   'training.title': ['My training', 'मेरो तालिम'],
@@ -98,6 +99,35 @@ const DICT = {
   'claims.status.rejected': ['Rejected', 'अस्वीकृत'],
   'claims.status.settled': ['Paid', 'भुक्तानी भयो'],
   'claims.decision': ['Decision', 'निर्णय'],
+  // letters
+  'letters.title': ['My letters', 'मेरा पत्र'],
+  'letters.description': ['Letters HR has issued to you — appointment, agreement, KYC and more. Open one to read or print it.', 'मानव संसाधनले तपाईंलाई जारी गरेका पत्र — नियुक्ति, सम्झौता, केवाईसी आदि। पढ्न वा छाप्न खोल्नुहोस्।'],
+  'letters.none': ['No letters have been issued to you yet.', 'तपाईंलाई अहिलेसम्म कुनै पत्र जारी भएको छैन।'],
+  'letters.number': ['Ref. no.', 'च.नं.'],
+  'letters.letter': ['Letter', 'पत्र'],
+  'letters.language': ['Language', 'भाषा'],
+  'letters.date': ['Date', 'मिति'],
+  'letters.open': ['Open', 'खोल्नुहोस्'],
+  'letters.back': ['Back to my letters', 'मेरा पत्रमा फर्कनुहोस्'],
+  // dossier on the profile
+  'dossier.title': ['Qualifications and work history', 'शैक्षिक योग्यता र कार्य अनुभव'],
+  'dossier.education': ['Education', 'शैक्षिक योग्यता'],
+  'dossier.past': ['Past employment', 'अघिल्लो कार्य अनुभव'],
+  'dossier.attachments': ['Papers on file', 'अभिलेखमा रहेका कागजात'],
+  'dossier.none': ['Nothing recorded yet. Ask HR to add it.', 'अहिलेसम्म केही अभिलेख छैन। मानव संसाधनलाई थप्न भन्नुहोस्।'],
+  'dossier.scan': ['Scan on file', 'स्क्यान अभिलेखमा छ'],
+  'dossier.present': ['to the last job before joining', 'यहाँ आउनुअघिको अन्तिम काम'],
+  // older portal pages
+  'leave.title': ['Leave entitlement and applications', 'बिदा हक र निवेदन'],
+  'leave.description': ['Your leave balances for this leave year and your requests. Weekly offs and holidays inside a leave are not counted.', 'यस बिदा वर्षको तपाईंको बिदा मौज्दात र अनुरोधहरू। बिदा भित्र परेका साप्ताहिक बिदा र सार्वजनिक बिदा गणना हुँदैनन्।'],
+  'payslips.title': ['Salary payslips', 'तलब पर्ची'],
+  'payslips.description': ['Open a month to see every allowance, tax and statutory deduction.', 'सबै भत्ता, कर र कानूनी कट्टी हेर्न महिना खोल्नुहोस्।'],
+  'payslips.count': ['payslip(s) recorded', 'तलब पर्ची अभिलेखमा'],
+  'loans.title': ['Loans and advances', 'ऋण तथा पेश्की'],
+  'loans.description': ['Active loans, salary advances, monthly instalments and past payments.', 'चालु ऋण, तलब पेश्की, मासिक किस्ता र विगतका भुक्तानी।'],
+  'attendance.title': ['My attendance', 'मेरो हाजिरी'],
+  'attendance.description': ['Each day as HR and payroll count it. Something wrong? Ask HR for an adjustment.', 'मानव संसाधन र तलबले गणना गरेअनुसार प्रत्येक दिन। केही मिलेन भने मानव संसाधनलाई समायोजन माग्नुहोस्।'],
+  'profile.pageTitle': ['My profile', 'मेरो प्रोफाइल'],
 } as const satisfies Record<string, readonly [string, string]>;
 
 export type EssKey = keyof typeof DICT;

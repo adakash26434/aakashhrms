@@ -5,6 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoansClientList } from "@/components/self-service/loans-client-list";
 
+import { essLang } from "@/lib/i18n/ess-server";
+import { t } from "@/lib/i18n/ess";
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -13,6 +16,7 @@ export const metadata = {
 };
 
 export default async function MyLoansPage() {
+  const lang = await essLang();
   let loans;
   try {
     loans = await getMyLoans();
@@ -36,10 +40,10 @@ export default async function MyLoansPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-payroll-navy tracking-tight">
-            Loans & Advances Portfolio
+            {t(lang, "loans.title")}
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-            Active organizational loans, salary advances, monthly EMI deductions, and historical payment records.
+            {t(lang, "loans.description")}
           </p>
         </div>
 

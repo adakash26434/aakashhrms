@@ -527,3 +527,18 @@ export async function issuePack(rawForm: unknown, ctx: LetterCtx): Promise<PackR
   }
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Self-service: the signed-in employee's own letters (scope SELF, issued only)
+// ---------------------------------------------------------------------------
+
+export async function listMyLetters(scope: ScopeFilter): Promise<LetterListRow[]> {
+  const [rows, templates] = await Promise.all([repo.listLetters({ status: 'issued' }, buildEmployeeScopeCondition(scope)), repo.findTemplates()]);
+  return rows.map((r) => toListRow(r, templates));
+}
+
+/** One own letter for reading and printing; a voided letter is not shown to the employee. */
+export async function getMyLetter(id: string, scope: ScopeFilter): Promise<LetterPrintData | null> {
+  const data = await getLetterForPrint(id, scope);
+  return data && data.letter.status === 'issued' ? data : null;
+}

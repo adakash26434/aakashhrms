@@ -35,7 +35,7 @@ export default async function SelfServiceLayout({
       <SelfServiceNav userEmail={userEmail} scopeType={scopeType} lang={lang} />
 
       {/* Page Content */}
-      <main className="flex-1 w-full sm:pl-64">
+      <main className="flex-1 w-full sm:pl-64 print:pl-0">
         <div className="mx-auto max-w-6xl px-4 py-5 pb-24 sm:px-6 sm:py-8 sm:pb-8">
           {children}
         </div>
