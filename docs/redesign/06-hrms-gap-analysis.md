@@ -239,3 +239,14 @@ Still to review/do (ordered by value for a sahakari):
 12. Promotion score composite — **done** (`/workforce/promotion`, PERFORMANCE VIEW; weights under PERFORMANCE LOCK; computed never stored; deep link to the बढुवा lifecycle event). Debt: probation gating on the confirmation event; written-exam marks as a fourth component where the bylaw has one.
 13. Payroll feeds — **done**: approved TA-DA claims paid through the run (TADA head), welfare-fund employee share deducted (WELFARE_FUND head), claims settled by the run / released on delete. Open 4.8 items proper: arrears for back-dated revisions, settlement (F8) maths, maker-checker on the run.
 14. G12 Nepali ESS groundwork — **done**: language toggle (EN/NP dictionary), portal notices, my training, my travel claims. Debt: translate the older portal pages (leave, payslips, loans) with the same dictionary; Nepali numerals option; notice read-receipts.
+
+## Added 2026-10-09 (user request) — G15 Targets & achievements
+
+Not modelled before (searched schema, engines, services: no target/achievement tables). Requested: employee targets set monthly and yearly; the employee fills in achievements in self-service with attachments; the supervisor reviews and forwards; the result feeds the performance evaluation (G1 KPI-mode goal rows: target / achieved / weight).
+
+15. G15 Targets & achievements — **open**. Plan:
+   - Tables: `target_periods` (monthly | yearly, BS fiscal year / month), `employee_targets` (employee × period × metric: title, unit, target value, weight; set by HR or supervisor, frozen once the period opens), `target_achievements` (employee-entered value + note + attachments, status draft → submitted → supervisor_reviewed → forwarded → closed; returned with a reason).
+   - Flow: HR/supervisor sets targets → employee fills achievement in ESS (attachments reuse the dossier file store) → supervisor sees the team queue, edits a verified value or returns → forwards to HR/approver → closed; yearly roll-up from the months; closed result becomes the KPI rows of the evaluation.
+   - Rules (engine, unit-tested): achievement % = achieved ÷ target, capped per metric config; weighted total; monthly → yearly roll-up.
+   - Security (S42): the employee never edits their own target or their own verified value; the supervisor never reviews their own achievement (`DENIED_SELF`); transitions claim-first; scope per branch/department; ESS reads take the employee from the session.
+   - Permission module `TARGETS`; screens `/workforce/targets` (office) and `/self-service/my-targets`.
