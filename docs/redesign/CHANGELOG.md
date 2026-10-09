@@ -13,6 +13,23 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — 4.8b-1 Payroll run: pay calendar, year-to-date income tax, run types
+Branch: `redesign/4.8-payroll`
+
+**Your decisions:** AD months included now; year-to-date tax; the three run-type steps of 4.8b in order (this is the first).
+
+**Changed:**
+- **Pay calendar:** one company setting (`payroll.calendar`, BS / AD) in the Payroll settings window, changed only between months (every attendance month closed, every run locked or discarded). Attendance months follow it (`getRules()`); runs carry it (`payroll_runs.calendar`); month summaries are keyed by `(employee, calendar, year, month)` (migration 0057; the old fiscal-year + BS-month constraint dropped; pre-4.5 rows backfilled). `lib/engines/pay-calendar.engine.ts`: the fiscal year's months in either calendar (with AD months the year-end month is July), months remaining, run labels, the switch rule.
+- **Income tax:** `projectTds` replaces "this month × 12" and the Ashadh branch: year to date (LOCKED payslips of the run's fiscal year) + this month + the remaining months at this month's regular pay, one-offs (festival bonus) counted once, retirement and CIT within the limits, less the tax already deducted, spread over the months left; the year-end month reconciles exactly; contract 15% and trainee none unchanged. The working is stored on the slip (`tax_detail`) and shown in the payslip pane. The run's fiscal year is the one containing the month, not "the first Active one".
+- **Run types:** Regular and Festival bonus (a bonus run beside the regular one: only the chosen festival heads, no attendance, loans, funds or salary-map write-back; taxed once); the New run window asks the kind first; Type column in the Runs grid; the step rail shows Variance for regular runs only.
+- **Reports / self-service:** the TDS report counts LOCKED runs only; employees see LOCKED payslips only, with the run label; the salary sheet and dashboard unchanged for BS companies.
+- Leave and attendance read the pay calendar where they assumed BS (home leave months, months waiting for close, the leave calendar, the attendance report, overtime waiting, finalised-payroll checks).
+- **Docs:** 03 S35, 04 row 4.8, 02 payroll section, CLAUDE.md known debt.
+
+**Verified:** type-check 0 · 1030/1030 tests (new `tests/pay-calendar.test.ts`; year-to-date cases in `payroll-calculation.test.ts`; S35 in `security-payroll.test.ts`; bonus pre-flight in `payroll-run.test.ts`) · eslint: no new problems on the touched files (payroll.service.ts 35 → 31) · `npm run build` OK · browser on Goodlife finance: `/payroll` with the Type column; a regular Bhadra 2083 run for Head Office whose payslip pane shows the Income tax block (paid so far 39,500 taxable · 1 month, this month 18,210, projected 2,39,806 − retirement 79,935, annual tax 0, spread over 11 months); the Settings window refused the switch to Gregorian months while that draft existed ("changes only between months … 1 pay run not locked"); a Festival bonus run for the same month beside it (3 employees, each payslip the festival allowance only, net 87,000, no Variance step, label "Bhadra 2083 · Festival bonus"); both runs discarded. Console 0 errors.
+
+---
+
 ## 2026-10-09 — 4.8a Payroll run: the run workspace, pre-flight, variance, maker-checker
 Branch: `redesign/4.8-payroll` (from the 4.7 tip, which includes `main` G1–G9)
 

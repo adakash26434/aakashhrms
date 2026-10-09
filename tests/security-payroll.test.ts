@@ -87,3 +87,37 @@ describe('S21 on payslips (4.8a): never your own', () => {
     assert.doesNotMatch(payroll, /throw new SeparationOfDutiesError\(\)/);
   });
 });
+
+describe('S35 pay calendar and year-to-date tax (4.8b)', () => {
+  const service = read('lib/services/payroll.service.ts');
+  const runService = read('lib/services/payroll-run.service.ts');
+  const repo = read('lib/repositories/payroll.repository.ts');
+
+  it('the year to date comes only from LOCKED payslips of the fiscal year', () => {
+    assert.match(repo, /export async function findLockedSlipsForFiscalYear[\s\S]*?eq\(payrollRuns\.status, "LOCKED"\)/);
+    assert.match(service, /async function taxInputsFor[\s\S]*?findLockedSlipsForFiscalYear\(employeeIds, fiscalYearId, excludeRunId\)/);
+    assert.doesNotMatch(service, /historicalPayslips|isAshadh/);
+  });
+
+  it('the fiscal year of a run is the one containing the month, never "the first active one"', () => {
+    assert.match(service, /export async function generatePayrollRun[\s\S]*?findFiscalYearForDate\(endStr\)/);
+    assert.doesNotMatch(service, /eq\(fiscalYears\.status, 'Active'\)/);
+  });
+
+  it('the pay calendar changes only between months, through the company-wide settings action', () => {
+    assert.match(runService, /export async function saveSettings[\s\S]*?canSwitchCalendar\(\{ openPeriods: await attendanceRepo\.countOpenPeriods\(current\.calendar\), unlockedRuns: await runRepo\.countUnlockedRuns\(\) \}\)/);
+    const actions = read('app/actions/payroll-run.actions.ts');
+    assert.match(actions, /export async function savePayrollRunSettingsAction[\s\S]*?scope\.scopeType !== 'GLOBAL'[\s\S]*?scope\.isImpersonation/);
+  });
+
+  it('a bonus run reads no attendance, posts no loans and writes nothing back to the salary map', () => {
+    assert.match(service, /runType === "REGULAR" \? await attendanceForPayroll\(empIds, period\)/);
+    assert.match(service, /const regular = run\.runType === "REGULAR";[\s\S]*?for \(const slip of regular \? slips : \[\]\)/);
+  });
+
+  it('employees see only locked payslips', () => {
+    const self = read('lib/services/self-service.service.ts');
+    assert.match(self, /export async function getMyPayslips[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
+    assert.match(self, /export async function getMyPayslipDetail[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
+  });
+});

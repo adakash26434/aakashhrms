@@ -906,6 +906,7 @@ One page, `/payroll`, two folder tabs:
   - *Lock:* Lock run (type LOCK), Bank transfer file.
 - **Windows:** New pay run (month + year, payslip date, branches as tick chips, narrow to departments / designations / employment types, occasional allowances, "only these people"; **Check** shows the problem list inside the window; **Generate** enabled only without blocking problems; "discard the existing draft" when one exists). Approval settings (Simple / Multi-level with ordered approvers; the variance threshold).
 - **Wording kept short:** one line of guidance per step; no guide cards. Problems carry their fix.
+- **4.8b-1:** New run starts with the kind of run (Regular / Festival bonus) as radio cards; month names follow the company's pay calendar (Bikram Sambat or Gregorian); a bonus run asks only for the festival allowance. The Runs grid has a Type column; the step rail shows Variance for regular runs only. The payslip pane gets an **Income tax** block: paid so far this year, this month (one-off part named), the projected year less retirement and insurance, the annual tax and what was deducted, and "spread over N months" or "year-end month: the rest". Settings window: approval type, variance threshold and the **Pay calendar** (BS / AD radio cards with the switch rule in one line). Attendance rules show the calendar read-only. Self-service cards use the run label ("Aswin 2083", "October 2026 · Festival bonus").
 
 ### Implemented policies: statutory leave (Phase 4.6c, template A)
 

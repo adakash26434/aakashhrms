@@ -6,7 +6,7 @@
 
 import Decimal from "decimal.js";
 import type { PayrollRun, PayrollRunStatus, PayrollSlip } from "@/lib/types/payroll";
-import type { PreflightProblem, PreflightResult, RunStep, RunVariance, VarianceFlag, VarianceItem } from "@/lib/types/payroll-run";
+import type { PreflightProblem, PreflightResult, RunStep, RunType, RunVariance, VarianceFlag, VarianceItem } from "@/lib/types/payroll-run";
 
 /** Variance threshold when the company has not set one: ±5% (the common review rule). */
 export const DEFAULT_VARIANCE_PCT = 5;
@@ -24,12 +24,17 @@ export function canTransition(from: PayrollRunStatus, to: PayrollRunStatus): boo
   return VALID_TRANSITIONS[from].includes(to);
 }
 
-/** The step a run stands at (the step rail). */
-export function stepOf(run: Pick<PayrollRun, "status">, varianceOpen: number): RunStep {
+/** The step a run stands at (the step rail). Only regular runs have a variance step. */
+export function stepOf(run: Pick<PayrollRun, "status"> & { runType?: string }, varianceOpen: number): RunStep {
   if (run.status === "LOCKED") return "lock";
   if (run.status === "APPROVED") return "lock";
   if (run.status === "UNDER_REVIEW") return "approval";
-  return varianceOpen > 0 ? "variance" : "review";
+  return varianceOpen > 0 && (run.runType ?? "REGULAR") === "REGULAR" ? "variance" : "review";
+}
+
+/** Steps shown for a kind of run. */
+export function stepsFor(runType: RunType): RunStep[] {
+  return runType === "REGULAR" ? ["preflight", "variance", "review", "approval", "lock"] : ["preflight", "review", "approval", "lock"];
 }
 
 // ---------------------------------------------------------------------------
@@ -53,8 +58,11 @@ export interface PreflightEmployee {
 }
 
 export interface PreflightInput {
+  runType: RunType;
   period: { year: number; month: number; label: string; start: string; end: string };
   today: string;
+  /** Festival heads chosen for a bonus run. */
+  festivalHeads: number;
   /** The branches chosen, with whether their attendance month is closed. */
   branches: { id: string; name: string; closed: boolean }[];
   employees: PreflightEmployee[];
@@ -84,30 +92,36 @@ export function preflight(input: PreflightInput): PreflightResult {
   if (!input.activeFiscalYear) add("no_fiscal_year", "blocking", "No active fiscal year. Set one in Company setup → Fiscal years.", { href: "/setup/fiscal-year" });
   else if (!input.slabCount) add("no_tax_slabs", "blocking", `No income tax slabs for ${input.activeFiscalYear.label}. Add them in Setup → Tax rates.`, { href: "/setup/tax-rates" });
 
+  const regular = input.runType === "REGULAR";
+  const bonus = input.runType === "FESTIVAL_BONUS";
   const locked = input.existingRuns.find((r) => r.status === "LOCKED");
-  if (locked) add("run_locked", "blocking", `${input.period.label} is already paid (a locked run exists) for one of these branches.`);
-  else if (input.existingRuns.length) add("run_exists", "blocking", `A run for ${input.period.label} already exists for these branches. Open it, or discard it and generate again.`);
+  if (regular && locked) add("run_locked", "blocking", `${input.period.label} is already paid (a locked run exists) for one of these branches.`);
+  else if (regular && input.existingRuns.length) add("run_exists", "blocking", `A run for ${input.period.label} already exists for these branches. Open it, or discard it and generate again.`);
+  else if (bonus && input.existingRuns.length) add("bonus_exists", "blocking", `A festival bonus run for ${input.period.label} already exists for these branches.`);
+  if (bonus && !input.festivalHeads) add("no_festival_head", "blocking", "Choose the festival allowance to pay (Setup → Pay heads marks it as a festival allowance).", { href: "/setup/pay-heads" });
 
-  for (const b of input.branches) {
-    if (!b.closed) add("month_open", "blocking", `Attendance for ${input.period.label} is not closed for ${b.name}. Close it in Attendance → Month close (overtime decisions are part of closing).`, { href: "/timeAndLeave/attendance?tab=close" });
+  if (regular) {
+    for (const b of input.branches) {
+      if (!b.closed) add("month_open", "blocking", `Attendance for ${input.period.label} is not closed for ${b.name}. Close it in Attendance → Month close (overtime decisions are part of closing).`, { href: "/timeAndLeave/attendance?tab=close" });
+    }
+    if (input.pendingLeaves) add("pending_leaves", "blocking", `${plural(input.pendingLeaves, "leave request")} for ${input.period.label} still waiting for a decision.`, { href: "/timeAndLeave/leaves" });
   }
-  if (input.pendingLeaves) add("pending_leaves", "blocking", `${plural(input.pendingLeaves, "leave request")} for ${input.period.label} still waiting for a decision.`, { href: "/timeAndLeave/leaves" });
   if (input.pendingSalaryChanges) add("pending_salary", "blocking", `${plural(input.pendingSalaryChanges, "salary change")} waiting for approval would apply to ${input.period.label}. Decide ${input.pendingSalaryChanges === 1 ? "it" : "them"} first.`, { href: "/workforce/salary-mapping?tab=approvals" });
 
   if (!input.employees.length) add("no_employees", "blocking", "Nobody in the chosen scope was employed this month.");
   for (const e of input.employees) {
     const about = { employeeId: e.id, employeeName: e.name };
     if (e.salary === "none") add("no_salary", "blocking", `${e.name} (${e.code}) has no salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
-    else if (e.salary === "setup") add("salary_setup", "blocking", `${e.name} (${e.code}) has only basic and grade: finish the salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
-    if (e.overtimeWaiting) add("overtime_waiting", "blocking", `${e.name}: ${plural(e.overtimeWaiting, "overtime day")} waiting for a decision.`, { ...about, href: "/timeAndLeave/attendance?tab=overtime" });
+    else if (regular && e.salary === "setup") add("salary_setup", "blocking", `${e.name} (${e.code}) has only basic and grade: finish the salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
+    if (regular && e.overtimeWaiting) add("overtime_waiting", "blocking", `${e.name}: ${plural(e.overtimeWaiting, "overtime day")} waiting for a decision.`, { ...about, href: "/timeAndLeave/attendance?tab=overtime" });
     if (!e.hasBank) add("no_bank", "warning", `${e.name} (${e.code}) has no bank account: the bank file will skip them.`, { ...about, href: `/workforce/employees/${e.id}` });
     if (!e.hasPan) add("no_pan", "warning", `${e.name} (${e.code}) has no PAN: income tax is deducted, the IRD file needs it.`, { ...about, href: `/workforce/employees/${e.id}` });
-    if (e.joiningDate >= input.period.start && e.joiningDate <= input.period.end) add("joiner", "info", `${e.name} joined on ${e.joiningDate}: paid for part of the month.`, about);
-    if (e.terminationDate && e.terminationDate >= input.period.start && e.terminationDate <= input.period.end) add("leaver", "info", `${e.name} left on ${e.terminationDate}: paid up to that day.`, about);
+    if (regular && e.joiningDate >= input.period.start && e.joiningDate <= input.period.end) add("joiner", "info", `${e.name} joined on ${e.joiningDate}: paid for part of the month.`, about);
+    if (regular && e.terminationDate && e.terminationDate >= input.period.start && e.terminationDate <= input.period.end) add("leaver", "info", `${e.name} left on ${e.terminationDate}: paid up to that day.`, about);
   }
 
   if (input.previousRun && input.previousRun.status !== "LOCKED") add("previous_open", "warning", `${input.previousRun.label} is not locked yet (${input.previousRun.status.toLowerCase().replace("_", " ")}). Income tax projections use locked months.`);
-  if (input.fundsPosted === false) add("funds_not_posted", "warning", `Welfare fund contributions for ${input.period.label} are not posted yet (they post on the first day of the next BS month). Payslips will show none.`, { href: "/payroll/funds" });
+  if (regular && input.fundsPosted === false) add("funds_not_posted", "warning", `Welfare fund contributions for ${input.period.label} are not posted yet (they post on the first day of the next month). Payslips will show none.`, { href: "/payroll/funds" });
 
   const order: Record<PreflightProblem["severity"], number> = { blocking: 0, warning: 1, info: 2 };
   p.sort((a, b) => order[a.severity] - order[b.severity]);

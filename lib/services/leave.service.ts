@@ -1,3 +1,4 @@
+import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
 import * as repo from "@/lib/repositories/leave.repository";
 import { ruleTypes } from "@/lib/services/leave-rule-types.service";
 import * as attendanceRepo from "@/lib/repositories/attendance.repository";
@@ -215,16 +216,17 @@ async function previewFor(
 /**
  * Attendance months of a leave year that have ended but aren't closed for a
  * branch (from when the company started keeping leave here). Attendance
- * months are BS months until payroll supports AD months (4.8).
+ * months follow the company's pay calendar (4.8b).
  */
 export async function monthsWaitingForClose(branchId: string, year: LeaveYear): Promise<string[]> {
   const today = nepalDateIso();
+  const calendar = await getPayCalendar();
   const start = await repo.findLeaveStart();
   const from = start && start.start > year.start ? start.start : year.start;
   const closed = (await attendanceRepo.findClosedPeriodsOverlapping(from, today)).filter((c) => c.branchId === branchId);
   const out: string[] = [];
   for (let d = from; d <= year.end; ) {
-    const p = periodContaining("BS", d);
+    const p = periodContaining(calendar, d);
     if (p.end >= today) break;
     if (!closed.some((c) => c.calendar === p.calendar && c.periodYear === p.year && c.periodMonth === p.month)) out.push(p.label);
     d = addDays(p.end, 1);

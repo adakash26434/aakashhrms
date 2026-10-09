@@ -17,8 +17,8 @@ export const RUN_STEP_LABEL: Record<RunStep, string> = {
   lock: "Lock",
 };
 
-/** Kinds of run (4.8b adds bonus, arrears and final settlement runs). */
-export const RUN_TYPES = ["REGULAR"] as const;
+/** Kinds of run (4.8b). */
+export const RUN_TYPES = ["REGULAR", "FESTIVAL_BONUS", "ARREARS", "FINAL_SETTLEMENT"] as const;
 export type RunType = (typeof RUN_TYPES)[number];
 
 export type ProblemSeverity = "blocking" | "warning" | "info";
@@ -96,9 +96,10 @@ export interface RunActions {
 }
 
 /** A run as the Runs grid and the Run tab show it. */
-export interface PayrollRunView extends Omit<PayrollRun, "generatedAt" | "reviewedAt" | "approvedAt" | "lockedAt" | "createdAt" | "updatedAt" | "submittedAt" | "runType" | "approvalType" | "approvalLevels" | "approvalRoute" | "variance"> {
-  /** "Aswin 2083". */
+export interface PayrollRunView extends Omit<PayrollRun, "generatedAt" | "reviewedAt" | "approvedAt" | "lockedAt" | "createdAt" | "updatedAt" | "submittedAt" | "runType" | "calendar" | "approvalType" | "approvalLevels" | "approvalRoute" | "variance"> {
+  /** "Aswin 2083", "October 2026 · Festival bonus". */
   label: string;
+  calendar: "BS" | "AD";
   runType: RunType;
   /** "All branches" or "Head Office, Pokhara". */
   scopeText: string;
@@ -132,6 +133,8 @@ export interface RunDetail {
 }
 
 export interface PayrollRunsPageData {
+  /** The company's pay calendar (Payroll settings). */
+  calendar: "BS" | "AD";
   runs: PayrollRunView[];
   selected: RunDetail | null;
   policy: ApprovalPolicy;
@@ -145,7 +148,7 @@ export interface PayrollRunsPageData {
   employees: { id: string; name: string; employeeCode: string; branchId: string; departmentId: string; designationId: string; category: string }[];
   occasionalAllowances: { id: string; name: string; isFestivalAllowance: boolean; isRemoteAllowance: boolean }[];
   allPayHeads: { id: string; name: string; code: string; type: "allowance" | "deduction" }[];
-  /** The month a new run would be for: the month after the last run, else the current BS month. */
+  /** The month a new run would be for: the month after the last regular run, else the month before today's. */
   suggested: { year: number; month: number };
   today: string;
   currentUserId: string;
@@ -161,6 +164,7 @@ export interface SlipDetail {
 
 /** The New run window's payload (checked and generated on the server). */
 export interface NewRunInput {
+  runType: RunType;
   payPeriodYear: number;
   payPeriodMonth: number;
   branchIds: string[];

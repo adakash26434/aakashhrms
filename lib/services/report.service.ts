@@ -22,7 +22,7 @@ import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
 import { companies } from "@/lib/platform/schema";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { auth } from "@/lib/auth";
-import { eq, inArray, desc } from "drizzle-orm";
+import { eq, inArray, desc, and } from "drizzle-orm";
 import * as engine from "@/lib/engines/report.engine";
 import * as attendanceService from "@/lib/services/attendance.service";
 import { localClock } from "@/lib/engines/attendance-day.engine";
@@ -703,7 +703,8 @@ export async function getTDSReportData(
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
     .innerJoin(employees, eq(payrollSlips.employeeId, employees.id))
     .leftJoin(employeePersonal, eq(employees.id, employeePersonal.employeeId))
-    .where(eq(payrollRuns.fiscalYearId, filter.fiscalYearId));
+    // Locked runs only (4.8b): what was deducted, never a draft; every run type counts for the year.
+    .where(and(eq(payrollRuns.fiscalYearId, filter.fiscalYearId), eq(payrollRuns.status, "LOCKED")));
 
   let filteredResults = rawResults;
   if (filter.reportType === "MONTHLY" && filter.bsMonth) {

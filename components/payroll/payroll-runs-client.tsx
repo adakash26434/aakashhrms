@@ -10,6 +10,7 @@ import { useDateText } from "@/components/kit/date-cell";
 import { Notice } from "@/components/kit/notice";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Tabs, type TabItem } from "@/components/kit/tabs";
+import { RUN_TYPE_LABEL } from "@/lib/engines/pay-calendar.engine";
 import type { PayrollRunView, PayrollRunsPageData } from "@/lib/types/payroll-run";
 import { cn } from "@/lib/utils";
 import { PayrollRunWorkspace } from "./payroll-run-workspace";
@@ -61,7 +62,8 @@ export function PayrollRunsClient({ data, initialTab }: { data: PayrollRunsPageD
 
   const columns = useMemo<GridColumn<PayrollRunView>[]>(
     () => [
-      { id: "period", header: "Month", width: 150, value: (r) => r.payPeriodYear * 100 + r.payPeriodMonth, cell: (r) => <span className="font-medium text-ink">{r.label}</span> },
+      { id: "period", header: "Month", width: 150, value: (r) => r.payPeriodYear * 100 + r.payPeriodMonth, cell: (r) => <span className="font-medium text-ink">{r.label.split(" · ")[0]}</span> },
+      { id: "type", header: "Type", width: 130, value: (r) => RUN_TYPE_LABEL[r.runType], cell: (r) => <span className={r.runType === "REGULAR" ? "text-ink-muted" : "font-medium text-ink"}>{RUN_TYPE_LABEL[r.runType]}</span> },
       { id: "scope", header: "Scope", width: 220, value: (r) => r.scopeText },
       { id: "employees", header: "Employees", type: "number", width: 110, value: (r) => r.employeeCount },
       { id: "gross", header: "Gross", type: "amount", width: 140, value: (r) => Number(r.totalGross), total: "sum" },
@@ -80,7 +82,7 @@ export function PayrollRunsClient({ data, initialTab }: { data: PayrollRunsPageD
         description={`${data.runs.length} run${data.runs.length === 1 ? "" : "s"}${waitingForMe.length ? ` · ${waitingForMe.length} waiting for you` : ""}`}
         actions={[
           { id: "new", label: "New run", icon: Plus, group: "create", primary: true, shortcut: "Ctrl+N", hidden: !can.generate, onClick: () => setWindowOpen("new") },
-          { id: "settings", label: "Approval settings", icon: Settings2, group: "output", hidden: !can.settings, onClick: () => setWindowOpen("settings") },
+          { id: "settings", label: "Settings", icon: Settings2, group: "output", hidden: !can.settings, onClick: () => setWindowOpen("settings") },
           { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
         ]}
       />
@@ -138,13 +140,13 @@ export function PayrollRunsClient({ data, initialTab }: { data: PayrollRunsPageD
           onClose={() => setWindowOpen(null)}
           onGenerated={(runId, employees) => {
             setWindowOpen(null);
-            setNotice(`Run generated for ${employees} employee${employees === 1 ? "" : "s"}. Review the variance, then submit it for approval.`);
+            setNotice(`Run generated for ${employees} employee${employees === 1 ? "" : "s"}. Review the payslips (and the variance for a regular run), then submit it for approval.`);
             setTab("run");
             startRefresh(() => router.push(`/payroll?run=${runId}&tab=run`));
           }}
         />
       )}
-      {windowOpen === "settings" && <PayrollSettingsWindow data={data} onClose={() => setWindowOpen(null)} onSaved={() => done("Payroll approval settings saved. Runs submitted from now on follow them.")} />}
+      {windowOpen === "settings" && <PayrollSettingsWindow data={data} onClose={() => setWindowOpen(null)} onSaved={() => done("Payroll settings saved. Runs submitted from now on follow them.")} />}
       <span className="sr-only">
         <Play className="hidden" />
       </span>

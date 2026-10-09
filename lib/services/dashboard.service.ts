@@ -179,8 +179,8 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     const loaded = await section("payroll", failed, async () => {
       const slipCondition = byEmployeeId(payrollSlips.employeeId);
       const [rows, departmentsCost] = await Promise.all([
-        payrollRepository.sumSlipsByPeriod({ fromKey: engine.periodKey(fromRef.year, fromRef.month), toKey, employeeCondition: slipCondition }),
-        payrollRepository.sumSlipsByDepartment({ fromKey: engine.periodKey(period.current.from.year, period.current.from.month), toKey, employeeCondition: slipCondition }),
+        payrollRepository.sumSlipsByPeriod({ calendar: "BS", fromKey: engine.periodKey(fromRef.year, fromRef.month), toKey, employeeCondition: slipCondition }),
+        payrollRepository.sumSlipsByDepartment({ calendar: "BS", fromKey: engine.periodKey(period.current.from.year, period.current.from.month), toKey, employeeCondition: slipCondition }),
       ]);
       return { rows, departmentsCost };
     });

@@ -11,8 +11,16 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { checkNewRunAction, generateRunAction, savePayrollRunSettingsAction } from "@/app/actions/payroll-run.actions";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
+import { RUN_TYPE_LABEL } from "@/lib/engines/pay-calendar.engine";
 import type { ApprovalPolicy, ApprovalType } from "@/lib/types/approval";
-import type { NewRunInput, PayrollRunsPageData, PreflightResult } from "@/lib/types/payroll-run";
+import type { NewRunInput, PayrollRunsPageData, PreflightResult, RunType } from "@/lib/types/payroll-run";
+
+const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+/** The kinds of run the New run window offers in b1 (arrears and final settlement come with b2 / b3). */
+const NEW_RUN_TYPES: { value: RunType; help: string }[] = [
+  { value: "REGULAR", help: "The month's pay from attendance and the salary structures." },
+  { value: "FESTIVAL_BONUS", help: "Only the festival allowance (Dashain), beside the regular run; taxed once." },
+];
 import { cn } from "@/lib/utils";
 import { ProblemList } from "./payroll-run-workspace";
 
@@ -55,6 +63,7 @@ function PickList({ label, items, value, onChange, allLabel }: { label: string; 
  */
 export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRunsPageData; onClose: () => void; onGenerated: (runId: string, employees: number) => void }) {
   const [start] = useState<NewRunInput>(() => ({
+    runType: "REGULAR",
     payPeriodYear: data.suggested.year,
     payPeriodMonth: data.suggested.month,
     branchIds: data.branches.map((b) => b.id),
@@ -81,7 +90,9 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     const y = data.suggested.year;
     return [y + 1, y, y - 1, y - 2].map((v) => ({ value: String(v), label: String(v) }));
   }, [data.suggested.year]);
-  const months = BS_MONTHS_EN.slice(1).map((m, i) => ({ value: String(i + 1), label: m }));
+  const months = (data.calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN).slice(1).map((m, i) => ({ value: String(i + 1), label: m }));
+  const bonus = form.runType === "FESTIVAL_BONUS";
+  const festivalOptions = data.occasionalAllowances.filter((a) => a.isFestivalAllowance);
   const employees = useMemo(
     () => data.employees.filter((e) => form.branchIds.includes(e.branchId) && (!form.departmentIds.length || form.departmentIds.includes(e.departmentId)) && (!form.designationIds.length || form.designationIds.includes(e.designationId)) && (!form.employeeCategories.length || form.employeeCategories.includes(e.category))),
     [data.employees, form.branchIds, form.departmentIds, form.designationIds, form.employeeCategories]
@@ -123,7 +134,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
       dirty={JSON.stringify(form) !== JSON.stringify(start)}
       size="lg"
       title="New pay run"
-      description="Choose the month and who is paid. Check runs the pre-flight; Generate calculates every payslip as a draft."
+      description={`Choose the kind of run, the ${data.calendar === "AD" ? "Gregorian" : "Bikram Sambat"} month and who is paid. Check runs the pre-flight; Generate calculates every payslip as a draft.`}
       footer={
         <>
           <Failure text={failure} />
@@ -139,6 +150,19 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     >
       <PropertyForm onSubmit={check} enterNavigation={{ end: () => checkRef.current }} className="-mx-4 -my-4 space-y-0 bg-surface-panel">
         <FormGrid columns={2}>
+          <GridField label="Kind of run" required span={2} size="lg">
+            <div role="radiogroup" aria-label="Kind of run" className="flex flex-wrap gap-2">
+              {NEW_RUN_TYPES.map((t) => (
+                <label key={t.value} className={cn("flex cursor-pointer gap-2 rounded-md border px-3 py-1.5", form.runType === t.value ? "border-brand bg-brand-subtle" : "border-line hover:bg-surface-sunken")}>
+                  <input type="radio" name="runType" className="mt-0.5 h-3.5 w-3.5 accent-brand" checked={form.runType === t.value} onChange={() => set("runType", t.value)} />
+                  <span>
+                    <span className="block text-xs font-medium text-ink">{RUN_TYPE_LABEL[t.value]}</span>
+                    <span className="block text-2xs text-ink-muted">{t.help}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </GridField>
           <GridField label="Month" required error={errors.period} size="md">
             <div className="flex gap-2">
               <SelectField name="month" options={months} value={String(form.payPeriodMonth)} onChange={(v) => set("payPeriodMonth", Number(v))} />
@@ -158,11 +182,15 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               <PickList label="Employment types" items={data.categories.map((c) => ({ id: c, name: c }))} value={form.employeeCategories} onChange={(v) => set("employeeCategories", v)} allLabel="all" />
             </div>
           </GridField>
-          {data.occasionalAllowances.length > 0 && (
+          {bonus ? (
+            <GridField label="Festival allowance" required span={2} size="lg" help={festivalOptions.length ? undefined : "No pay head is marked as a festival allowance (Setup → Pay heads)."}>
+              <PickList label="" items={festivalOptions.map((a) => ({ id: a.id, name: a.name }))} value={form.occasionalAllowanceHeadIds.filter((id) => festivalOptions.some((a) => a.id === id))} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
+            </GridField>
+          ) : data.occasionalAllowances.length > 0 ? (
             <GridField label="This month also pays" span={2} size="lg">
               <PickList label="" items={data.occasionalAllowances.map((a) => ({ id: a.id, name: `${a.name} (${a.isFestivalAllowance ? "festival" : "remote area"})` }))} value={form.occasionalAllowanceHeadIds} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
             </GridField>
-          )}
+          ) : null}
           <GridField label="Only these people" span={2} size="lg" help="Optional: a few people instead of everyone in the scope (e.g. a missed joiner).">
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-64 flex-1">
@@ -208,9 +236,10 @@ const APPROVAL_TYPE_LABEL: Record<ApprovalType, string> = { none: "No approval",
 
 /** Approval policy for pay runs (simple or multi-level) and the variance threshold. */
 export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: PayrollRunsPageData; onClose: () => void; onSaved: () => void }) {
-  const initial = { policy: data.policy.type === "none" ? ({ type: "simple", levels: [] } as ApprovalPolicy) : data.policy, thresholdPct: data.varianceThresholdPct };
+  const initial = { policy: data.policy.type === "none" ? ({ type: "simple", levels: [] } as ApprovalPolicy) : data.policy, thresholdPct: data.varianceThresholdPct, calendar: data.calendar };
   const [policy, setPolicy] = useState<ApprovalPolicy>(initial.policy);
   const [threshold, setThreshold] = useState(initial.thresholdPct);
+  const [calendar, setCalendar] = useState<"BS" | "AD">(initial.calendar);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -223,7 +252,7 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
   };
   const save = async () => {
     setSaving(true);
-    const r = await savePayrollRunSettingsAction({ policy: { type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] }, thresholdPct: threshold });
+    const r = await savePayrollRunSettingsAction({ policy: { type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] }, thresholdPct: threshold, calendar });
     setSaving(false);
     if (!r.success) {
       setErrors(r.validationErrors ?? {});
@@ -240,10 +269,10 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
     <Window
       open
       onClose={saving ? () => {} : onClose}
-      dirty={JSON.stringify({ policy, threshold }) !== JSON.stringify(initial)}
+      dirty={JSON.stringify({ policy, thresholdPct: threshold, calendar }) !== JSON.stringify(initial)}
       size="lg"
-      title="Approval settings · Pay runs"
-      description="Who approves a run before it can be locked and paid. The person who prepares a run never approves it (maker-checker)."
+      title="Payroll settings"
+      description="Who approves a run before it can be locked and paid (the person who prepares a run never approves it), what counts as a variance, and the pay calendar."
       footer={
         <>
           <Failure text={failure} />
@@ -313,6 +342,28 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
           </div>
         </label>
       </div>
+      <fieldset className="mt-4 border-t border-line pt-3">
+        <legend className="mb-1 text-xs font-semibold text-ink">
+          Pay calendar {errors.calendar && <span className="font-normal text-danger">· {errors.calendar}</span>}
+        </legend>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["BS", "Bikram Sambat months", "Baisakh … Chaitra (29–32 days). Nepal's usual payroll month."],
+              ["AD", "Gregorian months", "January … December (28–31 days). The fiscal year stays Shrawan–Ashadh; its year-end month is July."],
+            ] as const
+          ).map(([value, label, help]) => (
+            <label key={value} className={cn("flex min-w-56 flex-1 cursor-pointer gap-2.5 rounded-md border px-3 py-2", calendar === value ? "border-brand bg-brand-subtle" : "border-line hover:bg-surface-sunken")}>
+              <input type="radio" name="pay-calendar" className="mt-0.5 h-4 w-4 accent-brand" checked={calendar === value} onChange={() => setCalendar(value)} />
+              <span>
+                <span className="block text-sm font-medium text-ink">{label}</span>
+                <span className="block text-2xs text-ink-muted">{help}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-1.5 text-2xs text-ink-muted">Attendance months follow the pay calendar. It changes only between months: every attendance month closed, every run locked or discarded.</p>
+      </fieldset>
       {eligible.length === 0 && <p className="mt-3 text-2xs text-warning">No active user can approve pay runs yet. Give a role Payroll review → Approve in Roles.</p>}
       <span className="hidden">
         <ShieldCheck className="hidden" />

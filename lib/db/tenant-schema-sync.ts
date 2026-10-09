@@ -823,6 +823,32 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
+  // Pay calendar and year-to-date tax (4.8b, migration 0057): runs carry their calendar, payslips
+  // keep the tax projection, and the month summaries are keyed by (employee, calendar, year,
+  // month). The old (employee, fiscal year, bs_month) constraint goes once the period index is in.
+  for (const q of [
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "calendar" varchar(2) DEFAULT 'BS' NOT NULL`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "tax_detail" jsonb`,
+    `CREATE INDEX IF NOT EXISTS "payroll_runs_period_idx" ON "payroll_runs" ("calendar", "pay_period_year", "pay_period_month", "run_type", "status")`,
+    `UPDATE "leave_ot_calculations" c SET "calendar" = 'BS', "period_month" = c."bs_month",
+  "period_year" = CASE WHEN c."bs_month" >= fy."from_month" THEN left(fy."start_date_bs", 4)::int ELSE left(fy."start_date_bs", 4)::int + 1 END
+FROM "fiscal_years" fy
+WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM "leave_ot_calculations" o
+    WHERE o."employee_id" = c."employee_id" AND o."calendar" = 'BS' AND o."period_month" = c."bs_month"
+      AND o."period_year" = CASE WHEN c."bs_month" >= fy."from_month" THEN left(fy."start_date_bs", 4)::int ELSE left(fy."start_date_bs", 4)::int + 1 END
+  )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "leave_ot_calculations_period_idx" ON "leave_ot_calculations" ("employee_id", "calendar", "period_year", "period_month") WHERE "period_year" IS NOT NULL`,
+    `ALTER TABLE "leave_ot_calculations" DROP CONSTRAINT IF EXISTS "leave_ot_calculations_employee_id_fiscal_year_id_bs_month_unique"`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] pay calendar 0057:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

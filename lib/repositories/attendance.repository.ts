@@ -469,12 +469,21 @@ export async function findClosedPeriodsOverlapping(from: string, to: string): Pr
     .where(and(eq(attendancePeriods.status, "closed"), lte(attendancePeriods.startDate, to), gte(attendancePeriods.endDate, from)));
 }
 
-/** Payroll runs for a BS month that are approved or locked (they stop reopening attendance). */
-export async function countFinalisedPayrollRuns(bsYear: number, bsMonth: number): Promise<number> {
+/** Regular payroll runs for a month (company calendar) that are approved or locked (4.8b: arrears pay later corrections). */
+export async function countFinalisedPayrollRuns(calendar: string, year: number, month: number): Promise<number> {
   const [row] = await (await getDb())
     .select({ n: sql<number>`count(*)::int` })
     .from(payrollRuns)
-    .where(and(eq(payrollRuns.payPeriodYear, bsYear), eq(payrollRuns.payPeriodMonth, bsMonth), inArray(payrollRuns.status, ["APPROVED", "LOCKED"])));
+    .where(and(eq(payrollRuns.calendar, calendar), eq(payrollRuns.payPeriodYear, year), eq(payrollRuns.payPeriodMonth, month), eq(payrollRuns.runType, "REGULAR"), inArray(payrollRuns.status, ["APPROVED", "LOCKED"])));
+  return row?.n ?? 0;
+}
+
+/** Attendance months still open in a calendar (the pay calendar can change only when none is). */
+export async function countOpenPeriods(calendar: string): Promise<number> {
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(attendancePeriods)
+    .where(and(eq(attendancePeriods.calendar, calendar), eq(attendancePeriods.status, "open")));
   return row?.n ?? 0;
 }
 
@@ -576,7 +585,8 @@ export async function closePeriod(params: {
       await tx
         .insert(leaveOtCalculations)
         .values({ employeeId: s.employeeId, fiscalYearId: s.fiscalYearId, bsMonth: s.bsMonth, ...values })
-        .onConflictDoUpdate({ target: [leaveOtCalculations.employeeId, leaveOtCalculations.fiscalYearId, leaveOtCalculations.bsMonth], set: values });
+        // One summary per employee and attendance month in the company's calendar (4.8b).
+        .onConflictDoUpdate({ target: [leaveOtCalculations.employeeId, leaveOtCalculations.calendar, leaveOtCalculations.periodYear, leaveOtCalculations.periodMonth], targetWhere: sql`period_year is not null`, set: values });
     }
     if (params.ledger?.length) await postLedgerLines(params.ledger, tx);
   });

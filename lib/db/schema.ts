@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index } from 'drizzle-orm/pg-core';
+import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, uniqueIndex, date, index } from 'drizzle-orm/pg-core';
 
 
 // -----------------------------------------------------------------------------
@@ -1036,7 +1036,9 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
-  unq: unique().on(t.employeeId, t.fiscalYearId, t.bsMonth),
+  // 4.8b: one summary per employee and attendance month in the company's calendar (the old
+  // (employee, fiscal year, bs_month) key is gone: AD months do not map to one BS month).
+  periodIdx: uniqueIndex('leave_ot_calculations_period_idx').on(t.employeeId, t.calendar, t.periodYear, t.periodMonth).where(sql`period_year is not null`),
   fyMonthIdx: index('leave_ot_calculations_fy_month_idx').on(t.fiscalYearId, t.bsMonth),
 }));
 
@@ -1320,6 +1322,8 @@ export const payrollRuns = pgTable('payroll_runs', {
   approvedAt: timestamp('approved_at'),
   lockedAt: timestamp('locked_at'),
   notes: text('notes'),
+  // 4.8b: the calendar of the pay month ("BS" | "AD"; the company pays in one calendar).
+  calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
   // 4.8a: the kind of run, the approval flow copied on at submission (approval.engine), who
   // submitted it, and the variance review against the last locked run.
   runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
@@ -1335,6 +1339,7 @@ export const payrollRuns = pgTable('payroll_runs', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   fiscalYearIdIdx: index('payroll_runs_fiscal_year_id_idx').on(table.fiscalYearId),
+  periodIdx: index('payroll_runs_period_idx').on(table.calendar, table.payPeriodYear, table.payPeriodMonth, table.runType, table.status),
   generatedByIdx: index('payroll_runs_generated_by_idx').on(table.generatedBy),
   reviewedByIdx: index('payroll_runs_reviewed_by_idx').on(table.reviewedBy),
   approvedByIdx: index('payroll_runs_approved_by_idx').on(table.approvedBy),
@@ -1368,6 +1373,8 @@ export const payrollSlips = pgTable('payroll_slips', {
   // 4.8a: the month's welfare fund contributions (employee share deducted; the detail per fund).
   fundDeduction: numeric('fund_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
   fundDetail: jsonb('fund_detail').$type<import('@/lib/types/payroll').FundLine[]>(),
+  // 4.8b: how the income tax was projected (year to date, remaining months, annual tax).
+  taxDetail: jsonb('tax_detail').$type<import('@/lib/types/payroll').TaxDetail>(),
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),

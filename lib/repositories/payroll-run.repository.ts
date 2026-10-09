@@ -3,6 +3,8 @@ import { getDb } from "@/lib/db";
 import { approvalActions, employees, payrollRuns, payrollSlips, permissions, rolePermissions, roles, systemConfig, userRoles, users } from "@/lib/db/schema";
 import { parsePolicy } from "@/lib/engines/approval.engine";
 import { DEFAULT_VARIANCE_PCT, normalizeThreshold, runTotals } from "@/lib/engines/payroll-run.engine";
+import { parseCalendar } from "@/lib/engines/pay-calendar.engine";
+import type { PeriodCalendar } from "@/lib/engines/pay-period.engine";
 import type { ApprovalActionKind, ApprovalPolicy, ApprovalRoute, ApproverInfo } from "@/lib/types/approval";
 import type { PayrollRun, PayrollRunStatus, PayrollSlip } from "@/lib/types/payroll";
 import type { RunVariance } from "@/lib/types/payroll-run";
@@ -14,14 +16,15 @@ import type { RunVariance } from "@/lib/types/payroll-run";
 export const MODULE = "PAYROLL_RUN";
 const POLICY_KEY = "approvals.payrollRun";
 const THRESHOLD_KEY = "payroll.varianceThreshold";
+const CALENDAR_KEY = "payroll.calendar";
 
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
-/** The company's approval setting for pay runs (default: simple) and the variance threshold. */
-export async function findSettings(): Promise<{ policy: ApprovalPolicy; thresholdPct: number }> {
-  const rows = await (await getDb()).select({ key: systemConfig.key, value: systemConfig.value }).from(systemConfig).where(inArray(systemConfig.key, [POLICY_KEY, THRESHOLD_KEY]));
+/** The company's approval setting for pay runs (default: simple), the variance threshold and the pay calendar. */
+export async function findSettings(): Promise<{ policy: ApprovalPolicy; thresholdPct: number; calendar: PeriodCalendar }> {
+  const rows = await (await getDb()).select({ key: systemConfig.key, value: systemConfig.value }).from(systemConfig).where(inArray(systemConfig.key, [POLICY_KEY, THRESHOLD_KEY, CALENDAR_KEY]));
   const stored = rows.find((r) => r.key === POLICY_KEY)?.value;
   let parsed: unknown = null;
   try {
@@ -30,7 +33,7 @@ export async function findSettings(): Promise<{ policy: ApprovalPolicy; threshol
     parsed = null;
   }
   const threshold = rows.find((r) => r.key === THRESHOLD_KEY)?.value;
-  return { policy: parsePolicy(parsed), thresholdPct: threshold ? normalizeThreshold(threshold) : DEFAULT_VARIANCE_PCT };
+  return { policy: parsePolicy(parsed), thresholdPct: threshold ? normalizeThreshold(threshold) : DEFAULT_VARIANCE_PCT, calendar: parseCalendar(rows.find((r) => r.key === CALENDAR_KEY)?.value) };
 }
 
 async function upsertConfig(key: string, value: string, dataType: string) {
@@ -84,24 +87,24 @@ export async function findApprovers(): Promise<ApproverInfo[]> {
 
 const periodKey = (year: number, month: number) => year * 100 + month;
 
-/** The latest LOCKED run before a period (any branch): the variance base. */
-export async function findLastLockedRunBefore(year: number, month: number): Promise<PayrollRun | null> {
+/** The latest LOCKED regular run before a period (any branch, same calendar): the variance base. */
+export async function findLastLockedRunBefore(calendar: string, year: number, month: number): Promise<PayrollRun | null> {
   const key = periodKey(year, month);
   const [row] = await (await getDb())
     .select()
     .from(payrollRuns)
-    .where(and(eq(payrollRuns.status, "LOCKED"), lt(sql`${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}`, key)))
+    .where(and(eq(payrollRuns.calendar, calendar), eq(payrollRuns.runType, "REGULAR"), eq(payrollRuns.status, "LOCKED"), lt(sql`${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}`, key)))
     .orderBy(desc(sql`${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}`), desc(payrollRuns.lockedAt))
     .limit(1);
   return row ? ({ ...row, status: row.status as PayrollRunStatus, departmentIds: row.departmentIds || null } as PayrollRun) : null;
 }
 
-/** The run for the month before a period, if any (pre-flight: "previous month not locked"). */
-export async function findRunForPeriod(year: number, month: number): Promise<PayrollRun | null> {
+/** The regular run for a month, if any (pre-flight: "previous month not locked"). */
+export async function findRunForPeriod(calendar: string, year: number, month: number): Promise<PayrollRun | null> {
   const [row] = await (await getDb())
     .select()
     .from(payrollRuns)
-    .where(and(eq(payrollRuns.payPeriodYear, year), eq(payrollRuns.payPeriodMonth, month)))
+    .where(and(eq(payrollRuns.calendar, calendar), eq(payrollRuns.payPeriodYear, year), eq(payrollRuns.payPeriodMonth, month), eq(payrollRuns.runType, "REGULAR")))
     .orderBy(desc(payrollRuns.createdAt))
     .limit(1);
   return row ? ({ ...row, status: row.status as PayrollRunStatus, departmentIds: row.departmentIds || null } as PayrollRun) : null;
@@ -198,6 +201,16 @@ export async function findTimeline(runIds: string[]) {
     .from(approvalActions)
     .where(and(eq(approvalActions.module, MODULE), inArray(approvalActions.requestId, runIds)))
     .orderBy(asc(approvalActions.createdAt));
+}
+
+/** Runs not locked yet (the pay calendar can change only when there are none). */
+export async function countUnlockedRuns(): Promise<number> {
+  const [row] = await (await getDb()).select({ n: sql<number>`count(*)::int` }).from(payrollRuns).where(sql`${payrollRuns.status} <> 'LOCKED'`);
+  return row?.n ?? 0;
+}
+
+export async function setCalendar(calendar: PeriodCalendar): Promise<void> {
+  await upsertConfig(CALENDAR_KEY, calendar, "string");
 }
 
 /** Names of users (preparers, approvers) for the Runs grid. */

@@ -13,6 +13,7 @@ import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
 import { addDays, datesIn, periodContaining, periodFor, type PayPeriod } from "@/lib/engines/pay-period.engine";
+import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
 import { plannedWeekMinutes, shiftSummary, shiftWarnings } from "@/lib/engines/shift.engine";
 import { clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
 import { OT_MAX_ENTRY_MINUTES, decidable, monthOvertime, otDetail } from "@/lib/engines/overtime.engine";
@@ -73,8 +74,8 @@ export async function getRules(): Promise<AttendanceRules> {
   const stored = (storedRaw && typeof storedRaw === "object" ? storedRaw : {}) as StoredRules;
   const late = stored.lateRule ?? {};
   return {
-    // AD months come with payroll runs in AD months (4.8); until then attendance months are BS.
-    calendar: "BS",
+    // Attendance months follow the company's pay calendar (Payroll → Approval settings, 4.8b).
+    calendar: await getPayCalendar(),
     noRecord: stored.noRecord === "present" ? "present" : "absent",
     lateRule: { enabled: late.enabled === true, count: Math.max(1, Math.min(10, Number(late.count) || 3)) },
     // Off until HR sets web clock-in up (4.5c).
@@ -473,7 +474,7 @@ export async function getAttendancePage(params: {
   }));
 
   // Month close: one row per branch in scope that has people this month.
-  const finalised = period.calendar === "BS" ? (await repo.countFinalisedPayrollRuns(period.year, period.month)) > 0 : false;
+  const finalised = (await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0;
   const branchIds = [...new Set(people.map((e) => e.branchId))];
   const months: BranchMonth[] = branchIds.map((b) => {
     const rows = register.filter((r) => r.employee.branchId === b);
@@ -908,12 +909,11 @@ export async function addOvertime(raw: unknown, ctx: { scope: ScopeFilter; userI
   return { id, employeeId, date: date!, minutes };
 }
 
-/** Overtime days waiting for a decision in a BS month, per employee (payroll pre-flight, 4.8a). */
-export async function overtimeWaitingFor(employeeIds: string[], bsYear: number, bsMonth: number): Promise<Map<string, number>> {
+/** Overtime days waiting for a decision in a month, per employee (payroll pre-flight, 4.8a). */
+export async function overtimeWaitingFor(employeeIds: string[], period: PayPeriod): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   if (!employeeIds.length) return out;
   const rules = await getRules();
-  const period = periodFor("BS", bsYear, bsMonth);
   const people = await repo.findEmployeesByIds(employeeIds);
   const [c, entries, { policy }] = await Promise.all([loadContext(people, period.start, period.end, rules), overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }), overtimeService.getPolicy()]);
   for (const e of people) {
@@ -1060,7 +1060,7 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const branchId = typeof r.branchId === "string" ? r.branchId : "";
   if (ctx.scope.scopeType === "DEPARTMENT" || ctx.scope.scopeType === "SELF") throw new UserFacingError("Reopening a month needs a company-wide or branch role.");
   if (ctx.scope.scopeType === "BRANCH" && !ctx.scope.branchIds.includes(branchId)) throw new OutOfScopeError();
-  if (period.calendar === "BS" && (await repo.countFinalisedPayrollRuns(period.year, period.month)) > 0) {
+  if ((await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0) {
     throw new UserFacingError("Payroll for this month is already approved or locked, so its attendance can't be reopened. Corrections will be paid as arrears once the payroll run supports them.");
   }
   const p = (await repo.findPeriods(period.calendar, period.year, period.month)).find((x) => x.branchId === branchId);
@@ -1089,15 +1089,15 @@ export interface ReportPerson {
   amounts: PayrollAttendance;
 }
 
-/** A BS month for the attendance report: every person in scope, their days, summary and pay effect. */
-export async function reportMonth(scope: ScopeFilter, bsYear: number, bsMonth: number, filter: { branchId?: string; departmentId?: string; designationId?: string; employeeId?: string }): Promise<{ period: PayPeriod; people: ReportPerson[] }> {
+/** A month (company calendar) for the attendance report: every person in scope, their days, summary and pay effect. */
+export async function reportMonth(scope: ScopeFilter, year: number, month: number, filter: { branchId?: string; departmentId?: string; designationId?: string; employeeId?: string }): Promise<{ period: PayPeriod; people: ReportPerson[] }> {
   const rules = await getRules();
-  const period = periodFor("BS", bsYear, bsMonth);
+  const period = periodFor(rules.calendar, year, month);
   const people = (await employeesFor(scope, period.start, period.end, { branchId: filter.branchId, departmentId: filter.departmentId })).filter(
     (e) => (!filter.designationId || e.designationId === filter.designationId) && (!filter.employeeId || e.id === filter.employeeId)
   );
   const ctx = await loadContext(people, period.start, period.end, rules);
-  const amounts = await attendanceForPayroll(people.map((e) => e.id), { bsYear, bsMonth, start: period.start, end: period.end });
+  const amounts = await attendanceForPayroll(people.map((e) => e.id), period);
   const today = nepalDateIso();
   return {
     period,
@@ -1130,10 +1130,10 @@ export interface PayrollAttendance {
  * month is closed, otherwise worked out now from the same rules (nothing is
  * written, nothing is unlocked).
  */
-export async function attendanceForPayroll(employeeIds: string[], run: { bsYear: number; bsMonth: number; start: string; end: string }): Promise<Map<string, PayrollAttendance>> {
+export async function attendanceForPayroll(employeeIds: string[], period: PayPeriod): Promise<Map<string, PayrollAttendance>> {
   const out = new Map<string, PayrollAttendance>();
   if (!employeeIds.length) return out;
-  const closed = await repo.findClosedSummaries(employeeIds, "BS", run.bsYear, run.bsMonth);
+  const closed = await repo.findClosedSummaries(employeeIds, period.calendar, period.year, period.month);
   for (const s of closed) {
     out.set(s.employeeId, {
       leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"),
@@ -1147,12 +1147,6 @@ export async function attendanceForPayroll(employeeIds: string[], run: { bsYear:
   const open = employeeIds.filter((id) => !out.has(id));
   if (!open.length) return out;
   const rules = await getRules();
-  let period: PayPeriod;
-  try {
-    period = periodFor("BS", run.bsYear, run.bsMonth);
-  } catch {
-    period = { calendar: "BS", year: run.bsYear, month: run.bsMonth, start: run.start, end: run.end, days: datesBetween(run.start, run.end).length, label: "" };
-  }
   const people = (await repo.findEmployees()).filter((e) => open.includes(e.id));
   const c = await loadContext(people, period.start, period.end, rules);
   const pay = await payInputs(people.map((e) => e.id), period);

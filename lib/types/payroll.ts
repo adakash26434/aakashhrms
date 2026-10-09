@@ -1,5 +1,27 @@
 export type PayrollRunStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'LOCKED';
 
+/** 4.8b: income paid so far this fiscal year (LOCKED payslips only), the base of the tax projection. */
+export interface YtdFigures {
+  taxableGross: string;
+  /** PF + SSF, employee and employer sides. */
+  retirement: string;
+  cit: string;
+  tds: string;
+  /** Payslips counted. */
+  months: number;
+}
+
+/** 4.8b: how a payslip's income tax was projected (kept on the slip; the payslip pane shows it). */
+export interface TaxDetail {
+  method: 'ytd' | 'flat15' | 'none';
+  monthsRemaining: number;
+  ytd: YtdFigures;
+  month: { taxableGross: string; oneOffTaxable: string; retirement: string; cit: string; insuranceAnnual: string };
+  projected: { gross: string; retirement: string; cit: string; taxable: string };
+  annualTax: string;
+  tdsThisMonth: string;
+}
+
 /** 4.8a: one welfare fund's contribution on a payslip (the employee share is deducted). */
 export interface FundLine {
   code: string;
@@ -42,6 +64,8 @@ export interface PayrollRun {
   approvedAt: Date | null;
   lockedAt: Date | null;
   notes: string | null;
+  /** 4.8b: the calendar of pay_period_year / pay_period_month ("BS" | "AD"). */
+  calendar: string;
   /** 4.8a */
   runType: string;
   approvalType: string | null;
@@ -83,6 +107,8 @@ export interface PayrollSlip {
   /** 4.8a: welfare fund contributions deducted this month, and the detail per fund. */
   fundDeduction?: string;
   fundDetail?: FundLine[] | null;
+  /** 4.8b: how the income tax was projected; null on older slips. */
+  taxDetail?: TaxDetail | null;
   bankAccountNumber: string;
   bankName: string;
   payslipMonth: number | null;
@@ -142,6 +168,8 @@ export interface PayrollRunSetupPayload {
   occasionalAllowanceHeadIds: string[] | null;
   payslipMonth: number | null;
   payslipDate: string | null;
+  /** 4.8b: the kind of run (REGULAR when absent). */
+  runType?: import('@/lib/types/payroll-run').RunType;
   includeFestivalAllowance?: boolean; // Keep for fallback compatibility
   includeRemoteAllowance?: boolean;   // Keep for fallback compatibility
   recreateIfExists?: boolean;         // Discard existing draft and regenerate if true
@@ -245,6 +273,9 @@ export interface PayrollCalculationResult {
   absentDeduction: string;
   otAmount: string;
   fundDeduction: string;
+  /** 4.8b */
+  taxDetail: TaxDetail | null;
+  isYearEndReconciliation: boolean;
   heads: Array<{
     payHeadId: string;
     payHeadName: string;

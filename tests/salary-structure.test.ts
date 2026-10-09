@@ -33,11 +33,14 @@ import {
   validateLines,
   type PayHeadLike,
 } from '../lib/engines/salary-structure.engine';
-import { calculatePayslip, type TaxSlabInput } from '../lib/engines/payroll.engine';
+import { calculatePayslip, type TaxSlabInput, EMPTY_YTD } from '../lib/engines/payroll.engine';
 import { DEFAULT_GRADE_POLICY } from '../lib/engines/grade-policy.engine';
 import { normalizeBatch } from '../lib/services/salary-structure.service';
 import type { PayProfile, StructureLines, TaxRules, TemplateRow } from '../lib/types/salary-structure';
 import type { SystemControlData } from '../lib/types/system-control';
+
+/** 4.8b: a first month of the year with nothing paid yet (equals the old "this month × 12" projection). */
+const NO_YTD = { ytd: EMPTY_YTD, monthsRemaining: 12 };
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 
@@ -379,7 +382,7 @@ const payrollRun = (l: StructureLines, profile: PayProfile = PROFILE) =>
     taxSlabs: SLABS,
     isFestivalMonth: false,
     isRemoteMonth: false,
-    isYearEnd: false,
+    tax: NO_YTD,
   });
 
 describe('Pay estimate = payroll (estimatePay → calculatePayslip)', () => {

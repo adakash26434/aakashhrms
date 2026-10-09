@@ -136,6 +136,28 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
           <Amount value={slip.totalDeductions} emphasis />
         </div>
       </PaneSection>
+      {slip.taxDetail && slip.taxDetail.method === "ytd" && (
+        <PaneSection title="Income tax">
+          {(() => {
+            const t = slip.taxDetail!;
+            const n = (v: string | number) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            return (
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-2xs">
+                <dt className="text-ink-muted">Paid so far this year</dt>
+                <dd className="text-right tabular-nums text-ink">{n(t.ytd.taxableGross)} taxable · {t.ytd.months} month{t.ytd.months === 1 ? "" : "s"}</dd>
+                <dt className="text-ink-muted">This month taxable</dt>
+                <dd className="text-right tabular-nums text-ink">{n(t.month.taxableGross)}{Number(t.month.oneOffTaxable) ? ` (one-off ${n(t.month.oneOffTaxable)})` : ""}</dd>
+                <dt className="text-ink-muted">Projected year</dt>
+                <dd className="text-right tabular-nums text-ink">{n(t.projected.gross)} − retirement {n(t.projected.retirement)} − insurance {n(t.month.insuranceAnnual)} = {n(t.projected.taxable)}</dd>
+                <dt className="text-ink-muted">Annual tax</dt>
+                <dd className="text-right tabular-nums text-ink">{n(t.annualTax)} · deducted so far {n(t.ytd.tds)}</dd>
+                <dt className="text-ink-muted">{t.monthsRemaining === 1 ? "Year-end month: the rest" : `Spread over ${t.monthsRemaining} months`}</dt>
+                <dd className="text-right font-medium tabular-nums text-ink">{n(t.tdsThisMonth)}</dd>
+              </dl>
+            );
+          })()}
+        </PaneSection>
+      )}
       <PaneSection>
         <div className="flex items-center justify-between text-sm font-semibold text-ink">
           <span>Net payable</span>

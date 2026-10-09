@@ -14,7 +14,7 @@ import { WindowButton } from "@/components/kit/window";
 import { acknowledgeVarianceAction, checkRunAction, decideRunAction, discardRunAction, lockRunAction, refreshVarianceAction, submitRunAction, syncRunAttendanceAction } from "@/app/actions/payroll-run.actions";
 import { generateBankExportCSVAction } from "@/app/actions/payroll.actions";
 import { downloadTextFile } from "@/lib/export/download";
-import { stepOf } from "@/lib/engines/payroll-run.engine";
+import { stepOf, stepsFor } from "@/lib/engines/payroll-run.engine";
 import type { PayrollSlip } from "@/lib/types/payroll";
 import { RUN_STEPS, RUN_STEP_LABEL, type PayrollRunsPageData, type PreflightProblem, type PreflightResult, type RunDetail, type RunStep, type VarianceItem } from "@/lib/types/payroll-run";
 import type { ApprovalActionKind } from "@/lib/types/approval";
@@ -124,7 +124,7 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
     <div className="p-3">
       {/* Step rail */}
       <ol className="mb-3 flex flex-wrap items-center gap-1 text-xs" aria-label="Run steps">
-        {RUN_STEPS.filter((s) => s !== "setup" && s !== "calculate").map((s) => {
+        {stepsFor(run.runType).map((s) => {
           const idx = RUN_STEPS.indexOf(s);
           const isDone = done(idx) && s !== current;
           const isCurrent = s === current && run.status !== "LOCKED";
@@ -173,7 +173,7 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
             <WindowButton onClick={check} disabled={!!busy}>
               {busy === "check" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Check again
             </WindowButton>
-            {run.can.edit && (
+            {run.can.edit && run.runType === "REGULAR" && (
               <WindowButton onClick={() => act("sync", () => syncRunAttendanceAction(run.id), "Attendance read again for every payslip.")} disabled={!!busy}>
                 {busy === "sync" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Sync attendance
               </WindowButton>
@@ -295,7 +295,7 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
             {run.can.stuck && <span className="text-warning">{run.can.stuck}</span>}
             {onOpenSettings && (
               <button type="button" className="ml-auto cursor-pointer text-2xs text-brand-strong hover:underline" onClick={onOpenSettings}>
-                Approval settings
+                Settings
               </button>
             )}
           </div>

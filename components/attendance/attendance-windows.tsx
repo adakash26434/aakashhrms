@@ -228,8 +228,8 @@ export function RulesWindow({ data, onClose, onSaved }: { data: AttendancePageDa
             <NumberField name="lateCount" decimals={0} max={10} value={form.lateCount} onChange={(v) => set("lateCount", v)} disabled={!form.lateEnabled} />
           </GridField>
           <GridValue label="Month calendar">
-            <span className={cn("text-sm")}>Bikram Sambat months (29–32 days)</span>
-            <span className="block text-2xs text-ink-muted">AD months (28–31 days) become available once payroll can run in AD months.</span>
+            <span className={cn("text-sm")}>{data.rules.calendar === "AD" ? "Gregorian months (28–31 days)" : "Bikram Sambat months (29–32 days)"}</span>
+            <span className="block text-2xs text-ink-muted">The pay calendar is set in Payroll → Approval settings; attendance months follow it.</span>
           </GridValue>
         </FormGrid>
       </PropertyForm>

@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DEFAULT_VARIANCE_PCT, canTransition, normalizeThreshold, pctChange, preflight, runTotals, scopeText, stepOf, variance, varianceOpen, type PreflightInput } from '../lib/engines/payroll-run.engine';
+import { DEFAULT_VARIANCE_PCT, canTransition, normalizeThreshold, pctChange, preflight, runTotals, scopeText, stepOf, stepsFor, variance, varianceOpen, type PreflightInput } from '../lib/engines/payroll-run.engine';
 import type { PayrollSlip } from '../lib/types/payroll';
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
@@ -25,6 +25,8 @@ const person = (o: Partial<PreflightInput['employees'][number]> = {}): Preflight
   ...o,
 });
 const ready = (o: Partial<PreflightInput> = {}): PreflightInput => ({
+  runType: 'REGULAR',
+  festivalHeads: 0,
   period,
   today: '2026-10-20',
   branches: [{ id: 'B1', name: 'Head Office', closed: true }],
@@ -227,13 +229,13 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
   it('income tax slabs come from the active fiscal year only, and the month dates from the BS month itself', () => {
     assert.match(service, /findAllSlabs\(\)\)\.filter\(\(x\) => x\.fiscalYearId === activeFy\.id\)/);
     assert.equal((service.match(/\.filter\(\(x\) => x\.fiscalYearId === run\.fiscalYearId\)/g) ?? []).length, 2);
-    assert.match(service, /export async function generatePayrollRun[\s\S]*?periodFor\("BS", payPeriodYear, payPeriodMonth\)/);
+    assert.match(service, /export async function generatePayrollRun[\s\S]*?periodFor\(calendar, payPeriodYear, payPeriodMonth\)/);
     assert.doesNotMatch(service, /getBSMonthRange/);
   });
 
   it('welfare fund contributions reach the payslip as a deduction with their detail', () => {
     assert.match(service, /contributionsForMonth\(empIds, payPeriodYear, payPeriodMonth\)/);
-    assert.match(service, /fundDeduction: calcResult\.fundDeduction,\s*fundDetail: fundsByEmployeeId\.get\(emp\.id\) \?\? null/);
+    assert.match(service, /fundDeduction: calcResult\.fundDeduction,\s*fundDetail: runType === "REGULAR" \? fundsByEmployeeId\.get\(emp\.id\) \?\? null : null/);
     const engine = read('lib/engines/payroll.engine.ts');
     assert.match(engine, /totalDeductions = totalDeductions\.plus\(loanVal\)\.plus\(fundVal\)/);
   });
@@ -242,5 +244,21 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
     const run = read('lib/services/payroll-run.service.ts');
     assert.match(run, /export async function generate[\s\S]*?checkNewRun\(raw\)[\s\S]*?severity === "blocking"[\s\S]*?throw new UserFacingError/);
     assert.match(run, /export async function submit[\s\S]*?checkRun\(runId\)[\s\S]*?refreshVariance\(runId\)[\s\S]*?varianceOpen\(v\)[\s\S]*?throw new UserFacingError/);
+  });
+});
+
+describe('Payroll run: festival bonus pre-flight and steps (4.8b)', () => {
+  it('a bonus run needs a festival head and does not need closed attendance; a regular run stays blocked', () => {
+    const open = ready({ branches: [{ id: 'B1', name: 'Head Office', closed: false }] });
+    assert.ok(codes(preflight(open)).includes('month_open'));
+    const bonus = preflight({ ...open, runType: 'FESTIVAL_BONUS', festivalHeads: 0 });
+    assert.deepEqual(codes(bonus), ['no_festival_head']);
+    assert.deepEqual(codes(preflight({ ...open, runType: 'FESTIVAL_BONUS', festivalHeads: 1 })), []);
+    assert.ok(codes(preflight(ready({ runType: 'FESTIVAL_BONUS', festivalHeads: 1, existingRuns: [{ id: 'R', status: 'DRAFT' }] }))).includes('bonus_exists'));
+  });
+
+  it('only regular runs have a variance step', () => {
+    assert.deepEqual(stepsFor('FESTIVAL_BONUS'), ['preflight', 'review', 'approval', 'lock']);
+    assert.equal(stepOf({ status: 'DRAFT', runType: 'FESTIVAL_BONUS' }, 3), 'review');
   });
 });

@@ -5,14 +5,7 @@
 
 import Decimal from "decimal.js";
 import { calculateTotalGradeAmount, DEFAULT_GRADE_POLICY } from "@/lib/engines/grade-policy.engine";
-import {
-  calculatePayslip,
-  isSsfDeductionHead,
-  isSsfEmployerHead,
-  NegativeNetPayableError,
-  ssfContribution,
-  type PayHeadInput,
-} from "@/lib/engines/payroll.engine";
+import { calculatePayslip, isSsfDeductionHead, isSsfEmployerHead, NegativeNetPayableError, ssfContribution, type PayHeadInput, EMPTY_YTD } from "@/lib/engines/payroll.engine";
 import type { GradePolicySettings, SystemControlData } from "@/lib/types/system-control";
 import type {
   BreakdownItem,
@@ -306,7 +299,7 @@ export function estimatePay(lines: StructureLines, heads: readonly StructureHead
       taxSlabs: tax.slabs,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      isYearEnd: false,
+      tax: { ytd: EMPTY_YTD, monthsRemaining: 12 },
     });
     const d = (v: string) => new Decimal(v || 0);
     const basic = d(r.basicSalary);

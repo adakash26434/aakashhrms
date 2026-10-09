@@ -296,13 +296,14 @@ export async function grantSubstitute(
 // Leave calendar (who is on leave in a month)
 // ---------------------------------------------------------------------------
 
-/** A BS month: people in scope, their weekly offs and holidays, approved and waiting leave per day. */
-export async function leaveCalendar(scope: ScopeFilter, bsYear: number, bsMonth: number): Promise<LeaveCalendarData> {
+/** A month (company calendar): people in scope, their weekly offs and holidays, approved and waiting leave per day. */
+export async function leaveCalendar(scope: ScopeFilter, year: number, month: number): Promise<LeaveCalendarData> {
+  const calendar = (await attendanceService.getRules()).calendar;
   let period;
   try {
-    period = periodFor("BS", bsYear, bsMonth);
+    period = periodFor(calendar, year, month);
   } catch {
-    period = periodContaining("BS", nepalDateIso());
+    period = periodContaining(calendar, nepalDateIso());
   }
   const [all, types, names] = await Promise.all([attendanceRepo.findEmployees(buildEmployeeScopeCondition(scope)), ruleTypes(), nameMaps()]);
   const people = all
