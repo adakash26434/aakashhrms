@@ -1,3 +1,4 @@
+import { checkPlacement } from '@/lib/services/darbandi.service';
 import * as repo from '@/lib/repositories/employee-event.repository';
 import * as letterRepo from '@/lib/repositories/letter.repository';
 import * as letterService from '@/lib/services/letter.service';
@@ -136,6 +137,17 @@ export async function createEvent(raw: unknown, ctx: EventCtx): Promise<CreateEv
     department: (id) => name(departments, id, 'toDepartmentId'),
   });
 
+  // Darbandi (G4): the post the person will hold after the event (promotion: new designation at
+  // the current or new branch; transfer: new branch) — warn or block per company setting.
+  const darbandiWarning =
+    changes.patch.designationId || changes.patch.branchId
+      ? await checkPlacement({
+          designationId: changes.patch.designationId ?? employee!.designationId,
+          branchId: changes.patch.branchId ?? employee!.branchId,
+          current: { designationId: employee!.designationId, branchId: employee!.branchId },
+        })
+      : null;
+
   const effectiveDateBs = adToBSString(new Date(`${form.effectiveDateAd}T00:00:00`));
   const row = await repo.insertEventTx(
     {
@@ -183,7 +195,7 @@ export async function createEvent(raw: unknown, ctx: EventCtx): Promise<CreateEv
   }
 
   const saved = await repo.findEventById(row.id);
-  return { event: toListRow(saved!), letterId, letterWarning };
+  return { event: toListRow(saved!), letterId, letterWarning: [letterWarning, darbandiWarning].filter(Boolean).join(' ') || null };
 }
 
 export async function cancelScheduledEvent(id: string, reason: string, ctx: EventCtx): Promise<EventListRow> {

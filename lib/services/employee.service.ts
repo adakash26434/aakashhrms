@@ -1,3 +1,4 @@
+import { checkPlacement } from "@/lib/services/darbandi.service";
 import * as repository from "@/lib/repositories/employee.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -155,6 +156,8 @@ export interface SaveEmployeeResult {
   employee: Employee;
   provisionedAccess?: EmployeeAccessProvisioning;
   accessWarning?: string;
+  /** Hire or move recorded over the approved positions (warn mode). */
+  darbandiWarning?: string | null;
 }
 
 export interface EmployeeAccessOptions {
@@ -398,6 +401,14 @@ export async function saveEmployee(
     terminationRemarks: formData.terminationRemarks || null,
   };
 
+  // Darbandi (G4): a hire, or an edit that moves the person to another designation × branch,
+  // is checked against the approved positions — warn or block per company setting.
+  const darbandiWarning = await checkPlacement({
+    designationId: formData.designationId,
+    branchId: formData.branchId,
+    current: id ? await repository.findById(id).then((e) => (e ? { designationId: e.designationId, branchId: e.branchId } : null)) : null,
+  });
+
   // 3. Persist via repository (documents and their scans in the same transaction)
   if (!payAccess.userId) throw new Error("saveEmployee needs the acting user for the documents");
   const documents = { rows: formData.documents, photoId: isUuid(formData.photoId) ? formData.photoId : "", userId: payAccess.userId };
@@ -415,7 +426,7 @@ export async function saveEmployee(
       accessOptions
     );
 
-    return { employee: updated, ...syncResult };
+    return { employee: updated, ...syncResult, darbandiWarning };
   } else {
     const employee = await repository.create(employeeData, documents);
     
@@ -459,7 +470,7 @@ export async function saveEmployee(
       }
     }
     
-    return { employee, ...syncResult };
+    return { employee, ...syncResult, darbandiWarning };
   }
 }
 

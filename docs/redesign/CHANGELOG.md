@@ -1294,3 +1294,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## G11 Travel / TA-DA
 - Migration `0058_travel` (`travel_rates`, `travel_claims`, TRAVEL permission module — HR Manager VIEW/ADD/EDIT/APPROVE, Payroll Controller VIEW/LOCK; mirrored in `ensureTenantSchema`; restart the dev server). Engine `travel.engine.ts` (inclusive days, days × DA, lodging capped at nights × ceiling, fare or km × rate, minus advance; paisa arithmetic), amounts frozen on the claim; draft → submitted → approved / rejected / returned → settled, claim-first. S38: nobody decides or settles their own claim. Screen `/payroll/travel` with live preview. Verification: tsc 0, 1017/1017 tests, lint clean on new files (seed-rbac has pre-existing `any` errors). Build: CI.
+
+## Darbandi enforcement (G4 follow-up)
+- `lib/services/darbandi.service.ts` (`checkPlacement`) runs before the employee save and before a lifecycle event is written; `system_config` key `darbandi.enforce` = off | warn | block (default warn), changed on the Recruitment → दरबन्दी tab (RECRUITMENT EDIT, audited). Warnings ride along with the save result (`darbandiWarning` / event `letterWarning`). No migration. Verification: tsc 0, 1022/1022 tests, lint clean (one pre-existing unused-import warning).
