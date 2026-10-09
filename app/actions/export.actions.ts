@@ -7,6 +7,10 @@ import { recordAuditLog } from '@/lib/services/audit.service';
 const EXPORTABLE_MODULES = [
   'EMPLOYEES',
   'SALARY_MAPPING',
+  'HR_LETTERS',
+  'PERFORMANCE',
+  'RECRUITMENT',
+  'WELFARE_FUNDS',
   'ATTENDANCE',
   'LEAVE_APPLICATIONS',
   'LEAVE_APPROVALS',

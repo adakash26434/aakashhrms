@@ -15,6 +15,10 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'REPORTS_LOAN',
     'ORG_STRUCTURE',
     'SELF_SERVICE',
+    'HR_LETTERS',
+    'PERFORMANCE',
+    'RECRUITMENT',
+    'WELFARE_FUNDS',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -793,5 +797,445 @@ ON CONFLICT DO NOTHING`);
     }
   } catch {
     // Ignored if the employees table does not exist yet
+  }
+
+  // HR letters (G2, migration 0047): bilingual letter templates, the per-fiscal-year chalani
+  // sequence, and issued letters (rendered body frozen; voided, never deleted). Also seeds the
+  // HR_LETTERS permission rows (PG10-safe md5 ids) and grants them to System Administrator
+  // (all) and HR Manager (VIEW/ADD/EDIT/DELETE); other roles are granted on the Roles screen.
+  const hrLetterQueries = [
+    `CREATE TABLE IF NOT EXISTS "letter_templates" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "code" varchar(30) NOT NULL,
+      "name" varchar(100) NOT NULL,
+      "name_np" varchar(100) DEFAULT '' NOT NULL,
+      "subject_en" varchar(200) NOT NULL,
+      "subject_np" varchar(200) DEFAULT '' NOT NULL,
+      "body_en" text NOT NULL,
+      "body_np" text DEFAULT '' NOT NULL,
+      "is_system" boolean DEFAULT false NOT NULL,
+      "is_active" boolean DEFAULT true NOT NULL,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "letter_templates_code_unique" UNIQUE ("code")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "letter_sequences" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+      "last_seq" integer DEFAULT 0 NOT NULL,
+      CONSTRAINT "letter_sequences_fiscal_year_key" UNIQUE ("fiscal_year_id")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "hr_letters" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "template_id" uuid REFERENCES "letter_templates"("id") ON DELETE SET NULL,
+      "kind" varchar(30) NOT NULL,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+      "seq" integer NOT NULL,
+      "letter_number" varchar(50) NOT NULL,
+      "language" varchar(2) NOT NULL,
+      "subject" varchar(200) NOT NULL,
+      "body" text NOT NULL,
+      "merge_data" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "status" varchar(10) DEFAULT 'issued' NOT NULL,
+      "issued_date_bs" varchar(20) NOT NULL,
+      "issued_date_ad" date NOT NULL,
+      "issued_by" uuid NOT NULL,
+      "issued_at" timestamp DEFAULT now() NOT NULL,
+      "voided_by" uuid,
+      "voided_at" timestamp,
+      "void_reason" text,
+      CONSTRAINT "hr_letters_fiscal_year_seq_key" UNIQUE ("fiscal_year_id", "seq")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "hr_letters_employee_id_idx" ON "hr_letters" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "hr_letters_issued_at_idx" ON "hr_letters" ("issued_at")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':HR_LETTERS')::uuid, a::action, 'HR_LETTERS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'HR_LETTERS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'DELETE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of hrLetterQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration),
+      // or while the HR_LETTERS enum value from this run's step 1 is not yet visible
+      // (PG10 requires a new enum value's transaction to commit before use; every
+      // statement here runs individually, so the next sync pass completes it).
+    }
+  }
+
+  // Employee lifecycle events (G2, migration 0048): promotion / transfer / confirmation
+  // as dated events with before/after snapshots; scheduled events are applied on read.
+  const employeeEventQueries = [
+    `CREATE TABLE IF NOT EXISTS "employee_events" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "kind" varchar(20) NOT NULL,
+      "effective_date_ad" date NOT NULL,
+      "effective_date_bs" varchar(20) NOT NULL,
+      "from_values" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "to_values" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "reason" text,
+      "status" varchar(10) DEFAULT 'applied' NOT NULL,
+      "letter_id" uuid REFERENCES "hr_letters"("id") ON DELETE SET NULL,
+      "created_by" uuid NOT NULL,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "applied_at" timestamp,
+      "cancelled_by" uuid,
+      "cancelled_at" timestamp,
+      "cancel_reason" text
+    )`,
+    `CREATE INDEX IF NOT EXISTS "employee_events_employee_id_idx" ON "employee_events" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "employee_events_due_idx" ON "employee_events" ("status", "effective_date_ad")`,
+  ];
+  for (const q of employeeEventQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration).
+    }
+  }
+
+  // Performance evaluation (G1, migration 0049): cycles, evaluations with the form frozen
+  // at start, marks per criterion per stage, plus the PERFORMANCE permission module
+  // (md5 ids; granted to System Administrator and HR Manager — the 0047 pattern).
+  const performanceQueries = [
+    `CREATE TABLE IF NOT EXISTS "evaluation_templates" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "code" varchar(30) NOT NULL,
+      "name" varchar(100) NOT NULL,
+      "name_np" varchar(100) DEFAULT '' NOT NULL,
+      "form" jsonb NOT NULL,
+      "is_system" boolean DEFAULT false NOT NULL,
+      "is_active" boolean DEFAULT true NOT NULL,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "evaluation_templates_code_unique" UNIQUE ("code")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "evaluation_cycles" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+      "label" varchar(100) NOT NULL,
+      "period" varchar(20) DEFAULT 'annual' NOT NULL,
+      "status" varchar(10) DEFAULT 'open' NOT NULL,
+      "opened_by" uuid NOT NULL,
+      "opened_at" timestamp DEFAULT now() NOT NULL,
+      "closed_by" uuid,
+      "closed_at" timestamp,
+      CONSTRAINT "evaluation_cycles_year_label_key" UNIQUE ("fiscal_year_id", "label")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "evaluations" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "cycle_id" uuid NOT NULL REFERENCES "evaluation_cycles"("id") ON DELETE CASCADE,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "form" jsonb NOT NULL,
+      "raters" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "stage" varchar(20) NOT NULL,
+      "status" varchar(12) DEFAULT 'in_progress' NOT NULL,
+      "totals" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "started_by" uuid NOT NULL,
+      "started_at" timestamp DEFAULT now() NOT NULL,
+      "finalized_by" uuid,
+      "finalized_at" timestamp,
+      CONSTRAINT "evaluations_cycle_employee_key" UNIQUE ("cycle_id", "employee_id")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "evaluations_employee_id_idx" ON "evaluations" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "evaluations_stage_idx" ON "evaluations" ("status", "stage")`,
+    `CREATE TABLE IF NOT EXISTS "evaluation_scores" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "evaluation_id" uuid NOT NULL REFERENCES "evaluations"("id") ON DELETE CASCADE,
+      "stage" varchar(20) NOT NULL,
+      "criterion_id" varchar(40) NOT NULL,
+      "marks" numeric(5,2) NOT NULL,
+      "note" text,
+      "rated_by" uuid NOT NULL,
+      "rated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "evaluation_scores_cell_key" UNIQUE ("evaluation_id", "stage", "criterion_id")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "evaluation_scores_evaluation_id_idx" ON "evaluation_scores" ("evaluation_id")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':PERFORMANCE')::uuid, a::action, 'PERFORMANCE'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'PERFORMANCE'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of performanceQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the PERFORMANCE enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Scheduled jobs (G6, migration 0050): per-tenant job state and run log for
+  // the /api/jobs/tick automation (cron curl; no daemon on cPanel).
+  const jobQueries = [
+    `CREATE TABLE IF NOT EXISTS "scheduled_jobs" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "code" varchar(40) NOT NULL,
+      "enabled" boolean DEFAULT true NOT NULL,
+      "last_run_day" varchar(10),
+      "last_run_at" timestamp,
+      "last_status" varchar(10),
+      "last_detail" text,
+      CONSTRAINT "scheduled_jobs_code_unique" UNIQUE ("code")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "job_runs" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "job_code" varchar(40) NOT NULL,
+      "started_at" timestamp DEFAULT now() NOT NULL,
+      "finished_at" timestamp,
+      "status" varchar(10) DEFAULT 'running' NOT NULL,
+      "detail" text,
+      "items_processed" integer DEFAULT 0 NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "job_runs_job_code_idx" ON "job_runs" ("job_code", "started_at")`,
+  ];
+  for (const q of jobQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration).
+    }
+  }
+
+  // Attendance devices (G3, migration 0051): ZKTeco ADMS push — device registry,
+  // PIN ↔ employee mapping and the unmatched-punch holding table.
+  const deviceQueries = [
+    `CREATE TABLE IF NOT EXISTS "attendance_devices" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "name" varchar(100) NOT NULL,
+      "branch_id" uuid NOT NULL REFERENCES "branches"("id") ON DELETE RESTRICT,
+      "serial_no" varchar(60) NOT NULL,
+      "enabled" boolean DEFAULT true NOT NULL,
+      "tz_offset_minutes" integer DEFAULT 345 NOT NULL,
+      "last_seen_at" timestamp,
+      "last_punch_at" timestamptz,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "attendance_devices_serial_no_unique" UNIQUE ("serial_no")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "device_users" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "device_id" uuid NOT NULL REFERENCES "attendance_devices"("id") ON DELETE CASCADE,
+      "device_user_id" varchar(30) NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "device_users_device_pin_key" UNIQUE ("device_id", "device_user_id")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "device_users_employee_id_idx" ON "device_users" ("employee_id")`,
+    `CREATE TABLE IF NOT EXISTS "device_unmatched_punches" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "device_id" uuid NOT NULL REFERENCES "attendance_devices"("id") ON DELETE CASCADE,
+      "device_user_id" varchar(30) NOT NULL,
+      "punched_at" timestamptz NOT NULL,
+      "raw" varchar(200) DEFAULT '' NOT NULL,
+      "received_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "device_unmatched_punches_key" UNIQUE ("device_id", "device_user_id", "punched_at")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "device_unmatched_punches_device_idx" ON "device_unmatched_punches" ("device_id", "received_at")`,
+  ];
+  for (const q of deviceQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration).
+    }
+  }
+
+  // Exit workflow (G5, migration 0052): exit cases with a per-unit clearance checklist.
+  const exitQueries = [
+    `CREATE TABLE IF NOT EXISTS "exit_cases" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "kind" varchar(20) NOT NULL,
+      "notice_date" date,
+      "last_working_day_ad" date NOT NULL,
+      "last_working_day_bs" varchar(20) NOT NULL,
+      "reason" text,
+      "status" varchar(10) DEFAULT 'open' NOT NULL,
+      "letter_id" uuid REFERENCES "hr_letters"("id") ON DELETE SET NULL,
+      "opened_by" uuid NOT NULL,
+      "opened_at" timestamp DEFAULT now() NOT NULL,
+      "closed_by" uuid,
+      "closed_at" timestamp,
+      "cancelled_by" uuid,
+      "cancelled_at" timestamp,
+      "cancel_reason" text
+    )`,
+    `CREATE INDEX IF NOT EXISTS "exit_cases_employee_id_idx" ON "exit_cases" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "exit_cases_status_idx" ON "exit_cases" ("status")`,
+    `CREATE TABLE IF NOT EXISTS "exit_clearances" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "exit_case_id" uuid NOT NULL REFERENCES "exit_cases"("id") ON DELETE CASCADE,
+      "unit" varchar(20) NOT NULL,
+      "status" varchar(10) DEFAULT 'pending' NOT NULL,
+      "note" text,
+      "decided_by" uuid,
+      "decided_at" timestamp,
+      CONSTRAINT "exit_clearances_case_unit_key" UNIQUE ("exit_case_id", "unit")
+    )`,
+  ];
+  for (const q of exitQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration).
+    }
+  }
+
+  // Recruitment & darbandi (G4, migration 0053): approved positions, vacancies,
+  // applicants, plus the RECRUITMENT permission module (the 0047 pattern).
+  const recruitmentQueries = [
+    `CREATE TABLE IF NOT EXISTS "approved_positions" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "designation_id" uuid NOT NULL REFERENCES "designations"("id") ON DELETE RESTRICT,
+      "branch_id" uuid NOT NULL REFERENCES "branches"("id") ON DELETE RESTRICT,
+      "positions" integer NOT NULL,
+      "decision_ref" varchar(100) DEFAULT '' NOT NULL,
+      "note" text,
+      "is_active" boolean DEFAULT true NOT NULL,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "approved_positions_key" UNIQUE ("designation_id", "branch_id")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "vacancies" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "designation_id" uuid NOT NULL REFERENCES "designations"("id") ON DELETE RESTRICT,
+      "branch_id" uuid NOT NULL REFERENCES "branches"("id") ON DELETE RESTRICT,
+      "openings" integer DEFAULT 1 NOT NULL,
+      "deadline_ad" date,
+      "note" text,
+      "status" varchar(10) DEFAULT 'open' NOT NULL,
+      "opened_by" uuid NOT NULL,
+      "opened_at" timestamp DEFAULT now() NOT NULL,
+      "closed_by" uuid,
+      "closed_at" timestamp
+    )`,
+    `CREATE INDEX IF NOT EXISTS "vacancies_status_idx" ON "vacancies" ("status")`,
+    `CREATE TABLE IF NOT EXISTS "applicants" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "vacancy_id" uuid NOT NULL REFERENCES "vacancies"("id") ON DELETE CASCADE,
+      "full_name" varchar(255) NOT NULL,
+      "phone" varchar(50) DEFAULT '' NOT NULL,
+      "email" varchar(255) DEFAULT '' NOT NULL,
+      "address" varchar(255) DEFAULT '' NOT NULL,
+      "education_note" text,
+      "stage" varchar(15) DEFAULT 'applied' NOT NULL,
+      "exam_marks" numeric(5,2),
+      "interview_marks" numeric(5,2),
+      "note" text,
+      "employee_id" uuid REFERENCES "employees"("id") ON DELETE SET NULL,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "applicants_vacancy_idx" ON "applicants" ("vacancy_id", "stage")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':RECRUITMENT')::uuid, a::action, 'RECRUITMENT'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'RECRUITMENT'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'DELETE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of recruitmentQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the RECRUITMENT enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Welfare funds (G9, migration 0054): fund types and the append-only fund ledger,
+  // plus the WELFARE_FUNDS permission module (the 0047 pattern).
+  const fundQueries = [
+    `CREATE TABLE IF NOT EXISTS "fund_types" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "code" varchar(30) NOT NULL,
+      "name" varchar(100) NOT NULL,
+      "name_np" varchar(100) DEFAULT '' NOT NULL,
+      "contribution_mode" varchar(15) DEFAULT 'fixed' NOT NULL,
+      "employee_value" numeric(15,2) DEFAULT 0 NOT NULL,
+      "employer_value" numeric(15,2) DEFAULT 0 NOT NULL,
+      "note" text,
+      "is_active" boolean DEFAULT true NOT NULL,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "fund_types_code_unique" UNIQUE ("code")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "fund_ledger" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "fund_type_id" uuid NOT NULL REFERENCES "fund_types"("id") ON DELETE RESTRICT,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
+      "kind" varchar(12) NOT NULL,
+      "employee_amount" numeric(15,2) DEFAULT 0 NOT NULL,
+      "employer_amount" numeric(15,2) DEFAULT 0 NOT NULL,
+      "ref" varchar(80) NOT NULL,
+      "note" text,
+      "posted_by" uuid,
+      "posted_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "fund_ledger_ref_key" UNIQUE ("fund_type_id", "employee_id", "ref")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "fund_ledger_employee_idx" ON "fund_ledger" ("employee_id", "fund_type_id")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':WELFARE_FUNDS')::uuid, a::action, 'WELFARE_FUNDS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'WELFARE_FUNDS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager', 'payroll_controller')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of fundQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the WELFARE_FUNDS enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
   }
 }

@@ -110,6 +110,22 @@ export async function seedRbacForDb(targetDb: any) {
   // 4. MAP REPORT PERMISSIONS TO FUNCTIONAL ROLES
   const roleReportMappings: Record<string, { action: string; module: string }[]> = {
     hr_manager: [
+      { action: 'VIEW', module: 'WELFARE_FUNDS' },
+      { action: 'ADD', module: 'WELFARE_FUNDS' },
+      { action: 'EDIT', module: 'WELFARE_FUNDS' },
+      { action: 'VIEW', module: 'RECRUITMENT' },
+      { action: 'ADD', module: 'RECRUITMENT' },
+      { action: 'EDIT', module: 'RECRUITMENT' },
+      { action: 'DELETE', module: 'RECRUITMENT' },
+      { action: 'VIEW', module: 'PERFORMANCE' },
+      { action: 'ADD', module: 'PERFORMANCE' },
+      { action: 'EDIT', module: 'PERFORMANCE' },
+      { action: 'APPROVE', module: 'PERFORMANCE' },
+      { action: 'LOCK', module: 'PERFORMANCE' },
+      { action: 'VIEW', module: 'HR_LETTERS' },
+      { action: 'ADD', module: 'HR_LETTERS' },
+      { action: 'EDIT', module: 'HR_LETTERS' },
+      { action: 'DELETE', module: 'HR_LETTERS' },
       { action: 'VIEW', module: 'REPORTS_SALARY_SHEET' },
       { action: 'EXPORT', module: 'REPORTS_SALARY_SHEET' },
       { action: 'VIEW', module: 'REPORTS_PAYSLIP' },
@@ -123,6 +139,9 @@ export async function seedRbacForDb(targetDb: any) {
       { action: 'EXPORT', module: 'REPORTS_LOAN' },
     ],
     payroll_controller: [
+      { action: 'VIEW', module: 'WELFARE_FUNDS' },
+      { action: 'ADD', module: 'WELFARE_FUNDS' },
+      { action: 'EDIT', module: 'WELFARE_FUNDS' },
       { action: 'VIEW', module: 'REPORTS_SALARY_SHEET' },
       { action: 'EXPORT', module: 'REPORTS_SALARY_SHEET' },
       { action: 'VIEW', module: 'REPORTS_PAYSLIP' },
