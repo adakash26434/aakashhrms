@@ -25,6 +25,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
+import * as feedsRepository from "@/lib/repositories/payroll-feeds.repository";
 import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
@@ -261,6 +262,16 @@ export async function generatePayrollRun(
   const empIds = scopedEmployees.map(e => e.id);
   const leaveOtByEmployeeId = await attendanceForPayroll(empIds, { bsYear: payPeriodYear, bsMonth: payPeriodMonth, start: startStr, end: endStr });
 
+  // 5b. Feeds from other modules (4.8): approved TA-DA claims whose trip ended in or before the
+  // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
+  // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
+  // as fixed one-off heads; the engine's statutory maths is untouched.
+  const [feedHeadRows, claimsByEmployee, fundByEmployee] = await Promise.all([
+    feedsRepository.feedHeads(),
+    feedsRepository.approvedClaimsByEmployee(empIds, endStr),
+    feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth),
+  ]);
+
   // 6. Verify that there are no pending (unapproved) leave applications in the period
   const pendingLeaves = await (await getDb()).select({ count: sql`count(*)` }).from(leaveApplications).where(
     and(
@@ -486,6 +497,16 @@ export async function generatePayrollRun(
       isManualOverride: false,
     });
 
+    // 0. One-off feeds for this employee (4.8): TA-DA reimbursement and the welfare-fund deduction.
+    const claimFeed = claimsByEmployee.get(emp.id);
+    if (claimFeed && feedHeadRows.tada && Number(claimFeed.payable) !== 0) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.tada), amount: claimFeed.payable, isManualOverride: true });
+    }
+    const fundFeed = fundByEmployee.get(emp.id);
+    if (fundFeed && feedHeadRows.welfare) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundFeed, isManualOverride: true });
+    }
+
     // 1. TDS is required for every employee
     if (!assignedHeads.some((h) => h.isTdsHead)) {
       const tdsMaster = allPayHeads.find((h) => h.isTdsHead);
@@ -634,6 +655,10 @@ export async function generatePayrollRun(
 
     return run;
   });
+
+  // The claims this run pays are settled once the run exists (claim-first on status; the FK
+  // needs the committed run). A failed run above leaves them approved and unpaid.
+  await feedsRepository.settleClaimsThroughRun([...claimsByEmployee.values()].flatMap((c) => c.ids), runRecord.id);
 
   logger.info('Payroll run generated', {
     runId: runRecord.id,
@@ -923,6 +948,8 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
     throw new PayrollLockedError();
   }
 
+  // A deleted draft gives its TA-DA claims back before the row goes.
+  await feedsRepository.releaseClaimsOfRun(runId);
   await repository.deletePayrollRun(runId);
 
   await (await getDb()).insert(auditLogs).values({

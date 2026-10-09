@@ -1456,6 +1456,26 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
+  // Payroll feeds (4.8, migration 0059): TA-DA claims paid through the run and
+  // the welfare-fund deduction, with their two system pay heads.
+  const payrollFeedQueries = [
+    `ALTER TABLE "travel_claims" ADD COLUMN IF NOT EXISTS "payroll_run_id" uuid REFERENCES "payroll_runs"("id") ON DELETE SET NULL`,
+    `CREATE INDEX IF NOT EXISTS "travel_claims_run_idx" ON "travel_claims" ("payroll_run_id")`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:TADA')::uuid, 'TADA', 'Travel / TA-DA reimbursement', 'allowance', false, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'TADA')`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:WELFARE_FUND')::uuid, 'WELFARE_FUND', 'Welfare fund contribution', 'deduction', false, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'WELFARE_FUND')`,
+  ];
+  for (const q of payrollFeedQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until travel_claims / pay_heads exist.
+    }
+  }
+
   // Welfare funds (G9, migration 0054): fund types and the append-only fund ledger,
   // plus the WELFARE_FUNDS permission module (the 0047 pattern).
   const fundQueries = [

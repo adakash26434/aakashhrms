@@ -1991,6 +1991,8 @@ export const travelClaims = pgTable('travel_claims', {
   decidedBy: uuid('decided_by'),
   decidedAt: timestamp('decided_at'),
   settledAt: timestamp('settled_at'),
+  /** The payroll run that paid this claim (settled through payroll); null when settled by hand or still open. */
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedBy: uuid('updated_by'),

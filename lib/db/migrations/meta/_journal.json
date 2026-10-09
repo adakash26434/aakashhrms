@@ -414,6 +414,13 @@
       "when": 1791945600000,
       "tag": "0058_travel",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792032000000,
+      "tag": "0059_payroll_feeds",
+      "breakpoints": true
     }
   ]
 }
