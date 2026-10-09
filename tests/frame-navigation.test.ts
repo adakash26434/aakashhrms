@@ -34,7 +34,8 @@ describe('Navigation model (2.1)', () => {
   it('hides sections without permission and drops empty modules', () => {
     const modules = visibleModules({ allowedModules: ['EMPLOYEES', 'REPORTS_PAYSLIP'], fullAccess: false });
     assert.deepEqual(modules.map((m) => m.id), ['home', 'workforce', 'reports']);
-    assert.deepEqual(modules.find((m) => m.id === 'workforce')!.sections.map((s) => s.id), ['employees']);
+    // Lifecycle events (G2) also live under EMPLOYEES.
+    assert.deepEqual(modules.find((m) => m.id === 'workforce')!.sections.map((s) => s.id), ['employees', 'lifecycle']);
   });
 
   it('treats an empty permission list as no access (except the dashboard)', () => {

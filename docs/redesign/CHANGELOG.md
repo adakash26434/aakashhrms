@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G2 (events): employee lifecycle events — बढुवा, सरुवा, स्थायी नियुक्ति
+Branch: `feature/hr-letters` (stacked on the letters commit)
+
+The other half of G2: promotions, transfers and confirmations stop being silent in-place edits and become **dated records with before/after snapshots** that drive the employee row and the matching letter.
+
+Changed:
+- **Schema (migration `0048_employee_events`, mirrored in `tenant-schema-sync.ts`):** `employee_events` — kind (promotion | transfer | confirmation), effective date BS+AD, `from_values` / `to_values` (ids and display names), status (`applied` | `scheduled` | `cancelled`), optional link to the HR letter issued for it. An event due today or earlier **applies to the employee row in the same transaction**; a future-dated one is scheduled and applied on read once due (claim-first update, so two readers never apply twice); a scheduled event is cancelled with a reason, an applied one is corrected by a new event — history is never rewritten, nothing is deleted.
+- **Engine (`employee-event.engine.ts`, 15 tests):** kind rules (promotion needs a different designation; a transfer changes branch, department or both; confirmation refused for already-permanent or inactive staff), back-dating allowed, scheduling up to one year, snapshot/patch builders, letter-input mapping, register text.
+- **Service / actions:** RBAC under **EMPLOYEES** (VIEW list, EDIT record/cancel; no new module); scope-checked subject lookup; **S27** (S21 pattern): nobody records or cancels an event about their own record (audited `DENIED_SELF`); confirmation sets `confirmation_date` and category → Permanent; promotion changes the designation only (pay goes through Salary structure as its own revision); **letter ride-along** — tick "Issue letter" and the matching template (बढुवा पत्र, सरुवा पत्र, स्थायी नियुक्ति पत्र) is issued at once in the chosen language with the event's own values filled in ({{previous_designation}} → {{new_designation}}, effective date BS, reason as remarks), gated by HR_LETTERS ADD; if the letter fails the event still stands with a warning.
+- **UI (`/workforce/lifecycle`, template A):** register (DataGrid: effective date, employee, event, change "from → to", status, letter link; scheduled rows tinted, cancelled rows red), FilterStrip, detail window with Cancel-with-reason for scheduled events, New event window with kind-specific fields and the letter option (नेपाली default). Navigation: Workforce → Lifecycle events.
+
+Verified: `tsc` exit 0 · 844/844 tests (25 new: `employee-event`, `security-lifecycle`; the navigation visibility expectation now includes the lifecycle section) · lint clean on touched files.
+Notes: the employee form still edits designation/branch in place — Phase 8 retires that once modules read events everywhere; the employee record page's history tab should read these events (small follow-up); separation events arrive with G5 (exit workflow).
+
 ## 2026-10-09 — G2 (letters): HR letters module — appointment, confirmation, promotion, transfer, experience, NOC
 Branch: `feature/hr-letters` (from `main` @ `73e27a6`, after `docs/redesign/06-hrms-gap-analysis.md`)
 

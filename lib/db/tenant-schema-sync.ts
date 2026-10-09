@@ -872,4 +872,36 @@ ON CONFLICT DO NOTHING`);
       // statement here runs individually, so the next sync pass completes it).
     }
   }
+
+  // Employee lifecycle events (G2, migration 0048): promotion / transfer / confirmation
+  // as dated events with before/after snapshots; scheduled events are applied on read.
+  const employeeEventQueries = [
+    `CREATE TABLE IF NOT EXISTS "employee_events" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "kind" varchar(20) NOT NULL,
+      "effective_date_ad" date NOT NULL,
+      "effective_date_bs" varchar(20) NOT NULL,
+      "from_values" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "to_values" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "reason" text,
+      "status" varchar(10) DEFAULT 'applied' NOT NULL,
+      "letter_id" uuid REFERENCES "hr_letters"("id") ON DELETE SET NULL,
+      "created_by" uuid NOT NULL,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "applied_at" timestamp,
+      "cancelled_by" uuid,
+      "cancelled_at" timestamp,
+      "cancel_reason" text
+    )`,
+    `CREATE INDEX IF NOT EXISTS "employee_events_employee_id_idx" ON "employee_events" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "employee_events_due_idx" ON "employee_events" ("status", "effective_date_ad")`,
+  ];
+  for (const q of employeeEventQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration).
+    }
+  }
 }

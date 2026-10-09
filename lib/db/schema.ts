@@ -1448,3 +1448,34 @@ export const hrLetters = pgTable('hr_letters', {
   fiscalYearSeqKey: unique('hr_letters_fiscal_year_seq_key').on(t.fiscalYearId, t.seq),
   issuedAtIdx: index('hr_letters_issued_at_idx').on(t.issuedAt),
 }));
+
+/**
+ * EMPLOYEE LIFECYCLE EVENTS (G2, events part — docs/redesign/06-hrms-gap-analysis.md)
+ * Promotion (बढुवा), transfer (सरुवा) and confirmation (स्थायी) recorded as dated
+ * events with before/after snapshots, instead of silent in-place edits. An event
+ * due today or earlier is applied to the employee row in the same transaction;
+ * a future-dated one stays 'scheduled' and is applied on read once due. A
+ * mistaken scheduled event is cancelled; an applied one is corrected by a new
+ * event (history is never rewritten).
+ */
+export const employeeEvents = pgTable('employee_events', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(), // 'promotion' | 'transfer' | 'confirmation'
+  effectiveDateAd: date('effective_date_ad').notNull(),
+  effectiveDateBs: varchar('effective_date_bs', { length: 20 }).notNull(),
+  fromValues: jsonb('from_values').$type<Record<string, string>>().default({}).notNull(), // ids and display names before
+  toValues: jsonb('to_values').$type<Record<string, string>>().default({}).notNull(),     // ids and display names after
+  reason: text('reason'),
+  status: varchar('status', { length: 10 }).default('applied').notNull(), // 'scheduled' | 'applied' | 'cancelled'
+  letterId: uuid('letter_id').references(() => hrLetters.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  appliedAt: timestamp('applied_at'),
+  cancelledBy: uuid('cancelled_by'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+}, (t) => ({
+  employeeIdIdx: index('employee_events_employee_id_idx').on(t.employeeId),
+  dueIdx: index('employee_events_due_idx').on(t.status, t.effectiveDateAd),
+}));

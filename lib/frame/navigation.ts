@@ -108,6 +108,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["salary mapping", "pay", "allowance", "grade"],
       },
       {
+        id: "lifecycle",
+        label: "Lifecycle events",
+        href: "/workforce/lifecycle",
+        icon: CalendarCheck,
+        description: "Promotions, transfers and confirmations as dated records",
+        requires: ["EMPLOYEES"],
+        keywords: ["promotion", "badhuwa", "transfer", "saruwa", "confirmation", "sthayi", "event", "history"],
+      },
+      {
         id: "hr-letters",
         label: "HR letters",
         href: "/workforce/letters",

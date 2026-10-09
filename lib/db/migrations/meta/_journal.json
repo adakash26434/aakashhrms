@@ -337,6 +337,13 @@
       "when": 1790900000000,
       "tag": "0047_hr_letters",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0048_employee_events",
+      "breakpoints": true
     }
   ]
 }
