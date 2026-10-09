@@ -987,4 +987,36 @@ ON CONFLICT DO NOTHING`);
       // value from step 1 is committed (the next sync pass completes it).
     }
   }
+
+  // Scheduled jobs (G6, migration 0050): per-tenant job state and run log for
+  // the /api/jobs/tick automation (cron curl; no daemon on cPanel).
+  const jobQueries = [
+    `CREATE TABLE IF NOT EXISTS "scheduled_jobs" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "code" varchar(40) NOT NULL,
+      "enabled" boolean DEFAULT true NOT NULL,
+      "last_run_day" varchar(10),
+      "last_run_at" timestamp,
+      "last_status" varchar(10),
+      "last_detail" text,
+      CONSTRAINT "scheduled_jobs_code_unique" UNIQUE ("code")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "job_runs" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "job_code" varchar(40) NOT NULL,
+      "started_at" timestamp DEFAULT now() NOT NULL,
+      "finished_at" timestamp,
+      "status" varchar(10) DEFAULT 'running' NOT NULL,
+      "detail" text,
+      "items_processed" integer DEFAULT 0 NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "job_runs_job_code_idx" ON "job_runs" ("job_code", "started_at")`,
+  ];
+  for (const q of jobQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration).
+    }
+  }
 }

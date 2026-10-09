@@ -13,6 +13,26 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G6: automation & reminders — jobs tick, compliance/probation/birthday emails
+Branch: `feature/performance-evaluation` (stacked)
+
+The infrastructure half of the gap analysis's automation ask: no daemon (cPanel/Passenger), just cron hitting a secret-gated endpoint; everything else is jobs.
+
+Changed:
+- **Schema (migration `0050_scheduled_jobs`, mirrored in `tenant-schema-sync.ts`):** `scheduled_jobs` (per-job state; `last_run_day` is the once-per-Nepal-day claim) and `job_runs` (log).
+- **Engine (`scheduler.engine.ts`, 8 tests):** cadences (daily · BS-month days · weekday), due rules (once per day, disabled never runs, missed days skip — reminders repeat on the next due day), and pure reminder builders: SSF deposit (BS 10 → due by the 15th) and IRD eTDS (BS 20 → due by the 25th) wording, probation-due list (active, not Permanent, unconfirmed, ≥183 days served), birthdays (Feb 29 → Feb 28 on non-leap years).
+- **Four jobs:** apply scheduled lifecycle events (so G2 events apply even when nobody opens the register) · compliance reminders · weekly confirmations-due digest (points at Lifecycle events) · birthdays today. Emails go to active system/office admin, HR manager and payroll controller accounts through a new `sendNoticeEmail` (every line HTML-escaped; **names and dates only, never pay figures**).
+- **Tick:** `app/api/jobs/tick` (GET/POST) — constant-time bearer check against `JOBS_TICK_SECRET` (≥24 chars; bare 404 otherwise), then every due job for every ACTIVE company, each tenant inside `runWithTenantContext` and its own try/catch; the JSON response is counts only. Claim-first per job, so overlapping ticks never double-run (S29 suite).
+- **UI:** `/admin/jobs` under SYSTEM_CONTROL — job status with on/off (EDIT), recent runs, and a warning when the secret is missing. Navigation: Administration → Scheduled jobs.
+
+Verified: `tsc` exit 0 · 879/879 tests (16 new: `scheduler`, `security-jobs`) · lint clean on touched files.
+Deployment notes:
+1. Set `JOBS_TICK_SECRET` (≥24 random chars) in the server environment.
+2. Add the cron entry (cPanel → Cron Jobs), e.g. every 30 minutes:
+   `*/30 * * * * curl -fsS -H "Authorization: Bearer $JOBS_TICK_SECRET" https://<host>/api/jobs/tick >/dev/null`
+3. SMTP (`SMTP_HOST/USER/PASS`) must be set for the reminder emails; without it, jobs still run and log, and the email step prints a console preview.
+Notes: F10's compliance calendar card on Home and F17's notification centre read the same job outputs later; device-silent alerts join when G3 lands; contract-expiry reminders need an end-date field on employees (future).
+
 ## 2026-10-09 — G1: performance evaluation (का.स.मू.) — cycles, stage marks, grades
 Branch: `feature/performance-evaluation` (stacked on `feature/hr-letters`)
 

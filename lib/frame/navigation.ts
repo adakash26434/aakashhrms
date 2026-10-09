@@ -336,6 +336,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         requires: ["AUDIT_LOG"],
         keywords: ["history", "trail"],
       },
+      {
+        id: "jobs",
+        label: "Scheduled jobs",
+        href: "/admin/jobs",
+        icon: Clock,
+        description: "Reminders and automation: status, run log, on/off",
+        requires: ["SYSTEM_CONTROL"],
+        keywords: ["cron", "reminder", "automation", "tick", "ssf", "tds", "birthday", "probation"],
+      },
     ],
   },
 ];

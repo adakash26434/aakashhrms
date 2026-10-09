@@ -351,6 +351,13 @@
       "when": 1791100000000,
       "tag": "0049_performance_evaluation",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791200000000,
+      "tag": "0050_scheduled_jobs",
+      "breakpoints": true
     }
   ]
 }

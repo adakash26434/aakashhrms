@@ -1559,3 +1559,35 @@ export const evaluationScores = pgTable('evaluation_scores', {
   oneMarkPerCell: unique('evaluation_scores_cell_key').on(t.evaluationId, t.stage, t.criterionId),
   evaluationIdIdx: index('evaluation_scores_evaluation_id_idx').on(t.evaluationId),
 }));
+
+// -----------------------------------------------------------------------------
+// SCHEDULED JOBS (G6 — docs/redesign/06-hrms-gap-analysis.md)
+// Automation that fits cPanel/Passenger: no daemon — a cron curl hits
+// /api/jobs/tick (bearer secret), which runs every DUE job for every active
+// company. Jobs are code-defined (lib/engines/scheduler.engine.ts); these
+// tables keep per-tenant state and a run log. Every job is idempotent per
+// Nepal day (the claim is the state row's last_run_day update).
+// -----------------------------------------------------------------------------
+
+export const scheduledJobs = pgTable('scheduled_jobs', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 40 }).notNull().unique(),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** The Nepal day (YYYY-MM-DD AD) this job last ran — the once-per-day claim. */
+  lastRunDay: varchar('last_run_day', { length: 10 }),
+  lastRunAt: timestamp('last_run_at'),
+  lastStatus: varchar('last_status', { length: 10 }), // 'ok' | 'error' | 'skipped'
+  lastDetail: text('last_detail'),
+});
+
+export const jobRuns = pgTable('job_runs', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  jobCode: varchar('job_code', { length: 40 }).notNull(),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  finishedAt: timestamp('finished_at'),
+  status: varchar('status', { length: 10 }).default('running').notNull(), // 'running' | 'ok' | 'error'
+  detail: text('detail'),
+  itemsProcessed: integer('items_processed').default(0).notNull(),
+}, (t) => ({
+  jobCodeIdx: index('job_runs_job_code_idx').on(t.jobCode, t.startedAt),
+}));

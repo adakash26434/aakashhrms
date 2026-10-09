@@ -231,3 +231,52 @@ export async function sendEmployeeCredentialsEmail(
 
   return { success: true, deliveredVia: "console_mock" };
 }
+
+// ---------------------------------------------------------------------------
+// Plain notice emails (G6): reminders and digests. Text content only — every
+// line is HTML-escaped; never put salary figures or credentials in these.
+// ---------------------------------------------------------------------------
+
+import { escapeHtml } from "@/lib/utils/escape-html";
+
+export interface SendNoticeParams {
+  to: string[];
+  subject: string;
+  lines: string[];
+  companyName?: string;
+}
+
+export async function sendNoticeEmail({ to, subject, lines, companyName = "AakashHRMS" }: SendNoticeParams): Promise<SendEmailResult> {
+  const recipients = [...new Set(to.filter((t) => typeof t === "string" && t.includes("@")))];
+  if (!recipients.length) return { success: false, deliveredVia: "console_mock", error: "No recipients" };
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (smtpHost && smtpUser && smtpPass) {
+    try {
+      const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: process.env.SMTP_SECURE === "true" || smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || `"${companyName}" <${smtpUser}>`,
+        to: recipients.join(", "),
+        subject,
+        html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.6">${lines
+          .map((line) => `<p style="margin:0 0 10px">${escapeHtml(line)}</p>`)
+          .join("")}<p style="margin:16px 0 0;font-size:12px;color:#777">${escapeHtml(companyName)} — automated reminder. Sign in for details; this email carries none of the underlying records.</p></div>`,
+      });
+      return { success: true, deliveredVia: "smtp" };
+    } catch (err: unknown) {
+      return { success: false, deliveredVia: "smtp", error: err instanceof Error ? err.message : "SMTP delivery failed" };
+    }
+  }
+
+  console.log(`[EMAIL_SERVICE] (dev preview) Notice "${subject}" to ${recipients.join(", ")}:\n  ${lines.join("\n  ")}`);
+  return { success: true, deliveredVia: "console_mock" };
+}
