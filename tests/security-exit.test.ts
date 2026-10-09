@@ -95,6 +95,11 @@ describe('S31 exit: completion integrity', () => {
     assert.ok(tx.indexOf('update(users)') > tx.indexOf("status: 'Inactive'") && tx.indexOf('update(users)') < tx.indexOf('insert(employeeTermination)'));
   });
 
+  it('fund balances are shown as read-only facts; the exit module never writes the fund ledger', () => {
+    assert.match(body(repo, 'export async function exitFacts('), /fundLedger/);
+    assert.ok(!/insert\(fundLedger\)|update\(fundLedger\)|delete\(fundLedger\)|postLines/.test(repo + service), 'exit code never posts fund lines');
+  });
+
   it('cancel touches open cases only, and nothing deletes cases or clearances', () => {
     assert.match(body(repo, 'export async function cancelCase('), /eq\(exitCases\.status, 'open'\)/);
     assert.ok(!repo.includes('.delete(exitCases)') && !repo.includes('.delete(exitClearances)'), 'cases are never deleted');

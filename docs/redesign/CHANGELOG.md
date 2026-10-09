@@ -1276,3 +1276,5 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## Phase G hardening (senior review)
 - Exit Complete deactivates the employee's user login (`completeCaseTx`); `/iclock` negative serial cache. Tests in `security-exit` / `security-devices`. Verification: tsc 0, touched tests pass, lint clean. No migration.
+
+- Exit case shows welfare-fund balances held (`exitFacts.funds`, read-only; payout stays under Funds). Verification: tsc 0, 947/947 tests, lint clean. No migration.

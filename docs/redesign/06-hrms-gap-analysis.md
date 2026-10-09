@@ -224,7 +224,7 @@ Done on `feature/phase-g-hardening`:
 - `/iclock` serial lookup keeps a bounded 60 s negative cache, so unauthenticated unknown-serial requests no longer scan every company database.
 
 Still to review/do (ordered by value for a sahakari):
-1. Welfare-fund payout at exit (use the exit case facts; Bonus Act 2030 §13 welfare-fund and the Contribution-based Social Security Act are the statutory neighbours — cooperative staff funds follow the bylaw, so keep rates/caps as per-company config).
+1. ~~Welfare-fund payout at exit~~ — step 1 done: the exit case shows fund balances held (read-only); the payout is still posted under Funds (S33 separation). Open: a Complete warning/blocker when balances remain. (use the exit case facts; Bonus Act 2030 §13 welfare-fund and the Contribution-based Social Security Act are the statutory neighbours — cooperative staff funds follow the bylaw, so keep rates/caps as per-company config).
 2. G8 Disciplinary & grievance, G7 Training, G13 HR analytics and COPOMIS/DoC returns.
 3. दरबन्दी enforcement in hiring / promotion / transfer; promotion score composite (का.स.मू. + seniority) feeding the बढुवा event.
 4. G10 core-banking voucher export — needs real Pumari / MFin / FinPro sample files from the customer.

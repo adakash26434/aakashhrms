@@ -39,6 +39,8 @@ export interface ExitDetail extends ExitListRow {
     activeLoans: number;
     loanOutstanding: string;
     devicePins: { device: string; pin: string }[];
+    /** Welfare-fund balances still held for the employee (non-zero only). */
+    funds: { fund: string; employee: string; employer: string; total: string }[];
   };
 }
 

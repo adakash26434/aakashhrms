@@ -1,7 +1,8 @@
 import { getDb } from '@/lib/db';
-import { attendanceDevices, deviceUsers, employeeTermination, employees, exitCases, exitClearances, hrLetters, loans, users } from '@/lib/db/schema';
+import { attendanceDevices, deviceUsers, employeeTermination, employees, exitCases, exitClearances, fundLedger, fundTypes, hrLetters, loans, users } from '@/lib/db/schema';
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { CLEARANCE_UNITS } from '@/lib/engines/exit.engine';
+import { fundBalance } from '@/lib/engines/fund.engine';
 
 // Exit workflow (G5): Drizzle queries only. Rules live in
 // lib/engines/exit.engine.ts; orchestration in lib/services/exit.service.ts.
@@ -174,6 +175,7 @@ export interface ExitFacts {
   activeLoans: number;
   loanOutstanding: string; // summed numeric as text
   devicePins: { device: string; pin: string }[];
+  funds: { fund: string; employee: string; employer: string; total: string }[];
 }
 
 export async function exitFacts(employeeId: string): Promise<ExitFacts> {
@@ -187,7 +189,21 @@ export async function exitFacts(employeeId: string): Promise<ExitFacts> {
     .from(deviceUsers)
     .innerJoin(attendanceDevices, eq(deviceUsers.deviceId, attendanceDevices.id))
     .where(eq(deviceUsers.employeeId, employeeId));
-  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins };
+  // Read-only: the payout itself is posted under Funds (WELFARE_FUNDS, S33), never from the exit screen.
+  const fundRows = await db
+    .select({
+      fund: fundTypes.name,
+      employee: sql<string>`COALESCE(sum(${fundLedger.employeeAmount}), 0)::text`,
+      employer: sql<string>`COALESCE(sum(${fundLedger.employerAmount}), 0)::text`,
+    })
+    .from(fundLedger)
+    .innerJoin(fundTypes, eq(fundLedger.fundTypeId, fundTypes.id))
+    .where(eq(fundLedger.employeeId, employeeId))
+    .groupBy(fundTypes.name);
+  const funds = fundRows
+    .map((r) => ({ fund: r.fund, ...fundBalance([{ employeeAmount: r.employee, employerAmount: r.employer }]) }))
+    .filter((r) => r.total !== '0.00' || r.employee !== '0.00' || r.employer !== '0.00');
+  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins, funds };
 }
 
 
