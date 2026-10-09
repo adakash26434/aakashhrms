@@ -335,7 +335,63 @@
       "idx": 47,
       "version": "7",
       "when": 1790900000000,
-      "tag": "0047_overtime",
+      "tag": "0047_hr_letters",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0048_employee_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791100000000,
+      "tag": "0049_performance_evaluation",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791200000000,
+      "tag": "0050_scheduled_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791300000000,
+      "tag": "0051_attendance_devices",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1791400000000,
+      "tag": "0052_exit_workflow",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791500000000,
+      "tag": "0053_recruitment",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791600000000,
+      "tag": "0054_welfare_funds",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791700000000,
+      "tag": "0055_overtime",
       "breakpoints": true
     }
   ]

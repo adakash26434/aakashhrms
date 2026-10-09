@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1409,4 +1409,427 @@ export const leaveSalaryRuns = pgTable('leave_salary_runs', {
   employeeIdIdx: index('leave_salary_runs_employee_id_idx').on(t.employeeId),
   leaveTypeIdIdx: index('leave_salary_runs_leave_type_id_idx').on(t.leaveTypeId),
   createdByIdx: index('leave_salary_runs_created_by_idx').on(t.createdBy),
+}));
+
+// -----------------------------------------------------------------------------
+// HR LETTERS (G2, letters part — docs/redesign/06-hrms-gap-analysis.md)
+// Formal letters issued to employees: appointment, confirmation, promotion
+// (बढुवा), transfer (सरुवा), experience / job-left (अनुभव), NOC. Each letter is
+// rendered from a template at issue time and FROZEN (the stored body never
+// changes afterwards); mistakes are voided, never edited or deleted, and the
+// chalani (dispatch) number is never reused.
+// -----------------------------------------------------------------------------
+
+/**
+ * Letter templates: bilingual bodies with {{merge_field}} placeholders.
+ * System templates (seeded per tenant) can be edited but not deleted.
+ */
+export const letterTemplates = pgTable('letter_templates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique(), // appointment | confirmation | promotion | transfer | experience | noc | custom codes
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }).default('').notNull(),
+  subjectEn: varchar('subject_en', { length: 200 }).notNull(),
+  subjectNp: varchar('subject_np', { length: 200 }).default('').notNull(),
+  bodyEn: text('body_en').notNull(),
+  bodyNp: text('body_np').default('').notNull(),
+  isSystem: boolean('is_system').default(false).notNull(), // seeded defaults: editable, never deletable
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+/**
+ * Chalani (dispatch) number sequence, one row per fiscal year. Allocation is a
+ * single UPDATE ... RETURNING inside the issue transaction, so two letters can
+ * never share a number (PG10-safe; no sequences to keep in step per tenant).
+ */
+export const letterSequences = pgTable('letter_sequences', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull().unique('letter_sequences_fiscal_year_key'),
+  lastSeq: integer('last_seq').default(0).notNull(),
+});
+
+/**
+ * An issued letter: the rendered subject and body are stored as issued (the
+ * template may change later; the letter must not). `mergeData` keeps the field
+ * values used, for the register's detail pane and audits.
+ */
+export const hrLetters = pgTable('hr_letters', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  templateId: uuid('template_id').references(() => letterTemplates.id, { onDelete: 'set null' }),
+  kind: varchar('kind', { length: 30 }).notNull(), // template code at issue time
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
+  seq: integer('seq').notNull(), // chalani sequence within the fiscal year
+  letterNumber: varchar('letter_number', { length: 50 }).notNull(), // display form, e.g. "12/2082-83"
+  language: varchar('language', { length: 2 }).notNull(), // 'en' | 'np'
+  subject: varchar('subject', { length: 200 }).notNull(),
+  body: text('body').notNull(), // rendered at issue; frozen
+  mergeData: jsonb('merge_data').$type<Record<string, string>>().default({}).notNull(),
+  status: varchar('status', { length: 10 }).default('issued').notNull(), // 'issued' | 'voided'
+  issuedDateBs: varchar('issued_date_bs', { length: 20 }).notNull(),
+  issuedDateAd: date('issued_date_ad').notNull(),
+  issuedBy: uuid('issued_by').notNull(),
+  issuedAt: timestamp('issued_at').defaultNow().notNull(),
+  voidedBy: uuid('voided_by'),
+  voidedAt: timestamp('voided_at'),
+  voidReason: text('void_reason'),
+}, (t) => ({
+  employeeIdIdx: index('hr_letters_employee_id_idx').on(t.employeeId),
+  fiscalYearSeqKey: unique('hr_letters_fiscal_year_seq_key').on(t.fiscalYearId, t.seq),
+  issuedAtIdx: index('hr_letters_issued_at_idx').on(t.issuedAt),
+}));
+
+/**
+ * EMPLOYEE LIFECYCLE EVENTS (G2, events part — docs/redesign/06-hrms-gap-analysis.md)
+ * Promotion (बढुवा), transfer (सरुवा) and confirmation (स्थायी) recorded as dated
+ * events with before/after snapshots, instead of silent in-place edits. An event
+ * due today or earlier is applied to the employee row in the same transaction;
+ * a future-dated one stays 'scheduled' and is applied on read once due. A
+ * mistaken scheduled event is cancelled; an applied one is corrected by a new
+ * event (history is never rewritten).
+ */
+export const employeeEvents = pgTable('employee_events', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(), // 'promotion' | 'transfer' | 'confirmation'
+  effectiveDateAd: date('effective_date_ad').notNull(),
+  effectiveDateBs: varchar('effective_date_bs', { length: 20 }).notNull(),
+  fromValues: jsonb('from_values').$type<Record<string, string>>().default({}).notNull(), // ids and display names before
+  toValues: jsonb('to_values').$type<Record<string, string>>().default({}).notNull(),     // ids and display names after
+  reason: text('reason'),
+  status: varchar('status', { length: 10 }).default('applied').notNull(), // 'scheduled' | 'applied' | 'cancelled'
+  letterId: uuid('letter_id').references(() => hrLetters.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  appliedAt: timestamp('applied_at'),
+  cancelledBy: uuid('cancelled_by'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+}, (t) => ({
+  employeeIdIdx: index('employee_events_employee_id_idx').on(t.employeeId),
+  dueIdx: index('employee_events_due_idx').on(t.status, t.effectiveDateAd),
+}));
+
+// -----------------------------------------------------------------------------
+// PERFORMANCE EVALUATION (G1 — docs/redesign/06-hrms-gap-analysis.md)
+// का.स.मू.-style marks-based evaluation: a cycle per period, one evaluation per
+// employee with the form FROZEN at start (template changes never touch
+// in-flight evaluations), stage-by-stage scores (supervisor → reviewer →
+// committee, weights from the template), a weighted total and a grade band.
+// Finalized marks feed promotion scoring and probation confirmation (G2).
+// -----------------------------------------------------------------------------
+
+/**
+ * The company's evaluation form: sections → criteria with max marks, stage
+ * weights and grade bands, all as JSON checked by evaluation.engine.ts. One
+ * row per code; 'default' is seeded on first read and never deleted.
+ */
+export const evaluationTemplates = pgTable('evaluation_templates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }).default('').notNull(),
+  /** { weights: {stage: pct}, bands: [{min, label, labelNp}], sections: [{id, name, nameNp, criteria: [{id, name, nameNp, max}]}] } */
+  form: jsonb('form').$type<Record<string, unknown>>().notNull(),
+  isSystem: boolean('is_system').default(false).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+export const evaluationCycles = pgTable('evaluation_cycles', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
+  label: varchar('label', { length: 100 }).notNull(), // e.g. "FY 2082/83 — annual"
+  period: varchar('period', { length: 20 }).default('annual').notNull(), // 'annual' | 'half-yearly'
+  status: varchar('status', { length: 10 }).default('open').notNull(), // 'open' | 'closed'
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+}, (t) => ({
+  oneLabelPerYear: unique('evaluation_cycles_year_label_key').on(t.fiscalYearId, t.label),
+}));
+
+export const evaluations = pgTable('evaluations', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  cycleId: uuid('cycle_id').references(() => evaluationCycles.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  /** The template form frozen when the evaluation starts. */
+  form: jsonb('form').$type<Record<string, unknown>>().notNull(),
+  /** Stage → rater user id, fixed at start ({ supervisor, reviewer, committee }). */
+  raters: jsonb('raters').$type<Record<string, string>>().default({}).notNull(),
+  /** The stage waiting for marks, or 'final'. */
+  stage: varchar('stage', { length: 20 }).notNull(),
+  status: varchar('status', { length: 12 }).default('in_progress').notNull(), // 'in_progress' | 'final'
+  /** { stages: {stage: pct}, total: pct, band: label } once final. */
+  totals: jsonb('totals').$type<Record<string, unknown>>().default({}).notNull(),
+  startedBy: uuid('started_by').notNull(),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  finalizedBy: uuid('finalized_by'),
+  finalizedAt: timestamp('finalized_at'),
+}, (t) => ({
+  onePerCycle: unique('evaluations_cycle_employee_key').on(t.cycleId, t.employeeId),
+  employeeIdIdx: index('evaluations_employee_id_idx').on(t.employeeId),
+  stageIdx: index('evaluations_stage_idx').on(t.status, t.stage),
+}));
+
+export const evaluationScores = pgTable('evaluation_scores', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  evaluationId: uuid('evaluation_id').references(() => evaluations.id, { onDelete: 'cascade' }).notNull(),
+  stage: varchar('stage', { length: 20 }).notNull(),
+  criterionId: varchar('criterion_id', { length: 40 }).notNull(),
+  marks: numeric('marks', { precision: 5, scale: 2 }).notNull(),
+  note: text('note'),
+  ratedBy: uuid('rated_by').notNull(),
+  ratedAt: timestamp('rated_at').defaultNow().notNull(),
+}, (t) => ({
+  oneMarkPerCell: unique('evaluation_scores_cell_key').on(t.evaluationId, t.stage, t.criterionId),
+  evaluationIdIdx: index('evaluation_scores_evaluation_id_idx').on(t.evaluationId),
+}));
+
+// -----------------------------------------------------------------------------
+// SCHEDULED JOBS (G6 — docs/redesign/06-hrms-gap-analysis.md)
+// Automation that fits cPanel/Passenger: no daemon — a cron curl hits
+// /api/jobs/tick (bearer secret), which runs every DUE job for every active
+// company. Jobs are code-defined (lib/engines/scheduler.engine.ts); these
+// tables keep per-tenant state and a run log. Every job is idempotent per
+// Nepal day (the claim is the state row's last_run_day update).
+// -----------------------------------------------------------------------------
+
+export const scheduledJobs = pgTable('scheduled_jobs', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 40 }).notNull().unique(),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** The Nepal day (YYYY-MM-DD AD) this job last ran — the once-per-day claim. */
+  lastRunDay: varchar('last_run_day', { length: 10 }),
+  lastRunAt: timestamp('last_run_at'),
+  lastStatus: varchar('last_status', { length: 10 }), // 'ok' | 'error' | 'skipped'
+  lastDetail: text('last_detail'),
+});
+
+export const jobRuns = pgTable('job_runs', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  jobCode: varchar('job_code', { length: 40 }).notNull(),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  finishedAt: timestamp('finished_at'),
+  status: varchar('status', { length: 10 }).default('running').notNull(), // 'running' | 'ok' | 'error'
+  detail: text('detail'),
+  itemsProcessed: integer('items_processed').default(0).notNull(),
+}, (t) => ({
+  jobCodeIdx: index('job_runs_job_code_idx').on(t.jobCode, t.startedAt),
+}));
+
+// -----------------------------------------------------------------------------
+// ATTENDANCE DEVICES (G3 — docs/redesign/06-hrms-gap-analysis.md; the 4.5
+// "Devices later" step). ZKTeco-class terminals push punches themselves
+// (ADMS / iclock: the device POSTs ATTLOG lines to /api/devices/iclock/cdata
+// with its serial number). A device is trusted by its registered serial
+// number + enabled flag; punches from unknown device user ids (PINs) wait in
+// device_unmatched_punches until HR maps the PIN to an employee. Matched
+// punches land in attendance_punches (source 'device'), which the 4.5 day
+// engine already reads — devices change no attendance rules.
+// -----------------------------------------------------------------------------
+
+export const attendanceDevices = pgTable('attendance_devices', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }).notNull(),
+  serialNo: varchar('serial_no', { length: 60 }).notNull().unique(),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** Minutes the device clock is ahead of UTC (Nepal: 345). ATTLOG carries local time. */
+  tzOffsetMinutes: integer('tz_offset_minutes').default(345).notNull(),
+  lastSeenAt: timestamp('last_seen_at'),
+  lastPunchAt: timestamp('last_punch_at', { withTimezone: true }),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+/** The device's user id (PIN) for an employee, per device. */
+export const deviceUsers = pgTable('device_users', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  deviceId: uuid('device_id').references(() => attendanceDevices.id, { onDelete: 'cascade' }).notNull(),
+  deviceUserId: varchar('device_user_id', { length: 30 }).notNull(), // the PIN on the terminal
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  onePinPerDevice: unique('device_users_device_pin_key').on(t.deviceId, t.deviceUserId),
+  employeeIdIdx: index('device_users_employee_id_idx').on(t.employeeId),
+}));
+
+/** Punches whose PIN has no mapping yet; claimed into attendance_punches when HR maps the PIN. */
+export const deviceUnmatchedPunches = pgTable('device_unmatched_punches', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  deviceId: uuid('device_id').references(() => attendanceDevices.id, { onDelete: 'cascade' }).notNull(),
+  deviceUserId: varchar('device_user_id', { length: 30 }).notNull(),
+  punchedAt: timestamp('punched_at', { withTimezone: true }).notNull(),
+  raw: varchar('raw', { length: 200 }).default('').notNull(),
+  receivedAt: timestamp('received_at').defaultNow().notNull(),
+}, (t) => ({
+  uniqueUnmatched: unique('device_unmatched_punches_key').on(t.deviceId, t.deviceUserId, t.punchedAt),
+  deviceIdx: index('device_unmatched_punches_device_idx').on(t.deviceId, t.receivedAt),
+}));
+
+// -----------------------------------------------------------------------------
+// EXIT WORKFLOW (G5 — docs/redesign/06-hrms-gap-analysis.md)
+// Resignation (राजीनामा), retirement, termination, contract end or death as a
+// case: notice and last working day, a clearance checklist per unit
+// (accounts, IT/admin, branch, HR), then Complete — which, in one
+// transaction, marks the employee Inactive, writes the employee_termination
+// mirror for older readers, and closes the case. The settlement maths stays
+// with payroll (F8); an exit case is the workflow and the record around it.
+// -----------------------------------------------------------------------------
+
+export const exitCases = pgTable('exit_cases', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(), // resignation | retirement | termination | contract_end | death
+  noticeDate: date('notice_date'), // when the resignation / decision was received
+  lastWorkingDayAd: date('last_working_day_ad').notNull(),
+  lastWorkingDayBs: varchar('last_working_day_bs', { length: 20 }).notNull(),
+  reason: text('reason'),
+  status: varchar('status', { length: 10 }).default('open').notNull(), // open | closed | cancelled
+  letterId: uuid('letter_id').references(() => hrLetters.id, { onDelete: 'set null' }), // the experience letter
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+  cancelledBy: uuid('cancelled_by'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+}, (t) => ({
+  employeeIdIdx: index('exit_cases_employee_id_idx').on(t.employeeId),
+  statusIdx: index('exit_cases_status_idx').on(t.status),
+}));
+
+/** One row per clearance unit per case, seeded when the case opens. */
+export const exitClearances = pgTable('exit_clearances', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  exitCaseId: uuid('exit_case_id').references(() => exitCases.id, { onDelete: 'cascade' }).notNull(),
+  unit: varchar('unit', { length: 20 }).notNull(), // accounts | it_admin | branch | hr
+  status: varchar('status', { length: 10 }).default('pending').notNull(), // pending | cleared | blocked
+  note: text('note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+}, (t) => ({
+  oneUnitPerCase: unique('exit_clearances_case_unit_key').on(t.exitCaseId, t.unit),
+}));
+
+// -----------------------------------------------------------------------------
+// RECRUITMENT & DARBANDI (G4 — docs/redesign/06-hrms-gap-analysis.md)
+// दरबन्दी: the board-approved post count per designation and branch; hiring,
+// promotion and transfer consume or free them (shown as occupancy — the
+// enforcement wiring into those flows is a follow-up). A vacancy is opened
+// against a designation and branch; applicants move applied → shortlisted →
+// exam → interview → selected (or rejected anywhere), with exam and
+// interview marks making the merit order. Hiring itself stays with the
+// employee form; a selected applicant is marked hired and linked once the
+// employee exists.
+// -----------------------------------------------------------------------------
+
+export const approvedPositions = pgTable('approved_positions', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  designationId: uuid('designation_id').references(() => designations.id, { onDelete: 'restrict' }).notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }).notNull(),
+  positions: integer('positions').notNull(), // the approved count
+  decisionRef: varchar('decision_ref', { length: 100 }).default('').notNull(), // board / AGM minute
+  note: text('note'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  onePerPost: unique('approved_positions_key').on(t.designationId, t.branchId),
+}));
+
+export const vacancies = pgTable('vacancies', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  designationId: uuid('designation_id').references(() => designations.id, { onDelete: 'restrict' }).notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }).notNull(),
+  openings: integer('openings').default(1).notNull(),
+  deadlineAd: date('deadline_ad'),
+  note: text('note'),
+  status: varchar('status', { length: 10 }).default('open').notNull(), // open | closed | cancelled
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+}, (t) => ({
+  statusIdx: index('vacancies_status_idx').on(t.status),
+}));
+
+export const applicants = pgTable('applicants', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  vacancyId: uuid('vacancy_id').references(() => vacancies.id, { onDelete: 'cascade' }).notNull(),
+  fullName: varchar('full_name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }).default('').notNull(),
+  email: varchar('email', { length: 255 }).default('').notNull(),
+  address: varchar('address', { length: 255 }).default('').notNull(),
+  educationNote: text('education_note'),
+  stage: varchar('stage', { length: 15 }).default('applied').notNull(), // applied | shortlisted | exam | interview | selected | rejected | hired
+  examMarks: numeric('exam_marks', { precision: 5, scale: 2 }),
+  interviewMarks: numeric('interview_marks', { precision: 5, scale: 2 }),
+  note: text('note'),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'set null' }), // once hired
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  vacancyIdx: index('applicants_vacancy_idx').on(t.vacancyId, t.stage),
+}));
+
+// -----------------------------------------------------------------------------
+// WELFARE / MEDICAL / GRATUITY FUNDS (G9 — docs/redesign/06-hrms-gap-analysis.md)
+// Sahakari staff funds that accrue per month and pay out at events. The
+// ledger follows leave_ledger's discipline: APPEND-ONLY — never update or
+// delete a line; a mistake is corrected by an adjustment line; `ref` says
+// what a line is for (contrib:<fund>:<bsYear>-<bsMonth>, opening:<fund>,
+// payout:<id>, adjust:<id>) and is checked before posting so nothing posts
+// twice. A balance is the sum of a member's lines.
+// -----------------------------------------------------------------------------
+
+export const fundTypes = pgTable('fund_types', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }).default('').notNull(),
+  /** 'fixed' = amounts per month; 'percent_basic' = percent of the employee's basic salary. */
+  contributionMode: varchar('contribution_mode', { length: 15 }).default('fixed').notNull(),
+  employeeValue: numeric('employee_value', { precision: 15, scale: 2 }).default('0').notNull(),
+  employerValue: numeric('employer_value', { precision: 15, scale: 2 }).default('0').notNull(),
+  note: text('note'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+export const fundLedger = pgTable('fund_ledger', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fundTypeId: uuid('fund_type_id').references(() => fundTypes.id, { onDelete: 'restrict' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // contribution | opening | payout | adjustment
+  /** Signed, in NPR: contributions positive, payouts negative. */
+  employeeAmount: numeric('employee_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  employerAmount: numeric('employer_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  /** What this line is for; unique per employee+fund so nothing posts twice. */
+  ref: varchar('ref', { length: 80 }).notNull(),
+  note: text('note'),
+  postedBy: uuid('posted_by'),
+  postedAt: timestamp('posted_at').defaultNow().notNull(),
+}, (t) => ({
+  onePerRef: unique('fund_ledger_ref_key').on(t.fundTypeId, t.employeeId, t.ref),
+  employeeIdx: index('fund_ledger_employee_idx').on(t.employeeId, t.fundTypeId),
 }));

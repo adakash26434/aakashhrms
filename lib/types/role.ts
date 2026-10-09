@@ -29,7 +29,11 @@ export type ModuleType =
   | 'USERS_ROLES'
   | 'AUDIT_LOG'
   | 'ORG_STRUCTURE'
-  | 'SELF_SERVICE';
+  | 'SELF_SERVICE'
+  | 'HR_LETTERS'
+  | 'PERFORMANCE'
+  | 'RECRUITMENT'
+  | 'WELFARE_FUNDS';
 
 export interface Role {
   id: string;
@@ -152,6 +156,24 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         description: 'Salary revisions (basic, grade, pay heads), bulk changes and templates. Approve lets a user approve salary changes prepared by others',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'EXPORT'],
       },
+      {
+        key: 'HR_LETTERS',
+        label: 'HR Letters',
+        description: 'Formal letters to employees (appointment, confirmation, promotion, transfer, experience, NOC): Add issues a letter, Edit changes templates, Delete voids an issued letter',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'RECRUITMENT',
+        label: 'Recruitment & Darbandi',
+        description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'PERFORMANCE',
+        label: 'Performance Evaluation',
+        description: 'का.स.मू.-style evaluation cycles and marks: Add opens cycles and starts evaluations, Edit scores an assigned stage and changes the form, Approve finalizes, Lock closes a cycle',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
+      },
     ],
   },
   {
@@ -219,6 +241,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Loans & Advances',
         description: 'Manage staff loan disbursements, monthly EMI deductions, and repayments',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE', 'APPROVE', 'EXPORT'],
+      },
+      {
+        key: 'WELFARE_FUNDS',
+        label: 'Welfare Funds',
+        description: 'Staff welfare / medical / gratuity funds: monthly contributions, balances and payouts (append-only ledger). Add posts openings and payouts, Edit manages fund types',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'EXPORT'],
       },
     ],
   },

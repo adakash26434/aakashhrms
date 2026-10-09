@@ -26,7 +26,7 @@ Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
 - Self-service *My attendance* displays each overtime day and whether it is paid, waiting, approved, or rejected.
 
 **Changed:**
-- **Schema & Migration:** `0047_overtime.sql` adds `overtime_entries` table (`employee_id`, `work_date`, `source`, `day_kind`, `detected_minutes`, `requested_minutes`, `approved_minutes`, `status`, `over_limit`, `reason`, `prepared_by`, `decided_by`, `decided_at`, `decision_note`, `approval_route`) and `ot_detail` JSONB column on `leave_ot_calculations` and `payroll_slips`. Mirrored in `lib/db/tenant-schema-sync.ts`.
+- **Schema & Migration:** `0055_overtime.sql` adds `overtime_entries` table (`employee_id`, `work_date`, `source`, `day_kind`, `detected_minutes`, `requested_minutes`, `approved_minutes`, `status`, `over_limit`, `reason`, `prepared_by`, `decided_by`, `decided_at`, `decision_note`, `approval_route`) and `ot_detail` JSONB column on `leave_ot_calculations` and `payroll_slips`. Mirrored in `lib/db/tenant-schema-sync.ts`.
 - **Engine:** `lib/engines/overtime.engine.ts` (`monthOvertime`, `limitBreaches`, `otDetail`, `describeDetail`, `decidable`).
 - **Service & Repositories:** `lib/services/attendance.service.ts`, `lib/repositories/overtime.repository.ts`, `lib/services/payroll.service.ts` (records overtime decisions, ties into month close checks, calculates pay slip details).
 - **Actions:** `app/actions/overtime.actions.ts` (`decideOvertimeAction`, `addOvertimeAction`).
@@ -68,7 +68,7 @@ Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
 
 **Notes:**
 - **Pay change in open months:** overtime now includes grade and off-day work counts only beyond a full day. Months already closed keep their amounts.
-- **4.7b next:** approvals (Attendance → Overtime), month close waiting for them, payslip hours × rate, migration 0047.
+- **4.7b next:** approvals (Attendance → Overtime), month close waiting for them, payslip hours × rate, migration 0055.
 
 ---
 
@@ -78,6 +78,120 @@ Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
 **4.4b is live on Yeti Cloud** (`40c0dca`, tag `deploy-2026-10-08`): no migration, no new env, packages unchanged; `sync-schema` ✅ for every company, build OK, screens checked by the user. Recorded in the release log of `docs/deployment/yeti-cloud.md`, with a note to use GitHub's "Rebase and merge" (PR #1 used a merge commit, whose files equal `cafa6c9`).
 
 ---
+## 2026-10-09 — G9: welfare / medical / gratuity funds — ledger, monthly contributions, payouts
+Branch: `feature/welfare-funds` (stacked on `feature/exit-workflow`) — first Phase G **Tier B** item.
+
+Changed:
+- **Schema (migration `0054_welfare_funds`, mirrored in `tenant-schema-sync.ts`):** `fund_types` (contribution rule: fixed per month or percent of basic, employee + employer shares; a fund's **code never changes** — refs embed it) and `fund_ledger` — **append-only like `leave_ledger`**: never update or delete a line, mistakes are corrected by adjustment lines, and `ref` is unique per employee + fund (`contrib:<fund>:<bsYear>-<bsMonth>`, `opening:…`, `payout:…`, `adjust:…`) so nothing posts twice. New `WELFARE_FUNDS` permission module (System Administrator all; HR Manager and **Payroll Controller** VIEW/ADD/EDIT; Roles matrix now 30).
+- **Engine (`fund.engine.ts`, 8 suites):** all arithmetic in **paisa** (the kit's no-float-drift discipline); fixed and percent-of-basic contributions (half-up to the paisa; zero basic contributes nothing); balances; posting rules — openings non-negative, **payouts entered positive, capped per share, stored negative** (a fund never goes below zero on either side), adjustments need a note and can't cross zero either.
+- **Automation:** a fifth job, `fund-contributions` (BS day 1), posts the previous BS month's contributions for every active fund × active employee through the same claim-first, idempotent job machinery (G6). No browser action can run it.
+- **Service / actions / UI (`/payroll/funds`, template A):** Balances tab (per member per fund, share columns with footer totals, row-open → the member's ledger lines), Funds tab (rule, members, **provision total** per fund for the auditor), posting window (payout भुक्तानी / opening / adjustment), fund editor. **S33**: nobody posts to their own fund (audited `DENIED_SELF`); employee scope on every read. Navigation: Payroll → Welfare funds.
+
+Verified: `tsc` exit 0 · 944/944 tests (16 new: `fund.engine`, `security-funds`; role matrix count now 30) · lint clean on touched files.
+Notes: payout-at-exit lands on the exit case's facts next (G5 hook); gratuity provision for non-SSF staff per the bylaws is a rule the fixed/percent modes already express; payroll-slip visibility of fund deductions joins 4.8.
+
+## 2026-10-09 — G4: recruitment & दरबन्दी — approved positions, vacancies, merit list
+Branch: `feature/exit-workflow` (stacked) — **completes Phase G Tier A** (G1 · G2 · G3 · G4 · G5 · G6 all built this cycle).
+
+Changed:
+- **Schema (migration `0053_recruitment`, mirrored in `tenant-schema-sync.ts`):** `approved_positions` (**दरबन्दी**: the board/AGM-approved post count per designation × branch, decision ref, one row per pair — saving the pair again updates it), `vacancies` (openings, deadline, open → closed / cancelled) and `applicants` (contact, education note, stage, exam / interview marks, link to the employee once hired). New `RECRUITMENT` permission module (seeded md5-id rows; System Administrator all, HR Manager VIEW/ADD/EDIT/DELETE; "HR" preset; Roles matrix — now 29 modules on the screen).
+- **Engine (`recruitment.engine.ts`, 8 suites):** stage pipeline (forward freely, one step back as a correction, rejected from anywhere but hired, re-considered → back to applied; **hired never moves** — the employee record is the truth from there), **occupancy** (vacant never negative; over-darbandi shown in red), form rules, marks 0–100 in halves, **merit order** = exam + interview descending with exam breaking ties, computed never stored; incomplete and rejected sit outside the ranking.
+- **Service / actions:** branch-scoped users see their branches' दरबन्दी and vacancies only; applicants join open vacancies only; stage moves validated server-side; **applicant personal data stays inside the module** (S32 suite checks no cross-module copies).
+- **UI (`/workforce/recruitment`, template A):** दरबन्दी tab (live filled / vacant / over per post, over-filled rows red), Vacancies tab (applicant and selected counts, close with confirm), applicant window — merit table with inline exam / अन्तर्वार्ता marks (save on blur) and a stage dropdown, add-applicant inline form. Navigation: Workforce → Recruitment.
+
+Verified: `tsc` exit 0 · 928/928 tests (15 new: `recruitment.engine`, `security-recruitment`; role matrix count now 29) · lint clean on touched files.
+Notes: hiring stays with the employee form (a selected applicant is marked hired and linked by hand); wiring दरबन्दी enforcement into hiring / promotion / transfer, the manpower-request approval in front of a vacancy, and a public job-board intake are follow-ups the schema already supports.
+
+## 2026-10-09 — G5: exit workflow — clearance by unit, completion, experience letter
+Branch: `feature/exit-workflow` (stacked on `feature/performance-evaluation`)
+
+The exit half of the gap analysis's lifecycle: a resignation stops being a free-text row and becomes a case with a checklist.
+
+Changed:
+- **Schema (migration `0052_exit_workflow`, mirrored in `tenant-schema-sync.ts`):** `exit_cases` (kind — राजीनामा / अवकाश / करार समाप्त / termination / death — notice date, last working day BS+AD, status open → closed, or cancelled with a reason) and `exit_clearances` (one row per unit — Accounts · IT/Admin · Branch · HR — seeded when the case opens).
+- **Engine (`exit.engine.ts`, 8 suites):** form rules (active employee, one open case, notice ≤ last working day, ≤ a year ahead), clearance progress, **completion blockers** (every unit cleared + the day arrived — an employee is never switched off while still serving or still owing), blocked-needs-a-note, the `employee_termination` mirror row.
+- **Service / actions (EMPLOYEES RBAC):** Complete is the only step that touches the employee record — **one claim-first transaction**: case closed, employee → Inactive, termination mirror written (older readers and 4.8's settlement keep working). The case window shows **facts before clearing**: active staff loans with the outstanding sum, and the employee's device PINs (G3) to unmap. Experience letter (कार्य अनुभव पत्र) issued on Complete — rendered **before** the employee goes Inactive — gated by HR_LETTERS ADD; the exit stands with a warning if the letter fails. **S31**: nobody opens, clears, completes or cancels their own exit case (audited `DENIED_SELF`).
+- **UI (`/workforce/exit`, template A + C):** register (clearance progress chips, blocked rows tinted), New exit window, case window with the per-unit checklist (Clear / Block with note), blockers list, letter option (नेपाली default) and cancel-with-reason. Navigation: Workforce → Exit.
+
+Verified: `tsc` exit 0 · 913/913 tests (17 new: `exit.engine`, `security-exit`; the workforce navigation expectation now includes Exit) · lint clean on touched files.
+Notes: F8 (settlement maths: pro-rata salary, leave encashment, gratuity, loan close-out) remains payroll Tier 2 and reads the mirror this writes; the self-service resignation request arrives with Phase 5; a separation event kind on `employee_events` can follow once modules read events everywhere.
+
+## 2026-10-09 — G3: attendance devices — ZKTeco ADMS push, PIN mapping, punch import
+Branch: `feature/performance-evaluation` (stacked)
+
+The 4.5 "Devices later" step, specified in the gap analysis: terminals push punches themselves; the day engine and HR review stay the only things that decide attendance.
+
+Changed:
+- **Schema (migration `0051_attendance_devices`, mirrored in `tenant-schema-sync.ts`):** `attendance_devices` (name, branch, **serial number as the trust anchor**, enabled, device tz offset — ATTLOG carries the device's local clock — last seen / last punch), `device_users` (PIN ↔ employee per device) and `device_unmatched_punches` (unknown PINs wait here). Matched punches land in **`attendance_punches` (source `device`)** — already unique on (employee, instant, source), so resends are free idempotency.
+- **Engine (`device.engine.ts`, 6 suites):** iclock handshake block (TimeZone 5.75, Realtime), ATTLOG parsing (malformed lines counted, never fatal; reset clocks refused), device-local → instant conversion, batch de-duplication, serial validation, health grading (online ≤15 min · quiet ≤24 h · silent · never).
+- **Endpoints:** `app/iclock/cdata` (GET handshake, POST ATTLOG with declared-and-actual body caps) and `app/iclock/getrequest` (command poll) — the paths ZKTeco firmware actually calls, so `proxy.ts` now skips `/iclock` like `/api` and the handlers own their checks: **registered + enabled serial or a bare 404**, no sessions anywhere near them. Multi-tenant: the serial finds its company across ACTIVE tenants (cached ~10 min, **re-verified inside the tenant on every request**, stale entries re-resolve once).
+- **UI (`/timeAndLeave/devices`, ATTENDANCE module):** device register with health chips, Add/Edit window (with the terminal-side setup line), **PIN mapping window** (mapping claims waiting punches in one transaction), unknown-PIN list with "Map PIN", and **paste-import** of USB-export (.dat) lines through the same pipeline as a push. Navigation: Time & Leave → Devices.
+
+Verified: `tsc` exit 0 · 896/896 tests (17 new: `device.engine`, `security-devices`) · lint clean on touched files. `proxy.ts` changed (matcher), so the next deploy's build + a signed-in pass matter (the gate's shell-change rule).
+Notes: auto shift by first punch stays with 4.5's roadmap line (the day engine already reads these punches); per-device comm-key auth can be added when a customer's fleet supports it; device user sync (pushing names to terminals) would use the getrequest command queue — not needed for punches.
+
+## 2026-10-09 — G6: automation & reminders — jobs tick, compliance/probation/birthday emails
+Branch: `feature/performance-evaluation` (stacked)
+
+The infrastructure half of the gap analysis's automation ask: no daemon (cPanel/Passenger), just cron hitting a secret-gated endpoint; everything else is jobs.
+
+Changed:
+- **Schema (migration `0050_scheduled_jobs`, mirrored in `tenant-schema-sync.ts`):** `scheduled_jobs` (per-job state; `last_run_day` is the once-per-Nepal-day claim) and `job_runs` (log).
+- **Engine (`scheduler.engine.ts`, 8 tests):** cadences (daily · BS-month days · weekday), due rules (once per day, disabled never runs, missed days skip — reminders repeat on the next due day), and pure reminder builders: SSF deposit (BS 10 → due by the 15th) and IRD eTDS (BS 20 → due by the 25th) wording, probation-due list (active, not Permanent, unconfirmed, ≥183 days served), birthdays (Feb 29 → Feb 28 on non-leap years).
+- **Four jobs:** apply scheduled lifecycle events (so G2 events apply even when nobody opens the register) · compliance reminders · weekly confirmations-due digest (points at Lifecycle events) · birthdays today. Emails go to active system/office admin, HR manager and payroll controller accounts through a new `sendNoticeEmail` (every line HTML-escaped; **names and dates only, never pay figures**).
+- **Tick:** `app/api/jobs/tick` (GET/POST) — constant-time bearer check against `JOBS_TICK_SECRET` (≥24 chars; bare 404 otherwise), then every due job for every ACTIVE company, each tenant inside `runWithTenantContext` and its own try/catch; the JSON response is counts only. Claim-first per job, so overlapping ticks never double-run (S29 suite).
+- **UI:** `/admin/jobs` under SYSTEM_CONTROL — job status with on/off (EDIT), recent runs, and a warning when the secret is missing. Navigation: Administration → Scheduled jobs.
+
+Verified: `tsc` exit 0 · 879/879 tests (16 new: `scheduler`, `security-jobs`) · lint clean on touched files.
+Deployment notes:
+1. Set `JOBS_TICK_SECRET` (≥24 random chars) in the server environment.
+2. Add the cron entry (cPanel → Cron Jobs), e.g. every 30 minutes:
+   `*/30 * * * * curl -fsS -H "Authorization: Bearer $JOBS_TICK_SECRET" https://<host>/api/jobs/tick >/dev/null`
+3. SMTP (`SMTP_HOST/USER/PASS`) must be set for the reminder emails; without it, jobs still run and log, and the email step prints a console preview.
+Notes: F10's compliance calendar card on Home and F17's notification centre read the same job outputs later; device-silent alerts join when G3 lands; contract-expiry reminders need an end-date field on employees (future).
+
+## 2026-10-09 — G1: performance evaluation (का.स.मू.) — cycles, stage marks, grades
+Branch: `feature/performance-evaluation` (stacked on `feature/hr-letters`)
+
+The sahakari core from the gap analysis (06): marks-based evaluation whose output is usable in promotion scoring and probation confirmation.
+
+Changed:
+- **Schema (migration `0049_performance_evaluation`, mirrored in `tenant-schema-sync.ts`):** `evaluation_templates` (the company form: sections → criteria with max marks, stage weights, grade bands — a का.स.मू.-style default seeded per company: 10 criteria / 100 raw marks, supervisor 50% / reviewer 30% / committee 20%, उत्कृष्ट … सुधार आवश्यक bands), `evaluation_cycles` (per fiscal-year period, open → closed), `evaluations` (**the form frozen per evaluation at start** — template edits never touch in-flight evaluations; raters fixed at start, supervisor stage defaulting to each employee's own supervisor's account), `evaluation_scores` (one row per criterion per stage). New `PERFORMANCE` permission module (seeded md5-id rows; System Administrator all, HR Manager VIEW/ADD/EDIT/APPROVE/LOCK; "HR" preset; Roles matrix).
+- **Engine (`evaluation.engine.ts`, 8 suites):** form validation (weights sum 100, 1–100 maxima, duplicate ids, a 0-floor band), stage order from weights (a 0-weight stage is skipped), marks validation (whole/half marks, 0..max, all criteria), stage % = marks ÷ max × 100, weighted total + band, **S28 rater rules** — every active stage its own rater, never the subject's user, no double stages.
+- **Service / repository / actions:** scope-checked throughout; starting skips (and lists) employees whose raters can't be worked out; **rating**: only the stage's assigned rater, or APPROVE acting for an absent rater (**audited `actedForRater`**); the last stage computes totals and finalizes in a claim-first transaction (stale windows change nothing); a final evaluation and a closed cycle take no more marks; own-record refusals audited `DENIED_SELF` on start and rate.
+- **UI (`/workforce/evaluation`, template A):** register with **"Waiting for me"** (count on the page bar, filter, tinted rows), scoring window (earlier stages read-only with %, the current stage's marks column live, warning banner when acting for an absent rater), Cycles tab (open with fiscal year + period, close with typed CLOSE), Form tab (weights / sections / criteria / bands editor — saving warns that started evaluations keep their frozen form), **printable bilingual का.स.मू. form** (letterhead, criteria × stages, weighted total, grade, three signature blocks). Navigation: Workforce → Performance.
+
+Verified: `tsc` exit 0 · 863/863 tests (19 new: `evaluation`, `security-evaluation`; role matrix count now 28) · lint clean on touched files.
+Notes: promotion scoring (seniority + education + का.स.मू. marks composite feeding a G2 promotion event) and probation-confirmation gating are the follow-up; self-rating arrives with ESS (Phase 5); KPI/goal-row criteria are a template extension the schema already allows.
+
+## 2026-10-09 — G2 (events): employee lifecycle events — बढुवा, सरुवा, स्थायी नियुक्ति
+Branch: `feature/hr-letters` (stacked on the letters commit)
+
+The other half of G2: promotions, transfers and confirmations stop being silent in-place edits and become **dated records with before/after snapshots** that drive the employee row and the matching letter.
+
+Changed:
+- **Schema (migration `0048_employee_events`, mirrored in `tenant-schema-sync.ts`):** `employee_events` — kind (promotion | transfer | confirmation), effective date BS+AD, `from_values` / `to_values` (ids and display names), status (`applied` | `scheduled` | `cancelled`), optional link to the HR letter issued for it. An event due today or earlier **applies to the employee row in the same transaction**; a future-dated one is scheduled and applied on read once due (claim-first update, so two readers never apply twice); a scheduled event is cancelled with a reason, an applied one is corrected by a new event — history is never rewritten, nothing is deleted.
+- **Engine (`employee-event.engine.ts`, 15 tests):** kind rules (promotion needs a different designation; a transfer changes branch, department or both; confirmation refused for already-permanent or inactive staff), back-dating allowed, scheduling up to one year, snapshot/patch builders, letter-input mapping, register text.
+- **Service / actions:** RBAC under **EMPLOYEES** (VIEW list, EDIT record/cancel; no new module); scope-checked subject lookup; **S27** (S21 pattern): nobody records or cancels an event about their own record (audited `DENIED_SELF`); confirmation sets `confirmation_date` and category → Permanent; promotion changes the designation only (pay goes through Salary structure as its own revision); **letter ride-along** — tick "Issue letter" and the matching template (बढुवा पत्र, सरुवा पत्र, स्थायी नियुक्ति पत्र) is issued at once in the chosen language with the event's own values filled in ({{previous_designation}} → {{new_designation}}, effective date BS, reason as remarks), gated by HR_LETTERS ADD; if the letter fails the event still stands with a warning.
+- **UI (`/workforce/lifecycle`, template A):** register (DataGrid: effective date, employee, event, change "from → to", status, letter link; scheduled rows tinted, cancelled rows red), FilterStrip, detail window with Cancel-with-reason for scheduled events, New event window with kind-specific fields and the letter option (नेपाली default). Navigation: Workforce → Lifecycle events.
+
+Verified: `tsc` exit 0 · 844/844 tests (25 new: `employee-event`, `security-lifecycle`; the navigation visibility expectation now includes the lifecycle section) · lint clean on touched files.
+Notes: the employee form still edits designation/branch in place — Phase 8 retires that once modules read events everywhere; the employee record page's history tab should read these events (small follow-up); separation events arrive with G5 (exit workflow).
+
+## 2026-10-09 — G2 (letters): HR letters module — appointment, confirmation, promotion, transfer, experience, NOC
+Branch: `feature/hr-letters` (from `main` @ `73e27a6`, after `docs/redesign/06-hrms-gap-analysis.md`)
+
+First Phase G item from the gap analysis (06): formal letters issued to employees, bilingual with a designed printable sheet and a per-fiscal-year chalani register.
+
+Changed:
+- **Schema (migration `0047_hr_letters`, mirrored in `tenant-schema-sync.ts`):** `letter_templates` (bilingual bodies with `{{merge_field}}` placeholders; six system templates seeded per company on first read, editable, never deletable), `letter_sequences` (chalani: one row per fiscal year, bumped with a single `UPDATE … RETURNING` in the issue transaction, so numbers are unique and never reused), `hr_letters` (rendered subject and body **frozen at issue**; wrong letters are voided with a reason, never edited or deleted). New `HR_LETTERS` permission module (enum value + rows seeded with PG10-safe md5 ids; granted to System Administrator and HR Manager; in the "HR" role preset; in the Roles screen matrix).
+- **Engine (`letter.engine.ts`, 27 tests):** placeholder extraction and rendering; **condition blocks `{{#if field}}…{{/if}}`** so a clause (probation sentence, remarks) appears only when its field is filled — fields inside a skipped block are not required; unknown-field and unbalanced-block errors at template save; chalani formatting (`12/2082-83`); issue/void validation. Auto-filled fields (employee, company, chalani, dates) can never be overridden from the form.
+- **Service / repository / actions:** issue renders employee facts (name, code, designation, department, branch, joining date BS+AD), company letterhead (name, address, PAN, signatory) and typed inputs; scope-checked employee lookup; **S26** (S21 pattern): nobody issues or voids a letter about their own record (audited `DENIED_SELF`); all exports through the audited grid export (`HR_LETTERS` added to exportable modules).
+- **UI (`/workforce/letters`, template A):** register (DataGrid, FilterStrip, saved views) + Templates tab (editor with merge-field reference and condition hint; custom templates can be added; system codes locked); Issue window (employee combobox, template, English/नेपाली, only the fields that template uses, server-rendered preview); letter page with the **designed A4 sheet** — brand green→red rule, company letterhead, च.नं./Ref and मिति/Date row, recipient block for addressed letters, underlined विषय/subject, signature and received-by blocks, VOIDED watermark — printing like the salary revision letter. Navigation: Workforce → HR letters.
+- Default templates (`lib/constants/letter-templates.ts`): नियुक्ति, स्थायी नियुक्ति, बढुवा, सरुवा, कार्य अनुभव, सहमति — each English + Nepali in common sahakari office wording.
+
+Verified: `tsc` exit 0 · 819/819 tests (40 new: `letter.engine`, `security-letters`; role matrix count updated to 27) · lint clean on touched files (pre-existing `seed-rbac` errors untouched). The production build could not run where this was built (the sandbox blocks the Google Fonts fetch `next/font` makes; it failed on that, not on code) — CI's build is the check for this entry.
+Notes: screens not yet walked at 1440/1024/390 with a restricted role (needs a signed-in browser pass); letters list caps at the latest 1000 — paging if a register outgrows it; employee-facing copies in self-service are Phase 5; lifecycle events (promotion/transfer as dated records feeding these letters) are the rest of G2.
 
 ## 2026-10-07 — 4.4b Salary structure: clear breakdown, new hires set up in Salary structure
 Branch: `redesign/4.4b-salary-structure` (from `main` = v0.2.0)

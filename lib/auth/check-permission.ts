@@ -37,7 +37,11 @@ type PermissionModule =
   | 'USERS_ROLES'
   | 'AUDIT_LOG'
   | 'ORG_STRUCTURE'
-  | 'SELF_SERVICE';
+  | 'SELF_SERVICE'
+  | 'HR_LETTERS'
+  | 'PERFORMANCE'
+  | 'RECRUITMENT'
+  | 'WELFARE_FUNDS';
 
 type PermissionAction = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'APPROVE' | 'EXPORT' | 'LOCK';
 
