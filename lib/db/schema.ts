@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1798,4 +1798,44 @@ export const fundLedger = pgTable('fund_ledger', {
 }, (t) => ({
   onePerRef: unique('fund_ledger_ref_key').on(t.fundTypeId, t.employeeId, t.ref),
   employeeIdx: index('fund_ledger_employee_idx').on(t.employeeId, t.fundTypeId),
+}));
+
+// -----------------------------------------------------------------------------
+// DISCIPLINARY & GRIEVANCE CASES (G8 — docs/redesign/06-hrms-gap-analysis.md)
+// One case per matter: open → investigating → decided → closed. The subject
+// is the accused (disciplinary) or the complainant (grievance). Every step is
+// an append-only line in hr_case_events; termination is only ever
+// *recommended* here — the exit itself runs through the exit workflow.
+// -----------------------------------------------------------------------------
+
+export const hrCases = pgTable('hr_cases', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  category: varchar('category', { length: 15 }).notNull(), // disciplinary | grievance
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  severity: varchar('severity', { length: 10 }).notNull(), // minor | major | serious
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description').notNull(),
+  status: varchar('status', { length: 15 }).default('open').notNull(), // open | investigating | decided | closed
+  outcome: varchar('outcome', { length: 30 }),
+  outcomeNote: text('outcome_note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+}, (t) => ({
+  employeeIdx: index('hr_cases_employee_idx').on(t.employeeId),
+  statusIdx: index('hr_cases_status_idx').on(t.status),
+}));
+
+export const hrCaseEvents = pgTable('hr_case_events', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  caseId: uuid('case_id').references(() => hrCases.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // opened | note | status | decision | closed
+  text: text('text').notNull(),
+  actorId: uuid('actor_id'),
+  at: timestamp('at').defaultNow().notNull(),
+}, (t) => ({
+  caseIdx: index('hr_case_events_case_idx').on(t.caseId, t.at),
 }));

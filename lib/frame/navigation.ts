@@ -126,6 +126,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["promotion", "badhuwa", "transfer", "saruwa", "confirmation", "sthayi", "event", "history"],
       },
       {
+        id: "discipline",
+        label: "Discipline & grievance",
+        href: "/workforce/discipline",
+        icon: Shield,
+        description: "Confidential disciplinary and grievance cases",
+        requires: ["DISCIPLINE"],
+        keywords: ["discipline", "disciplinary", "grievance", "gunaso", "warning", "show cause", "complaint", "anushasan"],
+      },
+      {
         id: "evaluation",
         label: "Performance",
         href: "/workforce/evaluation",

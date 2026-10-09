@@ -33,6 +33,7 @@ export type ModuleType =
   | 'HR_LETTERS'
   | 'PERFORMANCE'
   | 'RECRUITMENT'
+  | 'DISCIPLINE'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -167,6 +168,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Recruitment & Darbandi',
         description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'DISCIPLINE',
+        label: 'Discipline & Grievance',
+        description: 'Disciplinary and grievance cases (confidential): Add opens a case, Edit investigates, adds notes and closes, Approve records the decision',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE'],
       },
       {
         key: 'PERFORMANCE',

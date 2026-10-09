@@ -1279,3 +1279,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 - Exit case shows welfare-fund balances held (`exitFacts.funds`, read-only; payout stays under Funds). Verification: tsc 0, 947/947 tests, lint clean. No migration.
 - Exit Complete is blocked while a welfare-fund balance is held (`completionBlockers` fundsHeld). tsc 0, tests pass.
+
+## G8 Disciplinary & grievance
+- Migration `0055_discipline` (`hr_cases`, append-only `hr_case_events`, DISCIPLINE permission module; mirrored in `ensureTenantSchema`; restart the dev server). Engine `case.engine.ts`, service/repository/actions, `/workforce/discipline`. S34: nobody works or even sees a case about their own record (audited `DENIED_SELF`); status changes claim-first; termination only recommended. Verification: tsc 0, 966/966 tests, lint clean on touched files. Build: CI.

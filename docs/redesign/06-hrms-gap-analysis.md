@@ -229,3 +229,5 @@ Still to review/do (ordered by value for a sahakari):
 3. दरबन्दी enforcement in hiring / promotion / transfer; promotion score composite (का.स.मू. + seniority) feeding the बढुवा event.
 4. G10 core-banking voucher export — needs real Pumari / MFin / FinPro sample files from the customer.
 5. Duplicate device serial across two companies resolves to the first active match; consider a platform-level serial registry.
+
+6. G8 Disciplinary & grievance — **done** (`/workforce/discipline`, DISCIPLINE module, migration 0055, S34). Debt: show-cause/warning letters from the decision (needs HR_LETTERS templates), attachments, appeal step.

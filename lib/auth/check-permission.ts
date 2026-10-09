@@ -41,6 +41,7 @@ type PermissionModule =
   | 'HR_LETTERS'
   | 'PERFORMANCE'
   | 'RECRUITMENT'
+  | 'DISCIPLINE'
   | 'WELFARE_FUNDS';
 
 type PermissionAction = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'APPROVE' | 'EXPORT' | 'LOCK';
