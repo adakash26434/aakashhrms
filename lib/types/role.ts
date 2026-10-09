@@ -38,6 +38,7 @@ export type ModuleType =
   | 'ASSETS'
   | 'NOTICE_BOARD'
   | 'TRAVEL'
+  | 'TARGETS'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -178,6 +179,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Travel & TA-DA',
         description: 'Travel / field-visit claims and the TA-DA rate card: Add records a claim, Edit changes drafts and the card, Approve decides, Lock marks it settled (paid)',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
+      },
+      {
+        key: 'TARGETS',
+        label: 'Targets & achievements',
+        description: 'Monthly and yearly employee targets and the reported achievements: Add sets targets, Edit changes targets nobody has reported on, Approve closes or returns what supervisors forwarded',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE'],
       },
       {
         key: 'ASSETS',

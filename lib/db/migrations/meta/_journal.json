@@ -435,6 +435,13 @@
       "when": 1792204800000,
       "tag": "0061_notice_audience",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1792291200000,
+      "tag": "0062_targets",
+      "breakpoints": true
     }
   ]
 }

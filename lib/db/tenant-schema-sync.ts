@@ -24,6 +24,7 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'ASSETS',
     'NOTICE_BOARD',
     'TRAVEL',
+    'TARGETS',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -1296,6 +1297,72 @@ ON CONFLICT DO NOTHING`);
       await sql.unsafe(q);
     } catch {
       // Ignored until the referenced tables exist, or until the TRAINING enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Targets & achievements (G15, migration 0062): employee targets with the
+  // reported / verified achievement, attachments, and the TARGETS permission
+  // module (the 0047 pattern).
+  const targetQueries = [
+    `CREATE TABLE IF NOT EXISTS "employee_targets" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "period_kind" varchar(5) NOT NULL,
+        "fy" varchar(9) NOT NULL,
+        "month_no" integer,
+        "title" varchar(160) NOT NULL,
+        "unit" varchar(30) DEFAULT '' NOT NULL,
+        "target_value" numeric(18,2) NOT NULL,
+        "weight" numeric(5,2) DEFAULT 0 NOT NULL,
+        "status" varchar(10) DEFAULT 'set' NOT NULL,
+        "achieved_value" numeric(18,2),
+        "achieved_note" text,
+        "verified_value" numeric(18,2),
+        "reviewer_note" text,
+        "return_reason" text,
+        "submitted_at" timestamp,
+        "reviewed_by" uuid,
+        "reviewed_at" timestamp,
+        "closed_by" uuid,
+        "closed_at" timestamp,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE TABLE IF NOT EXISTS "target_attachments" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "target_id" uuid REFERENCES "employee_targets"("id") ON DELETE CASCADE,
+        "file_name" varchar(200) NOT NULL,
+        "mime" varchar(40) NOT NULL,
+        "size" integer NOT NULL,
+        "content" bytea NOT NULL,
+        "uploaded_by" uuid NOT NULL,
+        "uploaded_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "employee_targets_employee_period_idx" ON "employee_targets" ("employee_id", "fy", "period_kind", "month_no")`,
+    `CREATE INDEX IF NOT EXISTS "employee_targets_status_idx" ON "employee_targets" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "target_attachments_target_idx" ON "target_attachments" ("target_id")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':TARGETS')::uuid, a::action, 'TARGETS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'TARGETS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'APPROVE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of targetQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the TARGETS enum
       // value from step 1 is committed (the next sync pass completes it).
     }
   }

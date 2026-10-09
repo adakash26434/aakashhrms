@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL', 'TARGETS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1883,6 +1883,58 @@ export const trainingParticipants = pgTable('training_participants', {
 }, (t) => ({
   onePerPerson: unique('training_participants_key').on(t.programId, t.employeeId),
   employeeIdx: index('training_participants_employee_idx').on(t.employeeId),
+}));
+
+// -----------------------------------------------------------------------------
+// TARGETS & ACHIEVEMENTS (G15 — docs/redesign/06-hrms-gap-analysis.md)
+// One row is one metric for one employee and one period (a fiscal month or the
+// fiscal year). The employee reports the achievement (with attachments), the
+// supervisor verifies and forwards, HR closes: set → submitted → forwarded →
+// closed, with returned loops. The verified value (supervisor) wins over the
+// reported one for scoring.
+// -----------------------------------------------------------------------------
+
+export const employeeTargets = pgTable('employee_targets', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  periodKind: varchar('period_kind', { length: 5 }).notNull(), // month | year
+  fy: varchar('fy', { length: 9 }).notNull(), // BS fiscal year, e.g. 2082/83
+  monthNo: integer('month_no'), // 1 = Shrawan … 12 = Ashadh; null for a year
+  title: varchar('title', { length: 160 }).notNull(),
+  unit: varchar('unit', { length: 30 }).default('').notNull(),
+  targetValue: numeric('target_value', { precision: 18, scale: 2 }).notNull(),
+  weight: numeric('weight', { precision: 5, scale: 2 }).default('0').notNull(),
+  status: varchar('status', { length: 10 }).default('set').notNull(), // set | submitted | returned | forwarded | closed
+  achievedValue: numeric('achieved_value', { precision: 18, scale: 2 }),
+  achievedNote: text('achieved_note'),
+  verifiedValue: numeric('verified_value', { precision: 18, scale: 2 }),
+  reviewerNote: text('reviewer_note'),
+  returnReason: text('return_reason'),
+  submittedAt: timestamp('submitted_at'),
+  reviewedBy: uuid('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at'),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeePeriodIdx: index('employee_targets_employee_period_idx').on(t.employeeId, t.fy, t.periodKind, t.monthNo),
+  statusIdx: index('employee_targets_status_idx').on(t.status),
+}));
+
+export const targetAttachments = pgTable('target_attachments', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  targetId: uuid('target_id').references(() => employeeTargets.id, { onDelete: 'cascade' }),
+  fileName: varchar('file_name', { length: 200 }).notNull(),
+  mime: varchar('mime', { length: 40 }).notNull(),
+  size: integer('size').notNull(),
+  content: bytea('content').notNull(),
+  uploadedBy: uuid('uploaded_by').notNull(), // user id; target_id null = staged, not saved yet
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+}, (t) => ({
+  targetIdx: index('target_attachments_target_idx').on(t.targetId),
 }));
 
 // -----------------------------------------------------------------------------
