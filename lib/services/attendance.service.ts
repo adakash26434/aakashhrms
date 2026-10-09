@@ -908,6 +908,22 @@ export async function addOvertime(raw: unknown, ctx: { scope: ScopeFilter; userI
   return { id, employeeId, date: date!, minutes };
 }
 
+/** Overtime days waiting for a decision in a BS month, per employee (payroll pre-flight, 4.8a). */
+export async function overtimeWaitingFor(employeeIds: string[], bsYear: number, bsMonth: number): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!employeeIds.length) return out;
+  const rules = await getRules();
+  const period = periodFor("BS", bsYear, bsMonth);
+  const people = await repo.findEmployeesByIds(employeeIds);
+  const [c, entries, { policy }] = await Promise.all([loadContext(people, period.start, period.end, rules), overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }), overtimeService.getPolicy()]);
+  for (const e of people) {
+    const days = datesIn(period).map((d) => resolveFor(c, e, d));
+    const waiting = monthOvertime(e.id, days, entries, policy).waiting;
+    if (waiting) out.set(e.id, waiting);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Month close and reopen (per branch)
 // ---------------------------------------------------------------------------

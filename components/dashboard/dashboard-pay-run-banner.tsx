@@ -17,9 +17,9 @@ const STEP_LABEL: Record<PayrollRunStatus, string> = {
 /** The one next action for the month, if the user may take it. */
 function nextAction(status: PayrollRunStatus, access: DashboardAccess): { label: string; href: string } | null {
   if (access.supportView) return null;
-  if (status === "DRAFT" && access.payrollGenerate) return { label: "Continue the run", href: "/payroll/generate" };
-  if (status === "UNDER_REVIEW" && access.payrollReview) return { label: "Review and approve", href: "/payroll/review" };
-  if (status === "APPROVED" && access.payrollReview) return { label: "Lock the month", href: "/payroll/review" };
+  if (status === "DRAFT" && access.payrollGenerate) return { label: "Continue the run", href: "/payroll" };
+  if (status === "UNDER_REVIEW" && access.payrollReview) return { label: "Review and approve", href: "/payroll" };
+  if (status === "APPROVED" && access.payrollReview) return { label: "Lock the month", href: "/payroll" };
   return null;
 }
 
@@ -132,7 +132,7 @@ export function DashboardPayRunBanner({ payRun, access, fiscal }: { payRun: Dash
             )}
             {canStart && (
               <Link
-                href="/payroll/generate"
+                href="/payroll"
                 className={cn(button, action ? "border border-line-strong bg-surface text-ink hover:bg-surface-sunken" : "bg-brand text-white shadow-sm hover:bg-brand-hover")}
               >
                 <Play className="h-3.5 w-3.5" /> Start {next!.label}

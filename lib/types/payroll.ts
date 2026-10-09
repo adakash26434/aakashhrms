@@ -1,4 +1,12 @@
 export type PayrollRunStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'LOCKED';
+
+/** 4.8a: one welfare fund's contribution on a payslip (the employee share is deducted). */
+export interface FundLine {
+  code: string;
+  name: string;
+  employeeAmount: string;
+  employerAmount: string;
+}
 export type LeaveSalaryRunStatus = 'DRAFT' | 'PAID';
 export type EncashmentType = 'ANNUAL_EXCESS' | 'TERMINATION' | 'VOLUNTARY';
 export type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'CHEQUE';
@@ -34,6 +42,15 @@ export interface PayrollRun {
   approvedAt: Date | null;
   lockedAt: Date | null;
   notes: string | null;
+  /** 4.8a */
+  runType: string;
+  approvalType: string | null;
+  approvalLevels: { level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[];
+  currentLevel: number;
+  approvalRoute: string | null;
+  variance: import('@/lib/types/payroll-run').RunVariance | null;
+  submittedBy: string | null;
+  submittedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +80,9 @@ export interface PayrollSlip {
   otAmount: string;
   /** 4.7b: how otAmount was worked out (hours, hourly rate, rates); null on older slips. */
   otDetail?: import('@/lib/types/overtime').OvertimeDetail | null;
+  /** 4.8a: welfare fund contributions deducted this month, and the detail per fund. */
+  fundDeduction?: string;
+  fundDetail?: FundLine[] | null;
   bankAccountNumber: string;
   bankName: string;
   payslipMonth: number | null;
@@ -224,6 +244,7 @@ export interface PayrollCalculationResult {
   loanDeduction: string;
   absentDeduction: string;
   otAmount: string;
+  fundDeduction: string;
   heads: Array<{
     payHeadId: string;
     payHeadName: string;

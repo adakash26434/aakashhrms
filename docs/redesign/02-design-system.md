@@ -893,6 +893,20 @@ per type with the balance in its heading), and both Leave types panes.
 - **Side column:** who gets overtime (employment types, eligible / not eligible, link to Organization → Employment types; managers may get other benefits, §31), the shortest overtime per shift (link to Attendance → Shifts), and the history (from the audit log).
 - **Wording:** "Overtime", "× hourly rate", "Weekly off / holiday", never "OT multiplier".
 
+### Implemented payroll run (Phase 4.8a, template C)
+
+One page, `/payroll`, two folder tabs:
+
+- **Runs:** DataGrid of every month's run (month, scope, employees, gross, net with a total, status chip with the waiting level, prepared by, locked), "Waiting for me / All", a row edge for runs the user can approve (warning) or whose attendance month was reopened (danger). Opening a run switches to the Run tab (`?run=<id>&tab=run`).
+- **Run:** a step rail — Pre-flight · Variance (badge = flags to acknowledge) · Review · Approval · Lock — with the run's status, employees and net on the right. Each step is a plain panel:
+  - *Pre-flight:* the problem list (blocking ✕ in danger, warnings ▲, information ⓘ), each with an **Open** link to where it is fixed; Check again; Sync attendance.
+  - *Variance:* one row per flagged employee: the flags in words ("Gross earnings up 10%: 40,000.00 → 44,000.00"), Open payslip, Acknowledge (a NoteWindow asking why it is right), or who acknowledged it and when. Your own payslip is acknowledged by someone else.
+  - *Review:* SplitView — DataGrid of payslips (basic + grade, gross, income tax, SSF / PF, deductions, net; totals; flagged rows marked) and the **payslip pane** (earnings, deductions, net; the overtime working line "6.5 h × NPR 199.79 × 1.5"; fund contributions with the employer share as a note; pencil per editable figure → Change window with a reason; Add head; Recalculate; Remove).
+  - *Approval:* Submit for approval / Approve / Final approve / Reject (reason), the reason when the user cannot act, the timeline (Prepared → Submitted → Approved …), a link to the approval settings.
+  - *Lock:* Lock run (type LOCK), Bank transfer file.
+- **Windows:** New pay run (month + year, payslip date, branches as tick chips, narrow to departments / designations / employment types, occasional allowances, "only these people"; **Check** shows the problem list inside the window; **Generate** enabled only without blocking problems; "discard the existing draft" when one exists). Approval settings (Simple / Multi-level with ordered approvers; the variance threshold).
+- **Wording kept short:** one line of guidance per step; no guide cards. Problems carry their fix.
+
 ### Implemented policies: statutory leave (Phase 4.6c, template A)
 
 `/timeAndLeave/policies` has the Leaves layout: PageBar (**New leave type**

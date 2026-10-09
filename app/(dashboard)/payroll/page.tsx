@@ -1,70 +1,40 @@
 export const dynamic = "force-dynamic";
 
-import PayrollClient from "@/components/payroll/payroll-client";
-import { getPayrollGeneratePageData } from "@/lib/services/payroll.service";
 import { ensureTenantContext } from "@/lib/db";
-import { hasPermission } from "@/lib/auth/check-permission";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
+import { pageData } from "@/lib/services/payroll-run.service";
+import { PayrollRunsClient } from "@/components/payroll/payroll-runs-client";
 
 export const metadata = {
-  title: "Payroll Workspace | AakashHRMS",
-  description: "Unified workspace to generate, audit, review and lock monthly payroll runs.",
+  title: "Payroll | AakashHRMS",
+  description: "Monthly pay runs: pre-flight, calculation, variance review, approval and lock.",
 };
 
-interface PayrollRootPageProps {
-  searchParams?: Promise<{
-    tab?: string;
-    runId?: string;
-  }>;
-}
-
-export default async function PayrollRootPage({ searchParams }: PayrollRootPageProps) {
+/**
+ * Payroll (4.8a, template C): the runs and the selected run's steps. The
+ * server works out what the user may do; every action checks again.
+ */
+export default async function PayrollPage({ searchParams }: { searchParams?: Promise<{ run?: string; tab?: string }> }) {
   await ensureTenantContext();
-
-  const canGenerate = await hasPermission("VIEW", "PAYROLL_GENERATE");
-  const canReview = await hasPermission("VIEW", "PAYROLL_REVIEW");
-
-  if (!canGenerate && !canReview) {
-    throw new Error("Unauthorized: You do not have permission to access the Payroll Workspace.");
-  }
-
-  const resolvedParams = searchParams ? await searchParams : {};
-  const requestedTab = resolvedParams.tab;
-  const initialRunId = resolvedParams.runId || null;
-
-  let initialMode: "generate" | "review" | "list" = "list";
-  if (requestedTab === "generate" && canGenerate) {
-    initialMode = "generate";
-  } else if (requestedTab === "review" && canReview) {
-    initialMode = "review";
-  } else if (!canReview && canGenerate) {
-    initialMode = "generate";
-  }
-
-  const {
-    runs,
-    branches,
-    departments,
-    designations,
-    employees,
-    occasionalAllowances,
-    allPayHeads,
-    userRole,
-  } = await getPayrollGeneratePageData();
-
-  return (
-    <PayrollClient
-      initialRuns={runs}
-      branches={branches}
-      departments={departments}
-      designations={designations}
-      employees={employees}
-      occasionalAllowances={occasionalAllowances}
-      allPayHeads={allPayHeads}
-      userRole={userRole}
-      initialMode={initialMode}
-      initialRunId={initialRunId}
-      canGenerate={canGenerate}
-      canReview={canReview}
-    />
+  const sp = searchParams ? await searchParams : {};
+  const [canGenerate, canReview] = await Promise.all([hasPermission("VIEW", "PAYROLL_GENERATE"), hasPermission("VIEW", "PAYROLL_REVIEW")]);
+  const scope = await checkPermissionWithScope("VIEW", canGenerate ? "PAYROLL_GENERATE" : "PAYROLL_REVIEW");
+  const [add, edit, approve, lock, del, exp] = await Promise.all([
+    hasPermission("ADD", "PAYROLL_GENERATE"),
+    hasPermission("EDIT", "PAYROLL_GENERATE"),
+    hasPermission("APPROVE", "PAYROLL_REVIEW"),
+    hasPermission("LOCK", "PAYROLL_REVIEW"),
+    hasPermission("DELETE", "PAYROLL_GENERATE"),
+    hasPermission("EXPORT", "PAYROLL_GENERATE"),
+  ]);
+  const data = await pageData(
+    {
+      scope,
+      userId: scope.userId,
+      canApprove: approve && canReview,
+      permissions: { generate: add, edit, approve: approve && canReview, lock, delete: del, export: exp, settings: scope.scopeType === "GLOBAL" && !scope.isImpersonation && approve },
+    },
+    typeof sp.run === "string" ? sp.run : null
   );
+  return <PayrollRunsClient data={data} initialTab={sp.tab === "run" && data.selected ? "run" : "runs"} />;
 }

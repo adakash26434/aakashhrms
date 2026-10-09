@@ -802,6 +802,27 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
+  // Payroll run (4.8a, migration 0056): run type, the approval flow, who submitted, the variance
+  // review; fund contributions on payslips. Additive only.
+  for (const q of [
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "approval_type" varchar(20)`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "approval_levels" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "current_level" integer DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "approval_route" varchar(20)`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "variance" jsonb`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "submitted_by" uuid`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "submitted_at" timestamp`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "fund_deduction" numeric(15, 2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "fund_detail" jsonb`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] payroll run 0056:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

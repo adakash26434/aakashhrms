@@ -1,48 +1,7 @@
-export const dynamic = "force-dynamic";
-import PayrollClient from "@/components/payroll/payroll-client";
-import { getPayrollGeneratePageData } from "@/lib/services/payroll.service";
-import { ensureTenantContext } from "@/lib/db";
-import { checkPermission } from "@/lib/auth/check-permission";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Review & Approve Payroll | AakashHRMS",
-  description: "Verify, audit and lock monthly payroll runs.",
-};
-
-interface ReviewPayrollPageProps {
-  searchParams?: Promise<{ runId?: string }>;
-}
-
-export default async function ReviewPayrollPage({ searchParams }: ReviewPayrollPageProps) {
-  await ensureTenantContext();
-  await checkPermission("VIEW", "PAYROLL_REVIEW");
-
-  const resolvedParams = searchParams ? await searchParams : {};
-  const initialRunId = resolvedParams.runId || null;
-
-  const {
-    runs,
-    branches,
-    departments,
-    designations,
-    employees,
-    occasionalAllowances,
-    allPayHeads,
-    userRole,
-  } = await getPayrollGeneratePageData();
-
-  return (
-    <PayrollClient
-      initialRuns={runs}
-      branches={branches}
-      departments={departments}
-      designations={designations}
-      employees={employees}
-      occasionalAllowances={occasionalAllowances}
-      allPayHeads={allPayHeads}
-      userRole={userRole}
-      initialMode="review"
-      initialRunId={initialRunId}
-    />
-  );
+/** The old address (before 4.8a): everything is on /payroll now. */
+export default async function Redirect({ searchParams }: { searchParams?: Promise<{ runId?: string }> }) {
+  const sp = searchParams ? await searchParams : {};
+  redirect(typeof sp.runId === "string" ? `/payroll?run=${encodeURIComponent(sp.runId)}&tab=run` : "/payroll");
 }

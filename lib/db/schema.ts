@@ -1320,7 +1320,17 @@ export const payrollRuns = pgTable('payroll_runs', {
   approvedAt: timestamp('approved_at'),
   lockedAt: timestamp('locked_at'),
   notes: text('notes'),
-  
+  // 4.8a: the kind of run, the approval flow copied on at submission (approval.engine), who
+  // submitted it, and the variance review against the last locked run.
+  runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  variance: jsonb('variance').$type<import('@/lib/types/payroll-run').RunVariance>(),
+  submittedBy: uuid('submitted_by'),
+  submittedAt: timestamp('submitted_at'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -1355,6 +1365,9 @@ export const payrollSlips = pgTable('payroll_slips', {
   otAmount: numeric('ot_amount', { precision: 15, scale: 2 }).default('0').notNull(),
   // 4.7b: how ot_amount was worked out (the payslip's overtime line); absent on older slips.
   otDetail: jsonb('ot_detail').$type<import('@/lib/types/overtime').OvertimeDetail>(),
+  // 4.8a: the month's welfare fund contributions (employee share deducted; the detail per fund).
+  fundDeduction: numeric('fund_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
+  fundDetail: jsonb('fund_detail').$type<import('@/lib/types/payroll').FundLine[]>(),
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),

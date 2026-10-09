@@ -13,6 +13,26 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — 4.8a Payroll run: the run workspace, pre-flight, variance, maker-checker
+Branch: `redesign/4.8-payroll` (from the 4.7 tip, which includes `main` G1–G9)
+
+**Your decisions:** 4.8 in three steps, 4.8a first; desktop structure like Attendance (PageBar, folder tabs, DataGrid + pane, Windows) with short wording and no explanatory banners.
+
+**Changed:**
+- **One page `/payroll`** (template C): Runs (DataGrid) and Run (step rail Pre-flight → Variance → Review → Approval → Lock). `/payroll/generate` and `/payroll/review` redirect; the navigator has one Payroll runs entry. New: `components/payroll/payroll-runs-client.tsx`, `payroll-run-workspace.tsx`, `payroll-run-windows.tsx`, `payslip-pane.tsx`. Removed: the 17 old payroll screen files (client, setup form, pipeline, exceptions card, review grid, pre-flight cards, scope pickers, payslip modal, bank export button).
+- **Pre-flight** (`lib/engines/payroll-run.engine.ts` → `preflight`): blocking — month not ended, attendance month open for a chosen branch (4.5 only warned), leave requests waiting, salary changes waiting that touch the month, no salary structure or basic + grade only, overtime days waiting, no active fiscal year / no slabs, an existing run; warnings — no bank account, no PAN, the previous month not locked, fund contributions not posted; information — joiners and leavers. Run in the New run window (Check) and again before submission.
+- **Variance** (`variance`): each payslip against the same person's slip in the last LOCKED run — gross, net, income tax, SSF beyond ±threshold (default 5%, setting `payroll.varianceThreshold`), bank account changed, first payslip, leaver still paid, zero or negative net. Stored on the run; every flag acknowledged with a note (who, when) before the run can be submitted; acknowledgements stand while the flags are unchanged.
+- **Approval:** the approval engine in strict mode (`approvals.payrollRun`: simple / multi-level; "none" refused). Submit copies the flow on; Approve (level), Final approve, Reject with a reason back to draft; claim-first on the level; timeline in `approval_actions`. The preparer never approves, administrators included (the old role-slug exemption in `transitionPayrollRun` is gone). Lock needs an APPROVED run and PAYROLL_REVIEW → LOCK.
+- **S21 on payslips:** `guardSlip` refuses changing, adding to, recalculating or removing your own payslip, and acknowledging its variance (audited `DENIED_SELF`).
+- **Figures:** run totals recomputed from the payslips after every change (`recomputeTotals`; the 4.1 drift is fixed); income tax slabs of the run's fiscal year only; the month's AD dates from the BS month itself (`periodFor`), not `toISOString()`.
+- **Payslip:** the overtime working line (4.7b) and the month's welfare fund contributions (`fund_deduction` as a post-tax deduction like a loan instalment, `fund_detail` per fund with the employer share) — `calculatePayslip` takes `fundDeduction`.
+- **Migration 0056** (`0056_payroll_run_approval`, additive; mirrored in `ensureTenantSchema`).
+- **Docs:** 03 S34, 04 row 4.8, 02 "Implemented payroll run", CLAUDE.md known debt.
+
+**Verified:** type-check 0 · 1010/1010 tests (new `tests/payroll-run.test.ts`, `tests/security-payroll.test.ts`) · eslint clean on the touched files (payroll.service.ts 35 → 32 pre-existing problems) · `npm run build` OK · browser on Goodlife finance: `/payroll` lists the locked Shrawan run; New run suggested Bhadra 2083, Check found the one blocker (Pokhara's attendance month open), with Head Office only pre-flight passed and Generate produced 3 payslips; the variance step flagged Pramod (gross −53.9%) and Sumina (−47.8%) against Shrawan — both real, −21,290.32 of unpaid days from Bhadra's attendance — and Kushal's first payslip; three acknowledgements with notes; Submit → "Waiting for an approver" and the preparing administrator told "You prepared this run, so someone else has to approve it (maker-checker)" with no Approve buttons; the run then discarded (type DISCARD). Console 0 errors. Also removed the `/payroll → /payroll/generate` redirect from `next.config.ts` (it looped with the new page).
+
+---
+
 ## 2026-10-08 — 4.7b Overtime: approvals, month close blocking, and payslip breakdown
 Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
 

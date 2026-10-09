@@ -151,6 +151,8 @@ export function calculatePayslip(args: {
   assignedHeads: PayHeadInput[];
   attendanceCalc: AttendanceCalcInput;
   loanDeduction: string;
+  /** 4.8a: welfare fund contributions (employee share), deducted after tax like a loan instalment. */
+  fundDeduction?: string;
   systemControl: SystemControlData;
   taxSlabs: TaxSlabInput[];
   isFestivalMonth: boolean;
@@ -165,6 +167,7 @@ export function calculatePayslip(args: {
     assignedHeads,
     attendanceCalc,
     loanDeduction,
+    fundDeduction = "0",
     systemControl,
     taxSlabs,
     isFestivalMonth,
@@ -439,9 +442,10 @@ export function calculatePayslip(args: {
   // Taxable monthly gross considers only taxable allowances
   const taxableMonthlyGross = Decimal.max(0, basicPlusGrade.plus(taxableAllowancesSum).plus(otAmount).minus(absentDeduction));
   
-  // Total deductions include loan installment
+  // Total deductions include the loan instalment and welfare fund contributions (4.8a).
   const loanVal = new Decimal(loanDeduction);
-  totalDeductions = totalDeductions.plus(loanVal);
+  const fundVal = new Decimal(fundDeduction || 0);
+  totalDeductions = totalDeductions.plus(loanVal).plus(fundVal);
 
   // ---------------------------------------------------------------------------
   // 4. TDS (Tax) Engine Calculations
@@ -586,6 +590,7 @@ export function calculatePayslip(args: {
     loanDeduction: loanVal.toString(),
     absentDeduction: absentDeduction.toString(),
     otAmount: otAmount.toString(),
+    fundDeduction: fundVal.toDecimalPlaces(2).toString(),
     heads: calculatedHeads
   };
 }

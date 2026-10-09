@@ -393,6 +393,13 @@
       "when": 1791700000000,
       "tag": "0055_overtime",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791800000000,
+      "tag": "0056_payroll_run_approval",
+      "breakpoints": true
     }
   ]
 }
