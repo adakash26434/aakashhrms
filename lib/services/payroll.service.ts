@@ -276,8 +276,8 @@ export async function generatePayrollRun(
     throw new PendingLeaveApplicationsError(pendingCount);
   }
 
-  // Load tax rate slabs
-  const slabs = await taxRateRepository.findAllSlabs();
+  // Load the run's fiscal year's tax slabs (4.8 fix: every year's slabs stacked up before).
+  const slabs = await taxRateRepository.findSlabsByFiscalYear(activeFy.id);
   const taxSlabInputs = slabs.map(s => ({
     id: s.id,
     category: s.category,
@@ -726,7 +726,7 @@ export async function overridePayslipAllowanceDeduction(
     const currentSlipHeads = await repository.findSlipHeadsBySlipId(slipId);
     const allPayHeads = await tx.select().from(payHeads);
     const systemControl = await systemControlRepository.findSettings();
-    const slabs = await taxRateRepository.findAllSlabs();
+    const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
     const taxSlabInputs = slabs.map(s => ({
       id: s.id,
       category: s.category,
@@ -861,33 +861,6 @@ export async function overridePayslipAllowanceDeduction(
       }
     }
 
-    // Recalculate parent run totals
-    const allSlips = await repository.findSlipsByRunId(run.id);
-    let newGross = new Decimal(0);
-    let newDeductions = new Decimal(0);
-    let newNet = new Decimal(0);
-    let newTds = new Decimal(0);
-    let newPf = new Decimal(0);
-    let newSsf = new Decimal(0);
-
-    for (const s of allSlips) {
-      newGross = newGross.plus(new Decimal(s.grossEarnings));
-      newDeductions = newDeductions.plus(new Decimal(s.totalDeductions));
-      newNet = newNet.plus(new Decimal(s.netPayable));
-      newTds = newTds.plus(new Decimal(s.tdsThisMonth));
-      newPf = newPf.plus(new Decimal(s.pfEmployee));
-      newSsf = newSsf.plus(new Decimal(s.ssfEmployee));
-    }
-
-    await repository.updatePayrollRunTotals(run.id, {
-      totalGross: newGross.toString(),
-      totalDeductions: newDeductions.toString(),
-      totalNetPayable: newNet.toString(),
-      totalTds: newTds.toString(),
-      totalPf: newPf.toString(),
-      totalSsf: newSsf.toString()
-    });
-
     // Log to audit trail
     const finalUpdatedSlip = await repository.findSlipById(slipId);
     await tx.insert(auditLogs).values({
@@ -900,6 +873,9 @@ export async function overridePayslipAllowanceDeduction(
       newValues: finalUpdatedSlip
     });
   });
+
+  // Totals from the committed payslips (4.8 fix: summing inside the transaction read the old slip).
+  await repository.refreshRunTotals(run.id);
 }
 
 // -----------------------------------------------------------------------------
@@ -973,40 +949,9 @@ export async function deleteEmployeePayslip(slipId: string, userId: string): Pro
   // Delete slip (cascades to slip heads in DB)
   await repository.deletePayrollSlip(slipId);
 
-  // Recalculate parent run totals
+  // Totals and employee count from the remaining payslips (4.8 fix).
+  await repository.refreshRunTotals(run.id);
   const remainingSlips = await repository.findSlipsByRunId(run.id);
-  let newGross = new Decimal(0);
-  let newDeductions = new Decimal(0);
-  let newNet = new Decimal(0);
-  let newTds = new Decimal(0);
-  let newPf = new Decimal(0);
-  let newSsf = new Decimal(0);
-
-  for (const s of remainingSlips) {
-    newGross = newGross.plus(new Decimal(s.grossEarnings));
-    newDeductions = newDeductions.plus(new Decimal(s.totalDeductions));
-    newNet = newNet.plus(new Decimal(s.netPayable));
-    newTds = newTds.plus(new Decimal(s.tdsThisMonth));
-    newPf = newPf.plus(new Decimal(s.pfEmployee));
-    newSsf = newSsf.plus(new Decimal(s.ssfEmployee));
-  }
-
-  await repository.updatePayrollRunTotals(run.id, {
-    totalGross: newGross.toString(),
-    totalDeductions: newDeductions.toString(),
-    totalNetPayable: newNet.toString(),
-    totalTds: newTds.toString(),
-    totalPf: newPf.toString(),
-    totalSsf: newSsf.toString(),
-  });
-
-  // Update employeeCount on the run
-  await (await getDb()).update(payrollRuns)
-    .set({
-      employeeCount: remainingSlips.length,
-      updatedAt: new Date()
-    })
-    .where(eq(payrollRuns.id, run.id));
 
   await (await getDb()).insert(auditLogs).values({
     userId,
@@ -1081,8 +1026,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     }
   }
 
-  // Load tax slabs & system control
-  const slabs = await taxRateRepository.findAllSlabs();
+  // Load the run's fiscal year's tax slabs & system control
+  const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
   const taxSlabInputs = slabs.map(s => ({
     id: s.id,
     category: s.category,
@@ -1264,41 +1209,6 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       );
     }
 
-    // Recalculate parent run totals
-    const allSlips = await repository.findSlipsByRunId(run.id);
-    let newGross = new Decimal(0);
-    let newDeductions = new Decimal(0);
-    let newNet = new Decimal(0);
-    let newTds = new Decimal(0);
-    let newPf = new Decimal(0);
-    let newSsf = new Decimal(0);
-
-    for (const s of allSlips) {
-      const isThisSlip = s.id === slipId;
-      const g = isThisSlip ? calcResult.grossEarnings : s.grossEarnings;
-      const d = isThisSlip ? calcResult.totalDeductions : s.totalDeductions;
-      const n = isThisSlip ? calcResult.netPayable : s.netPayable;
-      const t = isThisSlip ? calcResult.tdsThisMonth : s.tdsThisMonth;
-      const p = isThisSlip ? calcResult.pfEmployee : s.pfEmployee;
-      const ss = isThisSlip ? calcResult.ssfEmployee : s.ssfEmployee;
-
-      newGross = newGross.plus(new Decimal(g));
-      newDeductions = newDeductions.plus(new Decimal(d));
-      newNet = newNet.plus(new Decimal(n));
-      newTds = newTds.plus(new Decimal(t));
-      newPf = newPf.plus(new Decimal(p));
-      newSsf = newSsf.plus(new Decimal(ss));
-    }
-
-    await repository.updatePayrollRunTotals(run.id, {
-      totalGross: newGross.toString(),
-      totalDeductions: newDeductions.toString(),
-      totalNetPayable: newNet.toString(),
-      totalTds: newTds.toString(),
-      totalPf: newPf.toString(),
-      totalSsf: newSsf.toString()
-    });
-
     await tx.insert(auditLogs).values({
       userId,
       action: 'EDIT',
@@ -1309,6 +1219,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       newValues: { action: 'Recalculated from master data' }
     });
   });
+
+  // Totals from the committed payslips (4.8 fix).
+  await repository.refreshRunTotals(run.id);
 
   return getPayslipWithHeads(slipId);
 }

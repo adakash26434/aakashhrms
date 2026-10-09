@@ -176,6 +176,40 @@ export async function updatePayrollRunTotals(
     .where(eq(payrollRuns.id, id));
 }
 
+/**
+ * Recomputes a run's stored totals and employee count from its payslips in
+ * one statement (4.8 fix). Call it AFTER the transaction that changed the
+ * slips has committed: a sum read through another connection inside the
+ * transaction saw the old slip and lagged the payslips (Shrawan 2083: run
+ * net 62,068.75 vs payslips 68,068.75).
+ */
+export async function refreshRunTotals(runId: string): Promise<void> {
+  await (await getDb()).execute(sql`
+    UPDATE ${payrollRuns} r SET
+      total_gross = s.gross,
+      total_deductions = s.deductions,
+      total_net_payable = s.net,
+      total_tds = s.tds,
+      total_pf = s.pf,
+      total_ssf = s.ssf,
+      employee_count = s.n,
+      updated_at = now()
+    FROM (
+      SELECT
+        COALESCE(sum(gross_earnings), 0) AS gross,
+        COALESCE(sum(total_deductions), 0) AS deductions,
+        COALESCE(sum(net_payable), 0) AS net,
+        COALESCE(sum(tds_this_month), 0) AS tds,
+        COALESCE(sum(pf_employee), 0) AS pf,
+        COALESCE(sum(ssf_employee), 0) AS ssf,
+        count(*)::int AS n
+      FROM ${payrollSlips}
+      WHERE payroll_run_id = ${runId}
+    ) s
+    WHERE r.id = ${runId}
+  `);
+}
+
 // -----------------------------------------------------------------------------
 // Payroll Slips & Slip Heads
 // -----------------------------------------------------------------------------
