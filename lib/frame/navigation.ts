@@ -126,6 +126,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["promotion", "badhuwa", "transfer", "saruwa", "confirmation", "sthayi", "event", "history"],
       },
       {
+        id: "training",
+        label: "Training",
+        href: "/workforce/training",
+        icon: CalendarDays,
+        description: "Programmes, nominations, attendance, scores and service bonds",
+        requires: ["TRAINING"],
+        keywords: ["training", "talim", "programme", "course", "certificate", "bond", "workshop"],
+      },
+      {
         id: "discipline",
         label: "Discipline & grievance",
         href: "/workforce/discipline",

@@ -1282,3 +1282,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## G8 Disciplinary & grievance
 - Migration `0055_discipline` (`hr_cases`, append-only `hr_case_events`, DISCIPLINE permission module; mirrored in `ensureTenantSchema`; restart the dev server). Engine `case.engine.ts`, service/repository/actions, `/workforce/discipline`. S34: nobody works or even sees a case about their own record (audited `DENIED_SELF`); status changes claim-first; termination only recommended. Verification: tsc 0, 966/966 tests, lint clean on touched files. Build: CI.
+
+## G7 Training
+- Migration `0056_training` (`training_programs`, `training_participants`, TRAINING permission module; mirrored in `ensureTenantSchema`; restart the dev server). Engine `training.engine.ts` (planned → running → completed / cancelled; attended / absent / completed with score 0–100 and certificate; service bond end date derived with day clamping), service/repository/actions, `/workforce/training`. S35: nobody nominates themselves or marks their own record (`DENIED_SELF`); scope on every participant read. Exit case now lists running training bonds (read-only, not a blocker). Verification: tsc 0, 980/980 tests, lint clean on touched files. Build: CI.

@@ -231,3 +231,4 @@ Still to review/do (ordered by value for a sahakari):
 5. Duplicate device serial across two companies resolves to the first active match; consider a platform-level serial registry.
 
 6. G8 Disciplinary & grievance — **done** (`/workforce/discipline`, DISCIPLINE module, migration 0055, S34). Debt: show-cause/warning letters from the decision (needs HR_LETTERS templates), attachments, appeal step.
+7. G7 Training — **done** (`/workforce/training`, TRAINING module, migration 0056, S35). Service bonds show on the exit case. Debt: training needs from evaluation gaps, budget per fiscal year, certificates as documents.

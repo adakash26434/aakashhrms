@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1838,4 +1838,47 @@ export const hrCaseEvents = pgTable('hr_case_events', {
   at: timestamp('at').defaultNow().notNull(),
 }, (t) => ({
   caseIdx: index('hr_case_events_case_idx').on(t.caseId, t.at),
+}));
+
+// -----------------------------------------------------------------------------
+// TRAINING (G7 — docs/redesign/06-hrms-gap-analysis.md)
+// A programme moves planned → running → completed (or cancelled). Staff are
+// nominated and marked attended / absent / completed; a programme may carry a
+// service bond (months to stay after completion — the end date is derived).
+// -----------------------------------------------------------------------------
+
+export const trainingPrograms = pgTable('training_programs', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  provider: varchar('provider', { length: 200 }).default('').notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // internal | external | regulatory
+  startAd: date('start_ad').notNull(),
+  endAd: date('end_ad').notNull(),
+  hours: numeric('hours', { precision: 7, scale: 2 }).notNull(),
+  cost: numeric('cost', { precision: 15, scale: 2 }).default('0').notNull(),
+  bondMonths: integer('bond_months').default(0).notNull(),
+  note: text('note'),
+  status: varchar('status', { length: 10 }).default('planned').notNull(), // planned | running | completed | cancelled
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  statusIdx: index('training_programs_status_idx').on(t.status),
+}));
+
+export const trainingParticipants = pgTable('training_participants', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  programId: uuid('program_id').references(() => trainingPrograms.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 10 }).default('nominated').notNull(), // nominated | attended | absent | completed
+  score: numeric('score', { precision: 5, scale: 2 }),
+  certificateNo: varchar('certificate_no', { length: 60 }),
+  markedBy: uuid('marked_by'),
+  markedAt: timestamp('marked_at'),
+  nominatedBy: uuid('nominated_by'),
+  nominatedAt: timestamp('nominated_at').defaultNow().notNull(),
+}, (t) => ({
+  onePerPerson: unique('training_participants_key').on(t.programId, t.employeeId),
+  employeeIdx: index('training_participants_employee_idx').on(t.employeeId),
 }));

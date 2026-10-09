@@ -3,6 +3,8 @@ import { attendanceDevices, deviceUsers, employeeTermination, employees, exitCas
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { CLEARANCE_UNITS } from '@/lib/engines/exit.engine';
 import { fundBalance } from '@/lib/engines/fund.engine';
+import { bondActive, bondEnds } from '@/lib/engines/training.engine';
+import { bondsFor } from '@/lib/repositories/training.repository';
 
 // Exit workflow (G5): Drizzle queries only. Rules live in
 // lib/engines/exit.engine.ts; orchestration in lib/services/exit.service.ts.
@@ -176,9 +178,10 @@ export interface ExitFacts {
   loanOutstanding: string; // summed numeric as text
   devicePins: { device: string; pin: string }[];
   funds: { fund: string; employee: string; employer: string; total: string }[];
+  bonds: { title: string; bondEndsAd: string }[];
 }
 
-export async function exitFacts(employeeId: string): Promise<ExitFacts> {
+export async function exitFacts(employeeId: string, lastWorkingDayAd: string): Promise<ExitFacts> {
   const db = await getDb();
   const [loanRow] = await db
     .select({ n: sql<number>`count(*)::int`, outstanding: sql<string>`COALESCE(sum(${loans.remainingAmount}), 0)::text` })
@@ -203,7 +206,10 @@ export async function exitFacts(employeeId: string): Promise<ExitFacts> {
   const funds = fundRows
     .map((r) => ({ fund: r.fund, ...fundBalance([{ employeeAmount: r.employee, employerAmount: r.employer }]) }))
     .filter((r) => r.total !== '0.00' || r.employee !== '0.00' || r.employer !== '0.00');
-  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins, funds };
+  const bonds = (await bondsFor(employeeId))
+    .map((b) => ({ title: b.title, bondEndsAd: bondEnds(b.programEndAd, b.bondMonths) }))
+    .filter((b): b is { title: string; bondEndsAd: string } => bondActive(b.bondEndsAd, lastWorkingDayAd));
+  return { activeLoans: loanRow?.n ?? 0, loanOutstanding: loanRow?.outstanding ?? '0', devicePins: pins, funds, bonds };
 }
 
 

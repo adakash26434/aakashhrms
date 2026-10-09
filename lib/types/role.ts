@@ -34,6 +34,7 @@ export type ModuleType =
   | 'PERFORMANCE'
   | 'RECRUITMENT'
   | 'DISCIPLINE'
+  | 'TRAINING'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -168,6 +169,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Recruitment & Darbandi',
         description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'TRAINING',
+        label: 'Training',
+        description: 'Training programmes, nominations, attendance, scores and service bonds: Add creates programmes and nominates, Edit changes them and marks participants',
+        allowedActions: ['VIEW', 'ADD', 'EDIT'],
       },
       {
         key: 'DISCIPLINE',
