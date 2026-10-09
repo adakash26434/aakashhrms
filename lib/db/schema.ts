@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1937,4 +1937,65 @@ export const notices = pgTable('notices', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
   publishIdx: index('notices_publish_idx').on(t.status, t.publishAd),
+}));
+
+// -----------------------------------------------------------------------------
+// TRAVEL & DAILY ALLOWANCE — TA-DA (G11 — docs/redesign/06-hrms-gap-analysis.md)
+// travel_rates: the card (default or per designation). travel_claims: one trip
+// per claim; amounts are computed by the engine from the card in force when
+// the claim is saved and FROZEN on the row (a later card change never changes
+// an existing claim). draft → submitted → approved / rejected; settled when paid.
+// -----------------------------------------------------------------------------
+
+export const travelRates = pgTable('travel_rates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  designationId: uuid('designation_id').references(() => designations.id, { onDelete: 'cascade' }), // null = default card
+  dailyAllowance: numeric('daily_allowance', { precision: 12, scale: 2 }).default('0').notNull(),
+  lodgingPerNight: numeric('lodging_per_night', { precision: 12, scale: 2 }).default('0').notNull(),
+  kmRate: numeric('km_rate', { precision: 8, scale: 2 }).default('0').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  onePerDesignation: unique('travel_rates_designation_key').on(t.designationId),
+}));
+
+export const travelClaims = pgTable('travel_claims', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  purpose: varchar('purpose', { length: 300 }).notNull(),
+  fromPlace: varchar('from_place', { length: 120 }).notNull(),
+  toPlace: varchar('to_place', { length: 120 }).notNull(),
+  startAd: date('start_ad').notNull(),
+  endAd: date('end_ad').notNull(),
+  mode: varchar('mode', { length: 15 }).notNull(),
+  km: numeric('km', { precision: 8, scale: 1 }).default('0').notNull(),
+  nights: integer('nights').default(0).notNull(),
+  fareActual: numeric('fare_actual', { precision: 12, scale: 2 }).default('0').notNull(),
+  lodgingActual: numeric('lodging_actual', { precision: 12, scale: 2 }).default('0').notNull(),
+  advance: numeric('advance', { precision: 12, scale: 2 }).default('0').notNull(),
+  // Frozen from the card when saved:
+  rateName: varchar('rate_name', { length: 100 }).default('').notNull(),
+  days: integer('days').notNull(),
+  dailyAllowance: numeric('daily_allowance', { precision: 12, scale: 2 }).notNull(),
+  lodging: numeric('lodging', { precision: 12, scale: 2 }).notNull(),
+  travel: numeric('travel', { precision: 12, scale: 2 }).notNull(),
+  gross: numeric('gross', { precision: 12, scale: 2 }).notNull(),
+  payable: numeric('payable', { precision: 12, scale: 2 }).notNull(),
+  note: text('note'),
+  status: varchar('status', { length: 10 }).default('draft').notNull(), // draft | submitted | approved | rejected | settled
+  decisionNote: text('decision_note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  settledAt: timestamp('settled_at'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('travel_claims_employee_idx').on(t.employeeId, t.startAd),
+  statusIdx: index('travel_claims_status_idx').on(t.status),
 }));

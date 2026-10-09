@@ -288,6 +288,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         requires: ["WELFARE_FUNDS"],
         keywords: ["welfare", "kalyan kosh", "gratuity", "medical fund", "provision", "payout"],
       },
+      {
+        id: "travel",
+        label: "Travel / TA-DA",
+        href: "/payroll/travel",
+        icon: CalendarCheck,
+        description: "Field-visit claims, the rate card, approval and settlement",
+        requires: ["TRAVEL"],
+        keywords: ["travel", "ta da", "tada", "daily allowance", "bhraman", "field visit", "claim", "mileage"],
+      },
     ],
   },
   {

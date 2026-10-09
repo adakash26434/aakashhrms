@@ -1291,3 +1291,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## G14 Assets & notice board
 - Migration `0057_assets_notices` (`assets`, `asset_handovers`, `notices`, ASSETS + NOTICE_BOARD permission modules; mirrored in `ensureTenantSchema`; restart the dev server). Assets: register, claim-first issue / return (lost retires), handover history, exit facts + Complete blocker. Notices: company / branch audience, publish window, pinned, withdraw (never delete); the Home dashboard shows each reader their board (`boardFor`). Verification: tsc 0, 1005/1005 tests, lint clean on touched files. Build: CI.
+
+## G11 Travel / TA-DA
+- Migration `0058_travel` (`travel_rates`, `travel_claims`, TRAVEL permission module — HR Manager VIEW/ADD/EDIT/APPROVE, Payroll Controller VIEW/LOCK; mirrored in `ensureTenantSchema`; restart the dev server). Engine `travel.engine.ts` (inclusive days, days × DA, lodging capped at nights × ceiling, fare or km × rate, minus advance; paisa arithmetic), amounts frozen on the claim; draft → submitted → approved / rejected / returned → settled, claim-first. S38: nobody decides or settles their own claim. Screen `/payroll/travel` with live preview. Verification: tsc 0, 1017/1017 tests, lint clean on new files (seed-rbac has pre-existing `any` errors). Build: CI.

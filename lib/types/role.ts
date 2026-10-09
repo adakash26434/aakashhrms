@@ -37,6 +37,7 @@ export type ModuleType =
   | 'TRAINING'
   | 'ASSETS'
   | 'NOTICE_BOARD'
+  | 'TRAVEL'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -171,6 +172,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Recruitment & Darbandi',
         description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'TRAVEL',
+        label: 'Travel & TA-DA',
+        description: 'Travel / field-visit claims and the TA-DA rate card: Add records a claim, Edit changes drafts and the card, Approve decides, Lock marks it settled (paid)',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
       },
       {
         key: 'ASSETS',
