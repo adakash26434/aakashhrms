@@ -1304,3 +1304,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 ## Payroll accuracy (4.8, two known bugs)
 - Run totals: `payroll.repository.refreshRunTotals(runId)` recomputes `total_*` and `employee_count` from the payslips in one SQL statement, called AFTER each slip-changing transaction commits (`overridePayslipAllowanceDeduction`, `deleteEmployeePayslip`, `recalculateEmployeePayslip`, hence also attendance sync). Before, the sum ran through a second connection inside the transaction and missed the slip being changed (Shrawan 2083: 62,068.75 vs 68,068.75). Hand-summed `updatePayrollRunTotals` calls removed.
 - Tax slabs: payroll now loads `findSlabsByFiscalYear(run's year)` instead of every year's slabs (`findAllSlabs`), in generation, override and recalculation. `tests/payroll-run-totals.test.ts` guards both. Verification: tsc 0, 1035/1035 tests; payroll.service lint count unchanged (pre-existing `any`s).
+
+## Probation gating (G1 / G2 follow-up)
+- `confirmationGate` in `employee-event.engine.ts`: a confirmation (स्थायी) cannot take effect before the employment type's `probationMonths` from joining (blocked, field error); a missing final का.स.मू. evaluation only warns. Wired into `createEvent`. tsc 0, 1038/1038 tests, lint clean.

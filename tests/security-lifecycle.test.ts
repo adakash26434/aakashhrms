@@ -103,3 +103,14 @@ describe('S27 lifecycle events: history and application', () => {
     assert.match(apply, /if \(!claimed\) return;/);
   });
 });
+
+describe('S27 probation gating (follow-up)', () => {
+  it('a confirmation is gated before the event is written', () => {
+    const src = readFileSync(join(__dirname, '..', 'lib/services/employee-event.service.ts'), 'utf8');
+    const start = src.indexOf('export async function createEvent(');
+    const body = src.slice(start, src.indexOf('\n}\n', start));
+    const gate = body.indexOf('confirmationGate(');
+    assert.ok(gate >= 0 && gate < body.indexOf('repo.insertEventTx('), 'gate before the write');
+    assert.match(body, /if \(gate\.blocker\) throw new EventValidationError/);
+  });
+});
