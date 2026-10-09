@@ -1285,3 +1285,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## G7 Training
 - Migration `0056_training` (`training_programs`, `training_participants`, TRAINING permission module; mirrored in `ensureTenantSchema`; restart the dev server). Engine `training.engine.ts` (planned → running → completed / cancelled; attended / absent / completed with score 0–100 and certificate; service bond end date derived with day clamping), service/repository/actions, `/workforce/training`. S35: nobody nominates themselves or marks their own record (`DENIED_SELF`); scope on every participant read. Exit case now lists running training bonds (read-only, not a blocker). Verification: tsc 0, 980/980 tests, lint clean on touched files. Build: CI.
+
+## G13 HR analytics
+- `/reports/hr-analytics`: headcount by branch / department / designation / category / age band with gender split, movement (joined, left, turnover on average headcount), tenure, leave usage, case counts (DISCIPLINE VIEW only), and the DoC / COPOMIS staff return (कर्मचारी विवरण) with gated CSV export. Engine `hr-analytics.engine.ts`; every query scoped; no pay columns (S36 test). No migration. Verification: tsc 0, 991/991 tests, lint clean on touched files. Build: CI.

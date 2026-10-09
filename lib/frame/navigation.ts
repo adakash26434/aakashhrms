@@ -321,6 +321,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         requires: ["REPORTS_LEAVE"],
       },
       {
+        id: "hr-analytics",
+        label: "HR analytics",
+        href: "/reports/hr-analytics",
+        icon: BarChart3,
+        description: "Headcount, movement, tenure, training and the DoC / COPOMIS staff return",
+        requires: ["EMPLOYEES"],
+        keywords: ["analytics", "headcount", "turnover", "copomis", "return", "department of cooperatives", "statistics"],
+      },
+      {
         id: "loan-report",
         label: "Loan report",
         href: "/reports/loan",
