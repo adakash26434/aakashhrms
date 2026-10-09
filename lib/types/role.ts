@@ -29,7 +29,8 @@ export type ModuleType =
   | 'USERS_ROLES'
   | 'AUDIT_LOG'
   | 'ORG_STRUCTURE'
-  | 'SELF_SERVICE';
+  | 'SELF_SERVICE'
+  | 'HR_LETTERS';
 
 export interface Role {
   id: string;
@@ -151,6 +152,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Salary Structure',
         description: 'Salary revisions (basic, grade, pay heads), bulk changes and templates. Approve lets a user approve salary changes prepared by others',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'EXPORT'],
+      },
+      {
+        key: 'HR_LETTERS',
+        label: 'HR Letters',
+        description: 'Formal letters to employees (appointment, confirmation, promotion, transfer, experience, NOC): Add issues a letter, Edit changes templates, Delete voids an issued letter',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
       },
     ],
   },

@@ -15,6 +15,7 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'REPORTS_LOAN',
     'ORG_STRUCTURE',
     'SELF_SERVICE',
+    'HR_LETTERS',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -793,5 +794,82 @@ ON CONFLICT DO NOTHING`);
     }
   } catch {
     // Ignored if the employees table does not exist yet
+  }
+
+  // HR letters (G2, migration 0047): bilingual letter templates, the per-fiscal-year chalani
+  // sequence, and issued letters (rendered body frozen; voided, never deleted). Also seeds the
+  // HR_LETTERS permission rows (PG10-safe md5 ids) and grants them to System Administrator
+  // (all) and HR Manager (VIEW/ADD/EDIT/DELETE); other roles are granted on the Roles screen.
+  const hrLetterQueries = [
+    `CREATE TABLE IF NOT EXISTS "letter_templates" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "code" varchar(30) NOT NULL,
+      "name" varchar(100) NOT NULL,
+      "name_np" varchar(100) DEFAULT '' NOT NULL,
+      "subject_en" varchar(200) NOT NULL,
+      "subject_np" varchar(200) DEFAULT '' NOT NULL,
+      "body_en" text NOT NULL,
+      "body_np" text DEFAULT '' NOT NULL,
+      "is_system" boolean DEFAULT false NOT NULL,
+      "is_active" boolean DEFAULT true NOT NULL,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "letter_templates_code_unique" UNIQUE ("code")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "letter_sequences" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+      "last_seq" integer DEFAULT 0 NOT NULL,
+      CONSTRAINT "letter_sequences_fiscal_year_key" UNIQUE ("fiscal_year_id")
+    )`,
+    `CREATE TABLE IF NOT EXISTS "hr_letters" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "template_id" uuid REFERENCES "letter_templates"("id") ON DELETE SET NULL,
+      "kind" varchar(30) NOT NULL,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE RESTRICT,
+      "seq" integer NOT NULL,
+      "letter_number" varchar(50) NOT NULL,
+      "language" varchar(2) NOT NULL,
+      "subject" varchar(200) NOT NULL,
+      "body" text NOT NULL,
+      "merge_data" jsonb DEFAULT '{}'::jsonb NOT NULL,
+      "status" varchar(10) DEFAULT 'issued' NOT NULL,
+      "issued_date_bs" varchar(20) NOT NULL,
+      "issued_date_ad" date NOT NULL,
+      "issued_by" uuid NOT NULL,
+      "issued_at" timestamp DEFAULT now() NOT NULL,
+      "voided_by" uuid,
+      "voided_at" timestamp,
+      "void_reason" text,
+      CONSTRAINT "hr_letters_fiscal_year_seq_key" UNIQUE ("fiscal_year_id", "seq")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "hr_letters_employee_id_idx" ON "hr_letters" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "hr_letters_issued_at_idx" ON "hr_letters" ("issued_at")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':HR_LETTERS')::uuid, a::action, 'HR_LETTERS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'HR_LETTERS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'DELETE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of hrLetterQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist (before the initial migration),
+      // or while the HR_LETTERS enum value from this run's step 1 is not yet visible
+      // (PG10 requires a new enum value's transaction to commit before use; every
+      // statement here runs individually, so the next sync pass completes it).
+    }
   }
 }

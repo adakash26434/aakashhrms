@@ -13,6 +13,21 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G2 (letters): HR letters module — appointment, confirmation, promotion, transfer, experience, NOC
+Branch: `feature/hr-letters` (from `main` @ `73e27a6`, after `docs/redesign/06-hrms-gap-analysis.md`)
+
+First Phase G item from the gap analysis (06): formal letters issued to employees, bilingual with a designed printable sheet and a per-fiscal-year chalani register.
+
+Changed:
+- **Schema (migration `0047_hr_letters`, mirrored in `tenant-schema-sync.ts`):** `letter_templates` (bilingual bodies with `{{merge_field}}` placeholders; six system templates seeded per company on first read, editable, never deletable), `letter_sequences` (chalani: one row per fiscal year, bumped with a single `UPDATE … RETURNING` in the issue transaction, so numbers are unique and never reused), `hr_letters` (rendered subject and body **frozen at issue**; wrong letters are voided with a reason, never edited or deleted). New `HR_LETTERS` permission module (enum value + rows seeded with PG10-safe md5 ids; granted to System Administrator and HR Manager; in the "HR" role preset; in the Roles screen matrix).
+- **Engine (`letter.engine.ts`, 27 tests):** placeholder extraction and rendering; **condition blocks `{{#if field}}…{{/if}}`** so a clause (probation sentence, remarks) appears only when its field is filled — fields inside a skipped block are not required; unknown-field and unbalanced-block errors at template save; chalani formatting (`12/2082-83`); issue/void validation. Auto-filled fields (employee, company, chalani, dates) can never be overridden from the form.
+- **Service / repository / actions:** issue renders employee facts (name, code, designation, department, branch, joining date BS+AD), company letterhead (name, address, PAN, signatory) and typed inputs; scope-checked employee lookup; **S26** (S21 pattern): nobody issues or voids a letter about their own record (audited `DENIED_SELF`); all exports through the audited grid export (`HR_LETTERS` added to exportable modules).
+- **UI (`/workforce/letters`, template A):** register (DataGrid, FilterStrip, saved views) + Templates tab (editor with merge-field reference and condition hint; custom templates can be added; system codes locked); Issue window (employee combobox, template, English/नेपाली, only the fields that template uses, server-rendered preview); letter page with the **designed A4 sheet** — brand green→red rule, company letterhead, च.नं./Ref and मिति/Date row, recipient block for addressed letters, underlined विषय/subject, signature and received-by blocks, VOIDED watermark — printing like the salary revision letter. Navigation: Workforce → HR letters.
+- Default templates (`lib/constants/letter-templates.ts`): नियुक्ति, स्थायी नियुक्ति, बढुवा, सरुवा, कार्य अनुभव, सहमति — each English + Nepali in common sahakari office wording.
+
+Verified: `tsc` exit 0 · 819/819 tests (40 new: `letter.engine`, `security-letters`; role matrix count updated to 27) · lint clean on touched files (pre-existing `seed-rbac` errors untouched). The production build could not run where this was built (the sandbox blocks the Google Fonts fetch `next/font` makes; it failed on that, not on code) — CI's build is the check for this entry.
+Notes: screens not yet walked at 1440/1024/390 with a restricted role (needs a signed-in browser pass); letters list caps at the latest 1000 — paging if a register outgrows it; employee-facing copies in self-service are Phase 5; lifecycle events (promotion/transfer as dated records feeding these letters) are the rest of G2.
+
 ## 2026-10-07 — 4.4b Salary structure: clear breakdown, new hires set up in Salary structure
 Branch: `redesign/4.4b-salary-structure` (from `main` = v0.2.0)
 

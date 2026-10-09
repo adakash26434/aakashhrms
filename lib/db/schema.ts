@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1375,4 +1375,76 @@ export const leaveSalaryRuns = pgTable('leave_salary_runs', {
   employeeIdIdx: index('leave_salary_runs_employee_id_idx').on(t.employeeId),
   leaveTypeIdIdx: index('leave_salary_runs_leave_type_id_idx').on(t.leaveTypeId),
   createdByIdx: index('leave_salary_runs_created_by_idx').on(t.createdBy),
+}));
+
+// -----------------------------------------------------------------------------
+// HR LETTERS (G2, letters part — docs/redesign/06-hrms-gap-analysis.md)
+// Formal letters issued to employees: appointment, confirmation, promotion
+// (बढुवा), transfer (सरुवा), experience / job-left (अनुभव), NOC. Each letter is
+// rendered from a template at issue time and FROZEN (the stored body never
+// changes afterwards); mistakes are voided, never edited or deleted, and the
+// chalani (dispatch) number is never reused.
+// -----------------------------------------------------------------------------
+
+/**
+ * Letter templates: bilingual bodies with {{merge_field}} placeholders.
+ * System templates (seeded per tenant) can be edited but not deleted.
+ */
+export const letterTemplates = pgTable('letter_templates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique(), // appointment | confirmation | promotion | transfer | experience | noc | custom codes
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }).default('').notNull(),
+  subjectEn: varchar('subject_en', { length: 200 }).notNull(),
+  subjectNp: varchar('subject_np', { length: 200 }).default('').notNull(),
+  bodyEn: text('body_en').notNull(),
+  bodyNp: text('body_np').default('').notNull(),
+  isSystem: boolean('is_system').default(false).notNull(), // seeded defaults: editable, never deletable
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+/**
+ * Chalani (dispatch) number sequence, one row per fiscal year. Allocation is a
+ * single UPDATE ... RETURNING inside the issue transaction, so two letters can
+ * never share a number (PG10-safe; no sequences to keep in step per tenant).
+ */
+export const letterSequences = pgTable('letter_sequences', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull().unique('letter_sequences_fiscal_year_key'),
+  lastSeq: integer('last_seq').default(0).notNull(),
+});
+
+/**
+ * An issued letter: the rendered subject and body are stored as issued (the
+ * template may change later; the letter must not). `mergeData` keeps the field
+ * values used, for the register's detail pane and audits.
+ */
+export const hrLetters = pgTable('hr_letters', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  templateId: uuid('template_id').references(() => letterTemplates.id, { onDelete: 'set null' }),
+  kind: varchar('kind', { length: 30 }).notNull(), // template code at issue time
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
+  seq: integer('seq').notNull(), // chalani sequence within the fiscal year
+  letterNumber: varchar('letter_number', { length: 50 }).notNull(), // display form, e.g. "12/2082-83"
+  language: varchar('language', { length: 2 }).notNull(), // 'en' | 'np'
+  subject: varchar('subject', { length: 200 }).notNull(),
+  body: text('body').notNull(), // rendered at issue; frozen
+  mergeData: jsonb('merge_data').$type<Record<string, string>>().default({}).notNull(),
+  status: varchar('status', { length: 10 }).default('issued').notNull(), // 'issued' | 'voided'
+  issuedDateBs: varchar('issued_date_bs', { length: 20 }).notNull(),
+  issuedDateAd: date('issued_date_ad').notNull(),
+  issuedBy: uuid('issued_by').notNull(),
+  issuedAt: timestamp('issued_at').defaultNow().notNull(),
+  voidedBy: uuid('voided_by'),
+  voidedAt: timestamp('voided_at'),
+  voidReason: text('void_reason'),
+}, (t) => ({
+  employeeIdIdx: index('hr_letters_employee_id_idx').on(t.employeeId),
+  fiscalYearSeqKey: unique('hr_letters_fiscal_year_seq_key').on(t.fiscalYearId, t.seq),
+  issuedAtIdx: index('hr_letters_issued_at_idx').on(t.issuedAt),
 }));

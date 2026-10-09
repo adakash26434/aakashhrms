@@ -330,6 +330,13 @@
       "when": 1790800000000,
       "tag": "0046_salary_timeline_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790900000000,
+      "tag": "0047_hr_letters",
+      "breakpoints": true
     }
   ]
 }

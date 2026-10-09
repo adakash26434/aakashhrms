@@ -107,6 +107,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         requires: ["SALARY_MAPPING"],
         keywords: ["salary mapping", "pay", "allowance", "grade"],
       },
+      {
+        id: "hr-letters",
+        label: "HR letters",
+        href: "/workforce/letters",
+        icon: FilePen,
+        description: "Appointment, promotion, transfer, experience and NOC letters",
+        requires: ["HR_LETTERS"],
+        keywords: ["letter", "chalani", "appointment", "niyukti", "promotion", "badhuwa", "transfer", "saruwa", "experience", "anubhav", "noc", "template"],
+      },
     ],
   },
   {
