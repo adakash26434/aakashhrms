@@ -37,6 +37,8 @@ export interface PreflightProblem {
 
 export interface PreflightResult {
   problems: PreflightProblem[];
+  /** Kind Arrears: the employees and months with a difference to pay (ticked in the window). */
+  arrears?: ArrearsCandidate[];
   blocking: number;
   warnings: number;
   /** Employees the run would include. */
@@ -176,4 +178,71 @@ export interface NewRunInput {
   payslipDate: string | null;
   /** Replace an existing draft for the same period and branches. */
   recreateIfExists?: boolean;
+  /** Kind Arrears: the source months to pay, per employee. */
+  picks?: { employeeId: string; months: { calendar: "BS" | "AD"; year: number; month: number; kind: "salary" | "attendance" }[] }[];
+}
+
+// ---------------------------------------------------------------------------
+// 4.8b Arrears
+// ---------------------------------------------------------------------------
+
+/** A month's pay in the parts arrears compare (NPR, 2 decimals). */
+export interface ArrearsComponents {
+  basic: string;
+  grade: string;
+  allowances: string;
+  otAmount: string;
+  absentDeduction: string;
+  grossEarnings: string;
+  pfEmployee: string;
+  pfEmployer: string;
+  ssfEmployee: string;
+  ssfEmployer: string;
+  citDeduction: string;
+  otherDeductions: string;
+}
+
+/** One source month on an arrears payslip: what was paid, what is due now, the difference. */
+export interface ArrearsMonthLine {
+  kind: "salary" | "attendance";
+  calendar: "BS" | "AD";
+  year: number;
+  month: number;
+  /** "Bhadra 2083" */
+  label: string;
+  /** `batch:<id>` for a salary revision, `attendance:<periodId>` for a re-closed month. */
+  sourceRef: string;
+  /** The locked regular payslip of that month. */
+  sourceSlipId: string;
+  paid: ArrearsComponents;
+  due: ArrearsComponents;
+  diff: ArrearsComponents;
+}
+
+/** What an arrears payslip pays for its month lines. */
+export interface ArrearsSlipFigures {
+  earnings: { label: string; amount: string }[];
+  deductions: { label: string; amount: string }[];
+  grossEarnings: string;
+  totalDeductions: string;
+  /** The positive earnings: taxed once through the projection. */
+  taxableGross: string;
+  retirement: string;
+  cit: string;
+  pfEmployee: string;
+  pfEmployer: string;
+  ssfEmployee: string;
+  ssfEmployer: string;
+}
+
+/** An employee with months whose pay differs from what was locked (the New run window, kind Arrears). */
+export interface ArrearsCandidate {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  lines: ArrearsMonthLine[];
+  /** Net effect of every line (earnings − deductions). */
+  net: string;
+  /** Why it cannot be included now (an arrears run already holds it). */
+  blocked: string | null;
 }

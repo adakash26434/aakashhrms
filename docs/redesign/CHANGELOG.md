@@ -13,6 +13,23 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — 4.8b-2 Payroll run: arrears
+Branch: `redesign/4.8-payroll`
+
+**Your decisions:** attendance may be reopened after payroll is locked and the difference paid as arrears; the locked payslip never changes.
+
+**Changed:**
+- **Arrears run** (kind Arrears in New run): Check lists the employees and months already paid whose pay differs now — a salary revision approved after the lock with an effective date in the month, or a month's attendance reopened and closed again — each recomputed on the server with the revision in force at the month's end and the closed summary (`lib/services/arrears.service.ts`, `lib/engines/arrears.engine.ts`: basic, grade, allowances, overtime, unpaid days, retirement contributions, CIT and the other deductions compared; loans, funds and income tax not). HR ticks the months; Generate recomputes them again and pays one earning per month (a negative month as a recovery), the employee's contribution differences as deductions, the employer's on the slip, and the income tax once through the year-to-date projection. The payslip keeps the months (`arrears_detail`, shown in the pane) and `arrears_items` rows, whose LOCKED diffs count as paid next time; an employee-month waits in one unlocked arrears run at a time. Migration 0058.
+- **Back-dated revisions** are allowed into locked months (`assertPayrollOpen` now refuses only months with a regular run being prepared: draft, under review or approved); the revision window says so.
+- **Attendance reopen after lock** allowed (reason required, audited `REOPEN_AFTER_LOCK`); the Month close window says the payslips do not change and the difference is paid as arrears.
+- **From the browser check:** a month's arrears line is the gross difference (paid against due), not the sum of the parts — payslips made before 4.8 split the heads differently (the grade as a head, the employer's SSF inside the gross), so the parts explain the line without defining it; a back-dated revision rates the month's unpaid days again with the revised basic and grade (the close had stored the amount for the basic in force then); a month that owes money back (recovery more than the arrears) is refused by name — the recovery belongs on a regular run, which is not built yet (known debt).
+- **Payslip pane:** each head shows its calculated amount (the base amount read 0.00 for computed heads such as SSF and for the arrears heads).
+- **Docs:** 03 S35 extended, 04 row 4.8, 02 payroll section, CLAUDE.md known debt.
+
+**Verified:** type-check 0 · tests 1040/1040 · eslint clean on the 4.8b-2 files (`payroll.service.ts` keeps its 31 pre-existing problems, same as the committed version) · build exit 0 · browser (Goodlife finance admin, Playwright): a TEST ONLY revision back-dated to Shrawan 1, 2083 was allowed past the locked Shrawan run (no lock message); New run → Arrears → Check listed Shrawan 2083 for both Head Office employees — the Shrawan attendance summaries had been written again on 2026-10-05 with 21 of 31 days unpaid, so Sumina shows "Attendance corrected" and both owe money back; Generate refused Pramod's month by name ("the recovery (26298.55) is more than the arrears (0)"); with a second TEST ONLY revision (DA 30,000) Pramod's line read paid 39,500.00 · due 48,551.61 · +9,051.61, Sumina unticked, Generate opened "Bhadra 2083 · Arrears" (gross 9,051.61, SSF 605, net 8,446.61; one `arrears_items` row, `batch:` source); the pane showed **Arrears: the months** above the Income tax block; Discard (type DISCARD) removed the run; the test revisions and batches were removed by script and Pramod's current revision restored; console 0 errors.
+
+---
+
 ## 2026-10-09 — 4.8b-1 Payroll run: pay calendar, year-to-date income tax, run types
 Branch: `redesign/4.8-payroll`
 

@@ -227,7 +227,7 @@ export async function getStructureData(params: {
   const ids = employees.map((e) => e.id);
   const [{ revisions, heads: stored }, finalisedUntil, tax, ssfExpected] = await Promise.all([
     repository.findRevisions(ids),
-    repository.findFinalisedUntil(ids),
+    repository.findOpenRunUntil(ids),
     loadTaxRules(settings),
     ssfExpectation(settings),
   ]);
@@ -413,12 +413,13 @@ function requestOf(b: repository.BatchRowDb, subjectEmployeeIds: string[]): Appr
 }
 
 /**
- * Payroll uses the revision in force at each month's end and there is no back
- * pay (arrears) yet, so a change may not reach a month whose payroll is
- * already approved or locked: it would silently differ from what was paid.
+ * A change may not reach a month whose payroll is being prepared (a draft, a
+ * run under review, or approved but not locked): that run would differ from
+ * what is approved. Months already locked are fine (4.8b): the difference is
+ * paid as arrears in a later run.
  */
 async function assertPayrollOpen(effectiveFrom: string, employeeIds: string[], names: Map<string, string>) {
-  const until = await repository.findFinalisedUntil(employeeIds);
+  const until = await repository.findOpenRunUntil(employeeIds);
   const conflicts = finalisedConflicts(effectiveFrom, until, employeeIds);
   if (!conflicts.size) return;
   const [, lastPaid] = [...conflicts.entries()].sort((a, b) => b[1].localeCompare(a[1]))[0];
@@ -426,9 +427,9 @@ async function assertPayrollOpen(effectiveFrom: string, employeeIds: string[], n
   const who = [...conflicts.keys()].slice(0, 3).map((id) => names.get(id) ?? "an employee").join(", ");
   const more = conflicts.size > 3 ? ` and ${conflicts.size - 3} more` : "";
   throw new UserFacingError(
-    `Payroll is already approved for ${who}${more} up to ${formatBSDate(new Date(`${lastPaid}T00:00:00`), "long")}` +
-      `. Choose an effective date from ${formatBSDate(new Date(`${open}T00:00:00`), "long")} (${open}) or later; ` +
-      `back pay for earlier months (arrears) comes with the payroll run redesign.`
+    `Payroll is being prepared for ${who}${more} up to ${formatBSDate(new Date(`${lastPaid}T00:00:00`), "long")}` +
+      `. Lock or discard that run first, or choose an effective date from ${formatBSDate(new Date(`${open}T00:00:00`), "long")} (${open}) or later. ` +
+      `Months already locked are paid as arrears.`
   );
 }
 

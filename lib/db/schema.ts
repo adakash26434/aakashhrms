@@ -1126,6 +1126,31 @@ export const overtimeEntries = pgTable('overtime_entries', {
   statusIdx: index('overtime_entries_status_idx').on(t.status),
 }));
 
+/**
+ * 4.8b: one row per source month on an arrears payslip: what the locked regular payslip
+ * paid, what is due with the revision or attendance now in force, and the difference. The
+ * LOCKED items of a month are added to "paid" when the next difference is worked out, so a
+ * month is never paid twice.
+ */
+export const arrearsItems = pgTable('arrears_items', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // salary | attendance
+  calendar: varchar('calendar', { length: 2 }).notNull(),
+  periodYear: integer('period_year').notNull(),
+  periodMonth: integer('period_month').notNull(),
+  sourceSlipId: uuid('source_slip_id').references(() => payrollSlips.id, { onDelete: 'set null' }),
+  sourceRef: varchar('source_ref', { length: 80 }).notNull(),
+  paid: jsonb('paid').$type<import('@/lib/types/payroll-run').ArrearsComponents>().notNull(),
+  due: jsonb('due').$type<import('@/lib/types/payroll-run').ArrearsComponents>().notNull(),
+  diff: jsonb('diff').$type<import('@/lib/types/payroll-run').ArrearsComponents>().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  employeePeriodIdx: index('arrears_items_employee_period_idx').on(t.employeeId, t.calendar, t.periodYear, t.periodMonth),
+  slipIdx: index('arrears_items_slip_idx').on(t.payrollSlipId),
+}));
+
 /** 4.5: an attendance month per branch (BS now, AD with 4.8): open, or closed for payroll. */
 export const attendancePeriods = pgTable('attendance_periods', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
@@ -1375,6 +1400,8 @@ export const payrollSlips = pgTable('payroll_slips', {
   fundDetail: jsonb('fund_detail').$type<import('@/lib/types/payroll').FundLine[]>(),
   // 4.8b: how the income tax was projected (year to date, remaining months, annual tax).
   taxDetail: jsonb('tax_detail').$type<import('@/lib/types/payroll').TaxDetail>(),
+  // 4.8b: an arrears payslip's source months (paid, due, difference per component).
+  arrearsDetail: jsonb('arrears_detail').$type<import('@/lib/types/payroll-run').ArrearsMonthLine[]>(),
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),

@@ -132,7 +132,7 @@ export function usePayrollLock(data: SalaryStructureData) {
     const conflicts = finalisedConflicts(effectiveFrom, data.finalisedUntil, employeeIds);
     if (!conflicts.size) return null;
     const open = earliestOpenDate(data.finalisedUntil, [...conflicts.keys()]);
-    return `Payroll is already approved up to ${dateText([...conflicts.values()].sort().pop()!)} for ${conflicts.size === 1 ? "this employee" : `${conflicts.size} employees`}: choose ${dateText(open)} or later (back pay comes with the payroll run redesign).`;
+    return `Payroll is being prepared up to ${dateText([...conflicts.values()].sort().pop()!)} for ${conflicts.size === 1 ? "this employee" : `${conflicts.size} employees`}: lock or discard that run first, or choose ${dateText(open)} or later. Months already locked are paid as arrears.`;
   };
 }
 

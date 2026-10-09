@@ -849,6 +849,34 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     }
   }
 
+  // Arrears (4.8b, migration 0058): one row per source month on an arrears payslip. Additive.
+  for (const q of [
+    `CREATE TABLE IF NOT EXISTS "arrears_items" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "payroll_slip_id" uuid NOT NULL REFERENCES "payroll_slips"("id") ON DELETE CASCADE,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
+  "kind" varchar(12) NOT NULL,
+  "calendar" varchar(2) NOT NULL,
+  "period_year" integer NOT NULL,
+  "period_month" integer NOT NULL,
+  "source_slip_id" uuid REFERENCES "payroll_slips"("id") ON DELETE SET NULL,
+  "source_ref" varchar(80) NOT NULL,
+  "paid" jsonb NOT NULL,
+  "due" jsonb NOT NULL,
+  "diff" jsonb NOT NULL,
+  "created_at" timestamp DEFAULT now() NOT NULL
+)`,
+    `CREATE INDEX IF NOT EXISTS "arrears_items_employee_period_idx" ON "arrears_items" ("employee_id", "calendar", "period_year", "period_month")`,
+    `CREATE INDEX IF NOT EXISTS "arrears_items_slip_idx" ON "arrears_items" ("payroll_slip_id")`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "arrears_detail" jsonb`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] arrears 0058:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

@@ -12,6 +12,7 @@ import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as payrollService from "@/lib/services/payroll.service";
+import * as arrearsService from "@/lib/services/arrears.service";
 import { overtimeWaitingFor } from "@/lib/services/attendance.service";
 import { getDb } from "@/lib/db";
 import { leaveApplications } from "@/lib/db/schema";
@@ -248,6 +249,19 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     occasionalAllowanceHeadIds: ids(r.occasionalAllowanceHeadIds),
     payslipDate,
     recreateIfExists: r.recreateIfExists === true,
+    picks: Array.isArray(r.picks)
+      ? r.picks
+          .map((p) => {
+            const x = (p && typeof p === "object" ? p : {}) as { employeeId?: unknown; months?: unknown };
+            const months = (Array.isArray(x.months) ? x.months : [])
+              .map((m) => (m && typeof m === "object" ? m : {}) as { calendar?: unknown; year?: unknown; month?: unknown; kind?: unknown })
+              .filter((m) => Number.isInteger(Number(m.year)) && Number.isInteger(Number(m.month)))
+              .map((m) => ({ calendar: (m.calendar === "AD" ? "AD" : "BS") as "BS" | "AD", year: Number(m.year), month: Number(m.month), kind: (m.kind === "attendance" ? "attendance" : "salary") as "salary" | "attendance" }));
+            return typeof x.employeeId === "string" && months.length ? { employeeId: x.employeeId, months } : null;
+          })
+          .filter((p): p is NonNullable<typeof p> => !!p)
+          .slice(0, 500)
+      : undefined,
   };
 }
 
@@ -264,13 +278,15 @@ async function scopedEmployees(input: NewRunInput) {
   );
 }
 
-/** Pre-flight for a run that does not exist yet (the New run window's Check). */
-export async function checkNewRun(raw: unknown): Promise<PreflightResult> {
+/** Pre-flight for a run that does not exist yet (the New run window's Check). An arrears run also lists its candidates (scope applied). */
+export async function checkNewRun(raw: unknown, scope?: ScopeFilter): Promise<PreflightResult> {
   const calendar = (await runRepo.findSettings()).calendar;
   const input = cleanInput(raw, calendar);
   const period = periodFor(calendar, input.payPeriodYear, input.payPeriodMonth);
   const existing = await payrollRepo.findPayrollRunByPeriodAndBranch({ calendar, payPeriodMonth: input.payPeriodMonth, payPeriodYear: input.payPeriodYear, branchIds: input.branchIds, runType: input.runType });
-  return preflightFor(period, input, { existing, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds) });
+  const arrears = input.runType === "ARREARS" && scope ? await arrearsService.candidates(scope, input) : undefined;
+  const result = await preflightFor(period, input, { existing, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds), arrearsCandidates: arrears ? arrears.filter((c) => !c.blocked).length : null });
+  return arrears ? { ...result, arrears } : result;
 }
 
 async function festivalHeadCount(ids: string[]): Promise<number> {
@@ -279,7 +295,7 @@ async function festivalHeadCount(ids: string[]): Promise<number> {
   return heads.filter((h) => ids.includes(h.id) && h.flags.isFestivalAllowance).length;
 }
 
-async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number }): Promise<PreflightResult> {
+async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number; arrearsCandidates?: number | null }): Promise<PreflightResult> {
   const today = nepalDateIso();
   const full: NewRunInput = { ...input, payPeriodYear: period.year, payPeriodMonth: period.month, occasionalAllowanceHeadIds: [], payslipDate: null };
   const people = await scopedEmployees(full);
@@ -331,6 +347,7 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
   return preflight({
     runType: input.runType,
     festivalHeads: opts.festivalHeads,
+    arrearsCandidates: opts.arrearsCandidates ?? null,
     period: { year: period.year, month: period.month, label: period.label, start: period.start, end: period.end },
     today,
     branches: input.branchIds.map((id) => ({ id, name: branches.find((b) => b.id === id)?.name ?? id, closed: closed.has(id) })),
@@ -362,9 +379,14 @@ export async function checkRun(runId: string): Promise<PreflightResult> {
  */
 export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: PayrollRun; preflight: PreflightResult }> {
   const input = cleanInput(raw, (await runRepo.findSettings()).calendar);
-  const check = await checkNewRun(raw);
+  const check = await checkNewRun(raw, ctx.scope);
   const blocking = check.problems.filter((p) => p.severity === "blocking" && !(input.recreateIfExists && p.code === "run_exists"));
   if (blocking.length) throw new UserFacingError(blocking.length === 1 ? blocking[0].text : `${blocking.length} problems stop this run. Fix them first (the list is in the window).`);
+  if (input.runType === "ARREARS") {
+    const run = await arrearsService.generateArrearsRun(input, ctx);
+    await refreshVariance(run.id);
+    return { run, preflight: check };
+  }
   const run = await payrollService.generatePayrollRun(
     {
       payPeriodMonth: input.payPeriodMonth,

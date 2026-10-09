@@ -404,6 +404,22 @@ export async function findFinalisedUntil(employeeIds: string[] | null): Promise<
   return Object.fromEntries(rows.map((r) => [r.employeeId, String(r.until).slice(0, 10)]));
 }
 
+/**
+ * Per employee, the latest pay period end with a payslip in a regular run still being prepared
+ * (draft, under review or approved but not locked): a change into those months waits (4.8b;
+ * locked months are paid as arrears).
+ */
+export async function findOpenRunUntil(employeeIds: string[] | null): Promise<Record<string, string>> {
+  if (employeeIds && !employeeIds.length) return {};
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, until: sql<string>`max(${payrollRuns.payPeriodEndDate})::text` })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollRuns.status, ["DRAFT", "UNDER_REVIEW", "APPROVED"]), eq(payrollRuns.runType, "REGULAR"), employeeIds ? inArray(payrollSlips.employeeId, employeeIds) : undefined))
+    .groupBy(payrollSlips.employeeId);
+  return Object.fromEntries(rows.map((r) => [r.employeeId, String(r.until).slice(0, 10)]));
+}
+
 /** Draft or in-review payroll months (BS) that include these employees and end on or after a date: they need recalculating. */
 export async function findOpenRunsFrom(effectiveFrom: string, employeeIds: string[]): Promise<{ month: number; year: number }[]> {
   if (!employeeIds.length) return [];

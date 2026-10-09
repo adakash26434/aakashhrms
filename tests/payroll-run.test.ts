@@ -242,7 +242,7 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
 
   it('a run is generated only after pre-flight, and submitted only with the month closed and every flag acknowledged', () => {
     const run = read('lib/services/payroll-run.service.ts');
-    assert.match(run, /export async function generate[\s\S]*?checkNewRun\(raw\)[\s\S]*?severity === "blocking"[\s\S]*?throw new UserFacingError/);
+    assert.match(run, /export async function generate[\s\S]*?checkNewRun\(raw, ctx\.scope\)[\s\S]*?severity === "blocking"[\s\S]*?throw new UserFacingError/);
     assert.match(run, /export async function submit[\s\S]*?checkRun\(runId\)[\s\S]*?refreshVariance\(runId\)[\s\S]*?varianceOpen\(v\)[\s\S]*?throw new UserFacingError/);
   });
 });

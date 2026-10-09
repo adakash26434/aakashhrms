@@ -63,6 +63,8 @@ export interface PreflightInput {
   today: string;
   /** Festival heads chosen for a bonus run. */
   festivalHeads: number;
+  /** Arrears run: employees with a difference to pay (null: not an arrears run). */
+  arrearsCandidates?: number | null;
   /** The branches chosen, with whether their attendance month is closed. */
   branches: { id: string; name: string; closed: boolean }[];
   employees: PreflightEmployee[];
@@ -87,13 +89,16 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export function preflight(input: PreflightInput): PreflightResult {
   const p: PreflightProblem[] = [];
   const add = (code: string, severity: PreflightProblem["severity"], text: string, extra: Partial<PreflightProblem> = {}) => p.push({ code, severity, text, ...extra });
+  const regular = input.runType === "REGULAR";
+  const bonus = input.runType === "FESTIVAL_BONUS";
+  const arrears = input.runType === "ARREARS";
 
-  if (input.period.end >= input.today) add("month_not_ended", "blocking", `${input.period.label} has not ended yet: a month is paid after its last day.`);
+  // Arrears are paid in the month they are decided, ended or not.
+  if (!arrears && input.period.end >= input.today) add("month_not_ended", "blocking", `${input.period.label} has not ended yet: a month is paid after its last day.`);
+  if (arrears && input.arrearsCandidates === 0) add("no_arrears", "blocking", "Nobody in the scope has a locked month that differs from what is due now (a back-dated revision approved after the lock, or attendance closed again).");
   if (!input.activeFiscalYear) add("no_fiscal_year", "blocking", "No active fiscal year. Set one in Company setup → Fiscal years.", { href: "/setup/fiscal-year" });
   else if (!input.slabCount) add("no_tax_slabs", "blocking", `No income tax slabs for ${input.activeFiscalYear.label}. Add them in Setup → Tax rates.`, { href: "/setup/tax-rates" });
 
-  const regular = input.runType === "REGULAR";
-  const bonus = input.runType === "FESTIVAL_BONUS";
   const locked = input.existingRuns.find((r) => r.status === "LOCKED");
   if (regular && locked) add("run_locked", "blocking", `${input.period.label} is already paid (a locked run exists) for one of these branches.`);
   else if (regular && input.existingRuns.length) add("run_exists", "blocking", `A run for ${input.period.label} already exists for these branches. Open it, or discard it and generate again.`);
@@ -109,7 +114,7 @@ export function preflight(input: PreflightInput): PreflightResult {
   if (input.pendingSalaryChanges) add("pending_salary", "blocking", `${plural(input.pendingSalaryChanges, "salary change")} waiting for approval would apply to ${input.period.label}. Decide ${input.pendingSalaryChanges === 1 ? "it" : "them"} first.`, { href: "/workforce/salary-mapping?tab=approvals" });
 
   if (!input.employees.length) add("no_employees", "blocking", "Nobody in the chosen scope was employed this month.");
-  for (const e of input.employees) {
+  for (const e of arrears ? [] : input.employees) {
     const about = { employeeId: e.id, employeeName: e.name };
     if (e.salary === "none") add("no_salary", "blocking", `${e.name} (${e.code}) has no salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
     else if (regular && e.salary === "setup") add("salary_setup", "blocking", `${e.name} (${e.code}) has only basic and grade: finish the salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });

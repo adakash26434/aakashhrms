@@ -13,14 +13,16 @@ import { checkNewRunAction, generateRunAction, savePayrollRunSettingsAction } fr
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import { RUN_TYPE_LABEL } from "@/lib/engines/pay-calendar.engine";
 import type { ApprovalPolicy, ApprovalType } from "@/lib/types/approval";
-import type { NewRunInput, PayrollRunsPageData, PreflightResult, RunType } from "@/lib/types/payroll-run";
+import type { ArrearsCandidate, NewRunInput, PayrollRunsPageData, PreflightResult, RunType } from "@/lib/types/payroll-run";
 
 const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** The kinds of run the New run window offers in b1 (arrears and final settlement come with b2 / b3). */
 const NEW_RUN_TYPES: { value: RunType; help: string }[] = [
   { value: "REGULAR", help: "The month's pay from attendance and the salary structures." },
   { value: "FESTIVAL_BONUS", help: "Only the festival allowance (Dashain), beside the regular run; taxed once." },
+  { value: "ARREARS", help: "Differences for months already paid: a back-dated revision, or attendance corrected after the lock." },
 ];
+const money = (v: string | number) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 import { cn } from "@/lib/utils";
 import { ProblemList } from "./payroll-run-workspace";
 
@@ -81,6 +83,8 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
   const [checking, setChecking] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<PreflightResult | null>(null);
+  // Arrears: the employee-months ticked (all by default, blocked ones never).
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const checkRef = useRef<HTMLButtonElement>(null);
   const set = <K extends keyof NewRunInput>(k: K, v: NewRunInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -92,7 +96,13 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
   }, [data.suggested.year]);
   const months = (data.calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN).slice(1).map((m, i) => ({ value: String(i + 1), label: m }));
   const bonus = form.runType === "FESTIVAL_BONUS";
+  const arrears = form.runType === "ARREARS";
   const festivalOptions = data.occasionalAllowances.filter((a) => a.isFestivalAllowance);
+  const keyOf = (c: ArrearsCandidate, l: ArrearsCandidate["lines"][number]) => `${c.employeeId}|${l.calendar}|${l.year}|${l.month}`;
+  const picks = (): NewRunInput["picks"] =>
+    (result?.arrears ?? [])
+      .map((c) => ({ employeeId: c.employeeId, months: c.lines.filter((l) => picked.has(keyOf(c, l))).map((l) => ({ calendar: l.calendar, year: l.year, month: l.month, kind: l.kind })) }))
+      .filter((p) => p.months.length);
   const employees = useMemo(
     () => data.employees.filter((e) => form.branchIds.includes(e.branchId) && (!form.departmentIds.length || form.departmentIds.includes(e.departmentId)) && (!form.designationIds.length || form.designationIds.includes(e.designationId)) && (!form.employeeCategories.length || form.employeeCategories.includes(e.category))),
     [data.employees, form.branchIds, form.departmentIds, form.designationIds, form.employeeCategories]
@@ -112,11 +122,12 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     }
     setErrors({});
     setResult(r.data ?? null);
+    setPicked(new Set((r.data?.arrears ?? []).filter((c) => !c.blocked).flatMap((c) => c.lines.map((l) => keyOf(c, l)))));
   };
   const generate = async () => {
     setGenerating(true);
     setFailure(null);
-    const r = await generateRunAction(form);
+    const r = await generateRunAction(arrears ? { ...form, picks: picks() } : form);
     setGenerating(false);
     if (!r.success) {
       setErrors(r.validationErrors ?? {});
@@ -126,6 +137,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     onGenerated(r.data!.runId, result?.employees ?? employees.length);
   };
   const busy = checking || generating;
+  const nothingPicked = arrears && !picks()?.length;
 
   return (
     <Window
@@ -142,7 +154,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
           <WindowButton ref={checkRef} onClick={check} disabled={busy}>
             {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Check
           </WindowButton>
-          <WindowButton variant="primary" onClick={generate} disabled={busy || blocking === null || blocking > 0}>
+          <WindowButton variant="primary" onClick={generate} disabled={busy || blocking === null || blocking > 0 || nothingPicked}>
             {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Generate
           </WindowButton>
         </>
@@ -224,6 +236,46 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               ) : (
                 <ProblemList result={result} compact />
               )}
+            </div>
+          )}
+          {result?.arrears && result.arrears.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Months with a difference to pay</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-line text-left text-2xs text-ink-muted">
+                    <th className="w-6 py-1" />
+                    <th className="py-1 pr-2 font-medium">Employee</th>
+                    <th className="py-1 pr-2 font-medium">Month</th>
+                    <th className="py-1 pr-2 font-medium">Why</th>
+                    <th className="py-1 pr-2 text-right font-medium">Paid</th>
+                    <th className="py-1 pr-2 text-right font-medium">Due</th>
+                    <th className="py-1 text-right font-medium">Difference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.arrears.flatMap((c) =>
+                    c.lines.map((l, i) => {
+                      const key = keyOf(c, l);
+                      const diff = Number(l.diff.grossEarnings);
+                      return (
+                        <tr key={key} className={cn("border-b border-line last:border-0", c.blocked && "text-ink-faint")}>
+                          <td className="py-1">
+                            <input type="checkbox" className="h-3.5 w-3.5 accent-brand" checked={picked.has(key)} disabled={!!c.blocked} onChange={(e) => setPicked((s) => { const n = new Set(s); if (e.target.checked) n.add(key); else n.delete(key); return n; })} aria-label={`${c.employeeName} ${l.label}`} />
+                          </td>
+                          <td className="py-1 pr-2">{i === 0 ? <span className="font-medium text-ink">{c.employeeName} <span className="font-code text-3xs text-ink-faint">{c.employeeCode}</span>{c.blocked && <span className="block text-3xs text-warning">{c.blocked}</span>}</span> : ""}</td>
+                          <td className="py-1 pr-2">{l.label}</td>
+                          <td className="py-1 pr-2 text-ink-muted">{l.kind === "salary" ? "Salary revision" : "Attendance corrected"}</td>
+                          <td className="py-1 pr-2 text-right tabular-nums">{money(l.paid.grossEarnings)}</td>
+                          <td className="py-1 pr-2 text-right tabular-nums">{money(l.due.grossEarnings)}</td>
+                          <td className={cn("py-1 text-right font-medium tabular-nums", diff < 0 ? "text-danger" : "text-ink")}>{diff < 0 ? "−" : "+"}{money(Math.abs(diff))}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+              <p className="mt-1 text-3xs text-ink-faint">Gross differences; retirement contributions and CIT follow, income tax is worked out once on the arrears. Untick a month to leave it for later.</p>
             </div>
           )}
         </div>

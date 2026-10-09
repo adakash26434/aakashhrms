@@ -109,6 +109,8 @@ export interface PayrollSlip {
   fundDetail?: FundLine[] | null;
   /** 4.8b: how the income tax was projected; null on older slips. */
   taxDetail?: TaxDetail | null;
+  /** 4.8b: an arrears payslip's source months (paid, due, difference). */
+  arrearsDetail?: import('@/lib/types/payroll-run').ArrearsMonthLine[] | null;
   bankAccountNumber: string;
   bankName: string;
   payslipMonth: number | null;

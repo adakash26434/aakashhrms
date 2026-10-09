@@ -61,12 +61,12 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
   const earnings: Line[] = [
     { id: "basic-salary", label: "Basic salary", amount: slip.basicSalary, editable: true },
     ...(Number(slip.gradeAmount) ? [{ id: "grade-amount", label: "Grade", amount: slip.gradeAmount, editable: true }] : []),
-    ...allowances.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null })),
+    ...allowances.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null })),
     { id: "ot-amount", label: "Overtime", amount: slip.otAmount, editable: true, note: slip.otDetail && Math.abs(slip.otDetail.amount - Number(slip.otAmount)) < 0.005 ? describeDetail(slip.otDetail) : null },
     ...(Number(slip.absentDeduction) ? [{ id: "absent-deduction", label: "Unpaid days", amount: `-${slip.absentDeduction}`, editable: true }] : []),
   ].filter((l) => Number(l.amount) !== 0 || l.editable);
   const ded: Line[] = [
-    ...deductions.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null })),
+    ...deductions.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null })),
     ...(Number(slip.tdsThisMonth) ? [{ id: "tds", label: "Income tax", amount: slip.tdsThisMonth }] : []),
     ...(Number(slip.loanDeduction) ? [{ id: "loan-deduction", label: "Loan instalment", amount: slip.loanDeduction, editable: true }] : []),
     ...(slip.fundDetail ?? []).filter((f) => Number(f.employeeAmount)).map((f) => ({ id: `fund-${f.code}`, label: `${f.name} (fund)`, amount: f.employeeAmount, note: Number(f.employerAmount) ? `Employer adds ${Number(f.employerAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : null })),
@@ -136,6 +136,32 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
           <Amount value={slip.totalDeductions} emphasis />
         </div>
       </PaneSection>
+      {slip.arrearsDetail && slip.arrearsDetail.length > 0 && (
+        <PaneSection title="Arrears: the months">
+          <table className="w-full text-2xs">
+            <thead>
+              <tr className="text-left text-ink-muted">
+                <th className="py-0.5 pr-2 font-medium">Month</th>
+                <th className="py-0.5 pr-2 font-medium">Why</th>
+                <th className="py-0.5 pr-2 text-right font-medium">Paid</th>
+                <th className="py-0.5 pr-2 text-right font-medium">Due</th>
+                <th className="py-0.5 text-right font-medium">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slip.arrearsDetail.map((l) => (
+                <tr key={`${l.calendar}-${l.year}-${l.month}`} className="border-t border-line">
+                  <td className="py-0.5 pr-2 text-ink">{l.label}</td>
+                  <td className="py-0.5 pr-2 text-ink-muted">{l.kind === "salary" ? "Salary revision" : "Attendance corrected"}</td>
+                  <td className="py-0.5 pr-2 text-right tabular-nums"><Amount value={l.paid.grossEarnings} /></td>
+                  <td className="py-0.5 pr-2 text-right tabular-nums"><Amount value={l.due.grossEarnings} /></td>
+                  <td className="py-0.5 text-right tabular-nums"><Amount value={l.diff.grossEarnings} emphasis /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </PaneSection>
+      )}
       {slip.taxDetail && slip.taxDetail.method === "ytd" && (
         <PaneSection title="Income tax">
           {(() => {

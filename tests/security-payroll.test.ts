@@ -121,3 +121,42 @@ describe('S35 pay calendar and year-to-date tax (4.8b)', () => {
     assert.match(self, /export async function getMyPayslipDetail[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
   });
 });
+
+describe('S35 arrears (4.8b)', () => {
+  const service = read('lib/services/arrears.service.ts');
+  const runService = read('lib/services/payroll-run.service.ts');
+
+  it('candidates come from the scope only, and the run recomputes them on the server (the screen figures are never trusted)', () => {
+    assert.match(service, /export async function candidates\(scope: ScopeFilter[\s\S]*?buildEmployeeScopeCondition\(scope\)/);
+    assert.match(service, /export async function generateArrearsRun[\s\S]*?const found = await candidates\(ctx\.scope/);
+    assert.match(runService, /export async function checkNewRun\(raw: unknown, scope\?: ScopeFilter\)[\s\S]*?arrearsService\.candidates\(scope, input\)/);
+    assert.match(read('app/actions/payroll-run.actions.ts'), /export async function checkNewRunAction[\s\S]*?service\.checkNewRun\(input, scope\)/);
+  });
+
+  it('a month already paid as arrears counts as paid (locked items only), and an employee-month waits in one run at a time', () => {
+    const repo = read('lib/repositories/arrears.repository.ts');
+    assert.match(repo, /export async function findLockedArrearsItems[\s\S]*?eq\(payrollRuns\.status, "LOCKED"\)/);
+    assert.match(service, /findLockedArrearsItems\(\[slip\.employeeId\]\)[\s\S]*?sumComponents\(\[paidSlip, \.\.\.lockedItems\.map\(\(i\) => i\.diff\)\]\)/);
+    assert.match(service, /const blocked = chosen\.find\(\(c\) => c\.blocked\);\s*if \(blocked\) throw new UserFacingError/);
+  });
+
+  it('a locked payslip is never changed: arrears are a new run of kind ARREARS', () => {
+    assert.match(service, /runType: "ARREARS"/);
+    assert.doesNotMatch(service, /update\(payrollSlips\)/);
+  });
+
+  it('back-dated revisions wait only for runs being prepared; locked months are paid as arrears', () => {
+    const salary = read('lib/services/salary-structure.service.ts');
+    assert.match(salary, /async function assertPayrollOpen[\s\S]*?repository\.findOpenRunUntil\(employeeIds\)/);
+    assert.equal((salary.match(/await assertPayrollOpen\(/g) ?? []).length, 2);
+    const repo = read('lib/repositories/salary-structure.repository.ts');
+    assert.match(repo, /export async function findOpenRunUntil[\s\S]*?inArray\(payrollRuns\.status, \["DRAFT", "UNDER_REVIEW", "APPROVED"\]\), eq\(payrollRuns\.runType, "REGULAR"\)/);
+  });
+
+  it('reopening a month after payroll is locked keeps the reason and is audited as such', () => {
+    const attendance = read('lib/services/attendance.service.ts');
+    assert.match(attendance, /export async function reopenMonth[\s\S]*?const afterLock = \(await repo\.countFinalisedPayrollRuns\(period\.calendar, period\.year, period\.month\)\) > 0;/);
+    assert.match(attendance, /export async function reopenMonth[\s\S]*?reason\.length < 3[\s\S]*?Give a reason for reopening/);
+    assert.match(read('app/actions/attendance.actions.ts'), /event: result\.afterLock \? 'REOPEN_AFTER_LOCK' : 'REOPEN'/);
+  });
+});

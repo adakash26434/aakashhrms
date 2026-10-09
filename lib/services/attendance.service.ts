@@ -1046,7 +1046,7 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
 }
 
 /** Reopens a branch month (reason required); refused once that month's payroll is approved or locked. */
-export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branchId: string }> {
+export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branchId: string; afterLock: boolean }> {
   const r = (raw && typeof raw === "object" ? raw : {}) as { year?: unknown; month?: unknown; branchId?: unknown; reason?: unknown };
   const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 300) : "";
   if (reason.length < 3) throw new AttendanceValidationError({ reason: "Give a reason for reopening" });
@@ -1060,9 +1060,9 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const branchId = typeof r.branchId === "string" ? r.branchId : "";
   if (ctx.scope.scopeType === "DEPARTMENT" || ctx.scope.scopeType === "SELF") throw new UserFacingError("Reopening a month needs a company-wide or branch role.");
   if (ctx.scope.scopeType === "BRANCH" && !ctx.scope.branchIds.includes(branchId)) throw new OutOfScopeError();
-  if ((await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0) {
-    throw new UserFacingError("Payroll for this month is already approved or locked, so its attendance can't be reopened. Corrections will be paid as arrears once the payroll run supports them.");
-  }
+  // Payroll already approved or locked for this month (4.8b): the month may still be corrected;
+  // the locked payslips never change, the difference is paid as arrears in a later run.
+  const afterLock = (await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0;
   const p = (await repo.findPeriods(period.calendar, period.year, period.month)).find((x) => x.branchId === branchId);
   if (!p || p.status !== "closed") throw new UserFacingError("That month is not closed for this branch.");
   const people = (await repo.findEmployees()).filter((e) => e.branchId === branchId);
@@ -1070,7 +1070,7 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const ledger = await monthReopenLines({ period: { calendar: period.calendar, year: period.year, month: period.month, label: period.label, end: period.end }, employeeIds: people.map((e) => e.id), reason, userId: ctx.userId });
   const ok = await repo.reopenPeriod({ periodId: p.id, employeeIds: people.map((e) => e.id), start: period.start, end: period.end, calendar: period.calendar, year: period.year, month: period.month, userId: ctx.userId, reason, ledger });
   if (!ok) throw new UserFacingError("Someone else reopened it a moment ago. Refresh the page.");
-  return { branchId };
+  return { branchId, afterLock };
 }
 
 // ---------------------------------------------------------------------------

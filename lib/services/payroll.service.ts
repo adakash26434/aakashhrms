@@ -139,7 +139,7 @@ const fyDates = (fy: { startDateAD: Date; endDateAD: Date }) => ({ start: new Da
  * left in the year from the pay month on. `excludeRunId` leaves out the run
  * being recalculated (its own slips are never locked, but keep it explicit).
  */
-async function taxInputsFor(employeeIds: string[], fiscalYearId: string, period: PayPeriod, calendar: PeriodCalendar, excludeRunId?: string) {
+export async function taxInputsFor(employeeIds: string[], fiscalYearId: string, period: PayPeriod, calendar: PeriodCalendar, excludeRunId?: string) {
   const fy = await fiscalYearRepository.findFiscalYearById(fiscalYearId);
   if (!fy) throw new Error("The run's fiscal year no longer exists.");
   let remaining = 12;

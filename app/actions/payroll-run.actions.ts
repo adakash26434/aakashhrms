@@ -57,8 +57,8 @@ async function auditSelf(error: unknown, scope: ScopeFilter | null, action: 'EDI
 export async function checkNewRunAction(input: unknown): Promise<Ok<PreflightResult> | Fail> {
   await ensureTenantContext();
   try {
-    await checkPermissionWithScope('ADD', MODULE);
-    return { success: true, data: await service.checkNewRun(input) };
+    const scope = await checkPermissionWithScope('ADD', MODULE);
+    return { success: true, data: await service.checkNewRun(input, scope) };
   } catch (error: unknown) {
     return fail(error, 'payroll.check');
   }
