@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index } from 'drizzle-orm/pg-core';
+import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index, primaryKey } from 'drizzle-orm/pg-core';
 
 
 // -----------------------------------------------------------------------------
@@ -1928,7 +1928,9 @@ export const notices = pgTable('notices', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   title: varchar('title', { length: 200 }).notNull(),
   body: text('body').notNull(),
-  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }), // null = whole company
+  audience: varchar('audience', { length: 12 }).default('company').notNull(), // company | branch | department | employees
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }), // audience 'branch'
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }), // audience 'department'
   publishAd: date('publish_ad').notNull(),
   expiresAd: date('expires_ad'),
   pinned: boolean('pinned').default(false).notNull(),
@@ -1939,6 +1941,15 @@ export const notices = pgTable('notices', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
   publishIdx: index('notices_publish_idx').on(t.status, t.publishAd),
+}));
+
+// Named recipients of an audience 'employees' notice.
+export const noticeRecipients = pgTable('notice_recipients', {
+  noticeId: uuid('notice_id').notNull().references(() => notices.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.noticeId, t.employeeId] }),
+  employeeIdx: index('notice_recipients_employee_idx').on(t.employeeId),
 }));
 
 // -----------------------------------------------------------------------------

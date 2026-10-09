@@ -75,10 +75,16 @@ describe('S37 notices', () => {
   });
 
   it('Home shows a reader only the audience they belong to', () => {
-    assert.match(body(noticeService, 'export async function boardFor('), /audienceFor\(scope\)/);
-    assert.match(body(noticeService, 'export async function boardFor('), /isVisible\(n, today, audience\)/);
-    const audience = body(noticeService, 'async function audienceFor(');
-    assert.match(audience, /scopeType === 'GLOBAL'\) return 'all'/);
-    assert.match(audience, /branchOfEmployee\(scope\.employeeId\)/);
+    assert.match(body(noticeService, 'export async function boardFor('), /readerFor\(scope\)/);
+    assert.match(body(noticeService, 'export async function boardFor('), /isVisible\(\{ \.\.\.n, recipientIds: [^}]*\}, today, reader\)/);
+    const reader = body(noticeService, 'async function readerFor(');
+    assert.match(reader, /scopeType === 'GLOBAL'/);
+    assert.match(reader, /placementOfEmployee\(scope\.employeeId\)/);
+  });
+
+  it('S41 a named-employee notice can only name people inside the poster\'s scope', () => {
+    const save = body(noticeService, 'export async function saveNotice(');
+    assert.match(save, /employeesInScope\(form\.recipientIds, buildEmployeeScopeCondition\(ctx\.scope\)\)/);
+    assert.match(save, /recipientIds\.length !== form\.recipientIds\.length/);
   });
 });

@@ -428,6 +428,13 @@
       "when": 1792118400000,
       "tag": "0060_employee_dossier",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1792204800000,
+      "tag": "0061_notice_audience",
+      "breakpoints": true
     }
   ]
 }

@@ -1319,3 +1319,9 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## Phase G hardening — final gate
 - `npm run build` (webpack, cpus 1) compiles clean with every new route (`/workforce/discipline`, `/workforce/training`, `/workforce/assets`, `/workforce/notices`, `/workforce/promotion`, `/payroll/travel`, `/reports/hr-analytics`, `/self-service/my-*`) and the postbuild standalone copy; the sandbox needed Google Fonts stubbed (network), which CI does not. tsc 0, 1047/1047 tests. Deploy: `scripts/sync-schema.ts` applies migrations 0055–0059 per company; set nothing new in `.env`.
+
+## Login only, employee dossier, notice audiences (branch `feature/employee-dossier-letters`)
+- Home page removed: `/` redirects to `/login` (or the signed-in landing); the login page is one clean card.
+- 4.2c Dossier — migration `0060_employee_dossier`: `employee_qualifications`, `employee_work_history`, `employee_attachments` (+ `employee_document_files.attached_to`), saved inside the employee transaction with the form's new "Qualifications & history" tab; scans use the same upload route and are claimed on save. `tests/employee-dossier.test.ts`.
+- Notice audiences — migration `0061_notice_audience`: `notices.audience` (company | branch | department | employees), `notices.department_id`, `notice_recipients`. Named recipients must be active employees in the poster's scope (S41); a reader sees company notices, their branch / department notices and notices that name them — an administrator does not see other people's individual notices. Form: "Send to" + picker. Verified live: department notice not shown to another department, individual notice only to the named employee (self-service and Home). tsc 0, 1058/1058 tests.
+

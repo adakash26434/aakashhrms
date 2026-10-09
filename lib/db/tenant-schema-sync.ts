@@ -1373,6 +1373,18 @@ ON CONFLICT DO NOTHING`);
           SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
         )`,
   ];
+  // Notice audiences (migration 0061): company | branch | department | named employees.
+  assetNoticeQueries.push(
+    `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "audience" varchar(12) DEFAULT 'company' NOT NULL`,
+    `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE CASCADE`,
+    `UPDATE "notices" SET "audience" = 'branch' WHERE "branch_id" IS NOT NULL AND "audience" = 'company'`,
+    `CREATE TABLE IF NOT EXISTS "notice_recipients" (
+        "notice_id" uuid NOT NULL REFERENCES "notices"("id") ON DELETE CASCADE,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        PRIMARY KEY ("notice_id", "employee_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "notice_recipients_employee_idx" ON "notice_recipients" ("employee_id")`,
+  );
   for (const q of assetNoticeQueries) {
     try {
       await sql.unsafe(q);
