@@ -126,6 +126,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["promotion", "badhuwa", "transfer", "saruwa", "confirmation", "sthayi", "event", "history"],
       },
       {
+        id: "promotion",
+        label: "Promotion ranking",
+        href: "/workforce/promotion",
+        icon: ListChecks,
+        description: "बढुवा composite from का.स.मू., seniority and training",
+        requires: ["PERFORMANCE"],
+        keywords: ["promotion", "badhuwa", "ranking", "seniority", "merit", "composite"],
+      },
+      {
         id: "training",
         label: "Training",
         href: "/workforce/training",

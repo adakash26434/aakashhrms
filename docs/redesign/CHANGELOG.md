@@ -1297,3 +1297,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## Darbandi enforcement (G4 follow-up)
 - `lib/services/darbandi.service.ts` (`checkPlacement`) runs before the employee save and before a lifecycle event is written; `system_config` key `darbandi.enforce` = off | warn | block (default warn), changed on the Recruitment → दरबन्दी tab (RECRUITMENT EDIT, audited). Warnings ride along with the save result (`darbandiWarning` / event `letterWarning`). No migration. Verification: tsc 0, 1022/1022 tests, lint clean (one pre-existing unused-import warning).
+
+## Promotion ranking (G1 / G2 follow-up)
+- `lib/engines/promotion.engine.ts`: composite = का.स.मू. average of the latest N finals × share + seniority in post (since the last applied promotion, else joining; capped) × share + completed training hours (capped) × share − penalty per disciplinary outcome (24 months); weights per company in `system_config` `promotion.weights` (sum 100, default 60/30/10). Ranked per designation, computed on read. Screen `/workforce/promotion` (PERFORMANCE VIEW; weights PERFORMANCE LOCK, audited); "Record promotion" deep-links to `/workforce/lifecycle?new=promotion&employee=…` (EMPLOYEES EDIT; S27 and darbandi apply there). No migration. Verification: tsc 0, 1032/1032 tests, lint clean.
