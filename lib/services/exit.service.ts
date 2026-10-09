@@ -111,6 +111,11 @@ async function caseDetail(row: repo.ExitJoinedRow): Promise<ExitDetail> {
       .sort((a, b) => CLEARANCE_UNITS.findIndex((u) => u.code === a.unit) - CLEARANCE_UNITS.findIndex((u) => u.code === b.unit)),
     blockers: row.status === 'open' ? completionBlockers(states, row.lastWorkingDayAd, today) : [],
     facts: await repo.exitFacts(row.employeeId),
+    settlementRun: await (async () => {
+      const { findRunByExitCase } = await import('@/lib/repositories/settlement.repository');
+      const run = row.status === 'closed' ? await findRunByExitCase(row.id) : null;
+      return run ? { id: run.id, status: run.status } : null;
+    })(),
   };
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, DoorOpen, FileText, Plus, RefreshCw, ShieldAlert } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
@@ -328,6 +329,23 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
         <div className="space-y-4">
           {detail.reason && <p className="text-sm text-ink-muted">Reason: {detail.reason}</p>}
           {detail.status === "cancelled" && <Notice tone="danger">Cancelled: {detail.cancelReason}</Notice>}
+          {detail.status === "closed" && (
+            <p className="text-xs text-ink-muted">
+              Final settlement:{" "}
+              {detail.settlementRun ? (
+                <Link href={`/payroll?run=${detail.settlementRun.id}&tab=run`} className="font-medium text-brand underline-offset-2 hover:underline">
+                  open the payroll run ({detail.settlementRun.status.toLowerCase().replace("_", " ")})
+                </Link>
+              ) : (
+                <>
+                  not prepared yet —{" "}
+                  <Link href="/payroll" className="font-medium text-brand underline-offset-2 hover:underline">
+                    Payroll → New run → Final settlement
+                  </Link>
+                </>
+              )}
+            </p>
+          )}
 
           <div className="rounded-md border border-line bg-surface-sunken p-3 text-xs">
             <p className="mb-1 font-semibold uppercase tracking-wide text-ink-muted">Before clearing</p>

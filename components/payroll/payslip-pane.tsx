@@ -162,6 +162,29 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
           </table>
         </PaneSection>
       )}
+      {slip.settlementDetail && (
+        <PaneSection title="Settlement">
+          <p className="mb-1 text-2xs text-ink-muted">
+            Last working day {slip.settlementDetail.lastWorkingDay} · {slip.settlementDetail.monthsServed} months served
+            {slip.settlementDetail.month === null ? " · the last month was already paid" : slip.settlementDetail.month.unpaidDays ? ` · ${slip.settlementDetail.month.unpaidDays} unpaid days in ${slip.settlementDetail.month.label}` : ""}
+          </p>
+          <dl className="space-y-0.5 text-2xs">
+            {slip.settlementDetail.earnings.map((l, i) => (
+              <div key={`e${i}`} className="flex justify-between gap-2">
+                <dt className="text-ink">{l.label}</dt>
+                <dd className="tabular-nums"><Amount value={l.amount} /></dd>
+              </div>
+            ))}
+            {slip.settlementDetail.deductions.map((l, i) => (
+              <div key={`d${i}`} className="flex justify-between gap-2 text-ink-muted">
+                <dt>{l.label}</dt>
+                <dd className="tabular-nums">−<Amount value={l.amount} /></dd>
+              </div>
+            ))}
+          </dl>
+          {slip.settlementDetail.gratuity.reason && <p className="mt-1 text-3xs text-ink-faint">No gratuity: {slip.settlementDetail.gratuity.reason}.</p>}
+        </PaneSection>
+      )}
       {slip.taxDetail && slip.taxDetail.method === "ytd" && (
         <PaneSection title="Income tax">
           {(() => {

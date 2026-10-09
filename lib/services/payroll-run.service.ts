@@ -13,6 +13,10 @@ import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as payrollService from "@/lib/services/payroll.service";
 import * as arrearsService from "@/lib/services/arrears.service";
+import * as settlementService from "@/lib/services/settlement.service";
+import * as settlementRepo from "@/lib/repositories/settlement.repository";
+import { parseSettlementSettings, validateSettlementSettings } from "@/lib/engines/settlement.engine";
+import type { SettlementSettings, WorkingPeriod } from "@/lib/types/payroll-run";
 import { overtimeWaitingFor } from "@/lib/services/attendance.service";
 import { getDb } from "@/lib/db";
 import { leaveApplications } from "@/lib/db/schema";
@@ -156,9 +160,9 @@ async function openMonthsOf(run: Pick<PayrollRun, "calendar" | "payPeriodYear" |
 }
 
 /** Everything the Payroll page shows: the runs, the selected run with its payslips, settings and the lists for a new run. */
-export async function pageData(ctx: RunCtx, selectedRunId: string | null): Promise<PayrollRunsPageData> {
+export async function pageData(ctx: RunCtx, selectedRunId: string | null, workingPeriod: WorkingPeriod | null = null): Promise<PayrollRunsPageData> {
   const today = nepalDateIso();
-  const [runs, settings, approvers, branches, departments, designations, employees, payHeads] = await Promise.all([
+  const [runs, settings, approvers, branches, departments, designations, employees, payHeads, exitCases, settlement] = await Promise.all([
     payrollRepo.findAllPayrollRuns(),
     runRepo.findSettings(),
     runRepo.findApprovers(),
@@ -167,6 +171,8 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null): Promi
     designationRepository.findAllDesignations(),
     employeeRepository.findAll({ search: "", branchId: "all", departmentId: "all", category: "all", status: "Active" }),
     payHeadRepository.findAllPayHeads(),
+    settlementService.closedCases(ctx.scope),
+    settlementRepo.getSettlementSettings(),
   ]);
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? "";
   const timeline = await runRepo.findTimeline(runs.map((r) => r.id));
@@ -185,7 +191,13 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null): Promi
   }
   const calendar = settings.calendar;
   const latest = sorted.find((r) => r.runType === "REGULAR" && r.calendar === calendar);
-  const suggested = latest ? shiftPeriod(periodFor(calendar, latest.payPeriodYear, latest.payPeriodMonth), 1) : shiftPeriod(periodContaining(calendar, today), -1);
+  // The working period (title bar) wins; else the month after the last regular run; else last month.
+  const suggested =
+    workingPeriod && workingPeriod.calendar === calendar
+      ? { year: workingPeriod.year, month: workingPeriod.month }
+      : latest
+        ? shiftPeriod(periodFor(calendar, latest.payPeriodYear, latest.payPeriodMonth), 1)
+        : shiftPeriod(periodContaining(calendar, today), -1);
   return {
     calendar,
     runs: views,
@@ -201,6 +213,8 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null): Promi
     occasionalAllowances: payHeads.filter((h) => h.flags.isFestivalAllowance || h.flags.isRemoteAllowance).map((h) => ({ id: h.id, name: h.name, isFestivalAllowance: !!h.flags.isFestivalAllowance, isRemoteAllowance: !!h.flags.isRemoteAllowance })),
     allPayHeads: payHeads.map((h) => ({ id: h.id, name: h.name, code: h.code, type: h.type as "allowance" | "deduction" })),
     suggested: { year: suggested.year, month: suggested.month },
+    exitCases,
+    settlement,
     today,
     currentUserId: ctx.userId,
     myEmployeeId: ctx.scope.employeeId,
@@ -234,7 +248,11 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     }
   }
   const branchIds = ids(r.branchIds);
-  if (!branchIds.length) errors.branchIds = "Choose at least one branch";
+  if (!branchIds.length && runType !== "FINAL_SETTLEMENT") errors.branchIds = "Choose at least one branch";
+  const exitCaseId = typeof r.exitCaseId === "string" && r.exitCaseId ? r.exitCaseId : null;
+  if (runType === "FINAL_SETTLEMENT" && !exitCaseId) errors.exitCaseId = "Choose the exit case";
+  const notice = Number(r.noticeRecovery ?? 0);
+  if (!Number.isFinite(notice) || notice < 0) errors.noticeRecovery = "An amount, 0 or more";
   const payslipDate = typeof r.payslipDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.payslipDate) ? r.payslipDate : null;
   if (Object.keys(errors).length) throw new RunValidationError(errors);
   return {
@@ -249,6 +267,8 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     occasionalAllowanceHeadIds: ids(r.occasionalAllowanceHeadIds),
     payslipDate,
     recreateIfExists: r.recreateIfExists === true,
+    exitCaseId,
+    noticeRecovery: notice > 0 ? String(notice) : "0",
     picks: Array.isArray(r.picks)
       ? r.picks
           .map((p) => {
@@ -285,7 +305,9 @@ export async function checkNewRun(raw: unknown, scope?: ScopeFilter): Promise<Pr
   const period = periodFor(calendar, input.payPeriodYear, input.payPeriodMonth);
   const existing = await payrollRepo.findPayrollRunByPeriodAndBranch({ calendar, payPeriodMonth: input.payPeriodMonth, payPeriodYear: input.payPeriodYear, branchIds: input.branchIds, runType: input.runType });
   const arrears = input.runType === "ARREARS" && scope ? await arrearsService.candidates(scope, input) : undefined;
-  const result = await preflightFor(period, input, { existing, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds), arrearsCandidates: arrears ? arrears.filter((c) => !c.blocked).length : null });
+  const settlement = input.runType === "FINAL_SETTLEMENT" && scope ? await settlementService.preview(input.exitCaseId, input.noticeRecovery, { scope, userId: scope.userId }) : undefined;
+  const result = await preflightFor(period, input, { existing, settlement: input.runType === "FINAL_SETTLEMENT" ? { ready: !!settlement, blocked: settlement?.blocked ?? null } : null, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds), arrearsCandidates: arrears ? arrears.filter((c) => !c.blocked).length : null });
+  if (settlement) return { ...result, settlement };
   return arrears ? { ...result, arrears } : result;
 }
 
@@ -295,7 +317,7 @@ async function festivalHeadCount(ids: string[]): Promise<number> {
   return heads.filter((h) => ids.includes(h.id) && h.flags.isFestivalAllowance).length;
 }
 
-async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number; arrearsCandidates?: number | null }): Promise<PreflightResult> {
+async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number; arrearsCandidates?: number | null; settlement?: { ready: boolean; blocked: string | null } | null }): Promise<PreflightResult> {
   const today = nepalDateIso();
   const full: NewRunInput = { ...input, payPeriodYear: period.year, payPeriodMonth: period.month, occasionalAllowanceHeadIds: [], payslipDate: null };
   const people = await scopedEmployees(full);
@@ -348,6 +370,7 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
     runType: input.runType,
     festivalHeads: opts.festivalHeads,
     arrearsCandidates: opts.arrearsCandidates ?? null,
+    settlement: opts.settlement ?? null,
     period: { year: period.year, month: period.month, label: period.label, start: period.start, end: period.end },
     today,
     branches: input.branchIds.map((id) => ({ id, name: branches.find((b) => b.id === id)?.name ?? id, closed: closed.has(id) })),
@@ -384,6 +407,11 @@ export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: Payrol
   if (blocking.length) throw new UserFacingError(blocking.length === 1 ? blocking[0].text : `${blocking.length} problems stop this run. Fix them first (the list is in the window).`);
   if (input.runType === "ARREARS") {
     const run = await arrearsService.generateArrearsRun(input, ctx);
+    await refreshVariance(run.id);
+    return { run, preflight: check };
+  }
+  if (input.runType === "FINAL_SETTLEMENT") {
+    const run = await settlementService.generateSettlementRun(input, ctx);
     await refreshVariance(run.id);
     return { run, preflight: check };
   }
@@ -565,8 +593,9 @@ export async function guardSlip(slipId: string, ctx: RunCtx): Promise<PayrollSli
 // ---------------------------------------------------------------------------
 
 /** Approval policy for pay runs (simple or multi-level; never none), the variance threshold and the pay calendar. */
-export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPolicy; thresholdPct: number; calendar: PeriodCalendar }> {
-  const r = (raw && typeof raw === "object" ? raw : {}) as { policy?: unknown; thresholdPct?: unknown; calendar?: unknown };
+export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPolicy; thresholdPct: number; calendar: PeriodCalendar; settlement: SettlementSettings }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { policy?: unknown; thresholdPct?: unknown; calendar?: unknown; settlement?: unknown };
+  const settlement = r.settlement === undefined ? await settlementRepo.getSettlementSettings() : parseSettlementSettings(r.settlement);
   const policy = parsePolicy(r.policy);
   const requested = r.policy && typeof r.policy === "object" ? (r.policy as { type?: unknown }).type : undefined;
   const errors: Record<string, string> = {};
@@ -583,10 +612,12 @@ export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPoli
     const reason = canSwitchCalendar({ openPeriods: await attendanceRepo.countOpenPeriods(current.calendar), unlockedRuns: await runRepo.countUnlockedRuns() });
     if (reason) errors.calendar = reason;
   }
+  Object.assign(errors, validateSettlementSettings(settlement));
   if (Object.keys(errors).length) throw new RunValidationError(errors);
   const thresholdPct = normalizeThreshold(n);
+  await settlementRepo.setSettlementSettings(settlement);
   await Promise.all([runRepo.setApprovalPolicy(policy.type === "none" ? { type: "simple", levels: [] } : policy), runRepo.setThreshold(thresholdPct), calendar !== current.calendar ? runRepo.setCalendar(calendar) : Promise.resolve()]);
-  return { policy, thresholdPct, calendar };
+  return { policy, thresholdPct, calendar, settlement };
 }
 
 /** The current BS month (for the New run window's year list). */

@@ -7,6 +7,7 @@ import { getAttendancePage } from "@/lib/services/attendance.service";
 import { ensureTenantContext } from "@/lib/db";
 import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 import { ATTENDANCE_TABS, type AttendanceTab } from "@/lib/types/attendance";
+import { readWorkingPeriod } from "@/lib/utils/working-period.server";
 
 export const metadata: Metadata = {
   title: "Attendance | AakashHRMS",
@@ -18,6 +19,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   // Attendance follows the user's employee scope (S22).
   const scope = await checkPermissionWithScope("VIEW", "ATTENDANCE");
   const sp = await searchParams;
+  // E1: the title bar's working period is the month when the URL names none.
+  const working = (await readWorkingPeriod()).period;
   const tab: AttendanceTab = (ATTENDANCE_TABS as readonly string[]).includes(sp.tab ?? "") ? (sp.tab as AttendanceTab) : "today";
   const [add, edit, approve, lock, exportAllowed] = await Promise.all([
     hasPermission("ADD", "ATTENDANCE"),
@@ -30,8 +33,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     tab,
     scope,
     userId: scope.userId,
-    year: Number(sp.year) || undefined,
-    month: Number(sp.month) || undefined,
+    year: Number(sp.year) || working?.year || undefined,
+    month: Number(sp.month) || working?.month || undefined,
     branchId: typeof sp.branch === "string" && sp.branch ? sp.branch : undefined,
     permissions: { add, edit, approve, lock, export: exportAllowed, settings: edit && scope.scopeType === "GLOBAL" && !scope.isImpersonation },
     // "Add this network" on the Web clock-in tab.

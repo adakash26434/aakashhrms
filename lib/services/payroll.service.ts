@@ -1391,11 +1391,18 @@ export async function transitionPayrollRun(
         }
       }
 
-      // 3. Synchronize newly added or overridden pay heads into master Salary Mapping
+      // Final settlement (4.8b-3): loans closed, funds and leave paid out, attendance sealed, in this transaction.
+      if (run.runType === "FINAL_SETTLEMENT") {
+        const { applyLock } = await import("@/lib/services/settlement.service");
+        await applyLock(run, tx, actionByUserId);
+      }
+
+      // 3. Synchronize newly added or overridden pay heads into master Salary Mapping (regular runs
+      // only: a bonus, arrears or settlement head is paid once and never belongs to the structure).
       const allDbPayHeads = await tx.select().from(payHeads);
       const payHeadById = new Map(allDbPayHeads.map(p => [p.id, p]));
 
-      for (const slip of slips) {
+      for (const slip of regular ? slips : []) {
         const slipHeads = await tx.select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slip.id));
 
         // Filter for syncable heads: exclude dynamic runtime attendance/statutory calculations

@@ -66,6 +66,8 @@ export interface PayrollRun {
   notes: string | null;
   /** 4.8b: the calendar of pay_period_year / pay_period_month ("BS" | "AD"). */
   calendar: string;
+  /** 4.8b-3: the closed exit case a final settlement run settles. */
+  exitCaseId?: string | null;
   /** 4.8a */
   runType: string;
   approvalType: string | null;
@@ -110,6 +112,7 @@ export interface PayrollSlip {
   /** 4.8b: how the income tax was projected; null on older slips. */
   taxDetail?: TaxDetail | null;
   /** 4.8b: an arrears payslip's source months (paid, due, difference). */
+  settlementDetail?: import('@/lib/types/payroll-run').SettlementDetail | null;
   arrearsDetail?: import('@/lib/types/payroll-run').ArrearsMonthLine[] | null;
   bankAccountNumber: string;
   bankName: string;

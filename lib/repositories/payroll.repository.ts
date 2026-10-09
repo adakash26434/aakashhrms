@@ -100,6 +100,7 @@ export async function createPayrollRun(data: {
   totalSsf: string;
   employeeCount: number;
   generatedBy: string;
+  exitCaseId?: string | null;
 }, tx?: any): Promise<PayrollRun> {
   const client = tx || (await getDb());
   const rows = await client.insert(payrollRuns).values({
@@ -127,6 +128,7 @@ export async function createPayrollRun(data: {
     totalSsf: data.totalSsf,
     employeeCount: data.employeeCount,
     generatedBy: data.generatedBy,
+    exitCaseId: data.exitCaseId ?? null,
   }).returning();
   
   return mapPayrollRun(rows[0]);

@@ -13,6 +13,22 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — 4.8b-3 Payroll run: final settlement; E1 working period
+Branch: `redesign/4.8-payroll`
+
+**Your decisions:** the final settlement is part of 4.8b; the working period (E1) lives in the title bar.
+
+**Changed:**
+- **Final settlement run** (kind Final settlement in New run): pick a closed exit case (Workforce → Exit), optionally a notice period recovery; Check shows the settlement worked out on the server — the last month pro rata from attendance (not paid again when a locked regular run already paid it), home / sick and encashable leave at the last basic salary (§49), the gratuity by the company's rules (§53: 8.33% of basic per month served from 12 months, none for SSF members unless allowed, withheld at 5%), each welfare fund's balance paid out, every active loan closed out, the income tax reconciled for the year (everything taxable now, one month remaining); a net below zero is refused by name. Generate makes a one-slip FINAL_SETTLEMENT run tied to the case (one per case); approval and lock as any run; the **LOCK** closes the loans with a repayment each, posts the fund payouts, pays the leave out in the ledger with a PAID termination leave-salary row and seals the month's attendance for the leaver — all inside the lock transaction. The payslip pane shows a **Settlement** block; the exit case links to its run. Migration 0059.
+- **Payroll settings** gain the settlement rules (gratuity % per month served, months before gratuity, tax withheld %, SSF members too).
+- **Salary-map write-back on lock now for regular runs only** (a bonus, arrears or settlement head never reaches the structure; the earlier test matched the loan loop, not this one).
+- **E1 working period:** a title-bar pill ("Period · Aswin 2083") with previous / next, month, year and This month; kept in a cookie the server validates against the company's pay calendar. Payroll's New run month, Attendance's month (when the URL names none) and the report month start from it.
+- **Docs:** 03 S36, 04 row 4.8 and E1 note, 02 payroll and title-bar sections, CLAUDE.md known debt.
+
+**Verified:** type-check 0 · tests 1059/1059 · eslint clean on the 4.8b-3 files (`payroll.service.ts` 31 and `payroll.repository.ts` 4 pre-existing problems, unchanged) · build exit 0 · browser (Goodlife finance admin, Playwright, after migration 0059): New run → Final settlement shows the Exit case picker ("No closed exit case waits for a settlement"), Generate disabled, Check answers "Choose the exit case"; Settings shows the Final settlement fieldset with 8.33 / 12 / 5 and the SSF checkbox; the title-bar pill read "Period · Aswin 2083", Previous month + Use this period set the cookie to BS:2083-05, New run opened on Bhadra and the Attendance register showed "Bhadra 2083 (2026-08-17 – 2026-09-16, 31 days)", This month reset it; console 0 errors. The generate / lock path of a settlement is covered by the unit tests only (Goodlife has no closed exit case).
+
+---
+
 ## 2026-10-09 — 4.8b-2 Payroll run: arrears
 Branch: `redesign/4.8-payroll`
 

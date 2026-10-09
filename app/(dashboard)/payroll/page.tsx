@@ -4,6 +4,7 @@ import { ensureTenantContext } from "@/lib/db";
 import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
 import { pageData } from "@/lib/services/payroll-run.service";
 import { PayrollRunsClient } from "@/components/payroll/payroll-runs-client";
+import { readWorkingPeriod } from "@/lib/utils/working-period.server";
 
 export const metadata = {
   title: "Payroll | AakashHRMS",
@@ -34,7 +35,8 @@ export default async function PayrollPage({ searchParams }: { searchParams?: Pro
       canApprove: approve && canReview,
       permissions: { generate: add, edit, approve: approve && canReview, lock, delete: del, export: exp, settings: scope.scopeType === "GLOBAL" && !scope.isImpersonation && approve },
     },
-    typeof sp.run === "string" ? sp.run : null
+    typeof sp.run === "string" ? sp.run : null,
+    (await readWorkingPeriod()).period
   );
   return <PayrollRunsClient data={data} initialTab={sp.tab === "run" && data.selected ? "run" : "runs"} />;
 }

@@ -13,7 +13,7 @@ import { checkNewRunAction, generateRunAction, savePayrollRunSettingsAction } fr
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import { RUN_TYPE_LABEL } from "@/lib/engines/pay-calendar.engine";
 import type { ApprovalPolicy, ApprovalType } from "@/lib/types/approval";
-import type { ArrearsCandidate, NewRunInput, PayrollRunsPageData, PreflightResult, RunType } from "@/lib/types/payroll-run";
+import type { ArrearsCandidate, NewRunInput, PayrollRunsPageData, PreflightResult, RunType, SettlementSettings } from "@/lib/types/payroll-run";
 
 const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** The kinds of run the New run window offers in b1 (arrears and final settlement come with b2 / b3). */
@@ -21,6 +21,7 @@ const NEW_RUN_TYPES: { value: RunType; help: string }[] = [
   { value: "REGULAR", help: "The month's pay from attendance and the salary structures." },
   { value: "FESTIVAL_BONUS", help: "Only the festival allowance (Dashain), beside the regular run; taxed once." },
   { value: "ARREARS", help: "Differences for months already paid: a back-dated revision, or attendance corrected after the lock." },
+  { value: "FINAL_SETTLEMENT", help: "One person's last pay from a closed exit case: the month, leave encashment, gratuity, fund payout, loans closed out." },
 ];
 const money = (v: string | number) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 import { cn } from "@/lib/utils";
@@ -97,6 +98,8 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
   const months = (data.calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN).slice(1).map((m, i) => ({ value: String(i + 1), label: m }));
   const bonus = form.runType === "FESTIVAL_BONUS";
   const arrears = form.runType === "ARREARS";
+  const settlement = form.runType === "FINAL_SETTLEMENT";
+  const openCases = data.exitCases.filter((c) => !c.runId);
   const festivalOptions = data.occasionalAllowances.filter((a) => a.isFestivalAllowance);
   const keyOf = (c: ArrearsCandidate, l: ArrearsCandidate["lines"][number]) => `${c.employeeId}|${l.calendar}|${l.year}|${l.month}`;
   const picks = (): NewRunInput["picks"] =>
@@ -137,7 +140,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     onGenerated(r.data!.runId, result?.employees ?? employees.length);
   };
   const busy = checking || generating;
-  const nothingPicked = arrears && !picks()?.length;
+  const nothingPicked = (arrears && !picks()?.length) || (settlement && !form.exitCaseId);
 
   return (
     <Window
@@ -175,18 +178,38 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               ))}
             </div>
           </GridField>
+          {settlement ? (
+            <>
+              <GridField label="Exit case" required error={errors.exitCaseId} span={2} size="lg" help={openCases.length ? "Closed cases without a settlement run (Workforce → Exit)." : "No closed exit case waits for a settlement."}>
+                <Combobox
+                  name="exitCase"
+                  options={openCases.map((c) => ({ value: c.id, label: `${c.employeeName} · ${c.kindName}`, hint: `${c.employeeCode} · last day ${c.lastWorkingDay}` }))}
+                  value={form.exitCaseId ?? ""}
+                  onChange={(v) => set("exitCaseId", v || null)}
+                  placeholder="Choose the person leaving"
+                />
+              </GridField>
+              <GridField label="Notice period recovery" error={errors.noticeRecovery} size="amount" help="NPR to recover for notice not served (0 = none).">
+                <NumberField name="noticeRecovery" value={Number(form.noticeRecovery ?? 0)} min={0} onChange={(v) => set("noticeRecovery", String(v ?? 0))} />
+              </GridField>
+            </>
+          ) : (
           <GridField label="Month" required error={errors.period} size="md">
             <div className="flex gap-2">
               <SelectField name="month" options={months} value={String(form.payPeriodMonth)} onChange={(v) => set("payPeriodMonth", Number(v))} />
               <SelectField name="year" options={years} value={String(form.payPeriodYear)} onChange={(v) => set("payPeriodYear", Number(v))} className="w-24" />
             </div>
           </GridField>
+          )}
           <GridField label="Payslip date" size="date" help="Printed on the payslips; blank = the day they are locked">
             <DateField name="payslipDate" value={form.payslipDate ?? ""} onChange={(v) => set("payslipDate", v || null)} />
           </GridField>
+          {!settlement && (
           <GridField label="Branches" required error={errors.branchIds} span={2} size="lg">
             <PickList label="" items={data.branches} value={form.branchIds} onChange={(v) => set("branchIds", v)} allLabel="none" />
           </GridField>
+          )}
+          {!settlement && (
           <GridField label="Narrow to" span={2} size="lg" help="Leave everything unticked to pay everyone in the branches.">
             <div className="space-y-2">
               <PickList label="Departments" items={data.departments} value={form.departmentIds} onChange={(v) => set("departmentIds", v)} allLabel="all" />
@@ -194,7 +217,8 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               <PickList label="Employment types" items={data.categories.map((c) => ({ id: c, name: c }))} value={form.employeeCategories} onChange={(v) => set("employeeCategories", v)} allLabel="all" />
             </div>
           </GridField>
-          {bonus ? (
+          )}
+          {settlement ? null : bonus ? (
             <GridField label="Festival allowance" required span={2} size="lg" help={festivalOptions.length ? undefined : "No pay head is marked as a festival allowance (Setup → Pay heads)."}>
               <PickList label="" items={festivalOptions.map((a) => ({ id: a.id, name: a.name }))} value={form.occasionalAllowanceHeadIds.filter((id) => festivalOptions.some((a) => a.id === id))} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
             </GridField>
@@ -203,6 +227,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               <PickList label="" items={data.occasionalAllowances.map((a) => ({ id: a.id, name: `${a.name} (${a.isFestivalAllowance ? "festival" : "remote area"})` }))} value={form.occasionalAllowanceHeadIds} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
             </GridField>
           ) : null}
+          {!settlement && (
           <GridField label="Only these people" span={2} size="lg" help="Optional: a few people instead of everyone in the scope (e.g. a missed joiner).">
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-64 flex-1">
@@ -218,10 +243,11 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               })}
             </div>
           </GridField>
+          )}
         </FormGrid>
         <div className="border-t border-line px-4 py-3 text-xs">
           <p className="text-ink-muted">
-            <span className="font-medium text-ink">{employees.length}</span> employee{employees.length === 1 ? "" : "s"} in scope.
+            {settlement ? <span>One person: the settlement is worked out from the exit case.</span> : <><span className="font-medium text-ink">{employees.length}</span> employee{employees.length === 1 ? "" : "s"} in scope.</>}
             {existing && (
               <label className="ml-3 inline-flex cursor-pointer items-center gap-1.5 text-warning">
                 <input type="checkbox" className="h-3.5 w-3.5 accent-brand" checked={!!form.recreateIfExists} onChange={(e) => setForm((f) => ({ ...f, recreateIfExists: e.target.checked }))} />
@@ -236,6 +262,41 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               ) : (
                 <ProblemList result={result} compact />
               )}
+            </div>
+          )}
+          {result?.settlement && (
+            <div className="mt-3">
+              <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-ink-muted">
+                Settlement for {result.settlement.employeeName} · last day {result.settlement.lastWorkingDay} · {result.settlement.monthsServed} months served
+              </p>
+              <table className="w-full text-xs">
+                <tbody>
+                  {result.settlement.earnings.map((l, i) => (
+                    <tr key={`e${i}`} className="border-b border-line">
+                      <td className="py-1 pr-2">{l.label}</td>
+                      <td className="py-1 text-right tabular-nums">{money(l.amount)}</td>
+                    </tr>
+                  ))}
+                  {result.settlement.deductions.map((l, i) => (
+                    <tr key={`d${i}`} className="border-b border-line text-ink-muted">
+                      <td className="py-1 pr-2">{l.label}</td>
+                      <td className="py-1 text-right tabular-nums">−{money(l.amount)}</td>
+                    </tr>
+                  ))}
+                  {Number(result.settlement.tds) > 0 && (
+                    <tr className="border-b border-line text-ink-muted">
+                      <td className="py-1 pr-2">Income tax (the year reconciled)</td>
+                      <td className="py-1 text-right tabular-nums">−{money(result.settlement.tds)}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td className="py-1 pr-2 font-semibold text-ink">Net payable</td>
+                    <td className={cn("py-1 text-right font-semibold tabular-nums", Number(result.settlement.net) < 0 ? "text-danger" : "text-ink")}>{money(result.settlement.net)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              {result.settlement.gratuity.reason && <p className="mt-1 text-3xs text-ink-faint">No gratuity: {result.settlement.gratuity.reason}.</p>}
+              {result.settlement.month === null && <p className="mt-1 text-3xs text-ink-faint">The last month was already paid in a locked run.</p>}
             </div>
           )}
           {result?.arrears && result.arrears.length > 0 && (
@@ -292,6 +353,7 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
   const [policy, setPolicy] = useState<ApprovalPolicy>(initial.policy);
   const [threshold, setThreshold] = useState(initial.thresholdPct);
   const [calendar, setCalendar] = useState<"BS" | "AD">(initial.calendar);
+  const [settlement, setSettlement] = useState<SettlementSettings>(data.settlement);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -304,7 +366,7 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
   };
   const save = async () => {
     setSaving(true);
-    const r = await savePayrollRunSettingsAction({ policy: { type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] }, thresholdPct: threshold, calendar });
+    const r = await savePayrollRunSettingsAction({ policy: { type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] }, thresholdPct: threshold, calendar, settlement });
     setSaving(false);
     if (!r.success) {
       setErrors(r.validationErrors ?? {});
@@ -415,6 +477,28 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
           ))}
         </div>
         <p className="mt-1.5 text-2xs text-ink-muted">Attendance months follow the pay calendar. It changes only between months: every attendance month closed, every run locked or discarded.</p>
+      </fieldset>
+      <fieldset className="mt-4 border-t border-line pt-3">
+        <legend className="mb-1 text-xs font-semibold text-ink">Final settlement</legend>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <label className="block text-2xs text-ink-muted">
+            Gratuity, % of basic per month served {errors.gratuityPctPerMonth && <span className="text-danger">· {errors.gratuityPctPerMonth}</span>}
+            <input type="number" step="0.01" min={0} max={100} className={cn(inputClass, "mt-0.5")} value={settlement.gratuityPctPerMonth} onChange={(e) => setSettlement((s) => ({ ...s, gratuityPctPerMonth: Number(e.target.value) }))} />
+          </label>
+          <label className="block text-2xs text-ink-muted">
+            Months of service before gratuity {errors.gratuityMinMonths && <span className="text-danger">· {errors.gratuityMinMonths}</span>}
+            <input type="number" step="1" min={0} max={120} className={cn(inputClass, "mt-0.5")} value={settlement.gratuityMinMonths} onChange={(e) => setSettlement((s) => ({ ...s, gratuityMinMonths: Number(e.target.value) }))} />
+          </label>
+          <label className="block text-2xs text-ink-muted">
+            Tax withheld on gratuity, % {errors.gratuityWithholdingPct && <span className="text-danger">· {errors.gratuityWithholdingPct}</span>}
+            <input type="number" step="0.01" min={0} max={100} className={cn(inputClass, "mt-0.5")} value={settlement.gratuityWithholdingPct} onChange={(e) => setSettlement((s) => ({ ...s, gratuityWithholdingPct: Number(e.target.value) }))} />
+          </label>
+        </div>
+        <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-ink">
+          <input type="checkbox" className="h-3.5 w-3.5 accent-brand" checked={settlement.gratuityForSsfMembers} onChange={(e) => setSettlement((s) => ({ ...s, gratuityForSsfMembers: e.target.checked }))} />
+          Pay a gratuity to SSF members too (off: the Social Security Fund carries it)
+        </label>
+        <p className="mt-1.5 text-2xs text-ink-muted">Labour Act §53: 8.33% of the basic salary per month served, from one year of service. Leave is encashed at the last basic salary (§49).</p>
       </fieldset>
       {eligible.length === 0 && <p className="mt-3 text-2xs text-warning">No active user can approve pay runs yet. Give a role Payroll review → Approve in Roles.</p>}
       <span className="hidden">

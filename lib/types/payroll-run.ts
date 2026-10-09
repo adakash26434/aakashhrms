@@ -39,6 +39,8 @@ export interface PreflightResult {
   problems: PreflightProblem[];
   /** Kind Arrears: the employees and months with a difference to pay (ticked in the window). */
   arrears?: ArrearsCandidate[];
+  /** Kind Final settlement: the preview for the chosen exit case. */
+  settlement?: SettlementPreview;
   blocking: number;
   warnings: number;
   /** Employees the run would include. */
@@ -150,8 +152,11 @@ export interface PayrollRunsPageData {
   employees: { id: string; name: string; employeeCode: string; branchId: string; departmentId: string; designationId: string; category: string }[];
   occasionalAllowances: { id: string; name: string; isFestivalAllowance: boolean; isRemoteAllowance: boolean }[];
   allPayHeads: { id: string; name: string; code: string; type: "allowance" | "deduction" }[];
-  /** The month a new run would be for: the month after the last regular run, else the month before today's. */
+  /** The month a new run would be for: the working period, else the month after the last regular run, else the month before today's. */
   suggested: { year: number; month: number };
+  /** Closed exit cases in scope (kind Final settlement), with the run that settles them when there is one. */
+  exitCases: { id: string; employeeId: string; employeeName: string; employeeCode: string; lastWorkingDay: string; kindName: string; runId: string | null }[];
+  settlement: SettlementSettings;
   today: string;
   currentUserId: string;
   myEmployeeId: string | null;
@@ -180,6 +185,9 @@ export interface NewRunInput {
   recreateIfExists?: boolean;
   /** Kind Arrears: the source months to pay, per employee. */
   picks?: { employeeId: string; months: { calendar: "BS" | "AD"; year: number; month: number; kind: "salary" | "attendance" }[] }[];
+  /** Kind Final settlement: the closed exit case to settle, and the notice period recovery (NPR). */
+  exitCaseId?: string | null;
+  noticeRecovery?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,5 +252,68 @@ export interface ArrearsCandidate {
   /** Net effect of every line (earnings − deductions). */
   net: string;
   /** Why it cannot be included now (an arrears run already holds it). */
+  blocked: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// 4.8b-3 Final settlement
+// ---------------------------------------------------------------------------
+
+/** E1: the month chosen in the title bar, in the company's pay calendar. */
+export interface WorkingPeriod {
+  calendar: "BS" | "AD";
+  year: number;
+  month: number;
+}
+
+/** Company rules for a leaver's gratuity (Payroll settings, `payroll.settlement`). */
+export interface SettlementSettings {
+  /** Percent of the basic salary per month served (Labour Act §53: 8.33). */
+  gratuityPctPerMonth: number;
+  /** Months of service before any gratuity is due (12). */
+  gratuityMinMonths: number;
+  /** Flat tax withheld on the gratuity (ITA §88: 5). */
+  gratuityWithholdingPct: number;
+  /** Pay a gratuity to SSF members too (off: the fund carries it). */
+  gratuityForSsfMembers: boolean;
+}
+
+export type SettlementLineCode = "MONTH" | "ENCASHMENT" | "GRATUITY" | "FUND_PAYOUT" | "LOAN_CLOSEOUT" | "NOTICE_RECOVERY" | "GRATUITY_TDS";
+
+export interface SettlementFigures {
+  earnings: { code: SettlementLineCode; label: string; amount: string }[];
+  deductions: { code: SettlementLineCode; label: string; amount: string }[];
+  grossEarnings: string;
+  /** Without the income tax (worked out once by the projection). */
+  totalDeductions: string;
+  /** Income taxed through the projection: the month, the encashment, the employer's fund share. */
+  taxableGross: string;
+  /** The part of taxableGross paid once. */
+  oneOffTaxable: string;
+  gratuityWithheld: string;
+}
+
+/** What a settlement payslip settled (kept on the slip; the LOCK posts it). */
+export interface SettlementDetail extends SettlementFigures {
+  exitCaseId: string;
+  lastWorkingDay: string;
+  monthsServed: number;
+  /** The last month's pay, or null when that month was already paid in a locked run. */
+  month: { label: string; calendar: "BS" | "AD"; year: number; month: number; unpaidDays: number; closed: boolean } | null;
+  encashment: { leaveTypeId: string; leaveTypeName: string; days: number; perDay: string; amount: string }[];
+  gratuity: { basic: string; months: number; pct: number; amount: string; reason: string | null };
+  funds: { fundTypeId: string; code: string; name: string; employee: string; employer: string }[];
+  loans: { loanId: string; name: string; remaining: string }[];
+  noticeRecovery: string;
+}
+
+/** The New run window's preview of a settlement (worked out again at generation). */
+export interface SettlementPreview extends SettlementDetail {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  tds: string;
+  net: string;
+  /** Why it cannot be generated now. */
   blocked: string | null;
 }

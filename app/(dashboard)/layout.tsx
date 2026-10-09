@@ -5,6 +5,7 @@ import { DATE_FORMAT_KEY, parseDateFormat } from "@/lib/utils/date-format-pref";
 import { getTenantDb } from "@/lib/db/tenant-pool-manager";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { getWorkspaceContext } from "@/lib/services/workspace-context.service";
+import { readWorkingPeriod } from "@/lib/utils/working-period.server";
 
 import { auth } from "@/lib/auth";
 
@@ -60,7 +61,8 @@ export default async function DashboardLayout({
     redirect("/self-service");
   }
 
-  const context = await getWorkspaceContext();
+  const [base, working] = await Promise.all([getWorkspaceContext(), readWorkingPeriod()]);
+  const context = { ...base, payCalendar: working.calendar, workingPeriod: working.period };
   return (
     <AppFrame context={context} dateFormat={dateFormat}>
       {children}

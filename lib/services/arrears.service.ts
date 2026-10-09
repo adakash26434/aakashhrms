@@ -76,6 +76,30 @@ function masterInput(h: Head): PayHeadInput {
   return toInput({ payHeadId: h.id, payHeadName: h.name, payHeadType: h.type, amount: "0" }, h);
 }
 
+/** The engine's heads for a salary map, with the company's TDS and SSF heads added when the map lacks them (as payroll.service does). Shared with the final settlement (4.8b-3). */
+export function assignedHeadsFor(map: { salaryHeads: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }[] }, all: readonly Head[]): PayHeadInput[] {
+  const flags = flagsOf(all);
+  const assigned = map.salaryHeads.map((h) => toInput(h, flags.byId.get(h.payHeadId)));
+  if (!assigned.some((h) => h.isTdsHead)) {
+    const tds = all.find((h) => h.isTdsHead);
+    if (tds) assigned.push(masterInput(tds));
+  }
+  const hasSsf = assigned.some((h) => h.isSsfHead || h.isSsfEmployerHead || h.name.toLowerCase().includes("ssf"));
+  if (hasSsf) {
+    if (!assigned.some((h) => isSsfEmployerHead(h))) {
+      const m = all.find((h) => isSsfEmployerHead(h));
+      if (m) assigned.push(masterInput(m));
+    }
+    if (!assigned.some((h) => isSsfDeductionHead(h))) {
+      const m = all.find((h) => isSsfDeductionHead(h));
+      if (m) assigned.push(masterInput(m));
+    }
+  }
+  return assigned;
+}
+
+export const findMasterHeads = repo.findMasterHeads;
+
 /**
  * One locked month recomputed with what is in force now: the salary revision
  * at the month's end and the month's closed attendance summary. Loans, funds
@@ -94,22 +118,7 @@ async function recomputeMonth(slip: repo.LockedSlipRow, context: { all: Head[]; 
   if (!emp || !map) return { line: null, kind: null };
   const summary = summaries[0];
   const flags = flagsOf(context.all);
-  const assigned = map.salaryHeads.map((h) => toInput(h, flags.byId.get(h.payHeadId)));
-  if (!assigned.some((h) => h.isTdsHead)) {
-    const tds = context.all.find((h) => h.isTdsHead);
-    if (tds) assigned.push(masterInput(tds));
-  }
-  const hasSsf = assigned.some((h) => h.isSsfHead || h.isSsfEmployerHead || h.name.toLowerCase().includes("ssf"));
-  if (hasSsf) {
-    if (!assigned.some((h) => isSsfEmployerHead(h))) {
-      const m = context.all.find((h) => isSsfEmployerHead(h));
-      if (m) assigned.push(masterInput(m));
-    }
-    if (!assigned.some((h) => isSsfDeductionHead(h))) {
-      const m = context.all.find((h) => isSsfDeductionHead(h));
-      if (m) assigned.push(masterInput(m));
-    }
-  }
+  const assigned = assignedHeadsFor(map, context.all);
   // The close stored the unpaid-day deduction for the basic in force then; rate the days again
   // with the revision in force now (the same formula as the month close).
   const unpaidNow = summary && Number(summary.calendarDays)

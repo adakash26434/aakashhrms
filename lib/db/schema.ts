@@ -1352,6 +1352,8 @@ export const payrollRuns = pgTable('payroll_runs', {
   // 4.8a: the kind of run, the approval flow copied on at submission (approval.engine), who
   // submitted it, and the variance review against the last locked run.
   runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
+  /** 4.8b-3: the closed exit case a FINAL_SETTLEMENT run settles (one run per case). */
+  exitCaseId: uuid('exit_case_id').references(() => exitCases.id, { onDelete: 'set null' }),
   approvalType: varchar('approval_type', { length: 20 }),
   approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
   currentLevel: integer('current_level').default(0).notNull(),
@@ -1402,6 +1404,8 @@ export const payrollSlips = pgTable('payroll_slips', {
   taxDetail: jsonb('tax_detail').$type<import('@/lib/types/payroll').TaxDetail>(),
   // 4.8b: an arrears payslip's source months (paid, due, difference per component).
   arrearsDetail: jsonb('arrears_detail').$type<import('@/lib/types/payroll-run').ArrearsMonthLine[]>(),
+  /** 4.8b-3: what a final settlement payslip settled (the LOCK posts it). */
+  settlementDetail: jsonb('settlement_detail').$type<import('@/lib/types/payroll-run').SettlementDetail>(),
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),

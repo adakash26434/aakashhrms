@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { ReportFilterLookupData } from "@/lib/types/report";
 import { BS_MONTHS_LIST, getTodayBS } from "@/lib/utils/bs-calendar";
+import { useWorkspaceContext } from "@/lib/contexts/workspace-context";
 import { cn } from "@/lib/utils";
 
 export interface ReportFilterState {
@@ -76,7 +77,9 @@ export function ReportFilterBar({
 
   const [payrollRunId, setPayrollRunId] = useState<string>(defaultRun);
   const [fiscalYearId, setFiscalYearId] = useState<string>(defaultFy);
-  const [bsMonth, setBsMonth] = useState<number>(() => getTodayBS().month);
+  // E1: the title bar's working period (BS companies) is the report month to start with.
+  const working = useWorkspaceContext()?.workingPeriod ?? null;
+  const [bsMonth, setBsMonth] = useState<number>(() => (working?.calendar === "BS" ? working.month : getTodayBS().month));
   const [reportType, setReportType] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [reportFormat, setReportFormat] = useState<
     "DEVICE_PUNCH" | "STATUS_MATRIX" | "STATUTORY_SUMMARY"

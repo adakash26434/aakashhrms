@@ -259,6 +259,18 @@ describe('Payroll run: festival bonus pre-flight and steps (4.8b)', () => {
 
   it('only regular runs have a variance step', () => {
     assert.deepEqual(stepsFor('FESTIVAL_BONUS'), ['preflight', 'review', 'approval', 'lock']);
+    assert.deepEqual(stepsFor('FINAL_SETTLEMENT'), ['preflight', 'review', 'approval', 'lock']);
     assert.equal(stepOf({ status: 'DRAFT', runType: 'FESTIVAL_BONUS' }, 3), 'review');
+  });
+});
+
+describe('Payroll run: final settlement pre-flight (4.8b-3)', () => {
+  it('needs a closed exit case; the month need not have ended; the employees in scope are not checked', () => {
+    const none = ready({ runType: 'FINAL_SETTLEMENT', employees: [], today: '2026-10-05', settlement: { ready: false, blocked: null } });
+    assert.deepEqual(codes(preflight(none)), ['no_exit_case']);
+    const okRun = ready({ runType: 'FINAL_SETTLEMENT', employees: [], today: '2026-10-05', settlement: { ready: true, blocked: null } });
+    assert.deepEqual(codes(preflight(okRun)), []);
+    const held = ready({ runType: 'FINAL_SETTLEMENT', employees: [], settlement: { ready: true, blocked: 'Already settled: Aswin 2083 · Final settlement (draft)' } });
+    assert.deepEqual(codes(preflight(held)), ['settlement_blocked']);
   });
 });

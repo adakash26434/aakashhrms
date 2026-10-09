@@ -35,6 +35,8 @@ export interface ExitClearanceView {
 export interface ExitDetail extends ExitListRow {
   clearances: ExitClearanceView[];
   blockers: string[];
+  /** 4.8b-3: the payroll run settling a closed case, when one exists. */
+  settlementRun: { id: string; status: string } | null;
   facts: {
     activeLoans: number;
     loanOutstanding: string;

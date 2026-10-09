@@ -113,6 +113,7 @@ describe('S35 pay calendar and year-to-date tax (4.8b)', () => {
   it('a bonus run reads no attendance, posts no loans and writes nothing back to the salary map', () => {
     assert.match(service, /runType === "REGULAR" \? await attendanceForPayroll\(empIds, period\)/);
     assert.match(service, /const regular = run\.runType === "REGULAR";[\s\S]*?for \(const slip of regular \? slips : \[\]\)/);
+    assert.match(service, /for \(const slip of regular \? slips : \[\]\) \{\s*const slipHeads = await tx\.select\(\)\.from\(payrollSlipHeads\)/);
   });
 
   it('employees see only locked payslips', () => {

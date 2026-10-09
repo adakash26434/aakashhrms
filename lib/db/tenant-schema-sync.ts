@@ -877,6 +877,19 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     }
   }
 
+  // Final settlement (4.8b, migration 0059): the run's exit case and the slip's settlement detail. Additive.
+  for (const q of [
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "exit_case_id" uuid REFERENCES "exit_cases"("id") ON DELETE SET NULL`,
+    `CREATE INDEX IF NOT EXISTS "payroll_runs_exit_case_idx" ON "payroll_runs" ("exit_case_id")`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "settlement_detail" jsonb`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] final settlement 0059:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

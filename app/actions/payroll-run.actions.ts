@@ -5,6 +5,7 @@ import { ensureTenantContext } from '@/lib/db';
 import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
 import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
+import { OwnSettlementError } from '@/lib/services/settlement.service';
 import * as service from '@/lib/services/payroll-run.service';
 import * as payroll from '@/lib/services/payroll.service';
 import { UserFacingError, toActionError, type ActionFailure } from '@/lib/errors/action-error';
@@ -50,7 +51,9 @@ async function ctxFor(action: 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'LOCK' | 'EXP
 }
 
 async function auditSelf(error: unknown, scope: ScopeFilter | null, action: 'EDIT' | 'DELETE' | 'APPROVE', recordId: string) {
-  if (scope && error instanceof service.OwnPayslipError) await recordAuditLog({ userId: scope.userId, action, module: MODULE, recordId, result: DENIED_SELF });
+  if (!scope) return;
+  if (error instanceof service.OwnPayslipError) await recordAuditLog({ userId: scope.userId, action, module: MODULE, recordId, result: DENIED_SELF });
+  if (error instanceof OwnSettlementError) await recordAuditLog({ userId: scope.userId, action, module: MODULE, recordId, result: DENIED_SELF });
 }
 
 /** Pre-flight for a run that is not generated yet (the New run window's Check). */
@@ -58,7 +61,12 @@ export async function checkNewRunAction(input: unknown): Promise<Ok<PreflightRes
   await ensureTenantContext();
   try {
     const scope = await checkPermissionWithScope('ADD', MODULE);
-    return { success: true, data: await service.checkNewRun(input, scope) };
+    try {
+      return { success: true, data: await service.checkNewRun(input, scope) };
+    } catch (error: unknown) {
+      await auditSelf(error, scope, 'EDIT', 'settlement');
+      throw error;
+    }
   } catch (error: unknown) {
     return fail(error, 'payroll.check');
   }
@@ -69,7 +77,10 @@ export async function generateRunAction(input: unknown): Promise<Ok<{ runId: str
   await ensureTenantContext();
   try {
     const ctx = await ctxFor('ADD');
-    const { run } = await service.generate(input, ctx);
+    const { run } = await service.generate(input, ctx).catch(async (error: unknown) => {
+      await auditSelf(error, ctx.scope, 'EDIT', 'settlement');
+      throw error;
+    });
     await recordAuditLog({ userId: ctx.userId, action: 'ADD', module: MODULE, recordId: run.id, result: 'SUCCESS', newValues: { period: `${run.payPeriodYear}-${run.payPeriodMonth}`, employees: run.employeeCount, branches: run.branchIds.length } });
     refresh();
     return { success: true, data: { runId: run.id } };
