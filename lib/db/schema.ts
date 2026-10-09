@@ -1644,3 +1644,48 @@ export const deviceUnmatchedPunches = pgTable('device_unmatched_punches', {
   uniqueUnmatched: unique('device_unmatched_punches_key').on(t.deviceId, t.deviceUserId, t.punchedAt),
   deviceIdx: index('device_unmatched_punches_device_idx').on(t.deviceId, t.receivedAt),
 }));
+
+// -----------------------------------------------------------------------------
+// EXIT WORKFLOW (G5 — docs/redesign/06-hrms-gap-analysis.md)
+// Resignation (राजीनामा), retirement, termination, contract end or death as a
+// case: notice and last working day, a clearance checklist per unit
+// (accounts, IT/admin, branch, HR), then Complete — which, in one
+// transaction, marks the employee Inactive, writes the employee_termination
+// mirror for older readers, and closes the case. The settlement maths stays
+// with payroll (F8); an exit case is the workflow and the record around it.
+// -----------------------------------------------------------------------------
+
+export const exitCases = pgTable('exit_cases', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(), // resignation | retirement | termination | contract_end | death
+  noticeDate: date('notice_date'), // when the resignation / decision was received
+  lastWorkingDayAd: date('last_working_day_ad').notNull(),
+  lastWorkingDayBs: varchar('last_working_day_bs', { length: 20 }).notNull(),
+  reason: text('reason'),
+  status: varchar('status', { length: 10 }).default('open').notNull(), // open | closed | cancelled
+  letterId: uuid('letter_id').references(() => hrLetters.id, { onDelete: 'set null' }), // the experience letter
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+  cancelledBy: uuid('cancelled_by'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+}, (t) => ({
+  employeeIdIdx: index('exit_cases_employee_id_idx').on(t.employeeId),
+  statusIdx: index('exit_cases_status_idx').on(t.status),
+}));
+
+/** One row per clearance unit per case, seeded when the case opens. */
+export const exitClearances = pgTable('exit_clearances', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  exitCaseId: uuid('exit_case_id').references(() => exitCases.id, { onDelete: 'cascade' }).notNull(),
+  unit: varchar('unit', { length: 20 }).notNull(), // accounts | it_admin | branch | hr
+  status: varchar('status', { length: 10 }).default('pending').notNull(), // pending | cleared | blocked
+  note: text('note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+}, (t) => ({
+  oneUnitPerCase: unique('exit_clearances_case_unit_key').on(t.exitCaseId, t.unit),
+}));

@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G5: exit workflow — clearance by unit, completion, experience letter
+Branch: `feature/exit-workflow` (stacked on `feature/performance-evaluation`)
+
+The exit half of the gap analysis's lifecycle: a resignation stops being a free-text row and becomes a case with a checklist.
+
+Changed:
+- **Schema (migration `0052_exit_workflow`, mirrored in `tenant-schema-sync.ts`):** `exit_cases` (kind — राजीनामा / अवकाश / करार समाप्त / termination / death — notice date, last working day BS+AD, status open → closed, or cancelled with a reason) and `exit_clearances` (one row per unit — Accounts · IT/Admin · Branch · HR — seeded when the case opens).
+- **Engine (`exit.engine.ts`, 8 suites):** form rules (active employee, one open case, notice ≤ last working day, ≤ a year ahead), clearance progress, **completion blockers** (every unit cleared + the day arrived — an employee is never switched off while still serving or still owing), blocked-needs-a-note, the `employee_termination` mirror row.
+- **Service / actions (EMPLOYEES RBAC):** Complete is the only step that touches the employee record — **one claim-first transaction**: case closed, employee → Inactive, termination mirror written (older readers and 4.8's settlement keep working). The case window shows **facts before clearing**: active staff loans with the outstanding sum, and the employee's device PINs (G3) to unmap. Experience letter (कार्य अनुभव पत्र) issued on Complete — rendered **before** the employee goes Inactive — gated by HR_LETTERS ADD; the exit stands with a warning if the letter fails. **S31**: nobody opens, clears, completes or cancels their own exit case (audited `DENIED_SELF`).
+- **UI (`/workforce/exit`, template A + C):** register (clearance progress chips, blocked rows tinted), New exit window, case window with the per-unit checklist (Clear / Block with note), blockers list, letter option (नेपाली default) and cancel-with-reason. Navigation: Workforce → Exit.
+
+Verified: `tsc` exit 0 · 913/913 tests (17 new: `exit.engine`, `security-exit`; the workforce navigation expectation now includes Exit) · lint clean on touched files.
+Notes: F8 (settlement maths: pro-rata salary, leave encashment, gratuity, loan close-out) remains payroll Tier 2 and reads the mirror this writes; the self-service resignation request arrives with Phase 5; a separation event kind on `employee_events` can follow once modules read events everywhere.
+
 ## 2026-10-09 — G3: attendance devices — ZKTeco ADMS push, PIN mapping, punch import
 Branch: `feature/performance-evaluation` (stacked)
 

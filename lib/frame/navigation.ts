@@ -126,6 +126,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["evaluation", "kasamu", "performance", "appraisal", "marks", "grade", "mulyankan"],
       },
       {
+        id: "exit",
+        label: "Exit",
+        href: "/workforce/exit",
+        icon: Landmark,
+        description: "Resignations and other exits: clearance, completion, experience letter",
+        requires: ["EMPLOYEES"],
+        keywords: ["exit", "resignation", "rajinama", "retirement", "clearance", "settlement", "offboarding"],
+      },
+      {
         id: "hr-letters",
         label: "HR letters",
         href: "/workforce/letters",
