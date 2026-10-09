@@ -13,6 +13,18 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G4: recruitment & दरबन्दी — approved positions, vacancies, merit list
+Branch: `feature/exit-workflow` (stacked) — **completes Phase G Tier A** (G1 · G2 · G3 · G4 · G5 · G6 all built this cycle).
+
+Changed:
+- **Schema (migration `0053_recruitment`, mirrored in `tenant-schema-sync.ts`):** `approved_positions` (**दरबन्दी**: the board/AGM-approved post count per designation × branch, decision ref, one row per pair — saving the pair again updates it), `vacancies` (openings, deadline, open → closed / cancelled) and `applicants` (contact, education note, stage, exam / interview marks, link to the employee once hired). New `RECRUITMENT` permission module (seeded md5-id rows; System Administrator all, HR Manager VIEW/ADD/EDIT/DELETE; "HR" preset; Roles matrix — now 29 modules on the screen).
+- **Engine (`recruitment.engine.ts`, 8 suites):** stage pipeline (forward freely, one step back as a correction, rejected from anywhere but hired, re-considered → back to applied; **hired never moves** — the employee record is the truth from there), **occupancy** (vacant never negative; over-darbandi shown in red), form rules, marks 0–100 in halves, **merit order** = exam + interview descending with exam breaking ties, computed never stored; incomplete and rejected sit outside the ranking.
+- **Service / actions:** branch-scoped users see their branches' दरबन्दी and vacancies only; applicants join open vacancies only; stage moves validated server-side; **applicant personal data stays inside the module** (S32 suite checks no cross-module copies).
+- **UI (`/workforce/recruitment`, template A):** दरबन्दी tab (live filled / vacant / over per post, over-filled rows red), Vacancies tab (applicant and selected counts, close with confirm), applicant window — merit table with inline exam / अन्तर्वार्ता marks (save on blur) and a stage dropdown, add-applicant inline form. Navigation: Workforce → Recruitment.
+
+Verified: `tsc` exit 0 · 928/928 tests (15 new: `recruitment.engine`, `security-recruitment`; role matrix count now 29) · lint clean on touched files.
+Notes: hiring stays with the employee form (a selected applicant is marked hired and linked by hand); wiring दरबन्दी enforcement into hiring / promotion / transfer, the manpower-request approval in front of a vacancy, and a public job-board intake are follow-ups the schema already supports.
+
 ## 2026-10-09 — G5: exit workflow — clearance by unit, completion, experience letter
 Branch: `feature/exit-workflow` (stacked on `feature/performance-evaluation`)
 

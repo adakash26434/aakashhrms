@@ -39,7 +39,8 @@ type PermissionModule =
   | 'ORG_STRUCTURE'
   | 'SELF_SERVICE'
   | 'HR_LETTERS'
-  | 'PERFORMANCE';
+  | 'PERFORMANCE'
+  | 'RECRUITMENT';
 
 type PermissionAction = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'APPROVE' | 'EXPORT' | 'LOCK';
 

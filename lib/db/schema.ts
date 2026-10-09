@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1688,4 +1688,69 @@ export const exitClearances = pgTable('exit_clearances', {
   decidedAt: timestamp('decided_at'),
 }, (t) => ({
   oneUnitPerCase: unique('exit_clearances_case_unit_key').on(t.exitCaseId, t.unit),
+}));
+
+// -----------------------------------------------------------------------------
+// RECRUITMENT & DARBANDI (G4 — docs/redesign/06-hrms-gap-analysis.md)
+// दरबन्दी: the board-approved post count per designation and branch; hiring,
+// promotion and transfer consume or free them (shown as occupancy — the
+// enforcement wiring into those flows is a follow-up). A vacancy is opened
+// against a designation and branch; applicants move applied → shortlisted →
+// exam → interview → selected (or rejected anywhere), with exam and
+// interview marks making the merit order. Hiring itself stays with the
+// employee form; a selected applicant is marked hired and linked once the
+// employee exists.
+// -----------------------------------------------------------------------------
+
+export const approvedPositions = pgTable('approved_positions', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  designationId: uuid('designation_id').references(() => designations.id, { onDelete: 'restrict' }).notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }).notNull(),
+  positions: integer('positions').notNull(), // the approved count
+  decisionRef: varchar('decision_ref', { length: 100 }).default('').notNull(), // board / AGM minute
+  note: text('note'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  onePerPost: unique('approved_positions_key').on(t.designationId, t.branchId),
+}));
+
+export const vacancies = pgTable('vacancies', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  designationId: uuid('designation_id').references(() => designations.id, { onDelete: 'restrict' }).notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }).notNull(),
+  openings: integer('openings').default(1).notNull(),
+  deadlineAd: date('deadline_ad'),
+  note: text('note'),
+  status: varchar('status', { length: 10 }).default('open').notNull(), // open | closed | cancelled
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+}, (t) => ({
+  statusIdx: index('vacancies_status_idx').on(t.status),
+}));
+
+export const applicants = pgTable('applicants', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  vacancyId: uuid('vacancy_id').references(() => vacancies.id, { onDelete: 'cascade' }).notNull(),
+  fullName: varchar('full_name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }).default('').notNull(),
+  email: varchar('email', { length: 255 }).default('').notNull(),
+  address: varchar('address', { length: 255 }).default('').notNull(),
+  educationNote: text('education_note'),
+  stage: varchar('stage', { length: 15 }).default('applied').notNull(), // applied | shortlisted | exam | interview | selected | rejected | hired
+  examMarks: numeric('exam_marks', { precision: 5, scale: 2 }),
+  interviewMarks: numeric('interview_marks', { precision: 5, scale: 2 }),
+  note: text('note'),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'set null' }), // once hired
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  vacancyIdx: index('applicants_vacancy_idx').on(t.vacancyId, t.stage),
 }));

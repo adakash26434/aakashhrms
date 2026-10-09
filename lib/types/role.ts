@@ -31,7 +31,8 @@ export type ModuleType =
   | 'ORG_STRUCTURE'
   | 'SELF_SERVICE'
   | 'HR_LETTERS'
-  | 'PERFORMANCE';
+  | 'PERFORMANCE'
+  | 'RECRUITMENT';
 
 export interface Role {
   id: string;
@@ -158,6 +159,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         key: 'HR_LETTERS',
         label: 'HR Letters',
         description: 'Formal letters to employees (appointment, confirmation, promotion, transfer, experience, NOC): Add issues a letter, Edit changes templates, Delete voids an issued letter',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'RECRUITMENT',
+        label: 'Recruitment & Darbandi',
+        description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
       },
       {

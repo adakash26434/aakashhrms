@@ -108,6 +108,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["salary mapping", "pay", "allowance", "grade"],
       },
       {
+        id: "recruitment",
+        label: "Recruitment",
+        href: "/workforce/recruitment",
+        icon: Users,
+        description: "दरबन्दी (approved positions), vacancies and applicants",
+        requires: ["RECRUITMENT"],
+        keywords: ["recruitment", "darbandi", "vacancy", "applicant", "hiring", "merit", "bharna"],
+      },
+      {
         id: "lifecycle",
         label: "Lifecycle events",
         href: "/workforce/lifecycle",
