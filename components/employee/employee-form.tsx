@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BriefcaseBusiness, Check, Contact, IdCard, Landmark, Loader2, LogOut, Save, SaveAll, ShieldCheck, TriangleAlert, UserRound, Users, Wallet, X, type LucideIcon } from "lucide-react";
+import { BriefcaseBusiness, Check, Contact, GraduationCap, IdCard, Landmark, Loader2, LogOut, Save, SaveAll, ShieldCheck, TriangleAlert, UserRound, Users, Wallet, X, type LucideIcon } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { DiscardBar } from "@/components/kit/discard-bar";
 import { PropertyForm } from "@/components/kit/property-form";
@@ -25,6 +25,7 @@ import { EmployeeFormHeader } from "./employee-form-header";
 import { EmployeeFormIdentification } from "./employee-form-identification";
 import { EmployeeFormJob } from "./employee-form-job";
 import { EmployeeFormDocuments } from "./employee-form-documents";
+import { EmployeeFormDossier } from "./employee-form-dossier";
 import { EmployeeFormContact } from "./employee-form-contact";
 import { EmployeeFormFamily } from "./employee-form-family";
 import { EmployeeFormBank } from "./employee-form-bank";
@@ -41,6 +42,7 @@ const SECTION_ICON: Record<string, LucideIcon> = {
   job: BriefcaseBusiness,
   pay: Wallet,
   documents: IdCard,
+  dossier: GraduationCap,
   contact: Contact,
   family: Users,
   bank: Landmark,
@@ -357,6 +359,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
               <EmployeeFormIdentification api={api} />
               <EmployeeFormJob api={api} />
               <EmployeeFormDocuments api={api} />
+              <EmployeeFormDossier api={api} />
               <EmployeeFormContact api={api} sameAddress={sameAddress} onSameAddress={setSameAddress} />
               <EmployeeFormFamily api={api} />
               <EmployeeFormBank api={api} />

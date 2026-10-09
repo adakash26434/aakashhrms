@@ -1,4 +1,6 @@
 import { checkPlacement } from "@/lib/services/darbandi.service";
+import { normalizeDossier, validateDossier } from "@/lib/engines/employee-dossier.engine";
+import { nepalDateIso } from "@/lib/utils/nepal-time";
 import * as repository from "@/lib/repositories/employee.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -303,9 +305,11 @@ export async function saveEmployee(
   formData = {
     ...formData,
     documents: normalizeDocuments(formData.documents).map((d) => (d.id && storedDocs.some((s) => s.id === d.id && s.type === d.type) ? d : { ...d, id: undefined })),
+    dossier: normalizeDossier(formData.dossier),
   };
   const errors = {
     ...engine.validateEmployee(formData),
+    ...validateDossier(formData.dossier, { today: nepalDateIso(), joiningDate: formData.joiningDate }),
     // Codes are unique company-wide; say so on the field instead of failing on the constraint.
     ...engine.codeConflicts(allCodes, formData, id),
     // Placement (4.3): active records only (unless unchanged), and a department open to the branch.
@@ -411,7 +415,7 @@ export async function saveEmployee(
 
   // 3. Persist via repository (documents and their scans in the same transaction)
   if (!payAccess.userId) throw new Error("saveEmployee needs the acting user for the documents");
-  const documents = { rows: formData.documents, photoId: isUuid(formData.photoId) ? formData.photoId : "", userId: payAccess.userId };
+  const documents = { rows: formData.documents, dossier: formData.dossier, photoId: isUuid(formData.photoId) ? formData.photoId : "", userId: payAccess.userId };
   if (id) {
     const updated = await repository.update(id, employeeData, documents);
 
@@ -534,7 +538,7 @@ export const EMPTY_EMPLOYEE_FORM: EmployeeFormData = {
   attendanceCode: "", employeeCode: "", fullName: "", gender: "Male", dateOfBirth: "", taxStatus: "Normal Single", isDisabled: false,
   category: "Permanent", shreni: "", departmentId: "", designationId: "", branchId: "", isSupervisor: false, supervisorId: "",
   joiningDate: "", confirmationDate: "", status: "Active", basicSalary: 0, gradePercent: 0, gradeCount: 0, gradeAmount: 0, gradeManual: false,
-  documents: [], photoId: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
+  documents: [], dossier: { qualifications: [], workHistory: [], attachments: [] }, photoId: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
   personalEmail: "", permanentAddress: "", temporaryAddress: "", fatherName: "", motherName: "", spouseName: "",
   grandfatherName: "", bankName: "", bankBranch: "", bankAccountNumber: "", informedDate: "", terminationDate: "",
   terminationType: "", terminationReason: "", terminationPlan: "", terminationRemarks: "",
@@ -566,6 +570,7 @@ export function employeeToForm(emp: Employee): EmployeeFormData {
     gradeAmount: emp.gradeAmount,
     gradeManual: !!emp.gradeManual,
     documents: (emp.documents ?? []).map((d) => ({ id: d.id, type: d.type, number: d.number, district: d.district, office: d.office, issuedDate: d.issuedDate ?? "", file: d.file })),
+    dossier: emp.dossier ?? { qualifications: [], workHistory: [], attachments: [] },
     photoId: emp.photoId ?? "",
     panNumber: emp.panNumber || "",
     phoneHome: emp.phoneHome || "",

@@ -30,6 +30,7 @@ function createValidEmployeeData(): EmployeeFormData {
   return {
     attendanceCode: "ATD-101",
     employeeCode: "EMP-101",
+    dossier: { qualifications: [], workHistory: [], attachments: [] },
     photoId: "",
     fullName: "Aarav Sharma",
     gender: "Male",

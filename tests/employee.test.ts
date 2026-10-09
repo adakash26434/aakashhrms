@@ -165,7 +165,7 @@ describe('Employee form (4.2)', () => {
     // Defaults count as filled: gender and tax status (General), category (Job).
     assert.deepEqual(empty.filter((p) => p.filled > 0).map((p) => `${p.id}:${p.filled}/${p.required}`), ['general:2/6', 'job:1/6']);
     const done = sectionProgress(filled, {});
-    assert.ok(done.filter((p) => p.id !== 'access' && p.id !== 'separation').every((p) => p.state === 'complete'), JSON.stringify(done));
+    assert.ok(done.filter((p) => p.id !== 'access' && p.id !== 'separation' && p.id !== 'dossier').every((p) => p.state === 'complete'), JSON.stringify(done));
     assert.equal(sectionProgress({ ...filled, taxStatus: 'Married' }, {}).find((p) => p.id === 'family')?.state, 'todo');
     assert.deepEqual(sectionProgress(filled, { panNumber: 'x', 'documents.0.number': 'y' }).find((p) => p.id === 'documents'), { id: 'documents', label: 'Identity documents', state: 'error', errors: 2, filled: 1, required: 1 });
     // The new-employee form starts with an empty Citizenship row: not filled until it has a number.

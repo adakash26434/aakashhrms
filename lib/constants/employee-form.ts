@@ -42,6 +42,13 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
     required: ["documents"],
   },
   {
+    id: "dossier",
+    label: "Qualifications & history",
+    // dossier: three lists (qualifications, past employment, attachments); row errors are keyed <list>.<row>.<field>.
+    fields: ["dossier"],
+    required: [],
+  },
+  {
     id: "contact",
     label: "Contact & address",
     fields: ["mobileNo", "phoneHome", "companyEmail", "personalEmail", "permanentAddress", "temporaryAddress"],
@@ -92,6 +99,7 @@ export const EMPLOYEE_FIELD_LABELS: Partial<Record<EmployeeField, string>> = {
   gradeAmount: "Grade amount",
   gradeManual: "Grade by hand",
   documents: "Identity documents",
+  dossier: "Qualifications & history",
   panNumber: "PAN",
   companyEmail: "Company email",
   personalEmail: "Personal email",
@@ -136,14 +144,24 @@ const LEGACY_LABELS: Record<string, string> = {
   voterIdIssuingDistrict: "Voter ID district",
 };
 
+const DOSSIER_FIELD_LABELS: Record<string, string> = {
+  level: "Level", degree: "Degree", institution: "Institution", board: "Board / university", passedYear: "Year passed", division: "Division / grade", major: "Major",
+  organisation: "Organisation", designation: "Designation", fromAd: "From", toAd: "To", duties: "Duties", reference: "Reference",
+  kind: "Kind", title: "Title", note: "Note", file: "File",
+};
+const DOSSIER_LIST_LABELS: Record<string, string> = { qualifications: "qualification", workHistory: "past job", attachments: "attachment" };
+
 export function fieldLabel(field: string): string {
   const row = /^documents\.(\d+)\.(\w+)$/.exec(field);
   if (row) return `${DOCUMENT_FIELD_LABELS[row[2]] ?? row[2]} (document ${Number(row[1]) + 1})`;
+  const dossier = /^(qualifications|workHistory|attachments)\.(\d+)\.(\w+)$/.exec(field);
+  if (dossier) return `${DOSSIER_FIELD_LABELS[dossier[3]] ?? dossier[3]} (${DOSSIER_LIST_LABELS[dossier[1]]} ${Number(dossier[2]) + 1})`;
   return EMPLOYEE_FIELD_LABELS[field as EmployeeField] ?? LEGACY_LABELS[field] ?? field;
 }
 
 /** The form tab a field, or an error key such as documents.0.number, is on. */
 export function sectionOfField(field: string): string | undefined {
   const base = field.split(".")[0];
+  if (base === "qualifications" || base === "workHistory" || base === "attachments") return "dossier";
   return EMPLOYEE_FORM_SECTIONS.find((s) => s.id === base || s.fields.includes(base as EmployeeField))?.id;
 }

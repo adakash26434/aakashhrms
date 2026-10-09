@@ -512,6 +512,8 @@ export const employeeDocumentFiles = pgTable('employee_document_files', {
   documentId: uuid('document_id').references(() => employeeDocuments.id, { onDelete: 'cascade' }),
   employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
   side: varchar('side', { length: 10 }).notNull(), // 'scan' (one file per document)
+  /** 4.2c: set when a dossier row (qualification / work_history / attachment) owns the file; null + document_id null = not saved yet. */
+  attachedTo: varchar('attached_to', { length: 20 }),
   fileName: varchar('file_name', { length: 150 }).notNull(),
   mimeType: varchar('mime_type', { length: 50 }).notNull(), // from the file's content, never the browser
   sizeBytes: integer('size_bytes').notNull(),
@@ -2000,4 +2002,64 @@ export const travelClaims = pgTable('travel_claims', {
 }, (t) => ({
   employeeIdx: index('travel_claims_employee_idx').on(t.employeeId, t.startAd),
   statusIdx: index('travel_claims_status_idx').on(t.status),
+}));
+
+// -----------------------------------------------------------------------------
+// EMPLOYEE DOSSIER (4.2c): qualifications, past employment, other attachments.
+// Each row may own one scan in employee_document_files (attached_to set).
+// -----------------------------------------------------------------------------
+
+export const employeeQualifications = pgTable('employee_qualifications', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  level: varchar('level', { length: 12 }).notNull(),
+  degree: varchar('degree', { length: 120 }).notNull(),
+  institution: varchar('institution', { length: 200 }).default('').notNull(),
+  board: varchar('board', { length: 200 }).default('').notNull(),
+  passedYear: varchar('passed_year', { length: 10 }).default('').notNull(),
+  division: varchar('division', { length: 40 }).default('').notNull(),
+  major: varchar('major', { length: 120 }).default('').notNull(),
+  fileId: uuid('file_id').references(() => employeeDocumentFiles.id, { onDelete: 'set null' }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_qualifications_employee_idx').on(t.employeeId),
+}));
+
+export const employeeWorkHistory = pgTable('employee_work_history', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  organisation: varchar('organisation', { length: 200 }).notNull(),
+  designation: varchar('designation', { length: 120 }).notNull(),
+  fromAd: date('from_ad').notNull(),
+  toAd: date('to_ad'),
+  duties: text('duties'),
+  reference: varchar('reference', { length: 200 }).default('').notNull(),
+  fileId: uuid('file_id').references(() => employeeDocumentFiles.id, { onDelete: 'set null' }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_work_history_employee_idx').on(t.employeeId),
+}));
+
+export const employeeAttachments = pgTable('employee_attachments', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(),
+  title: varchar('title', { length: 150 }).notNull(),
+  note: text('note'),
+  fileId: uuid('file_id').references(() => employeeDocumentFiles.id, { onDelete: 'cascade' }).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_attachments_employee_idx').on(t.employeeId),
 }));

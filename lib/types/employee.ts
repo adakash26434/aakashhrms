@@ -1,3 +1,4 @@
+import type { EmployeeDossierInput } from '@/lib/types/employee-dossier';
 import type { EmployeeCategory, GradePolicySettings } from "./system-control";
 import type { EmployeeDocument, EmployeeDocumentInput } from "./employee-document";
 
@@ -51,6 +52,8 @@ export interface Employee {
   voterIdIssuingDistrict: string | null;
   /** The identity documents list (4.2b); the columns above mirror it for older readers. */
   documents?: EmployeeDocument[];
+  /** Dossier (4.2c), loaded with the record. */
+  dossier?: EmployeeDossierInput;
   /** No Citizenship / NID with its issued date and a scan (Records to fix). */
   identityScanMissing?: boolean;
   /** Only basic + grade from the employee form: the salary structure is to be set up (4.4b, Records to fix). */
@@ -121,6 +124,8 @@ export interface EmployeeFormData {
 
   /** Identity documents (4.2b): Citizenship or NID required, each type once, one scan each. */
   documents: EmployeeDocumentInput[];
+  /** Dossier (4.2c): qualifications, past employment, attachments — saved with the employee. */
+  dossier: EmployeeDossierInput;
   /** The photo (4.2b): a saved photo's id, a new upload's id, or "" for none. */
   photoId: string;
   panNumber: string;
