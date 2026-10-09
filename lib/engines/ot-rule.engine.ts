@@ -1,3 +1,4 @@
+import { OT_MIN_MULTIPLIER } from "@/lib/engines/ot-pay.engine";
 import type {
   OtRule,
   OtRuleFormData,
@@ -24,6 +25,16 @@ export function validateOtRuleForm(
 
   if (data.rateOffDay <= 0) {
     errors.rateOffDay = "Off day rate must be greater than 0";
+  }
+
+  // Payroll pays hourly rules as multipliers of the hourly rate (4.7); the Labour Act minimum is 1.5.
+  if (data.ruleType === "Hourly") {
+    if (data.rateOfficeDay > 0 && data.rateOfficeDay < OT_MIN_MULTIPLIER) {
+      errors.rateOfficeDay = `Office day multiplier cannot be below ${OT_MIN_MULTIPLIER} (Labour Act)`;
+    }
+    if (data.rateOffDay > 0 && data.rateOffDay < OT_MIN_MULTIPLIER) {
+      errors.rateOffDay = `Off day multiplier cannot be below ${OT_MIN_MULTIPLIER} (Labour Act)`;
+    }
   }
 
   return errors;

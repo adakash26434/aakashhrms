@@ -1,4 +1,5 @@
-import Decimal from "decimal.js";
+import { otPay, resolveOtMultipliers, type OtMultipliers } from "@/lib/engines/ot-pay.engine";
+import * as otRuleRepository from "@/lib/repositories/ot-rule.repository";
 import * as repo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -735,23 +736,24 @@ export async function countAdjustmentsWaitingFor(scope: ScopeFilter, canApprove:
   ).length;
 }
 
-/** OT pay and unpaid-day deduction for a summary (OT: basic ÷ 240 × multiplier; unifying with OT rules is 4.7). */
-function amountsFor(summary: MonthSummary, salary: { basic: number; grade: number } | undefined, multipliers: { work: number; off: number }) {
+/** OT pay (one formula: `otPay`, 4.7) and unpaid-day deduction for a summary. */
+function amountsFor(summary: MonthSummary, salary: { basic: number; grade: number } | undefined, multipliers: OtMultipliers) {
   if (!salary) return { otEarnedAmount: 0, leaveDeductionAmount: 0 };
-  const hourly = new Decimal(salary.basic).dividedBy(240);
-  const ot = hourly
-    .times(summary.otWorkDayMinutes / 60)
-    .times(multipliers.work)
-    .plus(hourly.times(summary.otOffDayMinutes / 60).times(multipliers.off))
-    .toDecimalPlaces(2)
-    .toNumber();
+  const ot = otPay({ basic: salary.basic, workDayMinutes: summary.otWorkDayMinutes, offDayMinutes: summary.otOffDayMinutes, multipliers });
   return { otEarnedAmount: ot, leaveDeductionAmount: unpaidDeduction(salary.basic + salary.grade, summary) };
 }
 
 async function payInputs(employeeIds: string[], onDate: string) {
-  const [salaries, settings] = await Promise.all([salaryMappingRepository.findInForceByEmployeeIds(employeeIds, onDate), systemControlRepository.findSettings()]);
+  const [salaries, settings, rules] = await Promise.all([
+    salaryMappingRepository.findInForceByEmployeeIds(employeeIds, onDate),
+    systemControlRepository.findSettings(),
+    otRuleRepository.findActiveOtRules(),
+  ]);
   const salary = new Map([...salaries].map(([id, m]) => [id, { basic: Number(m.basicSalary) || 0, grade: Number(m.gradeAmount) || 0 }]));
-  const multipliers = { work: settings.officeTime.otMultiplierOfficeDay ?? 1.5, off: settings.officeTime.otMultiplierOffDay ?? 2 };
+  const multipliers = resolveOtMultipliers(
+    rules.map((r) => ({ ruleType: r.ruleType, isActive: r.isActive, rateOfficeDay: Number(r.rateOfficeDay), rateOffDay: Number(r.rateOffDay) })),
+    { work: settings.officeTime.otMultiplierOfficeDay, off: settings.officeTime.otMultiplierOffDay },
+  );
   return { salary, multipliers };
 }
 
