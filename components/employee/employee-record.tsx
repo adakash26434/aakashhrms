@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { Notice } from "@/components/kit/notice";
 import { ArrowLeft, CalendarCheck, FileText, History, KeyRound, Landmark, LayoutDashboard, Pencil, Plane, Printer, UserCheck, UserRound, UserX } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { ErrorState } from "@/components/kit/empty-state";
@@ -40,7 +42,7 @@ type CredentialResult = { email: string; tempPassword: string; deliveredVia: str
  * Profile as topic cards (Keka), then related history. Tabs live in the URL
  * (?tab=) and load on the server.
  */
-export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
+export function EmployeeRecord({ record, joiningLetters }: { record: EmployeeRecordData; joiningLetters?: { prompt: boolean } | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -49,6 +51,7 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
   const [changingStatus, setChangingStatus] = useState(false);
   const [sending, setSending] = useState(false);
   const [credentials, setCredentials] = useState<CredentialResult | null>(null);
+  const [promptOpen, setPromptOpen] = useState(!!joiningLetters?.prompt);
 
   // Keep the highlighted tab in step with the server (Back / Forward between tabs).
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -114,9 +117,26 @@ export function EmployeeRecord({ record }: { record: EmployeeRecordData }) {
             hidden: !permissions.edit,
             onClick: () => setChangingStatus(true),
           },
+          {
+            id: "joining",
+            label: "Joining letters",
+            icon: FileText,
+            group: "output",
+            hidden: !joiningLetters,
+            onClick: () => router.push(`/workforce/letters?pack=${profile.id}`),
+          },
           { id: "print", label: "Print", icon: Printer, group: "output", shortcut: "Ctrl+P", onClick: () => window.print() },
         ]}
       />
+
+      {joiningLetters && promptOpen && (
+        <Notice tone="success" className="mb-3" onDismiss={() => setPromptOpen(false)}>
+          {profile.fullName} is saved. Issue the joining papers (appointment, job description, agreement, KYC, dhanjamani) in English and Nepali:{" "}
+          <Link href={`/workforce/letters?pack=${profile.id}`} className="font-medium underline underline-offset-2">
+            Open the joining pack
+          </Link>
+        </Notice>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[18.5rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-0 lg:self-start">

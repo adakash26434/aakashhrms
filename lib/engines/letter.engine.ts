@@ -10,7 +10,7 @@ export type LetterLanguage = 'en' | 'np';
 
 export const LETTER_LANGUAGES: readonly LetterLanguage[] = ['en', 'np'];
 
-/** The six system templates seeded for every company (editable, never deletable). */
+/** The system templates seeded for every company (editable, never deletable). */
 export const LETTER_KINDS = [
   { code: 'appointment', name: 'Appointment letter', nameNp: 'नियुक्ति पत्र' },
   { code: 'confirmation', name: 'Confirmation letter', nameNp: 'स्थायी नियुक्ति पत्र' },
@@ -18,7 +18,14 @@ export const LETTER_KINDS = [
   { code: 'transfer', name: 'Transfer letter', nameNp: 'सरुवा पत्र' },
   { code: 'experience', name: 'Experience letter', nameNp: 'कार्य अनुभव पत्र' },
   { code: 'noc', name: 'No objection letter', nameNp: 'सहमति पत्र' },
+  { code: 'kyc', name: 'KYC declaration', nameNp: 'केवाईसी घोषणा' },
+  { code: 'dhanjamani', name: 'Guarantee (dhanjamani)', nameNp: 'धनजमानी' },
+  { code: 'job_description', name: 'Job description', nameNp: 'कार्यविवरण' },
+  { code: 'agreement', name: 'Employment agreement', nameNp: 'रोजगार सम्झौता' },
 ] as const;
+
+/** The letters a new employee is given at joining, in this order (the "joining pack"). */
+export const JOINING_PACK = ['appointment', 'job_description', 'agreement', 'kyc', 'dhanjamani'] as const;
 
 export type LetterKindCode = (typeof LETTER_KINDS)[number]['code'];
 
@@ -40,6 +47,11 @@ export const LETTER_MERGE_FIELDS: readonly LetterMergeField[] = [
   { key: 'branch', label: 'Branch', source: 'employee' },
   { key: 'join_date_bs', label: 'Joining date (BS)', source: 'employee' },
   { key: 'join_date_ad', label: 'Joining date (AD)', source: 'employee' },
+  { key: 'father_name', label: 'Father\'s name', source: 'employee' },
+  { key: 'grandfather_name', label: 'Grandfather\'s name', source: 'employee' },
+  { key: 'citizenship_no', label: 'Citizenship no.', source: 'employee' },
+  { key: 'employee_address', label: 'Permanent address', source: 'employee' },
+  { key: 'employee_mobile', label: 'Mobile no.', source: 'employee' },
   { key: 'company_name', label: 'Company name', source: 'company' },
   { key: 'company_address', label: 'Company address', source: 'company' },
   { key: 'company_pan', label: 'Company PAN / VAT', source: 'company' },
@@ -60,7 +72,23 @@ export const LETTER_MERGE_FIELDS: readonly LetterMergeField[] = [
   { key: 'last_working_day', label: 'Last working day', source: 'input' },
   { key: 'purpose', label: 'Purpose (NOC)', source: 'input' },
   { key: 'remarks', label: 'Remarks', source: 'input' },
+  { key: 'duties', label: 'Duties and responsibilities', source: 'input' },
+  { key: 'reports_to', label: 'Reports to', source: 'input' },
+  { key: 'working_hours', label: 'Working hours', source: 'input' },
+  { key: 'agreement_term', label: 'Agreement term', source: 'input' },
+  { key: 'notice_days', label: 'Notice period (days)', source: 'input' },
+  { key: 'guarantor_name', label: 'Guarantor name', source: 'input' },
+  { key: 'guarantor_father', label: 'Guarantor\'s father', source: 'input' },
+  { key: 'guarantor_relation', label: 'Guarantor\'s relation', source: 'input' },
+  { key: 'guarantor_address', label: 'Guarantor address', source: 'input' },
+  { key: 'guarantor_citizenship', label: 'Guarantor citizenship no.', source: 'input' },
+  { key: 'guarantee_amount', label: 'Guarantee amount (NPR)', source: 'input' },
 ];
+
+/** Input fields that may run to several lines (everything else is one short line). */
+export const LONG_INPUT_FIELDS: ReadonlySet<string> = new Set(['duties', 'remarks']);
+const INPUT_MAX = 200;
+const LONG_INPUT_MAX = 3000;
 
 const KNOWN_KEYS = new Set(LETTER_MERGE_FIELDS.map((f) => f.key));
 
@@ -223,7 +251,7 @@ export function normalizeIssueForm(raw: unknown): IssueLetterForm {
   for (const field of LETTER_MERGE_FIELDS) {
     if (field.source !== 'input') continue;
     const v = rawInputs[field.key];
-    if (typeof v === 'string' && v.trim()) inputs[field.key] = v.trim().slice(0, 200);
+    if (typeof v === 'string' && v.trim()) inputs[field.key] = v.trim().slice(0, LONG_INPUT_FIELDS.has(field.key) ? LONG_INPUT_MAX : INPUT_MAX);
   }
   return {
     employeeId: typeof r.employeeId === 'string' ? r.employeeId : '',
@@ -232,6 +260,42 @@ export function normalizeIssueForm(raw: unknown): IssueLetterForm {
     inputs,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Joining pack: the papers a new employee is given together
+// ---------------------------------------------------------------------------
+
+export type PackLanguage = LetterLanguage | 'both';
+
+export interface JoiningPackForm {
+  employeeId: string;
+  language: PackLanguage;
+  /** Template codes from JOINING_PACK, in pack order. */
+  kinds: string[];
+  /** Values for the input fields the chosen letters use, by key (shared by all of them). */
+  inputs: Record<string, string>;
+}
+
+export function normalizePackForm(raw: unknown): JoiningPackForm {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const asked = new Set(Array.isArray(r.kinds) ? r.kinds.filter((k): k is string => typeof k === 'string') : []);
+  return {
+    employeeId: typeof r.employeeId === 'string' ? r.employeeId : '',
+    language: r.language === 'np' || r.language === 'both' ? r.language : 'en',
+    kinds: JOINING_PACK.filter((k) => asked.has(k)),
+    inputs: normalizeIssueForm({ inputs: r.inputs }).inputs,
+  };
+}
+
+export function validatePackForm(form: JoiningPackForm): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!form.employeeId) errors.employeeId = 'Choose an employee.';
+  if (form.kinds.length === 0) errors.kinds = 'Choose at least one letter.';
+  return errors;
+}
+
+/** The language versions a pack issues for each letter. */
+export const packLanguages = (language: PackLanguage): LetterLanguage[] => (language === 'both' ? ['en', 'np'] : [language]);
 
 export interface TemplateForIssue {
   subjectEn: string;

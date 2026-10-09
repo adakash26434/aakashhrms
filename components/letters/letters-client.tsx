@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FilePen, Plus, RefreshCw, ScrollText } from "lucide-react";
+import { FilePen, Palette, PackageOpen, Plus, RefreshCw, ScrollText } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { Tabs, type TabItem } from "@/components/kit/tabs";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
@@ -12,20 +12,23 @@ import { DateCell } from "@/components/kit/date-cell";
 import { Notice } from "@/components/kit/notice";
 import { IssueLetterWindow } from "./issue-letter-window";
 import { LetterTemplatesTab } from "./letter-templates-tab";
+import { LetterDesignTab } from "./letter-design-tab";
+import { JoiningPackWindow } from "./joining-pack-window";
 import type { LetterListRow, LettersPageData } from "@/lib/types/letter";
 
 // HR letters (G2): the register of issued letters (chalani order) and the
 // template manager. Open a row for the printable letter; wrong letters are
 // voided there, never edited or deleted.
 
-type LettersTab = "register" | "templates";
+type LettersTab = "register" | "templates" | "design";
 
-export function LettersClient({ data }: { data: LettersPageData }) {
+export function LettersClient({ data, packEmployeeId }: { data: LettersPageData; packEmployeeId?: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<LettersTab>("register");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterValues>({});
   const [issuing, setIssuing] = useState(false);
+  const [packing, setPacking] = useState(!!packEmployeeId && data.permissions.issue);
   const [notice, setNotice] = useState<string | null>(null);
   const [refreshing, startRefresh] = useTransition();
 
@@ -70,15 +73,17 @@ export function LettersClient({ data }: { data: LettersPageData }) {
   const tabs: (TabItem & { id: LettersTab })[] = [
     { id: "register", label: "Register", icon: ScrollText },
     { id: "templates", label: "Templates", icon: FilePen, badge: undefined },
+    { id: "design", label: "Letter design", icon: Palette },
   ];
 
   return (
     <div>
       <PageBar
         title="HR letters"
-        description="Appointment, confirmation, promotion, transfer, experience and NOC letters — one chalani sequence per fiscal year"
+        description="Joining papers (appointment, KYC, dhanjamani, job description, agreement) and later letters (confirmation, promotion, transfer, experience, NOC) — one chalani sequence per fiscal year; Letter design sets your letterhead"
         actions={[
           { id: "issue", label: "Issue letter", icon: Plus, group: "create", primary: true, shortcut: "Ctrl+N", hidden: !data.permissions.issue, onClick: () => setIssuing(true) },
+          { id: "pack", label: "Joining pack", icon: PackageOpen, group: "create", hidden: !data.permissions.issue, onClick: () => setPacking(true) },
           { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
         ]}
       />
@@ -124,8 +129,22 @@ export function LettersClient({ data }: { data: LettersPageData }) {
           </div>
         )}
         {tab === "templates" && <LetterTemplatesTab templates={data.templates} canEdit={data.permissions.templates} onDone={(text) => { setNotice(text); startRefresh(() => router.refresh()); }} />}
+        {tab === "design" && <LetterDesignTab saved={data.letterhead.design} letterhead={data.letterhead} templates={data.templates} canEdit={data.permissions.templates} onDone={(text) => { setNotice(text); startRefresh(() => router.refresh()); }} />}
       </Tabs>
 
+      <JoiningPackWindow
+        open={packing}
+        onClose={() => setPacking(false)}
+        employees={data.employees}
+        initialEmployeeId={packEmployeeId}
+        onIssued={(text) => {
+          setPacking(false);
+          setNotice(text);
+          setTab("register");
+          router.replace("/workforce/letters");
+          router.refresh();
+        }}
+      />
       <IssueLetterWindow
         open={issuing}
         onClose={() => setIssuing(false)}

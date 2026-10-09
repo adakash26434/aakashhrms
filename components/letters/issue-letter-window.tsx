@@ -6,7 +6,7 @@ import { PropertyForm, FieldGroup, FieldRow, inputClass } from "@/components/kit
 import { Combobox } from "@/components/kit/combobox";
 import { SelectField } from "@/components/kit/select-field";
 import { Notice } from "@/components/kit/notice";
-import { inputFieldsFor, templateText, type LetterLanguage } from "@/lib/engines/letter.engine";
+import { LONG_INPUT_FIELDS, inputFieldsFor, templateText, type LetterLanguage } from "@/lib/engines/letter.engine";
 import { previewLetterAction, issueLetterAction } from "@/app/actions/letter.actions";
 import type { LetterEmployeeOption, LetterTemplateRow } from "@/lib/types/letter";
 import type { LetterPreview } from "@/lib/services/letter.service";
@@ -70,6 +70,8 @@ export function IssueLetterWindow({ open, onClose, employees, templates, onIssue
       if (result.success) {
         setPreview(result.data);
         setErrors({});
+        // Values the record already gives (e.g. duties from the designation) fill empty fields; typed values stay.
+        setInputs((prev) => ({ ...result.data.defaults, ...prev }));
       } else {
         setPreview(null);
         setErrors(("validationErrors" in result && result.validationErrors) || {});
@@ -157,16 +159,28 @@ export function IssueLetterWindow({ open, onClose, employees, templates, onIssue
             <FieldGroup title="Details" description="Only the fields this template uses. A field inside an optional clause may stay empty — the clause is left out.">
               {inputFields.map((f) => (
                 <FieldRow key={f.key} label={f.label} error={errors[`inputs.${f.key}`]}>
-                  <input
-                    type="text"
-                    className={inputClass}
-                    value={inputs[f.key] ?? ""}
-                    onChange={(e) => {
-                      setInputs((prev) => ({ ...prev, [f.key]: e.target.value }));
-                      setPreview(null);
-                    }}
-                    maxLength={200}
-                  />
+                  {LONG_INPUT_FIELDS.has(f.key) ? (
+                    <textarea
+                      className={`${inputClass} h-auto min-h-24 max-w-none py-2`}
+                      value={inputs[f.key] ?? ""}
+                      onChange={(e) => {
+                        setInputs((prev) => ({ ...prev, [f.key]: e.target.value }));
+                        setPreview(null);
+                      }}
+                      maxLength={3000}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      className={inputClass}
+                      value={inputs[f.key] ?? ""}
+                      onChange={(e) => {
+                        setInputs((prev) => ({ ...prev, [f.key]: e.target.value }));
+                        setPreview(null);
+                      }}
+                      maxLength={200}
+                    />
+                  )}
                 </FieldRow>
               ))}
             </FieldGroup>

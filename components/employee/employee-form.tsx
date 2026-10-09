@@ -244,7 +244,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       openTab("general", "fullName");
       requestAnimationFrame(() => document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" }));
     } else {
-      router.push(`/workforce/employees/${savedId}`);
+      router.push(isNew ? `/workforce/employees/${savedId}?joining=1` : `/workforce/employees/${savedId}`);
       router.refresh();
     }
   };
