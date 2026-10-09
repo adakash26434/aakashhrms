@@ -1,23 +1,12 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { HomePageClient } from "@/components/home/home-page-client";
 
-export const metadata = {
-  title: "Aakash HRMS — Smart People, Strong Organization",
-  description:
-    "Enterprise HRMS engineered for Nepalese statutory compliance, IRD progressive income tax, SSF automation, dual BS/AD calendars, and employee self-service.",
-};
+// The product has no public home page: "/" goes to the sign-in page, or
+// straight to the right workspace when a session already exists.
+export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const session = await auth();
-  const isLoggedIn = !!session?.user;
-  const userScope = session?.user?.scopeType ?? undefined;
-  const userName = session?.user?.name ?? undefined;
-
-  return (
-    <HomePageClient
-      isLoggedIn={isLoggedIn}
-      userScope={userScope}
-      userName={userName}
-    />
-  );
+export default async function RootPage() {
+  const session = await auth().catch(() => null);
+  if (session?.user) redirect(session.user.scopeType === "SELF" ? "/self-service" : "/dashboard");
+  redirect("/login");
 }
