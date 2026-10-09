@@ -117,6 +117,12 @@ export function normalizeClaimForm(raw: unknown): ClaimForm {
   };
 }
 
+/** ISO date `days` from `iso` (negative = earlier). */
+export function addDaysIso(iso: string, days: number): string {
+  const d = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + days * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Inclusive calendar days between two ISO dates (same day = 1). */
 export function tripDays(startAd: string, endAd: string): number {
   const a = Date.UTC(+startAd.slice(0, 4), +startAd.slice(5, 7) - 1, +startAd.slice(8, 10));
@@ -136,6 +142,7 @@ export function validateClaimForm(form: ClaimForm, today: string): Record<string
     if (form.endAd < form.startAd) errors.endAd = 'The trip cannot end before it starts.';
     else if (tripDays(form.startAd, form.endAd) > 60) errors.endAd = 'A single claim covers at most 60 days.';
     if (form.endAd > today) errors.endAd = 'Claims are made after the trip.';
+    if (form.startAd < addDaysIso(today, -365)) errors.startAd = 'A claim is made within a year of the trip.';
   }
   if (!form.mode) errors.mode = 'How did they travel?';
   if (form.mode === 'own_vehicle' && (!Number.isFinite(form.km) || form.km <= 0 || form.km > 5000)) errors.km = 'Distance in km (up to 5000).';

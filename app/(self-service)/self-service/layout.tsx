@@ -2,6 +2,7 @@ import { ensureTenantContext } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SelfServiceNav } from "@/components/self-service/self-service-nav";
+import { essLang } from "@/lib/i18n/ess-server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +27,12 @@ export default async function SelfServiceLayout({
 
   const userEmail = session?.user?.email || "Employee";
   const scopeType = session?.user?.scopeType || "SELF";
+  const lang = await essLang();
 
   return (
     <div className="min-h-screen bg-payroll-cream text-payroll-navy font-sans antialiased flex flex-col">
       {/* Self-Service Navigation Header & Sidebar */}
-      <SelfServiceNav userEmail={userEmail} scopeType={scopeType} />
+      <SelfServiceNav userEmail={userEmail} scopeType={scopeType} lang={lang} />
 
       {/* Page Content */}
       <main className="flex-1 w-full sm:pl-64">

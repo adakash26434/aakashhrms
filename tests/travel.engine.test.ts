@@ -34,6 +34,7 @@ describe('claim form', () => {
   it('accepts a good claim; rejects future trips, bad nights, km on a bus', () => {
     assert.deepEqual(validateClaimForm(normalizeClaimForm(base), TODAY), {});
     assert.ok(validateClaimForm(normalizeClaimForm({ ...base, endAd: '2026-12-01' }), TODAY).endAd);
+    assert.ok(validateClaimForm(normalizeClaimForm({ ...base, startAd: '1970-01-15', endAd: '1970-01-15' }), TODAY).startAd, 'a trip older than a year is refused');
     assert.ok(validateClaimForm(normalizeClaimForm({ ...base, nights: 3 }), TODAY).nights);
     assert.ok(validateClaimForm(normalizeClaimForm({ ...base, km: 40 }), TODAY).km);
     assert.ok(validateClaimForm(normalizeClaimForm({ ...base, mode: 'own_vehicle', km: 0 }), TODAY).km);
