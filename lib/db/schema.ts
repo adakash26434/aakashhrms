@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1478,4 +1478,84 @@ export const employeeEvents = pgTable('employee_events', {
 }, (t) => ({
   employeeIdIdx: index('employee_events_employee_id_idx').on(t.employeeId),
   dueIdx: index('employee_events_due_idx').on(t.status, t.effectiveDateAd),
+}));
+
+// -----------------------------------------------------------------------------
+// PERFORMANCE EVALUATION (G1 — docs/redesign/06-hrms-gap-analysis.md)
+// का.स.मू.-style marks-based evaluation: a cycle per period, one evaluation per
+// employee with the form FROZEN at start (template changes never touch
+// in-flight evaluations), stage-by-stage scores (supervisor → reviewer →
+// committee, weights from the template), a weighted total and a grade band.
+// Finalized marks feed promotion scoring and probation confirmation (G2).
+// -----------------------------------------------------------------------------
+
+/**
+ * The company's evaluation form: sections → criteria with max marks, stage
+ * weights and grade bands, all as JSON checked by evaluation.engine.ts. One
+ * row per code; 'default' is seeded on first read and never deleted.
+ */
+export const evaluationTemplates = pgTable('evaluation_templates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }).default('').notNull(),
+  /** { weights: {stage: pct}, bands: [{min, label, labelNp}], sections: [{id, name, nameNp, criteria: [{id, name, nameNp, max}]}] } */
+  form: jsonb('form').$type<Record<string, unknown>>().notNull(),
+  isSystem: boolean('is_system').default(false).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+export const evaluationCycles = pgTable('evaluation_cycles', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
+  label: varchar('label', { length: 100 }).notNull(), // e.g. "FY 2082/83 — annual"
+  period: varchar('period', { length: 20 }).default('annual').notNull(), // 'annual' | 'half-yearly'
+  status: varchar('status', { length: 10 }).default('open').notNull(), // 'open' | 'closed'
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+}, (t) => ({
+  oneLabelPerYear: unique('evaluation_cycles_year_label_key').on(t.fiscalYearId, t.label),
+}));
+
+export const evaluations = pgTable('evaluations', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  cycleId: uuid('cycle_id').references(() => evaluationCycles.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  /** The template form frozen when the evaluation starts. */
+  form: jsonb('form').$type<Record<string, unknown>>().notNull(),
+  /** Stage → rater user id, fixed at start ({ supervisor, reviewer, committee }). */
+  raters: jsonb('raters').$type<Record<string, string>>().default({}).notNull(),
+  /** The stage waiting for marks, or 'final'. */
+  stage: varchar('stage', { length: 20 }).notNull(),
+  status: varchar('status', { length: 12 }).default('in_progress').notNull(), // 'in_progress' | 'final'
+  /** { stages: {stage: pct}, total: pct, band: label } once final. */
+  totals: jsonb('totals').$type<Record<string, unknown>>().default({}).notNull(),
+  startedBy: uuid('started_by').notNull(),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  finalizedBy: uuid('finalized_by'),
+  finalizedAt: timestamp('finalized_at'),
+}, (t) => ({
+  onePerCycle: unique('evaluations_cycle_employee_key').on(t.cycleId, t.employeeId),
+  employeeIdIdx: index('evaluations_employee_id_idx').on(t.employeeId),
+  stageIdx: index('evaluations_stage_idx').on(t.status, t.stage),
+}));
+
+export const evaluationScores = pgTable('evaluation_scores', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  evaluationId: uuid('evaluation_id').references(() => evaluations.id, { onDelete: 'cascade' }).notNull(),
+  stage: varchar('stage', { length: 20 }).notNull(),
+  criterionId: varchar('criterion_id', { length: 40 }).notNull(),
+  marks: numeric('marks', { precision: 5, scale: 2 }).notNull(),
+  note: text('note'),
+  ratedBy: uuid('rated_by').notNull(),
+  ratedAt: timestamp('rated_at').defaultNow().notNull(),
+}, (t) => ({
+  oneMarkPerCell: unique('evaluation_scores_cell_key').on(t.evaluationId, t.stage, t.criterionId),
+  evaluationIdIdx: index('evaluation_scores_evaluation_id_idx').on(t.evaluationId),
 }));

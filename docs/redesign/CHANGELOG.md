@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G1: performance evaluation (का.स.मू.) — cycles, stage marks, grades
+Branch: `feature/performance-evaluation` (stacked on `feature/hr-letters`)
+
+The sahakari core from the gap analysis (06): marks-based evaluation whose output is usable in promotion scoring and probation confirmation.
+
+Changed:
+- **Schema (migration `0049_performance_evaluation`, mirrored in `tenant-schema-sync.ts`):** `evaluation_templates` (the company form: sections → criteria with max marks, stage weights, grade bands — a का.स.मू.-style default seeded per company: 10 criteria / 100 raw marks, supervisor 50% / reviewer 30% / committee 20%, उत्कृष्ट … सुधार आवश्यक bands), `evaluation_cycles` (per fiscal-year period, open → closed), `evaluations` (**the form frozen per evaluation at start** — template edits never touch in-flight evaluations; raters fixed at start, supervisor stage defaulting to each employee's own supervisor's account), `evaluation_scores` (one row per criterion per stage). New `PERFORMANCE` permission module (seeded md5-id rows; System Administrator all, HR Manager VIEW/ADD/EDIT/APPROVE/LOCK; "HR" preset; Roles matrix).
+- **Engine (`evaluation.engine.ts`, 8 suites):** form validation (weights sum 100, 1–100 maxima, duplicate ids, a 0-floor band), stage order from weights (a 0-weight stage is skipped), marks validation (whole/half marks, 0..max, all criteria), stage % = marks ÷ max × 100, weighted total + band, **S28 rater rules** — every active stage its own rater, never the subject's user, no double stages.
+- **Service / repository / actions:** scope-checked throughout; starting skips (and lists) employees whose raters can't be worked out; **rating**: only the stage's assigned rater, or APPROVE acting for an absent rater (**audited `actedForRater`**); the last stage computes totals and finalizes in a claim-first transaction (stale windows change nothing); a final evaluation and a closed cycle take no more marks; own-record refusals audited `DENIED_SELF` on start and rate.
+- **UI (`/workforce/evaluation`, template A):** register with **"Waiting for me"** (count on the page bar, filter, tinted rows), scoring window (earlier stages read-only with %, the current stage's marks column live, warning banner when acting for an absent rater), Cycles tab (open with fiscal year + period, close with typed CLOSE), Form tab (weights / sections / criteria / bands editor — saving warns that started evaluations keep their frozen form), **printable bilingual का.स.मू. form** (letterhead, criteria × stages, weighted total, grade, three signature blocks). Navigation: Workforce → Performance.
+
+Verified: `tsc` exit 0 · 863/863 tests (19 new: `evaluation`, `security-evaluation`; role matrix count now 28) · lint clean on touched files.
+Notes: promotion scoring (seniority + education + का.स.मू. marks composite feeding a G2 promotion event) and probation-confirmation gating are the follow-up; self-rating arrives with ESS (Phase 5); KPI/goal-row criteria are a template extension the schema already allows.
+
 ## 2026-10-09 — G2 (events): employee lifecycle events — बढुवा, सरुवा, स्थायी नियुक्ति
 Branch: `feature/hr-letters` (stacked on the letters commit)
 

@@ -117,6 +117,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["promotion", "badhuwa", "transfer", "saruwa", "confirmation", "sthayi", "event", "history"],
       },
       {
+        id: "evaluation",
+        label: "Performance",
+        href: "/workforce/evaluation",
+        icon: ListChecks,
+        description: "का.स.मू. evaluation cycles, marks and grades",
+        requires: ["PERFORMANCE"],
+        keywords: ["evaluation", "kasamu", "performance", "appraisal", "marks", "grade", "mulyankan"],
+      },
+      {
         id: "hr-letters",
         label: "HR letters",
         href: "/workforce/letters",

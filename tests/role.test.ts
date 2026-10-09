@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MODULE_CATEGORIES, ModuleType, ActionType } from '../lib/types/role';
 
 describe('Flexible Roles & Dynamic RBAC Module', () => {
-  it('should define all 27 system modules across 7 categorized domains', () => {
+  it('should define all 28 system modules across 7 categorized domains', () => {
     assert.equal(MODULE_CATEGORIES.length, 7);
 
     const allModuleKeys: ModuleType[] = [];
@@ -13,10 +13,11 @@ describe('Flexible Roles & Dynamic RBAC Module', () => {
       });
     });
 
-    // 28 modules in the schema (HR_LETTERS added in G2); Leave rules (retired in 4.6e, kept until Phase 8) is no longer offered on the Roles screen.
-    assert.equal(allModuleKeys.length, 27);
+    // 29 modules in the schema (HR_LETTERS and PERFORMANCE added in G1/G2); Leave rules (retired in 4.6e, kept until Phase 8) is no longer offered on the Roles screen.
+    assert.equal(allModuleKeys.length, 28);
     assert.ok(!allModuleKeys.includes('LEAVE_RULES'));
     assert.ok(allModuleKeys.includes('HR_LETTERS'));
+    assert.ok(allModuleKeys.includes('PERFORMANCE'));
     assert.ok(allModuleKeys.includes('SYSTEM_CONTROL'));
     assert.ok(allModuleKeys.includes('FISCAL_YEAR'));
     assert.ok(allModuleKeys.includes('EMPLOYEES'));

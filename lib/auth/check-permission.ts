@@ -38,7 +38,8 @@ type PermissionModule =
   | 'AUDIT_LOG'
   | 'ORG_STRUCTURE'
   | 'SELF_SERVICE'
-  | 'HR_LETTERS';
+  | 'HR_LETTERS'
+  | 'PERFORMANCE';
 
 type PermissionAction = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'APPROVE' | 'EXPORT' | 'LOCK';
 

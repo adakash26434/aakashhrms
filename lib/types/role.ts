@@ -30,7 +30,8 @@ export type ModuleType =
   | 'AUDIT_LOG'
   | 'ORG_STRUCTURE'
   | 'SELF_SERVICE'
-  | 'HR_LETTERS';
+  | 'HR_LETTERS'
+  | 'PERFORMANCE';
 
 export interface Role {
   id: string;
@@ -158,6 +159,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'HR Letters',
         description: 'Formal letters to employees (appointment, confirmation, promotion, transfer, experience, NOC): Add issues a letter, Edit changes templates, Delete voids an issued letter',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'PERFORMANCE',
+        label: 'Performance Evaluation',
+        description: 'का.स.मू.-style evaluation cycles and marks: Add opens cycles and starts evaluations, Edit scores an assigned stage and changes the form, Approve finalizes, Lock closes a cycle',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
       },
     ],
   },
