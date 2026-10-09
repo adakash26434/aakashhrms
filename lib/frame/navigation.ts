@@ -144,6 +144,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["training", "talim", "programme", "course", "certificate", "bond", "workshop"],
       },
       {
+        id: "targets",
+        label: "Targets",
+        href: "/workforce/targets",
+        icon: ListChecks,
+        description: "Monthly and yearly targets, reported achievements and supervisor review",
+        requires: ["TARGETS"],
+        keywords: ["target", "achievement", "kpi", "monthly", "yearly", "goal", "lakshya", "pragati"],
+      },
+      {
         id: "assets",
         label: "Assets",
         href: "/workforce/assets",

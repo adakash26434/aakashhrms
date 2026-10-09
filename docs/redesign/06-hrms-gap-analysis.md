@@ -244,7 +244,7 @@ Still to review/do (ordered by value for a sahakari):
 
 Not modelled before (searched schema, engines, services: no target/achievement tables). Requested: employee targets set monthly and yearly; the employee fills in achievements in self-service with attachments; the supervisor reviews and forwards; the result feeds the performance evaluation (G1 KPI-mode goal rows: target / achieved / weight).
 
-15. G15 Targets & achievements — **open**. Plan:
+15. G15 Targets & achievements — **done** (`/workforce/targets`, `/self-service/my-targets`, `/self-service/team-targets`, TARGETS module, migration 0062, S42). Debt: feed closed scores into the evaluation KPI rows, reminders for unreported months, target templates. Plan was:
    - Tables: `target_periods` (monthly | yearly, BS fiscal year / month), `employee_targets` (employee × period × metric: title, unit, target value, weight; set by HR or supervisor, frozen once the period opens), `target_achievements` (employee-entered value + note + attachments, status draft → submitted → supervisor_reviewed → forwarded → closed; returned with a reason).
    - Flow: HR/supervisor sets targets → employee fills achievement in ESS (attachments reuse the dossier file store) → supervisor sees the team queue, edits a verified value or returns → forwards to HR/approver → closed; yearly roll-up from the months; closed result becomes the KPI rows of the evaluation.
    - Rules (engine, unit-tested): achievement % = achieved ÷ target, capped per metric config; weighted total; monthly → yearly roll-up.

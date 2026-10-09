@@ -13,6 +13,12 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-09 — G15: targets and achievements — monthly / yearly targets, employee report, supervisor forward, HR close
+Branch: `feature/targets`
+Changed: migration `0062_targets` (`employee_targets`, `target_attachments`, TARGETS permission module; mirrored in `ensureTenantSchema`; restart the dev server); `lib/engines/target.engine.ts` (status machine, weighted score, yearly roll-up); `target.repository.ts` / `target.service.ts`; `/workforce/targets` (HR sets one target for many people, watches reports, closes or returns what supervisors forwarded); portal `/self-service/my-targets` (report, attach PDF / JPG / PNG proof up to 3 MB, send to supervisor) and `/self-service/team-targets` (supervisor sees only their own reports, edits the verified figure, forwards or returns with a reason; the nav item shows only for people with reports); evidence upload / download routes under `app/api/targets/evidence`; Nepali / English dictionary keys.
+Verified: tsc 0; 1100+ tests incl. `target.engine.test.ts` (14) and `security-targets.test.ts` (12, S42); eslint clean on touched files; browser flow on the demo company: HR set a monthly target for two people → employee reported 30 with a PDF → sent to supervisor → supervisor verified 45 and forwarded → HR closed; evidence download 200 for the owner and for an in-scope office reader.
+Notes: S42 — nobody sets, changes, reviews or closes their own targets (`DENIED_SELF`); the supervisor is the employee's `supervisor_id`; every step claim-first; the verified figure wins over the reported one for scoring. Debt: feed the closed yearly score into the evaluation's KPI rows (G1), reminders for unreported months (G6 job), target templates / copy last month, supervisor reassignment history.
+
 ## 2026-10-09 — G9: welfare / medical / gratuity funds — ledger, monthly contributions, payouts
 Branch: `feature/welfare-funds` (stacked on `feature/exit-workflow`) — first Phase G **Tier B** item.
 

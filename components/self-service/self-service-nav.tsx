@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Banknote, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, ScrollText, Shield, UserCircle } from "lucide-react";
+import { Banknote, Target, Users, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, ScrollText, Shield, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth.actions";
 import { setEssLanguageAction } from "@/app/actions/ess-extras.actions";
@@ -15,9 +15,11 @@ interface SelfServiceNavProps {
   userEmail: string;
   scopeType: string;
   lang: EssLang;
+  /** The signed-in employee has people reporting to them (shows Team targets). */
+  hasTeam?: boolean;
 }
 
-const NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home }[] = [
+const BASE_NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home }[] = [
   { href: "/self-service", key: "nav.home", exact: true, icon: Home },
   { href: "/self-service/my-attendance", key: "nav.attendance", icon: Clock3 },
   { href: "/self-service/my-leave", key: "nav.leave", icon: CalendarDays },
@@ -30,10 +32,13 @@ const NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home
   { href: "/self-service/my-loans", key: "nav.loans", icon: Banknote },
 ];
 
-const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.slice(0, 4);
-const SECONDARY_ITEMS = NAV_ITEMS.slice(4);
+const TARGET_ITEMS: typeof BASE_NAV_ITEMS = [{ href: "/self-service/my-targets", key: "nav.targets", icon: Target }];
+const TEAM_ITEMS: typeof BASE_NAV_ITEMS = [{ href: "/self-service/team-targets", key: "nav.team", icon: Users }];
 
-export function SelfServiceNav({ userEmail, scopeType, lang }: SelfServiceNavProps) {
+export function SelfServiceNav({ userEmail, scopeType, lang, hasTeam = false }: SelfServiceNavProps) {
+  const NAV_ITEMS = [...BASE_NAV_ITEMS.slice(0, 7), ...TARGET_ITEMS, ...(hasTeam ? TEAM_ITEMS : []), ...BASE_NAV_ITEMS.slice(7)];
+  const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.slice(0, 4);
+  const SECONDARY_ITEMS = NAV_ITEMS.slice(4);
   const pathname = usePathname();
   const router = useRouter();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
