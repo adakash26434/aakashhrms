@@ -1316,3 +1316,6 @@ Notes: 12 security findings recorded (2 High: S1 impersonation-cookie bypass, S2
 
 ## G12 Self-service in Nepali + new portal pages
 - `lib/i18n/ess.ts` (EN/NP dictionary, `t(lang, key)`), cookie `ess_lang` read by `essLang()`; toggle in the portal nav. Home, nav and the new pages read it; office screens stay English. New pages: `/self-service/my-notices` (the board), `/self-service/my-training` (own nominations, score, certificate, bond end), `/self-service/my-claims` (own TA-DA claims; submit → the office approves; amounts from the card). `lib/services/ess-extras.service.ts` pins everything to the session employee (S40 test). Travel rule added from the portal pass: a claim is made within a year of the trip. Verified live at 1440 / 390 in both languages, including a claim submitted from the portal. tsc 0, 1047/1047 tests, lint clean.
+
+## Phase G hardening — final gate
+- `npm run build` (webpack, cpus 1) compiles clean with every new route (`/workforce/discipline`, `/workforce/training`, `/workforce/assets`, `/workforce/notices`, `/workforce/promotion`, `/payroll/travel`, `/reports/hr-analytics`, `/self-service/my-*`) and the postbuild standalone copy; the sandbox needed Google Fonts stubbed (network), which CI does not. tsc 0, 1047/1047 tests. Deploy: `scripts/sync-schema.ts` applies migrations 0055–0059 per company; set nothing new in `.env`.
