@@ -33,6 +33,9 @@ export interface PayrollRun {
   approvedBy: string | null;
   approvedAt: Date | null;
   lockedAt: Date | null;
+  /** F3: set when the run is published to employees (only a locked run can be). */
+  publishedAt?: Date | null;
+  publishedBy?: string | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -68,6 +71,9 @@ export interface PayrollSlip {
   status: 'DRAFT' | 'LOCKED';
   isYearEndReconciliation: boolean;
   warnings: string | null;
+  /** F3: a held payslip stays hidden from the employee. */
+  heldAt?: Date | null;
+  holdReason?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

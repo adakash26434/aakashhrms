@@ -127,7 +127,8 @@ export async function updatePayrollRunStatus(
   id: string,
   status: PayrollRunStatus,
   actionByUserId: string,
-  notes?: string
+  notes?: string,
+  fromStatus?: PayrollRunStatus
 ): Promise<PayrollRun> {
   const updateData: Record<string, any> = {
     status,
@@ -151,9 +152,10 @@ export async function updatePayrollRunStatus(
 
   const rows = await (await getDb()).update(payrollRuns)
     .set(updateData)
-    .where(eq(payrollRuns.id, id))
+    .where(fromStatus ? and(eq(payrollRuns.id, id), eq(payrollRuns.status, fromStatus)) : eq(payrollRuns.id, id))
     .returning();
 
+  if (!rows.length) throw new Error("Someone else already moved this payroll run. Refresh and try again.");
   return mapPayrollRun(rows[0]);
 }
 

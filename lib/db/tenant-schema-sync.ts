@@ -1301,6 +1301,40 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
+  // Payroll controls (4.8 / F1-F3, migration 0063): publish state on runs, held
+  // payslips, variance acknowledgements. Existing locked runs are published once,
+  // inside the guarded block that adds the column (never on later passes).
+  const payrollControlQueries = [
+    `DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'payroll_runs' AND column_name = 'published_at') THEN
+          ALTER TABLE "payroll_runs" ADD COLUMN "published_at" timestamp;
+          ALTER TABLE "payroll_runs" ADD COLUMN "published_by" uuid;
+          UPDATE "payroll_runs" SET "published_at" = COALESCE("locked_at", now()) WHERE "status" = 'LOCKED';
+        END IF;
+      END $$`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "held_at" timestamp`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "held_by" uuid`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "hold_reason" text`,
+    `CREATE TABLE IF NOT EXISTS "payroll_variance_acks" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"("id") ON DELETE CASCADE,
+        "flag_key" varchar(100) NOT NULL,
+        "employee_id" uuid NOT NULL,
+        "note" text DEFAULT '' NOT NULL,
+        "acked_by" uuid NOT NULL,
+        "acked_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "payroll_variance_acks_key" UNIQUE ("payroll_run_id", "flag_key")
+      )`,
+  ];
+  for (const q of payrollControlQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until payroll_runs exists; the next sync pass completes it.
+    }
+  }
+
   // Targets & achievements (G15, migration 0062): employee targets with the
   // reported / verified achievement, attachments, and the TARGETS permission
   // module (the 0047 pattern).

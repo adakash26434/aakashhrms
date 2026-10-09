@@ -1289,6 +1289,9 @@ export const payrollRuns = pgTable('payroll_runs', {
   approvedBy: uuid('approved_by').references(() => users.id, { onDelete: 'set null' }),
   approvedAt: timestamp('approved_at'),
   lockedAt: timestamp('locked_at'),
+  // F3: employees see the payslips of a run only after it is locked and published.
+  publishedAt: timestamp('published_at'),
+  publishedBy: uuid('published_by'),
   notes: text('notes'),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -1330,12 +1333,33 @@ export const payrollSlips = pgTable('payroll_slips', {
   status: varchar('status', { length: 20 }).default('DRAFT').notNull(), // "DRAFT" | "LOCKED"
   isYearEndReconciliation: boolean('is_year_end_reconciliation').default(false).notNull(),
   warnings: text('warnings'),
+  // F3: a held payslip stays hidden from the employee even after its run is published.
+  heldAt: timestamp('held_at'),
+  heldBy: uuid('held_by'),
+  holdReason: text('hold_reason'),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   payrollRunIdIdx: index('payroll_slips_payroll_run_id_idx').on(table.payrollRunId),
   employeeIdIdx: index('payroll_slips_employee_id_idx').on(table.employeeId),
+}));
+
+/**
+ * F1: acknowledgements of variance flags on a run. A flag (key =
+ * `<employee id>:<code>`) that needs a look blocks approval until someone
+ * acknowledges it with a note; the flags themselves are computed on read.
+ */
+export const payrollVarianceAcks = pgTable('payroll_variance_acks', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'cascade' }).notNull(),
+  flagKey: varchar('flag_key', { length: 100 }).notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  note: text('note').default('').notNull(),
+  ackedBy: uuid('acked_by').notNull(),
+  ackedAt: timestamp('acked_at').defaultNow().notNull(),
+}, (table) => ({
+  oncePerFlag: unique('payroll_variance_acks_key').on(table.payrollRunId, table.flagKey),
 }));
 
 export const payrollSlipHeads = pgTable('payroll_slip_heads', {

@@ -307,6 +307,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["welfare", "kalyan kosh", "gratuity", "medical fund", "provision", "payout"],
       },
       {
+        id: "payroll-controls",
+        label: "Payroll controls",
+        href: "/payroll/controls",
+        icon: Shield,
+        description: "Maker-checker, variance threshold and attendance rule for pay runs",
+        requires: ["SYSTEM_CONTROL"],
+        keywords: ["maker checker", "variance", "approval", "publish", "payslip release"],
+      },
+      {
         id: "travel",
         label: "Travel / TA-DA",
         href: "/payroll/travel",

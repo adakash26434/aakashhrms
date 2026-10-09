@@ -26,6 +26,7 @@ import { PayrollSetupForm } from "./payroll-setup-form";
 import { PayrollSummaryCard } from "./payroll-summary-card";
 import { PayrollRunPipeline } from "./payroll-run-pipeline";
 import { PayrollReviewGrid } from "./payroll-review-grid";
+import { PayrollControlsPanel } from "./payroll-controls-panel";
 import { PayrollExceptionsCard } from "./payroll-exceptions-card";
 import { BankExportButton } from "./bank-export-button";
 import {
@@ -436,6 +437,11 @@ export default function PayrollClient({
 
           {/* Workflow Pipeline */}
           <PayrollRunPipeline run={selectedRun} />
+
+          {/* Variance review and payslip release (F1, F3) */}
+          {selectedRun.status !== "DRAFT" && (
+            <PayrollControlsPanel run={selectedRun} slips={selectedSlips} onChanged={handleRefreshCurrentRun} />
+          )}
 
           {/* Pre-Lock Audit Exceptions Card */}
           <PayrollExceptionsCard

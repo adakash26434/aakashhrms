@@ -44,6 +44,7 @@ import { getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
+import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -678,6 +679,8 @@ export async function overridePayslipAllowanceDeduction(
   payload: PayrollSlipOverridePayload,
   userId: string
 ): Promise<void> {
+  // S21: nobody edits their own payslip.
+  await assertNotOwnSlip(payload.slipId, userId, 'EDIT');
   const { 
     slipId, 
     headId, 
@@ -964,6 +967,7 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
 }
 
 export async function deleteEmployeePayslip(slipId: string, userId: string): Promise<{ remainingCount: number }> {
+  await assertNotOwnSlip(slipId, userId, 'DELETE');
   const slip = await repository.findSlipById(slipId);
   if (!slip) throw new Error("Payslip not found");
 
@@ -997,6 +1001,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   slip: PayrollSlip;
   heads: PayrollSlipHead[];
 }> {
+  await assertNotOwnSlip(slipId, userId, 'EDIT');
   const currentSlip = await repository.findSlipById(slipId);
   if (!currentSlip) throw new Error("Payslip not found");
 
@@ -1258,6 +1263,7 @@ export async function addPayHeadToPayslip(
   userId: string
 ): Promise<{ slip: PayrollSlip; heads: PayrollSlipHead[] }> {
   const { slipId, payHeadId, amount, reason } = payload;
+  await assertNotOwnSlip(slipId, userId, 'EDIT');
   const currentSlip = await repository.findSlipById(slipId);
   if (!currentSlip) throw new Error("Payslip not found");
 
@@ -1330,23 +1336,14 @@ export async function transitionPayrollRun(
     );
   }
 
-  // 1. Separation of Duties Check for final LOCK
-  //    System Admins are explicitly exempt — they can generate AND lock.
-  if (toStatus === 'LOCKED' && run.generatedBy === actionByUserId) {
-    const actorRoles = await (await getDb())
-      .select({ slug: roles.slug })
-      .from(userRoles)
-      .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .where(eq(userRoles.userId, actionByUserId));
-
-    const isAdmin = actorRoles.some((r: { slug: string }) => r.slug === 'system_admin' || r.slug === 'office_admin');
-    if (!isAdmin) {
-      throw new SeparationOfDutiesError();
-    }
-  }
+  // 1. Maker-checker (4.8 / F2): approving needs every variance flag acknowledged and someone other
+  //    than the generator; locking needs someone other than the generator (strict mode: also not
+  //    someone the run pays). Company administrators are exempt in the default mode only.
+  await assertCanMove(run, toStatus, actionByUserId);
 
   // Perform status transition
-  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes);
+  // Claim-first: the move happens only while the run still has the status it was read with.
+  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status);
 
   // 2. On LOCK: Atomic loan repayment amortisation and period sealing
   if (toStatus === 'LOCKED') {
