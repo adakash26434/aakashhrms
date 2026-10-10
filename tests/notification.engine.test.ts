@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { nextRunStep, runConcerns, type RunStepActor, type RunStepFacts } from '../lib/engines/payroll-control.engine';
-import { APPROVAL_KINDS, buildCentre, deadlineItems, runItems, runLabel } from '../lib/engines/notification.engine';
+import { APPROVAL_KINDS, buildCentre, deadlineItems, digestEmail, lockoutNotice, runItems, runLabel } from '../lib/engines/notification.engine';
 import type { Deadline } from '../lib/types/dashboard';
 import type { RunWaiting } from '../lib/types/notification';
 
@@ -149,5 +149,28 @@ describe('the centre', () => {
     assert.equal(hrefs.targets, '/workforce/targets?status=forwarded');
     assert.equal(hrefs.evaluations, '/workforce/evaluation?status=waiting');
     assert.equal(new Set(APPROVAL_KINDS.map((k) => k.kind)).size, APPROVAL_KINDS.length);
+  });
+});
+
+describe('emails', () => {
+  const input = { approvals: {}, runs: [], deadlines: null, deadlineHref: '/dashboard', enabled: true };
+
+  it('the daily digest lists what is counted on the bell; nothing counted, no email', () => {
+    assert.equal(digestEmail(buildCentre({ ...input, deadlines: [deadline(1)], runs: [waiting({ step: 'release', heldCount: 2 })] }), null), null);
+    const email = digestEmail(buildCentre({ ...input, approvals: { leave: 2, reimbursements: 1 }, runs: [waiting()], deadlines: [deadline(1)] }), 'https://hr.example.coop');
+    assert.ok(email);
+    assert.equal(email.subject, '4 waiting for you');
+    assert.deepEqual(email.lines.slice(1, 4), ['Leave requests: 2', 'Reimbursement claims: 1', 'Bhadra 2083 payroll: Prepared by Hari Thapa — approve it or send it back']);
+    assert.match(email.lines[4], /^Sign in at https:\/\/hr\.example\.coop and open the bell/);
+    assert.ok(!email.lines.some((l) => /deposit/i.test(l)));
+  });
+
+  it('the lockout notice says when, how many and for how long — never a password or a link to click', () => {
+    const notice = lockoutNotice({ failedAttempts: 10, lockMinutes: 1, when: 'Aswin 24, 2083 at 13:22', ip: '203.0.113.7' });
+    assert.equal(notice.subject, 'Sign-in to your account was paused');
+    assert.match(notice.lines[0], /^On Aswin 24, 2083 at 13:22 \(Nepal time\) a wrong password was entered 10 times for your account from the address 203\.0\.113\.7\.$/);
+    assert.match(notice.lines[1], /paused for 1 minute \(/);
+    assert.ok(!notice.lines.some((l) => /https?:|password:/i.test(l)));
+    assert.match(lockoutNotice({ failedAttempts: 10, lockMinutes: 2, when: 'x', ip: null }).lines[0], /for your account\.$/);
   });
 });

@@ -129,3 +129,52 @@ export function buildCentre(input: CentreInput): NotificationCentre {
 }
 
 export const EMPTY_CENTRE: NotificationCentre = { items: [], total: 0, urgent: false, enabled: false };
+
+// ---- emails ------------------------------------------------------------------------
+
+export interface NoticeEmail {
+  subject: string;
+  lines: string[];
+}
+
+/**
+ * The daily "waiting for you" email (scheduled job `approval-digest`): requests and pay-run steps,
+ * as the bell counts them. Deposits have their own reminder. Null when nothing waits.
+ */
+export function digestEmail(centre: NotificationCentre, appUrl: string | null): NoticeEmail | null {
+  const waiting = centre.items.filter((i) => i.count > 0);
+  if (!waiting.length) return null;
+  const total = waiting.reduce((sum, i) => sum + i.count, 0);
+  return {
+    subject: `${total} waiting for you`,
+    lines: [
+      'Waiting for you in AakashHRMS this morning:',
+      ...waiting.map((i) => (i.group === 'payroll' ? `${i.label}: ${i.detail}` : `${i.label}: ${i.count}`)),
+      `Sign in${appUrl ? ` at ${appUrl}` : ''} and open the bell at the top right to act on them.`,
+      'Your company sends this email each morning while the daily "Waiting for you" email is switched on (Administration → Scheduled jobs).',
+    ],
+  };
+}
+
+export interface LockoutNoticeInput {
+  failedAttempts: number;
+  lockMinutes: number;
+  /** BS date and Nepal time of the lock, already formatted ("Aswin 24, 2083 at 13:22"). */
+  when: string;
+  /** The address the attempts came from, when known. */
+  ip: string | null;
+}
+
+/** S5: the account owner hears once when repeated wrong passwords pause sign-in (no password, no link to click). */
+export function lockoutNotice(i: LockoutNoticeInput): NoticeEmail {
+  const from = i.ip ? ` from the address ${i.ip}` : '';
+  return {
+    subject: 'Sign-in to your account was paused',
+    lines: [
+      `On ${i.when} (Nepal time) a wrong password was entered ${i.failedAttempts} times for your account${from}.`,
+      `To protect it, sign-in is paused for ${plural(i.lockMinutes, 'minute')} (longer if the attempts continue). Signing in with the right password after that clears it.`,
+      'If this was you, wait and try again, or ask your administrator to reset your password.',
+      'If it was not you, tell your administrator. Nobody from the company will ask you for your password.',
+    ],
+  };
+}

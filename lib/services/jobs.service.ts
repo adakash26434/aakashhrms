@@ -3,6 +3,8 @@ import { applyDueEvents } from '@/lib/services/employee-event.service';
 import { postMonthlyContributions } from '@/lib/services/fund.service';
 import { sendNoticeEmail } from '@/lib/services/email.service';
 import { getCompanyProfileSetup } from '@/lib/repositories/company-setup.repository';
+import { notificationsFor } from '@/lib/services/notification.service';
+import { digestEmail } from '@/lib/engines/notification.engine';
 import {
   JOB_DEFINITIONS,
   birthdaysToday,
@@ -12,7 +14,7 @@ import {
   type JobDefinition,
 } from '@/lib/engines/scheduler.engine';
 import { BS_MONTHS_EN, adToBS } from '@/lib/utils/bs-calendar';
-import { nepalToday, toIsoDate } from '@/lib/utils/nepal-time';
+import { nepalHour, nepalToday, toIsoDate } from '@/lib/utils/nepal-time';
 
 // Scheduled jobs (G6): runs inside one tenant's context (the tick route sets
 // it per company). Every job claims its day first (claim-first, so two
@@ -72,6 +74,26 @@ async function runJob(def: JobDefinition, bsDay: number, bsMonthName: string, pr
     return { detail: `${due.length} due; email ${result.success ? 'sent' : `failed: ${result.error}`}.`, items: due.length };
   }
 
+  if (def.code === 'approval-digest') {
+    // F17: what each office user's bell counts, emailed once a morning (counts only).
+    const [recipients, name] = await Promise.all([repo.digestRecipients(), companyName()]);
+    const appUrl = process.env.APP_URL || process.env.NEXTAUTH_URL || process.env.AUTH_URL || null;
+    let sent = 0;
+    let failed = 0;
+    for (const r of recipients) {
+      try {
+        const email = digestEmail(await notificationsFor(r.userId), appUrl);
+        if (!email) continue;
+        const result = await sendNoticeEmail({ to: [r.email], subject: email.subject, lines: email.lines, companyName: name });
+        if (result.success) sent += 1;
+        else failed += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    return { detail: `${sent} email(s) sent; ${recipients.length} user(s) checked${failed ? `; ${failed} failed` : ''}.`, items: sent };
+  }
+
   if (def.code === 'birthday-greetings') {
     const birthdays = birthdaysToday(await repo.birthdayEmployees(), today);
     if (!birthdays.length) return { detail: 'No birthdays today.', items: 0 };
@@ -99,19 +121,25 @@ export async function runDueJobsForTenant(): Promise<TenantTickSummary> {
   const bsMonthName = BS_MONTHS_EN[bs.month] ?? String(bs.month);
   const previousBsMonthName = BS_MONTHS_EN[bs.month === 1 ? 12 : bs.month - 1] ?? String(bs.month - 1);
 
-  await repo.ensureJobRows(JOB_DEFINITIONS.map((j) => j.code));
+  await repo.ensureJobRows(JOB_DEFINITIONS.map((j) => ({ code: j.code, enabled: j.defaultEnabled ?? true })));
   const states = new Map((await repo.jobStates()).map((s) => [s.code, s]));
+  const hour = nepalHour();
 
   const summary: TenantTickSummary = { ran: [], skipped: [], errors: [] };
   for (const def of JOB_DEFINITIONS) {
     const state = states.get(def.code);
-    const due = isDue(def.cadence, {
-      today,
-      weekday: todayDate.getDay(),
-      bsDay: bs.day,
-      lastRunDay: state?.lastRunDay ?? null,
-      enabled: state?.enabled ?? true,
-    });
+    const due = isDue(
+      def.cadence,
+      {
+        today,
+        weekday: todayDate.getDay(),
+        bsDay: bs.day,
+        lastRunDay: state?.lastRunDay ?? null,
+        enabled: state?.enabled ?? def.defaultEnabled ?? true,
+        hour,
+      },
+      def.notBeforeHour
+    );
     if (!due) {
       summary.skipped.push(def.code);
       continue;

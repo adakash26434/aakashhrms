@@ -73,7 +73,9 @@ PostgreSQL
 | `TRUSTED_PROXY_HOPS` | Proxies that append to X-Forwarded-For. Yeti load balancer = `1` (`app.js` doesn't append). Used for the client IP in login throttling, the audit log and the office-network clock-in |
 | `FORCE_SSL` | `true` adds HSTS `includeSubDomains; preload` and `upgrade-insecure-requests`. Production sends a one-year HSTS without it |
 | `ROOT_DOMAIN`, `SUPER_ADMIN_EMAIL`, `DEFAULT_TENANT_ADMIN_PASSWORD` | Platform setup |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Credential and reset emails |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Credential and reset emails, scheduled reminders, the daily "Waiting for you" email and the sign-in lockout notice (without SMTP they print to the log) |
+| `APP_URL` | Public address written in emails ("Sign in at …"); falls back to `NEXTAUTH_URL` / `AUTH_URL` |
+| `JOBS_TICK_SECRET` | Bearer secret for the cron tick `/api/jobs/tick`, at least 24 characters (no scheduled job runs without it) |
 
 **Checking `.env` without showing a secret** (run on the server; these print names, lengths and a count only):
 ```bash

@@ -26,7 +26,7 @@ export async function getJobsPageAction() {
   await ensureTenantContext();
   try {
     await checkPermission('VIEW', 'SYSTEM_CONTROL');
-    await repo.ensureJobRows(JOB_DEFINITIONS.map((j) => j.code));
+    await repo.ensureJobRows(JOB_DEFINITIONS.map((j) => ({ code: j.code, enabled: j.defaultEnabled ?? true })));
     const [states, runs] = await Promise.all([repo.jobStates(), repo.recentRuns()]);
     const stateByCode = new Map(states.map((s) => [s.code, s]));
     const jobs: JobStatusRow[] = JOB_DEFINITIONS.map((def) => {
@@ -35,7 +35,7 @@ export async function getJobsPageAction() {
         code: def.code,
         name: def.name,
         description: def.description,
-        enabled: state?.enabled ?? true,
+        enabled: state?.enabled ?? def.defaultEnabled ?? true,
         lastRunDay: state?.lastRunDay ?? null,
         lastStatus: state?.lastStatus ?? null,
         lastDetail: state?.lastDetail ?? null,

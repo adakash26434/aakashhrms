@@ -16,6 +16,10 @@ export interface JobDefinition {
   name: string;
   description: string;
   cadence: JobCadence;
+  /** Not before this Nepal hour (0–23): a morning email waits for the morning. */
+  notBeforeHour?: number;
+  /** A job that emails many people starts switched off; administrators turn it on (Scheduled jobs). */
+  defaultEnabled?: boolean;
 }
 
 export const JOB_DEFINITIONS: readonly JobDefinition[] = [
@@ -49,6 +53,15 @@ export const JOB_DEFINITIONS: readonly JobDefinition[] = [
     description: "Today's birthdays, emailed to administrators for a greeting.",
     cadence: { kind: 'daily' },
   },
+  {
+    code: 'approval-digest',
+    name: 'Waiting for you (daily email)',
+    description:
+      'From 8:00 each morning, one email to every office user with requests to decide or pay-run steps waiting — what the bell shows, as counts: no names of the people involved, no pay figures. Off until switched on.',
+    cadence: { kind: 'daily' },
+    notBeforeHour: 8,
+    defaultEnabled: false,
+  },
 ];
 
 export const jobDefinition = (code: string) => JOB_DEFINITIONS.find((j) => j.code === code) ?? null;
@@ -63,12 +76,15 @@ export interface DueContext {
   /** The job's stored last-run day (YYYY-MM-DD AD), if any. */
   lastRunDay: string | null;
   enabled: boolean;
+  /** Nepal hour now, 0–23 (for jobs with `notBeforeHour`). */
+  hour?: number;
 }
 
-/** Once per Nepal day, on the cadence's days; disabled jobs never run. */
-export function isDue(cadence: JobCadence, ctx: DueContext): boolean {
+/** Once per Nepal day, on the cadence's days (from `notBeforeHour`); disabled jobs never run. */
+export function isDue(cadence: JobCadence, ctx: DueContext, notBeforeHour = 0): boolean {
   if (!ctx.enabled) return false;
   if (ctx.lastRunDay === ctx.today) return false;
+  if (notBeforeHour > 0 && (ctx.hour ?? 0) < notBeforeHour) return false;
   if (cadence.kind === 'daily') return true;
   if (cadence.kind === 'weekday') return ctx.weekday === cadence.day;
   return cadence.days.includes(ctx.bsDay);

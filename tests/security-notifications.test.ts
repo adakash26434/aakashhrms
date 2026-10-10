@@ -88,6 +88,26 @@ describe('F17 notification centre', () => {
     assert.match(fn(perms, 'permissionSetFor'), /\.where\(and\(eq\(users\.id, userId\), eq\(users\.isActive, true\)\)\);/);
   });
 
+  it('the daily email goes to active office users, each with their own centre (counts only), and starts switched off', () => {
+    const jobs = read('lib/services/jobs.service.ts');
+    const digest = jobs.slice(jobs.indexOf("if (def.code === 'approval-digest')"), jobs.indexOf("if (def.code === 'birthday-greetings')"));
+    assert.match(digest, /const email = digestEmail\(await notificationsFor\(r\.userId\), appUrl\);/);
+    assert.match(digest, /sendNoticeEmail\(\{ to: \[r\.email\], subject: email\.subject, lines: email\.lines, companyName: name \}\)/);
+    assert.match(fn(read('lib/repositories/jobs.repository.ts'), 'digestRecipients'), /\.where\(and\(eq\(users\.isActive, true\), ne\(roles\.scopeType, 'SELF'\)\)\)/);
+    // New job rows take the definition's default; an existing row keeps its switch.
+    assert.match(fn(read('lib/repositories/jobs.repository.ts'), 'ensureJobRows'), /values\(\{ code: job\.code, enabled: job\.enabled \}\)\.onConflictDoNothing/);
+    assert.match(jobs, /enabled: state\?\.enabled \?\? def\.defaultEnabled \?\? true,/);
+  });
+
+  it('S5: the lockout email goes once per run of failures, to the owner, without delaying the sign-in', () => {
+    const auth = read('lib/auth/index.ts');
+    assert.match(auth, /if \(newFailedAttempts === ACCOUNT_LOCKOUT_CONFIG\.THRESHOLD && user\.email\) \{\s*sendLockoutNotice\(\{ to: user\.email, failedAttempts: newFailedAttempts, lockMs, ip \}\);/);
+    assert.doesNotMatch(auth, /await sendLockoutNotice/);
+    const send = fn(read('lib/services/email.service.ts'), 'sendLockoutNotice');
+    assert.match(send, /\): void \{/);
+    assert.match(send, /void sendNoticeEmail\(\{ to: \[p\.to\], subject: notice\.subject, lines: notice\.lines \}\)/);
+  });
+
   it('the frame builds the centre from the session user\'s scope; support view only reads the company\'s waiting leave', () => {
     const ws = read('lib/services/workspace-context.service.ts');
     assert.match(ws, /const \[permissions, scope\] = await Promise\.all\(\[getUserPermissionSet\(\), resolveUserScope\(userId, tenantSlug\)\]\);/);
