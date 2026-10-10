@@ -139,7 +139,7 @@ export function canPublishRun(runStatus: string, publishedAt: Date | string | nu
 
 // ---- pre-flight --------------------------------------------------------------------
 
-export type PreflightCode = 'attendance_open' | 'no_salary' | 'needs_setup' | 'pending_leave' | 'no_bank_account' | 'no_pan' | 'duplicate_run';
+export type PreflightCode = 'attendance_open' | 'no_salary' | 'needs_setup' | 'pending_leave' | 'no_bank_account' | 'no_pan' | 'duplicate_run' | 'missing_tds_head' | 'missing_statutory_head';
 
 export interface PreflightFinding {
   code: PreflightCode;
@@ -161,11 +161,18 @@ export interface PreflightFacts {
   existingRunStatus: string | null;
   /** Whether closed attendance is required (system setting); otherwise open months only warn. */
   requireClosedAttendance: boolean;
+  /** Statutory pay heads present in the master (flags on `pay_heads`). TDS is needed by every run; PF / SSF / CIT only when something is deducted under them. */
+  statutoryHeads?: { tds: boolean; pf: boolean; ssf: boolean; cit: boolean };
 }
 
 export function preflightFindings(f: PreflightFacts): PreflightFinding[] {
   const out: PreflightFinding[] = [];
   const push = (code: PreflightCode, severity: PreflightFinding['severity'], title: string, people: string[] = []) => people.length || code === 'pending_leave' || code === 'duplicate_run' || code === 'attendance_open' ? out.push({ code, severity, title, people }) : undefined;
+  if (f.statutoryHeads && !f.statutoryHeads.tds) push('missing_tds_head', 'blocker', 'The TDS (income tax) pay head is missing from Setup → Pay heads; payroll cannot post tax without it.', ['TDS']);
+  if (f.statutoryHeads) {
+    const absent = (['pf', 'ssf', 'cit'] as const).filter((k) => !f.statutoryHeads![k]).map((k) => k.toUpperCase());
+    if (absent.length) push('missing_statutory_head', 'warning', 'These statutory pay heads are not set up; a run that deducts under them will fail.', absent);
+  }
   if (f.existingRunStatus) push('duplicate_run', f.existingRunStatus === 'LOCKED' ? 'blocker' : 'warning', f.existingRunStatus === 'LOCKED' ? 'A locked run already exists for this month.' : `A ${f.existingRunStatus.toLowerCase().replace('_', ' ')} run already exists for this month; generating again replaces it.`);
   if (f.openAttendanceBranches.length) push('attendance_open', f.requireClosedAttendance ? 'blocker' : 'warning', 'Attendance for the month is not closed. Payroll will use days worked out now, which can still change.', f.openAttendanceBranches);
   push('no_salary', 'blocker', 'No salary structure in force for the month.', f.employeesWithoutSalary);

@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { employeeBank, employeePersonal, employees, payrollRuns, payrollSlips, payrollVarianceAcks, systemConfig, users } from '@/lib/db/schema';
+import { employeeBank, employeePersonal, employees, payrollRuns, payrollSlips, payHeads, payrollVarianceAcks, systemConfig, users } from '@/lib/db/schema';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 // Payroll controls (4.8 / F1–F3): Drizzle queries only. Rules live in
@@ -128,3 +128,10 @@ export async function bankAndPanGaps(employeeIds: string[]): Promise<{ withoutBa
   };
 }
 
+
+/** Which statutory heads the pay-head master has (by flag). */
+export async function statutoryHeadsPresent(): Promise<{ tds: boolean; pf: boolean; ssf: boolean; cit: boolean }> {
+  const db = await getDb();
+  const rows = await db.select({ tds: payHeads.isTdsHead, pf: payHeads.isPfHead, ssf: payHeads.isSsfHead, cit: payHeads.isCitHead }).from(payHeads);
+  return { tds: rows.some((r) => r.tds), pf: rows.some((r) => r.pf), ssf: rows.some((r) => r.ssf), cit: rows.some((r) => r.cit) };
+}

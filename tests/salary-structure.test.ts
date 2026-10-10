@@ -281,14 +281,15 @@ describe('Salary structure security (S20)', () => {
     assert.match(actions, /slice\(0, MAX_BULK\)/);
   });
 
-  it('the server applies the rules: flow on submit, engine on every decision over all employees, payroll still open', () => {
+  it('the server applies the rules: flow on submit, engine on every decision over all employees', () => {
     const service = read('lib/services/salary-structure.service.ts');
     assert.match(service, /buildFlow\(policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId/);
     assert.match(service, /if \(finalNow && !actor\.isAdministrator\)/);
     assert.match(service, /if \(finalNow && ownSalary\) throw new SelfDecisionError/);
     assert.match(service, /findBatchEmployeeIds\(batchId\)/);
     assert.match(service, /availableActions\(request, actor, \{ approvers, today: nepalDateIso\(\) \}\)/);
-    assert.equal((service.match(/await assertPayrollOpen\(/g) ?? []).length, 2); // submit and final approval
+    // Back-dated changes into finalised months are no longer refused: payroll pays the difference as arrears (F7).
+    assert.ok(!/assertPayrollOpen/.test(service));
     const repo = read('lib/repositories/salary-structure.repository.ts');
     // A decision applies only while the batch is pending at the level the person saw.
     assert.match(repo, /eq\(salaryChangeBatches\.status, "pending"\), eq\(salaryChangeBatches\.currentLevel, params\.expectedLevel\)/);

@@ -1335,6 +1335,31 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
+  // Arrears (4.8 / F7, migration 0064): back pay paid through a run for earlier
+  // finalised months, and the ARREARS system pay head (taxable allowance).
+  const arrearsQueries = [
+    `CREATE TABLE IF NOT EXISTS "payroll_arrears" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "source_run_id" uuid NOT NULL REFERENCES "payroll_runs"("id") ON DELETE CASCADE,
+        "payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"("id") ON DELETE CASCADE,
+        "amount" numeric(15,2) NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "payroll_arrears_key" UNIQUE ("employee_id", "source_run_id", "payroll_run_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "payroll_arrears_source_idx" ON "payroll_arrears" ("source_run_id", "employee_id")`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:ARREARS')::uuid, 'ARREARS', 'Arrears (back pay)', 'allowance', true, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'ARREARS')`,
+  ];
+  for (const q of arrearsQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until payroll_runs exists; the next sync pass completes it.
+    }
+  }
+
   // Targets & achievements (G15, migration 0062): employee targets with the
   // reported / verified achievement, attachments, and the TARGETS permission
   // module (the 0047 pattern).

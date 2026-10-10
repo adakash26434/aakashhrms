@@ -1362,6 +1362,23 @@ export const payrollVarianceAcks = pgTable('payroll_variance_acks', {
   oncePerFlag: unique('payroll_variance_acks_key').on(table.payrollRunId, table.flagKey),
 }));
 
+/**
+ * Arrears (4.8 / F7): back pay paid through `payrollRunId` for an earlier approved or locked month
+ * (`sourceRunId`). The sum per (employee, source run) is what has already been paid for that month,
+ * so the next calculation only pays what is still missing.
+ */
+export const payrollArrears = pgTable('payroll_arrears', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  sourceRunId: uuid('source_run_id').references(() => payrollRuns.id, { onDelete: 'cascade' }).notNull(),
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'cascade' }).notNull(),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  oncePerRun: unique('payroll_arrears_key').on(table.employeeId, table.sourceRunId, table.payrollRunId),
+  sourceIdx: index('payroll_arrears_source_idx').on(table.sourceRunId, table.employeeId),
+}));
+
 export const payrollSlipHeads = pgTable('payroll_slip_heads', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),

@@ -242,7 +242,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
   const label = (e: { fullName: string; employeeCode: string }) => `${e.fullName} (${e.employeeCode})`;
 
   const db = await getDb();
-  const [settings, salaries, needSetup, periods, existing, gaps, pending, branchRows] = await Promise.all([
+  const [settings, salaries, needSetup, periods, existing, gaps, pending, branchRows, statutoryHeads] = await Promise.all([
     readSettings(),
     salaryMappingRepository.findInForceByEmployeeIds(ids, endStr),
     employeesNeedingSetup(),
@@ -256,6 +256,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
           .where(and(inArray(leaveApplications.employeeId, ids), eq(leaveApplications.status, 'Pending'), sql`leave_applications.effective_from <= ${endStr}::date`, sql`leave_applications.effective_to >= ${startStr}::date`))
       : Promise.resolve([{ n: 0 }]),
     payload.branchIds.length ? db.select({ id: branches.id, name: branches.name }).from(branches).where(inArray(branches.id, payload.branchIds)) : Promise.resolve([]),
+    repo.statutoryHeadsPresent(),
   ]);
 
   const closed = new Set(periods.filter((p) => p.status === 'closed').map((p) => p.branchId));
@@ -271,6 +272,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     employeesWithoutPan: gaps.withoutPan,
     existingRunStatus: statuses.includes('LOCKED') ? 'LOCKED' : statuses[0] ?? null,
     requireClosedAttendance: settings.requireClosedAttendance,
+    statutoryHeads,
   });
   return { findings, employeeCount: people.length, blocked: findings.some((f) => f.severity === 'blocker') };
 }

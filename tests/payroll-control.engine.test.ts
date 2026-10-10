@@ -108,6 +108,13 @@ describe('pre-flight', () => {
     assert.equal(preflightFindings({ ...clean, existingRunStatus: 'LOCKED' })[0].severity, 'blocker');
     assert.equal(preflightFindings({ ...clean, existingRunStatus: 'DRAFT' })[0].severity, 'warning');
   });
+  it('a missing TDS head blocks; missing PF / SSF / CIT only warn', () => {
+    const all = { tds: true, pf: true, ssf: true, cit: true };
+    assert.deepEqual(preflightFindings({ ...clean, statutoryHeads: all }), []);
+    const f = preflightFindings({ ...clean, statutoryHeads: { ...all, tds: false, cit: false } });
+    assert.deepEqual(f.map((x) => `${x.code}:${x.severity}`), ['missing_tds_head:blocker', 'missing_statutory_head:warning']);
+    assert.deepEqual(f[1].people, ['CIT']);
+  });
   it('pending leave blocks with the count', () => {
     const f = preflightFindings({ ...clean, pendingLeaveCount: 3 });
     assert.ok(/3 leave application/.test(f[0].title));

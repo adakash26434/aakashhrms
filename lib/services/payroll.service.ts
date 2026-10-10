@@ -45,6 +45,7 @@ import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
 import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
+import * as arrearsService from "@/lib/services/arrears.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -267,10 +268,12 @@ export async function generatePayrollRun(
   // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
   // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
   // as fixed one-off heads; the engine's statutory maths is untouched.
-  const [feedHeadRows, claimsByEmployee, fundByEmployee] = await Promise.all([
+  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee] = await Promise.all([
     feedsRepository.feedHeads(),
     feedsRepository.approvedClaimsByEmployee(empIds, endStr),
     feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth),
+    // F7: back pay for finalised months whose revision in force now pays more (ARREARS head, taxable).
+    arrearsService.arrearsFor(empIds, startStr),
   ]);
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
@@ -503,6 +506,10 @@ export async function generatePayrollRun(
     if (claimFeed && feedHeadRows.tada && Number(claimFeed.payable) !== 0) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.tada), amount: claimFeed.payable, isManualOverride: true });
     }
+    const arrearsFeed = arrearsByEmployee.get(emp.id);
+    if (arrearsFeed && arrearsFeed.payable > 0 && feedHeadRows.arrears) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: arrearsFeed.payable.toFixed(2), isManualOverride: true });
+    }
     const fundFeed = fundByEmployee.get(emp.id);
     if (fundFeed && feedHeadRows.welfare) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundFeed, isManualOverride: true });
@@ -660,6 +667,8 @@ export async function generatePayrollRun(
   // The claims this run pays are settled once the run exists (claim-first on status; the FK
   // needs the committed run). A failed run above leaves them approved and unpaid.
   await feedsRepository.settleClaimsThroughRun([...claimsByEmployee.values()].flatMap((c) => c.ids), runRecord.id);
+  // The arrears this run pays are recorded against their source months (a deleted draft takes them with it).
+  await arrearsService.settle(runRecord.id, new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0)));
 
   logger.info('Payroll run generated', {
     runId: runRecord.id,
