@@ -483,6 +483,31 @@ export const employeeBank = pgTable('employee_bank', {
   employeeIdIdx: index('employee_bank_employee_id_idx').on(table.employeeId),
 }));
 
+/**
+ * Sensitive employee details (4.8 / F13): a change to the bank account, PAN, tax status or
+ * disability relief of an existing employee, with the changed fields' values before and after.
+ * It waits for a second person unless approvals are off or a company administrator saved it
+ * (lib/engines/employee-detail.engine.ts); the timeline is in approval_actions (EMPLOYEE_DETAILS).
+ * One waiting change per employee (partial unique index `employee_detail_changes_one_pending`).
+ */
+export const employeeDetailChanges = pgTable('employee_detail_changes', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  before: jsonb('before').$type<Record<string, string | boolean>>().notNull(),
+  after: jsonb('after').$type<Record<string, string | boolean>>().notNull(),
+  reason: text('reason').notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn
+  preparedBy: uuid('prepared_by'),
+  preparedAt: timestamp('prepared_at').defaultNow().notNull(),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  approvalRoute: varchar('approval_route', { length: 20 }), // simple | final_approve | not_required
+  appliedAt: timestamp('applied_at'),
+}, (table) => ({
+  employeeIdx: index('employee_detail_changes_employee_idx').on(table.employeeId, table.status),
+}));
+
 // -----------------------------------------------------------------------------
 // EMPLOYEE IDENTITY DOCUMENTS (4.2b): one row per document type, with its scans.
 // employee_personal's citizenship / NID / passport / voter columns are a mirror

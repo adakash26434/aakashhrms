@@ -21,6 +21,7 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
   const attendancePending = context?.pendingAttendanceCount ?? 0;
   const canSeeAttendance = !context?.isImpersonating && Boolean(context?.allowedModules.includes("ATTENDANCE"));
   const policyPending = context?.pendingLeavePolicyCount ?? 0;
+  const detailPending = context?.pendingDetailChangesCount ?? 0;
   // Staff who are also employees clock in here too (never platform support).
   const canClock = !context?.isImpersonating && Boolean(context?.myEmployeeId);
 
@@ -93,8 +94,14 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
 
           {canClock && <ClockButton />}
 
-          {(canSeeApprovals || canSeeSalary || canSeeAttendance) && (
-            <ApprovalsBell leave={canSeeApprovals ? pending : null} salary={canSeeSalary ? salaryPending : null} attendance={canSeeAttendance ? attendancePending : null} policy={policyPending > 0 ? policyPending : null} />
+          {(canSeeApprovals || canSeeSalary || canSeeAttendance || detailPending > 0) && (
+            <ApprovalsBell
+              leave={canSeeApprovals ? pending : null}
+              salary={canSeeSalary ? salaryPending : null}
+              attendance={canSeeAttendance ? attendancePending : null}
+              policy={policyPending > 0 ? policyPending : null}
+              details={detailPending > 0 ? detailPending : null}
+            />
           )}
 
           <button
@@ -122,16 +129,30 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
  * (4.6c, shown only when there are some). One kind links straight to it;
  * more open a small menu.
  */
-function ApprovalsBell({ leave, salary, attendance, policy }: { leave: number | null; salary: number | null; attendance: number | null; policy: number | null }) {
+function ApprovalsBell({
+  leave,
+  salary,
+  attendance,
+  policy,
+  details,
+}: {
+  leave: number | null;
+  salary: number | null;
+  attendance: number | null;
+  policy: number | null;
+  /** F13: changes to bank, PAN or tax status (shown only when there are some). */
+  details: number | null;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const total = (leave ?? 0) + (salary ?? 0) + (attendance ?? 0) + (policy ?? 0);
+  const total = (leave ?? 0) + (salary ?? 0) + (attendance ?? 0) + (policy ?? 0) + (details ?? 0);
   const label = total > 0 ? `${total} request${total === 1 ? "" : "s"} waiting for you` : "Nothing waiting for you";
   const items = [
     leave !== null ? { href: "/timeAndLeave/leaves?tab=requests", label: "Leave requests", count: leave } : null,
     salary !== null ? { href: "/workforce/salary-mapping?tab=approvals", label: "Salary changes", count: salary } : null,
     attendance !== null ? { href: "/timeAndLeave/attendance?tab=adjustments", label: "Attendance adjustments", count: attendance } : null,
     policy !== null ? { href: "/timeAndLeave/policies?tab=types", label: "Leave policies", count: policy } : null,
+    details !== null ? { href: "/workforce/employees/changes", label: "Bank, PAN & tax changes", count: details } : null,
   ].filter((x): x is { href: string; label: string; count: number } => !!x);
 
   useEffect(() => {

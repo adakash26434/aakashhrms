@@ -112,10 +112,6 @@ export function PayrollReviewGrid({
       payload.absentDeduction = amount;
     } else if (headId === "loan-deduction") {
       payload.loanDeduction = amount;
-    } else if (headId === "bank-details") {
-      const [bName, bAcc] = amount.split("||");
-      payload.bankName = bName;
-      payload.bankAccountNumber = bAcc;
     } else {
       payload.headId = headId;
       payload.amount = amount;

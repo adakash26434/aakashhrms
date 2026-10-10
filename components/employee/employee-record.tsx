@@ -22,6 +22,8 @@ import { EmployeeRecordPayslips } from "./employee-record-payslips";
 import { EmployeeRecordLoans } from "./employee-record-loans";
 import { EmployeeRecordHistory } from "./employee-record-history";
 import { EmployeeStatusWindow } from "./employee-status-window";
+import { DetailDecisionWindow, decisionText } from "./employee-detail-changes";
+import type { DetailDecisionResult } from "@/lib/types/employee-detail";
 
 const TAB_META: Record<EmployeeRecordTab, Omit<TabItem, "id">> = {
   overview: { label: "Overview", icon: LayoutDashboard },
@@ -52,6 +54,10 @@ export function EmployeeRecord({ record, joiningLetters }: { record: EmployeeRec
   const [sending, setSending] = useState(false);
   const [credentials, setCredentials] = useState<CredentialResult | null>(null);
   const [promptOpen, setPromptOpen] = useState(!!joiningLetters?.prompt);
+  // F13: the waiting change to bank, PAN or tax status, opened from the banner.
+  const [reviewing, setReviewing] = useState(false);
+  const [decided, setDecided] = useState<DetailDecisionResult | null>(null);
+  const detail = record.detailChange;
 
   // Keep the highlighted tab in step with the server (Back / Forward between tabs).
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -138,6 +144,26 @@ export function EmployeeRecord({ record, joiningLetters }: { record: EmployeeRec
         </Notice>
       )}
 
+      {decided && (
+        <Notice tone={decided.runsInReview.length ? "warning" : "success"} className="mb-3" onDismiss={() => setDecided(null)}>
+          {decisionText(decided)}
+        </Notice>
+      )}
+      {detail && (
+        <Notice
+          tone="warning"
+          className="mb-3"
+          title={`${detail.summary} change waiting for approval`}
+          action={
+            <WindowButton onClick={() => setReviewing(true)} variant={detail.can.approve ? "primary" : "default"}>
+              {detail.can.approve ? "Review and approve" : "View the change"}
+            </WindowButton>
+          }
+        >
+          Made by {detail.preparedBy}: {detail.reason}. Payroll keeps the current details until it is approved.
+        </Notice>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[18.5rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-0 lg:self-start">
           <EmployeeRecordIdentity profile={profile} navigator={record.navigator} canEdit={permissions.edit} />
@@ -171,6 +197,18 @@ export function EmployeeRecord({ record, joiningLetters }: { record: EmployeeRec
           </div>
         </Tabs>
       </div>
+
+      {detail && reviewing && (
+        <DetailDecisionWindow
+          change={detail}
+          onClose={() => setReviewing(false)}
+          onDone={(result) => {
+            setReviewing(false);
+            setDecided(result);
+            router.refresh();
+          }}
+        />
+      )}
 
       <EmployeeStatusWindow
         target={changingStatus ? { id: profile.id, fullName: profile.fullName, employeeCode: profile.employeeCode, status: profile.status } : null}

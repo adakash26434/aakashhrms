@@ -16,6 +16,7 @@ import { validatePanNo } from "@/lib/utils/nepal-docs";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { documentsChanged, isPrimaryDocument, validateDocuments } from "@/lib/engines/employee-document.engine";
 import { dossierChanged } from "@/lib/engines/employee-dossier.engine";
+import { detailSummary } from "@/lib/engines/employee-detail.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 
 const WARD_ERROR = "Ward number must be between 1 and 35";
@@ -657,11 +658,19 @@ export function attendanceMonth(
 /** One line for an audit entry on the record's History tab (field names only, never values). */
 export function historySummary(entry: { action: string; result: string; newValues: unknown }): string {
   const values = (entry.newValues && typeof entry.newValues === "object" ? entry.newValues : {}) as Record<string, unknown>;
+  // F13: a change to bank, PAN or tax status (recorded with a save, or decided later).
+  const detail = values.detailChange && typeof values.detailChange === "object" ? (values.detailChange as { status?: unknown; route?: unknown; fields?: unknown }) : null;
+  const detailWhat = detail ? detailSummary(Array.isArray(detail.fields) ? detail.fields.filter((f): f is string => typeof f === "string") : []) : "";
   if (entry.result !== "SUCCESS") {
+    if (detail) return `Refused: ${detailWhat} change (${entry.result.toLowerCase().replace(/_/g, " ")})`;
     return entry.result === "DENIED_SCOPE" ? "Refused: outside the user's branch or department" : `Refused (${entry.result.toLowerCase().replace(/_/g, " ")})`;
   }
   if (values.credentials === "resent") return "Sign-in details sent again";
   if (values.credentials === "reset") return "Password reset and sent";
+  if (detail && (entry.action === "APPROVE" || detail.status === "withdrawn")) {
+    const verdict = detail.status === "approved" ? "approved" : detail.status === "rejected" ? "rejected" : "withdrawn";
+    return `${detailWhat} change ${verdict}`;
+  }
   switch (entry.action) {
     case "ADD":
       return values.loginCreated ? "Record created, with a self-service login" : "Record created";
@@ -669,9 +678,18 @@ export function historySummary(entry: { action: string; result: string; newValue
       return "Record deleted";
     case "EDIT": {
       const fields = Array.isArray(values.changedFields) ? (values.changedFields as string[]) : [];
-      if (fields.length === 0) return "Saved with no changes";
       const labels = fields.map(fieldLabel);
-      return labels.length > 4 ? `Changed ${labels.slice(0, 4).join(", ")} and ${labels.length - 4} more` : `Changed ${labels.join(", ")}`;
+      const changed = labels.length > 4 ? `Changed ${labels.slice(0, 4).join(", ")} and ${labels.length - 4} more` : labels.length ? `Changed ${labels.join(", ")}` : "";
+      const note =
+        detail?.status === "pending"
+          ? `${detailWhat} change sent for approval`
+          : detail?.route === "final_approve"
+            ? `${detailWhat} change saved by a company administrator`
+            : detail?.route === "not_required"
+              ? `${detailWhat} change applied (approvals off)`
+              : "";
+      if (!changed && !note) return "Saved with no changes";
+      return [changed, note].filter(Boolean).join(" · ");
     }
     default:
       return entry.action.charAt(0) + entry.action.slice(1).toLowerCase();

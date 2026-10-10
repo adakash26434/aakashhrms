@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BriefcaseBusiness, Check, Contact, GraduationCap, IdCard, Landmark, Loader2, LogOut, Save, SaveAll, ShieldCheck, TriangleAlert, UserRound, Users, Wallet, X, type LucideIcon } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { DiscardBar } from "@/components/kit/discard-bar";
+import { Notice as NoticeBox } from "@/components/kit/notice";
 import { PropertyForm } from "@/components/kit/property-form";
 import { useFieldHelp } from "@/components/kit/form-grid";
 import { StatusChip } from "@/components/kit/status-chip";
@@ -16,6 +18,7 @@ import { Window, WindowButton } from "@/components/kit/window";
 import { saveEmployeeAction } from "@/app/actions/employee.actions";
 import { EMPLOYEE_FORM_SECTIONS, fieldLabel, sectionOfField, type EmployeeField } from "@/lib/constants/employee-form";
 import { codeConflicts, getNextAttendanceCode, getNextEmployeeCode, sectionProgress, validateEmployee, validateEmployeeField } from "@/lib/engines/employee.engine";
+import { DETAIL_FIELDS, detailDiff, detailLines, detailSummary, detailValues, inSentence, type DetailLine } from "@/lib/engines/employee-detail.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 import type { EmployeeAccessOptions } from "@/lib/services/employee.service";
 import type { EmployeeFormContext, EmployeeFormData, EmployeeValidationErrors } from "@/lib/types/employee";
@@ -31,11 +34,17 @@ import { EmployeeFormFamily } from "./employee-form-family";
 import { EmployeeFormBank } from "./employee-form-bank";
 import { EmployeeFormAccess } from "./employee-form-access";
 import { EmployeeFormSeparation } from "./employee-form-separation";
+import { EmployeeDetailConfirm } from "./employee-detail-confirm";
+import { DetailLinesTable } from "./employee-detail-bits";
 
 /** Fields kept by "Save & add another", for entering several people in a row. */
 const CARRY_OVER: EmployeeField[] = ["branchId", "departmentId", "category", "joiningDate"];
 
-type Notice = { kind: "login"; name: string; email: string; tempPassword: string; next: () => void } | { kind: "warning"; message: string; next: () => void };
+/** After a save: the new login (shown once), and anything to know — warnings, or what became of a change to bank, PAN or tax status. */
+type Notice = { login: { name: string; email: string; tempPassword: string } | null; messages: { tone: "warning" | "info"; text: string }[]; next: () => void };
+
+/** F13: a change to bank, PAN or tax status about to be saved (the confirm window). */
+type DetailConfirm = { another: boolean; summary: string; lines: DetailLine[]; error: string | null };
 
 const SECTION_ICON: Record<string, LucideIcon> = {
   general: UserRound,
@@ -96,6 +105,10 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
   );
   const saveRef = useRef<HTMLButtonElement>(null);
   const [tab, setTab] = useState("general");
+  const [confirm, setConfirm] = useState<DetailConfirm | null>(null);
+  // F13: while a change to bank, PAN or tax status waits for approval, those fields stay as they are.
+  const pendingDetail = ctx.details.pending;
+  const locked = useMemo(() => new Set<string>(pendingDetail ? DETAIL_FIELDS : []), [pendingDetail]);
 
   // Arriving from a record card's "Edit" or a "Fix" link (…/edit#section-bank): open that tab, first field focused.
   useEffect(() => {
@@ -175,6 +188,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
     },
     update: (fn) => setForm(fn),
     clear: clearError,
+    locked,
   };
 
   /** The data that is saved: email mirrors the company email; "same address" copies it. */
@@ -249,7 +263,8 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
     }
   };
 
-  const save = async (another = false) => {
+  /** Saves the form; a change to bank, PAN or tax status (F13) asks for its reason first. */
+  const save = async (another = false, reason?: string) => {
     if (saving) return;
     setFormError(null);
     const data = payload();
@@ -261,27 +276,58 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       if (first) focusField(first);
       return;
     }
+    if (!isNew && reason === undefined) {
+      const diff = detailDiff(detailValues(baseline), detailValues(data));
+      if (diff) {
+        setConfirm({ another, summary: detailSummary(diff.fields), lines: detailLines(diff.before, diff.after, true), error: null });
+        return;
+      }
+    }
     setSaving(another ? "another" : "save");
-    const result = await saveEmployeeAction(ctx.employeeId, data, isNew || !ctx.access ? access : { roleId: access.roleId, roleSlug: access.roleSlug });
+    const result = await saveEmployeeAction(
+      ctx.employeeId,
+      data,
+      isNew || !ctx.access ? access : { roleId: access.roleId, roleSlug: access.roleSlug },
+      reason !== undefined ? { reason } : undefined
+    );
     setSaving(null);
     if (!result.success) {
-      if (result.validationErrors && Object.keys(result.validationErrors).length > 0) {
-        setErrors(result.validationErrors);
+      const { detailReason, ...fieldErrors } = result.validationErrors ?? {};
+      if (detailReason && reason !== undefined) {
+        setConfirm((c) => (c ? { ...c, error: detailReason } : c));
+        return;
+      }
+      setConfirm(null);
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
         setAttempted(true);
-        const first = firstError(result.validationErrors);
+        const first = firstError(fieldErrors);
         if (first) focusField(first);
       } else {
-        setFormError(result.error);
+        setFormError(detailReason ?? result.error);
       }
       return;
     }
+    setConfirm(null);
     setBaseline(data); // saved: leaving no longer asks
-    const { employee, provisionedAccess, accessWarning, darbandiWarning } = result.data;
+    const { employee, provisionedAccess, accessWarning, darbandiWarning, detailChange } = result.data;
     const next = () => finish(another, employee.id, data);
-    if (provisionedAccess) {
-      setNotice({ kind: "login", name: employee.fullName, email: provisionedAccess.email, tempPassword: provisionedAccess.tempPassword, next });
-    } else if (accessWarning || darbandiWarning) {
-      setNotice({ kind: "warning", message: [accessWarning, darbandiWarning].filter(Boolean).join(" "), next });
+    const messages: Notice["messages"] = [accessWarning, darbandiWarning].filter((m): m is string => !!m).map((text) => ({ tone: "warning" as const, text }));
+    if (detailChange) {
+      const what = inSentence(detailChange.summary);
+      const slips = detailChange.draftSlips ? ` ${detailChange.draftSlips} draft payslip${detailChange.draftSlips === 1 ? "" : "s"} now use the new bank account.` : "";
+      messages.push({
+        tone: "info",
+        text:
+          detailChange.status === "pending"
+            ? `The ${what} change is waiting for approval by someone with Employees → Approve. Payroll keeps the current details until it is approved.`
+            : detailChange.route === "final_approve"
+              ? `The ${what} change is saved and recorded as approved by you as company administrator.${slips}`
+              : `The ${what} change is saved (approvals for employee details are off).${slips}`,
+      });
+    }
+    if (provisionedAccess || messages.length) {
+      setNotice({ login: provisionedAccess ? { name: employee.fullName, email: provisionedAccess.email, tempPassword: provisionedAccess.tempPassword } : null, messages, next });
     } else {
       next();
     }
@@ -325,6 +371,24 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
             </ul>
           )}
         </div>
+      )}
+
+      {pendingDetail && (
+        <NoticeBox
+          tone="warning"
+          className="mb-4"
+          title={`${pendingDetail.summary} change waiting for approval`}
+          action={
+            <Link href={`/workforce/employees/changes?id=${pendingDetail.id}`} className="text-2xs font-medium underline underline-offset-2">
+              Open the change
+            </Link>
+          }
+        >
+          <p>
+            Made by {pendingDetail.preparedBy} · {pendingDetail.reason}. Bank, PAN and tax status stay as they are until it is approved, rejected or withdrawn.
+          </p>
+          <DetailLinesTable lines={pendingDetail.lines} className="mt-2 max-w-xl" />
+        </NoticeBox>
       )}
 
       <EmployeeFormHeader form={form} ctx={ctx} isNew={isNew} progress={progress} />
@@ -423,7 +487,7 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
           setNotice(null);
           next?.();
         }}
-        title={notice?.kind === "login" ? "Employee saved, login created" : "Employee saved"}
+        title={notice?.login ? "Employee saved, login created" : "Employee saved"}
         size="sm"
         footer={
           <WindowButton
@@ -438,21 +502,40 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
           </WindowButton>
         }
       >
-        {notice?.kind === "login" ? (
+        {notice && (
           <div className="space-y-3 text-sm text-ink-muted">
-            <p>
-              A self-service login was created for <span className="font-medium text-ink">{notice.name}</span> and the sign-in details were emailed to{" "}
-              <span className="font-medium text-ink">{notice.email}</span>.
-            </p>
-            <p className="rounded-md border border-line bg-surface-sunken px-3 py-2">
-              Temporary password (shown once): <span className="font-code text-ink">{notice.tempPassword}</span>
-            </p>
-            <p className="text-2xs">They must choose their own password at first sign-in.</p>
+            {notice.login && (
+              <>
+                <p>
+                  A self-service login was created for <span className="font-medium text-ink">{notice.login.name}</span> and the sign-in details were emailed to{" "}
+                  <span className="font-medium text-ink">{notice.login.email}</span>.
+                </p>
+                <p className="rounded-md border border-line bg-surface-sunken px-3 py-2">
+                  Temporary password (shown once): <span className="font-code text-ink">{notice.login.tempPassword}</span>
+                </p>
+                <p className="text-2xs">They must choose their own password at first sign-in.</p>
+              </>
+            )}
+            {notice.messages.map((m) => (
+              <p key={m.text} className={m.tone === "warning" ? "text-warning" : "text-ink"}>
+                {m.text}
+              </p>
+            ))}
           </div>
-        ) : notice?.kind === "warning" ? (
-          <p className="text-sm text-warning">{notice.message}</p>
-        ) : null}
+        )}
       </Window>
+
+      {confirm && (
+        <EmployeeDetailConfirm
+          summary={confirm.summary}
+          lines={confirm.lines}
+          onSave={ctx.details.onSave}
+          saving={!!saving}
+          error={confirm.error}
+          onCancel={() => setConfirm(null)}
+          onConfirm={(reason) => save(confirm.another, reason)}
+        />
+      )}
     </div>
   );
 }

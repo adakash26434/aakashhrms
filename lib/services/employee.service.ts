@@ -40,6 +40,10 @@ import { resolvePay } from "@/lib/engines/grade-policy.engine";
 import * as salaryStructureService from "@/lib/services/salary-structure.service";
 import { pickable, placementErrors } from "@/lib/engines/organization.engine";
 import { legacyDocumentColumns, normalizeDocuments } from "@/lib/engines/employee-document.engine";
+import { detailValues } from "@/lib/engines/employee-detail.engine";
+import * as detailService from "@/lib/services/employee-detail.service";
+import type { DetailPlan } from "@/lib/services/employee-detail.service";
+import type { DetailFormInfo, DetailSaveResult } from "@/lib/types/employee-detail";
 
 const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
 
@@ -89,13 +93,19 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
  */
 export async function getEmployeeRegister(
   scope: ScopeFilter,
-  permissions: EmployeeRegisterData["permissions"]
+  permissions: EmployeeRegisterData["permissions"],
+  /** Employees → Approve (F13: which waiting detail changes are this user's to decide). */
+  canApproveDetails = false
 ): Promise<EmployeeRegisterData> {
-  const [employees, branches, departments, designations] = await Promise.all([
+  const [employees, branches, departments, designations, detailChanges] = await Promise.all([
     repository.findAll(ALL_EMPLOYEES, buildEmployeeScopeCondition(scope)),
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
+    detailService.pendingCounts(scope, canApproveDetails).catch((error) => {
+      console.error("[employees] detail changes unavailable", error instanceof Error ? error.message.slice(0, 120) : error);
+      return { pending: 0, waitingForMe: 0 };
+    }),
   ]);
   const names: engine.RegisterNames = {
     department: new Map(departments.map((d) => [d.id, d.name])),
@@ -112,6 +122,7 @@ export async function getEmployeeRegister(
     departments: used(new Set(rows.map((r) => r.departmentId)), departments),
     branches: used(new Set(rows.map((r) => r.branchId)), branches),
     permissions,
+    detailChanges,
   };
 }
 
@@ -160,6 +171,15 @@ export interface SaveEmployeeResult {
   accessWarning?: string;
   /** Hire or move recorded over the approved positions (warn mode). */
   darbandiWarning?: string | null;
+  /** F13: a change to bank, PAN or tax status this save recorded (waiting, or applied with it). */
+  detailChange?: DetailSaveResult | null;
+}
+
+/** Who saves, for the sensitive details (F13): their scope, Employees → Approve, and the reason given. */
+export interface DetailSaveContext {
+  scope: ScopeFilter;
+  canApprove: boolean;
+  reason?: unknown;
 }
 
 export interface EmployeeAccessOptions {
@@ -289,7 +309,9 @@ export async function saveEmployee(
   formData: EmployeeFormData,
   accessOptions?: EmployeeAccessOptions,
   /** Salary mapping → Edit, checked by the action: without it pay is never taken from the form. */
-  payAccess: { canEditPay: boolean; userId?: string | null } = { canEditPay: false }
+  payAccess: { canEditPay: boolean; userId?: string | null } = { canEditPay: false },
+  /** F13: needed to change an existing employee's bank, PAN or tax status (else they are kept). */
+  detailAccess: DetailSaveContext | null = null
 ): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
   const [allCodes, orgBranches, orgDepartments, orgDesignations, stored] = await Promise.all([
@@ -324,6 +346,32 @@ export async function saveEmployee(
   const current = stored ?? null;
   if (current) formData = { ...formData, status: current.status };
   else if (!id) formData = { ...formData, status: "Active" };
+
+  // Sensitive details (F13, S43): an existing employee's bank account, PAN and tax status change
+  // only as a recorded change — applied with this save, or kept as they are until a second person
+  // approves it. Without the context they are simply kept.
+  let detailPlan: DetailPlan | null = null;
+  if (current) {
+    if (detailAccess) {
+      const planned = await detailService.planSave(current.id, current, formData, detailAccess.reason, {
+        scope: detailAccess.scope,
+        userId: payAccess.userId ?? detailAccess.scope.userId,
+        canApprove: detailAccess.canApprove,
+      });
+      if (!planned.ok) throw new EmployeeValidationError(planned.errors);
+      detailPlan = planned.plan;
+    }
+    const keep = detailPlan?.values ?? detailValues(current);
+    formData = {
+      ...formData,
+      bankName: keep.bankName,
+      bankBranch: keep.bankBranch,
+      bankAccountNumber: keep.bankAccountNumber,
+      panNumber: keep.panNumber,
+      taxStatus: keep.taxStatus as EmployeeFormData["taxStatus"],
+      isDisabled: keep.isDisabled,
+    };
+  }
 
   // Pay (S18): worked out here from the grade policy and the user's Salary mapping
   // permission; the grade amount the browser sent is used only when typed by hand.
@@ -420,7 +468,28 @@ export async function saveEmployee(
   if (!payAccess.userId) throw new Error("saveEmployee needs the acting user for the documents");
   const documents = { rows: formData.documents, dossier: formData.dossier, photoId: isUuid(formData.photoId) ? formData.photoId : "", userId: payAccess.userId };
   if (id) {
-    const updated = await repository.update(id, employeeData, documents);
+    let saved: Awaited<ReturnType<typeof repository.updateWithDetailChange>>;
+    try {
+      saved = await repository.updateWithDetailChange(id, employeeData, documents, detailPlan?.change ? { change: detailPlan.change, refreshBank: detailPlan.refreshBank } : null);
+    } catch (error) {
+      // Someone recorded a change for this employee a moment ago (one waiting change per employee).
+      if (detailService.isOnePendingViolation(error) && detailPlan?.change) {
+        throw new EmployeeValidationError(Object.fromEntries(Object.keys(detailPlan.change.after).map((f) => [f, detailService.WAITING_MESSAGE])));
+      }
+      throw error;
+    }
+    const updated = saved.employee;
+    const detailChange: DetailSaveResult | null =
+      detailPlan?.change && saved.detailChangeId
+        ? {
+            id: saved.detailChangeId,
+            fields: Object.keys(detailPlan.change.after),
+            summary: detailPlan.summary,
+            status: detailPlan.change.appliedRoute ? "approved" : "pending",
+            route: detailPlan.change.appliedRoute,
+            draftSlips: saved.draftSlips,
+          }
+        : null;
 
     // =======================================================================
     // EMPLOYEE-USER SYNC ON UPDATE
@@ -433,7 +502,7 @@ export async function saveEmployee(
       accessOptions
     );
 
-    return { employee: updated, ...syncResult, darbandiWarning };
+    return { employee: updated, ...syncResult, darbandiWarning, detailChange };
   } else {
     const employee = await repository.create(employeeData, documents);
     
@@ -612,14 +681,18 @@ export async function getEmployeeFormContext(
   scope: ScopeFilter,
   employee: Employee | null,
   /** Salary mapping → Edit (the save checks it again). */
-  canEditPay = false
+  canEditPay = false,
+  /** Employees → Approve: decides what saving a change to bank, PAN or tax status does (F13). */
+  canApproveDetails = false
 ): Promise<EmployeeFormContext> {
-  const [lookups, codes, employmentTypes, roles, access] = await Promise.all([
+  const noDetails: DetailFormInfo = { pending: null, onSave: "wait" };
+  const [lookups, codes, employmentTypes, roles, access, details] = await Promise.all([
     getEmployeeLookupData(scope),
     repository.findAllCodes(),
     findAllEmploymentTypes().catch(() => []),
     roleService.getAllRoles(),
     employee ? userService.getEmployeeAccess(employee.id) : Promise.resolve(null),
+    employee ? detailService.formInfo(employee.id, { scope, userId: scope.userId, canApprove: canApproveDetails, canEdit: true }) : Promise.resolve(noDetails),
   ]);
 
   // GLOBAL users see everything; BRANCH / DEPARTMENT users only what they can place into (plus the current value).
@@ -679,6 +752,7 @@ export async function getEmployeeFormContext(
           state: !access.isActive ? "disabled" : access.mustChangePassword ? "pending" : "active",
         }
       : null,
+    details,
   };
 }
 

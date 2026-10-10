@@ -10,12 +10,17 @@ import { YesNoField } from "@/components/kit/yes-no-field";
 import { savePayrollControlSettingsAction } from "@/app/actions/payroll-control.actions";
 import type { PayrollControlSettings } from "@/lib/services/payroll-control.service";
 
-// Payroll controls (4.8 / F1–F2): the three company settings. Saved under
+// Payroll controls (4.8 / F1–F2, F13): the company settings. Saved under
 // SYSTEM_CONTROL; the rules themselves are enforced on the server.
 
 const MODES = [
   { value: "admin_exempt", label: "Administrators may approve their own run" },
   { value: "strict", label: "Strict — never approve or lock a run that pays you" },
+];
+
+const DETAIL_APPROVAL = [
+  { value: "required", label: "A second person approves (Employees → Approve)" },
+  { value: "off", label: "Apply at once (still recorded)" },
 ];
 
 export function PayrollControlSettingsClient({ initial, canEdit }: { initial: PayrollControlSettings; canEdit: boolean }) {
@@ -39,7 +44,7 @@ export function PayrollControlSettingsClient({ initial, canEdit }: { initial: Pa
     <div>
       <PageBar
         title="Payroll controls"
-        description="Who may approve a pay run, when a month-on-month change needs a look, and whether attendance must be closed first"
+        description="Who may approve a pay run or a change to bank details, when a month-on-month change needs a look, and whether attendance must be closed first"
         actions={canEdit ? [{ id: "save", label: pending ? "Saving…" : "Save", group: "create", primary: true, disabled: pending, onClick: save }] : []}
       />
       {error && <Notice tone="danger" className="mb-3" onDismiss={() => setError(null)}>{error}</Notice>}
@@ -48,6 +53,23 @@ export function PayrollControlSettingsClient({ initial, canEdit }: { initial: Pa
         <FieldGroup title="Maker-checker" description="The person who generated a run never approves or locks it. Nobody edits their own payslip in either mode.">
           <FieldRow label="Approval rule" help="Strict also refuses an approver or locker whose own pay is in the run.">
             <SelectField name="makerChecker" options={MODES} value={form.makerChecker} disabled={!canEdit} onChange={(v) => setForm({ ...form, makerChecker: v === "strict" ? "strict" : "admin_exempt" })} />
+          </FieldRow>
+        </FieldGroup>
+        <FieldGroup
+          title="Bank, PAN and tax status"
+          description="Changes to an employee's bank account, PAN, tax status or disability relief are recorded with a reason. Nobody approves a change to their own record, and a changed account is flagged in the next run's variance review."
+        >
+          <FieldRow
+            label="Changes to these details"
+            help="With approvals on, a company administrator's own change applies at once unless the approval rule above is strict."
+          >
+            <SelectField
+              name="employeeDetailApproval"
+              options={DETAIL_APPROVAL}
+              value={form.employeeDetailApproval}
+              disabled={!canEdit}
+              onChange={(v) => setForm({ ...form, employeeDetailApproval: v === "off" ? "off" : "required" })}
+            />
           </FieldRow>
         </FieldGroup>
         <FieldGroup title="Variance review" description="A run is compared with the previous month for the same branches. Each flag must be acknowledged with a note before approval.">

@@ -3,6 +3,7 @@ import { countWaitingFor as countSalaryWaitingFor } from '@/lib/services/salary-
 import { countAdjustmentsWaitingFor } from '@/lib/services/attendance.service';
 import { countWaitingFor as countLeaveWaitingFor } from '@/lib/services/leave.service';
 import { countPolicyWaitingFor } from '@/lib/services/leave-policy.service';
+import { countWaitingFor as countDetailWaitingFor } from '@/lib/services/employee-detail.service';
 import { hasPermission } from '@/lib/auth/check-permission';
 import { auth } from '@/lib/auth';
 import { getUserAllowedModulesArray } from '@/lib/auth/get-user-permissions';
@@ -47,6 +48,8 @@ export interface WorkspaceContext {
   pendingAttendanceCount: number;
   /** Leave policy changes this user can approve (a second person, never the proposer). */
   pendingLeavePolicyCount: number;
+  /** F13: changes to bank, PAN or tax status this user can approve (Employees → Approve, in scope, never their own). */
+  pendingDetailChangesCount: number;
   /** The signed-in user's employee record (turns on the Clock button), if linked. */
   myEmployeeId: string | null;
   allowedModules: string[];
@@ -200,6 +203,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
       pendingSalaryApprovalsCount: 0,
       pendingAttendanceCount: 0,
       pendingLeavePolicyCount: 0,
+      pendingDetailChangesCount: 0,
       myEmployeeId: null,
       allowedModules: [], // Impersonation has full access, sidebar shows all
       isImpersonating: true,
@@ -407,6 +411,17 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     }
   }
 
+  // F13: changes to bank, PAN or tax status waiting for this user (Employees → Approve within scope).
+  let detailPending = 0;
+  if (userId && allowedModules.includes('EMPLOYEES')) {
+    try {
+      const canApprove = await hasPermission('APPROVE', 'EMPLOYEES');
+      if (canApprove) detailPending = await countDetailWaitingFor(await resolveUserScope(userId, tenantSlug), true);
+    } catch (err) {
+      console.error('Error counting employee detail approvals:', err);
+    }
+  }
+
   return {
     user: {
       id: userId,
@@ -435,6 +450,7 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     pendingSalaryApprovalsCount: salaryPending,
     pendingAttendanceCount: attendancePending,
     pendingLeavePolicyCount: policyPending,
+    pendingDetailChangesCount: detailPending,
     myEmployeeId,
     allowedModules,
     isImpersonating: false,

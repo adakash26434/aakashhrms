@@ -1,3 +1,5 @@
+import { maskAccountNumber } from '@/lib/utils/mask';
+
 // Payroll controls (4.8 / F1–F3): pure rules for the variance review, the
 // maker-checker on run approval and locking, the pre-flight report and who
 // sees a published payslip. Nothing here touches the database.
@@ -13,9 +15,16 @@ export interface SlipFact {
   net: number;
   ot: number;
   bankAccount: string;
+  /**
+   * F13: the account on the employee record now (null / undefined: not known). A record that
+   * differs from the payslip means the bank details changed after the run was made.
+   */
+  recordBankAccount?: string | null;
+  /** F13: how the record's bank account last changed ("approved by Hari Thapa on 2026-10-10"). */
+  bankChangeNote?: string | null;
 }
 
-export type VarianceCode = 'net_change' | 'non_positive_net' | 'new_in_payroll' | 'missing_from_run' | 'ot_high' | 'no_bank_account';
+export type VarianceCode = 'net_change' | 'non_positive_net' | 'new_in_payroll' | 'missing_from_run' | 'ot_high' | 'no_bank_account' | 'bank_changed' | 'bank_outdated';
 
 export interface VarianceFlag {
   /** Stable key for acknowledging: `<employeeId>:<code>`. */
@@ -42,6 +51,16 @@ export const DEFAULT_VARIANCE: VarianceOptions = { thresholdPct: 15, otPctOfBasi
 
 const money = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const flagKey = (employeeId: string, code: VarianceCode) => `${employeeId}:${code}`;
+/** Account numbers compare without spaces; "N/A" (no account when the slip was made) counts as none. */
+const account = (v: string | null | undefined) => {
+  const clean = (v ?? '').replace(/\s+/g, '');
+  return clean.toUpperCase() === 'N/A' ? '' : clean;
+};
+/** Two different accounts as a flag shows them: masked (S18), or "both end ••••0001" when the last four digits match. */
+function accountPair(a: string, b: string): { a: string; b: string } | { sameEnd: string } {
+  const [ma, mb] = [maskAccountNumber(a), maskAccountNumber(b)];
+  return ma === mb ? { sameEnd: ma } : { a: ma, b: mb };
+}
 
 export function varianceFlags(current: readonly SlipFact[], previous: readonly SlipFact[] | null, options: VarianceOptions = DEFAULT_VARIANCE): VarianceFlag[] {
   const flags: VarianceFlag[] = [];
@@ -50,19 +69,41 @@ export function varianceFlags(current: readonly SlipFact[], previous: readonly S
     flags.push({ key: flagKey(s.employeeId, code), employeeId: s.employeeId, code, name: s.name, employeeCode: s.code, detail, severity });
 
   for (const s of current) {
+    const paysInto = account(s.bankAccount);
     if (s.net <= 0) add(s, 'non_positive_net', `Net pay is ${money(s.net)}.`);
-    if (!s.bankAccount.trim()) add(s, 'no_bank_account', 'No bank account on the payslip, so the payment cannot be made.');
+    if (!paysInto) add(s, 'no_bank_account', 'No bank account on the payslip, so the payment cannot be made.');
     if (s.basic > 0 && (s.ot / s.basic) * 100 > options.otPctOfBasic) {
       add(s, 'ot_high', `Overtime ${money(s.ot)} is ${Math.round((s.ot / s.basic) * 100)}% of basic.`);
+    }
+    // F13: the record's bank account changed after this run was made (the payslip still has the old one).
+    const onRecord = s.recordBankAccount == null ? null : account(s.recordBankAccount);
+    const how = s.bankChangeNote ? ` (${s.bankChangeNote})` : '';
+    if (paysInto && onRecord && onRecord !== paysInto) {
+      const pair = accountPair(onRecord, paysInto);
+      add(
+        s,
+        'bank_outdated',
+        'sameEnd' in pair
+          ? `The employee record now has a new account${how}; this run still pays the old one (both end ${pair.sameEnd}). Send the run back to draft to pick up the new account.`
+          : `The employee record now has account ${pair.a}${how}; this run still pays ${pair.b}. Send the run back to draft to pick up the new account.`,
+      );
     }
     if (previous) {
       const p = before.get(s.employeeId);
       if (!p) {
         add(s, 'new_in_payroll', 'Not in last month\'s run.', 'info');
-      } else if (p.net > 0) {
-        const change = ((s.net - p.net) / p.net) * 100;
-        if (Math.abs(change) >= options.thresholdPct) {
-          add(s, 'net_change', `Net ${money(s.net)} against ${money(p.net)} last month (${change > 0 ? '+' : ''}${change.toFixed(1)}%).`);
+      } else {
+        if (p.net > 0) {
+          const change = ((s.net - p.net) / p.net) * 100;
+          if (Math.abs(change) >= options.thresholdPct) {
+            add(s, 'net_change', `Net ${money(s.net)} against ${money(p.net)} last month (${change > 0 ? '+' : ''}${change.toFixed(1)}%).`);
+          }
+        }
+        // F13: pay goes to a different account from last month — confirm the change was asked for.
+        const paidInto = account(p.bankAccount);
+        if (paysInto && paidInto && paysInto !== paidInto) {
+          const pair = accountPair(paidInto, paysInto);
+          add(s, 'bank_changed', 'sameEnd' in pair ? `This run pays a different account from last month (both end ${pair.sameEnd})${how}.` : `Paid into ${pair.a} last month; this run pays ${pair.b}${how}.`);
         }
       }
     }
@@ -84,6 +125,16 @@ export function unresolvedFlags(flags: readonly VarianceFlag[], acknowledged: Re
 export function canApproveRun(flags: readonly VarianceFlag[], acknowledged: ReadonlySet<string>): boolean {
   return unresolvedFlags(flags, acknowledged).length === 0;
 }
+
+// ---- settings ----------------------------------------------------------------------
+
+/** `system_config` keys of the payroll controls (Payroll controls screen, SYSTEM_CONTROL). */
+export const CONTROL_KEYS = {
+  checker: 'payroll.makerChecker', // admin_exempt (default) | strict
+  variancePct: 'payroll.variancePct', // net change in percent that needs a look (default 15)
+  requireClosed: 'payroll.requireClosedAttendance', // on | off (default off)
+  detailApproval: 'employeeDetails.approval', // F13: required (default) | off
+} as const;
 
 // ---- F2 maker-checker -----------------------------------------------------------
 

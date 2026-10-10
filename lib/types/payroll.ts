@@ -156,8 +156,6 @@ export interface PayrollSlipOverridePayload {
   otAmount?: string;
   absentDeduction?: string;
   loanDeduction?: string;
-  bankName?: string;
-  bankAccountNumber?: string;
 }
 
 export interface ManualSlipAdjustmentPayload {

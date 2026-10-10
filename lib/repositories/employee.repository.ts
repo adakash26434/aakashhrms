@@ -10,6 +10,7 @@ import { employeesNeedingSetup } from './salary-structure.repository';
 import { employeesWithIdentityScan, findDocuments, saveDocumentsTx } from './employee-document.repository';
 import { findPhotoIdFor, photoIdsByEmployee, savePhotoTx } from './employee-photo.repository';
 import { findDossier, saveDossierTx } from './employee-dossier.repository';
+import { insertChangeTx, refreshDraftSlipsTx, type NewChange } from './employee-detail.repository';
 import type { EmployeeDossierInput } from '@/lib/types/employee-dossier';
 
 /** The documents list and photo to save with the employee (4.2b), and who saves them. */
@@ -432,7 +433,23 @@ export async function create(data: Partial<Employee>, documents?: DocumentsSave)
 }
 
 export async function update(id: string, data: Partial<Employee>, documents?: DocumentsSave): Promise<Employee> {
+  return (await updateWithDetailChange(id, data, documents, null)).employee;
+}
+
+/**
+ * The employee save (4.8 / F13): the record, and a change to its sensitive details recorded in
+ * the same transaction (a second waiting change for the employee fails the whole save on the
+ * one-pending index). When the change applies with the save, the new bank details go onto the
+ * employee's draft payslips too.
+ */
+export async function updateWithDetailChange(
+  id: string,
+  data: Partial<Employee>,
+  documents: DocumentsSave | undefined,
+  detail: { change: NewChange; refreshBank: { bankName: string; bankAccountNumber: string } | null } | null,
+): Promise<{ employee: Employee; detailChangeId: string | null; draftSlips: number }> {
   return await (await getDb()).transaction(async (tx) => {
+    const detailChangeId = detail ? await insertChangeTx(tx, detail.change) : null;
     const oldEmp = await tx.select({ deptId: employees.departmentId, desigId: employees.designationId }).from(employees).where(eq(employees.id, id));
     
     await tx.update(employees).set({
@@ -549,17 +566,19 @@ export async function update(id: string, data: Partial<Employee>, documents?: Do
        }
     }
 
+    const draftSlips = detail?.refreshBank ? await refreshDraftSlipsTx(tx, id, detail.refreshBank) : 0;
+
     const rows = await tx
       .select()
       .from(employees)
       .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
       .leftJoin(employeeFamily, eq(employeeFamily.employeeId, employees.id))
-      .leftJoin(employeeBank, eq(employeeBank.employeeId, employees.id))
+      .leftJoin(employeeBank, and(eq(employeeBank.employeeId, employees.id), eq(employeeBank.isPrimary, true)))
       .leftJoin(employeeTermination, eq(employeeTermination.employeeId, employees.id))
       .where(eq(employees.id, id));
-      
+
     if (!rows.length) throw new Error("Failed to retrieve updated employee");
-    return mapRowToEmployee(rows[0] as EmployeeJoinedRow);
+    return { employee: mapRowToEmployee(rows[0] as EmployeeJoinedRow), detailChangeId, draftSlips };
   });
 }
 

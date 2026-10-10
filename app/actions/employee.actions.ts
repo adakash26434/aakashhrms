@@ -24,7 +24,9 @@ export type SaveEmployeeActionResult =
 export async function saveEmployeeAction(
   id: string | null,
   formData: EmployeeFormData,
-  accessOptions?: empService.EmployeeAccessOptions
+  accessOptions?: empService.EmployeeAccessOptions,
+  /** F13: why the bank, PAN or tax status changes (shown to the approver). */
+  detail?: { reason?: string }
 ): Promise<SaveEmployeeActionResult> {
   await ensureTenantContext();
   try {
@@ -46,24 +48,36 @@ export async function saveEmployeeAction(
     }
 
     // Pay fields need Salary mapping → Edit as well (S18); without it they are kept / defaulted.
-    const canEditPay = await hasPermission('EDIT', 'SALARY_MAPPING');
-    const result = await empService.saveEmployee(id, formData, accessOptions, { canEditPay, userId: scope.userId });
+    // Bank, PAN and tax status (F13): Employees → Approve decides whether a change applies now.
+    const [canEditPay, canApproveDetails] = await Promise.all([hasPermission('EDIT', 'SALARY_MAPPING'), hasPermission('APPROVE', 'EMPLOYEES')]);
+    const result = await empService.saveEmployee(id, formData, accessOptions, { canEditPay, userId: scope.userId }, { scope, canApprove: canApproveDetails, reason: detail?.reason });
+    const saved = result.employee;
     await recordAuditLog({
       userId: scope.userId,
       action,
       module: 'EMPLOYEES',
-      recordId: result.employee.id,
+      recordId: saved.id,
       result: 'SUCCESS',
       newValues: before
         ? {
-            // Pay as saved (the server may have kept or recalculated it), not as sent.
+            // Pay and the sensitive details as saved (kept, recalculated or waiting), not as sent.
             changedFields: changedEmployeeFields(before, {
               ...formData,
-              basicSalary: result.employee.basicSalary,
-              gradeCount: result.employee.gradeCount,
-              gradeAmount: result.employee.gradeAmount,
-              gradeManual: result.employee.gradeManual,
+              basicSalary: saved.basicSalary,
+              gradeCount: saved.gradeCount,
+              gradeAmount: saved.gradeAmount,
+              gradeManual: saved.gradeManual,
+              bankName: saved.bankName,
+              bankBranch: saved.bankBranch,
+              bankAccountNumber: saved.bankAccountNumber,
+              panNumber: saved.panNumber ?? '',
+              taxStatus: saved.taxStatus,
+              isDisabled: saved.isDisabled,
             }),
+            // Field names only, never values (S18).
+            ...(result.detailChange
+              ? { detailChange: { id: result.detailChange.id, status: result.detailChange.status, route: result.detailChange.route, fields: result.detailChange.fields } }
+              : {}),
           }
         : {
             employeeCode: result.employee.employeeCode,

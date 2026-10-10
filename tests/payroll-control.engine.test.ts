@@ -54,6 +54,32 @@ describe('variance flags', () => {
   it('info flags never block', () => {
     assert.ok(canApproveRun(varianceFlags([slip('n', 20000)], []), new Set()));
   });
+
+  it('F13: pay going to a different account from last month needs a look (masked, with how it changed)', () => {
+    const flags = varianceFlags([slip('a', 30000, { bankAccount: '0987654321001111', bankChangeNote: 'approved by Hari on 2026-10-10' })], [slip('a', 30000, { bankAccount: '0123456789014821' })]);
+    assert.deepEqual(flags.map((f) => f.code), ['bank_changed']);
+    assert.equal(flags[0].severity, 'review');
+    assert.match(flags[0].detail, /••••4821 last month; this run pays ••••1111 \(approved by Hari on 2026-10-10\)/);
+    assert.doesNotMatch(flags[0].detail, /0123456789/);
+    // Same account with stray spaces, or last month's slip had none: nothing to compare.
+    assert.equal(varianceFlags([slip('a', 30000, { bankAccount: '0011 ' })], [slip('a', 30000)]).length, 0);
+    assert.deepEqual(varianceFlags([slip('a', 30000)], [slip('a', 30000, { bankAccount: 'N/A' })]).map((f) => f.code), []);
+  });
+
+  it('F13: a record that changed after the run was made is flagged until the run picks it up', () => {
+    const stale = varianceFlags([slip('a', 30000, { bankAccount: '0123456789014821', recordBankAccount: '0987654321001111' })], null);
+    assert.deepEqual(stale.map((f) => [f.code, f.severity]), [['bank_outdated', 'review']]);
+    assert.match(stale[0].detail, /record now has account ••••1111; this run still pays ••••4821/);
+    assert.equal(varianceFlags([slip('a', 30000, { recordBankAccount: '0011' })], null).length, 0);
+    assert.equal(varianceFlags([slip('a', 30000, { recordBankAccount: null })], null).length, 0);
+    // Different accounts with the same last four digits are not shown as "••••0001 → ••••0001".
+    const sameEnd = varianceFlags([slip('a', 30000, { bankAccount: '01701100777700001' })], [slip('a', 30000, { bankAccount: '0170110000000001' })]);
+    assert.match(sameEnd[0].detail, /different account from last month \(both end ••••0001\)/);
+    const sameEndRecord = varianceFlags([slip('a', 30000, { bankAccount: '0170110000000001', recordBankAccount: '01701100777700001' })], null);
+    assert.match(sameEndRecord[0].detail, /now has a new account; this run still pays the old one \(both end ••••0001\)/);
+    // "N/A" on the slip is no account at all (flagged as such, not as outdated).
+    assert.deepEqual(varianceFlags([slip('a', 30000, { bankAccount: 'N/A', recordBankAccount: '0011' })], null).map((f) => f.code), ['no_bank_account']);
+  });
 });
 
 describe('maker-checker', () => {

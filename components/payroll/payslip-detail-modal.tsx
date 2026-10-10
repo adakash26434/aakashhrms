@@ -211,93 +211,22 @@ export function PayslipDetailModal({
           {isTaxSheet(slip.taxSheet) && <TaxSheetCard sheet={slip.taxSheet} />}
           {isMarginalTaxSheet(slip.taxSheet) && <MarginalTaxCard sheet={slip.taxSheet} />}
 
-          {/* Bank details & Payment Details */}
+          {/* Bank details: from the employee record (F13 — a change there needs a second person's approval). */}
           <div className="rounded-xl border border-payroll-light bg-payroll-cream p-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">Bank Transfer Info</h4>
-              {isEditable && onOverride && editingHeadId !== "bank-details" && (
-                <button
-                  onClick={() => {
-                    setEditingHeadId("bank-details");
-                    setOverrideAmount(slip.bankName);
-                    setOverrideReason(slip.bankAccountNumber);
-                    setError(null);
-                  }}
-                  className="text-xs text-payroll-primary font-bold hover:underline"
-                >
-                  Edit Bank Info
-                </button>
-              )}
+            <h4 className="text-xs font-bold text-payroll-navy uppercase tracking-wider">Bank Transfer Info</h4>
+            <div className="grid gap-3 grid-cols-2 text-xs">
+              <div>
+                <span className="text-gray-400 font-medium font-sans">Bank Name:</span>{" "}
+                <span className="font-semibold text-payroll-navy">{slip.bankName}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium font-sans">Account Number:</span>{" "}
+                <span className="font-semibold text-payroll-navy tabular-nums">{slip.bankAccountNumber}</span>
+              </div>
             </div>
-
-            {editingHeadId === "bank-details" ? (
-              <div className="space-y-3 mt-1.5 bg-white p-3.5 rounded-lg border border-payroll-light">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="text-2xs font-semibold text-gray-400 uppercase block mb-1">Bank Name</label>
-                    <input
-                      type="text"
-                      value={overrideAmount}
-                      onChange={(e) => setOverrideAmount(e.target.value)}
-                      className="w-full rounded border border-payroll-light px-2 py-1.5 text-xs text-payroll-navy"
-                      placeholder="Bank Name"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-2xs font-semibold text-gray-400 uppercase block mb-1">Account Number</label>
-                    <input
-                      type="text"
-                      value={overrideReason}
-                      onChange={(e) => setOverrideReason(e.target.value)}
-                      className="w-full rounded border border-payroll-light px-2 py-1.5 text-xs text-payroll-navy"
-                      placeholder="Account Number"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-1.5 justify-end mt-2">
-                  <button
-                    onClick={cancelEdit}
-                    className="px-2.5 py-1 text-2xs font-semibold text-gray-500 rounded hover:bg-gray-100"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!onOverride) return;
-                      if (!overrideAmount.trim() || !overrideReason.trim()) {
-                        setError("Both Bank Name and Account Number are required.");
-                        return;
-                      }
-                      try {
-                        setIsSaving(true);
-                        await onOverride!("bank-details", `${overrideAmount.trim()}||${overrideReason.trim()}`, "Updated Bank details");
-                        setEditingHeadId(null);
-                      } catch (error: unknown) {
-                        setError(error instanceof Error ? error.message : "Failed to update bank details.");
-                      } finally {
-                        setIsSaving(false);
-                      }
-                    }}
-                    disabled={isSaving}
-                    className="inline-flex items-center gap-1 bg-payroll-primary text-white px-2.5 py-1 text-2xs font-semibold rounded hover:bg-payroll-navy"
-                  >
-                    <Save className="h-3 w-3" />
-                    Save Bank Info
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-3 grid-cols-2 text-xs">
-                <div>
-                  <span className="text-gray-400 font-medium font-sans">Bank Name:</span>{" "}
-                  <span className="font-semibold text-payroll-navy">{slip.bankName}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 font-medium font-sans">Account Number:</span>{" "}
-                  <span className="font-semibold text-payroll-navy tabular-nums">{slip.bankAccountNumber}</span>
-                </div>
-              </div>
-            )}
+            <p className="text-2xs text-ink-muted">
+              From the employee record. A change is made on the employee&apos;s record and needs a second person&apos;s approval; draft payslips take it when approved.
+            </p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">

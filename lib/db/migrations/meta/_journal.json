@@ -491,6 +491,13 @@
       "when": 1792896000000,
       "tag": "0069_pay_head_name_np",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1792982400000,
+      "tag": "0070_employee_detail_changes",
+      "breakpoints": true
     }
   ]
 }

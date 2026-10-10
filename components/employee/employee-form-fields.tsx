@@ -21,7 +21,12 @@ export interface EmployeeFormApi {
   clear: (key: string) => void;
   ctx: EmployeeFormContext;
   isNew: boolean;
+  /** F13: fields that stay as they are while a change to them waits for approval. */
+  locked?: ReadonlySet<string>;
 }
+
+/** The hint a locked field shows (F13). */
+export const LOCKED_HELP = "Locked: a change is waiting for approval (Employees → Detail changes).";
 
 /** The tab being shown (employee-form.tsx); every section stays mounted, the others hidden. */
 export const ActiveSectionContext = createContext<string | null>(null);
@@ -99,8 +104,9 @@ export function TextField({
   error?: string | null;
   autoFocus?: boolean;
 }) {
+  const locked = !!api.locked?.has(field);
   return (
-    <GridField label={label(field)} required={required} help={help} error={error ?? api.errors[field]} size={size} span={span}>
+    <GridField label={label(field)} required={required} help={locked ? LOCKED_HELP : help} error={error ?? api.errors[field]} size={size} span={span}>
       <input
         name={field}
         type={type}
@@ -110,9 +116,10 @@ export function TextField({
         spellCheck={false}
         placeholder={placeholder}
         data-autofocus={autoFocus || undefined}
+        readOnly={locked}
         value={String(api.form[field] ?? "")}
         onChange={(e) => api.set(field, (transform ? transform(e.target.value) : e.target.value) as never)}
-        className={cn(inputClass, code && "font-code")}
+        className={cn(inputClass, code && "font-code", locked && "cursor-not-allowed bg-surface-sunken text-ink-muted")}
       />
     </GridField>
   );
@@ -138,8 +145,9 @@ export function ChoiceField({
   allowEmpty?: boolean;
   size?: GridFieldSize;
 }) {
+  const locked = !!api.locked?.has(field);
   return (
-    <GridField label={label(field)} required={required} help={help} error={api.errors[field]} size={size}>
+    <GridField label={label(field)} required={required} help={locked ? LOCKED_HELP : help} error={api.errors[field]} size={size}>
       <SelectField
         name={field}
         options={options}
@@ -147,6 +155,7 @@ export function ChoiceField({
         onChange={(v) => api.set(field, v as never)}
         placeholder={placeholder}
         allowEmpty={allowEmpty}
+        disabled={locked}
       />
     </GridField>
   );
@@ -154,9 +163,10 @@ export function ChoiceField({
 
 /** A Yes / No answer bound to a boolean field. */
 export function YesNo({ api, field, help, labelText }: { api: EmployeeFormApi; field: EmployeeField; help?: string; labelText?: string }) {
+  const locked = !!api.locked?.has(field);
   return (
-    <GridField label={labelText ?? label(field)} help={help} size="sm">
-      <YesNoField name={field} value={!!api.form[field]} onChange={(v) => api.set(field, v as never)} />
+    <GridField label={labelText ?? label(field)} help={locked ? LOCKED_HELP : help} size="sm">
+      <YesNoField name={field} value={!!api.form[field]} onChange={(v) => api.set(field, v as never)} disabled={locked} />
     </GridField>
   );
 }

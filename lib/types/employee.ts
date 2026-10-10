@@ -1,6 +1,7 @@
 import type { EmployeeDossierInput } from '@/lib/types/employee-dossier';
 import type { EmployeeCategory, GradePolicySettings } from "./system-control";
 import type { EmployeeDocument, EmployeeDocumentInput } from "./employee-document";
+import type { DetailChangeView, DetailFormInfo } from "./employee-detail";
 
 export type EmployeeStatus = "Active" | "Inactive";
 /**
@@ -213,6 +214,8 @@ export interface EmployeeRegisterData {
   departments: { id: string; name: string }[];
   branches: { id: string; name: string }[];
   permissions: { add: boolean; edit: boolean; export: boolean };
+  /** F13: changes to bank, PAN or tax status waiting in the viewer's scope, and those waiting for them. */
+  detailChanges: { pending: number; waitingForMe: number };
 }
 
 export interface EmployeeValidationErrors {
@@ -381,6 +384,8 @@ export interface EmployeeRecordData {
   /** A tab whose data could not be loaded (shown as an error, not a crash). */
   failed: boolean;
   permissions: { edit: boolean };
+  /** F13: a change to bank, PAN or tax status waiting for approval (the banner on the record). */
+  detailChange: DetailChangeView | null;
 }
 
 
@@ -406,4 +411,6 @@ export interface EmployeeFormContext {
   codes: { id: string; employeeCode: string; attendanceCode: string }[];
   roles: { id: string; name: string; slug: string }[];
   access: { email: string; roleId: string | null; roleName: string | null; state: "active" | "pending" | "disabled" } | null;
+  /** F13: a change to bank, PAN or tax status already waiting, and what saving one does for this user. */
+  details: DetailFormInfo;
 }

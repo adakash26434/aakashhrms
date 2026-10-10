@@ -49,6 +49,7 @@ import * as arrearsService from "@/lib/services/arrears.service";
 import * as offCycleService from "@/lib/services/off-cycle.service";
 import { isOffCycle } from "@/lib/engines/off-cycle.engine";
 import { UserFacingError } from "@/lib/errors/action-error";
+import { refreshRunBankDetails } from "@/lib/repositories/employee-detail.repository";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -688,6 +689,11 @@ export async function overridePayslipAllowanceDeduction(
 ): Promise<void> {
   // S21: nobody edits their own payslip.
   await assertNotOwnSlip(payload.slipId, userId, 'EDIT');
+  // F13 (S43): a payslip's bank details come from the employee record, where a change needs a second
+  // person's approval and reaches draft payslips by itself; they are never typed onto a payslip.
+  if (payload && typeof payload === 'object' && ('bankName' in payload || 'bankAccountNumber' in payload)) {
+    throw new UserFacingError('Bank details come from the employee record. Change them there (a second person approves); draft payslips take the new account when it is approved.');
+  }
   const { 
     slipId, 
     headId, 
@@ -698,8 +704,6 @@ export async function overridePayslipAllowanceDeduction(
     otAmount,
     absentDeduction,
     loanDeduction,
-    bankName,
-    bankAccountNumber
   } = payload;
 
   const slip = await repository.findSlipById(slipId);
@@ -714,9 +718,6 @@ export async function overridePayslipAllowanceDeduction(
     if ([basicSalary, gradeAmount, otAmount, absentDeduction, loanDeduction].some((v) => v !== undefined)) {
       throw new UserFacingError('An off-cycle payslip has no basic, attendance or loan lines to change.');
     }
-    if (bankName !== undefined || bankAccountNumber !== undefined) {
-      await (await getDb()).update(payrollSlips).set({ ...(bankName !== undefined ? { bankName } : {}), ...(bankAccountNumber !== undefined ? { bankAccountNumber } : {}), updatedAt: new Date() }).where(eq(payrollSlips.id, slipId));
-    }
     await offCycleService.recalculateOffCycleSlip(slipId, userId, headId ? { headId, amount, reason } : undefined);
     return;
   }
@@ -728,8 +729,6 @@ export async function overridePayslipAllowanceDeduction(
   await (await getDb()).transaction(async (tx) => {
     // Update basic fields on the slip directly if provided
     const updatedSlipFields: Record<string, any> = {};
-    if (bankName !== undefined) updatedSlipFields.bankName = bankName;
-    if (bankAccountNumber !== undefined) updatedSlipFields.bankAccountNumber = bankAccountNumber;
     if (basicSalary !== undefined) updatedSlipFields.basicSalary = basicSalary;
     if (gradeAmount !== undefined) updatedSlipFields.gradeAmount = gradeAmount;
     if (otAmount !== undefined) updatedSlipFields.otAmount = otAmount;
@@ -1376,6 +1375,13 @@ export async function transitionPayrollRun(
   // Perform status transition
   // Claim-first: the move happens only while the run still has the status it was read with.
   const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status);
+
+  // F13: a run sent back to draft takes the bank details now on the records (a change approved
+  // while it was in review — the variance review flagged it — reaches its payslips).
+  if (toStatus === 'DRAFT') {
+    const refreshed = await refreshRunBankDetails(runId);
+    if (refreshed) logger.info('Bank details refreshed from employee records', { runId, payslips: refreshed });
+  }
 
   // 2. On LOCK: Atomic loan repayment amortisation and period sealing
   if (toStatus === 'LOCKED') {

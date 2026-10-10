@@ -294,7 +294,7 @@ describe('Grade: policy, by hand and Salary mapping permission (4.2 follow-up)',
 
   it('the save works pay out on the server with the Salary mapping permission (S18)', () => {
     const actions = readFileSync(join(__dirname, '..', 'app/actions/employee.actions.ts'), 'utf8');
-    assert.match(actions, /hasPermission\('EDIT', 'SALARY_MAPPING'\)[\s\S]*saveEmployee\(id, formData, accessOptions, \{ canEditPay, userId: scope\.userId \}\)/);
+    assert.match(actions, /hasPermission\('EDIT', 'SALARY_MAPPING'\)[\s\S]*saveEmployee\(id, formData, accessOptions, \{ canEditPay, userId: scope\.userId \}, \{ scope, canApprove: canApproveDetails, reason: detail\?\.reason \}\)/);
     const service = readFileSync(join(__dirname, '..', 'lib/services/employee.service.ts'), 'utf8');
     assert.match(service, /const pay = resolvePay\(/);
   });

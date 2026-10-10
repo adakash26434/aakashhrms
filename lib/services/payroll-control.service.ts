@@ -10,6 +10,7 @@ import * as attendanceRepo from '@/lib/repositories/attendance.repository';
 import { employeesNeedingSetup } from '@/lib/repositories/salary-structure.repository';
 import {
   CHECKER_MESSAGE,
+  CONTROL_KEYS,
   DEFAULT_VARIANCE,
   asCheckerMode,
   canPublishRun,
@@ -22,6 +23,9 @@ import {
   type SlipFact,
   type VarianceFlag,
 } from '@/lib/engines/payroll-control.engine';
+import { asDetailApproval, type DetailApproval } from '@/lib/engines/employee-detail.engine';
+import { bankChangeNotes } from '@/lib/services/employee-detail.service';
+import { primaryAccounts } from '@/lib/repositories/employee-detail.repository';
 import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { UserFacingError } from '@/lib/errors/action-error';
@@ -34,25 +38,29 @@ import type { PayrollRun, PayrollRunSetupPayload, PayrollSlip } from '@/lib/type
 // (S21 for pay: nobody approves a run that pays them in strict mode, nobody
 // edits their own payslip); payslips reach employees only when published.
 
-export const CONFIG = {
-  checker: 'payroll.makerChecker', // admin_exempt (default) | strict
-  variancePct: 'payroll.variancePct', // net change in percent that needs a look (default 15)
-  requireClosed: 'payroll.requireClosedAttendance', // on | off (default off)
-} as const;
+export const CONFIG = CONTROL_KEYS;
 
 export interface PayrollControlSettings {
   makerChecker: CheckerMode;
   variancePct: number;
   requireClosedAttendance: boolean;
+  /** F13: changes to bank, PAN and tax status wait for a second person (required) or apply at once (off). */
+  employeeDetailApproval: DetailApproval;
 }
 
 export async function readSettings(): Promise<PayrollControlSettings> {
-  const [checker, pct, closed] = await Promise.all([repo.readConfig(CONFIG.checker), repo.readConfig(CONFIG.variancePct), repo.readConfig(CONFIG.requireClosed)]);
+  const [checker, pct, closed, details] = await Promise.all([
+    repo.readConfig(CONFIG.checker),
+    repo.readConfig(CONFIG.variancePct),
+    repo.readConfig(CONFIG.requireClosed),
+    repo.readConfig(CONFIG.detailApproval),
+  ]);
   const parsed = Number(pct);
   return {
     makerChecker: asCheckerMode(checker),
     variancePct: Number.isFinite(parsed) && parsed > 0 && parsed <= 100 ? parsed : DEFAULT_VARIANCE.thresholdPct,
     requireClosedAttendance: closed === 'on',
+    employeeDetailApproval: asDetailApproval(details),
   };
 }
 
@@ -64,6 +72,7 @@ export async function saveSettings(raw: unknown): Promise<PayrollControlSettings
     repo.writeConfig(CONFIG.checker, asCheckerMode(r.makerChecker)),
     repo.writeConfig(CONFIG.variancePct, String(pct)),
     repo.writeConfig(CONFIG.requireClosed, r.requireClosedAttendance === true ? 'on' : 'off'),
+    repo.writeConfig(CONFIG.detailApproval, asDetailApproval(r.employeeDetailApproval)),
   ]);
   return readSettings();
 }
@@ -102,7 +111,12 @@ export async function varianceReview(runId: string): Promise<VarianceReview> {
   const [settings, slips, acks, earlier] = await Promise.all([readSettings(), payrollRepo.findSlipsByRunId(runId), repo.acksFor(runId), repo.earlierRuns(run)]);
   const previous = earlier.find((e) => sameBranches(e.branchIds, run.branchIds)) ?? null;
   const previousSlips = previous ? (await payrollRepo.findSlipsByRunId(previous.id)).map(factOf) : null;
-  const flags = varianceFlags(slips.map(factOf), previousSlips, { ...DEFAULT_VARIANCE, thresholdPct: settings.variancePct, sameScope: !!previous });
+  // F13: the bank account on each record now, and how it last changed (approved by whom, when).
+  // A locked run is history: later changes to a record say nothing about what it paid.
+  const ids = run.status === 'LOCKED' ? [] : slips.map((s) => s.employeeId);
+  const [accounts, notes] = await Promise.all([primaryAccounts(ids), bankChangeNotes(ids)]);
+  const current = slips.map((s) => ({ ...factOf(s), recordBankAccount: accounts.get(s.employeeId) ?? null, bankChangeNote: notes.get(s.employeeId) ?? null }));
+  const flags = varianceFlags(current, previousSlips, { ...DEFAULT_VARIANCE, thresholdPct: settings.variancePct, sameScope: !!previous });
   const acked = new Set(acks.map((a) => a.flagKey));
   return {
     runId,

@@ -1367,6 +1367,30 @@ ON CONFLICT DO NOTHING`);
     // Ignored until payroll_slips exists; the next sync pass completes it.
   }
 
+  // Sensitive employee details (4.8 / F13, migration 0070): changes to bank, PAN and tax status
+  // that wait for a second person; one waiting change per employee.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "employee_detail_changes" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "before" jsonb NOT NULL,
+      "after" jsonb NOT NULL,
+      "reason" text NOT NULL,
+      "status" varchar(20) DEFAULT 'pending' NOT NULL,
+      "prepared_by" uuid,
+      "prepared_at" timestamp DEFAULT now() NOT NULL,
+      "decided_by" uuid,
+      "decided_at" timestamp,
+      "decision_note" text,
+      "approval_route" varchar(20),
+      "applied_at" timestamp
+    )`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "employee_detail_changes_employee_idx" ON "employee_detail_changes" ("employee_id", "status")`);
+    await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "employee_detail_changes_one_pending" ON "employee_detail_changes" ("employee_id") WHERE "status" = 'pending'`);
+  } catch {
+    // Ignored until employees exists; the next sync pass completes it.
+  }
+
   // Bilingual payslip (4.8 / F11, migration 0069): a pay head's Nepali name.
   try {
     await sql.unsafe(`ALTER TABLE "pay_heads" ADD COLUMN IF NOT EXISTS "name_np" varchar(255)`);

@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, PanelRight, Pencil, Plus, RefreshCw, UserCheck, UserPlus, UserX } from "lucide-react";
+import { ExternalLink, FileClock, PanelRight, Pencil, Plus, RefreshCw, UserCheck, UserPlus, UserX } from "lucide-react";
+import Link from "next/link";
+import { Notice } from "@/components/kit/notice";
 import { PageBar } from "@/components/frame/page-bar";
 import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
 import { SplitView } from "@/components/kit/split-view";
@@ -143,6 +145,14 @@ export function EmployeeClient({
             disabledReason: "Select an employee first",
             onClick: () => active && setStatusTarget(active),
           },
+          {
+            // F13: changes to bank, PAN and tax status (a second person approves them).
+            id: "changes",
+            label: data.detailChanges.pending ? `Detail changes (${data.detailChanges.pending})` : "Detail changes",
+            icon: FileClock,
+            group: "output",
+            onClick: () => router.push("/workforce/employees/changes"),
+          },
           { id: "quick", label: quickView ? "Hide quick view" : "Show quick view", icon: PanelRight, group: "output", onClick: toggleQuickView },
           {
             id: "refresh",
@@ -154,6 +164,20 @@ export function EmployeeClient({
           },
         ]}
       />
+
+      {data.detailChanges.waitingForMe > 0 && (
+        <Notice
+          tone="info"
+          className="mb-3"
+          action={
+            <Link href="/workforce/employees/changes" className="text-2xs font-medium underline underline-offset-2">
+              Review
+            </Link>
+          }
+        >
+          {data.detailChanges.waitingForMe} change{data.detailChanges.waitingForMe === 1 ? "" : "s"} to bank, PAN or tax status {data.detailChanges.waitingForMe === 1 ? "is" : "are"} waiting for your approval.
+        </Notice>
+      )}
 
       <FilterStrip
         id="employees"
