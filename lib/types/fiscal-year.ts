@@ -45,10 +45,6 @@ export interface FiscalYear {
   payslipsGenerated: boolean;
 }
 
-export interface FiscalYearData {
-  fiscalYears: FiscalYear[];
-}
-
 /**
  * Subset of `FiscalYear` used by the create/edit form. `id`
  * and `payslipsGenerated` are managed by the system.
@@ -73,4 +69,39 @@ export interface FiscalYearFormData {
 export function formatFiscalYearLabel(bsOpeningYear: number): string {
   const end = bsOpeningYear + 1;
   return `FY ${bsOpeningYear}/${String(end).slice(-2).padStart(2, "0")}`;
+}
+
+// ---------------------------------------------------------------------------
+// 4.12: the Fiscal years screen
+// ---------------------------------------------------------------------------
+
+export type FiscalYearState = "current" | "upcoming" | "past" | "closed";
+
+export interface FiscalYearRow {
+  id: string;
+  label: string;
+  /** BS and AD "YYYY-MM-DD". */
+  startBS: string;
+  endBS: string;
+  startAD: string;
+  endAD: string;
+  status: FiscalYearStatus;
+  state: FiscalYearState;
+  /** What uses the year ("3 pay runs"…), its own tax slabs aside. */
+  inUse: string[];
+  openRuns: number;
+  /** Tax slab bands per category. */
+  slabs: Record<string, number>;
+  /** Why each move is not possible now (null: it is). */
+  blocked: { makeCurrent: string | null; close: string | null; reopen: string | null; delete: string | null };
+}
+
+export interface FiscalYearsPage {
+  years: FiscalYearRow[];
+  /** AD "YYYY-MM-DD", Nepal date. */
+  today: string;
+  /** The opening BS year a new fiscal year would have. */
+  nextYear: number;
+  /** Fiscal year → Add (new year), Edit (make current, delete) and Lock (close, reopen): buttons only. */
+  can: { add: boolean; edit: boolean; lock: boolean };
 }

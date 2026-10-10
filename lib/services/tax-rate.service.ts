@@ -1,206 +1,77 @@
 import * as repository from "@/lib/repositories/tax-rate.repository";
 import * as fyRepository from "@/lib/repositories/fiscal-year.repository";
-import {
-  buildNextSlabDefaults,
-  validateSlab,
-  validateSlabInLadder,
-  type SlabValidationErrors,
-} from "@/lib/engines/tax-rate.engine";
-import type {
-  TaxCategory,
-  TaxRateData,
-  TaxSlab,
-  TaxSlabFormData,
-} from "@/lib/types/tax-rate";
+import { findSettings } from "@/lib/repositories/system-control.repository";
+import { ladderBands, ladderIsValid, normalizeLadder, rowsFromSlabs, validateLadder, type LadderErrors } from "@/lib/engines/tax-rate.engine";
 import { recordAuditLog } from "@/lib/services/audit.service";
+import { UserFacingError } from "@/lib/errors/action-error";
+import { TAX_CATEGORIES, TAX_CATEGORY_LABEL, type TaxCategory, type TaxSlabsPage } from "@/lib/types/tax-rate";
 
-// ---------------------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------------------
+// Tax slabs (4.12, S49): each category's ladder for a fiscal year is edited and saved as a whole —
+// bands as boundaries, starting at 0, each starting where the one before ends, the last with no
+// top, rates never going down (lib/engines/tax-rate.engine.ts). A closed year's slabs stay as they
+// were. Callers check TAX_RATES with a company-wide role (checkCompanyControl). Every save is
+// audited with the ladder before and after.
 
-export class FiscalYearLockedError extends Error {
-  constructor(public fiscalYearId: string) {
-    super(
-      `Fiscal year ${fiscalYearId} is locked — payslips have been generated and no further edits are allowed.`,
-    );
-    this.name = "FiscalYearLockedError";
+export class TaxLadderValidationError extends UserFacingError {
+  constructor(public errors: LadderErrors) {
+    super(errors.form ?? "Check the highlighted bands.");
+    this.name = "TaxLadderValidationError";
   }
 }
 
-export class SlabValidationError extends Error {
-  constructor(public errors: SlabValidationErrors) {
-    super("Slab validation failed");
-    this.name = "SlabValidationError";
-  }
+export interface TaxCtx {
+  userId: string;
 }
 
-// ---------------------------------------------------------------------------
-// Authorization helper
-// ---------------------------------------------------------------------------
+const emptyLadders = () => Object.fromEntries(TAX_CATEGORIES.map((c) => [c, []])) as unknown as TaxSlabsPage["ladders"];
 
-function assertFYEditable(fiscalYearId: string, fyList: { id: string; payslipsGenerated: boolean }[]): void {
-  const fy = fyList.find((f) => f.id === fiscalYearId);
-  if (!fy) {
-    throw new Error(`Unknown fiscal year: ${fiscalYearId}`);
-  }
-  if (fy.payslipsGenerated) {
-    throw new FiscalYearLockedError(fiscalYearId);
-  }
+export async function taxSlabsPage(requestedYear: string | null | undefined, canEdit: boolean): Promise<TaxSlabsPage> {
+  const [all, settings] = await Promise.all([fyRepository.findAllFiscalYears(), findSettings()]);
+  const years = all.sort((a, b) => b.startDateBS.localeCompare(a.startDateBS));
+  const chosen = years.find((y) => y.id === requestedYear) ?? years.find((y) => y.status === "Active") ?? years[0];
+  const womenRebatePercent = Number(settings.insuranceDiscounts?.womenDiscountPercent ?? 0) || 0;
+  if (!chosen) return { years: [], fiscalYearId: "", fiscalYearLabel: "", ladders: emptyLadders(), closed: false, hasRuns: false, canEdit: false, womenRebatePercent };
+  const [slabs, hasRuns] = await Promise.all([repository.findSlabsByFiscalYear(chosen.id), fyRepository.hasPayRuns(chosen.id)]);
+  const ladders = emptyLadders();
+  for (const c of TAX_CATEGORIES) ladders[c] = rowsFromSlabs(slabs.filter((s) => s.category === c));
+  const closed = chosen.status === "Locked";
+  return {
+    years: years.map((y) => ({ value: y.id, label: y.label, closed: y.status === "Locked", current: y.status === "Active" })),
+    fiscalYearId: chosen.id,
+    fiscalYearLabel: chosen.label,
+    ladders,
+    closed,
+    hasRuns,
+    canEdit: canEdit && !closed,
+    womenRebatePercent,
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Reads
-// ---------------------------------------------------------------------------
-
-export async function getTaxRateData(): Promise<TaxRateData> {
-  const [fiscalYears, slabs] = await Promise.all([
-    fyRepository.findAllFiscalYears(),
-    repository.findAllSlabs(),
-  ]);
-  
-  const mappedFiscalYears = fiscalYears.map(fy => ({
-    id: fy.id,
-    label: fy.label,
-    isLocked: fy.payslipsGenerated,
-  }));
-
-  return { fiscalYears: mappedFiscalYears, slabs };
-}
-
-export async function getNewSlabDefaults(args: {
-  fiscalYearId: string;
-  category: TaxCategory;
-}): Promise<{
-  amountFrom: number;
-  amountTo: number | null;
-  ratePercent: number;
-  fixedDeduction: number;
-}> {
-  const ladder = await repository.findSlabsByFYAndCategory({
-    fiscalYearId: args.fiscalYearId,
-    category: args.category,
-  });
-  const last = ladder.length > 0 ? ladder[ladder.length - 1] : null;
-  return buildNextSlabDefaults(last);
-}
-
-// ---------------------------------------------------------------------------
-// Writes 
-// ---------------------------------------------------------------------------
-
-export async function createSlab(args: {
-  fiscalYearId: string;
-  category: TaxCategory;
-  data: TaxSlabFormData;
-}): Promise<TaxSlab> {
-  const fyList = await fyRepository.findAllFiscalYears();
-  assertFYEditable(args.fiscalYearId, fyList);
-
-  const ladder = await repository.findSlabsByFYAndCategory({
-    fiscalYearId: args.fiscalYearId,
-    category: args.category,
-  });
-  const previous = ladder.length > 0 ? ladder[ladder.length - 1] : null;
-
-  const errors = validateSlabInLadder({ candidate: args.data, previous });
-  if (Object.keys(errors).length > 0) {
-    throw new SlabValidationError(errors);
+/** Replaces one category's ladder for a year (an empty list removes it: payroll then uses Individual). */
+export async function saveLadder(fiscalYearId: string, category: string, raw: unknown, ctx: TaxCtx): Promise<void> {
+  if (!TAX_CATEGORIES.includes(category as TaxCategory)) throw new UserFacingError("Choose one of the tax categories.");
+  const cat = category as TaxCategory;
+  const year = await fyRepository.findFiscalYearById(fiscalYearId);
+  if (!year) throw new UserFacingError("That fiscal year no longer exists.");
+  const closed = `${year.label} is closed: its tax slabs stay as they were. Reopen the year first.`;
+  if (year.status === "Locked") throw new UserFacingError(closed);
+  const rows = normalizeLadder(raw);
+  if (rows.length) {
+    const errors = validateLadder(rows);
+    if (!ladderIsValid(errors)) throw new TaxLadderValidationError(errors);
+  } else if (cat === "Normal Single") {
+    throw new UserFacingError("The Individual ladder is the one every other category falls back to: it can't be empty.");
   }
-
-  const created = await repository.createSlab({
-    fiscalYearId: args.fiscalYearId,
-    category: args.category,
-    amountFrom: args.data.amountFrom,
-    amountTo: args.data.amountTo,
-    ratePercent: args.data.ratePercent,
-    fixedDeduction: args.data.fixedDeduction,
-  });
-
-  const recordTitle = `${created.category} Slab (${created.amountFrom.toLocaleString()} - ${created.amountTo ? created.amountTo.toLocaleString() : "Above"}) @ ${created.ratePercent}%`;
-
+  const before = ladderBands(rowsFromSlabs((await repository.findSlabsByFiscalYear(fiscalYearId)).filter((s) => s.category === cat)));
+  const bands = ladderBands(rows);
+  if (!(await repository.replaceLadder(fiscalYearId, cat, bands))) throw new UserFacingError(closed);
+  const plain = (list: typeof bands) => list.map((b) => ({ from: b.from, upTo: b.upTo, ratePercent: b.ratePercent, fixedDeduction: b.fixedDeduction }));
   await recordAuditLog({
-    action: "ADD",
-    module: "TAX_RATES",
-    recordId: recordTitle,
-    newValues: {
-      category: created.category,
-      amountFrom: created.amountFrom,
-      amountTo: created.amountTo,
-      ratePercent: created.ratePercent,
-      fixedDeduction: created.fixedDeduction,
-    },
-  });
-
-  return created;
-}
-
-export async function updateSlab(
-  id: string,
-  patch: TaxSlabFormData,
-): Promise<TaxSlab> {
-  const allSlabs = await repository.findAllSlabs();
-  const existing = allSlabs.find((s) => s.id === id);
-  if (!existing) {
-    throw new Error(`Slab ${id} not found`);
-  }
-
-  const fyList = await fyRepository.findAllFiscalYears();
-  assertFYEditable(existing.fiscalYearId, fyList);
-
-  const errors = validateSlab(patch);
-  if (Object.keys(errors).length > 0) {
-    throw new SlabValidationError(errors);
-  }
-
-  const updated = await repository.updateSlab(id, patch);
-
-  const recordTitle = `${existing.category} Slab (${existing.amountFrom.toLocaleString()} - ${existing.amountTo ? existing.amountTo.toLocaleString() : "Above"})`;
-
-  await recordAuditLog({
+    userId: ctx.userId,
     action: "EDIT",
     module: "TAX_RATES",
-    recordId: recordTitle,
-    oldValues: {
-      amountFrom: existing.amountFrom,
-      amountTo: existing.amountTo,
-      ratePercent: existing.ratePercent,
-      fixedDeduction: existing.fixedDeduction,
-    },
-    newValues: {
-      amountFrom: updated.amountFrom,
-      amountTo: updated.amountTo,
-      ratePercent: updated.ratePercent,
-      fixedDeduction: updated.fixedDeduction,
-    },
-  });
-
-  return updated;
-}
-
-export async function deleteSlab(id: string): Promise<void> {
-  const allSlabs = await repository.findAllSlabs();
-  const existing = allSlabs.find((s) => s.id === id);
-  if (!existing) {
-    throw new Error(`Slab ${id} not found`);
-  }
-
-  const fyList = await fyRepository.findAllFiscalYears();
-  assertFYEditable(existing.fiscalYearId, fyList);
-
-  await repository.deleteSlab(id);
-
-  const recordTitle = `${existing.category} Slab (${existing.amountFrom.toLocaleString()} - ${existing.amountTo ? existing.amountTo.toLocaleString() : "Above"})`;
-
-  await recordAuditLog({
-    action: "DELETE",
-    module: "TAX_RATES",
-    recordId: recordTitle,
-    oldValues: {
-      category: existing.category,
-      amountFrom: existing.amountFrom,
-      amountTo: existing.amountTo,
-      ratePercent: existing.ratePercent,
-      fixedDeduction: existing.fixedDeduction,
-    },
+    recordId: `${year.label} · ${TAX_CATEGORY_LABEL[cat].en}`,
+    oldValues: { bands: plain(before) },
+    newValues: { bands: plain(bands) },
   });
 }

@@ -94,15 +94,15 @@ export function CompanySetupInnerNav({
       items: [
         {
           id: "fiscal_year",
-          label: "Fiscal year cycles",
-          sublabel: "Bikram Sambat calendar periods",
+          label: "Fiscal years",
+          sublabel: "Opens Setup → Fiscal years",
           icon: CalendarDays,
           badge: null,
         },
         {
           id: "tax_rates",
-          label: "Tax Rates",
-          sublabel: "Individual & couple slabs",
+          label: "Tax slabs",
+          sublabel: "Opens Setup → Tax slabs",
           icon: Percent,
           badge: null,
         },
@@ -138,17 +138,13 @@ export function CompanySetupInnerNav({
 
   const allItems = navGroups.flatMap((g) => g.items);
 
-  // Normalize active section for legacy aliases
-  const effectiveActiveSection: CompanySetupSection =
-    activeSection === "payroll_rules" ? "fiscal_year" : activeSection;
-
   return (
     <div className="w-full">
       {/* Mobile Horizontal Bar (< lg) */}
       <div className="lg:hidden mb-4 overflow-x-auto pb-1 scrollbar-none">
         <div className="inline-flex gap-1.5 p-1 rounded-xl bg-zinc-100 border border-zinc-200/80 min-w-full sm:min-w-0">
           {allItems.map((item) => {
-            const isActive = effectiveActiveSection === item.id;
+            const isActive = activeSection === item.id;
             const Icon = item.icon;
             return (
               <button
@@ -184,7 +180,7 @@ export function CompanySetupInnerNav({
 
               <div className="space-y-0.5">
                 {group.items.map((item) => {
-                  const isActive = effectiveActiveSection === item.id;
+                  const isActive = activeSection === item.id;
                   const Icon = item.icon;
 
                   return (

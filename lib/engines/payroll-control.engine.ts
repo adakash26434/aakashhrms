@@ -269,7 +269,8 @@ export type PreflightCode =
   | 'missing_tds_head'
   | 'missing_statutory_head'
   | 'covered_by_opening'
-  | 'loan_on_structure';
+  | 'loan_on_structure'
+  | 'fiscal_year';
 
 export interface PreflightFinding {
   code: PreflightCode;
@@ -302,11 +303,14 @@ export interface PreflightFacts {
   employeesCoveredByOpening?: string[];
   /** 4.10: a loan amount on the salary structure with no loan recorded (payroll no longer deducts it). */
   employeesWithLoanOnStructure?: string[];
+  /** 4.12: why the month's fiscal year can't take the run (none covers it, or it is closed). */
+  fiscalYearProblem?: string | null;
 }
 
 export function preflightFindings(f: PreflightFacts): PreflightFinding[] {
   const out: PreflightFinding[] = [];
-  const push = (code: PreflightCode, severity: PreflightFinding['severity'], title: string, people: string[] = []) => people.length || code === 'pending_leave' || code === 'duplicate_run' || code === 'attendance_open' ? out.push({ code, severity, title, people }) : undefined;
+  const push = (code: PreflightCode, severity: PreflightFinding['severity'], title: string, people: string[] = []) => people.length || code === 'pending_leave' || code === 'duplicate_run' || code === 'attendance_open' || code === 'fiscal_year' ? out.push({ code, severity, title, people }) : undefined;
+  if (f.fiscalYearProblem) push('fiscal_year', 'blocker', f.fiscalYearProblem);
   if (f.statutoryHeads && !f.statutoryHeads.tds) push('missing_tds_head', 'blocker', 'The TDS (income tax) pay head is missing from Setup → Pay heads; payroll cannot post tax without it.', ['TDS']);
   const regular = (f.runType ?? 'REGULAR') === 'REGULAR';
   if (f.statutoryHeads && regular) {

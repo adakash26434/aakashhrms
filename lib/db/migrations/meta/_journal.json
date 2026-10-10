@@ -526,6 +526,13 @@
       "when": 1793328000000,
       "tag": "0074_loans",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793414400000,
+      "tag": "0075_fiscal_years",
+      "breakpoints": true
     }
   ]
 }

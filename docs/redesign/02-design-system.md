@@ -999,6 +999,47 @@ leave taken, requests — reasons only when asked for), **Loan report** (loan
 register, repayments and loans given in a fiscal year or month). `/reports`
 lists what the role can open, Statutory returns and HR analytics included.
 
+### Implemented settings: fiscal years and tax slabs (Phase 4.12a, templates A + E)
+
+**Setup → Fiscal years** (`/setup/fiscal-year`, register): PageBar with
+**New fiscal year** (Ctrl+N), **Make current**, **Close year**, **Reopen**,
+**Delete** (each disabled with the server's reason as its tooltip),
+**Tax slabs** (opens the selected year's slabs) and Refresh; a success
+Notice; the Guide "How fiscal years work"; a DataGrid — fiscal year,
+starts / ends (DateCell, BS first), status chip (Current · Upcoming · Past ·
+Closed), tax slabs per category ("Individual 6 · Person with disability 5",
+"Not set" in amber), what uses the year ("3 pay runs · 8 salary
+structures"), pay runs not locked (hidden column). **New fiscal year**
+window: the BS year it opens in (the next one offered) with the dates it
+makes ("FY 2084/85: Shrawan 1, 2084 to Asar 31, 2085 BS (2027-07-17 to
+2028-07-14)") and **Copy from** another year's slabs. **Reopen** window: a
+required reason (kept in the audit log). Confirms for Make current, Close
+and Delete say what follows.
+
+**Setup → Tax slabs** (`/setup/tax-rates`, settings): the fiscal year
+select (Current / Closed chips; `?year=` kept in the address), a warning
+Notice for a closed year (no Edit buttons) and an info Notice when the year
+has pay runs; the Guide; the three ladders side by side (one column on
+phones) as Panels — Individual, Couple, Person with disability, each with
+its hint, the bands ("Up to 5,00,000 · 1% · 5,000", "Above 50,00,000 ·
+39% · –") and the **tax at the top** of each band, **Edit** / **Set slabs**
+in the title bar; a "Not set" line says what payroll does instead. Below,
+**Tax on a yearly income**: category, income (NPR, lakh grouping), *SSF
+contributor* and *Woman (10% rebate)*, then each band's income, rate and
+tax, the year's total, a month and the effective rate — worked out exactly
+as payroll does.
+
+The **ladder window** edits the whole ladder: # · From (follows the band
+before; folded on phones) · Up to (the last band "and above") · Rate % ·
+Less (fixed; folded on phones unless used) · remove; **Add band**, **Start
+from another year…**, **Remove ladder** (Couple / disability: Individual
+applies), then **Changes** in words ("Band 4: 10,00,000 – 20,00,000 at 30%
+→ … at 32%", "Band 7 added: …") and the **effect** on a yearly income (tax
+now → after saving). Errors appear under the band after Save is pressed
+and focus moves to the first; Save is disabled until something changes.
+Money inputs use `NumberField grouped` (lakh grouping while not typing,
+plain digits while typing).
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

@@ -2026,4 +2026,21 @@ ON CONFLICT DO NOTHING`);
       // Ignored until the referenced tables and columns exist; the next sync pass completes it.
     }
   }
+
+  // Fiscal years (4.12, migration 0075, S49): labels by the BS years (the old screen used the AD
+  // years) and only Active / Inactive / Locked. Both idempotent.
+  const fiscalYearQueries = [
+    `UPDATE "fiscal_years"
+      SET "label" = 'FY ' || left("start_date_bs", 4) || '/' || right((left("start_date_bs", 4)::int + 1)::text, 2), "updated_at" = now()
+      WHERE "start_date_bs" ~ '^[0-9]{4}-'
+        AND "label" <> 'FY ' || left("start_date_bs", 4) || '/' || right((left("start_date_bs", 4)::int + 1)::text, 2)`,
+    `UPDATE "fiscal_years" SET "status" = 'Inactive', "updated_at" = now() WHERE "status" NOT IN ('Active', 'Inactive', 'Locked')`,
+  ];
+  for (const q of fiscalYearQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the table exists; the next sync pass completes it.
+    }
+  }
 }

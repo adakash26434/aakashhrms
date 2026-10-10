@@ -8,6 +8,7 @@ import * as employeeRepository from '@/lib/repositories/employee.repository';
 import * as salaryMappingRepository from '@/lib/repositories/salary-mapping.repository';
 import * as attendanceRepo from '@/lib/repositories/attendance.repository';
 import * as openingRepository from '@/lib/repositories/opening-balance.repository';
+import * as fiscalYearService from '@/lib/services/fiscal-year.service';
 import * as loanRepository from '@/lib/repositories/loan.repository';
 import { getFiscalMonthIndex } from '@/lib/utils/fiscal-year.utils';
 import { employeesNeedingSetup } from '@/lib/repositories/salary-structure.repository';
@@ -299,7 +300,8 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
   const label = (e: { fullName: string; employeeCode: string }) => `${e.fullName} (${e.employeeCode})`;
 
   const db = await getDb();
-  const fiscalYear = await openingRepository.activeFiscalYear();
+  // The year the pay month falls in (4.12), as the run itself will use.
+  const { fiscalYear, problem: fiscalYearProblem } = await fiscalYearService.payMonthFiscalYear(payload.payPeriodYear, payload.payPeriodMonth);
   const [settings, salaries, needSetup, periods, existing, gaps, pending, branchRows, statutoryHeads, coveredByOpening] = await Promise.all([
     readSettings(),
     salaryMappingRepository.findInForceByEmployeeIds(ids, endStr),
@@ -342,6 +344,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     runType: asRunType(payload.runType),
     employeesCoveredByOpening: coveredByOpening.map(label),
     employeesWithLoanOnStructure: withLoanAmount.filter((e) => !recorded.has(e.id)).map(label),
+    fiscalYearProblem,
   });
   return { findings, employeeCount: people.length, blocked: findings.some((f) => f.severity === 'blocker') };
 }

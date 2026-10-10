@@ -75,8 +75,8 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
           <DateFormatMenu size="sm" />
 
           <Link
-            href="/setup/company-setup?section=payroll_rules&tab=fiscal-year"
-            title="Active fiscal year"
+            href="/setup/fiscal-year"
+            title="Current fiscal year"
             className="hidden h-8 items-center gap-1.5 rounded-md border border-line px-2 text-xs font-medium text-ink hover:bg-surface-sunken lg:flex"
           >
             <CalendarDays className="h-3.5 w-3.5 text-brand" />

@@ -8,7 +8,7 @@ import * as employeeRepository from '@/lib/repositories/employee.repository';
 import * as salaryMappingRepository from '@/lib/repositories/salary-mapping.repository';
 import * as systemControlRepository from '@/lib/repositories/system-control.repository';
 import * as taxRateRepository from '@/lib/repositories/tax-rate.repository';
-import * as fiscalYearRepository from '@/lib/repositories/fiscal-year.repository';
+import * as fiscalYearService from '@/lib/services/fiscal-year.service';
 import * as arrearsService from '@/lib/services/arrears.service';
 import * as openingRepository from '@/lib/repositories/opening-balance.repository';
 import * as payrollFeedService from '@/lib/services/payroll-feed.service';
@@ -115,6 +115,8 @@ export async function generateOffCycleRun(payload: PayrollRunSetupPayload, userI
   const { start, end } = getBSMonthRange(payPeriodYear, payPeriodMonth);
   const startStr = toIsoDate(start);
   const endStr = toIsoDate(end);
+  // The fiscal year the pay month falls in (4.12), checked before anything is replaced.
+  const fiscalYear = await fiscalYearService.fiscalYearForPayMonth(payPeriodYear, payPeriodMonth);
 
   // One run of each type per pay month and branch.
   const existing = await repository.findPayrollRunByPeriodAndBranch({ payPeriodMonth, payPeriodYear, branchIds, runType });
@@ -132,8 +134,6 @@ export async function generateOffCycleRun(payload: PayrollRunSetupPayload, userI
     }
   }
 
-  const fiscalYear = (await fiscalYearRepository.findAllFiscalYears()).find((y) => y.status === 'Active');
-  if (!fiscalYear) throw new UserFacingError('No active fiscal year.');
   const people = await employeeRepository.findForPayrollScope(payload);
   if (!people.length) throw new UserFacingError('No active employees in the selected scope.');
   const ids = people.map((e) => e.id);

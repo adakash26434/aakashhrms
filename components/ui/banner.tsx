@@ -34,10 +34,9 @@ interface BannerProps {
  * (by default) auto-dismisses after 4 seconds. Clicking the X
  * dismisses immediately.
  *
- * This is the extracted version of the banner JSX that previously
- * lived inline in `fiscal-year-client.tsx` and `tax-rate-client.tsx`.
- * Once extracted, both callers (and future pages) share a single
- * source of truth for the design tokens.
+ * Extracted from the banner JSX the first setup screens repeated, so
+ * every caller shares one source of truth for the design tokens. New
+ * screens use the kit `Notice` instead.
  */
 export function Banner({
   visible,

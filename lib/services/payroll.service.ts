@@ -12,7 +12,6 @@ import {
   departments,
   designations,
   payHeads,
-  fiscalYears,
   attendanceRecords
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql, gte, lte } from "drizzle-orm";
@@ -37,6 +36,7 @@ import { attendanceForPayroll } from "@/lib/services/attendance.service";
 import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
 import * as arrearsService from "@/lib/services/arrears.service";
 import * as offCycleService from "@/lib/services/off-cycle.service";
+import * as fiscalYearService from "@/lib/services/fiscal-year.service";
 import { isOffCycle } from "@/lib/engines/off-cycle.engine";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { refreshRunBankDetails } from "@/lib/repositories/employee-detail.repository";
@@ -180,6 +180,11 @@ export async function generatePayrollRun(
   const startStr = startDateAD.toISOString().split('T')[0];
   const endStr = endDateAD.toISOString().split('T')[0];
 
+  // The fiscal year the pay month falls in (4.12) — not simply the current one, so Asar's run made
+  // after the next year is current is still taxed and reconciled in its own year. Checked before
+  // anything is replaced.
+  const runYear = await fiscalYearService.fiscalYearForPayMonth(payPeriodYear, payPeriodMonth);
+
   // 1. Verify duplicates
   const existingRuns = await repository.findPayrollRunByPeriodAndBranch({
     payPeriodMonth,
@@ -212,13 +217,8 @@ export async function generatePayrollRun(
     }
   }
 
-  // 2. Load system configurations & active FY
+  // 2. Load system configurations
   const systemControl = await systemControlRepository.findSettings();
-  
-  // Find active fiscal year
-  const activeFys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, 'Active'));
-  if (!activeFys.length) throw new Error("No active fiscal year found in system");
-  const activeFy = activeFys[0] as { id: string; label: string };
 
   // 3. Active employees in the run's scope (branches, departments, designations, categories, people)
   const scopedEmployees = await employeeRepository.findForPayrollScope({ branchIds, departmentIds, designationIds, employeeCategories, employeeIds });
@@ -248,7 +248,7 @@ export async function generatePayrollRun(
 
   // 4b. F15: a month an opening balance covers was paid by the old system; paying it here too
   // would count it twice (tax, certificate).
-  const coveredByOpening = await openingRepository.openingsCovering(scopedEmployees.map((e) => e.id), activeFy.id, getFiscalMonthIndex(payPeriodMonth));
+  const coveredByOpening = await openingRepository.openingsCovering(scopedEmployees.map((e) => e.id), runYear.id, getFiscalMonthIndex(payPeriodMonth));
   if (coveredByOpening.length) throw new UserFacingError(coveredByOpeningMessage(coveredByOpening, BS_MONTHS_EN[payPeriodMonth] ?? `month ${payPeriodMonth}`));
 
   // 5. Attendance for the month (4.5): the closed summary, or worked out now from the same
@@ -287,7 +287,7 @@ export async function generatePayrollRun(
   }
 
   // Load the run's fiscal year's tax slabs (4.8 fix: every year's slabs stacked up before).
-  const slabs = await taxRateRepository.findSlabsByFiscalYear(activeFy.id);
+  const slabs = await taxRateRepository.findSlabsByFiscalYear(runYear.id);
   const taxSlabInputs = slabs.map(s => ({
     id: s.id,
     category: s.category,
@@ -369,7 +369,7 @@ export async function generatePayrollRun(
       .where(
         and(
           inArray(payrollSlips.employeeId, empIds),
-          eq(payrollRuns.fiscalYearId, activeFy.id),
+          eq(payrollRuns.fiscalYearId, runYear.id),
           eq(payrollRuns.status, 'LOCKED')
         )
       );
@@ -387,14 +387,14 @@ export async function generatePayrollRun(
       });
     }
     // F15: what an old system paid before payroll started here is one more past payslip.
-    for (const [empId, opening] of await openingRepository.openingsFor(empIds, activeFy.id)) {
+    for (const [empId, opening] of await openingRepository.openingsFor(empIds, runYear.id)) {
       historicalSlipsByEmployee.set(empId, [...(historicalSlipsByEmployee.get(empId) ?? []), openingAsYearEndSlip(opening)]);
     }
   }
 
   // F5: the earlier months of the year for the tax projection (months 1–11; the year-end month reconciles).
   const fiscalMonthIndex = getFiscalMonthIndex(payPeriodMonth);
-  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, activeFy.id, fiscalMonthIndex);
+  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, runYear.id, fiscalMonthIndex);
 
   // 7. Calculate payslips for each employee (all data pre-loaded — no per-employee queries)
   for (const emp of scopedEmployees) {
@@ -602,7 +602,7 @@ export async function generatePayrollRun(
   // Create the top-level batch record, slips and audit logs in a single atomic transaction
   const runRecord = await (await getDb()).transaction(async (tx) => {
     const run = await repository.createPayrollRun({
-      fiscalYearId: activeFy.id,
+      fiscalYearId: runYear.id,
       payPeriodMonth,
       payPeriodYear,
       payPeriodStartDate: startStr,

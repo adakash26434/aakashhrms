@@ -279,7 +279,7 @@ export function SetupOverviewClient({
             {/* Quick Links Grid */}
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 pt-2">
               <Link
-                href="/setup/payroll-rules?tab=fiscal-year"
+                href="/setup/fiscal-year"
                 className="flex items-center justify-between rounded-lg border border-payroll-light bg-white p-2.5 transition-all hover:border-payroll-primary hover:bg-payroll-cream/40"
               >
                 <div className="flex items-center gap-2">
@@ -293,7 +293,7 @@ export function SetupOverviewClient({
               </Link>
 
               <Link
-                href="/setup/payroll-rules?tab=tax-rates"
+                href="/setup/tax-rates"
                 className="flex items-center justify-between rounded-lg border border-payroll-light bg-white p-2.5 transition-all hover:border-payroll-primary hover:bg-payroll-cream/40"
               >
                 <div className="flex items-center gap-2">

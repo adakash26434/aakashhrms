@@ -11,27 +11,37 @@ import { PageFrame } from "@/components/layout/page-frame";
 import { WorkScheduleTab } from "./work-schedule-tab";
 import { CompanyProfileTab } from "./company-profile-tab";
 import { CompanySetupInnerNav, type CompanySetupSection } from "./company-setup-inner-nav";
-import type { PayrollRuleTab } from "@/components/setup/payroll-rules-hub-client";
-import { normalizePayrollRuleTab } from "@/components/setup/payroll-rules-hub-client";
-import { FiscalYearClient } from "@/components/fiscal-year/fiscal-year-client";
-import { TaxRateClient } from "@/components/tax-rate/tax-rate-client";
 import { PayHeadClient } from "@/components/pay-head/pay-head-client";
 import { SystemControlClient } from "@/components/system-control/system-control-client";
-import type { FiscalYearData } from "@/lib/types/fiscal-year";
-import type { TaxRateData } from "@/lib/types/tax-rate";
 import type { PayHeadData } from "@/lib/types/pay-head";
 import type { SystemControlData } from "@/lib/types/system-control";
 
 export type MasterSetupTab = CompanySetupSection;
 
-/** Sections that moved to Workforce → Organization (4.3), with the tab they open there. */
-const MOVED_TO_ORGANIZATION: Record<string, string> = {
-  organization: "structure",
-  branches: "branches",
-  departments: "departments",
-  designations: "designations",
-  shreni: "levels",
-  employment_types: "types",
+/** The payroll sub-tabs older links name (?section=payroll_rules&tab=…). */
+export type PayrollRuleTab = "fiscal-year" | "tax-rates" | "pay-heads" | "rules-defaults";
+
+function normalizePayrollRuleTab(rawTab?: string | null): PayrollRuleTab {
+  const t = (rawTab ?? "").toLowerCase().replace(/_/g, "-");
+  if (["tax-rates", "taxrates", "tax"].includes(t)) return "tax-rates";
+  if (["pay-heads", "payheads"].includes(t)) return "pay-heads";
+  if (["rules-defaults", "rules", "system-control", "systemcontrol", "defaults"].includes(t)) return "rules-defaults";
+  return "fiscal-year";
+}
+
+/**
+ * Sections that moved to their own pages: organization units to Workforce →
+ * Organization (4.3), fiscal years and tax slabs to Setup (4.12).
+ */
+const MOVED: Record<string, string> = {
+  organization: "/workforce/organization?tab=structure",
+  branches: "/workforce/organization?tab=branches",
+  departments: "/workforce/organization?tab=departments",
+  designations: "/workforce/organization?tab=designations",
+  shreni: "/workforce/organization?tab=levels",
+  employment_types: "/workforce/organization?tab=types",
+  fiscal_year: "/setup/fiscal-year",
+  tax_rates: "/setup/tax-rates",
 };
 
 const VALID_TABS: MasterSetupTab[] = [
@@ -50,8 +60,6 @@ interface CompanySetupClientProps {
   initialTab?: string;
   payrollRulesData?: {
     allowedTabs: PayrollRuleTab[];
-    fiscalYearData?: FiscalYearData | null;
-    taxRateData?: TaxRateData | null;
     payHeadData?: PayHeadData | null;
     systemControlData?: SystemControlData | null;
     isSuperAdmin?: boolean;
@@ -100,18 +108,20 @@ export function CompanySetupClient({
   };
 
   const initialResolved = resolveInitialState();
-  const movedFrom = [initialSection, initialTab].map((v) => (v || "").toLowerCase().replace(/[- ]/g, "_")).find((v) => MOVED_TO_ORGANIZATION[v]);
+  const movedTo =
+    MOVED[initialResolved.section] ??
+    [initialSection, initialTab].map((v) => MOVED[(v || "").toLowerCase().replace(/[- ]/g, "_")]).find(Boolean);
   React.useEffect(() => {
-    if (movedFrom) router.replace(`/workforce/organization?tab=${MOVED_TO_ORGANIZATION[movedFrom]}`);
-  }, [movedFrom, router]);
+    if (movedTo) router.replace(movedTo);
+  }, [movedTo, router]);
   const [activeTab, setActiveTab] = useState<MasterSetupTab>(initialResolved.section);
   const [payrollSubTab] = useState<PayrollRuleTab | undefined>(
     initialResolved.payrollSubTab
   );
 
   const handleSectionClick = (tabId: MasterSetupTab) => {
-    if (MOVED_TO_ORGANIZATION[tabId]) {
-      router.push(`/workforce/organization?tab=${MOVED_TO_ORGANIZATION[tabId]}`);
+    if (MOVED[tabId]) {
+      router.push(MOVED[tabId]);
       return;
     }
     setActiveTab(tabId);
@@ -197,27 +207,7 @@ export function CompanySetupClient({
               />
             )}
 
-            {/* Payroll Section 1: Fiscal Year Cycles */}
-            {(activeTab === "fiscal_year" || (activeTab === "payroll_rules" && (!payrollSubTab || payrollSubTab === "fiscal-year"))) && (
-              payrollRulesData?.fiscalYearData ? (
-                <FiscalYearClient initialData={payrollRulesData.fiscalYearData} embedded={true} />
-              ) : (
-                <div className="py-12 text-center text-xs text-slate-400">
-                  You do not have permission to view fiscal year cycles.
-                </div>
-              )
-            )}
-
-            {/* Payroll Section 2: Tax Brackets */}
-            {(activeTab === "tax_rates" || (activeTab === "payroll_rules" && payrollSubTab === "tax-rates")) && (
-              payrollRulesData?.taxRateData ? (
-                <TaxRateClient initialData={payrollRulesData.taxRateData} embedded={true} />
-              ) : (
-                <div className="py-12 text-center text-xs text-slate-400">
-                  You do not have permission to view tax brackets.
-                </div>
-              )
-            )}
+            {/* Fiscal years and tax slabs have their own pages under Setup (4.12): see MOVED. */}
 
             {/* Payroll Section 3: Salary Pay Heads */}
             {(activeTab === "pay_heads" || (activeTab === "payroll_rules" && payrollSubTab === "pay-heads")) && (

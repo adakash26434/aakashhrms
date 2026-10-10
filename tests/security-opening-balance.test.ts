@@ -41,7 +41,7 @@ describe('F15 opening balances', () => {
     // No opening over a month that has a payslip here (any state)…
     assert.match(plan, /\(slipMonths\.get\(employee\.id\) \?\? \[\]\)\.filter\(\(m\) => m\.index <= opening\.months\)/);
     // …and no run over a month an opening covers (regular and off-cycle), shown in pre-flight too.
-    assert.match(read('lib/services/payroll.service.ts'), /openingRepository\.openingsCovering\(scopedEmployees\.map\(\(e\) => e\.id\), activeFy\.id, getFiscalMonthIndex\(payPeriodMonth\)\);\s*if \(coveredByOpening\.length\) throw new UserFacingError/);
+    assert.match(read('lib/services/payroll.service.ts'), /openingRepository\.openingsCovering\(scopedEmployees\.map\(\(e\) => e\.id\), runYear\.id, getFiscalMonthIndex\(payPeriodMonth\)\);\s*if \(coveredByOpening\.length\) throw new UserFacingError/);
     assert.match(read('lib/services/off-cycle.service.ts'), /openingRepository\.openingsCovering\(payees\.map\(\(e\) => e\.id\), fiscalYear\.id, getFiscalMonthIndex\(payPeriodMonth\)\);\s*if \(coveredByOpening\.length\) throw new UserFacingError/);
     assert.match(read('lib/services/payroll-control.service.ts'), /employeesCoveredByOpening: coveredByOpening\.map\(label\)/);
     // The tax history counts an opening only before the month being paid.

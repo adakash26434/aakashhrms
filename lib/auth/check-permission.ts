@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { resolveUserScope, type ScopeFilter } from './scope-filter';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
 import { assertSessionUsable } from './session-updates';
+import { UserFacingError } from '@/lib/errors/action-error';
 
 // Re-export for convenience
 export type { ScopeFilter } from './scope-filter';
@@ -205,6 +206,18 @@ export async function checkPermissionWithScope(
   const session = await auth();
   const userId = await verifyPermission(action, module);
   return resolveUserScope(userId, session?.user?.tenantSlug);
+}
+
+/**
+ * A company-wide setting (fiscal years, tax slabs, pay heads, rules, the company profile…):
+ * the permission on its module, a company-wide role — a branch or department role would be
+ * changing every branch's settings — and never platform support, which sees settings read-only.
+ */
+export async function checkCompanyControl(action: PermissionAction, module: PermissionModule): Promise<ScopeFilter> {
+  const scope = await checkPermissionWithScope(action, module);
+  if (scope.isImpersonation) throw new UserFacingError('Platform support cannot change this company control.');
+  if (scope.scopeType !== 'GLOBAL') throw new UserFacingError('This is a company-wide setting: only a company-wide role can change it.');
+  return scope;
 }
 
 /**
