@@ -24,6 +24,8 @@ export interface SheetRow {
 
 export interface SheetRead {
   rows: SheetRow[];
+  /** Keys of the template columns the file has. */
+  columns: string[];
   /** Problems with the file itself (headers, size): nothing can be imported until fixed. */
   fileIssues: string[];
   /** Headers that are not template columns (ignored). */
@@ -47,6 +49,9 @@ export interface ReportRow {
 }
 
 export interface ImportReport {
+  /** Rows read from the file. */
+  total: number;
+  /** The rows with errors or notes (every other row is ready as it is). */
   rows: ReportRow[];
   fileIssues: string[];
   ignored: string[];
@@ -56,16 +61,20 @@ export interface ImportReport {
   warningRows: number;
   /** Every row can be imported (no file issue, no row error, at least one row). */
   ready: boolean;
+  /** What importing would add, in a sentence (e.g. "1,240 punches for 48 employees"). */
+  summary?: string;
 }
 
 export const MAX_IMPORT_ROWS = 1000;
-export const MAX_IMPORT_BYTES = 2_000_000;
+/** The file travels as a server action argument, which Next.js caps at 1 MB. */
+export const MAX_IMPORT_BYTES = 900_000;
+export const TOO_LARGE = "The file is too large (900 KB at most): split it into smaller files.";
 
 const norm = (s: string) => s.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, " ");
 
 /** The template's rows as cells keyed by column; blank lines are skipped. */
 export function readSheet(table: readonly (readonly string[])[], columns: readonly ImportColumn[], maxRows = MAX_IMPORT_ROWS): SheetRead {
-  const out: SheetRead = { rows: [], fileIssues: [], ignored: [] };
+  const out: SheetRead = { rows: [], columns: [], fileIssues: [], ignored: [] };
   if (!table.length) {
     out.fileIssues.push("The file is empty.");
     return out;
@@ -84,6 +93,7 @@ export function readSheet(table: readonly (readonly string[])[], columns: readon
     } else if (at.has(col.key)) out.fileIssues.push(`The column "${col.header}" appears twice.`);
     else at.set(col.key, i);
   });
+  out.columns = [...at.keys()];
   const missing = columns.filter((c) => c.required && !at.has(c.key)).map((c) => c.header);
   if (missing.length) out.fileIssues.push(`Missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}. Download the template again.`);
   table.slice(1).forEach((cells, i) => {
@@ -97,11 +107,24 @@ export function readSheet(table: readonly (readonly string[])[], columns: readon
   return out;
 }
 
-/** The report for checked rows. */
+/** The report for checked rows (only the rows with issues are listed). */
 export function buildReport(read: Pick<SheetRead, "fileIssues" | "ignored">, rows: readonly ReportRow[]): ImportReport {
   const errorRows = rows.filter((r) => r.issues.some((i) => i.level === "error")).length;
   const warningRows = rows.filter((r) => !r.issues.some((i) => i.level === "error") && r.issues.length > 0).length;
-  return { rows: [...rows], fileIssues: read.fileIssues, ignored: read.ignored, errorRows, warningRows, ready: !read.fileIssues.length && rows.length > 0 && errorRows === 0 };
+  return {
+    total: rows.length,
+    rows: rows.filter((r) => r.issues.length > 0),
+    fileIssues: read.fileIssues,
+    ignored: read.ignored,
+    errorRows,
+    warningRows,
+    ready: !read.fileIssues.length && rows.length > 0 && errorRows === 0,
+  };
+}
+
+/** A report for a file that can't be read at all. */
+export function fileReport(...fileIssues: string[]): ImportReport {
+  return buildReport({ fileIssues, ignored: [] }, []);
 }
 
 /**
@@ -121,17 +144,60 @@ export function templateHeader(columns: readonly ImportColumn[]): string {
 
 // ---- value readers -------------------------------------------------------------------------
 
+/** How Excel saves a date it converted, in the computer's own order (4/15/2081, 15-04-2081). */
+const EXCEL_DATE = /^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/;
+
 /** A BS date typed as YYYY-MM-DD or YYYY/MM/DD (Excel may drop leading zeros) → the AD date, or why not. */
 export function readBsDate(text: string): { ad: string } | { error: string } {
   const m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(text.trim());
   // Excel reads 2081-04-15 as an AD date and saves it in the computer's own order (4/15/2081).
-  if (!m && /^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/.test(text.trim())) return { error: `Excel changed this date to ${text.trim()}: set the column to Text and type the BS date again as YYYY-MM-DD` };
+  if (!m && EXCEL_DATE.test(text.trim())) return { error: `Excel changed this date to ${text.trim()}: set the column to Text and type the BS date again as YYYY-MM-DD` };
   if (!m) return { error: "Type the BS date as YYYY-MM-DD, e.g. 2081-04-15" };
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
   if (!isValidBSDate(y, mo, d)) return { error: `${text.trim()} is not a BS date` };
   const ad = bsToAD(y, mo, d);
   if (isNaN(ad.getTime())) return { error: `${text.trim()} is not a BS date` };
   return { ad: `${ad.getFullYear()}-${String(ad.getMonth() + 1).padStart(2, "0")}-${String(ad.getDate()).padStart(2, "0")}` };
+}
+
+/** An AD date typed as YYYY-MM-DD or YYYY/MM/DD, or why not. */
+export function readAdDate(text: string): { ad: string } | { error: string } {
+  const t = text.trim();
+  const m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(t);
+  if (!m && EXCEL_DATE.test(t)) return { error: `Excel changed this date to ${t}: set the column to Text and type it again as YYYY-MM-DD` };
+  if (!m) return { error: "Type the AD date as YYYY-MM-DD, e.g. 2026-10-10" };
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (y < 1944 || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return { error: `${t} is not a date` };
+  return { ad: `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}` };
+}
+
+/** A time of day in minutes: "9:58", "09:58:12" or "6:05 PM" (24-hour unless AM / PM); null when not a time. */
+export function readClock(text: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?$|^(\d{1,2}):(\d{2})(?::(\d{2}))?$/i.exec(text.trim());
+  if (!m) return null;
+  const twelve = m[4] !== undefined;
+  const h = Number(twelve ? m[1] : m[5]);
+  const min = Number(twelve ? m[2] : m[6]);
+  const sec = Number((twelve ? m[3] : m[7]) ?? 0);
+  if (min > 59 || sec > 59) return null;
+  if (twelve) return h >= 1 && h <= 12 ? ((h % 12) + (m[4].toLowerCase() === "p" ? 12 : 0)) * 60 + min : null;
+  return h <= 23 ? h * 60 + min : null;
+}
+
+/** Several times in one cell ("13:02 13:31", "1:02 PM, 1:31 PM"); null when any of them is not a time. */
+export function readClocks(text: string): number[] | null {
+  const parts = text
+    .trim()
+    .split(/\s*[,;]\s*|\s+(?=\d)/)
+    .filter(Boolean);
+  const out: number[] = [];
+  for (const p of parts) {
+    const minutes = readClock(p);
+    if (minutes === null) return null;
+    out.push(minutes);
+  }
+  return out;
 }
 
 /** Excel shows a long number as 1.23457E+15 and saves it that way: its digits are lost. */

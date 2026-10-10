@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EMPLOYEE_IMPORT_COLUMNS, columnOfField, columnsBehindField, employeeRowToForm, matchBank, numberKey, type EmployeeImportLookups } from "@/lib/engines/employee-import.engine";
+import { EMPLOYEE_IMPORT_COLUMNS, columnOfField, columnsBehindField, employeeRowToForm, matchBank, numberKey, personKey, type EmployeeImportLookups } from "@/lib/engines/employee-import.engine";
 import { readBsDate, type SheetRow } from "@/lib/engines/import.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 
@@ -171,4 +171,11 @@ test("identity and account numbers compare as the same number however they are s
   assert.equal(numberKey(" 4101 7201234 "), "41017201234");
   assert.equal(numberKey("AB-12"), numberKey("ab12"));
   assert.equal(numberKey("--"), "");
+});
+
+test("a person is the same name (any case or spacing) and date of birth", () => {
+  assert.equal(personKey(" Gita  GURUNG ", "1993-07-30"), personKey("gita gurung", "1993-07-30T00:00:00.000Z"));
+  assert.notEqual(personKey("Gita Gurung", "1993-07-30"), personKey("Gita Gurung", "1998-03-20"));
+  assert.equal(personKey("", "1993-07-30"), "");
+  assert.equal(personKey("Gita Gurung", ""), "");
 });

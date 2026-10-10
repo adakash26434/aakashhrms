@@ -5,7 +5,7 @@ import { Download, FileUp, Loader2, RefreshCw } from "lucide-react";
 import { Notice } from "./notice";
 import { Window, WindowButton } from "./window";
 import { downloadTextFile } from "@/lib/export/download";
-import { MAX_IMPORT_BYTES, templateHeader, type ImportColumn, type ImportReport } from "@/lib/engines/import.engine";
+import { MAX_IMPORT_BYTES, TOO_LARGE, templateHeader, type ImportColumn, type ImportReport } from "@/lib/engines/import.engine";
 import { cn } from "@/lib/utils";
 
 // Import window (4.8 / F15): download the template, fill it in Excel (save as CSV), choose it, read
@@ -22,10 +22,13 @@ export function ImportWindow({
   onPreview,
   onCommit,
   commitLabel,
+  rowHint = "Add one row per person",
   onClose,
 }: {
   title: string;
   description: string;
+  /** What one row of the template is, for the first step ("Add one row per person"). */
+  rowHint?: string;
   columns: readonly ImportColumn[];
   /** File name of the downloaded template, e.g. "employees-import.csv". */
   templateFile: string;
@@ -54,7 +57,7 @@ export function ImportWindow({
 
   const choose = async (picked: File) => {
     if (picked.size > MAX_IMPORT_BYTES) {
-      setError("That file is too large (2 MB at most).");
+      setError(TOO_LARGE);
       return;
     }
     const f = { name: picked.name, text: await picked.text() };
@@ -76,9 +79,9 @@ export function ImportWindow({
     } else setError(result.error);
   };
 
-  const issueRows = report?.rows.filter((r) => r.issues.length) ?? [];
-  // Rows that can be imported: notes (warnings) don't hold a row back.
-  const readyRows = (report?.rows.length ?? 0) - (report?.errorRows ?? 0);
+  // The report lists the rows with issues; notes (warnings) don't hold a row back.
+  const issueRows = report?.rows ?? [];
+  const readyRows = (report?.total ?? 0) - (report?.errorRows ?? 0);
 
   return (
     <Window
@@ -95,7 +98,7 @@ export function ImportWindow({
           {!done && (
             <WindowButton variant="primary" onClick={commit} disabled={!report?.ready || !!busy}>
               {busy === "import" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {commitLabel(report?.rows.length ?? 0)}
+              {commitLabel(report?.total ?? 0)}
             </WindowButton>
           )}
         </>
@@ -109,7 +112,7 @@ export function ImportWindow({
           <li className="rounded-md border border-line bg-surface-panel p-3">
             <p className="text-xs font-semibold text-ink">1. Fill in the template</p>
             <p className="mt-0.5 text-2xs text-ink-muted">
-              Open it in Excel and set the columns to Text first, so BS dates (YYYY-MM-DD) and long numbers stay as typed. Add one row per person and save it as “CSV UTF-8”.
+              Open it in Excel and set the columns to Text first, so dates (YYYY-MM-DD), times and long numbers stay as typed. {rowHint} and save it as “CSV UTF-8”.
             </p>
             <WindowButton className="mt-2" onClick={() => downloadTextFile(templateFile, templateHeader(columns))}>
               <Download className="h-3.5 w-3.5" /> Download template
@@ -148,7 +151,7 @@ export function ImportWindow({
           <section aria-label="Check result" className="space-y-2">
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <span>
-                <strong className="tabular-nums">{report.rows.length}</strong> row{report.rows.length === 1 ? "" : "s"}
+                <strong className="tabular-nums">{report.total}</strong> row{report.total === 1 ? "" : "s"}
               </span>
               <span className={report.errorRows ? "font-medium text-danger" : "text-ink-muted"}>
                 <strong className="tabular-nums">{report.errorRows}</strong> with errors
@@ -171,7 +174,9 @@ export function ImportWindow({
             )}
             {report.ignored.length > 0 && <Notice tone="info">Columns not in the template are ignored: {report.ignored.join(", ")}.</Notice>}
             {report.ready ? (
-              <Notice tone="success">Every row checks clean{report.warningRows ? " (read the notes below)" : ""}. Import when ready.</Notice>
+              <Notice tone="success">
+                Every row checks clean{report.warningRows ? " (read the notes below)" : ""}. {report.summary ? `${report.summary}. ` : ""}Import when ready.
+              </Notice>
             ) : report.errorRows > 0 ? (
               <Notice tone="warning">Fix the rows below in the file, save it, and choose it again.</Notice>
             ) : null}

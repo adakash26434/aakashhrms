@@ -84,6 +84,12 @@ export function numberKey(text: string): string {
   return text.replace(/[^0-9a-z]/gi, "").toLowerCase();
 }
 
+/** One person by name and date of birth (AD "YYYY-MM-DD"): catches a person entered again under a mistyped number. */
+export function personKey(fullName: string, dateOfBirth: string): string {
+  const name = fullName.trim().toLowerCase().replace(/\s+/g, " ");
+  return name && dateOfBirth ? `${name}|${dateOfBirth.slice(0, 10)}` : "";
+}
+
 export interface EmployeeImportLookups {
   branches: readonly { id: string; name: string; code: string; status: string }[];
   departments: readonly { id: string; name: string; code: string; status: string }[];

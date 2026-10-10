@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildReport, excelChangedNumber, readAmount, readBsDate, readChoice, readSheet, readYesNo, templateHeader, textIssues, type ImportColumn } from "@/lib/engines/import.engine";
+import { buildReport, excelChangedNumber, readAdDate, readAmount, readBsDate, readChoice, readClock, readClocks, readSheet, readYesNo, templateHeader, textIssues, type ImportColumn } from "@/lib/engines/import.engine";
 
 const cols: ImportColumn[] = [
   { key: "code", header: "Employee code", help: "" },
@@ -12,6 +12,7 @@ test("headers match without regard to case, spacing or Excel's BOM; blank lines 
   const read = readSheet([["\uFEFFfull  NAME", "date of birth (bs)", "Notes"], ["Ram", "2050-01-01", "x"], ["", " ", ""], ["Sita", "2051-02-02", ""]], cols);
   assert.deepEqual(read.fileIssues, []);
   assert.deepEqual(read.ignored, ["Notes"]);
+  assert.deepEqual(read.columns, ["name", "dob"]);
   assert.deepEqual(read.rows.map((r) => [r.line, r.cells.name, r.cells.dob, r.cells.code]), [
     [2, "Ram", "2050-01-01", undefined],
     [4, "Sita", "2051-02-02", undefined],
@@ -34,6 +35,8 @@ test("the report is ready only with rows and no errors (warnings allowed)", () =
   assert.equal(ok.warningRows, 1);
   const bad = buildReport(read, [{ line: 2, label: "a", issues: [{ column: "x", message: "no", level: "error" }] }, { line: 3, label: "b", issues: [] }]);
   assert.deepEqual([bad.ready, bad.errorRows, bad.warningRows], [false, 1, 0]);
+  // Only the rows with issues travel back; the total counts them all.
+  assert.deepEqual([bad.total, bad.rows.map((r) => r.line)], [2, [2]]);
   assert.equal(buildReport(read, []).ready, false);
 });
 
@@ -77,4 +80,22 @@ test("Excel's scientific notation is recognised; plain numbers and codes are not
   assert.equal(excelChangedNumber("01234567890123"), false);
   assert.equal(excelChangedNumber("45-01-75-12345"), false);
   assert.ok("error" in readBsDate("15-04-2081"));
+});
+
+test("AD dates and times of day are read as typed, never guessed", () => {
+  assert.deepEqual(readAdDate("2026-10-10"), { ad: "2026-10-10" });
+  assert.deepEqual(readAdDate("2026/1/5"), { ad: "2026-01-05" });
+  assert.ok("error" in readAdDate("2026-02-30"));
+  assert.match((readAdDate("10/10/2026") as { error: string }).error, /Excel changed this date/);
+  assert.equal(readClock("9:58"), 598);
+  assert.equal(readClock("09:58:59"), 598);
+  assert.equal(readClock("6:05 PM"), 18 * 60 + 5);
+  assert.equal(readClock("12:10 am"), 10);
+  assert.equal(readClock("12:10 p.m."), 12 * 60 + 10);
+  assert.equal(readClock("24:00"), null);
+  assert.equal(readClock("13:00 PM"), null);
+  assert.equal(readClock("958"), null);
+  assert.deepEqual(readClocks("13:02 13:31"), [782, 811]);
+  assert.deepEqual(readClocks("1:02 PM, 1:31 PM"), [782, 811]);
+  assert.equal(readClocks("13:02 lunch"), null);
 });

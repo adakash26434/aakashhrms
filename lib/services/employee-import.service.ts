@@ -1,6 +1,6 @@
 import { parseCsv } from "@/lib/export/csv";
-import { MAX_IMPORT_BYTES, buildReport, readSheet, textIssues, type ImportReport, type ReportRow, type RowIssue } from "@/lib/engines/import.engine";
-import { EMPLOYEE_IMPORT_COLUMNS, columnOfField, columnsBehindField, employeeRowToForm, numberKey, type EmployeeImportLookups } from "@/lib/engines/employee-import.engine";
+import { MAX_IMPORT_BYTES, TOO_LARGE, buildReport, fileReport, readSheet, textIssues, type ImportReport, type ReportRow, type RowIssue } from "@/lib/engines/import.engine";
+import { EMPLOYEE_IMPORT_COLUMNS, columnOfField, columnsBehindField, employeeRowToForm, numberKey, personKey, type EmployeeImportLookups } from "@/lib/engines/employee-import.engine";
 import { canPlaceInScope, codeConflicts, getNextAttendanceCode, getNextEmployeeCode, validateEmployee } from "@/lib/engines/employee.engine";
 import { placementErrors } from "@/lib/engines/organization.engine";
 import * as employeeRepository from "@/lib/repositories/employee.repository";
@@ -48,6 +48,8 @@ type Lookups = EmployeeImportLookups & {
   emails: Map<string, string>;
   /** The grade policy has grade amounts typed in by hand (the file has no amount column). */
   gradesTypedIn: boolean;
+  /** Active employees by name and date of birth (personKey → code). */
+  people: Map<string, string>;
   /** Citizenship / NID numbers and primary accounts on record (numberKey → employee; active ones first). */
   onRecord: Record<"identity" | "account", Map<string, { code: string; active: boolean }>>;
 };
@@ -80,16 +82,17 @@ async function lookups(): Promise<Lookups> {
     org: { branches, departments, designations },
     emails: new Map(employees.filter((e) => e.companyEmail).map((e) => [e.companyEmail.trim().toLowerCase(), e.employeeCode])),
     gradesTypedIn: settings.gradePolicy?.calculationMethod === "MANUAL_INPUT",
+    people: new Map(employees.map((e) => [personKey(e.fullName, new Date(e.dateOfBirth).toISOString()), e.employeeCode])),
     onRecord,
   };
 }
 
 /** Checks the whole file; `rows` are the employees ready to save (only when the report is ready). */
 async function plan(csv: unknown, ctx: ImportContext): Promise<{ report: ImportReport; rows: PlannedRow[] }> {
-  if (typeof csv !== "string" || !csv.trim()) return { report: buildReport({ fileIssues: ["The file is empty."], ignored: [] }, []), rows: [] };
-  if (csv.length > MAX_IMPORT_BYTES) return { report: buildReport({ fileIssues: ["The file is too large (2 MB at most)."], ignored: [] }, []), rows: [] };
+  if (typeof csv !== "string" || !csv.trim()) return { report: fileReport("The file is empty."), rows: [] };
+  if (csv.length > MAX_IMPORT_BYTES) return { report: fileReport(TOO_LARGE), rows: [] };
   const unreadable = textIssues(csv);
-  if (unreadable.length) return { report: buildReport({ fileIssues: unreadable, ignored: [] }, []), rows: [] };
+  if (unreadable.length) return { report: fileReport(...unreadable), rows: [] };
   const read = readSheet(parseCsv(csv), EMPLOYEE_IMPORT_COLUMNS);
   if (read.fileIssues.length) return { report: buildReport(read, []), rows: [] };
 
@@ -107,6 +110,7 @@ async function plan(csv: unknown, ctx: ImportContext): Promise<{ report: ImportR
   const attCodes = [...lk.codes.map((c) => c.attendanceCode), ...typedAtt.keys()];
   const seenEmails = new Map<string, number>();
   const inFile: Record<"identity" | "account", Map<string, number>> = { identity: new Map(), account: new Map() };
+  const peopleInFile = new Map<string, number>();
   const darbandi = await placementChecker();
 
   const report: ReportRow[] = [];
@@ -170,6 +174,14 @@ async function plan(csv: unknown, ctx: ImportContext): Promise<{ report: ImportR
     };
     sameNumber("identity", r.cells.citizenshipNo ?? "", "Citizenship number");
     sameNumber("account", form.bankAccountNumber, "Account number");
+    const person = personKey(form.fullName, form.dateOfBirth);
+    if (person) {
+      const line = peopleInFile.get(person);
+      if (line) issues.push({ column: "Full name", message: `Same name and date of birth as line ${line}`, level: "warning" });
+      else peopleInFile.set(person, r.line);
+      const code = lk.people.get(person);
+      if (code) issues.push({ column: "Full name", message: `Same name and date of birth as ${code}`, level: "warning" });
+    }
     // Pay typed in the file (an empty basic salary is the level's starting salary).
     if (!ctx.canEditPay && (r.cells.basicSalary || r.cells.gradeCount)) {
       issues.push({ column: "Basic salary", message: "Ignored: setting pay needs Salary mapping → Edit (the level's starting salary applies)", level: "warning" });

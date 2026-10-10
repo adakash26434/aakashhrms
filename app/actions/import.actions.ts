@@ -6,11 +6,13 @@ import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permis
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { toActionError } from '@/lib/errors/action-error';
 import { commitEmployeeImport, previewEmployeeImport } from '@/lib/services/employee-import.service';
+import { commitPunchImport, previewPunchImport } from '@/lib/services/punch-import.service';
 
 // Import templates (4.8 / F15): the server checks the whole file (the browser only sends its
 // text) and saves nothing while a row has an error. Employees need Employees → Add within the
 // user's scope (each row's branch / department is checked); pay from the file needs Salary
 // mapping → Edit. Every created employee is audited like a form save, plus one line for the import.
+// Punches need Attendance → Add within the scope, as an HR punch does (one audit line).
 
 async function employeeCtx() {
   const scope = await checkPermissionWithScope('ADD', 'EMPLOYEES');
@@ -42,5 +44,29 @@ export async function commitEmployeeImportAction(csv: string) {
     return { success: true as const, data: result };
   } catch (error: unknown) {
     return toActionError(error, 'import.employees.commit');
+  }
+}
+
+export async function previewPunchImportAction(csv: string) {
+  await ensureTenantContext();
+  try {
+    const scope = await checkPermissionWithScope('ADD', 'ATTENDANCE');
+    return { success: true as const, data: await previewPunchImport(csv, { scope, userId: scope.userId }) };
+  } catch (error: unknown) {
+    return toActionError(error, 'import.punches.preview');
+  }
+}
+
+export async function commitPunchImportAction(csv: string) {
+  await ensureTenantContext();
+  try {
+    const scope = await checkPermissionWithScope('ADD', 'ATTENDANCE');
+    const result = await commitPunchImport(csv, { scope, userId: scope.userId });
+    await recordAuditLog({ userId: scope.userId, action: 'ADD', module: 'ATTENDANCE', recordId: 'punch-import', result: 'SUCCESS', newValues: { import: 'punches', source: 'import', ...result } });
+    revalidatePath('/timeAndLeave/attendance');
+    revalidatePath('/dashboard');
+    return { success: true as const, data: result };
+  } catch (error: unknown) {
+    return toActionError(error, 'import.punches.commit');
   }
 }
