@@ -15,6 +15,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Combobox } from "@/components/kit/combobox";
 import { DateField } from "@/components/kit/date-field";
 import { Amount } from "@/components/kit/amount";
+import { SettlementPanel } from "@/components/exit/settlement-panel";
 import { EXIT_KINDS } from "@/lib/engines/exit.engine";
 import { openExitCaseAction, getExitCaseAction, decideExitClearanceAction, completeExitCaseAction, cancelExitCaseAction } from "@/app/actions/exit.actions";
 import type { ExitDetail, ExitListRow, ExitPageData } from "@/lib/types/exit";
@@ -405,6 +406,8 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
             </div>
           </div>
 
+          {detail.status !== "cancelled" && <SettlementPanel caseId={detail.id} caseOpen={open && canManage} />}
+
           {open && (
             <div className="rounded-md border border-line p-3">
               <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Complete</h3>
@@ -415,7 +418,7 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-ink-muted">All clear. Completing marks {detail.employeeName} inactive and writes the exit record; the settlement itself is prepared in payroll.</p>
+                <p className="text-xs text-ink-muted">All clear. Completing marks {detail.employeeName} inactive and writes the exit record; prepare and pay the settlement above (before or after).</p>
               )}
               {canIssueLetter && canManage && (
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">

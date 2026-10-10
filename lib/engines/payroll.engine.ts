@@ -615,7 +615,7 @@ export function calculatePayslip(args: {
 /**
  * Calculates progressive annual tax liability using progressive tax slabs.
  */
-function calculateAnnualTaxFromSlabs(
+export function calculateAnnualTaxFromSlabs(
   taxableIncome: Decimal,
   employee: EmployeeInput,
   taxSlabs: TaxSlabInput[],

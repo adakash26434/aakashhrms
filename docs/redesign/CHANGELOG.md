@@ -13,6 +13,12 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-10 — 4.8 / F8: full & final settlement
+Branch: feature/payroll-controls
+Changed: `lib/engines/settlement.engine.ts` (salary for unpaid BS months, leave encashment, optional gratuity, notice shortfall, loan outstanding, final TDS through `buildTaxSheet` with one month left; draft → approved → paid), migration `0066_exit_settlement` (`exit_settlements`, mirrored in `ensureTenantSchema`), `settlement.repository/service`, `app/actions/settlement.actions.ts`, `components/exit/settlement-panel.tsx` (inside the exit case window) and a printable bilingual statement at `/workforce/exit/[caseId]/settlement`.
+Verified: type-check 0 · 1177 tests pass (engine 9, `security-settlement`) · eslint clean on touched files · browser: prepare (56,451.61 for two unpaid months), self-approval refused, print page.
+Notes: gratuity and notice-period recovery are company policy (`system_config` `settlement.policy`, default off; Policy button, SYSTEM_CONTROL EDIT) because the rate is the company's to set. Approve / pay need PAYROLL_REVIEW APPROVE / LOCK and a second person. Loans and fund balances are shown, never changed here (the employee goes Inactive on Complete; fund payouts stay under Funds). Debt: statement is not a payslip feed (paid outside payroll with a reference); loan closing on pay; gratuity not taxed here.
+
 ## 2026-10-10 — 4.8 / F5: tax projection and computation sheet
 Branch: `feature/payroll-controls`
 Changed: migration `0065_tax_sheet` (`payroll_slips.tax_sheet` jsonb; mirrored in `ensureTenantSchema`; restart the dev server); `lib/engines/tax-projection.engine.ts` (`buildTaxSheet`: projected annual taxable = taxable income of the earlier months + this month × months remaining; TDS = (tax on the projection − TDS already deducted) ÷ months remaining); `payroll.engine.ts` uses it for months 1–11 when given `fiscalMonthIndex` + `projectionHistory` (without them: the old annualised month, so estimates and leave salary are unchanged); `payroll.repository.findEarlierTaxMonths` (approved / locked slips of earlier fiscal months, never the run being recalculated); the three calculation sites in `payroll.service.ts` pass them and store the sheet; `TaxSheetCard` in the payslip detail ("How this month's tax was worked out").

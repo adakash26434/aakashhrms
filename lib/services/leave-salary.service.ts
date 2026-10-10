@@ -90,7 +90,7 @@ export async function getEmployeeLeaveBalanceForEncashment(employeeId: string, l
  * day, see calculateLeaveSalary). Types saved before 4.6e without a rate
  * fall back to their leave rule.
  */
-async function payoutOf(leaveType: LeaveTypeRecord): Promise<{ encashmentRate: EncashmentRate; fixedDailyAmount: number }> {
+export async function payoutOf(leaveType: LeaveTypeRecord): Promise<{ encashmentRate: EncashmentRate; fixedDailyAmount: number }> {
   const oldRule = leaveType.encashmentBasis || leaveType.isStatutory ? null : await leaveRuleRepository.findLeaveRuleByLeaveTypeId(leaveType.id);
   const rate = payoutRate(leaveType, oldRule ? { encashmentRate: oldRule.encashmentRate ?? null, encashmentFixedAmount: oldRule.encashmentFixedAmount ?? null } : null);
   return { encashmentRate: rate.rate, fixedDailyAmount: rate.fixed ?? 0 };

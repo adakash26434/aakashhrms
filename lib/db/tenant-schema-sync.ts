@@ -1367,6 +1367,33 @@ ON CONFLICT DO NOTHING`);
     // Ignored until payroll_slips exists; the next sync pass completes it.
   }
 
+  // Full & final settlement (4.8 / F8, migration 0066): one frozen statement per exit case.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "exit_settlements" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "exit_case_id" uuid NOT NULL REFERENCES "exit_cases"("id") ON DELETE CASCADE,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "status" varchar(10) DEFAULT 'draft' NOT NULL,
+      "lines" jsonb NOT NULL,
+      "earnings" numeric(15,2) NOT NULL,
+      "deductions" numeric(15,2) NOT NULL,
+      "net" numeric(15,2) NOT NULL,
+      "tax_sheet" jsonb,
+      "policy" jsonb NOT NULL,
+      "prepared_by" uuid NOT NULL,
+      "prepared_at" timestamp DEFAULT now() NOT NULL,
+      "approved_by" uuid,
+      "approved_at" timestamp,
+      "paid_by" uuid,
+      "paid_at" timestamp,
+      "payment_ref" varchar(100),
+      CONSTRAINT "exit_settlements_case_key" UNIQUE ("exit_case_id")
+    )`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "exit_settlements_employee_idx" ON "exit_settlements" ("employee_id")`);
+  } catch {
+    // Ignored until exit_cases exists; the next sync pass completes it.
+  }
+
   // Targets & achievements (G15, migration 0062): employee targets with the
   // reported / verified achievement, attachments, and the TARGETS permission
   // module (the 0047 pattern).

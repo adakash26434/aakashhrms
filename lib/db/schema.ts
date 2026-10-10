@@ -1722,6 +1722,33 @@ export const exitCases = pgTable('exit_cases', {
   statusIdx: index('exit_cases_status_idx').on(t.status),
 }));
 
+/**
+ * Full & final settlement (4.8 / F8): one per exit case. `lines` are frozen when it is prepared
+ * (see lib/engines/settlement.engine.ts); draft → approved → paid, never edited afterwards.
+ */
+export const exitSettlements = pgTable('exit_settlements', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  exitCaseId: uuid('exit_case_id').references(() => exitCases.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 10 }).default('draft').notNull(), // draft | approved | paid
+  lines: jsonb('lines').notNull(),
+  earnings: numeric('earnings', { precision: 15, scale: 2 }).notNull(),
+  deductions: numeric('deductions', { precision: 15, scale: 2 }).notNull(),
+  net: numeric('net', { precision: 15, scale: 2 }).notNull(),
+  taxSheet: jsonb('tax_sheet'),
+  policy: jsonb('policy').notNull(),
+  preparedBy: uuid('prepared_by').notNull(),
+  preparedAt: timestamp('prepared_at').defaultNow().notNull(),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at'),
+  paidBy: uuid('paid_by'),
+  paidAt: timestamp('paid_at'),
+  paymentRef: varchar('payment_ref', { length: 100 }),
+}, (t) => ({
+  caseKey: unique('exit_settlements_case_key').on(t.exitCaseId),
+  employeeIdx: index('exit_settlements_employee_idx').on(t.employeeId),
+}));
+
 /** One row per clearance unit per case, seeded when the case opens. */
 export const exitClearances = pgTable('exit_clearances', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
