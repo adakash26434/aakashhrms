@@ -11,6 +11,7 @@ import * as taxRateRepository from '@/lib/repositories/tax-rate.repository';
 import * as fiscalYearRepository from '@/lib/repositories/fiscal-year.repository';
 import * as arrearsService from '@/lib/services/arrears.service';
 import * as openingRepository from '@/lib/repositories/opening-balance.repository';
+import * as payrollFeedService from '@/lib/services/payroll-feed.service';
 import { coveredByOpeningMessage } from '@/lib/engines/opening-balance.engine';
 import { calculateAnnualTaxFromSlabs, isSsfDeductionHead, isSsfEmployerHead, occasionalHeadAmount, type TaxSlabInput } from '@/lib/engines/payroll.engine';
 import { asRunType, calculateOffCycleSlip, festivalShare, projectedBefore, RUN_TYPE_LABEL, type OffCycleLine } from '@/lib/engines/off-cycle.engine';
@@ -126,7 +127,7 @@ export async function generateOffCycleRun(payload: PayrollRunSetupPayload, userI
       );
     }
     for (const run of existing) {
-      await repository.deletePayrollRun(run.id);
+      await payrollFeedService.discardDraftRun(run.id);
       await (await getDb()).insert(auditLogs).values({ userId, action: 'DELETE', module: 'PAYROLL_GENERATE', recordId: run.id, result: 'SUCCESS', oldValues: { runId: run.id, runType, status: run.status, reason: 'Overwritten on regeneration' }, newValues: null });
     }
   }
@@ -244,12 +245,12 @@ export async function generateOffCycleRun(payload: PayrollRunSetupPayload, userI
     );
     for (const s of slips) s.slip.payrollRunId = created.id;
     await repository.createPayrollSlips(slips, tx);
+    // The arrears this run pays are recorded against their source months with the payslips (4.8 fix).
+    if (runType === 'ARREARS') await payrollFeedService.settleRunFeedsTx(tx, created.id, [], new Map([...arrears].filter(([, a]) => a.payable > 0)));
     await tx.insert(auditLogs).values({ userId, action: 'ADD', module: 'PAYROLL_GENERATE', recordId: created.id, result: 'SUCCESS', newValues: { runType, period: `${payPeriodYear}-${payPeriodMonth}`, payslips: slips.length } });
     return created;
   });
 
-  // The arrears this run pays are recorded against their source months (a deleted draft takes them with it).
-  if (runType === 'ARREARS') await arrearsService.settle(run.id, new Map([...arrears].filter(([, a]) => a.payable > 0)));
   logger.info('Off-cycle payroll run generated', { runId: run.id, runType, payPeriodMonth, payPeriodYear, userId });
   return run;
 }

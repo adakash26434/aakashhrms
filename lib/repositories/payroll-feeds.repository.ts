@@ -7,9 +7,12 @@ import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 // employee contributions (deducted). Drizzle queries only; the engine still
 // does all the pay maths — these are one-off head amounts.
 
-export const TADA_HEAD_CODE = 'TADA';
-export const WELFARE_FUND_HEAD_CODE = 'WELFARE_FUND';
-export const ARREARS_HEAD_CODE = 'ARREARS';
+import { ARREARS_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE } from '@/lib/constants/payroll-feeds';
+
+export { ARREARS_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE };
+
+/** A transaction, so the run or payslip and what it settles commit together. */
+export type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>['transaction']>[0]>[0];
 
 /** Approved, unsettled claims whose trip ended on or before the period end, summed per employee. */
 export async function approvedClaimsByEmployee(employeeIds: string[], periodEndAd: string): Promise<Map<string, { ids: string[]; payable: string }>> {
@@ -29,10 +32,14 @@ export async function approvedClaimsByEmployee(employeeIds: string[], periodEndA
   return out;
 }
 
-/** Claim-first: only approved, unpaid claims are attached to the run and marked settled. */
-export async function settleClaimsThroughRun(claimIds: string[], runId: string): Promise<number> {
+/**
+ * Claim-first: only approved, unpaid claims are attached to the run and marked settled. Run it in
+ * the transaction that creates the run's payslips and compare the count: a claim that changed
+ * meanwhile must not be paid on a payslip without being settled.
+ */
+export async function settleClaimsThroughRun(claimIds: string[], runId: string, tx?: Tx): Promise<number> {
   if (!claimIds.length) return 0;
-  const db = await getDb();
+  const db = tx ?? (await getDb());
   const rows = await db
     .update(travelClaims)
     .set({ status: 'settled', settledAt: new Date(), payrollRunId: runId })
@@ -41,15 +48,41 @@ export async function settleClaimsThroughRun(claimIds: string[], runId: string):
   return rows.length;
 }
 
-/** A deleted draft run gives its claims back (approved again, unpaid). */
-export async function releaseClaimsOfRun(runId: string): Promise<number> {
-  const db = await getDb();
+/** A deleted draft run (or one employee's deleted payslip) gives its claims back: approved again, unpaid. */
+export async function releaseClaimsOfRun(runId: string, opts: { employeeId?: string; tx?: Tx } = {}): Promise<number> {
+  const db = opts.tx ?? (await getDb());
   const rows = await db
     .update(travelClaims)
     .set({ status: 'approved', settledAt: null, payrollRunId: null })
-    .where(and(eq(travelClaims.payrollRunId, runId), eq(travelClaims.status, 'settled')))
+    .where(and(eq(travelClaims.payrollRunId, runId), eq(travelClaims.status, 'settled'), opts.employeeId ? eq(travelClaims.employeeId, opts.employeeId) : undefined))
     .returning({ id: travelClaims.id });
   return rows.length;
+}
+
+/** One employee's deleted payslip gives back the arrears it paid (the run's other payslips keep theirs). */
+export async function releaseArrearsOfRun(runId: string, employeeId: string, tx?: Tx): Promise<number> {
+  const db = tx ?? (await getDb());
+  const rows = await db
+    .delete(payrollArrears)
+    .where(and(eq(payrollArrears.payrollRunId, runId), eq(payrollArrears.employeeId, employeeId)))
+    .returning({ id: payrollArrears.id });
+  return rows.length;
+}
+
+/** What a run already pays an employee through its feeds (recalculating the payslip keeps these lines). */
+export async function paidThroughRun(runId: string, employeeId: string): Promise<{ tada: string; arrears: string }> {
+  const db = await getDb();
+  const [[claims], [arrears]] = await Promise.all([
+    db
+      .select({ total: sql<string>`COALESCE(sum(${travelClaims.payable}), 0)::text`, n: sql<number>`count(*)::int` })
+      .from(travelClaims)
+      .where(and(eq(travelClaims.payrollRunId, runId), eq(travelClaims.employeeId, employeeId), eq(travelClaims.status, 'settled'))),
+    db
+      .select({ total: sql<string>`COALESCE(sum(${payrollArrears.amount}), 0)::text` })
+      .from(payrollArrears)
+      .where(and(eq(payrollArrears.payrollRunId, runId), eq(payrollArrears.employeeId, employeeId))),
+  ]);
+  return { tada: claims.n ? Number(claims.total).toFixed(2) : '0.00', arrears: Number(arrears.total).toFixed(2) };
 }
 
 /** The employee share of this BS month's fund contributions (ref contrib:<code>:<yyyy>-<mm>), per employee. */
@@ -120,9 +153,9 @@ export async function paidMonths(employeeIds: string[], beforeStart: string): Pr
 }
 
 /** Records what this run pays as arrears (idempotent per employee, source run and paying run). */
-export async function settleArrears(runId: string, rows: { employeeId: string; sourceRunId: string; amount: number }[]): Promise<number> {
+export async function settleArrears(runId: string, rows: { employeeId: string; sourceRunId: string; amount: number }[], tx?: Tx): Promise<number> {
   if (!rows.length) return 0;
-  const db = await getDb();
+  const db = tx ?? (await getDb());
   const inserted = await db
     .insert(payrollArrears)
     .values(rows.map((r) => ({ employeeId: r.employeeId, sourceRunId: r.sourceRunId, payrollRunId: runId, amount: r.amount.toFixed(2) })))

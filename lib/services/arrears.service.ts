@@ -41,7 +41,7 @@ export async function arrearsFor(employeeIds: string[], periodStart: string): Pr
   return out;
 }
 
-export async function settle(runId: string, arrears: Map<string, EmployeeArrears>): Promise<number> {
+export async function settle(runId: string, arrears: Map<string, EmployeeArrears>, tx?: feedsRepository.Tx): Promise<number> {
   const rows = [...arrears.values()].flatMap((a) => a.lines.map((l) => ({ employeeId: l.employeeId, sourceRunId: l.runId, amount: l.amount })));
-  return feedsRepository.settleArrears(runId, rows);
+  return feedsRepository.settleArrears(runId, rows, tx);
 }

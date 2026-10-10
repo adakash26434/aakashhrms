@@ -2,6 +2,9 @@ import { getDb } from '@/lib/db';
 import { departments, designations, employeeBank, payrollOpeningBalances, payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
 import { eq, and, desc, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+
+/** A transaction on the company database. */
+type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>['transaction']>[0]>[0];
 import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
   PayrollRun, 
@@ -338,14 +341,14 @@ export async function lockAllSlipsForRun(runId: string): Promise<void> {
     .where(eq(payrollSlips.payrollRunId, runId));
 }
 
-export async function deletePayrollRun(id: string): Promise<void> {
-  // Cascades to slips and slip heads automatically via DB foreign key onDelete: cascade
-  await (await getDb()).delete(payrollRuns).where(eq(payrollRuns.id, id));
+export async function deletePayrollRun(id: string, tx?: Tx): Promise<void> {
+  // Cascades to slips, slip heads and the arrears the run paid (foreign keys onDelete: cascade)
+  await (tx ?? (await getDb())).delete(payrollRuns).where(eq(payrollRuns.id, id));
 }
 
-export async function deletePayrollSlip(slipId: string): Promise<void> {
+export async function deletePayrollSlip(slipId: string, tx?: Tx): Promise<void> {
   // Cascades to slip heads automatically via DB foreign key onDelete: cascade
-  await (await getDb()).delete(payrollSlips).where(eq(payrollSlips.id, slipId));
+  await (tx ?? (await getDb())).delete(payrollSlips).where(eq(payrollSlips.id, slipId));
 }
 
 export async function replaceSlipHeads(

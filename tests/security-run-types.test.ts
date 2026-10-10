@@ -30,7 +30,9 @@ describe('run types', () => {
     const stop = lock.indexOf('if (isOffCycle(run.runType)) return;');
     assert.ok(stop > 0 && stop < lock.indexOf('attendanceRecords'), 'returns before sealing attendance');
     assert.ok(stop < lock.indexOf('loanRepayments'), 'returns before loan repayments');
-    assert.ok(stop < lock.indexOf('employeeSalaryMap'), 'returns before the salary-structure sync');
+    // S45: no lock writes a salary structure (the loan mirror is the only one left, after the return).
+    assert.equal(lock.indexOf('employeeSalaryMap'), -1, 'no salary-structure sync on lock');
+    assert.ok(stop < lock.indexOf('syncActiveLoansToSalaryMapping'), 'returns before the loan mirror');
   });
 
   it('only regular runs count as a paid month of salary (arrears, final settlement)', () => {

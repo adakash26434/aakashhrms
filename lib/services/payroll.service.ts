@@ -1,26 +1,20 @@
 import { getDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { 
-  payrollRuns, 
-  payrollSlips, 
-  payrollSlipHeads, 
-  leaveOtCalculations, 
-  employees, 
-  taxRateSlabs, 
-  loans, 
-  loanRepayments, 
+import {
+  payrollRuns,
+  payrollSlips,
+  payrollSlipHeads,
+  leaveOtCalculations,
+  employees,
+  loans,
+  loanRepayments,
   leaveApplications,
   auditLogs,
-  rolePermissionChangeLog,
   employeeBank,
   departments,
   designations,
   payHeads,
   fiscalYears,
-  userRoles,
-  roles,
-  employeeSalaryMap,
-  employeeSalaryHeads,
   attendanceRecords
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
@@ -30,7 +24,6 @@ import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
-import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as loanService from "@/lib/services/loan.service";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -38,8 +31,7 @@ import * as designationRepository from "@/lib/repositories/designation.repositor
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
-import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
-import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
+import { calculatePayslip, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
 import { BS_MONTHS_EN, getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh, getFiscalMonthIndex } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
@@ -51,6 +43,8 @@ import { isOffCycle } from "@/lib/engines/off-cycle.engine";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { refreshRunBankDetails } from "@/lib/repositories/employee-detail.repository";
 import * as openingRepository from "@/lib/repositories/opening-balance.repository";
+import * as payrollFeedService from "@/lib/services/payroll-feed.service";
+import { FEED_SOURCE, isFeedHeadCode } from "@/lib/constants/payroll-feeds";
 import { coveredByOpeningMessage, openingAsYearEndSlip } from "@/lib/engines/opening-balance.engine";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -203,7 +197,8 @@ export async function generatePayrollRun(
 
     if (payload.recreateIfExists) {
       for (const run of existingRuns) {
-        await repository.deletePayrollRun(run.id);
+        // Its TA-DA claims are given back first, so the new run pays them (4.8 fix).
+        await payrollFeedService.discardDraftRun(run.id);
         await (await getDb()).insert(auditLogs).values({
           userId,
           action: 'DELETE',
@@ -456,8 +451,9 @@ export async function generatePayrollRun(
       }
     }
 
-    // Load salary heads assignments directly from DB pay heads master lookup
-    const assignedHeads = salaryMap.salaryHeads.map((h: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => {
+    // Load salary heads assignments directly from DB pay heads master lookup. Feed lines (TA-DA,
+    // arrears, welfare fund) come only from their records, never from a salary structure.
+    const assignedHeads = salaryMap.salaryHeads.filter((h: { payHeadId: string }) => !isFeedHeadCode(payHeadMap.get(h.payHeadId)?.code)).map((h: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => {
       const dbHead = payHeadMap.get(h.payHeadId);
       return {
         id: h.payHeadId,
@@ -661,6 +657,15 @@ export async function generatePayrollRun(
     // Bulk save slips and slip heads in the transaction
     await repository.createPayrollSlips(slipsWithHeads, tx);
 
+    // What the payslips pay from other modules is settled with them (claim-first): a claim that
+    // changed meanwhile stops the run instead of being paid without being settled (4.8 fix).
+    await payrollFeedService.settleRunFeedsTx(
+      tx,
+      run.id,
+      [...claimsByEmployee.values()].flatMap((c) => c.ids),
+      new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0))
+    );
+
     // Log to audit trail in the transaction
     await tx.insert(auditLogs).values({
       userId,
@@ -673,12 +678,6 @@ export async function generatePayrollRun(
 
     return run;
   });
-
-  // The claims this run pays are settled once the run exists (claim-first on status; the FK
-  // needs the committed run). A failed run above leaves them approved and unpaid.
-  await feedsRepository.settleClaimsThroughRun([...claimsByEmployee.values()].flatMap((c) => c.ids), runRecord.id);
-  // The arrears this run pays are recorded against their source months (a deleted draft takes them with it).
-  await arrearsService.settle(runRecord.id, new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0)));
 
   logger.info('Payroll run generated', {
     runId: runRecord.id,
@@ -693,6 +692,12 @@ export async function generatePayrollRun(
 // -----------------------------------------------------------------------------
 // Interactive Slip Override (Stage 2)
 // -----------------------------------------------------------------------------
+
+/** A feed line (TA-DA, arrears, welfare fund) is what its records say: never typed on a payslip. */
+async function assertNotFeedHead(payHeadId: string): Promise<void> {
+  const [head] = await (await getDb()).select({ name: payHeads.name, code: payHeads.code }).from(payHeads).where(eq(payHeads.id, payHeadId)).limit(1);
+  if (head && isFeedHeadCode(head.code)) throw new UserFacingError(`${head.name} comes from ${FEED_SOURCE[head.code!]}: change it there, then recalculate the payslip.`);
+}
 
 export async function overridePayslipAllowanceDeduction(
   payload: PayrollSlipOverridePayload,
@@ -723,6 +728,8 @@ export async function overridePayslipAllowanceDeduction(
   const run = await repository.findPayrollRunById(slip.payrollRunId);
   if (!run) throw new Error("Payroll run not found");
   if (run.status !== 'DRAFT') throw new PayrollLockedError();
+  // Feed lines (TA-DA, arrears, welfare fund) are what their records say; they change at the source.
+  if (headId) await assertNotFeedHead(headId);
 
   // F6: an off-cycle payslip has only its own allowance lines; its TDS is re-worked on its own.
   if (isOffCycle(run.runType)) {
@@ -987,9 +994,8 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
     throw new PayrollLockedError();
   }
 
-  // A deleted draft gives its TA-DA claims back before the row goes.
-  await feedsRepository.releaseClaimsOfRun(runId);
-  await repository.deletePayrollRun(runId);
+  // A deleted draft gives its TA-DA claims back in the same transaction (arrears go with the run).
+  await payrollFeedService.discardDraftRun(runId);
 
   await (await getDb()).insert(auditLogs).values({
     userId,
@@ -1013,8 +1019,8 @@ export async function deleteEmployeePayslip(slipId: string, userId: string): Pro
     throw new PayrollLockedError();
   }
 
-  // Delete slip (cascades to slip heads in DB)
-  await repository.deletePayrollSlip(slipId);
+  // Delete slip (cascades to slip heads), giving back the TA-DA claims and arrears it paid (4.8 fix).
+  await payrollFeedService.deleteSlipWithFeeds({ id: slip.id, payrollRunId: run.id, employeeId: slip.employeeId });
 
   // Totals and employee count from the remaining payslips (4.8 fix).
   await repository.refreshRunTotals(run.id);
@@ -1055,7 +1061,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   const emp = await employeeRepository.findById(currentSlip.employeeId);
   if (!emp) throw new Error("Employee not found");
 
-  const salaryMap = await salaryMappingRepository.findSalaryMappingByEmployeeId(emp.id);
+  // The salary revision in force for the run's month, as when the run was generated (4.4) — not
+  // a later approved revision.
+  const salaryMap = (await salaryMappingRepository.findInForceByEmployeeIds([emp.id], run.payPeriodEndDate)).get(emp.id) ?? null;
   if (!salaryMap) {
     throw new SalaryMappingMissingError([emp.fullName]);
   }
@@ -1124,7 +1132,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     return h?.isRemoteAllowance;
   }) ?? false;
 
-  const calculatorHeadsInput = salaryMap.salaryHeads.map((ah: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => {
+  const calculatorHeadsInput = salaryMap.salaryHeads.filter((ah: { payHeadId: string }) => !isFeedHeadCode(allPayHeads.find((h) => h.id === ah.payHeadId)?.code)).map((ah: { payHeadId: string; payHeadName: string; payHeadType: string; amount: string | number }) => {
     const dbHead = allPayHeads.find(h => h.id === ah.payHeadId);
     return {
       id: ah.payHeadId,
@@ -1174,6 +1182,18 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     amount: "0",
     isManualOverride: false,
   });
+
+  // One-off feeds this run already pays stay on the payslip (4.8 fix): the TA-DA claims and
+  // arrears settled with it, and the month's welfare-fund contribution.
+  const [feedHeadRows, paidHere, fundHere] = await Promise.all([
+    feedsRepository.feedHeads(),
+    feedsRepository.paidThroughRun(run.id, emp.id),
+    feedsRepository.fundContributionsByEmployee([emp.id], run.payPeriodYear, run.payPeriodMonth),
+  ]);
+  if (feedHeadRows.tada && Number(paidHere.tada) !== 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.tada), amount: paidHere.tada, isManualOverride: true });
+  if (feedHeadRows.arrears && Number(paidHere.arrears) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: paidHere.arrears, isManualOverride: true });
+  const fundHereAmount = fundHere.get(emp.id);
+  if (feedHeadRows.welfare && fundHereAmount) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundHereAmount, isManualOverride: true });
 
   // Ensure statutory master heads
   if (!calculatorHeadsInput.some((h) => h.isTdsHead)) {
@@ -1324,6 +1344,7 @@ export async function addPayHeadToPayslip(
   const allPayHeads = await (await getDb()).select().from(payHeads);
   const targetHead = allPayHeads.find(h => h.id === payHeadId);
   if (!targetHead) throw new Error("Pay head not found");
+  if (isFeedHeadCode(targetHead.code)) throw new UserFacingError(`${targetHead.name} comes from ${FEED_SOURCE[targetHead.code!]}; it is not added by hand.`);
 
   const existingHeads = await repository.findSlipHeadsBySlipId(slipId);
   const existingHead = existingHeads.find(h => h.payHeadId === payHeadId);
@@ -1490,188 +1511,9 @@ export async function transitionPayrollRun(
         }
       }
 
-      // 3. Synchronize newly added or overridden pay heads into master Salary Mapping
-      const allDbPayHeads = await tx.select().from(payHeads);
-      const payHeadById = new Map(allDbPayHeads.map(p => [p.id, p]));
-
-      for (const slip of slips) {
-        const slipHeads = await tx.select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slip.id));
-
-        // Filter for syncable heads: exclude dynamic runtime attendance/statutory calculations
-        const syncableSlipHeads = slipHeads.filter(sh => {
-          const ph = payHeadById.get(sh.payHeadId);
-          if (!ph) return false;
-          if (ph.isAbsentDeduct || ph.isLeaveHead || ph.isOtHead || ph.isTdsHead) return false;
-          return true;
-        });
-
-        const activeMappingRows = await tx.select()
-          .from(employeeSalaryMap)
-          .where(and(
-            eq(employeeSalaryMap.employeeId, slip.employeeId),
-            eq(employeeSalaryMap.isActive, true)
-          ));
-
-        if (activeMappingRows.length > 0) {
-          const mapping = activeMappingRows[0];
-          const existingMappingHeads = await tx.select()
-            .from(employeeSalaryHeads)
-            .where(eq(employeeSalaryHeads.salaryMapId, mapping.id));
-
-          let mappingModified = false;
-          const updatedHeadsPayload: Array<{ payHeadId: string; amount: number; isChangeable?: boolean }> = [];
-          const existingHeadMap = new Map(existingMappingHeads.map(eh => [eh.payHeadId, eh]));
-
-          for (const sh of syncableSlipHeads) {
-            const existingEh = existingHeadMap.get(sh.payHeadId);
-            if (!existingEh) {
-              // Newly added head on payslip! Sync to salary mapping
-              mappingModified = true;
-              updatedHeadsPayload.push({
-                payHeadId: sh.payHeadId,
-                amount: Number(sh.amount) || Number(sh.calculatedAmount) || 0,
-                isChangeable: true
-              });
-            } else {
-              // Existing head in mapping. If overridden on slip, update amount
-              const slipAmount = Number(sh.amount);
-              if (sh.isManualOverride && slipAmount !== Number(existingEh.amount)) {
-                mappingModified = true;
-                updatedHeadsPayload.push({
-                  payHeadId: sh.payHeadId,
-                  amount: slipAmount,
-                  isChangeable: existingEh.isChangeable
-                });
-              } else {
-                updatedHeadsPayload.push({
-                  payHeadId: sh.payHeadId,
-                  amount: Number(existingEh.amount),
-                  isChangeable: existingEh.isChangeable
-                });
-              }
-              existingHeadMap.delete(sh.payHeadId);
-            }
-          }
-
-          // Retain any remaining mapping heads that were not on this slip
-          for (const [_, remEh] of existingHeadMap) {
-            updatedHeadsPayload.push({
-              payHeadId: remEh.payHeadId,
-              amount: Number(remEh.amount),
-              isChangeable: remEh.isChangeable
-            });
-          }
-
-          const slipBasic = Number(slip.basicSalary);
-          const slipGrade = Number(slip.gradeAmount);
-          if (slipBasic !== Number(mapping.basicSalary) || slipGrade !== Number(mapping.gradeAmount)) {
-            mappingModified = true;
-          }
-
-          if (mappingModified) {
-            const netAmount = calculateNetSalary({
-              basicSalary: slipBasic,
-              gradePercent: Number(mapping.gradePercent) || 0,
-              gradeAmount: slipGrade,
-              salaryHeads: updatedHeadsPayload.map(h => {
-                const ph = payHeadById.get(h.payHeadId);
-                return {
-                  payHeadType: (ph?.type === 'deduction' ? 'deduction' : 'allowance') as 'allowance' | 'deduction',
-                  amount: h.amount
-                };
-              }),
-              loan1Deduction: Number(mapping.loan1Deduction) || 0,
-              loan2Deduction: Number(mapping.loan2Deduction) || 0
-            });
-
-            await tx.update(employeeSalaryMap).set({
-              basicSalary: slipBasic.toString(),
-              gradeAmount: slipGrade.toString(),
-              netAmount: netAmount.toString(),
-              updatedAt: new Date()
-            }).where(eq(employeeSalaryMap.id, mapping.id));
-
-            await tx.delete(employeeSalaryHeads).where(eq(employeeSalaryHeads.salaryMapId, mapping.id));
-            if (updatedHeadsPayload.length > 0) {
-              await tx.insert(employeeSalaryHeads).values(
-                updatedHeadsPayload.map(h => ({
-                  salaryMapId: mapping.id,
-                  payHeadId: h.payHeadId,
-                  amount: h.amount.toString(),
-                  isChangeable: h.isChangeable ?? true
-                }))
-              );
-            }
-
-            await tx.insert(auditLogs).values({
-              userId: actionByUserId,
-              action: 'EDIT',
-              module: 'SALARY_MAPPING',
-              recordId: mapping.id,
-              result: 'SUCCESS',
-              newValues: {
-                syncedFromLockedPayrollRunId: runId,
-                employeeId: slip.employeeId,
-                updatedHeadsCount: updatedHeadsPayload.length
-              }
-            });
-          }
-        } else {
-          // Employee had no prior active mapping: create active mapping from this locked slip
-          const netAmount = calculateNetSalary({
-            basicSalary: Number(slip.basicSalary),
-            gradePercent: 0,
-            gradeAmount: Number(slip.gradeAmount),
-            salaryHeads: syncableSlipHeads.map(sh => {
-              const ph = payHeadById.get(sh.payHeadId);
-              return {
-                payHeadType: (ph?.type === 'deduction' ? 'deduction' : 'allowance') as 'allowance' | 'deduction',
-                amount: Number(sh.amount) || Number(sh.calculatedAmount) || 0
-              };
-            }),
-            loan1Deduction: 0,
-            loan2Deduction: 0
-          });
-
-          const [newMap] = await tx.insert(employeeSalaryMap).values({
-            employeeId: slip.employeeId,
-            fiscalYearId: run.fiscalYearId,
-            effectiveFrom: run.payPeriodStartDate,
-            basicSalary: slip.basicSalary,
-            gradePercent: '0',
-            gradeAmount: slip.gradeAmount,
-            loan1Deduction: '0',
-            loan2Deduction: '0',
-            netAmount: netAmount.toString(),
-            isActive: true,
-            createdBy: actionByUserId
-          }).returning({ id: employeeSalaryMap.id });
-
-          if (syncableSlipHeads.length > 0) {
-            await tx.insert(employeeSalaryHeads).values(
-              syncableSlipHeads.map(sh => ({
-                salaryMapId: newMap.id,
-                payHeadId: sh.payHeadId,
-                amount: (Number(sh.amount) || Number(sh.calculatedAmount) || 0).toString(),
-                isChangeable: true
-              }))
-            );
-          }
-
-          await tx.insert(auditLogs).values({
-            userId: actionByUserId,
-            action: 'ADD',
-            module: 'SALARY_MAPPING',
-            recordId: newMap.id,
-            result: 'SUCCESS',
-            newValues: {
-              syncedFromLockedPayrollRunId: runId,
-              employeeId: slip.employeeId,
-              headsCount: syncableSlipHeads.length
-            }
-          });
-        }
-      }
+      // S45: locking never writes a payslip's heads into anyone's salary structure. A payslip's
+      // one-off lines (TA-DA, arrears, welfare fund) and a reviewer's overrides are that month only;
+      // pay changes go through Salary structure as dated, approved revisions (4.4).
     });
   }
 

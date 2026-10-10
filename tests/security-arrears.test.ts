@@ -41,8 +41,11 @@ describe('arrears guards', () => {
     assert.ok(!/^\s*\w*arrears\w*\??\s*:/im.test(payloadType), 'setup payload carries no arrears figure');
   });
 
-  it('recorded after the run commits and tied to the run (a deleted draft gives it back)', () => {
-    assert.ok(payroll.indexOf('const runRecord') < payroll.indexOf('arrearsService.settle('));
+  it('recorded with the payslips in the run\'s transaction and tied to the run (a deleted draft gives it back)', () => {
+    const slipsSaved = payroll.indexOf('await repository.createPayrollSlips(slipsWithHeads, tx);');
+    const settled = payroll.indexOf('await payrollFeedService.settleRunFeedsTx(');
+    assert.ok(slipsSaved > 0 && settled > slipsSaved && settled < payroll.indexOf('    return run;\n  });'));
+    assert.match(read('lib/services/payroll-feed.service.ts'), /await arrearsService\.settle\(runId, arrears, tx\);/);
     assert.match(read('lib/db/migrations/0064_payroll_arrears.sql'), /"payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"\("id"\) ON DELETE CASCADE/);
   });
 
