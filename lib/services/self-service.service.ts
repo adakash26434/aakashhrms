@@ -16,6 +16,11 @@ import * as leaveService from '@/lib/services/leave.service';
 import * as homeLeaveService from '@/lib/services/home-leave.service';
 import { assertSessionUsable } from '@/lib/auth/session-updates';
 import { findPhotoIdFor } from "@/lib/repositories/employee-photo.repository";
+import { ownCertificate } from "@/lib/services/statutory.service";
+import { getCompanyProfileSetup } from "@/lib/repositories/company-setup.repository";
+import { addressLine } from "@/lib/constants/nepal-locations";
+import type { LetterheadBase } from "@/lib/types/letter";
+import type { TaxCertificateData } from "@/lib/types/statutory";
 
 // ---------------------------------------------------------------------------
 // Session-Based Employee ID Resolution
@@ -86,6 +91,9 @@ export async function getMyProfile() {
       // Personal
       citizenshipNo: employeePersonal.citizenshipNo,
       panNumber: employeePersonal.panNumber,
+      ssfNumber: employeePersonal.ssfNumber,
+      pfNumber: employeePersonal.pfNumber,
+      citNumber: employeePersonal.citNumber,
       mobileNo: employeePersonal.mobileNo,
       email: employeePersonal.email,
       companyEmail: employeePersonal.companyEmail,
@@ -130,6 +138,29 @@ export async function getMyProfile() {
 /** F3: the conditions that make a payslip visible to its employee (see `slipVisibleToEmployee`). */
 function visibleToEmployee() {
   return [eq(payrollRuns.status, 'LOCKED'), isNotNull(payrollRuns.publishedAt), isNull(payrollSlips.heldAt)];
+}
+
+/**
+ * My tax certificate (F9): the signed-in employee's tax withheld in a fiscal year, from their
+ * released payslips only (the same visibility rule as the payslip list) and any paid final settlement.
+ */
+export async function getMyTaxCertificate(fiscalYearId?: string): Promise<{
+  fiscalYears: { id: string; label: string }[];
+  certificate: TaxCertificateData | null;
+  letterhead: LetterheadBase;
+}> {
+  const { employeeId } = await getSessionEmployeeId();
+  const [own, company] = await Promise.all([ownCertificate(employeeId, fiscalYearId, visibleToEmployee()), getCompanyProfileSetup().catch(() => null)]);
+  return {
+    ...own,
+    letterhead: {
+      name: company?.displayName || company?.legalName || '',
+      address: addressLine(company?.headOfficeAddress) ?? '',
+      pan: company?.panVatNumber ?? '',
+      signatoryName: company?.signatory1Name ?? '',
+      signatoryTitle: company?.signatory1Title ?? '',
+    },
+  };
 }
 
 export async function getMyPayslips(fiscalYearId?: string) {

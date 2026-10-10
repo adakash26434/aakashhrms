@@ -442,6 +442,10 @@ export const employeePersonal = pgTable('employee_personal', {
   votersId: varchar('voters_id', { length: 100 }),
   voterIdIssuingDistrict: varchar('voter_id_issuing_district', { length: 100 }),
   panNumber: varchar('pan_number', { length: 50 }),
+  // F9 (migration 0067): retirement-fund numbers for the SSF / PF / CIT deposit files.
+  ssfNumber: varchar('ssf_number', { length: 30 }),
+  pfNumber: varchar('pf_number', { length: 30 }),
+  citNumber: varchar('cit_number', { length: 30 }),
   phoneHome: varchar('phone_home', { length: 50 }),
   mobileNo: varchar('mobile_no', { length: 50 }).notNull(),
   email: varchar('email', { length: 255 }).notNull(),

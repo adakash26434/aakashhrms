@@ -470,6 +470,13 @@
       "when": 1792636800000,
       "tag": "0066_exit_settlement",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792723200000,
+      "tag": "0067_statutory_ids",
+      "breakpoints": true
     }
   ]
 }

@@ -165,38 +165,6 @@ export interface AttendanceReportData {
   isLocked: boolean;
 }
 
-// ─── TDS / IRD Report ─────────────────────────────────────────────────────
-
-export type TDSReportType = "MONTHLY" | "ANNUAL";
-
-export interface TDSReportFilter {
-  fiscalYearId: string;
-  reportType: TDSReportType;
-  bsMonth?: number; // Required when reportType = 'MONTHLY'
-}
-
-export interface TDSReportRow {
-  employeeCode: string;
-  employeeName: string;
-  panNumber: string | null; // null if not entered — show "N/A" in display
-  taxStatus: string; // From employee.taxStatus
-  grossIncome: string; // For the selected period
-  pfDeducted: string;
-  citDeducted: string;
-  taxableIncome: string;
-  tdsDeducted: string;
-  period: string; // "Mangsir 2081" or "FY 2081/82"
-}
-
-export interface TDSReportData {
-  rows: TDSReportRow[];
-  period: string;
-  fiscalYearLabel: string;
-  totalTds: string;
-  totalGrossIncome: string;
-  employeesWithoutPAN: number; // Count of rows where panNumber is null
-}
-
 // ─── Leave Report ─────────────────────────────────────────────────────────
 
 export interface LeaveReportFilter {

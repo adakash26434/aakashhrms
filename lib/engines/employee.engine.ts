@@ -19,6 +19,8 @@ import { dossierChanged } from "@/lib/engines/employee-dossier.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 
 const WARD_ERROR = "Ward number must be between 1 and 35";
+/** SSF ID, Provident Fund and CIT numbers (F9): kept as typed, so only a safe character set. */
+export const FUND_NUMBER = /^[0-9A-Za-z/-]{3,30}$/;
 
 /** Ward numbers run 1–35 (the largest municipalities have 33); empty is allowed. */
 export function isValidWard(ward: string | undefined | null): boolean {
@@ -155,6 +157,12 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, op
       if (!res.isValid) {
         errors.panNumber = res.error || "Invalid PAN number";
       }
+    }
+
+    // F9: retirement-fund numbers are optional; when given they go into deposit files as typed.
+    for (const field of ["ssfNumber", "pfNumber", "citNumber"] as const) {
+      const value = data[field]?.trim();
+      if (value && !FUND_NUMBER.test(value)) errors[field] = "Use 3–30 letters, digits, '-' or '/'";
     }
 
     const targetCompanyEmail = data.companyEmail || data.email;
@@ -564,7 +572,7 @@ const AUDITED_FIELDS: readonly (keyof EmployeeFormData & keyof Employee)[] = [
   "employeeCode", "attendanceCode", "fullName", "gender", "dateOfBirth", "taxStatus", "isDisabled",
   "category", "shreni", "departmentId", "designationId", "branchId", "supervisorId", "isSupervisor",
   "joiningDate", "confirmationDate", "status", "basicSalary", "gradeCount", "gradeAmount", "gradeManual",
-  "panNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
+  "panNumber", "ssfNumber", "pfNumber", "citNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
   "permanentAddress", "temporaryAddress", "fatherName", "motherName", "spouseName", "grandfatherName",
   "bankName", "bankBranch", "bankAccountNumber", "informedDate", "terminationDate", "terminationType",
   "terminationReason", "terminationPlan", "terminationRemarks",
@@ -693,7 +701,7 @@ export function tenureLabel(joining: Date | string | null | undefined, today: Da
 const FIELD_RULE_GROUP: Partial<Record<EmployeeField, number>> = {
   employeeCode: 0, attendanceCode: 0, fullName: 0, dateOfBirth: 0,
   departmentId: 1, branchId: 1, designationId: 1, shreni: 1, gradeCount: 1, gradeAmount: 1, joiningDate: 1, confirmationDate: 1,
-  documents: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
+  documents: 2, panNumber: 2, ssfNumber: 2, pfNumber: 2, citNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
   fatherName: 3, motherName: 3, grandfatherName: 3, spouseName: 3,
   bankName: 4, bankBranch: 4, bankAccountNumber: 4, informedDate: 4, terminationDate: 4, terminationType: 4, terminationReason: 4,
 };

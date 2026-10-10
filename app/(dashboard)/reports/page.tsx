@@ -89,10 +89,10 @@ const reportGroups: ReportGroup[] = [
     icon: FileCheck,
     reports: [
       {
-        title: "TDS / IRD Tax Report",
-        href: "/reports/tax-ird",
+        title: "Statutory returns",
+        href: "/payroll/statutory",
         description:
-          "Nepal Inland Revenue Department (IRD) tax deduction statement (ETDS format) with official document headers and PAN verification.",
+          "eTDS by revenue code (11211 social security tax, 11112 remuneration tax), SSF, Provident Fund and CIT deposit files, and annual tax certificates.",
         icon: Receipt,
         badge: "IRD Compliance",
       },

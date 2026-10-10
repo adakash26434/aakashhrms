@@ -43,9 +43,6 @@ import type {
   AttendanceReportData,
   AttendanceReportRow,
   AttendanceDailyDetail,
-  TDSReportFilter,
-  TDSReportData,
-  TDSReportRow,
   LeaveReportFilter,
   LeaveReportData,
   LeaveBalanceRow,
@@ -671,124 +668,6 @@ export async function getAttendanceReportData(
     rows,
     totalEmployees: rows.length,
     isLocked,
-  };
-}
-
-// ─── TDS / IRD Report ──────────────────────────────────────────────────────
-
-export async function getTDSReportData(
-  filter: TDSReportFilter
-): Promise<TDSReportData> {
-  if (!filter.fiscalYearId) {
-    throw new Error("Fiscal Year is required for TDS/IRD Report.");
-  }
-
-  const [fy] = await (await getDb())
-    .select()
-    .from(fiscalYears)
-    .where(eq(fiscalYears.id, filter.fiscalYearId))
-    .limit(1);
-
-  const fiscalYearLabel = fy ? fy.label : "N/A";
-
-  // Join payrollSlips -> payrollRuns (for fiscalYearId & payPeriodMonth) -> employees -> employeePersonal
-  const rawResults = await (await getDb())
-    .select({
-      slip: payrollSlips,
-      run: payrollRuns,
-      taxStatus: employees.taxStatus,
-      panNumber: employeePersonal.panNumber,
-    })
-    .from(payrollSlips)
-    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .innerJoin(employees, eq(payrollSlips.employeeId, employees.id))
-    .leftJoin(employeePersonal, eq(employees.id, employeePersonal.employeeId))
-    .where(eq(payrollRuns.fiscalYearId, filter.fiscalYearId));
-
-  let filteredResults = rawResults;
-  if (filter.reportType === "MONTHLY" && filter.bsMonth) {
-    filteredResults = filteredResults.filter(
-      (r) => r.run.payPeriodMonth === filter.bsMonth
-    );
-  }
-
-  const startBsYear = fy?.startDateBS
-    ? parseInt(fy.startDateBS.split("-")[0], 10)
-    : (fy?.label ? parseInt(fy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
-  const bsYear = filter.bsMonth ? (filter.bsMonth >= 4 ? startBsYear : startBsYear + 1) : startBsYear;
-
-  const periodLabel =
-    filter.reportType === "MONTHLY" && filter.bsMonth
-      ? engine.formatBSMonthLabel(filter.bsMonth, bsYear)
-      : `FY ${fiscalYearLabel}`;
-
-  // Aggregate rows per employee
-  const employeeMap = new Map<
-    string,
-    {
-      employeeCode: string;
-      employeeName: string;
-      panNumber: string | null;
-      taxStatus: string;
-      grossIncome: number;
-      pfDeducted: number;
-      citDeducted: number;
-      tdsDeducted: number;
-    }
-  >();
-
-  filteredResults.forEach((r) => {
-    const key = r.slip.employeeId;
-    const existing = employeeMap.get(key) || {
-      employeeCode: r.slip.employeeCode,
-      employeeName: r.slip.employeeName,
-      panNumber: r.panNumber || null,
-      taxStatus: r.taxStatus,
-      grossIncome: 0,
-      pfDeducted: 0,
-      citDeducted: 0,
-      tdsDeducted: 0,
-    };
-
-    existing.grossIncome += Number(r.slip.grossEarnings) || 0;
-    existing.pfDeducted += Number(r.slip.pfEmployee) || 0;
-    existing.citDeducted += Number(r.slip.citDeduction) || 0;
-    existing.tdsDeducted += Number(r.slip.tdsThisMonth) || 0;
-
-    employeeMap.set(key, existing);
-  });
-
-  let employeesWithoutPAN = 0;
-
-  const rows: TDSReportRow[] = Array.from(employeeMap.values()).map((emp) => {
-    if (!emp.panNumber) employeesWithoutPAN++;
-
-    const taxable = Math.max(0, emp.grossIncome - emp.pfDeducted - emp.citDeducted);
-
-    return {
-      employeeCode: emp.employeeCode,
-      employeeName: emp.employeeName,
-      panNumber: emp.panNumber,
-      taxStatus: emp.taxStatus,
-      grossIncome: emp.grossIncome.toFixed(2),
-      pfDeducted: emp.pfDeducted.toFixed(2),
-      citDeducted: emp.citDeducted.toFixed(2),
-      taxableIncome: taxable.toFixed(2),
-      tdsDeducted: emp.tdsDeducted.toFixed(2),
-      period: periodLabel,
-    };
-  });
-
-  const totalGrossIncome = engine.sumDecimalStrings(rows.map((r) => r.grossIncome));
-  const totalTds = engine.sumDecimalStrings(rows.map((r) => r.tdsDeducted));
-
-  return {
-    rows,
-    period: periodLabel,
-    fiscalYearLabel,
-    totalTds,
-    totalGrossIncome,
-    employeesWithoutPAN,
   };
 }
 

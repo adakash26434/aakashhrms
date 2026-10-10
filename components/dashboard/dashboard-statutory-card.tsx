@@ -12,7 +12,7 @@ import type { StatutorySummary } from "@/lib/types/dashboard";
 export function DashboardStatutoryCard({ statutory, periodLabel }: { statutory: StatutorySummary; periodLabel: string }) {
   const { total, rows } = statutory;
   return (
-    <Panel level={3} id="dashboard-statutory" title="Statutory liabilities" icon={<ShieldCheck />} meta={periodLabel} href="/reports/tax-ird" hrefLabel="Tax reports">
+    <Panel level={3} id="dashboard-statutory" title="Statutory liabilities" icon={<ShieldCheck />} meta={periodLabel} href="/payroll/statutory" hrefLabel="Statutory returns">
       {rows.length === 0 ? (
         <EmptyState className="flex-1 py-6" icon={<ShieldCheck className="h-5 w-5" />} title="Nothing to deposit" description="No statutory deductions in this period." />
       ) : (

@@ -3,7 +3,6 @@
 import type {
   SalarySheetRow,
   AttendanceReportRow,
-  TDSReportRow,
   LeaveBalanceRow,
   LoanSummaryRow,
   CompanyReportInfo,
@@ -416,129 +415,6 @@ export function AttendanceIndividualSlips({
             <div>
               <div className="h-8 border-b border-gray-400 mb-1" />
               Authorized Signature & Seal
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── 3. TDS IRD Tax Individual Slips Printable ────────────────────────────
-interface TDSIndividualSlipsProps {
-  rows: TDSReportRow[];
-  periodLabel: string;
-}
-
-export function TDSIndividualSlips({
-  rows,
-  periodLabel,
-}: TDSIndividualSlipsProps) {
-  return (
-    <div className="space-y-8 print:space-y-0">
-      {rows.map((row, idx) => (
-        <div
-          key={row.employeeCode || idx}
-          className="w-full max-w-4xl mx-auto bg-white p-8 border border-zinc-200 shadow-none page-break-after-always print-page-break print:p-0 print:border-none print:shadow-none mb-8 print:mb-0"
-          style={{ pageBreakAfter: "always", breakAfter: "page" }}
-        >
-          {/* Header */}
-          <div className="border-b border-zinc-300 pb-5 mb-6 flex justify-between items-start">
-            <div>
-              <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
-                Government of Nepal IRD — e-TDS Tax Credit Certificate
-              </h2>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Tax Period: <span className="font-semibold text-zinc-900">{periodLabel}</span>
-              </p>
-            </div>
-            <div className="text-right text-xs space-y-0.5">
-              <span className="font-medium text-zinc-500 block">
-                Income Tax Act compliant
-              </span>
-              <p className="text-xs text-zinc-400 font-mono">
-                PAN: {row.panNumber || "N/A"}
-              </p>
-            </div>
-          </div>
-
-          {/* Particulars Grid: Clean 4-Column Flat Layout */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6 py-4 border-t border-b border-zinc-100 text-xs mb-6">
-            <div>
-              <span className="text-xs text-zinc-500 block">
-                Tax Payer Name
-              </span>
-              <span className="text-sm font-medium text-zinc-900 block mt-0.5">{row.employeeName}</span>
-            </div>
-            <div>
-              <span className="text-xs text-zinc-500 block">
-                PAN Number
-              </span>
-              <span className="text-sm font-medium text-zinc-900 font-mono block mt-0.5">
-                {row.panNumber || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-zinc-500 block">
-                Tax Status
-              </span>
-              <span className="text-sm font-medium text-zinc-900 block mt-0.5">{row.taxStatus}</span>
-            </div>
-            <div>
-              <span className="text-xs text-zinc-500 block">
-                Employee Code
-              </span>
-              <span className="text-sm font-medium text-zinc-900 font-mono block mt-0.5">{row.employeeCode}</span>
-            </div>
-          </div>
-
-          {/* Tax Breakdown */}
-          <div className="text-xs mb-8 space-y-2">
-            <h3 className="font-semibold text-zinc-900 text-xs border-b border-zinc-300 pb-1.5">
-              Taxable income &amp; deductions breakdown
-            </h3>
-            <div className="grid grid-cols-2 gap-12 pt-1 items-start">
-              <div className="space-y-0.5">
-                <div className="flex justify-between py-2 border-b border-zinc-100">
-                  <span className="text-zinc-600 font-medium">Gross Income</span>
-                  <span className="font-mono font-semibold text-zinc-900">NPR {Number(row.grossIncome).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-zinc-100">
-                  <span className="text-zinc-600 font-medium">PF Deduction (Retirement)</span>
-                  <span className="font-mono font-semibold text-zinc-900">NPR {Number(row.pfDeducted).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-zinc-100">
-                  <span className="text-zinc-600 font-medium">CIT Deduction</span>
-                  <span className="font-mono font-semibold text-zinc-900">NPR {Number(row.citDeducted).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-
-              <div className="space-y-0.5 border-l border-zinc-200/80 pl-12">
-                <div className="flex justify-between py-2 border-b border-zinc-100">
-                  <span className="text-zinc-600 font-medium">Taxable Net Income</span>
-                  <span className="font-mono font-semibold text-zinc-900">NPR {Number(row.taxableIncome).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-zinc-900 pt-2.5 border-t border-zinc-200 text-xs">
-                  <span>TDS Deducted & Remitted</span>
-                  <span className="font-mono">NPR {Number(row.tdsDeducted).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Signature Block */}
-          <div className="grid grid-cols-3 gap-8 text-center text-2xs text-gray-500 pt-6 border-t border-dashed border-gray-300">
-            <div>
-              <div className="h-8 border-b border-gray-400 mb-1" />
-              Tax Payer Signature
-            </div>
-            <div>
-              <div className="h-8 border-b border-gray-400 mb-1" />
-              Finance Accountant
-            </div>
-            <div>
-              <div className="h-8 border-b border-gray-400 mb-1" />
-              Withholding Agent Seal
             </div>
           </div>
         </div>

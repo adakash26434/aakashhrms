@@ -21,6 +21,9 @@ const iconButton =
  * window; everything is saved with the employee. Citizenship or NID is required; each type
  * once. PAN stays a plain number below.
  */
+/** SSF ID, PF and CIT numbers (F9): letters, digits, "-" and "/" only. */
+const cleanFundNumber = (v: string) => v.replace(/[^0-9A-Za-z/-]/g, "").slice(0, 30);
+
 export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
   const { form, errors } = api;
   const rows = form.documents;
@@ -166,6 +169,9 @@ export function EmployeeFormDocuments({ api }: { api: EmployeeFormApi }) {
         transform={(v) => v.replace(/\D/g, "").slice(0, 9)}
         help="9 digits, issued by the Inland Revenue Department. Needed for TDS reporting."
       />
+      <TextField api={api} field="ssfNumber" code maxLength={30} size="code" transform={cleanFundNumber} help="Issued by the Social Security Fund. Needed for the monthly SSF contribution schedule." />
+      <TextField api={api} field="pfNumber" code maxLength={30} size="code" transform={cleanFundNumber} help="Karmachari Sanchaya Kosh number. Needed for the Provident Fund statement." />
+      <TextField api={api} field="citNumber" code maxLength={30} size="code" transform={cleanFundNumber} help="Nagarik Lagani Kosh number. Needed for the CIT statement." />
 
       {editing !== null && (
         <EmployeeDocumentWindow

@@ -317,8 +317,8 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
       },
       {
         key: 'REPORTS_TAX_IRD',
-        label: 'TDS & IRD Annex-10 Report',
-        description: 'Nepal Inland Revenue Department (IRD) annual and monthly tax statement',
+        label: 'Statutory returns (TDS, SSF, PF, CIT)',
+        description: 'eTDS, SSF, Provident Fund and CIT deposit files and annual tax certificates',
         allowedActions: ['VIEW', 'EXPORT'],
       },
       {

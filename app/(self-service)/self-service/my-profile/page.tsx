@@ -201,6 +201,9 @@ export default async function MyProfilePage() {
         <DetailSection title="Official Statutory Documents" icon={FileText}>
           <DetailRow label="Nepal Citizenship Number" value={profile.citizenshipNo || "—"} />
           <DetailRow label="Permanent Account Number (IRD PAN)" value={profile.panNumber || "—"} />
+          <DetailRow label="SSF ID (SSID)" value={profile.ssfNumber || "—"} />
+          <DetailRow label="Provident Fund number" value={profile.pfNumber || "—"} />
+          <DetailRow label="CIT number" value={profile.citNumber || "—"} />
         </DetailSection>
 
         {/* 4. Family Lineage Information */}

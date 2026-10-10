@@ -24,6 +24,7 @@ const DICT = {
   'nav.training': ['Training', 'तालिम'],
   'nav.claims': ['Travel claims', 'भ्रमण भत्ता'],
   'nav.letters': ['My letters', 'मेरा पत्र'],
+  'nav.tax': ['My tax', 'मेरो कर'],
   'nav.workspace': ['My workspace', 'मेरो कार्यक्षेत्र'],
   'nav.portal': ['Self-Service Portal', 'कर्मचारी सेवा पोर्टल'],
   'nav.signOut': ['Sign out', 'बाहिर निस्कनुहोस्'],
@@ -111,6 +112,11 @@ const DICT = {
   'letters.date': ['Date', 'मिति'],
   'letters.open': ['Open', 'खोल्नुहोस्'],
   'letters.back': ['Back to my letters', 'मेरा पत्रमा फर्कनुहोस्'],
+  // tax certificate (F9)
+  'tax.title': ['My tax certificate', 'मेरो कर कट्टी प्रमाणपत्र'],
+  'tax.description': ['Tax withheld from your salary in a fiscal year, month by month, from released payslips. Print it for your records or a bank.', 'आर्थिक वर्षमा तपाईंको तलबबाट महिनैपिच्छे कट्टी भएको कर (जारी भएका तलब पर्चीबाट)। अभिलेख वा बैंकका लागि छाप्न सक्नुहुन्छ।'],
+  'tax.none': ['No released payslip yet, so there is no certificate.', 'अहिलेसम्म कुनै तलब पर्ची जारी भएको छैन, त्यसैले प्रमाणपत्र छैन।'],
+  'tax.year': ['Fiscal year', 'आर्थिक वर्ष'],
   // dossier on the profile
   'dossier.title': ['Qualifications and work history', 'शैक्षिक योग्यता र कार्य अनुभव'],
   'dossier.education': ['Education', 'शैक्षिक योग्यता'],

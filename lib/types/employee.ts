@@ -61,6 +61,10 @@ export interface Employee {
   /** The employee's photo (4.2b), shown from /api/employees/photos/<id>; null = none. */
   photoId?: string | null;
   panNumber?: string | null;
+  /** F9: retirement-fund numbers for the SSF / PF / CIT deposit files. */
+  ssfNumber?: string | null;
+  pfNumber?: string | null;
+  citNumber?: string | null;
   phoneHome: string | null;
   mobileNo: string;
   email: string;
@@ -129,6 +133,10 @@ export interface EmployeeFormData {
   /** The photo (4.2b): a saved photo's id, a new upload's id, or "" for none. */
   photoId: string;
   panNumber: string;
+  /** F9: SSF ID (SSID), Provident Fund number, CIT number; optional, used by the statutory files. */
+  ssfNumber: string;
+  pfNumber: string;
+  citNumber: string;
   phoneHome: string;
   mobileNo: string;
   email: string;
@@ -230,6 +238,9 @@ export interface EmployeeValidationErrors {
   gradeAmount?: string;
   documents?: string;
   panNumber?: string;
+  ssfNumber?: string;
+  pfNumber?: string;
+  citNumber?: string;
   phoneHome?: string;
   mobileNo?: string;
   email?: string;

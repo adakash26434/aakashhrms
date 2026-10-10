@@ -1367,6 +1367,15 @@ ON CONFLICT DO NOTHING`);
     // Ignored until payroll_slips exists; the next sync pass completes it.
   }
 
+  // Statutory IDs (4.8 / F9, migration 0067): SSF ID, Provident Fund and CIT numbers.
+  for (const column of ['ssf_number', 'pf_number', 'cit_number']) {
+    try {
+      await sql.unsafe(`ALTER TABLE "employee_personal" ADD COLUMN IF NOT EXISTS "${column}" varchar(30)`);
+    } catch {
+      // Ignored until employee_personal exists; the next sync pass completes it.
+    }
+  }
+
   // Full & final settlement (4.8 / F8, migration 0066): one frozen statement per exit case.
   try {
     await sql.unsafe(`CREATE TABLE IF NOT EXISTS "exit_settlements" (

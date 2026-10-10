@@ -307,6 +307,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["welfare", "kalyan kosh", "gratuity", "medical fund", "provision", "payout"],
       },
       {
+        id: "statutory",
+        label: "Statutory returns",
+        href: "/payroll/statutory",
+        icon: Landmark,
+        description: "eTDS, SSF, Provident Fund and CIT deposit files; annual tax certificates",
+        requires: ["REPORTS_TAX_IRD"],
+        keywords: ["tds", "etds", "ird", "income tax", "ssf", "social security", "pf", "provident fund", "sanchaya kosh", "cit", "nagarik lagani", "tax certificate", "sst", "11211", "11112"],
+      },
+      {
         id: "payroll-controls",
         label: "Payroll controls",
         href: "/payroll/controls",
@@ -356,15 +365,6 @@ export const NAV_MODULES: readonly NavModule[] = [
         icon: CalendarDays,
         description: "Monthly attendance register",
         requires: ["REPORTS_ATTENDANCE"],
-      },
-      {
-        id: "tax-ird",
-        label: "Tax / IRD",
-        href: "/reports/tax-ird",
-        icon: Landmark,
-        description: "TDS schedule and IRD reporting",
-        requires: ["REPORTS_TAX_IRD"],
-        keywords: ["tds", "etds", "income tax"],
       },
       {
         id: "leave-report",

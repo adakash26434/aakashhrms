@@ -4,7 +4,6 @@ import { escapeCsvCell as escapeCsv } from '@/lib/export/csv';
 import type {
   SalarySheetRow,
   SalarySheetSummary,
-  TDSReportRow,
   AttendanceReportRow,
   LeaveBalanceRow,
   LeaveApplicationReportRow,
@@ -173,76 +172,6 @@ export function buildSalarySheetCSV(
     summary.totalNetPayable,
     "",
     "",
-  ];
-  csvRows.push(summaryLine.map(escapeCsvCell).join(","));
-
-  return csvRows.join("\n");
-}
-
-/**
- * 5. Build TDS / IRD CSV string (IRD-compatible format)
- */
-export function buildTDSIRDCSV(rows: TDSReportRow[], period: string): string {
-  const headers = [
-    "SN",
-    "Employee Code",
-    "Employee Name",
-    "PAN Number",
-    "Tax Status",
-    "Period",
-    "Gross Income",
-    "PF Deducted",
-    "CIT Deducted",
-    "Taxable Income",
-    "TDS Deducted",
-  ];
-
-  const csvRows: string[] = [headers.map(escapeCsvCell).join(",")];
-
-  rows.forEach((row, idx) => {
-    const line = [
-      idx + 1,
-      row.employeeCode,
-      row.employeeName,
-      row.panNumber || "N/A",
-      row.taxStatus,
-      row.period || period,
-      row.grossIncome,
-      row.pfDeducted,
-      row.citDeducted,
-      row.taxableIncome,
-      row.tdsDeducted,
-    ];
-    csvRows.push(line.map(escapeCsvCell).join(","));
-  });
-
-  // Calculate totals for CSV summary
-  let totalGross = new Decimal(0);
-  let totalPf = new Decimal(0);
-  let totalCit = new Decimal(0);
-  let totalTaxable = new Decimal(0);
-  let totalTds = new Decimal(0);
-
-  for (const r of rows) {
-    totalGross = totalGross.plus(r.grossIncome || 0);
-    totalPf = totalPf.plus(r.pfDeducted || 0);
-    totalCit = totalCit.plus(r.citDeducted || 0);
-    totalTaxable = totalTaxable.plus(r.taxableIncome || 0);
-    totalTds = totalTds.plus(r.tdsDeducted || 0);
-  }
-
-  const summaryLine = [
-    "TOTAL",
-    "",
-    `Employees: ${rows.length}`,
-    "",
-    "",
-    "",
-    totalGross.toFixed(2),
-    totalPf.toFixed(2),
-    totalCit.toFixed(2),
-    totalTaxable.toFixed(2),
-    totalTds.toFixed(2),
   ];
   csvRows.push(summaryLine.map(escapeCsvCell).join(","));
 

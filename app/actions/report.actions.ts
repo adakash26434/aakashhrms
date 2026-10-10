@@ -11,7 +11,6 @@ import type {
   SalarySheetFilter,
   PayslipFilter,
   AttendanceReportFilter,
-  TDSReportFilter,
   LeaveReportFilter,
   LoanReportFilter,
 } from "@/lib/types/report";
@@ -131,38 +130,6 @@ export async function exportAttendanceCsvAction(filter: AttendanceReportFilter) 
     return { success: true as const, data: csvString, filename };
   } catch (error: unknown) {
     return toActionError(error, "report.attendance-export");
-  }
-}
-
-/**
- * Fetch TDS / IRD Report data.
- */
-export async function getTDSReportAction(filter: TDSReportFilter) {
-  await ensureTenantContext();
-  try {
-    await checkPermission("VIEW", "REPORTS_TAX_IRD");
-    const data = await reportService.getTDSReportData(filter);
-    return { success: true, data };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Failed to load TDS/IRD report";
-    return { success: false, error: msg };
-  }
-}
-
-/**
- * Export TDS / IRD Report as CSV.
- */
-export async function exportTDSCsvAction(filter: TDSReportFilter) {
-  await ensureTenantContext();
-  try {
-    await checkPermission("EXPORT", "REPORTS_TAX_IRD");
-    const reportData = await reportService.getTDSReportData(filter);
-    const csvString = reportEngine.buildTDSIRDCSV(reportData.rows, reportData.period);
-    const filename = `tds-ird-report-${reportData.period.replace(/[^a-zA-Z0-9]/g, "-")}.csv`;
-    return { success: true, data: csvString, filename };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Failed to export TDS/IRD CSV";
-    return { success: false, error: msg };
   }
 }
 

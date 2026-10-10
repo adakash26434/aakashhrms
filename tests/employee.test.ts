@@ -146,6 +146,11 @@ describe('Employee form (4.2)', () => {
     assert.equal(validateEmployeeField({ ...filled, fullName: ' ' }, 'fullName'), 'Full name is required');
     assert.match(validateEmployeeField({ ...filled, panNumber: '12345' }, 'panNumber') ?? '', /9 digits/);
     assert.equal(validateEmployeeField({ ...filled, panNumber: '' }, 'panNumber'), null);
+    // F9: fund numbers are optional, kept as typed, safe characters only.
+    assert.equal(validateEmployeeField({ ...filled, ssfNumber: '' }, 'ssfNumber'), null);
+    assert.equal(validateEmployeeField({ ...filled, ssfNumber: '2081-123/45' }, 'ssfNumber'), null);
+    assert.match(validateEmployeeField({ ...filled, pfNumber: '=SUM(A1)' }, 'pfNumber') ?? '', /letters, digits/);
+    assert.match(validateEmployeeField({ ...filled, citNumber: 'ab' }, 'citNumber') ?? '', /3–30/);
     assert.match(validateEmployeeField({ ...filled, dateOfBirth: '2015-01-01' }, 'dateOfBirth') ?? '', /18/);
     assert.equal(validateEmployeeField({ ...filled, spouseName: '' }, 'spouseName'), null);
     assert.match(validateEmployeeField({ ...filled, taxStatus: 'Married', spouseName: '' }, 'spouseName') ?? '', /Spouse/);

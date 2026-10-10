@@ -66,6 +66,8 @@ describe('S21 payroll controls', () => {
     const vis = body(portal, 'function visibleToEmployee()');
     for (const part of ["'LOCKED'", 'isNotNull(payrollRuns.publishedAt)', 'isNull(payrollSlips.heldAt)']) assert.ok(vis.includes(part), part);
     assert.equal((portal.match(/\.\.\.visibleToEmployee\(\)/g) ?? []).length, 2);
+    // F9: the tax certificate reads only the same released payslips.
+    assert.match(body(portal, 'export async function getMyTaxCertificate'), /ownCertificate\(employeeId, fiscalYearId, visibleToEmployee\(\)\)/);
   });
 
   it('every action resolves the tenant and checks a permission', () => {

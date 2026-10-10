@@ -613,6 +613,26 @@ export function calculatePayslip(args: {
 }
 
 /**
+ * The slabs that tax this employee, ascending: "Handicapped" when disabled,
+ * "Normal Single" for a widow, otherwise the tax status; "Normal Single" when
+ * the company has no slabs for that category.
+ */
+export function slabsForEmployee(employee: Pick<EmployeeInput, "taxStatus" | "isDisabled">, taxSlabs: readonly TaxSlabInput[]): TaxSlabInput[] {
+  let targetCategory = employee.taxStatus;
+  if (employee.isDisabled) {
+    targetCategory = "Handicapped";
+  } else if (targetCategory === "Widow") {
+    targetCategory = "Normal Single";
+  }
+  const ascending = (category: string) =>
+    taxSlabs
+      .filter((slab) => slab.category === category)
+      .sort((a, b) => new Decimal(a.amountFrom).minus(new Decimal(b.amountFrom)).toNumber());
+  const slabs = ascending(targetCategory);
+  return slabs.length === 0 && targetCategory !== "Normal Single" ? ascending("Normal Single") : slabs;
+}
+
+/**
  * Calculates progressive annual tax liability using progressive tax slabs.
  */
 export function calculateAnnualTaxFromSlabs(
@@ -622,28 +642,7 @@ export function calculateAnnualTaxFromSlabs(
   systemControl: SystemControlData,
   isSsfEnrolled?: boolean
 ): Decimal {
-  // Determine target slab category:
-  // - If employee is disabled, use "Handicapped" slabs configured by company.
-  // - "Widow" status calculates from "Normal Single".
-  // - Otherwise use employee.taxStatus.
-  let targetCategory = employee.taxStatus;
-  if (employee.isDisabled) {
-    targetCategory = "Handicapped";
-  } else if (targetCategory === "Widow") {
-    targetCategory = "Normal Single";
-  }
-
-  // Sort slabs ascending by amountFrom
-  let activeSlabs = taxSlabs
-    .filter(slab => slab.category === targetCategory)
-    .sort((a, b) => new Decimal(a.amountFrom).minus(new Decimal(b.amountFrom)).toNumber());
-
-  // Default to single tax slabs if category matching is empty
-  if (activeSlabs.length === 0 && targetCategory !== "Normal Single") {
-    activeSlabs = taxSlabs
-      .filter(slab => slab.category === "Normal Single")
-      .sort((a, b) => new Decimal(a.amountFrom).minus(new Decimal(b.amountFrom)).toNumber());
-  }
+  const activeSlabs = slabsForEmployee(employee, taxSlabs);
 
   let annualTax = new Decimal(0);
   let remainingIncome = new Decimal(taxableIncome);

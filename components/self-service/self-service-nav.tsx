@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Banknote, Target, Users, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, ScrollText, Shield, UserCircle } from "lucide-react";
+import { Banknote, Target, Users, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, Receipt, ScrollText, Shield, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth.actions";
 import { setEssLanguageAction } from "@/app/actions/ess-extras.actions";
@@ -24,6 +24,7 @@ const BASE_NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof
   { href: "/self-service/my-attendance", key: "nav.attendance", icon: Clock3 },
   { href: "/self-service/my-leave", key: "nav.leave", icon: CalendarDays },
   { href: "/self-service/my-payslips", key: "nav.payslips", icon: FileText },
+  { href: "/self-service/my-tax", key: "nav.tax", icon: Receipt },
   { href: "/self-service/my-notices", key: "nav.notices", icon: Megaphone },
   { href: "/self-service/my-training", key: "nav.training", icon: GraduationCap },
   { href: "/self-service/my-claims", key: "nav.claims", icon: Plane },
