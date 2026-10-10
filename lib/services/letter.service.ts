@@ -102,7 +102,7 @@ export async function lettersPage(
     repo.findTemplates(),
     repo.findEmployeeOptions(scopeCondition),
     repo.findFiscalYearsForLetters(),
-    letterhead(),
+    companyLetterhead(),
   ]);
   return {
     letters: letters.map((r) => toListRow(r, templates)),
@@ -139,7 +139,8 @@ export async function readDesign(): Promise<LetterDesign> {
   }
 }
 
-async function letterhead(): Promise<LetterheadData> {
+/** The company's letterhead and letter design; reports (4.11) print under the same letterhead. */
+export async function companyLetterhead(): Promise<LetterheadData> {
   const [company, design] = await Promise.all([getCompanyProfileSetup().catch(() => null), readDesign()]);
   return {
     name: company?.displayName || company?.legalName || '',
@@ -225,7 +226,7 @@ async function renderForIssue(form: IssueLetterForm, ctx: LetterCtx, seqText: st
   const employee = form.employeeId ? await repo.findEmployeeForLetter(form.employeeId, buildEmployeeScopeCondition(ctx.scope)) : null;
   if (!employee) throw new LetterValidationError({ employeeId: 'Choose an employee (within your scope).' });
 
-  const head = await letterhead();
+  const head = await companyLetterhead();
   const today = nepalToday();
   const { subject, body } = templateText(t, form.language);
   const data: Record<string, string> = {
@@ -348,7 +349,7 @@ export async function getLetterForPrint(id: string, scope: ScopeFilter): Promise
   const [row, templates, head] = await Promise.all([
     repo.findLetterById(id, buildEmployeeScopeCondition(scope)),
     repo.findTemplates(),
-    letterhead(),
+    companyLetterhead(),
   ]);
   if (!row) return null;
   return { letter: toDetail(row, templates), letterhead: head };
@@ -426,7 +427,7 @@ async function packBase(form: JoiningPackForm, ctx: LetterCtx) {
   if (Object.keys(formErrors).length) throw new LetterValidationError(formErrors);
   const employee = await repo.findEmployeeForLetter(form.employeeId, buildEmployeeScopeCondition(ctx.scope));
   if (!employee) throw new LetterValidationError({ employeeId: 'Choose an employee (within your scope).' });
-  const [templates, head, facts, types] = await Promise.all([repo.findTemplates(), letterhead(), repo.findPackFacts(form.employeeId), findAllEmploymentTypes()]);
+  const [templates, head, facts, types] = await Promise.all([repo.findTemplates(), companyLetterhead(), repo.findPackFacts(form.employeeId), findAllEmploymentTypes()]);
   const today = nepalToday();
 
   const defaults: Record<string, string> = {};

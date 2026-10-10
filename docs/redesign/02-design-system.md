@@ -203,8 +203,9 @@ are designed so it only needs new values.
 | `FactBox`, `Worklist` | Context panels (E2); approval queues (E3) |
 | `GridSkeleton`, `FormSkeleton`, `EmptyState`, `ErrorState` | Loading, empty and error states |
 | `EditGrid` (4.4) | Spreadsheet-style bulk entry: many rows × many amount columns edited in place with Excel keys, paste from Excel, fill down and undo. Not for registers (use `DataGrid`). See "Implemented salary structure". |
+| `ReportViewer` + `ReportParam` / `ReportPaper` / `ReportLetterhead` / `ReportTable` / `ReportSignatures` / `ReportNote` / `useReportExport` (4.11) | Every printable report (template D): parameters, A4 paper, Print / PDF, Excel and CSV from the same columns. See "Implemented reports". |
 
-The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts`, `density.ts`, `popup.ts` and `edit-grid.ts`. Exports use `lib/export/csv.ts` and `authorizeExportAction`.
+The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts`, `density.ts`, `popup.ts`, `edit-grid.ts` and `report.ts` (report columns, totals, groups, CSV and Excel sheets). Exports use `lib/export/csv.ts` (and `lib/export/xlsx.ts` for Excel) and `authorizeExportAction`.
 
 ## 5. Screen templates
 
@@ -971,6 +972,32 @@ nothing for the kind are hidden and cleared by the server; 0 means no
 limit. Errors show after Save is pressed and clear as each field is put
 right. A used type can't be deleted or change its kind (switch it off and
 add a new one).
+
+### Implemented reports (Phase 4.11, template D)
+
+Every report under `/reports/*` uses the **report viewer**
+(`components/kit/report-viewer.tsx`; column model in `lib/kit/report.ts`):
+
+| Part | Rule |
+|---|---|
+| Page bar | Title, status chip (Locked / Approved, Month open / closed), **Print / PDF** (Ctrl+P; PDF is "Save as PDF" in the print dialog), **Excel** (Ctrl+Shift+E), **CSV**, **Refresh**. Excel / CSV are shown disabled with the reason when the role has no Export permission. |
+| Parameters | A 17rem panel on the left (folded on phones, where the report comes first): fields stacked label-above-control (`ReportParam`), the report's own choices first (run / month / year, report view, grouping), then `PlaceParams` (Branch, Department, Employee — only places the viewer covers; a single branch hides the field). **Show report** runs it; the line above the paper says what is shown. |
+| Preview | A4 paper (`ReportPaper`, portrait 210 mm or landscape 297 mm) on the canvas, **Fit width** (default, shows the %) or **100%** (scrolls inside the preview, never the page). Several papers (payslips, attendance cards) print one per page. |
+| Letterhead | `ReportLetterhead`: the company's name, address, PAN and logo drawn like its letters (the letter design's logo, alignment and rule), the report's English and Nepali title, the period, a parameter line ("Covers: Lekhnath Branch · Employees: 5"), a status stamp, "Printed … by …". A `<div>`, never `<header>` (print hides headers). |
+| Table | `ReportTable`: header repeated on every printed page, S.N. column, optional groups with subtotals and a total as the last row (not `tfoot`, which would repeat the total on every page); amounts right-aligned, lakh grouping, zero shown as "–"; a table wider than the paper is drawn smaller until it fits (screen and print). |
+| Under the table | `ReportNote` for what the figures include; `ReportSignatures` (salary sheet: Prepared / Checked / Approved by with the run's names and dates; bank list: the company's signatories). |
+| Files | Built in the browser from the same columns as the paper after `authorizeExportAction` (Export + audit): **Excel** (`lib/export/xlsx.ts`: typed numbers with "#,##0.00", title lines, frozen header row repeated on printed pages, groups with subtotals, totals, landscape / fit to width), **CSV** (`reportCsv`: data rows only, formula-safe). |
+| Print | The panel, page bar and app frame are hidden; the paper takes the whole page; landscape reports switch the named `@page` while mounted. |
+
+Reports: **Salary sheet** (every pay line from the payslip statement, a
+summary, pay-line totals reconciling to gross / deductions / net, bank
+transfer list by bank), **Payslips** (F11 sheets of a locked run, English /
+Nepali / both), **Attendance report** (monthly summary, day register with
+the attendance codes, one attendance card per employee), **Leave report**
+(balances as the leave screens show them, movement by type from the ledger,
+leave taken, requests — reasons only when asked for), **Loan report** (loan
+register, repayments and loans given in a fiscal year or month). `/reports`
+lists what the role can open, Statutory returns and HR analytics included.
 
 ### Implemented frame (Phase 2)
 

@@ -1,17 +1,21 @@
-import { checkPermission } from "@/lib/auth/check-permission";
-import { getReportFilterLookupData } from "@/lib/services/report.service";
-import { AttendanceReportClient } from "@/components/reports/attendance-report-client";
-import { ensureTenantContext } from "@/lib/db";
+export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Attendance & OT Report | AakashHRMS",
-  description: "Monthly working days, present/absent days, leave deductions, and overtime summary.",
+import type { Metadata } from "next";
+import { ensureTenantContext } from "@/lib/db";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
+import { attendanceReport } from "@/lib/services/report.service";
+import { AttendanceReportClient } from "@/components/reports/attendance-report-client";
+
+export const metadata: Metadata = {
+  title: "Attendance report | AakashHRMS",
+  description: "A month from the attendance rules: the summary, the day register or attendance cards.",
 };
 
-export default async function AttendanceReportPage() {
+export default async function AttendanceReportPage({ searchParams }: { searchParams: Promise<{ month?: string; view?: string }> }) {
   await ensureTenantContext();
-
-  await checkPermission("VIEW", "REPORTS_ATTENDANCE");
-  const lookupData = await getReportFilterLookupData();
-  return <AttendanceReportClient lookupData={lookupData} />;
+  // S22 / S48: the viewer's employees only; pay figures only for viewers of the salary sheet.
+  const scope = await checkPermissionWithScope("VIEW", "REPORTS_ATTENDANCE");
+  const [query, canExport, showAmounts] = await Promise.all([searchParams, hasPermission("EXPORT", "REPORTS_ATTENDANCE"), hasPermission("VIEW", "REPORTS_SALARY_SHEET")]);
+  const data = await attendanceReport({ userId: scope.userId, scope, canExport }, { month: query.month, view: query.view }, { showAmounts });
+  return <AttendanceReportClient initial={data} />;
 }

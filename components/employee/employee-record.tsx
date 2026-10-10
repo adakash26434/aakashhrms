@@ -188,7 +188,7 @@ export function EmployeeRecord({ record, joiningLetters }: { record: EmployeeRec
             ) : active.tab === "attendance" ? (
               <EmployeeRecordAttendance data={active.data} />
             ) : active.tab === "payslips" ? (
-              <EmployeeRecordPayslips rows={active.data} />
+              <EmployeeRecordPayslips rows={active.data} employeeId={profile.id} />
             ) : active.tab === "loans" ? (
               <EmployeeRecordLoans rows={active.data} />
             ) : (

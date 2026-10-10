@@ -51,7 +51,9 @@ function Lines({ lines, lang }: { lines: PayslipLine[]; lang: PayslipLanguage })
   );
 }
 
-export function PayslipSheet({ data, lang }: { data: PayslipSheetData; lang: PayslipLanguage }) {
+export function PayslipSheet({ data, lang, bare = false }: { data: PayslipSheetData; lang: PayslipLanguage; /** Inside a report paper (4.11): no frame or page break of its own. */ bare?: boolean }) {
+  // Inside a report paper (itself an <article>) the sheet is a plain block.
+  const Sheet = bare ? "div" : "article";
   const { header: h, statement: s } = data;
   const facts: [Bilingual, string | null, boolean?][] = [
     [PAYSLIP_TEXT.employee, `${h.employee.name}`],
@@ -64,7 +66,7 @@ export function PayslipSheet({ data, lang }: { data: PayslipSheetData; lang: Pay
     [PAYSLIP_TEXT.paidOn, h.paidOn ? `${h.paidOn.bs} BS (${h.paidOn.ad})` : null, true],
   ];
   return (
-    <article className="mx-auto w-full max-w-3xl break-after-page rounded-md border border-line bg-white p-6 text-xs leading-relaxed text-ink print:max-w-none print:rounded-none print:border-0 print:p-0">
+    <Sheet className={cn("text-xs leading-relaxed text-ink", bare ? "w-full" : "mx-auto w-full max-w-3xl break-after-page rounded-md border border-line bg-white p-6 print:max-w-none print:rounded-none print:border-0 print:p-0")}>
       <div className="mb-4 flex items-start justify-between gap-4 border-b border-line pb-3">
         <div className="min-w-0">
           <p className="text-base font-semibold">{h.company.name}</p>
@@ -153,6 +155,6 @@ export function PayslipSheet({ data, lang }: { data: PayslipSheetData; lang: Pay
           <Say text={PAYSLIP_TEXT.approvedBy} lang={lang} />
         </div>
       </div>
-    </article>
+    </Sheet>
   );
 }

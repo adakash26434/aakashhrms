@@ -190,14 +190,15 @@ describe('S47 loans at exit', () => {
 });
 
 describe('S47 the loan report follows the scope', () => {
-  it('page, view and exports read loans and repayments within the viewer\'s scope', () => {
+  it('page and action read loans and repayments within the viewer\'s scope (4.11 report viewer)', () => {
     const reportActions = read('app/actions/report.actions.ts');
-    for (const name of ['getLoanReportAction', 'exportLoanSummaryCsvAction', 'exportLoanRepaymentsCsvAction']) {
-      assert.match(fn(reportActions, name), /const scope = await checkPermissionWithScope\("(VIEW|EXPORT)", "REPORTS_LOAN"\);\s*const \w+ = await reportService\.getLoanReportData\(filter, buildEmployeeScopeCondition\(scope\)\);/, name);
-    }
-    assert.match(read('app/(dashboard)/reports/loan/page.tsx'), /getLoanReportData\(\{ status: "ALL" \}, buildEmployeeScopeCondition\(scope\)\)/);
-    const data = fn(read('lib/services/report.service.ts'), 'getLoanReportData');
-    assert.equal(data.split('.where(scopeCondition)').length, 3, 'both queries scoped');
+    assert.match(fn(reportActions, 'loanReportAction'), /const ctx = await viewer\('REPORTS_LOAN'\);/);
+    assert.match(fn(reportActions, 'viewer'), /const scope = await checkPermissionWithScope\('VIEW', module\);/);
+    assert.match(read('app/(dashboard)/reports/loan/page.tsx'), /const scope = await checkPermissionWithScope\("VIEW", "REPORTS_LOAN"\);[\s\S]*loanReport\(\{ userId: scope\.userId, scope, canExport \}/);
+    const data = fn(read('lib/services/report.service.ts'), 'loanReport');
+    assert.match(data, /const scope = scopeCondition\(ctx\.scope\);/);
+    assert.match(data, /repo\.repaymentsInScope\(scope, /);
+    assert.match(data, /repo\.loansInScope\(scope, /);
   });
 });
 

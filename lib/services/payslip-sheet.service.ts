@@ -28,33 +28,41 @@ async function company() {
   return { name: profile?.displayName || profile?.legalName || '', address: addressLine(profile?.headOfficeAddress) ?? '', pan: profile?.panVatNumber ?? '' };
 }
 
+/**
+ * A payslip's head lines as the statement reads them, each with its statutory role. The salary
+ * sheet (Reports, 4.11) uses this too, so a sheet row and the payslip always agree.
+ */
+export function headFigures(lines: readonly repo.SheetHeadRow[]): HeadFigures[] {
+  return lines.map(({ head, master }) => {
+    // The same heuristics the payroll engine uses to recognise SSF heads (code / name conventions).
+    const probe = master ? { code: master.code, name: master.name, type: master.type, isSsfHead: master.isSsfHead, isSsfEmployerHead: master.isSsfEmployerHead } : null;
+    return {
+      payHeadId: head.payHeadId,
+      payHeadName: head.payHeadName,
+      nameNp: master?.nameNp ?? null,
+      headType: head.headType,
+      amount: head.amount,
+      calculatedAmount: head.calculatedAmount,
+      isManualOverride: head.isManualOverride,
+      role: headRole(
+        master && {
+          isTdsHead: master.isTdsHead,
+          isPfHead: master.isPfHead,
+          isCitHead: master.isCitHead,
+          isSsfEmployerHead: !!probe && isSsfEmployerHead(probe),
+          isSsfHead: !!probe && isSsfDeductionHead(probe),
+        },
+      ),
+    };
+  });
+}
+
 function toItems(slips: repo.SheetSlipRow[], heads: repo.SheetHeadRow[], firm: PayslipSheetData['header']['company']): SheetItem[] {
   const bySlip = new Map<string, repo.SheetHeadRow[]>();
   for (const h of heads) bySlip.set(h.head.payrollSlipId, [...(bySlip.get(h.head.payrollSlipId) ?? []), h]);
   return slips.map(({ slip, run, pan }) => {
     const lines = bySlip.get(slip.id) ?? [];
-    const figures: HeadFigures[] = lines.map(({ head, master }) => {
-      // The same heuristics the payroll engine uses to recognise SSF heads (code / name conventions).
-      const probe = master ? { code: master.code, name: master.name, type: master.type, isSsfHead: master.isSsfHead, isSsfEmployerHead: master.isSsfEmployerHead } : null;
-      return {
-        payHeadId: head.payHeadId,
-        payHeadName: head.payHeadName,
-        nameNp: master?.nameNp ?? null,
-        headType: head.headType,
-        amount: head.amount,
-        calculatedAmount: head.calculatedAmount,
-        isManualOverride: head.isManualOverride,
-        role: headRole(
-          master && {
-            isTdsHead: master.isTdsHead,
-            isPfHead: master.isPfHead,
-            isCitHead: master.isCitHead,
-            isSsfEmployerHead: !!probe && isSsfEmployerHead(probe),
-            isSsfHead: !!probe && isSsfDeductionHead(probe),
-          },
-        ),
-      };
-    });
+    const figures = headFigures(lines);
     const type = asRunType(run.runType);
     const paidAd = slip.payslipDate && /^\d{4}-\d{2}-\d{2}$/.test(slip.payslipDate) ? slip.payslipDate : null;
     return {
@@ -76,9 +84,9 @@ function toItems(slips: repo.SheetSlipRow[], heads: repo.SheetHeadRow[], firm: P
   });
 }
 
-/** The payslips of one locked run within the viewer's scope (optionally one employee's). */
-export async function sheetsForRun(runId: string, opts: { scope?: SQL; employeeId?: string }): Promise<{ status: string | null; items: SheetItem[] }> {
-  const slips = await repo.sheetSlips({ runId, employeeId: opts.employeeId, scope: opts.scope });
+/** The payslips of one locked run within the viewer's scope (optionally one employee's, or a branch's / department's). */
+export async function sheetsForRun(runId: string, opts: { scope?: SQL; employeeId?: string; extra?: SQL[] }): Promise<{ status: string | null; items: SheetItem[] }> {
+  const slips = await repo.sheetSlips({ runId, employeeId: opts.employeeId, scope: opts.scope, extra: opts.extra });
   if (!slips.length) return { status: null, items: [] };
   const status = slips[0].run.status;
   // Payslips are handed out from locked runs only (the figures can still change before).

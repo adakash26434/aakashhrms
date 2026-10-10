@@ -25,10 +25,12 @@ const essPage = read('app/(self-service)/self-service/my-payslips/[id]/page.tsx'
 
 describe('payslip sheet guards', () => {
   it('office payslips: scoped permission, scope passed down, locked runs only', () => {
-    const fn = body(actions, 'export async function getPayslipReportAction(');
-    assert.match(fn, /checkPermissionWithScope\("VIEW", "REPORTS_PAYSLIP"\)/);
-    assert.match(fn, /buildEmployeeScopeCondition\(scope\)/);
-    assert.match(body(report, 'export async function getPayslipPrintData('), /runRecord\.status !== "LOCKED"/);
+    assert.match(body(actions, 'export async function payslipReportAction('), /const ctx = await viewer\('REPORTS_PAYSLIP'\);/);
+    assert.match(body(actions, 'async function viewer('), /checkPermissionWithScope\('VIEW', module\)/);
+    const fn = body(report, 'export async function payslipReport(');
+    assert.match(fn, /assertOfficeScope\(ctx\.scope\);/);
+    assert.match(fn, /runChoices\(\["LOCKED"\], ctx\.scope, n\)/);
+    assert.match(fn, /sheetsForRun\(runRow\.id, \{ scope: scopeCondition\(ctx\.scope\)/);
     assert.match(body(sheets, 'export async function sheetsForRun('), /status !== 'LOCKED'\) return \{ status, items: \[\] \}/);
     assert.match(body(repo, 'export async function sheetSlips('), /where\.scope,/);
   });

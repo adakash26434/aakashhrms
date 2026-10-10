@@ -16,3 +16,17 @@ export function downloadTextFile(filename: string, text: string, mime = "text/cs
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Saves binary content (an .xlsx workbook) as a file in the browser. */
+export function downloadBytes(filename: string, bytes: Uint8Array, mime: string) {
+  // A copy into a fresh ArrayBuffer: Blob takes ArrayBuffer views of plain buffers only.
+  const url = URL.createObjectURL(new Blob([bytes.slice().buffer as ArrayBuffer], { type: mime }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

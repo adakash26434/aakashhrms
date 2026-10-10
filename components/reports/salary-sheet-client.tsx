@@ -1,472 +1,256 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import dynamic from "next/dynamic";
-import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
-import { SalarySheetTable } from "./salary-sheet-table";
-import { PayslipHeadTable } from "./payslip-head-table";
-import { ReportActionToolbar } from "./report-action-toolbar";
-import { ReportDataTableShell } from "./report-data-table-shell";
-import { PageFrame } from "@/components/layout/page-frame";
-import { PageHeader } from "@/components/ui/page-header";
-import type {
-  ReportFilterLookupData,
-  SalarySheetReportData,
-  SalarySheetRow,
-  PayslipHeadSummaryRow,
-} from "@/lib/types/report";
+import { useMemo } from "react";
+import { Landmark, Lock } from "lucide-react";
+import { SelectField } from "@/components/kit/select-field";
+import { StatusChip } from "@/components/kit/status-chip";
+import { Notice } from "@/components/kit/notice";
 import {
-  getSalarySheetReportAction,
-  getPayslipHeadSummaryAction,
-} from "@/app/actions/report.actions";
-import { AlertCircle, FileSpreadsheet, Layers, ShieldCheck } from "lucide-react";
-import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
-import { authorizeExportAction } from "@/app/actions/export.actions";
-import { rowsToCsv } from "@/lib/export/csv";
-import { downloadTextFile } from "@/lib/export/download";
+  ReportEmptyPaper,
+  ReportLetterhead,
+  ReportNote,
+  ReportPaper,
+  ReportParam,
+  ReportSignatures,
+  ReportTable,
+  ReportViewer,
+  useReportExport,
+  type ReportTableColumn,
+} from "@/components/kit/report-viewer";
+import { salarySheetAction } from "@/app/actions/report.actions";
+import { columnTotal, groupRows, reportCsv, reportFileName, reportSheet, type ReportGroup } from "@/lib/kit/report";
+import { formatAmount } from "@/lib/kit/amount";
+import type { BankTransferRow, SalaryGroupBy, SalaryLineColumn, SalaryLineRow, SalarySheetData, SalarySheetRow, SalaryView } from "@/lib/types/report";
+import { exportNote, PlaceParams, placeMeta, ReportNotices, titleLines, useReport } from "./report-common";
 
-const ReportPreviewModal = dynamic(
-  () => import("./report-preview-modal").then((m) => m.ReportPreviewModal),
-  { ssr: false }
-);
+// Salary sheet (4.11, template D): an approved or locked run as printed for signature — every
+// pay line (each row is the payslip's own statement), a summary, the pay lines with their totals,
+// or the bank transfer list. Only the viewer's employees (S48).
 
-const SalarySheetIndividualSlips = dynamic(
-  () => import("./individual-report-slips").then((m) => m.SalarySheetIndividualSlips),
-  { ssr: false }
-);
+const VIEWS: { value: SalaryView; label: string }[] = [
+  { value: "sheet", label: "Salary sheet — every pay line" },
+  { value: "summary", label: "Salary sheet — summary" },
+  { value: "lines", label: "Pay lines — totals" },
+  { value: "bank", label: "Bank transfer list" },
+];
+const GROUPS: { value: SalaryGroupBy; label: string }[] = [
+  { value: "none", label: "No grouping" },
+  { value: "department", label: "By department" },
+  { value: "branch", label: "By branch" },
+];
+const TITLE: Record<SalaryView, { en: string; np: string }> = {
+  sheet: { en: "Salary sheet", np: "तलबी प्रतिवेदन" },
+  summary: { en: "Salary sheet (summary)", np: "तलबी प्रतिवेदन (सारांश)" },
+  lines: { en: "Pay lines", np: "तलबका शीर्षकगत जम्मा" },
+  bank: { en: "Bank transfer list", np: "बैंक भुक्तानी सूची" },
+};
 
-interface SalarySheetClientProps {
-  lookupData: ReportFilterLookupData;
+const person: ReportTableColumn<SalarySheetRow>[] = [
+  { id: "code", header: "Code", kind: "code", value: (r) => r.code, width: 10 },
+  { id: "name", header: "Name", value: (r) => r.name, width: 24 },
+  { id: "designation", header: "Designation", value: (r) => r.designation, width: 18 },
+];
+const amount = (id: string, header: string, headerNp: string | undefined, pick: (r: SalarySheetRow) => string | null, strong = false): ReportTableColumn<SalarySheetRow> => ({
+  id,
+  header,
+  headerNp,
+  kind: "amount",
+  value: pick,
+  total: true,
+  width: 13,
+  render: strong ? (r) => <span className="font-semibold">{formatAmount(pick(r))}</span> : undefined,
+});
+
+function sheetColumns(lines: SalaryLineColumn[]): ReportTableColumn<SalarySheetRow>[] {
+  const line = (c: SalaryLineColumn) => amount(`line:${c.key}`, c.label, c.labelNp ?? undefined, (r) => r.lines[c.key] ?? null);
+  return [
+    ...person,
+    ...lines.filter((c) => c.side === "earning").map(line),
+    amount("gross", "Gross earnings", "कुल आम्दानी", (r) => r.gross),
+    ...lines.filter((c) => c.side === "deduction").map(line),
+    amount("deductions", "Total deductions", "कुल कट्टी", (r) => r.totalDeductions),
+    amount("net", "Net payable", "खुद भुक्तानी", (r) => r.net, true),
+  ];
 }
 
-export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
-  const [filterState, setFilterState] = useState<ReportFilterState>({
-    payrollRunId: lookupData.lockedPayrollRuns[0]?.id || "",
-  });
-  const [sheetData, setSheetData] = useState<SalarySheetReportData | null>(null);
-  const [headSummaryRows, setHeadSummaryRows] = useState<PayslipHeadSummaryRow[]>([]);
-  const [activeTab, setActiveTab] = useState<"SALARY_SHEET" | "HEAD_SUMMARY">("SALARY_SHEET");
-  const [headRunLabel, setHeadRunLabel] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [singleEmployeeRow, setSingleEmployeeRow] = useState<SalarySheetRow | null>(null);
-  const [isIndividualSlipsView, setIsIndividualSlipsView] = useState(false);
+const summaryColumns: ReportTableColumn<SalarySheetRow>[] = [
+  ...person,
+  amount("basicGrade", "Basic + grade", "तलब + ग्रेड", (r) => r.basicGrade),
+  amount("allowances", "Allowances", "भत्ता", (r) => r.allowances),
+  amount("gross", "Gross earnings", "कुल आम्दानी", (r) => r.gross),
+  amount("retirement", "SSF / PF / CIT", "कोष कट्टी", (r) => r.retirement),
+  amount("tax", "Income tax", "आयकर", (r) => r.tax),
+  amount("loan", "Loan", "ऋण", (r) => r.loan),
+  amount("other", "Other deductions", "अन्य कट्टी", (r) => r.otherDeductions),
+  amount("deductions", "Total deductions", "कुल कट्टी", (r) => r.totalDeductions),
+  amount("net", "Net payable", "खुद भुक्तानी", (r) => r.net, true),
+];
 
-  const toast = useToast();
+const lineColumns: ReportTableColumn<SalaryLineRow>[] = [
+  { id: "line", header: "Pay line", value: (r) => r.label, width: 32, render: (r) => (r.labelNp ? <>{r.label} <span className="text-ink-muted">{r.labelNp}</span></> : r.label) },
+  { id: "employees", header: "Employees", kind: "number", value: (r) => r.employees, width: 11 },
+  { id: "total", header: "Total", kind: "amount", value: (r) => r.total, total: true, width: 16 },
+  { id: "average", header: "Average", kind: "amount", value: (r) => r.average, width: 14 },
+  { id: "adjusted", header: "Typed by a reviewer", kind: "number", value: (r) => r.adjusted || null, width: 12 },
+];
 
-  /** Injects a temporary @page landscape override for wide tabular prints,
-   *  then removes it after printing via the afterprint event.
-   *  NOTE: @page must be at the stylesheet root — NOT inside @media print. */
-  const printLandscape = (delayMs = 50) => {
-    const styleEl = document.createElement("style");
-    styleEl.id = "__salary-landscape-override";
-    // Bare @page rule (root level) — this is the correct spec. @page inside @media print is invalid.
-    styleEl.textContent = "@page { size: A4 landscape; margin: 8mm 6mm; }";
-    document.head.appendChild(styleEl);
-    document.body.classList.add("print-landscape");
-    setTimeout(() => {
-      window.print();
-    }, delayMs);
-    window.addEventListener(
-      "afterprint",
-      () => {
-        document.getElementById("__salary-landscape-override")?.remove();
-        document.body.classList.remove("print-landscape");
-      },
-      { once: true }
-    );
+const bankColumns: ReportTableColumn<BankTransferRow>[] = [
+  { id: "code", header: "Code", kind: "code", value: (r) => r.code, width: 10 },
+  { id: "name", header: "Account holder", value: (r) => r.name, width: 26 },
+  { id: "account", header: "Account number", kind: "code", value: (r) => r.account || null, width: 22, render: (r) => (r.account ? <span className="font-mono">{r.account}</span> : <span className="text-ink-muted">Cash — no account</span>) },
+  { id: "net", header: "Amount", kind: "amount", value: (r) => r.net, total: true, width: 15 },
+];
+
+export function SalarySheetClient({ initial }: { initial: SalarySheetData }) {
+  const { data, params, set, run, pending, error, setError } = useReport(initial, salarySheetAction);
+  const { context, run: payRun, places } = data;
+  const shown = data.params;
+  const exporter = useReportExport("REPORTS_SALARY_SHEET", setError);
+  const landscape = shown.view === "sheet" || shown.view === "summary";
+
+  const sheetGroups = useMemo(
+    () =>
+      shown.groupBy === "department"
+        ? groupRows(data.rows, (r) => r.department, (r) => r.department)
+        : shown.groupBy === "branch"
+          ? groupRows(data.rows, (r) => r.branch, (r) => r.branch)
+          : undefined,
+    [data.rows, shown.groupBy]
+  );
+
+  const meta = [
+    ...placeMeta(context, places, shown),
+    ...(shown.groupBy !== "none" && (shown.view === "sheet" || shown.view === "summary") ? [{ label: "Grouped", value: GROUPS.find((g) => g.value === shown.groupBy)!.label.replace("By ", "by ") }] : []),
+  ];
+  const subtitle = payRun ? [payRun.period, payRun.kind, payRun.branches].filter(Boolean).join(" · ") : "";
+  const title = TITLE[shown.view];
+  const fileStem = ["salary", shown.view === "sheet" ? "sheet" : shown.view, payRun?.period, payRun?.kind];
+
+  // What the page shows, for the files.
+  const sheetCols = shown.view === "sheet" ? sheetColumns(data.columns) : summaryColumns;
+  const bankGroups = useMemo(() => groupRows(data.bank, (r) => r.bank, (r) => r.bank), [data.bank]);
+  const lineGroups: ReportGroup<SalaryLineRow>[] = useMemo(
+    () => [
+      { key: "earning", label: "Earnings", rows: data.lines.filter((l) => l.side === "earning") },
+      { key: "deduction", label: "Deductions", rows: data.lines.filter((l) => l.side === "deduction") },
+    ],
+    [data.lines]
+  );
+  const ready = !!payRun && data.employees > 0;
+  const rowCount = landscape ? data.rows.length : shown.view === "lines" ? data.lines.length : data.bank.length;
+  const lineLabel = (g: ReportGroup<SalaryLineRow>) => (g.key === "earning" ? "Gross earnings" : "Total deductions");
+  const bankLabel = (g: ReportGroup<BankTransferRow>) => (g.label ? `Total — ${g.label}` : "Total — paid in cash");
+
+  const sheets = () => {
+    const lines = titleLines(context, `${title.en} — ${subtitle}`, meta);
+    if (shown.view === "lines") return [reportSheet(lineColumns, data.lines, { name: title.en, title: lines, groups: lineGroups, totals: true, subtotalLabel: lineLabel, totalLabel: "Net payable (earnings − deductions)" })];
+    if (shown.view === "bank") return [reportSheet(bankColumns, data.bank, { name: title.en, title: lines, groups: bankGroups, numbered: true, totals: true, subtotalLabel: bankLabel, totalLabel: "Total to pay" })];
+    return [reportSheet(sheetCols, data.rows, { name: title.en, title: lines, groups: sheetGroups, numbered: true, totals: true, landscape: true })];
   };
+  const csvText = () => (shown.view === "lines" ? reportCsv(lineColumns, data.lines) : shown.view === "bank" ? reportCsv(bankColumns, data.bank, { numbered: true }) : reportCsv(sheetCols, data.rows, { numbered: true }));
 
-  const handlePrintSummary = () => {
-    setIsIndividualSlipsView(false);
-    printLandscape(50);
-  };
+  // The net line of the pay-line view: earnings less deductions (it equals the sheet's net).
+  const earned = columnTotal(lineColumns[2], lineGroups[0].rows) ?? 0;
+  const deducted = columnTotal(lineColumns[2], lineGroups[1].rows) ?? 0;
 
-  const handlePrintIndividualSlips = () => {
-    setIsIndividualSlipsView(true);
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
-
-  const fetchReport = async (filters: ReportFilterState, tabToFetch: "SALARY_SHEET" | "HEAD_SUMMARY" = activeTab) => {
-    if (!filters.payrollRunId) {
-      setError("Please select a locked payroll run.");
-      toast.error("Please select a locked payroll run.");
-      return;
-    }
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      if (tabToFetch === "SALARY_SHEET") {
-        const res = await getSalarySheetReportAction({
-          payrollRunId: filters.payrollRunId,
-          branchId: filters.branchId,
-          departmentId: filters.departmentId,
-          employeeSearch: filters.search,
-        });
-
-        if (!res.success || !res.data) {
-          const msg = res.error || "Failed to fetch salary sheet.";
-          setError(msg);
-          toast.error(msg);
-          setSheetData(null);
-        } else {
-          setSheetData(res.data);
-          toast.success("Salary sheet loaded successfully.");
-        }
-      } else {
-        const res = await getPayslipHeadSummaryAction({
-          payrollRunId: filters.payrollRunId,
-          branchId: filters.branchId,
-          departmentId: filters.departmentId,
-        });
-
-        if (!res.success || !res.data) {
-          const msg = res.error || "Failed to fetch pay head summary.";
-          setError(msg);
-          toast.error(msg);
-          setHeadSummaryRows([]);
-        } else {
-          setHeadSummaryRows(res.data.rows);
-          setHeadRunLabel(res.data.runLabel);
-          toast.success("Pay head summary loaded successfully.");
-        }
+  const letterhead = payRun && (
+    <ReportLetterhead
+      company={context.company}
+      title={title.en}
+      titleNp={title.np}
+      subtitle={subtitle}
+      meta={[...meta, { label: "Employees", value: String(data.employees) }]}
+      printedBy={context.generatedBy}
+      printedOn={context.generatedOn}
+      aside={
+        payRun.status === "APPROVED" ? (
+          <p className="mb-1 inline-block rounded border border-warning px-1.5 py-0.5 font-semibold uppercase tracking-wide text-warning">Approved — not locked</p>
+        ) : (
+          <p className="mb-1 inline-flex items-center gap-1 font-semibold text-ink">
+            <Lock className="h-3 w-3" aria-hidden /> Locked{payRun.lockedOn ? ` ${payRun.lockedOn}` : ""}
+          </p>
+        )
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error loading report.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFilterChange = (newFilters: ReportFilterState) => {
-    setFilterState(newFilters);
-    setSingleEmployeeRow(null);
-    fetchReport(newFilters, activeTab);
-  };
-
-  const handleTabChange = (tab: "SALARY_SHEET" | "HEAD_SUMMARY") => {
-    setActiveTab(tab);
-    setSingleEmployeeRow(null);
-    if (filterState.payrollRunId) {
-      fetchReport(filterState, tab);
-    }
-  };
-
-  // Derive filtered sheet data based on single employee filter
-  const activeSheetData: SalarySheetReportData | null = useMemo(() => {
-    if (!sheetData) return null;
-    let filteredRows = sheetData.rows;
-
-    if (filterState.employeeId) {
-      const selectedEmp = lookupData.employees.find((e) => e.id === filterState.employeeId);
-      if (selectedEmp) {
-        filteredRows = filteredRows.filter(
-          (r) => r.employeeCode === selectedEmp.employeeCode || r.employeeName === selectedEmp.name
-        );
-      }
-    }
-
-    if (filteredRows.length === sheetData.rows.length) {
-      return sheetData;
-    }
-
-    const totalGross = filteredRows.reduce((acc, r) => acc + Number(r.grossEarnings), 0);
-    const totalDed = filteredRows.reduce((acc, r) => acc + Number(r.totalDeductions), 0);
-    const totalNet = filteredRows.reduce((acc, r) => acc + Number(r.netPayable), 0);
-
-    return {
-      ...sheetData,
-      rows: filteredRows,
-      summary: {
-        ...sheetData.summary,
-        totalEmployees: filteredRows.length,
-        totalGrossEarnings: totalGross.toFixed(2),
-        totalDeductions: totalDed.toFixed(2),
-        totalNetPayable: totalNet.toFixed(2),
-      },
-    };
-  }, [sheetData, filterState.employeeId, lookupData.employees]);
-
-  const handleExportCsv = async (rowsToExport?: SalarySheetRow[]) => {
-    if (!filterState.payrollRunId || !sheetData) return;
-    setIsExporting(true);
-    try {
-      const exportRows = rowsToExport || activeSheetData?.rows || sheetData.rows;
-      const gate = await authorizeExportAction({ module: "REPORTS_SALARY_SHEET", label: `Salary sheet ${sheetData.run.label} (CSV)`, rowCount: exportRows.length });
-      if (!gate.allowed) {
-        toast.error(gate.error ?? "Export not allowed");
-        return;
-      }
-      const csv = rowsToCsv(
-        ["SN", "Code", "EmployeeName", "Department", "BasicSalary", "GradeAmount", "OTAmount", "GrossEarnings", "AbsentDeduction", "PF", "SSF", "CIT", "TDS", "LoanDeduction", "TotalDeductions", "NetPayable", "BankName", "BankAccount"],
-        exportRows.map((r, idx) => [
-          idx + 1, r.employeeCode, r.employeeName, r.departmentName, r.basicSalary, r.gradeAmount, r.otAmount, r.grossEarnings,
-          r.absentDeduction, r.pfEmployee, r.ssfEmployee, r.citDeduction, r.tdsThisMonth, r.loanDeduction, r.totalDeductions,
-          r.netPayable, r.bankName, r.bankAccountNumberFull,
-        ])
-      );
-      downloadTextFile(
-        exportRows.length === 1
-          ? `salary-sheet-${exportRows[0].employeeCode}.csv`
-          : `salary-sheet-${sheetData.run.label.replace(/[^a-zA-Z0-9]/g, "-")}.csv`,
-        csv
-      );
-      toast.success("Salary sheet CSV exported successfully.");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to export CSV";
-      toast.error(msg);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleSingleEmployeeAction = (
-    row: SalarySheetRow,
-    action: "preview" | "print" | "export"
-  ) => {
-    if (action === "export") {
-      handleExportCsv([row]);
-    } else if (action === "preview") {
-      setSingleEmployeeRow(row);
-      setIsPreviewOpen(true);
-    } else if (action === "print") {
-      setSingleEmployeeRow(row);
-      setTimeout(() => {
-        window.print();
-      }, 100);
-    }
-  };
-
-  const handlePrint = () => {
-    if (activeTab === "SALARY_SHEET") {
-      printLandscape(50);
-    } else {
-      window.print();
-    }
-  };
-
-  const selectedRunLabel =
-    lookupData.lockedPayrollRuns.find((r) => r.id === filterState.payrollRunId)?.label ||
-    "Selected Run";
-
-  const previewDisplayData: SalarySheetReportData | null = useMemo(() => {
-    if (singleEmployeeRow && sheetData) {
-      return {
-        ...sheetData,
-        rows: [singleEmployeeRow],
-        summary: {
-          ...sheetData.summary,
-          totalEmployees: 1,
-          totalGrossEarnings: singleEmployeeRow.grossEarnings,
-          totalDeductions: singleEmployeeRow.totalDeductions,
-          totalNetPayable: singleEmployeeRow.netPayable,
-        },
-      };
-    }
-    return activeSheetData;
-  }, [singleEmployeeRow, sheetData, activeSheetData]);
+    />
+  );
 
   return (
-    <PageFrame size="wide" spacing="default" className="print:space-y-0">
-      {/* Canonical Standard Page Header — screen only */}
-      <div className="print:hidden">
-        <PageHeader
-          title="Salary Sheet Report"
-          description="View earnings, dynamic allowances, deductions, and net payable breakdown for locked monthly payroll runs."
-        >
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-              <span>Locked run data enforced</span>
-            </span>
-          </div>
-        </PageHeader>
-      </div>
-
-      {/* Filter Bar — screen only */}
-      <div className="print:hidden">
-        <ReportFilterBar
-          lookupData={lookupData}
-          showRunSelector={true}
-          showBranchFilter={true}
-          showDepartmentFilter={true}
-          showDesignationFilter={true}
-          showEmployeeFilter={true}
-          showSearchFilter={activeTab === "SALARY_SHEET"}
-          onFilterChange={handleFilterChange}
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Error Alert — screen only */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-3.5 text-xs font-medium text-rose-700 border border-rose-200 print:hidden">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Report Result Section */}
-      <div className="space-y-4">
-        {/* Standard Action Toolbar */}
-        <ReportActionToolbar
-          onPrint={handlePrint}
-          onExport={() => handleExportCsv()}
-          onPreview={() => {
-            setSingleEmployeeRow(null);
-            setIsPreviewOpen(true);
-          }}
-          isExporting={isExporting}
-          hasData={Boolean(activeSheetData || headSummaryRows.length > 0)}
-          meta={
-            activeSheetData ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                  Period: {selectedRunLabel}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                  Staff: {activeSheetData.summary.totalEmployees}
-                </span>
-              </div>
-            ) : undefined
-          }
-        >
-          {/* Sub-tab Switcher: Salary Sheet vs Pay Head Summary */}
-          <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100/70 p-0.5">
-            <button
-              type="button"
-              onClick={() => handleTabChange("SALARY_SHEET")}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all",
-                activeTab === "SALARY_SHEET"
-                  ? "bg-white text-zinc-950 font-semibold shadow-2xs"
-                  : "text-zinc-600 hover:text-zinc-900"
-              )}
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-500" />
-              <span>Salary sheet</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange("HEAD_SUMMARY")}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all",
-                activeTab === "HEAD_SUMMARY"
-                  ? "bg-white text-zinc-950 font-semibold shadow-2xs"
-                  : "text-zinc-600 hover:text-zinc-900"
-              )}
-            >
-              <Layers className="h-3.5 w-3.5 text-zinc-500" />
-              <span>Pay head summary</span>
-            </button>
-          </div>
-        </ReportActionToolbar>
-
-        {/* Tab Content inside Report Shell */}
-        <div className={isPreviewOpen ? "print:hidden" : ""}>
-          {activeTab === "SALARY_SHEET" ? (
-            activeSheetData ? (
-              <SalarySheetTable
-                data={activeSheetData}
-                onExportCsv={() => handleExportCsv()}
-                isExporting={isExporting}
-                onSingleEmployeeAction={handleSingleEmployeeAction}
-              />
-            ) : (
-              <ReportDataTableShell
-                isEmpty={true}
-                emptyTitle="No Salary Sheet Loaded"
-                emptyDescription="Select a locked payroll run from the filter options above and click &quot;Generate Report&quot;."
-                emptyAction={
-                  <a
-                    href="/payroll/review"
-                    className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline text-xs inline-flex items-center gap-1"
-                  >
-                    Lock a payroll run in Review section
-                  </a>
-                }
-              >
-                <div />
-              </ReportDataTableShell>
-            )
-          ) : (
-            <PayslipHeadTable rows={headSummaryRows} runLabel={headRunLabel} />
+    <ReportViewer
+      title="Salary sheet"
+      description="Approved and locked pay runs as printed for signature: every pay line, a summary, pay-line totals or the bank transfer list"
+      status={payRun ? <StatusChip status={payRun.status === "LOCKED" ? "Locked" : "Approved"} /> : undefined}
+      orientation={landscape ? "landscape" : "portrait"}
+      paramsSummary={payRun ? `${title.en} · ${subtitle}` : undefined}
+      params={
+        <>
+          <ReportParam label="Pay run" help={data.runs.length ? undefined : "No approved or locked run has payslips for the employees you cover."}>
+            <SelectField options={data.runs} value={params.runId} onChange={(v) => set({ runId: v })} aria-label="Pay run" placeholder="No pay run yet" />
+          </ReportParam>
+          <ReportParam label="Report">
+            <SelectField options={VIEWS} value={params.view} onChange={(v) => set({ view: v as SalaryView })} aria-label="Report" />
+          </ReportParam>
+          {(params.view === "sheet" || params.view === "summary") && (
+            <ReportParam label="Group" help={params.view === "sheet" ? "Many pay heads? The summary fits the page better; Excel has every column." : undefined}>
+              <SelectField options={GROUPS} value={params.groupBy} onChange={(v) => set({ groupBy: v as SalaryGroupBy })} aria-label="Group" />
+            </ReportParam>
           )}
-        </div>
-      </div>
-
-      {/* Full Document Preview Modal */}
-      <ReportPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => {
-          setIsPreviewOpen(false);
-          setSingleEmployeeRow(null);
-          setIsIndividualSlipsView(false);
-        }}
-        title={
-          singleEmployeeRow || filterState.employeeId
-            ? `Single Employee Report — ${
-                singleEmployeeRow?.employeeName ||
-                activeSheetData?.rows[0]?.employeeName ||
-                "Employee"
-              }`
-            : isIndividualSlipsView
-            ? "Employee Salary Slips (Individual A4 Pages)"
-            : "Monthly Salary Sheet Statement"
-        }
-        subtitle={`Period: ${selectedRunLabel}`}
-        onPrint={handlePrintSummary}
-        onExport={() => handleExportCsv(singleEmployeeRow ? [singleEmployeeRow] : undefined)}
-        isExporting={isExporting}
-        isSingleEmployee={
-          singleEmployeeRow !== null ||
-          Boolean(filterState.employeeId) ||
-          previewDisplayData?.rows.length === 1
-        }
-        onPrintSummary={handlePrintSummary}
-        onPrintIndividualSlips={
-          activeTab === "SALARY_SHEET" ? handlePrintIndividualSlips : undefined
-        }
-        company={lookupData.company}
-        metaDetails={[
-          { label: "Payroll Run", value: selectedRunLabel },
-          {
-            label: "Report View",
-            value:
-              singleEmployeeRow || filterState.employeeId
-                ? "Single Employee"
-                : isIndividualSlipsView
-                ? "Individual Slips (Page-by-Page)"
-                : activeTab === "SALARY_SHEET"
-                ? "Full Salary Sheet"
-                : "Pay Head Summary",
-          },
-          {
-            label: "Employees Count",
-            value: previewDisplayData ? String(previewDisplayData.rows.length) : "N/A",
-          },
-        ]}
-      >
-        {isIndividualSlipsView && previewDisplayData ? (
-          <SalarySheetIndividualSlips
-            rows={previewDisplayData.rows}
-            periodLabel={selectedRunLabel}
-            company={lookupData.company}
-          />
-        ) : activeTab === "SALARY_SHEET" && previewDisplayData ? (
-          <SalarySheetTable data={previewDisplayData} />
-        ) : (
-          <PayslipHeadTable rows={headSummaryRows} runLabel={headRunLabel} />
-        )}
-      </ReportPreviewModal>
-    </PageFrame>
+          <PlaceParams places={places} value={params} onChange={set} />
+        </>
+      }
+      onRun={() => run()}
+      running={pending}
+      ready={ready}
+      excel={context.canExport ? () => exporter.excel({ label: `${title.en} ${subtitle}`, fileName: reportFileName(fileStem, "xlsx"), rowCount, sheets, creator: context.generatedBy }) : undefined}
+      csv={context.canExport ? () => exporter.csv({ label: `${title.en} ${subtitle}`, fileName: reportFileName(fileStem, "csv"), rowCount, text: csvText }) : undefined}
+      exporting={exporter.exporting}
+      exportNote={exportNote(context)}
+      notice={
+        <>
+          <ReportNotices context={context} error={error} onDismiss={() => setError(null)} />
+          {payRun?.status === "APPROVED" && <Notice tone="warning">This run is approved but not locked: its figures can still change until payroll locks it.</Notice>}
+        </>
+      }
+    >
+      {!payRun ? (
+        <ReportEmptyPaper orientation={landscape ? "landscape" : "portrait"} icon={<Landmark className="h-5 w-5" />} title="No pay run to show" description="A salary sheet is printed from an approved or locked pay run with payslips for the employees you cover." />
+      ) : (
+        <ReportPaper orientation={landscape ? "landscape" : "portrait"}>
+          {letterhead}
+          {landscape && (
+            <>
+              <ReportTable columns={sheetCols} rows={data.rows} getRowId={(r) => r.slipId} groups={sheetGroups} totals dense />
+              {data.rows.some((r) => r.adjusted) && <ReportNote>Some lines were typed by a reviewer instead of calculated (see Pay lines).</ReportNote>}
+              {data.rows.some((r) => !r.balanced) && (
+                <ReportNote>The lines of {data.rows.filter((r) => !r.balanced).map((r) => r.code).join(", ")} do not add up to the totals stored on the payslip; the totals are as paid.</ReportNote>
+              )}
+              <ReportSignatures
+                blocks={[
+                  { label: "Prepared by", name: payRun.prepared?.name, note: payRun.prepared?.on },
+                  { label: "Checked by", name: payRun.checked?.name, note: payRun.checked?.on },
+                  { label: "Approved by", name: payRun.approved?.name, note: payRun.approved?.on },
+                ]}
+              />
+            </>
+          )}
+          {shown.view === "lines" && (
+            <>
+              <ReportTable columns={lineColumns} rows={data.lines} getRowId={(r) => r.key} groups={lineGroups} numbered={false} totals subtotalLabel={lineLabel} totalLabel="Earnings + deductions" />
+              <p className="mt-3 flex justify-between border-y-2 border-line-strong bg-surface-sunken/60 px-1.5 py-1 text-2xs font-semibold">
+                <span>Net payable (gross earnings − total deductions)</span>
+                <span className="tabular-nums">{formatAmount(earned - deducted)}</span>
+              </p>
+              <ReportNote>Employees counts the people paid a line (not zero). Employer&apos;s PF is deposited for the employee and is not part of gross earnings.</ReportNote>
+            </>
+          )}
+          {shown.view === "bank" && (
+            <>
+              <ReportTable columns={bankColumns} rows={data.bank} getRowId={(r) => r.slipId} groups={bankGroups} totals subtotalLabel={bankLabel} totalLabel="Total to pay" />
+              <ReportNote>Net pay of each payslip to the account on it. People without an account are listed under cash.</ReportNote>
+              <ReportSignatures blocks={(data.signatories.length ? data.signatories : [{ name: "", title: "" }]).map((s, i) => ({ label: i === 0 ? "Authorised signatory" : "Second signatory", name: s.name, note: s.title }))} />
+            </>
+          )}
+        </ReportPaper>
+      )}
+    </ReportViewer>
   );
 }

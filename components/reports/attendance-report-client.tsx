@@ -1,354 +1,206 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
-import { AttendanceReportTable } from "./attendance-report-table";
-import { ReportActionToolbar } from "./report-action-toolbar";
-import { ReportDataTableShell } from "./report-data-table-shell";
-import { ReportPreviewModal } from "./report-preview-modal";
-import { AttendanceIndividualSlips } from "./individual-report-slips";
-import { PageFrame } from "@/components/layout/page-frame";
-import { PageHeader } from "@/components/ui/page-header";
-import type {
-  ReportFilterLookupData,
-  AttendanceReportData,
-  AttendanceReportRow,
-} from "@/lib/types/report";
-import { getAttendanceReportAction } from "@/app/actions/report.actions";
-import { AlertCircle, CalendarCheck, ShieldCheck } from "lucide-react";
-import { useToast } from "@/components/ui/toast";
-import { getTodayBS } from "@/lib/utils/bs-calendar";
-import { authorizeExportAction } from "@/app/actions/export.actions";
-import { rowsToCsv } from "@/lib/export/csv";
-import { downloadTextFile } from "@/lib/export/download";
+import { CalendarDays } from "lucide-react";
+import { SelectField } from "@/components/kit/select-field";
+import { StatusChip } from "@/components/kit/status-chip";
+import { Notice } from "@/components/kit/notice";
+import { ReportEmptyPaper, ReportLetterhead, ReportNote, ReportPaper, ReportParam, ReportTable, ReportViewer, useReportExport, type ReportTableColumn } from "@/components/kit/report-viewer";
+import { attendanceReportAction } from "@/app/actions/report.actions";
+import { reportCsv, reportFileName, reportSheet, type ReportColumn } from "@/lib/kit/report";
+import { DAY_CODE, DAY_TYPES } from "@/lib/types/attendance";
+import type { AttendanceDayCell, AttendanceReportData, AttendanceReportRow, AttendanceView } from "@/lib/types/report";
+import { exportNote, PlaceParams, placeMeta, ReportNotices, titleLines, useReport } from "./report-common";
 
-interface AttendanceReportClientProps {
-  lookupData: ReportFilterLookupData;
+// Attendance report (4.11, template D): a BS month from the attendance rules (punches, leave,
+// holidays, shifts, HR overrides) — the monthly summary, the day register, or one attendance
+// card per employee. OT pay and the absence deduction appear only for viewers who can see the
+// salary sheet (S48).
+
+const VIEWS: { value: AttendanceView; label: string }[] = [
+  { value: "summary", label: "Monthly summary" },
+  { value: "register", label: "Day register" },
+  { value: "cards", label: "Attendance cards (one per employee)" },
+];
+
+const person: ReportTableColumn<AttendanceReportRow>[] = [
+  { id: "code", header: "Code", kind: "code", value: (r) => r.code, width: 10 },
+  { id: "name", header: "Name", value: (r) => r.name, width: 24 },
+];
+const days = (id: string, header: string, pick: (r: AttendanceReportRow) => number, total = true): ReportTableColumn<AttendanceReportRow> => ({ id, header, kind: "days", value: pick, total, width: 9 });
+
+function summaryColumns(showAmounts: boolean): ReportTableColumn<AttendanceReportRow>[] {
+  return [
+    ...person,
+    { id: "designation", header: "Designation", value: (r) => r.designation, width: 18 },
+    days("employed", "Days employed", (r) => r.employedDays),
+    days("present", "Present", (r) => r.present),
+    days("half", "Half days", (r) => r.halfDays),
+    days("duty", "On duty", (r) => r.onDuty),
+    days("paidLeave", "Paid leave", (r) => r.paidLeave),
+    days("unpaidLeave", "Unpaid leave", (r) => r.unpaidLeave),
+    days("absent", "Absent", (r) => r.absent),
+    days("missing", "Missing punch", (r) => r.missingPunch),
+    days("holidays", "Holidays", (r) => r.holidays),
+    days("off", "Weekly off", (r) => r.weeklyOff),
+    days("late", "Late days", (r) => r.lateDays),
+    days("otWork", "OT work days (h)", (r) => r.otWorkDayHours),
+    days("otOff", "OT days off (h)", (r) => r.otOffDayHours),
+    days("payable", "Payable days", (r) => r.payableDays),
+    ...(showAmounts
+      ? [
+          { id: "otPay", header: "OT pay", kind: "amount" as const, value: (r: AttendanceReportRow) => r.otPay, total: true, width: 12 },
+          { id: "absence", header: "Absence deduction", kind: "amount" as const, value: (r: AttendanceReportRow) => r.absenceDeduction, total: true, width: 12 },
+        ]
+      : []),
+  ];
 }
 
-export function AttendanceReportClient({ lookupData }: AttendanceReportClientProps) {
-  const [filterState, setFilterState] = useState<ReportFilterState>({
-    fiscalYearId: lookupData.fiscalYears[0]?.id || "",
-    bsMonth: getTodayBS().month,
-  });
-  const [reportData, setReportData] = useState<AttendanceReportData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [singleEmployeeRow, setSingleEmployeeRow] = useState<AttendanceReportRow | null>(null);
-  const [isIndividualSlipsView, setIsIndividualSlipsView] = useState(false);
+function registerColumns(data: AttendanceReportData): ReportTableColumn<AttendanceReportRow>[] {
+  return [
+    ...person,
+    ...data.dayHeads.map(
+      (h, i): ReportTableColumn<AttendanceReportRow> => ({
+        id: `d${h.day}`,
+        header: String(h.day),
+        headerNp: h.weekday.slice(0, 2),
+        value: (r) => r.days[i]?.code ?? "",
+        width: 4,
+        render: (r) => <span className={r.days[i]?.code === "A" || r.days[i]?.code === "MP" ? "font-semibold" : undefined}>{r.days[i]?.code ?? ""}</span>,
+      })
+    ),
+    days("present", "P", (r) => r.present + r.onDuty + r.halfDays * 0.5),
+    days("leave", "Leave", (r) => r.paidLeave + r.unpaidLeave),
+    days("absent", "A", (r) => r.absent + r.missingPunch + r.halfDays * 0.5),
+    days("payable", "Payable", (r) => r.payableDays),
+  ];
+}
 
-  const toast = useToast();
+const cardColumns = (data: AttendanceReportData): ReportTableColumn<AttendanceDayCell>[] => [
+  { id: "day", header: "Day", value: (d) => `${d.day} ${data.dayHeads[d.day - 1]?.weekday ?? ""}`, width: 8, nowrap: true },
+  { id: "in", header: "In", kind: "code", value: (d) => d.in, width: 7 },
+  { id: "out", header: "Out", kind: "code", value: (d) => d.out, width: 7 },
+  { id: "worked", header: "Worked", kind: "code", value: (d) => d.worked, width: 7 },
+  { id: "status", header: "Status", value: (d) => (d.code ? `${d.code} · ${d.type}` : d.type), width: 18 },
+  { id: "note", header: "Note", value: (d) => d.note, width: 30 },
+];
 
-  const fetchReport = async (filters: ReportFilterState) => {
-    if (!filters.fiscalYearId || !filters.bsMonth) {
-      setError("Please select both Fiscal Year and BS Month.");
-      toast.error("Please select both Fiscal Year and BS Month.");
-      return;
-    }
-    setError(null);
-    setIsLoading(true);
+/** Every employee's days, one row per day, for the cards' Excel and CSV. */
+interface CardFileRow {
+  key: string;
+  code: string;
+  name: string;
+  day: number;
+  weekday: string;
+  cell: AttendanceDayCell;
+}
+const cardFileColumns: ReportColumn<CardFileRow>[] = [
+  { id: "code", header: "Code", kind: "code", value: (r) => r.code, width: 10 },
+  { id: "name", header: "Name", value: (r) => r.name, width: 24 },
+  { id: "day", header: "Day", kind: "number", value: (r) => r.day, width: 6 },
+  { id: "weekday", header: "Weekday", value: (r) => r.weekday, width: 8 },
+  { id: "in", header: "In", kind: "code", value: (r) => r.cell.in, width: 7 },
+  { id: "out", header: "Out", kind: "code", value: (r) => r.cell.out, width: 7 },
+  { id: "worked", header: "Worked", kind: "code", value: (r) => r.cell.worked, width: 7 },
+  { id: "status", header: "Status", value: (r) => r.cell.type, width: 16 },
+  { id: "note", header: "Note", value: (r) => r.cell.note, width: 30 },
+];
 
-    try {
-      const res = await getAttendanceReportAction({
-        fiscalYearId: filters.fiscalYearId,
-        bsMonth: filters.bsMonth,
-        reportFormat: filters.reportFormat,
-        branchId: filters.branchId,
-        departmentId: filters.departmentId,
-        designationId: filters.designationId,
-        employeeId: filters.employeeId,
-      });
+const LEGEND = DAY_TYPES.map((t) => `${DAY_CODE[t].code} ${DAY_CODE[t].name.toLowerCase()}`).join(" · ");
 
-      if (!res.success) {
-        const msg = res.error || "Failed to load attendance report.";
-        setError(msg);
-        toast.error(msg);
-        setReportData(null);
-      } else {
-        setReportData(res.data);
-        toast.success("Attendance report loaded successfully.");
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error loading attendance report.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
+export function AttendanceReportClient({ initial }: { initial: AttendanceReportData }) {
+  const { data, params, set, run, pending, error, setError } = useReport(initial, attendanceReportAction);
+  const { context, places } = data;
+  const shown = data.params;
+  const exporter = useReportExport("REPORTS_ATTENDANCE", setError);
+  const cards = shown.view === "cards";
+  const meta = placeMeta(context, places, shown);
+  const title = shown.view === "register" ? { en: "Attendance register", np: "हाजिरी विवरण" } : shown.view === "cards" ? { en: "Attendance card", np: "हाजिरी कार्ड" } : { en: "Attendance summary", np: "मासिक हाजिरी सारांश" };
+  const columns = shown.view === "register" ? registerColumns(data) : summaryColumns(data.showAmounts);
+  const fileStem = ["attendance", shown.view, data.monthLabel];
+  const cardRows = (): CardFileRow[] => data.rows.flatMap((r) => r.days.map((cell) => ({ key: `${r.employeeId}:${cell.day}`, code: r.code, name: r.name, day: cell.day, weekday: data.dayHeads[cell.day - 1]?.weekday ?? "", cell })));
+  const rowCount = data.rows.length;
+
+  const sheets = () => {
+    const lines = titleLines(context, `${title.en} — ${data.monthLabel}`, meta);
+    if (cards) return [reportSheet(cardFileColumns, cardRows(), { name: "Attendance cards", title: lines })];
+    return [reportSheet(columns, data.rows, { name: title.en, title: lines, numbered: true, totals: shown.view === "summary", landscape: true })];
   };
-
-
-
-  const handlePrintSummary = () => {
-    setIsIndividualSlipsView(false);
-    setTimeout(() => {
-      window.print();
-    }, 50);
-  };
-
-  const handlePrintIndividualSlips = () => {
-    setIsIndividualSlipsView(true);
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
-
-  const handleFilterChange = (newFilters: ReportFilterState) => {
-    setFilterState(newFilters);
-    setSingleEmployeeRow(null);
-    fetchReport(newFilters);
-  };
-
-  // Derive filtered rows based on employeeId
-  const activeReportData: AttendanceReportData | null = useMemo(() => {
-    if (!reportData) return null;
-    let filteredRows = reportData.rows;
-
-    if (filterState.employeeId && filterState.employeeId !== "ALL") {
-      const selectedEmp = lookupData.employees.find((e) => e.id === filterState.employeeId);
-      if (selectedEmp) {
-        filteredRows = filteredRows.filter(
-          (r) => r.employeeCode.toLowerCase() === selectedEmp.employeeCode.toLowerCase()
-        );
-      }
-    }
-
-    return {
-      ...reportData,
-      rows: filteredRows,
-    };
-  }, [reportData, filterState.employeeId, lookupData.employees]);
-
-  const handleExportCsv = async (rowsToExport?: AttendanceReportRow[]) => {
-    if (!filterState.fiscalYearId || !reportData) return;
-    setIsExporting(true);
-    try {
-      const exportRows = rowsToExport || activeReportData?.rows || reportData.rows;
-      const gate = await authorizeExportAction({ module: "REPORTS_ATTENDANCE", label: `Attendance ${reportData.monthLabel} (CSV)`, rowCount: exportRows.length });
-      if (!gate.allowed) {
-        toast.error(gate.error ?? "Export not allowed");
-        return;
-      }
-      const csv = rowsToCsv(
-        ["SN", "Code", "EmployeeName", "Department", "DaysEmployed", "Present", "PayLeave", "NonPayLeave", "AbsentDays", "OfficeOT", "OffDayOT", "OTEarned", "LeaveDeduction"],
-        exportRows.map((r, idx) => [
-          idx + 1, r.employeeCode, r.employeeName, r.departmentName, r.totalWorkingDays, r.presentDays, r.payLeaveDays,
-          r.nonPayLeaveDays, r.absentDays, r.totalOtHoursOffice, r.totalOtHoursOff, r.otEarnedAmount, r.leaveDeductionAmount,
-        ])
-      );
-      downloadTextFile(
-        exportRows.length === 1
-          ? `attendance-${exportRows[0].employeeCode}.csv`
-          : `attendance-report-${reportData.monthLabel.replace(/[^a-zA-Z0-9]/g, "-")}.csv`,
-        csv
-      );
-      toast.success("Attendance CSV exported successfully.");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to export CSV";
-      toast.error(msg);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleSingleEmployeeAction = (
-    row: AttendanceReportRow,
-    action: "preview" | "print" | "export"
-  ) => {
-    if (action === "export") {
-      handleExportCsv([row]);
-    } else if (action === "preview") {
-      setSingleEmployeeRow(row);
-      setIsPreviewOpen(true);
-    } else if (action === "print") {
-      setSingleEmployeeRow(row);
-      setTimeout(() => {
-        window.print();
-      }, 100);
-    }
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const fyLabel =
-    lookupData.fiscalYears.find((f) => f.id === filterState.fiscalYearId)?.label ||
-    "Selected FY";
-
-  const previewDisplayData: AttendanceReportData | null = useMemo(() => {
-    if (singleEmployeeRow && reportData) {
-      return {
-        ...reportData,
-        rows: [singleEmployeeRow],
-        totalEmployees: 1,
-      };
-    }
-    return activeReportData;
-  }, [singleEmployeeRow, reportData, activeReportData]);
+  const csvText = () => (cards ? reportCsv(cardFileColumns, cardRows()) : reportCsv(columns, data.rows, { numbered: true }));
 
   return (
-    <PageFrame size="wide" spacing="default" className="print:space-y-0">
-      {/* Canonical Standard Page Header — screen only */}
-      <div className="print:hidden">
-        <PageHeader
-          title="Attendance & Overtime Ledger"
-          description="Daily punch logs, presence matrix, monthly working days, and statutory overtime breakdown."
-        >
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-              <span>Nepal Labour Act standards</span>
-            </span>
-          </div>
-        </PageHeader>
-      </div>
-
-      {/* Filter Bar — screen only */}
-      <div className="print:hidden">
-        <ReportFilterBar
-          lookupData={lookupData}
-          showFYSelector={true}
-          showMonthSelector={true}
-          showReportFormatToggle={true}
-          showBranchFilter={true}
-          showDepartmentFilter={true}
-          showDesignationFilter={true}
-          showEmployeeFilter={true}
-          showSearchFilter={false}
-          onFilterChange={handleFilterChange}
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Error Alert — screen only */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-3.5 text-xs font-medium text-rose-700 border border-rose-200 print:hidden">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Report Result Section */}
-      <div className="space-y-4">
-        {/* Standard Action Toolbar */}
-        <ReportActionToolbar
-          onPrint={handlePrint}
-          onExport={() => handleExportCsv()}
-          onPreview={() => {
-            setSingleEmployeeRow(null);
-            setIsPreviewOpen(true);
-          }}
-          isExporting={isExporting}
-          hasData={Boolean(activeReportData)}
-          meta={
-            activeReportData ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                  Period: {reportData?.monthLabel || ""} ({fyLabel})
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${
-                    reportData?.isLocked
-                      ? "border-emerald-200/80 bg-emerald-50 text-emerald-800"
-                      : "border-amber-200/80 bg-amber-50 text-amber-800"
-                  }`}
-                >
-                  {reportData?.isLocked ? "Locked payroll period" : "Active live attendance"}
-                </span>
-              </div>
-            ) : undefined
-          }
-        >
-          <div className="flex items-center gap-2">
-            <div className="p-1 rounded-md bg-zinc-100 text-zinc-700">
-              <CalendarCheck className="h-3.5 w-3.5" />
+    <ReportViewer
+      title="Attendance report"
+      description="A month from the attendance rules: the summary, the day register or attendance cards"
+      status={data.rows.length ? <StatusChip status={data.closed ? "Closed" : "Open"} label={data.closed ? "Month closed" : "Month open"} /> : undefined}
+      orientation={cards ? "portrait" : "landscape"}
+      paramsSummary={`${title.en} · ${data.monthLabel} · ${data.rows.length} employee${data.rows.length === 1 ? "" : "s"}`}
+      params={
+        <>
+          <ReportParam label="Fiscal year">
+            <SelectField options={data.periods.fiscalYears} value={params.fiscalYearId} onChange={(v) => set({ fiscalYearId: v, month: data.periods.months[v]?.[0]?.value ?? "" })} aria-label="Fiscal year" />
+          </ReportParam>
+          <ReportParam label="Month">
+            <SelectField options={data.periods.months[params.fiscalYearId] ?? []} value={params.month} onChange={(v) => set({ month: v })} aria-label="Month" />
+          </ReportParam>
+          <ReportParam label="Report">
+            <SelectField options={VIEWS} value={params.view} onChange={(v) => set({ view: v as AttendanceView })} aria-label="Report" />
+          </ReportParam>
+          <PlaceParams places={places} value={params} onChange={set} />
+        </>
+      }
+      onRun={() => run()}
+      running={pending}
+      ready={data.rows.length > 0}
+      excel={context.canExport ? () => exporter.excel({ label: `${title.en} ${data.monthLabel}`, fileName: reportFileName(fileStem, "xlsx"), rowCount, sheets, creator: context.generatedBy }) : undefined}
+      csv={context.canExport ? () => exporter.csv({ label: `${title.en} ${data.monthLabel}`, fileName: reportFileName(fileStem, "csv"), rowCount, text: csvText }) : undefined}
+      exporting={exporter.exporting}
+      exportNote={exportNote(context)}
+      notice={
+        <>
+          <ReportNotices context={context} error={error} onDismiss={() => setError(null)} />
+          {data.rows.length > 0 && !data.closed && <Notice tone="info">{data.monthLabel} is not closed for payroll: the figures can still change, and days after today are not counted yet.</Notice>}
+        </>
+      }
+    >
+      {data.rows.length === 0 ? (
+        <ReportEmptyPaper orientation={cards ? "portrait" : "landscape"} icon={<CalendarDays className="h-5 w-5" />} title="Nobody to show" description="No one you cover was employed in this month with these parameters." />
+      ) : cards ? (
+        data.rows.map((r) => (
+          <ReportPaper key={r.employeeId}>
+            <ReportLetterhead
+              company={context.company}
+              title={title.en}
+              titleNp={title.np}
+              subtitle={`${data.monthLabel} · ${r.name} (${r.code})`}
+              meta={[
+                { label: "Designation", value: r.designation || "—" },
+                { label: "Department", value: r.department || "—" },
+                { label: "Branch", value: r.branch || "—" },
+              ]}
+              printedBy={context.generatedBy}
+              printedOn={context.generatedOn}
+            />
+            <ReportTable columns={cardColumns(data)} rows={r.days} getRowId={(d) => String(d.day)} numbered={false} />
+            <p className="mt-2 text-2xs">
+              Present {r.present} · half days {r.halfDays} · on duty {r.onDuty} · paid leave {r.paidLeave} · unpaid leave {r.unpaidLeave} · absent {r.absent} · missing punch {r.missingPunch} · late {r.lateDays} · OT {r.otWorkDayHours + r.otOffDayHours} h ·{" "}
+              <span className="font-semibold">payable days {r.payableDays}</span>
+            </p>
+            <div className="mt-10 flex justify-between text-2xs">
+              <p className="w-48 border-t border-line-input pt-1">Employee</p>
+              <p className="w-48 border-t border-line-input pt-1 text-right">Checked by</p>
             </div>
-            <span className="text-xs font-semibold text-zinc-900">
-              Attendance matrix
-            </span>
-          </div>
-        </ReportActionToolbar>
-
-        {/* Report Table inside Shell */}
-        <div className={isPreviewOpen ? "print:hidden" : ""}>
-          {activeReportData ? (
-            <AttendanceReportTable
-              data={activeReportData}
-              onExportCsv={() => handleExportCsv()}
-              isExporting={isExporting}
-              onSingleEmployeeAction={handleSingleEmployeeAction}
-            />
-          ) : (
-            <ReportDataTableShell
-              isEmpty={true}
-              emptyTitle="No Attendance Records Loaded"
-              emptyDescription="Select Fiscal Year and BS Month from the filter bar above and click &quot;Generate Report&quot;."
-            >
-              <div />
-            </ReportDataTableShell>
-          )}
-        </div>
-      </div>
-
-      {/* Preview Modal */}
-      <ReportPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => {
-          setIsPreviewOpen(false);
-          setSingleEmployeeRow(null);
-          setIsIndividualSlipsView(false);
-        }}
-        title={
-          singleEmployeeRow || filterState.employeeId
-            ? `Single Employee Attendance — ${
-                singleEmployeeRow?.employeeName ||
-                activeReportData?.rows[0]?.employeeName ||
-                "Employee"
-              }`
-            : isIndividualSlipsView
-            ? "Attendance & OT Statements (Individual A4 Pages)"
-            : "Attendance & OT Statement"
-        }
-        subtitle={`Period: ${reportData?.monthLabel || ""} (${fyLabel})`}
-        onPrint={handlePrintSummary}
-        onExport={() => handleExportCsv(singleEmployeeRow ? [singleEmployeeRow] : undefined)}
-        isExporting={isExporting}
-        isSingleEmployee={
-          singleEmployeeRow !== null ||
-          Boolean(filterState.employeeId) ||
-          previewDisplayData?.rows.length === 1
-        }
-        onPrintSummary={handlePrintSummary}
-        onPrintIndividualSlips={handlePrintIndividualSlips}
-        company={lookupData.company}
-        metaDetails={[
-          { label: "Fiscal Year", value: fyLabel },
-          { label: "Period", value: reportData?.monthLabel || "N/A" },
-          {
-            label: "Scope",
-            value:
-              singleEmployeeRow || filterState.employeeId
-                ? "Single Employee"
-                : isIndividualSlipsView
-                ? "Individual Slips (Page-by-Page)"
-                : "All Selected Employees",
-          },
-          { label: "Lock Status", value: reportData?.isLocked ? "LOCKED" : "UNLOCKED" },
-        ]}
-      >
-        {previewDisplayData &&
-          (isIndividualSlipsView ? (
-            <AttendanceIndividualSlips
-              rows={previewDisplayData.rows}
-              periodLabel={`${reportData?.monthLabel || ""} (${fyLabel})`}
-            />
-          ) : (
-            <AttendanceReportTable data={previewDisplayData} />
-          ))}
-      </ReportPreviewModal>
-    </PageFrame>
+          </ReportPaper>
+        ))
+      ) : (
+        <ReportPaper orientation="landscape">
+          <ReportLetterhead company={context.company} title={title.en} titleNp={title.np} subtitle={data.monthLabel} meta={[...meta, { label: "Employees", value: String(data.rows.length) }]} printedBy={context.generatedBy} printedOn={context.generatedOn} />
+          <ReportTable columns={columns} rows={data.rows} getRowId={(r) => r.employeeId} totals={shown.view === "summary"} dense />
+          <ReportNote>
+            {shown.view === "register" ? `Codes: ${LEGEND}.` : "Days are counted to today. Payable days = days employed less unpaid days (absence, unpaid leave, unpaid halves)."}
+            {!data.showAmounts && shown.view === "summary" && " OT pay and the absence deduction are shown to people who can see the salary sheet."}
+          </ReportNote>
+        </ReportPaper>
+      )}
+    </ReportViewer>
   );
 }
