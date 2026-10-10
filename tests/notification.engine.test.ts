@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextRunStep, runConcerns, type RunStepActor, type RunStepFacts } from '../lib/engines/payroll-control.engine';
+import { nextRunStep, runWithinScope, type RunStepActor, type RunStepFacts } from '../lib/engines/payroll-control.engine';
 import { APPROVAL_KINDS, buildCentre, deadlineItems, digestEmail, lockoutNotice, runItems, runLabel } from '../lib/engines/notification.engine';
 import type { Deadline } from '../lib/types/dashboard';
 import type { RunWaiting } from '../lib/types/notification';
@@ -46,23 +46,25 @@ describe('the next step on a pay run', () => {
   });
 });
 
-describe('which runs concern a person', () => {
+describe('which runs a person may see and act on (S58: the scope covers the run whole)', () => {
   const runFor = (branchIds: string[], departmentIds: string[] | null = []) => ({ branchIds, departmentIds });
-  it('company-wide people see every run; self-scoped people none', () => {
-    assert.equal(runConcerns(runFor(['b2']), { scopeType: 'GLOBAL', branchIds: [], departmentIds: [] }), true);
-    assert.equal(runConcerns(runFor([]), { scopeType: 'SELF', branchIds: [], departmentIds: [] }), false);
+  it('company-wide people every run; self-scoped people none', () => {
+    assert.equal(runWithinScope(runFor(['b2']), { scopeType: 'GLOBAL', branchIds: [], departmentIds: [] }), true);
+    assert.equal(runWithinScope(runFor(['b1']), { scopeType: 'SELF', branchIds: ['b1'], departmentIds: [] }), false);
   });
-  it('branch people see runs for every branch or one of theirs', () => {
+  it('branch people a run for their own branches only', () => {
     const lekhnath = { scopeType: 'BRANCH' as const, branchIds: ['b1'], departmentIds: [] };
-    assert.equal(runConcerns(runFor([]), lekhnath), true);
-    assert.equal(runConcerns(runFor(['b1', 'b2']), lekhnath), true);
-    assert.equal(runConcerns(runFor(['b2']), lekhnath), false);
+    assert.equal(runWithinScope(runFor(['b1']), lekhnath), true);
+    assert.equal(runWithinScope(runFor(['b1', 'b2']), lekhnath), false, 'a run that also pays another branch');
+    assert.equal(runWithinScope(runFor(['b2']), lekhnath), false);
+    assert.equal(runWithinScope(runFor([]), lekhnath), false, 'a run with no branch is nobody\'s');
   });
-  it('department people go by the run\'s departments (none listed: all)', () => {
+  it('department people a run narrowed to their own departments', () => {
     const accounts = { scopeType: 'DEPARTMENT' as const, branchIds: [], departmentIds: ['d1'] };
-    assert.equal(runConcerns(runFor(['b2'], null), accounts), true);
-    assert.equal(runConcerns(runFor(['b2'], ['d1']), accounts), true);
-    assert.equal(runConcerns(runFor([], ['d2']), accounts), false);
+    assert.equal(runWithinScope(runFor(['b2'], ['d1']), accounts), true);
+    assert.equal(runWithinScope(runFor(['b2'], null), accounts), false, 'every department');
+    assert.equal(runWithinScope(runFor(['b2'], []), accounts), false, 'every department');
+    assert.equal(runWithinScope(runFor(['b2'], ['d1', 'd2']), accounts), false);
   });
 });
 

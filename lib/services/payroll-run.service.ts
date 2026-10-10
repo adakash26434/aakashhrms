@@ -23,6 +23,9 @@ import { leaveApplications } from "@/lib/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { applyDecision, availableActions, buildFlow, isCompanyAdministrator, parsePolicy, statusText, validatePolicy, type ApprovalActor, type ApprovalRequest, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
 import { canTransition, preflight, scopeText, type PreflightEmployee } from "@/lib/engines/payroll-run.engine";
+import { runWithinScope } from "@/lib/engines/payroll-control.engine";
+import { plainCsvField } from "@/lib/export/csv";
+import { asRunType, isOffCycle, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 import { canSwitchCalendar, fiscalMonthIndexFor, parseCalendar, recordMonthOf, runLabel } from "@/lib/engines/pay-calendar.engine";
 import { periodFor, periodContaining, shiftPeriod, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
 import { isOwnRecord } from "@/lib/auth/self-action";
@@ -71,6 +74,26 @@ export interface RunCtx {
 }
 
 const MAX_NOTE = 500;
+
+/** Whether an employee is someone the scope covers (company-wide: everyone). */
+function inScopeOf(scope: Pick<ScopeFilter, "scopeType" | "branchIds" | "departmentIds">, e: { branchId: string; departmentId: string }): boolean {
+  if (scope.scopeType === "GLOBAL") return true;
+  if (scope.scopeType === "BRANCH") return scope.branchIds.includes(e.branchId);
+  if (scope.scopeType === "DEPARTMENT") return scope.departmentIds.includes(e.departmentId);
+  return false;
+}
+
+/** The payslip (to find its run); refused when it is gone. */
+export async function slipRun(slipId: string): Promise<PayrollSlip> {
+  const slip = await payrollRepo.findSlipById(slipId);
+  if (!slip) throw new UserFacingError("That payslip no longer exists. Refresh the page.");
+  return slip;
+}
+
+/** S58: the run, refused (RunScopeError) unless the user's scope covers everyone it may pay. */
+export async function guardRun(runId: string, ctx: Pick<RunCtx, "scope">): Promise<PayrollRun> {
+  return controlService.assertRunInScope(runId, ctx.scope);
+}
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -164,7 +187,7 @@ async function openMonthsOf(run: Pick<PayrollRun, "calendar" | "payPeriodYear" |
 /** Everything the Payroll page shows: the runs, the selected run with its payslips, settings and the lists for a new run. */
 export async function pageData(ctx: RunCtx, selectedRunId: string | null, workingPeriod: WorkingPeriod | null = null): Promise<PayrollRunsPageData> {
   const today = nepalDateIso();
-  const [runs, settings, approvers, branches, departments, designations, employees, payHeads] = await Promise.all([
+  const [allRuns, settings, approvers, branches, departments, designations, allEmployees, payHeads] = await Promise.all([
     payrollRepo.findAllPayrollRuns(),
     runRepo.findSettings(),
     runRepo.findApprovers(),
@@ -174,7 +197,13 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
     employeeRepository.findAll({ search: "", branchId: "all", departmentId: "all", category: "all", status: "Active" }),
     payHeadRepository.findAllPayHeads(),
   ]);
+  // A new run is offered for the branches / departments / people the scope covers (cleanInput checks again).
+  const scopedBranches = ctx.scope.scopeType === "BRANCH" ? branches.filter((b) => ctx.scope.branchIds.includes(b.id)) : branches;
+  const scopedDepartments = ctx.scope.scopeType === "DEPARTMENT" ? departments.filter((d) => ctx.scope.departmentIds.includes(d.id)) : departments;
+  const employees = allEmployees.filter((e) => inScopeOf(ctx.scope, e));
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? "";
+  // S58: only runs the user's scope covers whole (a branch reads its own people's pay in Reports).
+  const runs = allRuns.filter((r) => runWithinScope(r, ctx.scope));
   const timeline = await runRepo.findTimeline(runs.map((r) => r.id));
   const names = await runRepo.findUserNames([...runs.flatMap((r) => [r.generatedBy, r.submittedBy ?? "", r.reviewedBy ?? "", r.approvedBy ?? ""]), ...timeline.flatMap((t) => [t.actorId ?? "", t.onBehalfOf ?? ""]), ...runs.flatMap((r) => (r.variance?.items ?? []).map((i) => i.acknowledgedBy ?? ""))]);
   const sorted = [...runs].sort((a, b) => b.payPeriodYear * 100 + b.payPeriodMonth - (a.payPeriodYear * 100 + a.payPeriodMonth) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -205,8 +234,8 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
     selected,
     policy: settings.policy,
     approvers,
-    branches: branches.map((b) => ({ id: b.id, name: b.name })),
-    departments: departments.map((d) => ({ id: d.id, name: d.name })),
+    branches: scopedBranches.map((b) => ({ id: b.id, name: b.name })),
+    departments: scopedDepartments.map((d) => ({ id: d.id, name: d.name })),
     designations: designations.map((d) => ({ id: d.id, name: d.name })),
     categories: [...new Set(employees.map((e) => e.category))].sort(),
     employees: employees.map((e) => ({ id: e.id, name: e.fullName, employeeCode: e.employeeCode, branchId: e.branchId, departmentId: e.departmentId, designationId: e.designationId, category: e.category })),
@@ -238,7 +267,7 @@ export async function slipDetail(slipId: string): Promise<SlipDetail> {
 // New run: pre-flight and generation
 // ---------------------------------------------------------------------------
 
-function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
+function cleanInput(raw: unknown, calendar: PeriodCalendar, scope: Pick<ScopeFilter, "scopeType" | "branchIds" | "departmentIds">): NewRunInput {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const ids = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && x.length > 0))] : []);
   const errors: Record<string, string> = {};
@@ -257,7 +286,14 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     }
   }
   const branchIds = ids(r.branchIds);
+  const departmentIds = ids(r.departmentIds);
   if (!branchIds.length) errors.branchIds = "Choose at least one branch";
+  // S58: a run only for the people the scope covers (the same rule as acting on one: runWithinScope).
+  if (!runWithinScope({ branchIds, departmentIds }, scope)) {
+    if (scope.scopeType === "BRANCH") errors.branchIds = "Choose your own branches only";
+    else if (scope.scopeType === "DEPARTMENT") errors.departmentIds = "Choose your own departments (at least one)";
+    else throw new UserFacingError("Your role does not cover a pay run.");
+  }
   const payslipDate = typeof r.payslipDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.payslipDate) ? r.payslipDate : null;
   if (Object.keys(errors).length) throw new RunValidationError(errors);
   return {
@@ -265,7 +301,7 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     payPeriodYear: year,
     payPeriodMonth: month,
     branchIds,
-    departmentIds: ids(r.departmentIds),
+    departmentIds,
     designationIds: ids(r.designationIds),
     employeeCategories: ids(r.employeeCategories),
     employeeIds: ids(r.employeeIds),
@@ -291,10 +327,9 @@ async function scopedEmployees(input: NewRunInput) {
 }
 
 /** Pre-flight for a run that does not exist yet (the New run window's Check). */
-export async function checkNewRun(raw: unknown, _scope?: ScopeFilter): Promise<PreflightResult> {
-  void _scope; // the action checks ADD on PAYROLL_GENERATE in the user's scope
+export async function checkNewRun(raw: unknown, scope: ScopeFilter): Promise<PreflightResult> {
   const calendar = (await runRepo.findSettings()).calendar;
-  const input = cleanInput(raw, calendar);
+  const input = cleanInput(raw, calendar, scope);
   const period = periodFor(calendar, input.payPeriodYear, input.payPeriodMonth);
   const existing = await payrollRepo.findPayrollRunByPeriodAndBranch({ calendar, payPeriodMonth: input.payPeriodMonth, payPeriodYear: input.payPeriodYear, branchIds: input.branchIds, runType: input.runType });
   return preflightFor(period, input, { existing, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds) });
@@ -407,10 +442,16 @@ export async function checkRun(runId: string): Promise<PreflightResult> {
  * computed right away.
  */
 export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: PayrollRun; preflight: PreflightResult }> {
-  const input = cleanInput(raw, (await runRepo.findSettings()).calendar);
+  const calendar = (await runRepo.findSettings()).calendar;
+  const input = cleanInput(raw, calendar, ctx.scope);
   const check = await checkNewRun(raw, ctx.scope);
   const blocking = check.problems.filter((p) => p.severity === "blocking" && !(input.recreateIfExists && p.code === "run_exists"));
   if (blocking.length) throw new UserFacingError(blocking.length === 1 ? blocking[0].text : `${blocking.length} problems stop this run. Fix them first (the list is in the window).`);
+  // S58: generating again replaces the drafts it overlaps, so each must be one the scope covers whole.
+  if (input.recreateIfExists) {
+    const existing = await payrollRepo.findPayrollRunByPeriodAndBranch({ calendar, payPeriodMonth: input.payPeriodMonth, payPeriodYear: input.payPeriodYear, branchIds: input.branchIds, runType: input.runType });
+    if (existing.some((r) => !runWithinScope(r, ctx.scope))) throw new controlService.RunScopeError();
+  }
   const run = await payrollService.generatePayrollRun(
     {
       payPeriodMonth: input.payPeriodMonth,
@@ -455,8 +496,7 @@ export async function varianceOpenCount(runId: string): Promise<number> {
  * for pay runs (the settings window does not offer it).
  */
 export async function submit(runId: string, noteRaw: unknown, ctx: RunCtx): Promise<{ status: string }> {
-  const run = await payrollRepo.findPayrollRunById(runId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
+  const run = await guardRun(runId, ctx);
   if (run.status !== "DRAFT") throw new UserFacingError(`This run is ${run.status.toLowerCase().replace("_", " ")} already.`);
   const check = await checkRun(runId);
   const blocking = check.problems.filter((p) => p.severity === "blocking");
@@ -479,8 +519,7 @@ export async function submit(runId: string, noteRaw: unknown, ctx: RunCtx): Prom
  */
 export async function decide(runId: string, decision: Decision, noteRaw: unknown, ctx: RunCtx): Promise<{ status: string }> {
   if (decision === "withdraw") throw new UserFacingError("A submitted run is rejected back to draft, not withdrawn.");
-  const run = await payrollRepo.findPayrollRunById(runId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
+  const run = await guardRun(runId, ctx);
   if (run.status !== "UNDER_REVIEW") throw new UserFacingError(`This run is not waiting for approval (it is ${run.status.toLowerCase().replace("_", " ")}).`);
   const approvers = await runRepo.findApprovers();
   const request = requestOf(run);
@@ -512,31 +551,45 @@ export async function decide(runId: string, decision: Decision, noteRaw: unknown
 
 /** Locks an approved run (payroll.service seals attendance and amortises loans). */
 export async function lock(runId: string, ctx: RunCtx): Promise<PayrollRun> {
-  const run = await payrollRepo.findPayrollRunById(runId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
+  const run = await guardRun(runId, ctx);
   if (run.status !== "APPROVED") throw new UserFacingError("Only an approved run can be locked.");
   return payrollService.transitionPayrollRun(runId, "LOCKED", ctx.userId);
 }
 
 /** Discards a run that is not locked (its payslips go with it). */
 export async function discard(runId: string, ctx: RunCtx): Promise<void> {
-  const run = await payrollRepo.findPayrollRunById(runId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
+  const run = await guardRun(runId, ctx);
   if (run.status === "LOCKED") throw new UserFacingError("A locked run cannot be discarded.");
   await payrollService.deletePayrollRun(runId, ctx.userId);
+}
+
+/**
+ * The bank transfer file of a locked run (Nepal commercial bank bulk format: SN, AccountNumber,
+ * AccountName, Amount, Remarks). S16: fields are cleaned and quoted when needed (a comma in a name
+ * used to shift every later column in the file sent to the bank). S58: a run the scope covers whole.
+ * F6: an off-cycle run's transfers say what they pay.
+ */
+export async function bankFile(runId: string, ctx: Pick<RunCtx, "scope">): Promise<{ csv: string; rows: number; run: PayrollRun }> {
+  const run = await guardRun(runId, ctx);
+  if (run.status !== "LOCKED") throw new UserFacingError("The bank file is made from a locked run.");
+  const slips = (await payrollRepo.findSlipsByRunId(run.id)).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  const what = isOffCycle(run.runType) ? RUN_TYPE_LABEL[asRunType(run.runType)].en : "Salary";
+  const remarks = `${what} ${runLabel({ calendar: run.calendar, payPeriodYear: run.payPeriodYear, payPeriodMonth: run.payPeriodMonth })}`;
+  const lines = ["SN,AccountNumber,AccountName,Amount,Remarks"];
+  slips.forEach((slip, idx) => lines.push([idx + 1, slip.bankAccountNumber, slip.employeeName, slip.netPayable, remarks].map(plainCsvField).join(",")));
+  return { csv: `${lines.join("\n")}\n`, rows: slips.length, run };
 }
 
 // ---------------------------------------------------------------------------
 // Payslip edits (S21: never your own)
 // ---------------------------------------------------------------------------
 
-/** The slip's employee must not be the acting user (S21); the run must be a draft. */
+/** The slip's employee must not be the acting user (S21); the run must be a draft the scope covers whole (S58). */
 export async function guardSlip(slipId: string, ctx: RunCtx): Promise<PayrollSlip> {
   const slip = await payrollRepo.findSlipById(slipId);
   if (!slip) throw new UserFacingError("That payslip no longer exists. Refresh the page.");
   if (isOwnRecord(ctx.scope.employeeId, slip.employeeId)) throw new OwnPayslipError();
-  const run = await payrollRepo.findPayrollRunById(slip.payrollRunId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
+  const run = await guardRun(slip.payrollRunId, ctx);
   if (run.status !== "DRAFT") throw new UserFacingError("Payslips change only while the run is a draft. Reject it back to draft first.");
   return slip;
 }

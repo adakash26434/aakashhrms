@@ -532,7 +532,7 @@ describe('4.12e shift allowance and label heads: salary data in salary scope, no
 
   it('it is paid only from attendance, never typed, and never dropped when its head is missing', () => {
     // The browser's payslip change never carries it: only the attendance sync passes the line.
-    assert.match(read('app/actions/payroll.actions.ts'), /service\.overridePayslipAllowanceDeduction\(payload, session\.user\.id\);/);
+    assert.match(read('app/actions/payroll-run.actions.ts'), /payroll\.overridePayslipAllowanceDeduction\(\{ \.\.\.payload, slipId: slip\.id, otDetail: undefined \}, ctx\.userId\);/);
     assert.match(fn(payroll, 'syncPayrollRunAttendance'), /\{ shiftAllowance: Number\(calc\?\.shiftAllowanceAmount \?\? 0\) \}/);
     assert.match(fn(payroll, 'overridePayslipAllowanceDeduction'), /if \(fromAttendance && !\(await feedsRepository\.setShiftAllowanceLine\(tx, slipId, fromAttendance\.shiftAllowance\)\)\)/);
     for (const name of ['generatePayrollRun', 'recalculateEmployeePayslip']) {

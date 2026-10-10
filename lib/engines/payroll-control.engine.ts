@@ -239,20 +239,25 @@ export function nextRunStep(run: RunStepFacts, actor: RunStepActor): RunStep | n
 }
 
 /**
- * Whether a run concerns someone with this scope: company-wide people see every run; branch and
- * department people see runs for all branches (departments) or for one of theirs.
+ * Whether someone with this scope covers everyone a run may pay (S58): company-wide people every
+ * run; branch people a run for their own branches only; department people a run narrowed to their
+ * own departments only. Seeing a run's payslips and acting on it (generate, edit, submit, decide,
+ * lock, publish, discard, the bank file) need it: a run that also pays other branches is handled
+ * by someone whose role covers them, and a branch reads its own people's pay in Reports.
  */
-export function runConcerns(run: { branchIds: readonly string[]; departmentIds: readonly string[] | null }, scope: Pick<ScopeFilter, 'scopeType' | 'branchIds' | 'departmentIds'>): boolean {
-  const overlaps = (runIds: readonly string[] | null, mine: readonly string[]) => !runIds?.length || runIds.some((id) => mine.includes(id));
+export function runWithinScope(run: { branchIds: readonly string[]; departmentIds: readonly string[] | null }, scope: Pick<ScopeFilter, 'scopeType' | 'branchIds' | 'departmentIds'>): boolean {
   switch (scope.scopeType) {
     case 'GLOBAL':
       return true;
     case 'BRANCH':
-      return overlaps(run.branchIds, scope.branchIds);
+      return run.branchIds.length > 0 && run.branchIds.every((id) => scope.branchIds.includes(id));
     case 'DEPARTMENT':
-      return overlaps(run.departmentIds, scope.departmentIds);
+      return !!run.departmentIds?.length && run.departmentIds.every((id) => scope.departmentIds.includes(id));
     default:
       return false;
   }
 }
+
+/** The message for a run outside the scope (S58). */
+export const RUN_OUT_OF_SCOPE = 'This run also pays people outside your branches or departments, so someone whose role covers them handles it. Your own people\'s pay is in Reports.';
 

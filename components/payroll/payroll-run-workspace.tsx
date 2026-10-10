@@ -11,9 +11,8 @@ import { PaneTimeline, approvalSteps } from "@/components/kit/pane";
 import { SplitView } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
-import { checkRunAction, decideRunAction, discardRunAction, lockRunAction, submitRunAction, syncRunAttendanceAction } from "@/app/actions/payroll-run.actions";
+import { bankFileAction, checkRunAction, decideRunAction, discardRunAction, lockRunAction, submitRunAction, syncRunAttendanceAction } from "@/app/actions/payroll-run.actions";
 import { PayrollControlsPanel } from "@/components/payroll/payroll-controls-panel";
-import { generateBankExportCSVAction } from "@/app/actions/payroll.actions";
 import { downloadTextFile } from "@/lib/export/download";
 import { stepOf, stepsFor } from "@/lib/engines/payroll-run.engine";
 import type { PayrollRun, PayrollSlip } from "@/lib/types/payroll";
@@ -93,10 +92,14 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
 
   const exportBank = async () => {
     setBusy("export");
-    const r = await generateBankExportCSVAction(run.id);
+    const r = await bankFileAction(run.id);
     setBusy(null);
-    if (!r.success || !r.data) {
-      setMessage(r.error ?? "Export failed.");
+    if (!r.success) {
+      setMessage(r.error);
+      return;
+    }
+    if (!r.data) {
+      setMessage("The bank file came back empty. Try again.");
       return;
     }
     downloadTextFile(`bank-transfer-${run.label.replace(/\s+/g, "-").toLowerCase()}.csv`, r.data, "text/csv");

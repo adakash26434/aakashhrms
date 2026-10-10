@@ -72,7 +72,7 @@ describe('F17 notification centre', () => {
   it('pay-run steps follow the move\'s own rules and the person\'s branches; the list carries no pay figures', () => {
     const runs = fn(read('lib/services/payroll-control.service.ts'), 'runsWaitingFor');
     assert.match(runs, /repo\.runsNeedingAction\(actor\.scope\.employeeId\)/);
-    assert.match(runs, /\.filter\(\(run\) => runConcerns\(run, actor\.scope\)\)/);
+    assert.match(runs, /\.filter\(\(run\) => runWithinScope\(run, actor\.scope\)\)/);
     assert.match(runs, /const step = nextRunStep\(run, stepActor\);/);
     assert.match(fn(read('lib/engines/payroll-control.engine.ts'), 'nextRunStep'), /checkerRefusal\(\{ mode: actor\.mode, step, generatedBy: run\.generatedBy, actor: actor\.userId, actorIsAdmin: actor\.isAdmin, runIncludesActor: run\.includesActor \}\) === null/);
     const query = fn(read('lib/repositories/payroll-control.repository.ts'), 'runsNeedingAction');

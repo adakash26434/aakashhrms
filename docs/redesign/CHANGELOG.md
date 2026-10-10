@@ -13,6 +13,22 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-10 — Security S58: payroll endpoints and scope
+Branch: `fix/s58-payroll-scope` (from `main`)
+Found while merging: the payroll screens the workspace replaced left eleven exported server actions behind (status changes without the approval flow, generation without pre-flight, payslip changes with no scope check), and the workspace itself listed and acted on every run for branch- or department-scoped roles. A browser could also send a made-up overtime working with a payslip change.
+
+Changed:
+- `app/actions/payroll.actions.ts` deleted; the bank transfer file is `bankFileAction` in the workspace (`payroll-run.service.bankFile`: EXPORT, audited, S16 field-safe, labelled in the run's own calendar).
+- `runWithinScope` (`lib/engines/payroll-control.engine.ts`, replacing `runConcerns`): company-wide roles every run; a branch role a run for its own branches only; a department role a run narrowed to its own departments only.
+- Workspace: the page lists only those runs and offers only the scope's branches, departments and people for a new run; `cleanInput` refuses anything wider; regenerating never replaces a draft the scope does not cover; every run and payslip action checks the run first (`guarded` / `guardSlip` in `payroll-run.actions`, `inScope` in `payroll-control.actions`, `guardRun` again in the service), refusals audited `DENIED_SCOPE`; the bell offers the same runs. The overtime working is dropped from the browser's payload.
+- Tests: `tests/security-payroll-scope.test.ts` (6), `notification.engine` (the rule), `security-export` (bank file), `security-notifications`, `security-settings`.
+
+Verified: type-check 0 · tests 1646/1646 · eslint clean on the touched files · browser: admin's runs, payslip pane and **bank file** of Shrawan 2083 (downloaded `bank-transfer-shrawan-2083.csv`, audited `{ file: bank transfer, rows: 5 }`); a Branch HR given payroll View / Add for the test (removed afterwards) saw **0 runs** (all are company-wide), no payslips on a company-wide run's address, and only **Lekhnath Branch** in the New pay run window.
+
+Notes: a branch reads its own people's pay in Reports (S48), not in a company-wide run. Debt: payroll settings, the pay calendar and Payroll controls stay company-wide controls (unchanged).
+
+---
+
 ## 2026-10-10 — 4.12e: shift allowance and label heads
 Branch: `redesign/4.12-configuration` (after the merge into `main`)
 Changed:

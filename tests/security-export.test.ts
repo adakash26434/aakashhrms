@@ -70,9 +70,11 @@ describe('CSV formula injection (S16)', () => {
     assert.match(action, /checkPermission\('EXPORT', input\.module\)/);
     assert.match(action, /recordAuditLog\(/);
     assert.match(action, /DENIED_PERMISSION/);
-    const bank = readFileSync(join(root, 'app/actions/payroll.actions.ts'), 'utf8');
-    assert.match(bank, /plainCsvField/);
-    assert.match(bank, /Bank transfer file/);
+    // The bank transfer file: field-safe, gated on EXPORT and audited (S16; S58: in the run workspace).
+    const bankService = readFileSync(join(root, 'lib/services/payroll-run.service.ts'), 'utf8');
+    assert.match(bankService, /export async function bankFile[\s\S]*?\.map\(plainCsvField\)/);
+    const bankAction = readFileSync(join(root, 'app/actions/payroll-run.actions.ts'), 'utf8');
+    assert.match(bankAction, /export async function bankFileAction[\s\S]*?ctxFor\('EXPORT'\)[\s\S]*?recordAuditLog\(\{ userId: ctx\.userId, action: 'EXPORT'/);
   });
 });
 

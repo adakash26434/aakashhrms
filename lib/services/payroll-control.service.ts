@@ -12,7 +12,8 @@ import {
   canPublishRun,
   checkerRefusal,
   nextRunStep,
-  runConcerns,
+  RUN_OUT_OF_SCOPE,
+  runWithinScope,
   unresolvedFlags,
   varianceFlags,
   type CheckerMode,
@@ -43,6 +44,29 @@ export interface PayrollControlSettings {
   requireClosedAttendance: boolean;
   /** F13: changes to bank, PAN and tax status wait for a second person (required) or apply at once (off). */
   employeeDetailApproval: DetailApproval;
+}
+
+/** S58: a run (or a payslip's run) the acting user's scope does not cover whole. Actions audit it as DENIED_SCOPE. */
+export class RunScopeError extends UserFacingError {
+  constructor() {
+    super(RUN_OUT_OF_SCOPE);
+    this.name = 'RunScopeError';
+  }
+}
+
+/** S58: the run, refused unless the scope covers everyone it may pay (`runWithinScope`). */
+export async function assertRunInScope(runId: string, scope: Pick<ScopeFilter, 'scopeType' | 'branchIds' | 'departmentIds'>): Promise<PayrollRun> {
+  const run = await payrollRepo.findPayrollRunById(runId);
+  if (!run) throw new UserFacingError('That run no longer exists. Refresh the page.');
+  if (!runWithinScope(run, scope)) throw new RunScopeError();
+  return run;
+}
+
+/** S58: a payslip's run, refused unless the scope covers it whole. */
+export async function assertSlipInScope(slipId: string, scope: Pick<ScopeFilter, 'scopeType' | 'branchIds' | 'departmentIds'>): Promise<PayrollRun> {
+  const target = await repo.findSlipRun(slipId);
+  if (!target) throw new UserFacingError('That payslip no longer exists. Refresh the page.');
+  return assertRunInScope(target.runId, scope);
 }
 
 export async function readSettings(): Promise<PayrollControlSettings> {
@@ -76,15 +100,15 @@ export interface RunActor {
 }
 
 /**
- * F17: pay runs waiting for this person's step (the bell), within their branches or
- * departments. The step follows the same rules as the move itself (`nextRunStep`).
+ * F17: pay runs waiting for this person's step (the bell): runs their scope covers whole (S58, the
+ * same rule as acting on one). The step follows the same rules as the move itself (`nextRunStep`).
  */
 export async function runsWaitingFor(actor: RunActor): Promise<RunWaiting[]> {
   if (!actor.canSend && !actor.canApprove && !actor.canLock) return [];
   const [mode, runs] = await Promise.all([checkerMode(), repo.runsNeedingAction(actor.scope.employeeId)]);
   const stepActor = { userId: actor.userId, isAdmin: actor.isAdmin, mode, canSend: actor.canSend, canApprove: actor.canApprove, canLock: actor.canLock };
   return runs
-    .filter((run) => runConcerns(run, actor.scope))
+    .filter((run) => runWithinScope(run, actor.scope))
     .flatMap((run) => {
       const step = nextRunStep(run, stepActor);
       return step ? [{ id: run.id, year: run.year, month: run.month, runType: run.runType, step, heldCount: run.heldCount, generatedByName: run.generatedByName }] : [];
