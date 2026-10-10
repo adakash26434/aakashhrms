@@ -574,10 +574,11 @@ message (e.g. "Copied 3 × 2 cells") and a key reminder.
   "Revise in Salary structure".
 - **Approvals (Zoho Payroll style, S21).** The tab is **Approvals**
   (`?tab=approvals`; `changes` still opens it). *Approval settings* (company
-  administrators): **No approval**, **Simple** (anyone with Approve, never
-  the preparer) or **Multi-level** (named approvers in order, Level 2 after
-  Level 1; up to 5; move up / down). The flow is copied onto each change when
-  it is saved. **Final approve**: company administrators can approve at any
+  administrators; since 4.12d on **Setup → Approvals**, linked from the tab):
+  **No approval**, **Simple** (anyone with Approve, never the preparer) or
+  **Multi-level** (named approvers in order, Level 2 after Level 1; up to 5;
+  move up / down), plus custom rules read in order. The flow is copied onto
+  each change when it is saved. **Final approve**: company administrators can approve at any
   stage, including their own change (recorded); the Revise and Review windows
   offer them **Save and approve**. **Nobody approves a change to their own
   salary**: Bulk edit marks your row "(you)"; levels whose approver prepared
@@ -1137,6 +1138,39 @@ each with one line of state — "Demo Sahakari · PAN not set", "1 company pay
 head · 9 system heads", "Current: FY 2083/84", "FY 2083/84: slabs set",
 "FY 2083/84: 4 holidays, 11 days" — amber with a warning icon when payroll
 needs something (no PAN, no current year, no slabs, no holidays yet).
+
+### Implemented settings: approvals (Phase 4.12d, template E + Window)
+
+**Setup → Approvals** (`/setup/approvals`): PageBar with Refresh; the
+Guide (a policy per module, custom rules, never your own, waiting
+requests); Panels by what the user can view:
+
+- **Salary changes** — *Company policy* in words ("Any approver",
+  "Level 1: Gita → Level 2: Hari", "No approval") with **Change…** (the
+  kit's `ApprovalPolicyWindow`), and **Custom rules**, read in order: each
+  rule a numbered row with its name, "When:" its conditions in words
+  ("Raise over 10% · Branches: Lekhnath Branch") and "Approved by:" its
+  approvers, with Move up / Move down / Edit / Delete (a `Confirm` that
+  says changes waiting keep their approvers); **Add rule** (at most 10);
+  "No custom rules: every salary change follows the company policy." when
+  there are none; the Panel's meta counts the rules.
+- **Loans and advances** — the company policy with **Change…**.
+- **Set elsewhere** — links for pay runs and status changes (Payroll
+  controls), leave requests and attendance adjustments, with who approves
+  them.
+
+A read-only role sees the same Panels without buttons and a line naming
+the permission needed ("… → Approve with a company-wide role").
+
+The **rule window**: The rule (name), When (tick each condition: someone's
+raise is more than N %, someone's new total salary is more than NPR N,
+someone is in these branches / departments — tick lists —, the monthly
+salary bill changes by more than NPR N; "Every condition ticked must hold;
+the conditions about a person must hold for the same person in the
+change"), Approved by (Any approver or named levels — the kit's
+`ApprovalLevels`; never "No approval"). The Revise window, Bulk edit and
+set-up footers name the rule that will apply ("Approval rule “Large
+raises”: goes to Level 1: …"), and the change's timeline records it.
 
 ### Implemented frame (Phase 2)
 

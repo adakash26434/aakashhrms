@@ -203,15 +203,3 @@ export async function deleteLoanTypeAction(id: string) {
   }
 }
 
-export async function saveLoanApprovalSettingsAction(policy: unknown) {
-  await ensureTenantContext();
-  try {
-    const c = await companyCtx('APPROVE');
-    const result = await service.saveApprovalPolicy(policy);
-    await audit(c, 'EDIT', 'loan-approval-settings', { approvalType: result.policy.type, levels: result.policy.levels.length });
-    revalidate();
-    return { success: true as const, data: { pendingKept: result.pendingKept } };
-  } catch (error: unknown) {
-    return failure(error, 'loan.approvalSettings');
-  }
-}

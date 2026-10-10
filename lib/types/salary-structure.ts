@@ -2,7 +2,7 @@
 // kept), changed one by one or in bulk, optionally approved by a second
 // person; standard templates; printable revision letters.
 
-import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry, ApproverInfo } from "@/lib/types/approval";
+import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalRule, ApprovalTimelineEntry, ApproverInfo } from "@/lib/types/approval";
 import type { PayHeadInput, TaxSlabInput } from "@/lib/engines/payroll.engine";
 import type { GradePolicySettings, InsuranceDiscountsSettings, StatutoryDeductionLimitsSettings } from "@/lib/types/system-control";
 
@@ -240,6 +240,8 @@ export interface SalaryStructureData {
   tax: TaxRules;
   /** Company approval setting for salary changes, and who can approve. */
   approvalPolicy: ApprovalPolicy;
+  /** 4.12d: custom rules, read in order before the policy (Setup → Approvals). */
+  approvalRules: ApprovalRule[];
   approvers: ApproverInfo[];
   /** Today (AD, Nepal time): delegations are checked against it. */
   today: string;

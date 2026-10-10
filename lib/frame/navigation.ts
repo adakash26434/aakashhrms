@@ -22,6 +22,7 @@ import {
   ScrollText,
   Settings2,
   Shield,
+  ShieldCheck,
   SlidersHorizontal,
   Table,
   UserCog,
@@ -451,6 +452,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         description: "Allowances and deductions: what each is, its amount and who it is for",
         requires: ["PAY_HEADS"],
         keywords: ["pay head", "allowance", "deduction", "bhatta", "katti", "festival allowance", "remote allowance"],
+      },
+      {
+        id: "approvals",
+        label: "Approvals",
+        href: "/setup/approvals",
+        icon: ShieldCheck,
+        description: "Who approves salary changes and loans, with custom rules",
+        requires: ["SALARY_MAPPING", "LOANS"],
+        keywords: ["approval", "approver", "multi-level", "maker checker", "custom rule", "swikriti"],
       },
       {
         id: "rules",

@@ -511,8 +511,10 @@ export function SalaryStructureBulk({
   };
 
   // What saving will do (same rule as the server) and whether payroll is still open for the date.
-  const changedIds = changedRows.map((r) => r.row.employeeId);
-  const outcome = saveOutcome(data, changedIds);
+  const outcome = saveOutcome(
+    data,
+    changedRows.map((r) => ({ employeeId: r.row.employeeId, before: r.originalTotals?.totalSalary ?? null, after: r.totals.totalSalary, branchId: r.row.branchId, departmentId: r.row.departmentId }))
+  );
   const ownInTable = !!data.me.employeeId && ids.includes(data.me.employeeId);
   const canReview = changedRows.length > 0 && !errorRows.length && !!effectiveFrom && reason.trim().length >= 3;
   // Said next to the button, not only in a tooltip.

@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, Banknote, FileUp, FolderOpen, HandCoins, Inbox, Landmark, Pencil, Plus, RefreshCw, Settings2, ShieldCheck, Trash2 } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
-import { ApprovalPolicyWindow } from "@/components/kit/approval-policy-window";
 import { Confirm } from "@/components/kit/confirm";
 import { DataGrid, type GridColumn } from "@/components/kit/data-grid";
 import { FilterStrip, type FilterValues } from "@/components/kit/filter-strip";
@@ -12,7 +11,7 @@ import { Guide } from "@/components/kit/guide";
 import { Notice } from "@/components/kit/notice";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Tabs } from "@/components/kit/tabs";
-import { deleteLoanTypeAction, removeOpeningLoanAction, saveLoanApprovalSettingsAction } from "@/app/actions/loan.actions";
+import { deleteLoanTypeAction, removeOpeningLoanAction } from "@/app/actions/loan.actions";
 import { KIND_LABEL } from "@/lib/engines/loan.engine";
 import { payMonthLabel } from "@/lib/utils/pay-month";
 import type { LoanRequestRow, LoanRow, LoansPage, LoanTypeRow } from "@/lib/types/loan";
@@ -51,7 +50,6 @@ type Open =
   | { kind: "detail"; loanId: string }
   | { kind: "type"; type: LoanTypeRow | null }
   | { kind: "import" }
-  | { kind: "settings" }
   | null;
 
 /** Search by name, code or loan type. */
@@ -184,7 +182,7 @@ export function LoansClient({ data, initialTab, initialStatus }: { data: LoansPa
             newRequest,
             { id: "open", label: "Open", icon: FolderOpen, group: "selection" as const, disabled: !!openBlock, disabledReason: openBlock ?? undefined, onClick: () => activeRequest && setOpen({ kind: "decide", request: activeRequest }) },
             { id: "disburse", label: "Disburse", icon: Banknote, group: "selection" as const, hidden: !can.add, disabled: !!disburseBlock, disabledReason: disburseBlock ?? undefined, onClick: () => activeRequest && setOpen({ kind: "disburse", request: activeRequest }) },
-            { id: "settings", label: "Approval settings", icon: ShieldCheck, group: "output" as const, hidden: !can.settings, onClick: () => setOpen({ kind: "settings" }) },
+            { id: "settings", label: "Approval settings", icon: ShieldCheck, group: "output" as const, hidden: !can.settings, onClick: () => router.push("/setup/approvals") },
             refresh,
           ]
         : [
@@ -203,7 +201,6 @@ export function LoansClient({ data, initialTab, initialStatus }: { data: LoansPa
             refresh,
           ];
 
-  const pendingCount = data.requests.filter((r) => r.status === "pending").length;
   const description = `${data.totals.running} running · ${rs(data.totals.outstanding)} to recover · ${rs(data.totals.monthly)} a month${data.totals.waitingForMe ? ` · ${data.totals.waitingForMe} waiting for you` : ""}`;
 
   return (
@@ -324,29 +321,6 @@ export function LoansClient({ data, initialTab, initialStatus }: { data: LoansPa
       {open?.kind === "detail" && <LoanDetailWindow loanId={open.loanId} onClose={() => setOpen(null)} />}
       {open?.kind === "type" && <LoanTypeWindow type={open.type} onClose={() => setOpen(null)} onSaved={done} />}
       {open?.kind === "import" && <LoanOpeningImportWindow onClose={() => setOpen(null)} onImported={(text) => (setNotice(text), router.refresh())} />}
-      {open?.kind === "settings" && (
-        <ApprovalPolicyWindow
-          title="Approval settings · Loans and advances"
-          description="Who approves loan and salary advance requests before they are disbursed. Company administrators can Final approve; nobody approves their own loan."
-          policy={data.policy}
-          approvers={data.approvers}
-          help={{
-            simple: "Any user with Loans → Approve approves it, never the person who asked.",
-            multi_level: "Named approvers in order: Level 2 acts only after Level 1. Approved when the last level approves.",
-            none: "Requests are approved once made. A request about the person asking still needs someone else.",
-          }}
-          pendingNote={pendingCount ? `${pendingCount} request${pendingCount === 1 ? "" : "s"} waiting keep the approvers they were sent to.` : "Applies to requests made from now on."}
-          levelsHint="A level is skipped when its approver asked for the loan or it is their own. Approvers away can delegate in Users."
-          noApproverHint="No active user can approve loans yet. Give a role Loans → Approve in Roles."
-          onSave={async (policy) => {
-            const r = await saveLoanApprovalSettingsAction(policy);
-            if (!r.success) return { ok: false, error: r.error, errors: ("validationErrors" in r && r.validationErrors) || {} };
-            done(r.data.pendingKept ? `Approval settings saved. ${r.data.pendingKept} waiting request${r.data.pendingKept === 1 ? "" : "s"} keep their approvers.` : "Approval settings saved.");
-            return { ok: true };
-          }}
-          onClose={() => setOpen(null)}
-        />
-      )}
       <Confirm
         open={!!confirm}
         title={confirm?.kind === "deleteType" ? "Delete this loan type?" : "Remove this carried loan?"}

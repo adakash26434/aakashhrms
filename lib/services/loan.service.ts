@@ -641,6 +641,12 @@ export async function deleteType(id: unknown): Promise<{ id: string; name: strin
   return { id: type.id, name: type.name };
 }
 
+/** The loan approval setting, who can approve, and how many requests wait (Setup → Approvals). */
+export async function approvalSettings(): Promise<{ policy: ApprovalPolicy; approvers: ApproverInfo[]; pending: number }> {
+  const [{ policy }, approvers, pending] = await Promise.all([settings(), findApprovers(MODULE), repo.pendingRequests()]);
+  return { policy, approvers, pending: pending.length };
+}
+
 /** Who approves loans from now on; requests already waiting keep the approvers they were sent to. */
 export async function saveApprovalPolicy(raw: unknown): Promise<{ policy: ApprovalPolicy; pendingKept: number }> {
   const policy = parsePolicy(raw);

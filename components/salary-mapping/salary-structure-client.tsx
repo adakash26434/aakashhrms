@@ -9,7 +9,7 @@ import type { SubmitResult } from "@/lib/services/salary-structure.service";
 import type { SalaryStructureData, StructureRow, StructureTab } from "@/lib/types/salary-structure";
 import { SalaryStructureBulk } from "./salary-structure-bulk";
 import { SalaryStructureApprovals } from "./salary-structure-approvals";
-import { ApprovalSettingsWindow, salaryActor } from "./salary-structure-approval";
+import { salaryActor } from "./salary-structure-approval";
 import { waitingFor } from "@/lib/engines/approval.engine";
 import { needsStructure } from "@/lib/engines/salary-structure.engine";
 import { SalaryStructureAddWindow } from "./salary-structure-add-window";
@@ -38,8 +38,6 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
   const setSelected = (row: StructureRow | null) => setSelectedId(row?.employeeId ?? null);
   const [revising, setRevising] = useState<StructureRow | null>(null);
   const [saved, setSaved] = useState<SubmitResult | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsNote, setSettingsNote] = useState<string | null>(null);
   // Bulk add: the bulk table with only the employees who need a structure.
   const [bulkSetup, setBulkSetup] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -190,11 +188,6 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
         <FileSignature aria-hidden className="h-3.5 w-3.5 shrink-0 text-brand" />
         {policyBanner(data)} Nobody approves a change to their own salary.
       </p>
-      {settingsNote && (
-        <p role="status" className="mb-3 rounded-md border border-success/30 bg-success-subtle px-3 py-2 text-xs text-ink">
-          {settingsNote}
-        </p>
-      )}
 
       {saved && showSaved && (
         <div role="status" className="mb-3 flex items-start justify-between gap-3 rounded-md border border-success/30 bg-success-subtle px-3 py-2 text-xs text-ink">
@@ -243,7 +236,7 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
             }}
           />
         )}
-        {tab === "approvals" && <SalaryStructureApprovals data={data} onSettings={() => setSettingsOpen(true)} />}
+        {tab === "approvals" && <SalaryStructureApprovals data={data} />}
         {tab === "templates" && (
           <SalaryStructureTemplates
             data={data}
@@ -260,17 +253,6 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
         )}
       </Tabs>
 
-      {settingsOpen && (
-        <ApprovalSettingsWindow
-          data={data}
-          onClose={() => setSettingsOpen(false)}
-          onSaved={(kept) => {
-            setSettingsOpen(false);
-            setSettingsNote(`Approval settings saved.${kept ? ` ${kept} change${kept === 1 ? "" : "s"} already waiting keep their approvers.` : ""}`);
-            router.refresh();
-          }}
-        />
-      )}
 
       {adding && (
         <SalaryStructureAddWindow
@@ -303,7 +285,8 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
 function policyBanner(data: SalaryStructureData): string {
   const p = data.approvalPolicy;
   const name = (id: string) => data.approvers.find((a) => a.userId === id)?.name ?? "approver";
-  if (p.type === "none") return "Salary changes count once saved (approval is off).";
-  if (p.type === "multi_level") return `Salary changes are approved by ${p.levels.map((id, i) => `Level ${i + 1}: ${name(id)}`).join(" → ")}; company administrators can Final approve.`;
-  return "Salary changes need approval by someone other than their preparer; company administrators can Final approve.";
+  const rules = data.approvalRules.length ? ` ${data.approvalRules.length} custom rule${data.approvalRules.length === 1 ? " sends" : "s send"} some changes to their own approvers (Setup → Approvals).` : "";
+  if (p.type === "none") return `Salary changes count once saved (approval is off).${rules}`;
+  if (p.type === "multi_level") return `Salary changes are approved by ${p.levels.map((id, i) => `Level ${i + 1}: ${name(id)}`).join(" → ")}; company administrators can Final approve.${rules}`;
+  return `Salary changes need approval by someone other than their preparer; company administrators can Final approve.${rules}`;
 }

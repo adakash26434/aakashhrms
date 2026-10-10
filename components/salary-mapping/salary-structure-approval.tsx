@@ -1,14 +1,14 @@
 "use client";
 
 import { AlertTriangle, Loader2, Save, ShieldCheck, UserCheck } from "lucide-react";
-import { APPROVAL_TYPE_LABEL, ApprovalPolicyWindow } from "@/components/kit/approval-policy-window";
+import { APPROVAL_TYPE_LABEL } from "@/components/kit/approval-policy-window";
 import { useDateText } from "@/components/kit/date-cell";
 import { PaneTimeline, approvalSteps, type TimelineStep } from "@/components/kit/pane";
 import { WindowButton } from "@/components/kit/window";
-import { saveSalaryApprovalSettingsAction } from "@/app/actions/salary-structure.actions";
 import { buildFlow, statusText, type ApprovalActor, type SubmitOutcome } from "@/lib/engines/approval.engine";
+import { policyForChange, type ChangeFact } from "@/lib/engines/approval-rules.engine";
 import { changedLines } from "@/lib/engines/salary-structure.engine";
-import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
+import type { ApprovalActionKind, ApprovalRoute, ApprovalRule } from "@/lib/types/approval";
 import type { BatchRow, RetirementScheme, SalaryStructureData, StructureLines } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
 
@@ -47,11 +47,16 @@ export function salaryActor(data: SalaryStructureData): ApprovalActor {
 
 const nameOf = (data: SalaryStructureData) => (id: string) => data.approvers.find((a) => a.userId === id)?.name ?? "Unknown user";
 
-/** What saving changes for these employees will do (same engine as the server). */
-export function saveOutcome(data: SalaryStructureData, employeeIds: readonly string[]): SubmitOutcome & { canSaveAndApprove: boolean } {
-  const outcome = buildFlow(data.approvalPolicy, { preparerId: data.currentUserId, preparerEmployeeId: data.me.employeeId, subjectEmployeeIds: employeeIds, approvers: data.approvers });
+/** One person in a change for the preview: their totals before and after, and where they work. */
+export type ChangePerson = ChangeFact & { employeeId: string };
+
+/** What saving this change will do: the custom rule that applies, else the company policy (same engines as the server). */
+export function saveOutcome(data: SalaryStructureData, people: readonly ChangePerson[]): SubmitOutcome & { canSaveAndApprove: boolean; rule: ApprovalRule | null } {
+  const monthlyChange = people.reduce((n, p) => n + p.after - (p.before ?? 0), 0);
+  const routed = policyForChange({ policy: data.approvalPolicy, rules: data.approvalRules }, { monthlyChange, people });
+  const outcome = buildFlow(routed.policy, { preparerId: data.currentUserId, preparerEmployeeId: data.me.employeeId, subjectEmployeeIds: people.map((p) => p.employeeId), approvers: data.approvers });
   const own = !outcome.approvedAtOnce && outcome.ownSubject;
-  return { ...outcome, canSaveAndApprove: !outcome.approvedAtOnce && data.me.isAdministrator && !own };
+  return { ...outcome, canSaveAndApprove: !outcome.approvedAtOnce && data.me.isAdministrator && !own, rule: routed.rule };
 }
 
 /** One line saying what saving will do, and a warning when nobody else can approve. */
@@ -65,6 +70,7 @@ export function SaveOutcome({ data, outcome, className }: { data: SalaryStructur
     text = `Goes to ${active.map((l, i) => `Level ${i + 1}: ${name(l.userId)}`).join(", then ")}.`;
     if (outcome.flow.levels.some((l) => l.skipped)) text += " Levels you prepared or that concern the approver's own salary are skipped.";
   } else text = outcome.flow.fellBack ? "Every level was skipped, so any approver other than you can approve it." : "Waits for anyone who can approve salary changes (not you).";
+  if (outcome.rule) text = `Approval rule “${outcome.rule.name}”: ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
   if (outcome.canSaveAndApprove) text += " As a company administrator you can also save and approve it now.";
   const stuck = !outcome.approvedAtOnce && !outcome.canSaveAndApprove && data.me.otherApprovers === 0;
   return (
@@ -157,34 +163,6 @@ export function ApproverStanding({ data }: { data: SalaryStructureData }) {
         </li>
       )}
     </ul>
-  );
-}
-
-/** Approval settings (company administrators): none / simple / multi-level with ordered approvers. */
-export function ApprovalSettingsWindow({ data, onClose, onSaved }: { data: SalaryStructureData; onClose: () => void; onSaved: (pendingKept: number) => void }) {
-  const pending = data.batches.filter((b) => b.status === "pending").length;
-  return (
-    <ApprovalPolicyWindow
-      title="Approval settings · Salary changes"
-      description="Who approves salary revisions before they count. Company administrators can always Final approve; nobody approves their own salary."
-      policy={data.approvalPolicy}
-      approvers={data.approvers}
-      help={{
-        simple: "Any user who can approve salary changes approves it, never the person who prepared it.",
-        multi_level: "Named approvers in order: Level 2 acts only after Level 1. Approved when the last level approves.",
-        none: "Changes count once saved. A change to someone's own salary still needs another approver.",
-      }}
-      pendingNote={pending ? `${pending} change${pending === 1 ? "" : "s"} waiting keep the approvers they were sent to.` : "Applies to changes saved from now on."}
-      levelsHint="A level is skipped when its approver prepared the change or their own salary is in it. Approvers away can delegate in Users."
-      noApproverHint="No active user can approve salary changes yet. Give a role Salary structure → Approve in Roles."
-      onSave={async (policy) => {
-        const result = await saveSalaryApprovalSettingsAction(policy);
-        if (!result.success) return { ok: false, error: result.error, errors: result.validationErrors?.settings ?? {} };
-        onSaved(result.data.pendingKept);
-        return { ok: true };
-      }}
-      onClose={onClose}
-    />
   );
 }
 

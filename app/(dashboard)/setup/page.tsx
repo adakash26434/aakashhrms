@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AlertTriangle, Building2, CalendarDays, CalendarRange, ChevronRight, Clock, Coins, Network, Percent, ScrollText, Shield, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Building2, CalendarDays, CalendarRange, ChevronRight, Clock, Coins, Network, Percent, ScrollText, Shield, ShieldCheck, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { ensureTenantContext } from "@/lib/db";
 import { hasPermission, requireAuthenticatedUser } from "@/lib/auth/check-permission";
 import { setupFacts, type SetupEntryId } from "@/lib/services/setup-overview.service";
@@ -43,6 +43,7 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
       { title: "Rules & controls", description: "Tax deduction limits, SSF, overtime and the grade policy.", href: "/setup/system-control", icon: SlidersHorizontal, modules: ["SYSTEM_CONTROL"], fact: "rules" },
       { title: "Fiscal years", description: "Shrawan to Asar: the current year, closing and reopening.", href: "/setup/fiscal-year", icon: CalendarRange, modules: ["FISCAL_YEAR"], fact: "fiscalYears" },
       { title: "Tax slabs", description: "Income tax bands for each fiscal year.", href: "/setup/tax-rates", icon: Percent, modules: ["TAX_RATES"], fact: "taxSlabs" },
+      { title: "Approvals", description: "Who approves salary changes and loans, with custom rules for salary changes.", href: "/setup/approvals", icon: ShieldCheck, modules: ["SALARY_MAPPING", "LOANS"] },
       { title: "Payroll controls", description: "Maker-checker for pay runs, the variance threshold and the attendance rule.", href: "/payroll/controls", icon: Shield, modules: ["SYSTEM_CONTROL"] },
     ],
   },

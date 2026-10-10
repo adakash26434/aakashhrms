@@ -231,7 +231,7 @@ describe('CSV import', () => {
 describe('Salary structure security (S20)', () => {
   const actions = read('app/actions/salary-structure.actions.ts');
   it('every action checks permission with scope, audits and hides raw errors', () => {
-    for (const name of ['submitSalaryChangeAction', 'decideSalaryChangesAction', 'saveSalaryTemplateAction', 'setSalaryTemplateActiveAction', 'saveSalaryApprovalSettingsAction']) {
+    for (const name of ['submitSalaryChangeAction', 'decideSalaryChangesAction', 'saveSalaryTemplateAction', 'setSalaryTemplateActiveAction']) {
       const body = actions.slice(actions.indexOf(`export async function ${name}`));
       const end = body.indexOf('\nexport async function', 10);
       const fn = end > 0 ? body.slice(0, end) : body;
@@ -273,17 +273,22 @@ describe('Salary structure security (S20)', () => {
   it('S21: own-salary refusals are audited DENIED_SELF; the settings need a company administrator, never platform support', () => {
     assert.match(actions, /SelfDecisionError && userId[\s\S]*result: DENIED_SELF/); // save and approve
     assert.match(actions, /result: r\.refusal === 'scope' \? 'DENIED_SCOPE' : DENIED_SELF/); // decisions
-    const setting = actions.slice(actions.indexOf('export async function saveSalaryApprovalSettingsAction'));
-    assert.match(setting, /checkPermissionWithScope\('APPROVE', 'SALARY_MAPPING'\)/);
-    assert.match(setting, /scope\.scopeType !== 'GLOBAL'/);
-    assert.match(setting, /scope\.isImpersonation/);
+    // 4.12d: the approval settings moved to Setup → Approvals, a company control (checkCompanyControl:
+    // Approve with a company-wide role, never platform support).
+    assert.doesNotMatch(actions, /saveSalaryApprovalSettingsAction/);
+    const settings = read('app/actions/approval-settings.actions.ts');
+    for (const name of ['saveSalaryApprovalPolicyAction', 'saveSalaryApprovalRuleAction', 'deleteSalaryApprovalRuleAction', 'moveSalaryApprovalRuleAction']) {
+      const body = settings.slice(settings.indexOf(`export async function ${name}`));
+      assert.match(body.slice(0, body.indexOf('\n}\n')), /await checkCompanyControl\('APPROVE', 'SALARY_MAPPING'\)/, name);
+    }
     assert.match(actions, /hasPermission\('APPROVE', 'SALARY_MAPPING'\)/);
     assert.match(actions, /slice\(0, MAX_BULK\)/);
   });
 
   it('the server applies the rules: flow on submit, engine on every decision over all employees', () => {
     const service = read('lib/services/salary-structure.service.ts');
-    assert.match(service, /buildFlow\(policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId/);
+    // 4.12d: the first custom rule that applies decides, else the company policy.
+    assert.match(service, /const routed = policyForChange\(\{ policy, rules \}, \{ monthlyChange: summary\.monthlyChange, people \}\);\s*const outcome = buildFlow\(routed\.policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId/);
     assert.match(service, /if \(finalNow && !actor\.isAdministrator\)/);
     assert.match(service, /if \(finalNow && ownSalary\) throw new SelfDecisionError/);
     assert.match(service, /findBatchEmployeeIds\(batchId\)/);

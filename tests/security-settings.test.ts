@@ -199,7 +199,7 @@ describe('S50 rules & controls: a company-wide role, and a grade policy goes thr
 
   it('a grade-policy change is a salary change prepared by the user, decided through approval', () => {
     const apply = fn(salary, 'applyPolicyGrades');
-    assert.match(fn(salary, 'policyFlow'), /buildFlow\(policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId, subjectEmployeeIds: changedIds, approvers \}\)/);
+    assert.match(fn(salary, 'policyFlow'), /const routed = policyForChange\(\{ policy, rules \}, change\);\s*const outcome = buildFlow\(routed\.policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId, subjectEmployeeIds: changedIds, approvers \}\)/);
     assert.match(apply, /preparedBy: ctx\.userId,/);
     assert.match(apply, /approvedRoute: outcome\.approvedAtOnce \? outcome\.route : null,/);
     assert.match(apply, /approvalType: outcome\.approvedAtOnce \? "none" : outcome\.flow\.type,/);
@@ -402,5 +402,72 @@ describe('S53 company setup: a company-wide role, the own company only, every ch
     const save = fn(repo, 'saveProfileFields');
     assert.doesNotMatch(save, /company_legal_name|company_pan_vat|company_registration_no|company_office_address|company_logo_url/);
     assert.doesNotMatch(repo, /company_logo_url/);
+  });
+});
+
+// Approvals (4.12d). Moving the approval settings to Setup → Approvals and adding custom rules for
+// salary changes adds guards: a module's setting and the rules change only with its Approve and a
+// company-wide role (never platform support); a rule always asks for approval (never removes it);
+// the rules list is saved only at the version the user saw; every change is audited in words; and
+// the rules route a change before its flow is fixed (the flow on the change stays).
+describe('4.12d approvals: a company-wide approver, rules never remove approval, saved at the version seen', () => {
+  const actions = read('app/actions/approval-settings.actions.ts');
+  const service = read('lib/services/approval-settings.service.ts');
+  const engine = read('lib/engines/approval-rules.engine.ts');
+  const repo = read('lib/repositories/salary-structure.repository.ts');
+
+  it('every change needs the module\'s Approve with a company-wide role; errors are safe; nothing else is exported', () => {
+    assert.match(actions, /^'use server';/);
+    for (const [name, module] of [
+      ['saveSalaryApprovalPolicyAction', 'SALARY_MAPPING'],
+      ['saveSalaryApprovalRuleAction', 'SALARY_MAPPING'],
+      ['deleteSalaryApprovalRuleAction', 'SALARY_MAPPING'],
+      ['moveSalaryApprovalRuleAction', 'SALARY_MAPPING'],
+      ['saveLoanApprovalPolicyAction', 'LOANS'],
+    ]) {
+      const body = fn(actions, name);
+      assert.match(body, new RegExp(`const scope = await checkCompanyControl\\('APPROVE', '${module}'\\);`), name);
+      assert.match(body, /toActionError\(error, 'approvals\.|failed\(error, 'approvals\./, name);
+    }
+    assert.deepEqual([...actions.matchAll(/^export async function (\w+)/gm)].map((m) => m[1]).sort(), [
+      'approvalSettingsPageAction',
+      'deleteSalaryApprovalRuleAction',
+      'moveSalaryApprovalRuleAction',
+      'saveLoanApprovalPolicyAction',
+      'saveSalaryApprovalPolicyAction',
+      'saveSalaryApprovalRuleAction',
+    ]);
+    assert.equal(actions.match(/error\.message/g)?.length, 1, 'only the checked form\'s message');
+  });
+
+  it('a rule never removes approval', () => {
+    assert.match(fn(engine, 'normalizeRule'), /then: t\.type === "multi_level" \? \{ type: "multi_level", levels \} : \{ type: "simple", levels: \[\] \}/);
+    assert.match(fn(engine, 'policyForChange'), /return rule \? \{ policy: rule\.then, rule \} : \{ policy: settings\.policy, rule: null \};/);
+  });
+
+  it('the rules are saved only at the version the user saw, under a row lock', () => {
+    const replace = fn(repo, 'replaceApprovalRules');
+    assert.match(replace, /\.for\("update"\)/);
+    assert.match(replace, /if \(row\.updatedAt\.toISOString\(\) !== version\) return false;/);
+    for (const name of ['saveSalaryRule', 'deleteSalaryRule', 'moveSalaryRule']) {
+      const body = fn(service, name);
+      assert.match(body, /if \(current !== version\) throw new UserFacingError\(STALE\);/, name);
+      assert.match(body, /salaryRepository\.replaceApprovalRules\([\s\S]*?, version\)/, name);
+    }
+  });
+
+  it('every change is audited with the user, in words', () => {
+    for (const name of ['saveSalaryPolicy', 'saveLoanPolicy', 'saveSalaryRule', 'deleteSalaryRule', 'moveSalaryRule']) {
+      assert.match(fn(service, name), /recordAuditLog\(\{\s*userId: ctx\.userId,/, name);
+    }
+  });
+
+  it('a salary change is routed before its flow is fixed; the rule is on its timeline', () => {
+    const salary = read('lib/services/salary-structure.service.ts');
+    const submit = fn(salary, 'submitBatch');
+    assert.ok(submit.indexOf('policyForChange(') < submit.indexOf('buildFlow('));
+    assert.match(submit, /note: routed\.rule \? `Approval rule: \$\{routed\.rule\.name\}` : undefined/);
+    assert.doesNotMatch(read('app/actions/salary-structure.actions.ts'), /saveSalaryApprovalSettingsAction/);
+    assert.doesNotMatch(read('app/actions/loan.actions.ts'), /saveLoanApprovalSettingsAction/);
   });
 });

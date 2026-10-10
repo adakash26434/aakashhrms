@@ -56,7 +56,9 @@ describe('S47 loans: permission with scope, company controls', () => {
     assert.match(company, /if \(c\.scope\.scopeType !== 'GLOBAL'\) throw new UserFacingError/);
     assert.match(fn(actions, 'saveLoanTypeAction'), /companyCtx\('EDIT'\)/);
     assert.match(fn(actions, 'deleteLoanTypeAction'), /companyCtx\('DELETE'\)/);
-    assert.match(fn(actions, 'saveLoanApprovalSettingsAction'), /companyCtx\('APPROVE'\)/);
+    // 4.12d: the approval setting moved to Setup → Approvals (Loans → Approve, company-wide).
+    assert.doesNotMatch(actions, /saveLoanApprovalSettingsAction/);
+    assert.match(fn(read('app/actions/approval-settings.actions.ts'), 'saveLoanApprovalPolicyAction'), /await checkCompanyControl\('APPROVE', 'LOANS'\)/);
     // Platform support never changes a loan.
     assert.match(fn(service, 'prepareRequest'), /refuseSupport\(ctx\);/);
     assert.match(fn(service, 'decideRequest'), /refuseSupport\(ctx\);/);
