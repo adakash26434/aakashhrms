@@ -59,6 +59,8 @@ export interface PreflightEmployee {
   coveredByOpening?: boolean;
   /** 4.10: a loan amount left on the salary structure with no loan recorded (payroll deducts recorded loans only). */
   loanOnStructure?: boolean;
+  /** 4.12e: an amount on a label head (Basic Salary / Grade Amount), paid on top of basic / grade. */
+  labelAmount?: boolean;
 }
 
 export interface PreflightInput {
@@ -138,6 +140,7 @@ export function preflight(input: PreflightInput): PreflightResult {
     if (e.salary === "none" && input.runType !== "ARREARS") add("no_salary", "blocking", `${e.name} (${e.code}) has no salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
     else if (regular && e.salary === "setup") add("salary_setup", "blocking", `${e.name} (${e.code}) has only basic and grade: finish the salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
     if (e.coveredByOpening) add("covered_by_opening", "blocking", `${e.name} (${e.code}): the opening balance already covers ${input.period.label} (the old system paid it), so paying it here would count it twice.`, { ...about, href: "/payroll/opening" });
+    if (regular && e.labelAmount) add("label_amount", "warning", `${e.name} (${e.code}): the salary structure holds an amount on a label head (Basic Salary / Grade Amount), paid on top of basic and grade. Revise it in Salary structure: put the amount on an allowance if it is still due.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
     if (regular && e.loanOnStructure) add("loan_on_structure", "warning", `${e.name} (${e.code}): a loan amount is on the salary structure but no loan is recorded. Payroll deducts recorded loans only: enter it under Loans → Import opening balances.`, { ...about, href: "/loans" });
     if (regular && e.overtimeWaiting) add("overtime_waiting", "blocking", `${e.name}: ${plural(e.overtimeWaiting, "overtime day")} waiting for a decision.`, { ...about, href: "/timeAndLeave/attendance?tab=overtime" });
     if (!e.hasBank) add("no_bank", "warning", `${e.name} (${e.code}) has no bank account: the bank file will skip them.`, { ...about, href: `/workforce/employees/${e.id}` });

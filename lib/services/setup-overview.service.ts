@@ -6,6 +6,7 @@ import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as holidayRepository from "@/lib/repositories/holiday.repository";
 import { findSettings } from "@/lib/repositories/system-control.repository";
+import { labelAmounts } from "@/lib/services/salary-structure.service";
 import { systemReason } from "@/lib/engines/pay-head.engine";
 import { daysInclusive, fiscalYearLabel, fiscalYearOf } from "@/lib/engines/holiday.engine";
 import { bsStringToAD } from "@/lib/utils/bs-calendar";
@@ -36,10 +37,13 @@ async function organization(): Promise<SetupFact> {
 }
 
 async function payHeads(): Promise<SetupFact> {
-  const heads = await payHeadRepository.findAllPayHeads();
+  const [heads, labelled] = await Promise.all([payHeadRepository.findAllPayHeads(), labelAmounts(null)]);
   const system = heads.filter((h) => systemReason(h)).length;
   const own = heads.length - system;
-  return { text: `${plural(own, "company pay head")} · ${plural(system, "system head")}` };
+  const text = `${plural(own, "company pay head")} · ${plural(system, "system head")}`;
+  // 4.12e: amounts left on the Basic Salary / Grade Amount labels are paid on top of basic / grade.
+  const held = new Set(labelled.map((l) => l.employeeId)).size;
+  return held ? { text: `${text} · ${plural(held, "structure")} with an amount on a label head`, warning: true } : { text };
 }
 
 async function rules(): Promise<SetupFact> {

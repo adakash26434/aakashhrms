@@ -72,7 +72,9 @@ export type PayHeadRole =
   | "pf"
   | "ssf"
   | "ssfEmployer"
-  | "cit";
+  | "cit"
+  /** 4.12e: onboarding's Basic Salary / Grade Amount, which only name the base pay. */
+  | "label";
 
 /** How the amount is worked out: typed for each employee, or from basic / basic + grade. */
 export type PayHeadCalc = "typed" | "basic" | "basicPlusGrade";
@@ -113,8 +115,22 @@ export interface PayHeadRow {
   form: PayHeadForm;
 }
 
+/** 4.12e: a salary structure still holding an amount on a label head. */
+export interface LabelAmountRow {
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  head: string;
+  amount: number;
+}
+
 export interface PayHeadsPage {
   heads: PayHeadRow[];
+  /**
+   * 4.12e: structures still holding an amount on a label head — the company's count, and who
+   * (within the reader's salary scope) only for readers with Salary structure → View.
+   */
+  labelAmounts: { count: number; people: LabelAmountRow[] | null };
   departments: { id: string; name: string }[];
   designations: { id: string; name: string }[];
   /** Pay heads → Add / Edit / Delete (buttons only; the server checks a company-wide role). */

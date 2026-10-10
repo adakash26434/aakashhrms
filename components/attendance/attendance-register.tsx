@@ -9,6 +9,7 @@ import { inputClass } from "@/components/kit/property-form";
 import { WindowButton } from "@/components/kit/window";
 import { setAttendanceOverridesAction } from "@/app/actions/attendance.actions";
 import { hoursText, localClock } from "@/lib/engines/attendance-day.engine";
+import { shiftAllowanceDays } from "@/lib/engines/shift-allowance.engine";
 import { bsDayOf, weekdayOf } from "@/lib/engines/pay-period.engine";
 import { DAY_CODE, OVERRIDE_TYPES, type AttendancePageData, type DayResult, type OverrideType, type RegisterRow } from "@/lib/types/attendance";
 import { cn } from "@/lib/utils";
@@ -124,6 +125,10 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
       { id: "late", header: "Late", group: "Month", kind: "readonly", width: 56, value: (r) => r.summary.lateDays },
       { id: "ot", header: "OT h", group: "Month", kind: "readonly", width: 60, value: (r) => Math.round(((r.summary.otWorkDayMinutes + r.summary.otOffDayMinutes) / 60) * 10) / 10 }
     );
+    // 4.12e: days worked on shifts with an allowance, when any shift has one.
+    if (data.shifts.some((s) => s.allowancePerDay > 0)) {
+      cols.push({ id: "shiftDays", header: "Shift allow. days", group: "Month", kind: "readonly", width: 92, value: (r) => shiftAllowanceDays(r.summary.shiftAllowance) });
+    }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dates, edits, data]);

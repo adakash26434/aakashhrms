@@ -1064,6 +1064,8 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
   payableDays: numeric('payable_days', { precision: 5, scale: 2 }).default('0').notNull(),
   unpaidDays: numeric('unpaid_days', { precision: 5, scale: 2 }).default('0').notNull(),
   notEmployedDays: numeric('not_employed_days', { precision: 5, scale: 2 }).default('0').notNull(),
+  // 4.12e: the month's shift allowance (days worked × each shift's rate when the month closed).
+  shiftAllowanceAmount: numeric('shift_allowance_amount', { precision: 15, scale: 2 }).default('0').notNull(),
   summary: jsonb('summary'),
 
   // Lock Control
@@ -1220,6 +1222,8 @@ export const shifts = pgTable('shifts', {
   otMinimumMinutes: integer('ot_minimum_minutes').default(30).notNull(),
   week: jsonb('week').$type<{ working: boolean; start?: string | null; end?: string | null }[]>().default([]).notNull(),
   seasons: jsonb('seasons').$type<{ name: string; fromMonth: number; fromDay: number; toMonth: number; toDay: number; start: string; end: string }[]>().default([]).notNull(),
+  // 4.12e: shift allowance for each day worked on the shift (0 = none), paid through payroll.
+  allowancePerDay: numeric('allowance_per_day', { precision: 10, scale: 2 }).default('0').notNull(),
   isDefault: boolean('is_default').default(false).notNull(),
   active: boolean('active').default(true).notNull(),
   createdBy: uuid('created_by'),

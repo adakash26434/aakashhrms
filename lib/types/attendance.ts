@@ -270,6 +270,8 @@ export interface ShiftDefinition {
   /** Seven days, Sunday first. */
   week: ShiftWeekDay[];
   seasons: ShiftSeason[];
+  /** 4.12e: shift allowance (NPR) for each day worked on the shift; 0 = none. */
+  allowancePerDay: number;
   isDefault: boolean;
   active: boolean;
 }
@@ -427,6 +429,24 @@ export interface MonthSummary {
   otOffDayMinutes: number;
   /** OT over the legal limits (4 h a day, 24 h a week): flagged, not cut. */
   otWarnings: string[];
+  /**
+   * 4.12e: days worked on shifts with an allowance, one line per shift (none when no shift has
+   * one). Summaries stored before 4.12e have no such field.
+   */
+  shiftAllowance: ShiftAllowanceLine[];
+}
+
+/** One shift's allowance in a month: days worked on it × its rate. */
+export interface ShiftAllowanceLine {
+  shiftId: string;
+  code: string;
+  name: string;
+  /** Days worked on the shift (halves count ½). */
+  days: number;
+  /** NPR a day. */
+  rate: number;
+  /** days × rate, to the paisa. */
+  amount: number;
 }
 
 export const PUNCH_SOURCES = ["manual", "web", "device", "import", "adjustment"] as const;

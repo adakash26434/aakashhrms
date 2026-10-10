@@ -9,6 +9,7 @@ import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
 import { makeDefaultShiftAction, setBranchShiftAction, setShiftActiveAction } from "@/app/actions/shift.actions";
 import { hoursText } from "@/lib/engines/attendance-day.engine";
+import { allowanceRate } from "@/lib/engines/shift-allowance.engine";
 import type { AttendancePageData, ShiftView } from "@/lib/types/attendance";
 import { ShiftChip } from "./attendance-shared";
 import { ShiftWindow } from "./attendance-shift-window";
@@ -47,6 +48,14 @@ export function AttendanceShifts({ data, onSaved }: { data: AttendancePageData; 
       { id: "kind", header: "Type", width: 90, value: (s) => (s.kind === "flexible" ? "Flexible" : "Fixed") },
       { id: "summary", header: "Hours and week", width: 360, value: (s) => s.summary, cell: (s) => <span className="text-2xs text-ink-muted">{s.summary}</span> },
       { id: "week", header: "Hours a week", type: "number", width: 150, value: (s) => s.weekMinutes, cell: (s) => <span className={s.weekMinutes > 2880 ? "font-medium text-warning" : ""}>{hoursText(s.weekMinutes)}</span> },
+      {
+        id: "allowance",
+        header: "Shift allowance",
+        type: "number",
+        width: 150,
+        value: (s) => s.allowancePerDay,
+        cell: (s) => (s.allowancePerDay > 0 ? <span className="tabular-nums text-ink">{allowanceRate(s.allowancePerDay)}</span> : <span className="text-ink-faint">—</span>),
+      },
       { id: "people", header: "People today", type: "number", width: 150, value: (s) => s.people },
       { id: "branches", header: "Branch default for", width: 190, value: (s) => s.branchNames.join(", "), cell: (s) => <span className="text-2xs text-ink-muted">{s.branchNames.join(", ") || "—"}</span> },
       {
@@ -95,7 +104,7 @@ export function AttendanceShifts({ data, onSaved }: { data: AttendancePageData; 
         <p>
           <span className="font-medium text-ink">Which shift applies on a day:</span> the roster day (a rotation, a swap or OFF), else the person&apos;s assigned shift, else their branch&apos;s default, else the company default.
         </p>
-        <p className="mt-1">Changing a shift changes every open month; closed months keep their results. {can ? "" : "Only company-wide roles define shifts; you can assign them on the Roster tab."}</p>
+        <p className="mt-1">Changing a shift changes every open month; closed months keep their results. A shift allowance is paid through payroll for each day worked on the shift. {can ? "" : "Only company-wide roles define shifts; you can assign them on the Roster tab."}</p>
       </div>
       {message && (
         <p role="alert" className="rounded-md border border-danger/30 bg-danger-subtle px-3 py-2 text-xs text-danger">

@@ -28,7 +28,7 @@ const person: ReportTableColumn<AttendanceReportRow>[] = [
 ];
 const days = (id: string, header: string, pick: (r: AttendanceReportRow) => number, total = true): ReportTableColumn<AttendanceReportRow> => ({ id, header, kind: "days", value: pick, total, width: 9 });
 
-function summaryColumns(showAmounts: boolean): ReportTableColumn<AttendanceReportRow>[] {
+function summaryColumns(showAmounts: boolean, shiftAllowance: boolean): ReportTableColumn<AttendanceReportRow>[] {
   return [
     ...person,
     { id: "designation", header: "Designation", value: (r) => r.designation, width: 18 },
@@ -46,10 +46,13 @@ function summaryColumns(showAmounts: boolean): ReportTableColumn<AttendanceRepor
     days("otWork", "OT work days (h)", (r) => r.otWorkDayHours),
     days("otOff", "OT days off (h)", (r) => r.otOffDayHours),
     days("payable", "Payable days", (r) => r.payableDays),
+    // 4.12e: days worked on shifts with an allowance (when anyone has some).
+    ...(shiftAllowance ? [days("shift", "Shift allowance days", (r) => r.shiftDays)] : []),
     ...(showAmounts
       ? [
           { id: "otPay", header: "OT pay", kind: "amount" as const, value: (r: AttendanceReportRow) => r.otPay, total: true, width: 12 },
           { id: "absence", header: "Absence deduction", kind: "amount" as const, value: (r: AttendanceReportRow) => r.absenceDeduction, total: true, width: 12 },
+          ...(shiftAllowance ? [{ id: "shiftPay", header: "Shift allowance", kind: "amount" as const, value: (r: AttendanceReportRow) => r.shiftAllowance, total: true, width: 12 }] : []),
         ]
       : []),
   ];
@@ -115,7 +118,7 @@ export function AttendanceReportClient({ initial }: { initial: AttendanceReportD
   const cards = shown.view === "cards";
   const meta = placeMeta(context, places, shown);
   const title = shown.view === "register" ? { en: "Attendance register", np: "हाजिरी विवरण" } : shown.view === "cards" ? { en: "Attendance card", np: "हाजिरी कार्ड" } : { en: "Attendance summary", np: "मासिक हाजिरी सारांश" };
-  const columns = shown.view === "register" ? registerColumns(data) : summaryColumns(data.showAmounts);
+  const columns = shown.view === "register" ? registerColumns(data) : summaryColumns(data.showAmounts, data.rows.some((r) => r.shiftDays > 0 || Number(r.shiftAllowance) > 0));
   const fileStem = ["attendance", shown.view, data.monthLabel];
   const cardRows = (): CardFileRow[] => data.rows.flatMap((r) => r.days.map((cell) => ({ key: `${r.employeeId}:${cell.day}`, code: r.code, name: r.name, day: cell.day, weekday: data.dayHeads[cell.day - 1]?.weekday ?? "", cell })));
   const rowCount = data.rows.length;
@@ -183,6 +186,7 @@ export function AttendanceReportClient({ initial }: { initial: AttendanceReportD
             <ReportTable columns={cardColumns(data)} rows={r.days} getRowId={(d) => String(d.day)} numbered={false} />
             <p className="mt-2 text-2xs">
               Present {r.present} · half days {r.halfDays} · on duty {r.onDuty} · paid leave {r.paidLeave} · unpaid leave {r.unpaidLeave} · absent {r.absent} · missing punch {r.missingPunch} · late {r.lateDays} · OT {r.otWorkDayHours + r.otOffDayHours} h ·{" "}
+              {r.shiftDays > 0 && <>shift allowance days {r.shiftDays} · </>}
               <span className="font-semibold">payable days {r.payableDays}</span>
             </p>
             <div className="mt-10 flex justify-between text-2xs">

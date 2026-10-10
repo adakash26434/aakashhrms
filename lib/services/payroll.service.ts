@@ -46,6 +46,9 @@ import * as payrollFeedService from "@/lib/services/payroll-feed.service";
 import { FEED_SOURCE, isFeedHeadCode } from "@/lib/constants/payroll-feeds";
 import { coveredByOpeningMessage, openingAsYearEndSlip } from "@/lib/engines/opening-balance.engine";
 
+/** 4.12e: a shift allowance is due but its system head is missing (never dropped silently). */
+const MISSING_SHIFT_ALLOWANCE_HEAD = "The Shift allowance pay head (SHIFT_ALLOWANCE) is missing, so the month's shift allowance can't be paid. Restart the app so it is added, then try again.";
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function sanitizeSlipHeads<T extends { payHeadId: string; payHeadName: string; headType: any; amount: string; calculatedAmount: string }>(
@@ -500,6 +503,12 @@ export async function generatePayrollRun(
     if (leaveSalary && feedHeadRows.leaveEncash && Number(leaveSalary.amount) > 0) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.leaveEncash), amount: leaveSalary.amount, isManualOverride: true });
     }
+    // 4.12e: the month's shift allowance from attendance (days worked × each shift's rate; taxable).
+    const shiftAllowance = Number(leaveOtCalc?.shiftAllowanceAmount ?? 0);
+    if (shiftAllowance > 0) {
+      if (!feedHeadRows.shiftAllowance) throw new UserFacingError(MISSING_SHIFT_ALLOWANCE_HEAD);
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.shiftAllowance), amount: shiftAllowance.toFixed(2), isManualOverride: true });
+    }
 
     // 1. TDS is required for every employee
     if (!assignedHeads.some((h) => h.isTdsHead)) {
@@ -701,9 +710,15 @@ async function assertNotFeedHead(payHeadId: string): Promise<void> {
   if (head && isFeedHeadCode(head.code)) throw new UserFacingError(`${head.name} comes from ${FEED_SOURCE[head.code!]}: change it there, then recalculate the payslip.`);
 }
 
+/**
+ * A reviewer's change to a draft payslip (a head line, basic, grade, OT, absence or the loan
+ * deduction), then the payslip worked out again. `fromAttendance` is for the attendance sync only
+ * (never the browser's payload): the month's shift allowance line (4.12e).
+ */
 export async function overridePayslipAllowanceDeduction(
   payload: PayrollSlipOverridePayload,
-  userId: string
+  userId: string,
+  fromAttendance?: { shiftAllowance: number }
 ): Promise<void> {
   // S21: nobody edits their own payslip.
   await assertNotOwnSlip(payload.slipId, userId, 'EDIT');
@@ -771,6 +786,11 @@ export async function overridePayslipAllowanceDeduction(
           updatedAt: new Date()
         })
         .where(eq(payrollSlips.id, slipId));
+    }
+
+    // 4.12e: the attendance sync puts the month's shift allowance on (or takes it off) the payslip.
+    if (fromAttendance && !(await feedsRepository.setShiftAllowanceLine(tx, slipId, fromAttendance.shiftAllowance))) {
+      throw new UserFacingError(MISSING_SHIFT_ALLOWANCE_HEAD);
     }
 
     // Process pay head override if provided
@@ -996,12 +1016,17 @@ export async function syncPayrollRunAttendance(
   const attendance = await attendanceForPayroll(slips.map((x) => x.employeeId), periodOfRun(run));
   for (const s of slips) {
     const calc = attendance.get(s.employeeId);
-    await overridePayslipAllowanceDeduction({
-      slipId: s.id,
-      absentDeduction: calc?.leaveDeductionAmount ?? "0",
-      otAmount: calc?.otEarnedAmount ?? "0",
-      otDetail: calc?.otDetail ?? null,
-    }, userId);
+    await overridePayslipAllowanceDeduction(
+      {
+        slipId: s.id,
+        absentDeduction: calc?.leaveDeductionAmount ?? "0",
+        otAmount: calc?.otEarnedAmount ?? "0",
+        otDetail: calc?.otDetail ?? null,
+      },
+      userId,
+      // 4.12e: the shift allowance line goes with the attendance figures.
+      { shiftAllowance: Number(calc?.shiftAllowanceAmount ?? 0) }
+    );
   }
 
   return (await repository.findPayrollRunById(runId))!;
@@ -1191,6 +1216,12 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   if (feedHeadRows.arrears && Number(paidHere.arrears) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: paidHere.arrears, isManualOverride: true });
   const fundHereAmount = fundHere.get(emp.id);
   if (feedHeadRows.welfare && fundHereAmount) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundHereAmount, isManualOverride: true });
+  // 4.12e: the month's shift allowance, read again from attendance like OT and absence.
+  const shiftAllowance = Number(leaveOtCalc?.shiftAllowanceAmount ?? 0);
+  if (shiftAllowance > 0) {
+    if (!feedHeadRows.shiftAllowance) throw new UserFacingError(MISSING_SHIFT_ALLOWANCE_HEAD);
+    calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.shiftAllowance), amount: shiftAllowance.toFixed(2), isManualOverride: true });
+  }
 
   // Ensure statutory master heads
   if (!calculatorHeadsInput.some((h) => h.isTdsHead)) {

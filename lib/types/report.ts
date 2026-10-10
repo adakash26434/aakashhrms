@@ -240,9 +240,12 @@ export interface AttendanceReportRow {
   otWorkDayHours: number;
   otOffDayHours: number;
   workedHours: number;
+  /** 4.12e: days worked on shifts with an allowance (halves count ½). */
+  shiftDays: number;
   /** Pay effect — only for viewers who can see the salary sheet. */
   otPay: string | null;
   absenceDeduction: string | null;
+  shiftAllowance: string | null;
   days: AttendanceDayCell[];
 }
 

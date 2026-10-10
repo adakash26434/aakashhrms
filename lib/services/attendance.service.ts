@@ -18,6 +18,7 @@ import { addDays, datesIn, periodContaining, periodFor, type PayPeriod } from "@
 import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
 import { plannedWeekMinutes, shiftSummary, shiftWarnings } from "@/lib/engines/shift.engine";
 import { clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
+import { shiftAllowanceTotal, shiftPayOf } from "@/lib/engines/shift-allowance.engine";
 import { OT_MAX_ENTRY_MINUTES, decidable, monthOvertime } from "@/lib/engines/overtime.engine";
 import * as overtimeService from "@/lib/services/overtime.service";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
@@ -169,6 +170,9 @@ function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
     now: ctx.now,
   });
 }
+
+/** The shifts that carry an allowance (4.12e), from the shifts the context read. */
+const shiftPayFrom = (ctx: Context) => shiftPayOf(ctx.shifts.shifts.values());
 
 /** Employees in scope who were employed at some point in a date range. */
 async function employeesFor(scope: ScopeFilter, from: string, to: string, filter: { branchId?: string; departmentId?: string } = {}): Promise<Employee[]> {
@@ -334,9 +338,10 @@ export async function getAttendancePage(params: {
   // Register (and close overview) for the month.
   const ctx = await loadContext(people, period.start, period.end, rules);
   const dates = datesIn(period);
+  const shiftPay = shiftPayFrom(ctx);
   const register: RegisterRow[] = people.map((e) => {
     const days = dates.map((d) => resolveFor(ctx, e, d));
-    return { employee: view(e), days, summary: summariseMonth(period, days, rules), locked: closedBranches.has(e.branchId) };
+    return { employee: view(e), days, summary: summariseMonth(period, days, rules, shiftPay), locked: closedBranches.has(e.branchId) };
   });
 
   // Today (when today is in the month shown; otherwise its own read).
@@ -948,11 +953,12 @@ export async function countAdjustmentsWaitingFor(scope: ScopeFilter, canApprove:
 }
 
 /**
- * Overtime pay and the unpaid-day deduction for a month (4.7, merged with the
- * team's formula): the minutes the overtime policy lets through (approved, or
+ * Overtime pay, the unpaid-day deduction and the shift allowance for a month.
+ * Overtime (4.7): the minutes the overtime policy lets through (approved, or
  * detected when approval is automatic; each day rounded) are paid with the
  * one OT formula, `otPay` (basic ÷ 240 × the OT-rule multiplier, never below
- * the Labour Act's 1.5).
+ * the Labour Act's 1.5). Shift allowance (4.12e): days worked on each shift
+ * with an allowance × its rate, whatever the salary.
  */
 function amountsFor(employeeId: string, summary: MonthSummary, days: readonly DayResult[], entries: readonly OvertimeEntry[], salary: { basic: number; grade: number } | undefined, policy: OvertimePolicy, multipliers: OtMultipliers) {
   const ot = monthOvertime(employeeId, days, entries, policy);
@@ -972,6 +978,7 @@ function amountsFor(employeeId: string, summary: MonthSummary, days: readonly Da
     otMinutes: ot.paid,
     otWaiting: ot.waiting,
     leaveDeductionAmount: salary ? unpaidDeduction(salary.basic + salary.grade, summary) : 0,
+    shiftAllowanceAmount: shiftAllowanceTotal(summary.shiftAllowance),
   };
 }
 
@@ -1026,6 +1033,7 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
     const waiting = await repo.countPendingAdjustments(people.map((e) => e.id), period.start, period.end);
     if (waiting) throw new UserFacingError(`${waiting} adjustment${waiting === 1 ? " is" : "s are"} still waiting for this month. Decide them first.`);
     const c = await loadContext(people, period.start, period.end, rules);
+    const shiftPay = shiftPayFrom(c);
     const fyStart = await repo.fiscalYearFor(period.start);
     const fyEnd = await repo.fiscalYearFor(period.end);
     const days: { employeeId: string; fiscalYearId: string; result: DayResult }[] = [];
@@ -1034,10 +1042,11 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
     for (const e of people) {
       const results = datesIn(period).map((d) => resolveFor(c, e, d));
       for (const res of results) days.push({ employeeId: e.id, fiscalYearId: res.date < period.end && fyStart !== fyEnd ? await repo.fiscalYearFor(res.date) : fyEnd, result: res });
-      const summary = summariseMonth(period, results, rules);
+      // The shift allowance is frozen with the month: its days and the rates of the day.
+      const summary = summariseMonth(period, results, rules, shiftPay);
       const a = amountsFor(e.id, summary, results, pay.entries, pay.salary.get(e.id), pay.policy, pay.multipliers);
       otWaiting += a.otWaiting;
-      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, otEarnedAmount: a.otEarnedAmount, otDetail: a.otDetail, otMinutes: a.otMinutes, leaveDeductionAmount: a.leaveDeductionAmount });
+      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, otEarnedAmount: a.otEarnedAmount, otDetail: a.otDetail, otMinutes: a.otMinutes, leaveDeductionAmount: a.leaveDeductionAmount, shiftAllowanceAmount: a.shiftAllowanceAmount });
     }
     // 4.7b: overtime is paid as decided, so every overtime day waiting for a decision is decided first.
     if (otWaiting) throw new UserFacingError(`${otWaiting} overtime day${otWaiting === 1 ? " is" : "s are"} still waiting for a decision this month. Decide ${otWaiting === 1 ? "it" : "them"} on the Overtime tab first.`);
@@ -1115,12 +1124,13 @@ export async function reportMonth(scope: ScopeFilter, year: number, month: numbe
   const ctx = await loadContext(people, period.start, period.end, rules);
   const amounts = await attendanceForPayroll(people.map((e) => e.id), period);
   const today = nepalDateIso();
+  const shiftPay = shiftPayFrom(ctx);
   return {
     period,
     people: people.map((e) => {
       const days = datesIn(period).map((d) => resolveFor(ctx, e, d));
       // Days after today are not counted yet.
-      const summary = summariseMonth(period, days.filter((d) => d.date <= today), rules);
+      const summary = summariseMonth(period, days.filter((d) => d.date <= today), rules, shiftPay);
       return { id: e.id, employeeCode: e.employeeCode, fullName: e.fullName, departmentId: e.departmentId, designationId: e.designationId, branchId: e.branchId, days, summary, amounts: amounts.get(e.id)! };
     }),
   };
@@ -1135,6 +1145,8 @@ export interface PayrollAttendance {
   otEarnedAmount: string;
   /** How the overtime amount was worked out (null: a month closed before 4.7b). */
   otDetail: OvertimeDetail | null;
+  /** 4.12e: days worked × each shift's allowance (paid on the SHIFT_ALLOWANCE head). */
+  shiftAllowanceAmount: string;
   unpaidDays: number;
   /** From a closed month (true) or worked out now without saving (false). */
   closed: boolean;
@@ -1155,6 +1167,7 @@ export async function attendanceForPayroll(employeeIds: string[], period: PayPer
       leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"),
       otEarnedAmount: String(s.otEarnedAmount ?? "0"),
       otDetail: s.otDetail ?? null,
+      shiftAllowanceAmount: String(s.shiftAllowanceAmount ?? "0"),
       unpaidDays: (Number(s.unpaidDays) || 0) + (Number(s.notEmployedDays) || 0),
       closed: true,
       otWarnings: s.otWarnings,
@@ -1166,9 +1179,10 @@ export async function attendanceForPayroll(employeeIds: string[], period: PayPer
   const people = (await repo.findEmployees()).filter((e) => open.includes(e.id));
   const c = await loadContext(people, period.start, period.end, rules);
   const pay = await payInputs(people.map((e) => e.id), period);
+  const shiftPay = shiftPayFrom(c);
   for (const e of people) {
     const days = datesIn(period).map((d) => resolveFor(c, e, d));
-    const summary = summariseMonth(period, days, rules);
+    const summary = summariseMonth(period, days, rules, shiftPay);
     const a = amountsFor(e.id, summary, days, pay.entries, pay.salary.get(e.id), pay.policy, pay.multipliers);
     // Overtime waiting for a decision is not paid yet: say so on the payslip.
     const waiting = a.otWaiting ? [`${a.otWaiting} overtime day${a.otWaiting === 1 ? "" : "s"} waiting for a decision (not paid yet)`] : [];
@@ -1176,6 +1190,7 @@ export async function attendanceForPayroll(employeeIds: string[], period: PayPer
       leaveDeductionAmount: String(a.leaveDeductionAmount),
       otEarnedAmount: String(a.otEarnedAmount),
       otDetail: a.otDetail,
+      shiftAllowanceAmount: a.shiftAllowanceAmount.toFixed(2),
       unpaidDays: summary.unpaidDays + summary.notEmployedDays,
       closed: false,
       otWarnings: [...summary.otWarnings, ...waiting].join("\n") || null,

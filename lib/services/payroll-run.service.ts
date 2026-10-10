@@ -27,6 +27,7 @@ import { canSwitchCalendar, fiscalMonthIndexFor, parseCalendar, recordMonthOf, r
 import { periodFor, periodContaining, shiftPeriod, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
 import { isOwnRecord } from "@/lib/auth/self-action";
 import { isFeedHeadCode } from "@/lib/constants/payroll-feeds";
+import { isLabelHead } from "@/lib/constants/label-heads";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
@@ -314,7 +315,7 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
   const people = await scopedEmployees(full);
   const ids = people.map((e) => e.id);
   const regular = input.runType === "REGULAR";
-  const [branches, periods, salaries, batches, slabs, overtime, funds, hasFunds, previousRun, covered] = await Promise.all([
+  const [branches, periods, salaries, batches, slabs, overtime, funds, hasFunds, previousRun, covered, heads] = await Promise.all([
     branchRepository.findAllBranches(),
     attendanceRepo.findPeriods(period.calendar, period.year, period.month),
     salaryMappingRepository.findInForceByEmployeeIds(ids, period.end),
@@ -330,8 +331,12 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
     })(),
     // F15: a month an opening balance covers was paid by the old system.
     runYear ? openingRepository.openingsCovering(ids, runYear.id, fiscalMonthIndexFor(period.calendar, period.month)) : Promise.resolve([]),
+    payHeadRepository.findAllPayHeads(),
   ]);
   const coveredCodes = new Set(covered.map((c) => c.employeeCode));
+  // 4.12e: an amount on a label head (Basic Salary / Grade Amount) is paid on top of basic / grade.
+  const labelHeads = new Set(heads.filter((h) => isLabelHead(h)).map((h) => h.id));
+  const hasLabelAmount = (employeeId: string) => (salaries.get(employeeId)?.salaryHeads ?? []).some((h) => labelHeads.has(h.payHeadId) && Number(h.amount) > 0);
   // 4.10: payroll deducts recorded loans only; an amount left on a salary structure is not deducted.
   const withLoanAmount = regular ? people.filter((e) => { const m = salaries.get(e.id); return !!m && Number(m.loan1Deduction || 0) + Number(m.loan2Deduction || 0) > 0; }).map((e) => e.id) : [];
   const recordedLoans = new Set((await loanRepository.runningLoansFor(withLoanAmount)).map((l) => l.employeeId));
@@ -362,6 +367,7 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
       overtimeWaiting: overtime.get(e.id) ?? 0,
       coveredByOpening: coveredCodes.has(e.employeeCode),
       loanOnStructure: withLoanAmount.includes(e.id) && !recordedLoans.has(e.id),
+      labelAmount: regular && hasLabelAmount(e.id),
     };
   });
   const prevPeriod = shiftPeriod(period, -1);

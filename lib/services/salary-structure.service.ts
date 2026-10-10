@@ -45,6 +45,7 @@ import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-
 import { UserFacingError } from "@/lib/errors/action-error";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
+import { isFeedHeadCode } from "@/lib/constants/payroll-feeds";
 import type { PayHead } from "@/lib/types/pay-head";
 import type { Employee } from "@/lib/types/employee";
 import type {
@@ -110,7 +111,12 @@ const toLike = (h: PayHead): PayHeadLike => ({
 
 async function loadContext() {
   const [payHeads, settings] = await Promise.all([payHeadRepository.findAllPayHeads(), systemControlRepository.findSettings()]);
-  const heads = payHeads.map((h) => classifyHead(toLike(h))).sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === "allowance" ? -1 : 1));
+  // Lines other modules feed into a pay run (TA-DA, arrears, shift allowance…) never belong to a
+  // salary structure: payroll leaves them out of one (4.12e: they were offered for typing here).
+  const heads = payHeads
+    .filter((h) => !isFeedHeadCode(h.code))
+    .map((h) => classifyHead(toLike(h)))
+    .sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === "allowance" ? -1 : 1));
   const totalsSettings: TotalsSettings = {
     ssfBase: settings.statutoryDeductionLimits.ssfContributionBase === "BasicSalary" ? "BasicSalary" : "BasicPlusGrade",
     pfPercent: 10,
@@ -453,11 +459,6 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
   for (const row of input.rows) {
     const emp = byId.get(row.employeeId)!;
     const lines: StructureLines = { ...row.lines, gradeAmount: gradeAmountFor(row.lines, settings.gradePolicy) };
-    const check = validateLines(lines, heads, levelStart(emp.shreni ?? ""));
-    if (Object.keys(check.errors).length) {
-      errors[row.employeeId] = check.errors;
-      continue;
-    }
     const mine = revisions.filter((r) => r.employeeId === row.employeeId);
     const currentRow = latestApproved(mine.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
     const current = currentRow
@@ -467,6 +468,12 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
           heads
         )
       : null;
+    // 4.12e: checked against the structure it revises (a label head keeps what it holds, or 0).
+    const check = validateLines(lines, heads, levelStart(emp.shreni ?? ""), current);
+    if (Object.keys(check.errors).length) {
+      errors[row.employeeId] = check.errors;
+      continue;
+    }
     if (input.kind === "setup") {
       // Adding a structure (Add new / Bulk add): only for someone with none yet, or with
       // basic + grade from the employee form; the latter may be confirmed unchanged.
@@ -571,6 +578,45 @@ export async function createStartingStructure(params: {
     ],
     revisions: [{ employeeId: params.employeeId, basic: params.basic, gradeCount: params.gradeCount, gradeAmount: params.gradeAmount, gradeManual: params.gradeManual, netAmount: totals.netBeforeTax, heads: [] }],
   });
+}
+
+// ---------------------------------------------------------------------------
+// Label heads (4.12e): structures still holding an amount on Basic Salary / Grade Amount
+// ---------------------------------------------------------------------------
+
+export interface LabelAmount {
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  /** The label head's name. */
+  head: string;
+  /** What the structure holds on it (paid on top of basic / grade). */
+  amount: number;
+}
+
+/**
+ * Active employees whose salary structure (the latest approved revision) still holds an amount
+ * on a label head: payroll pays it on top of basic / grade until someone revises it away.
+ * `scope` null is the whole company, for counts; names and amounts follow the reader's salary
+ * scope (S20).
+ */
+export async function labelAmounts(scope: ScopeFilter | null): Promise<LabelAmount[]> {
+  const [{ heads }, employees] = await Promise.all([loadContext(), scope ? employeesInScope(scope) : employeeRepository.findAll(ALL).then((all) => all.filter((e) => e.status === "Active"))]);
+  const labels = new Map(heads.filter((h) => h.labelOnly).map((h) => [h.id, h.name]));
+  if (!labels.size || !employees.length) return [];
+  const { revisions, heads: stored } = await repository.findRevisions(employees.map((e) => e.id));
+  const byEmployee = new Map<string, repository.RevisionRow[]>();
+  for (const r of revisions) byEmployee.set(r.employeeId, [...(byEmployee.get(r.employeeId) ?? []), r]);
+  const onLabels = new Map<string, repository.StoredHead[]>();
+  for (const h of stored) if (h.amount > 0 && labels.has(h.payHeadId)) onLabels.set(h.salaryMapId, [...(onLabels.get(h.salaryMapId) ?? []), h]);
+  const out: LabelAmount[] = [];
+  for (const e of employees) {
+    const current = latestApproved((byEmployee.get(e.id) ?? []).map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+    for (const h of current ? onLabels.get(current.id) ?? [] : []) {
+      out.push({ employeeId: e.id, employeeCode: e.employeeCode, fullName: e.fullName, head: labels.get(h.payHeadId)!, amount: h.amount });
+    }
+  }
+  return out.sort((a, b) => a.fullName.localeCompare(b.fullName) || a.head.localeCompare(b.head));
 }
 
 // ---------------------------------------------------------------------------
@@ -823,8 +869,11 @@ export async function saveTemplate(id: string | null, raw: unknown): Promise<Tem
   if (!input.name.trim()) errors.name = "Enter a name";
   if (input.basicMode === "amount" && !(input.basicAmount > 0)) errors.basicAmount = "Enter the basic salary, or use the level's starting salary";
   const { heads } = await loadContext();
-  const known = new Set(heads.filter((h) => h.kind === "amount" || h.kind === "computed").map((h) => h.id));
-  if (input.heads.some((h) => !known.has(h.payHeadId) || !(h.amount >= 0))) errors.heads = "Check the pay heads and amounts";
+  // 4.12e: a label head (Basic Salary / Grade Amount) holds no amount, in a template either.
+  const label = input.heads.map((h) => heads.find((x) => x.id === h.payHeadId)).find((h) => h?.labelOnly);
+  const known = new Set(heads.filter((h) => (h.kind === "amount" && !h.labelOnly) || h.kind === "computed").map((h) => h.id));
+  if (label) errors.heads = `${label.name} is a label for basic / grade: a template holds no amount on it`;
+  else if (input.heads.some((h) => !known.has(h.payHeadId) || !(h.amount >= 0))) errors.heads = "Check the pay heads and amounts";
   const others = (await repository.findTemplates()).filter((t) => t.id !== id);
   if (others.some((t) => t.code.toUpperCase() === input.code.toUpperCase())) errors.code = "Another template uses this code";
   if (Object.keys(errors).length) throw new StructureValidationError({ template: errors });

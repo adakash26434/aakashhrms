@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { fundLedger, fundTypes, leaveSalaryRuns, payHeads, payrollArrears, payrollRuns, payrollSlips, reimbursementClaims, travelClaims } from '@/lib/db/schema';
+import { fundLedger, fundTypes, leaveSalaryRuns, payHeads, payrollArrears, payrollRuns, payrollSlipHeads, payrollSlips, reimbursementClaims, travelClaims } from '@/lib/db/schema';
 import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 // Payroll feeds (4.8): what other modules hand the pay run — approved TA-DA
@@ -7,7 +7,7 @@ import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 // employee contributions (deducted). Drizzle queries only; the engine still
 // does all the pay maths — these are one-off head amounts.
 
-import { ARREARS_HEAD_CODE, LEAVE_ENCASH_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE } from '@/lib/constants/payroll-feeds';
+import { ARREARS_HEAD_CODE, LEAVE_ENCASH_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, SHIFT_ALLOWANCE_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE } from '@/lib/constants/payroll-feeds';
 
 export { ARREARS_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE };
 
@@ -208,9 +208,20 @@ export async function fundContributionsByEmployee(employeeIds: string[], bsYear:
 
 type PayHeadRow = typeof payHeads.$inferSelect;
 
-export async function feedHeads(): Promise<{ tada: PayHeadRow | null; welfare: PayHeadRow | null; arrears: PayHeadRow | null; reimburse: PayHeadRow | null; reimburseTaxable: PayHeadRow | null; leaveEncash: PayHeadRow | null }> {
+export async function feedHeads(): Promise<{
+  tada: PayHeadRow | null;
+  welfare: PayHeadRow | null;
+  arrears: PayHeadRow | null;
+  reimburse: PayHeadRow | null;
+  reimburseTaxable: PayHeadRow | null;
+  leaveEncash: PayHeadRow | null;
+  shiftAllowance: PayHeadRow | null;
+}> {
   const db = await getDb();
-  const rows = await db.select().from(payHeads).where(inArray(payHeads.code, [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, LEAVE_ENCASH_HEAD_CODE]));
+  const rows = await db
+    .select()
+    .from(payHeads)
+    .where(inArray(payHeads.code, [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, LEAVE_ENCASH_HEAD_CODE, SHIFT_ALLOWANCE_HEAD_CODE]));
   const head = (code: string) => rows.find((r) => r.code === code) ?? null;
   return {
     tada: head(TADA_HEAD_CODE),
@@ -219,7 +230,34 @@ export async function feedHeads(): Promise<{ tada: PayHeadRow | null; welfare: P
     reimburse: head(REIMBURSE_HEAD_CODE),
     reimburseTaxable: head(REIMBURSE_TAXABLE_HEAD_CODE),
     leaveEncash: head(LEAVE_ENCASH_HEAD_CODE),
+    // 4.12e: the month's shift allowance from attendance (taxable).
+    shiftAllowance: head(SHIFT_ALLOWANCE_HEAD_CODE),
   };
+}
+
+/**
+ * 4.12e: puts the month's shift allowance on a payslip, or takes it off when none is due, inside
+ * the payslip's own transaction (the attendance sync). False: one is due but the SHIFT_ALLOWANCE
+ * head is missing (nothing written).
+ */
+export async function setShiftAllowanceLine(tx: Tx, slipId: string, amount: number): Promise<boolean> {
+  const value = Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) / 100 : 0;
+  const [head] = await tx.select({ id: payHeads.id, name: payHeads.name }).from(payHeads).where(eq(payHeads.code, SHIFT_ALLOWANCE_HEAD_CODE)).limit(1);
+  if (!head) return value === 0;
+  await tx.delete(payrollSlipHeads).where(and(eq(payrollSlipHeads.payrollSlipId, slipId), eq(payrollSlipHeads.payHeadId, head.id)));
+  if (value > 0) {
+    await tx.insert(payrollSlipHeads).values({
+      payrollSlipId: slipId,
+      payHeadId: head.id,
+      payHeadName: head.name,
+      headType: 'allowance',
+      amount: value.toFixed(2),
+      calculatedAmount: value.toFixed(2),
+      isManualOverride: false,
+      overrideReason: null,
+    });
+  }
+  return true;
 }
 
 export interface PaidMonthFact {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { ensureTenantContext } from '@/lib/db';
-import { checkCompanyControl, checkPermission, hasPermission } from '@/lib/auth/check-permission';
+import { checkCompanyControl, checkPermission, checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
 import { toActionError } from '@/lib/errors/action-error';
 import * as service from '@/lib/services/pay-head.service';
 
@@ -19,8 +19,10 @@ export async function payHeadsPageAction() {
   await ensureTenantContext();
   try {
     await checkPermission('VIEW', 'PAY_HEADS');
-    const [add, edit, del] = await Promise.all([hasPermission('ADD', 'PAY_HEADS'), hasPermission('EDIT', 'PAY_HEADS'), hasPermission('DELETE', 'PAY_HEADS')]);
-    return { success: true as const, data: await service.payHeadsPage({ add, edit, delete: del }) };
+    const [add, edit, del, salaryView] = await Promise.all([hasPermission('ADD', 'PAY_HEADS'), hasPermission('EDIT', 'PAY_HEADS'), hasPermission('DELETE', 'PAY_HEADS'), hasPermission('VIEW', 'SALARY_MAPPING')]);
+    // 4.12e: who still holds an amount on a label head is salary data — Salary structure → View, within its scope.
+    const salaryScope = salaryView ? await checkPermissionWithScope('VIEW', 'SALARY_MAPPING') : null;
+    return { success: true as const, data: await service.payHeadsPage({ add, edit, delete: del }, salaryScope) };
   } catch (error: unknown) {
     return toActionError(error, 'pay-head.page');
   }

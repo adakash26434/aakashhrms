@@ -2163,4 +2163,25 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
   } catch (err) {
     console.error("[tenant-schema-sync] holidays 0080:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
+
+  // Shift allowance (4.12e, migration 0081): a rate per day worked on a shift, the month's amount
+  // frozen when the attendance month closes, and the SHIFT_ALLOWANCE system head (taxable) the pay
+  // run pays it on. All idempotent.
+  const shiftAllowanceQueries = [
+    `ALTER TABLE "shifts" ADD COLUMN IF NOT EXISTS "allowance_per_day" numeric(10,2) DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "leave_ot_calculations" ADD COLUMN IF NOT EXISTS "shift_allowance_amount" numeric(15,2) DEFAULT 0 NOT NULL`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "name_np", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:SHIFT_ALLOWANCE')::uuid, 'SHIFT_ALLOWANCE',
+        CASE WHEN EXISTS (SELECT 1 FROM "pay_heads" WHERE lower("name") = 'shift allowance') THEN 'Shift allowance (attendance)' ELSE 'Shift allowance' END,
+        'सिफ्ट भत्ता', 'allowance', true, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'SHIFT_ALLOWANCE')`,
+  ];
+  for (const q of shiftAllowanceQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      // Ignored until the tables exist; the next sync pass completes it.
+      console.error("[tenant-schema-sync] shift allowance 0081:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
 }

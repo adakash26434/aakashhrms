@@ -11,6 +11,7 @@
 
 import { addDays, bsDayOf, weekdayOf, WEEKDAYS } from "@/lib/engines/pay-period.engine";
 import { clockMinutes, DEFAULT_SHIFT } from "@/lib/engines/attendance-day.engine";
+import { ALLOWANCE_MAX } from "@/lib/engines/shift-allowance.engine";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import {
   SHIFT_COLORS,
@@ -213,6 +214,8 @@ export interface ShiftInput {
   otMinimumMinutes: number;
   week: ShiftWeekDay[];
   seasons: ShiftSeason[];
+  /** 4.12e: NPR for each day worked on the shift; 0 = none. */
+  allowancePerDay: number;
 }
 
 const time = (v: unknown) => (typeof v === "string" && clockMinutes(v) !== null ? v.trim().padStart(5, "0") : null);
@@ -245,6 +248,11 @@ export function parseShift(raw: unknown): { value: ShiftInput | null; errors: Re
   const otMinimumMinutes = num("otMinimumMinutes", 0, 240);
   if (!errors.fullDayMinutes && !errors.halfDayMinutes && halfDayMinutes > fullDayMinutes) errors.halfDayMinutes = "A half day can't be longer than a full day";
   if (start && end && !errors.breakMinutes && spanMinutes(start, end) <= breakMinutes) errors.breakMinutes = "The break is longer than the shift";
+  // 4.12e: the allowance for each day worked (empty or missing: none).
+  const allowanceRaw = r.allowancePerDay;
+  const allowancePerDay = allowanceRaw === undefined || allowanceRaw === null || allowanceRaw === "" ? 0 : Number(allowanceRaw);
+  if (!Number.isFinite(allowancePerDay) || allowancePerDay < 0 || allowancePerDay > ALLOWANCE_MAX) errors.allowancePerDay = "An amount from 0 (none) to 1,00,000";
+  else if (Math.abs(Math.round(allowancePerDay * 100) - allowancePerDay * 100) > 1e-6) errors.allowancePerDay = "At most two decimals";
 
   const weekRaw = Array.isArray(r.week) ? r.week : [];
   const week: ShiftWeekDay[] = WEEKDAYS.map((_, i) => {
@@ -282,7 +290,7 @@ export function parseShift(raw: unknown): { value: ShiftInput | null; errors: Re
 
   if (Object.keys(errors).length) return { value: null, errors };
   return {
-    value: { code, name, color, kind, start: start!, end: end!, breakMinutes, graceMinutes, fullDayMinutes, halfDayMinutes, otMinimumMinutes, week, seasons },
+    value: { code, name, color, kind, start: start!, end: end!, breakMinutes, graceMinutes, fullDayMinutes, halfDayMinutes, otMinimumMinutes, week, seasons, allowancePerDay: Math.round(allowancePerDay * 100) / 100 },
     errors,
   };
 }

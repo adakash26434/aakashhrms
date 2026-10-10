@@ -499,6 +499,8 @@ export interface SummaryWrite {
   /** Overtime minutes paid (4.7: each day rounded by the policy), stored as the month's OT hours. */
   otMinutes: { work: number; off: number };
   leaveDeductionAmount: number;
+  /** 4.12e: the month's shift allowance (its days and rates are in the summary). */
+  shiftAllowanceAmount: number;
 }
 
 /**
@@ -567,6 +569,7 @@ export async function closePeriod(params: {
         otEarnedAmount: String(s.otEarnedAmount),
         otDetail: s.otDetail,
         leaveDeductionAmount: String(s.leaveDeductionAmount),
+        shiftAllowanceAmount: String(s.shiftAllowanceAmount),
         otWarnings: m.otWarnings.length ? m.otWarnings.join("\n") : null,
         calendar: m.calendar,
         periodYear: m.periodYear,

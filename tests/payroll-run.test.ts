@@ -296,6 +296,15 @@ describe('Payroll run: pre-flight for off-cycle runs, openings, loans and the mo
     }
   });
 
+  it('4.12e: an amount on a label head only warns, in regular runs, with a link to the person', () => {
+    const r = preflight(ready({ employees: [person({ labelAmount: true })] }));
+    const found = r.problems.find((p) => p.code === 'label_amount');
+    assert.equal(found?.severity, 'warning');
+    assert.match(found?.text ?? '', /label head \(Basic Salary \/ Grade Amount\)/);
+    assert.match(found?.href ?? '', /salary-mapping\?employee=E1/);
+    assert.ok(!codes(preflight(ready({ runType: 'FESTIVAL', festivalHeads: 1, employees: [person({ labelAmount: true })] }))).includes('label_amount'));
+  });
+
   it('4.10: a loan amount left on a salary structure only warns, in regular runs', () => {
     assert.equal(preflight(ready({ employees: [person({ loanOnStructure: true })] })).problems.find((p) => p.code === 'loan_on_structure')?.severity, 'warning');
     assert.ok(!codes(preflight(ready({ runType: 'FESTIVAL', festivalHeads: 1, employees: [person({ loanOnStructure: true })] }))).includes('loan_on_structure'));

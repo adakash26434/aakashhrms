@@ -11,6 +11,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { addSlipHeadAction, overrideSlipAction, recalculateSlipAction, removeSlipAction, slipDetailAction } from "@/app/actions/payroll-run.actions";
 import { describeDetail } from "@/lib/engines/overtime.engine";
+import { FEED_SOURCE, isFeedHeadCode } from "@/lib/constants/payroll-feeds";
 import { MarginalTaxCard, TaxSheetCard, isMarginalTaxSheet, isTaxSheet } from "@/components/payroll/tax-sheet-card";
 import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 import type { PayrollRunView, PayrollRunsPageData } from "@/lib/types/payroll-run";
@@ -63,7 +64,13 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
   // The income tax head's line is the slip's TDS, shown once as "Income tax" below.
   const tdsHeadIds = new Set(data.allPayHeads.filter((h) => h.isTds).map((h) => h.id));
   const deductions = (heads ?? []).filter((h) => h.headType === "deduction" && !tdsHeadIds.has(h.payHeadId));
-  const allowanceLines: Line[] = allowances.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null }));
+  // Lines fed by other records (TA-DA, arrears, shift allowance …) change at their source, not here.
+  const feedSource = new Map(data.allPayHeads.filter((h) => isFeedHeadCode(h.code)).map((h) => [h.id, FEED_SOURCE[h.code] ?? "other records"]));
+  const headLine = (h: PayrollSlipHead): Line => {
+    const source = feedSource.get(h.payHeadId);
+    return { id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: !source, overridden: !source && h.isManualOverride, note: source ? `From ${source}` : h.isManualOverride ? h.overrideReason : null };
+  };
+  const allowanceLines: Line[] = allowances.map(headLine);
   const earnings: Line[] = offCycle ? allowanceLines : [
     { id: "basic-salary", label: "Basic salary", amount: slip.basicSalary, editable: true },
     ...(Number(slip.gradeAmount) ? [{ id: "grade-amount", label: "Grade", amount: slip.gradeAmount, editable: true }] : []),
@@ -72,7 +79,7 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
     ...(Number(slip.absentDeduction) ? [{ id: "absent-deduction", label: "Unpaid days", amount: `-${slip.absentDeduction}`, editable: true }] : []),
   ].filter((l) => Number(l.amount) !== 0 || l.editable);
   const ded: Line[] = [
-    ...deductions.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null })),
+    ...deductions.map(headLine),
     ...(Number(slip.tdsThisMonth) ? [{ id: "tds", label: "Income tax", amount: slip.tdsThisMonth }] : []),
     ...(Number(slip.loanDeduction) ? [{ id: "loan-deduction", label: "Loan instalment", amount: slip.loanDeduction, editable: true }] : []),
     ...(slip.fundDetail ?? []).filter((f) => Number(f.employeeAmount)).map((f) => ({ id: `fund-${f.code}`, label: `${f.name} (fund)`, amount: f.employeeAmount, note: Number(f.employerAmount) ? `Employer adds ${Number(f.employerAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : null })),

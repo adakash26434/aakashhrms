@@ -26,7 +26,7 @@ const fn = (src: string, name: string) => {
 
 describe('payroll feeds: one payslip, settled with it', () => {
   it('the feed codes and where their amounts come from', () => {
-    assert.deepEqual([...FEED_HEAD_CODES], ['TADA', 'WELFARE_FUND', 'ARREARS', 'REIMBURSE', 'REIMBURSE_TAX', 'LEAVE_ENCASH']);
+    assert.deepEqual([...FEED_HEAD_CODES], ['TADA', 'WELFARE_FUND', 'ARREARS', 'REIMBURSE', 'REIMBURSE_TAX', 'LEAVE_ENCASH', 'SHIFT_ALLOWANCE']);
     for (const code of FEED_HEAD_CODES) assert.ok(FEED_SOURCE[code]);
     assert.equal(isFeedHeadCode('ARREARS'), true);
     assert.equal(isFeedHeadCode('BASIC'), false);

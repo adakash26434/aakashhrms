@@ -77,7 +77,24 @@ describe('Pay heads in a structure', () => {
     // An amount already stored on one is still counted (payroll pays it) and flagged.
     const l = lines({ amounts: { bh: 3500 } });
     assert.equal(structureTotals(l, [...HEADS, basicHead], settings).totalSalary, 36500);
-    assert.ok(validateLines(l, [...HEADS, basicHead]).warnings.bh);
+    assert.ok(validateLines(l, [...HEADS, basicHead], 0, l).warnings.bh);
+  });
+
+  it('a label head never takes a new amount (4.12e): it keeps what it holds, or goes to 0', () => {
+    const basicHead = classifyHead(head({ id: 'bh', code: 'BASIC', name: 'Basic Salary' }));
+    const heads = [...HEADS, basicHead];
+    const held = lines({ amounts: { bh: 3500 } });
+    // A new structure, or one that held nothing on it: refused.
+    assert.match(validateLines(held, heads).errors.bh ?? '', /^A label holds no amount: set it to 0/);
+    assert.match(validateLines(held, heads, 0, lines()).errors.bh ?? '', /^A label holds no amount: set it to 0/);
+    // Changed from what it holds: refused, naming what may stay.
+    assert.match(validateLines(lines({ amounts: { bh: 5000 } }), heads, 0, held).errors.bh ?? '', /keep the 3,500 it holds for now, or set it to 0/);
+    assert.match(validateLines(lines({ amounts: { bh: 2000 } }), heads, 0, held).errors.bh ?? '', /keep the 3,500/);
+    // Kept as it was: a warning; taken off: nothing to say.
+    assert.deepEqual(validateLines(held, heads, 0, held).errors, {});
+    assert.ok(validateLines(held, heads, 0, held).warnings.bh);
+    const off = validateLines(lines({ amounts: { bh: 0 } }), heads, 0, held);
+    assert.deepEqual([off.errors.bh, off.warnings.bh], [undefined, undefined]);
   });
 
   it('stores amounts, worked-out heads and the scheme heads, and reads them back', () => {

@@ -211,8 +211,8 @@ describe('attendance rows', () => {
       day({ firstIn: '2026-10-01T03:25:00.000Z', lastOut: '2026-10-01T11:15:00.000Z', workMinutes: 470, flags: ['late'], lateMinutes: 10, otWorkDayMinutes: 0 }),
       day({ date: '2026-10-02', dayType: 'upcoming', firstIn: '2026-10-02T03:15:00.000Z' }),
     ],
-    summary,
-    amounts: { otEarnedAmount: '937.5', leaveDeductionAmount: '0' },
+    summary: { ...summary, shiftAllowance: [{ shiftId: 'n1', code: 'N1', name: 'Night', days: 12.5, rate: 300, amount: 3750 }] },
+    amounts: { otEarnedAmount: '937.5', leaveDeductionAmount: '0', shiftAllowanceAmount: '3750' },
   };
 
   it('codes, Nepal clock times, worked time and notes; pay only when allowed', () => {
@@ -223,8 +223,13 @@ describe('attendance rows', () => {
     assert.deepEqual([row.employedDays, row.payableDays, row.otWorkDayHours, row.workedHours], [30, 29.5, 1.5, 7.83]);
     assert.equal(row.otPay, null);
     assert.equal(row.absenceDeduction, null);
+    // 4.12e: shift allowance days always; the amount only with pay.
+    assert.equal(row.shiftDays, 12.5);
+    assert.equal(row.shiftAllowance, null);
     const paid = attendanceRow(person, true);
-    assert.deepEqual([paid.otPay, paid.absenceDeduction], ['937.50', '0.00']);
+    assert.deepEqual([paid.otPay, paid.absenceDeduction, paid.shiftAllowance], ['937.50', '0.00', '3750.00']);
+    // A summary stored before 4.12e has no shift allowance lines.
+    assert.equal(attendanceRow({ ...person, summary }, false).shiftDays, 0);
   });
 });
 

@@ -23,6 +23,7 @@ const toDefinition = (r: ShiftRow): ShiftDefinition => ({
   otMinimumMinutes: r.otMinimumMinutes,
   week: (Array.isArray(r.week) ? r.week : []) as ShiftWeekDay[],
   seasons: (Array.isArray(r.seasons) ? r.seasons : []) as ShiftSeason[],
+  allowancePerDay: Number(r.allowancePerDay) || 0,
   isDefault: r.isDefault,
   active: r.active,
 });
@@ -41,6 +42,7 @@ export interface ShiftWrite {
   otMinimumMinutes: number;
   week: ShiftWeekDay[];
   seasons: ShiftSeason[];
+  allowancePerDay: number;
 }
 
 const columns = (s: ShiftWrite) => ({
@@ -57,6 +59,7 @@ const columns = (s: ShiftWrite) => ({
   otMinimumMinutes: s.otMinimumMinutes,
   week: s.week,
   seasons: s.seasons,
+  allowancePerDay: String(s.allowancePerDay),
 });
 
 /** Every shift (archived included), default first. */

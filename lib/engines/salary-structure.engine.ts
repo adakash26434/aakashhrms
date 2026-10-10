@@ -4,6 +4,7 @@
 // templates and CSV import matching. No database access here.
 
 import Decimal from "decimal.js";
+import { isLabelHead, labelNames } from "@/lib/constants/label-heads";
 import { calculateTotalGradeAmount, DEFAULT_GRADE_POLICY } from "@/lib/engines/grade-policy.engine";
 import {
   calculatePayslip,
@@ -102,11 +103,11 @@ export function classifyHead(h: PayHeadLike): StructureHead {
   let kind: HeadKind;
   let rule: string;
   let scheme: "ssf" | "pf" | undefined;
-  const code = (h.code ?? "").toUpperCase().replace(/[^A-Z]/g, "");
-  if (h.type !== "deduction" && (code === "BASIC" || code === "GRADE")) {
-    // Onboarding's "Basic Salary" / "Grade Amount" heads are labels: payroll takes
-    // basic and grade from the structure itself, but still pays an amount stored on them.
-    return { ...base, kind: "amount", labelOnly: true, rule: `Paid on top of the ${code === "BASIC" ? "basic salary" : "grade"} set above` };
+  if (isLabelHead(h)) {
+    // Onboarding's "Basic Salary" / "Grade Amount" heads are labels (4.12e): payroll takes basic
+    // and grade from the structure itself. An amount a structure still holds on one is paid on top
+    // of them until it is revised away; no change takes a new one (validateLines).
+    return { ...base, kind: "amount", labelOnly: true, rule: `A label for ${labelNames(h)}: holds no amount (one still held is paid on top of ${labelNames(h)})` };
   } else if (h.isTdsHead || h.isOtHead || h.isAbsentDeduct || h.isLeaveHead) {
     kind = "auto";
     rule = h.isTdsHead ? "Income tax, worked out by payroll" : h.isOtHead ? "From overtime" : "From attendance and leave";
@@ -375,8 +376,12 @@ export interface LinesCheck {
   warnings: Record<string, string>;
 }
 
-/** Field keys: "basic", "gradeCount", "gradeAmount", "scheme", or a pay head id. */
-export function validateLines(lines: StructureLines, heads: readonly StructureHead[], levelStartingSalary = 0): LinesCheck {
+/**
+ * Field keys: "basic", "gradeCount", "gradeAmount", "scheme", or a pay head id. `current` is the
+ * structure being revised (4.12e: a label head keeps an amount it already holds, or goes to 0;
+ * it never takes a new one).
+ */
+export function validateLines(lines: StructureLines, heads: readonly StructureHead[], levelStartingSalary = 0, current: Pick<StructureLines, "amounts"> | null = null): LinesCheck {
   const errors: Record<string, string> = {};
   const warnings: Record<string, string> = {};
   if (!Number.isFinite(lines.basic) || lines.basic <= 0) errors.basic = "Basic salary must be more than 0";
@@ -387,9 +392,15 @@ export function validateLines(lines: StructureLines, heads: readonly StructureHe
   if (!["ssf", "pf", "none"].includes(lines.scheme)) errors.scheme = "Choose SSF, PF or None";
   const known = new Set(heads.filter((h) => h.kind === "amount").map((h) => h.id));
   for (const [id, amount] of Object.entries(lines.amounts)) {
+    const head = heads.find((h) => h.id === id);
     if (!known.has(id)) errors[id] = "Unknown pay head";
     else if (!Number.isFinite(amount) || amount < 0) errors[id] = "Amount cannot be negative";
-    else if (amount > 0 && heads.find((h) => h.id === id)?.labelOnly) warnings[id] = "Paid on top of basic / grade: usually a mistake, set it to 0";
+    else if (amount > 0 && head?.labelOnly) {
+      const held = current?.amounts[id] ?? 0;
+      if (Math.abs(amount - held) >= 0.005) {
+        errors[id] = held > 0 ? `A label holds no amount: keep the ${held.toLocaleString("en-IN")} it holds for now, or set it to 0 and put what is due on an allowance` : "A label holds no amount: set it to 0 and put the amount on an allowance";
+      } else warnings[id] = "A label: this is paid on top of basic / grade until it is set to 0 (put it on an allowance if it is still due)";
+    }
   }
   return { errors, warnings };
 }

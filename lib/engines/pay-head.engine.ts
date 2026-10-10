@@ -11,6 +11,7 @@
  */
 
 import { FEED_SOURCE, isFeedHeadCode } from "@/lib/constants/payroll-feeds";
+import { isLabelHead, labelNames } from "@/lib/constants/label-heads";
 import type { CalcBasis, CalcParameter, PayHead, PayHeadCalc, PayHeadForm, PayHeadFormErrors, PayHeadRole, PayHeadType, StatutoryFlag } from "@/lib/types/pay-head";
 import { STATUTORY_FLAGS } from "@/lib/types/pay-head";
 
@@ -40,13 +41,18 @@ export const PAY_HEAD_ROLES: RoleDef[] = [
   { value: "ssf", label: "SSF contribution", type: "deduction", flag: "isSsfHead", hint: "11% employee + 20% employer, worked out by payroll", creatable: false, calcs: [] },
   { value: "ssfEmployer", label: "SSF employer share", type: "allowance", flag: "isSsfEmployerHead", hint: "The employer's 20%, shown on the payslip", creatable: false, calcs: [] },
   { value: "cit", label: "CIT contribution", type: "deduction", flag: "isCitHead", hint: "A monthly amount typed for each employee, counted against tax", creatable: false, calcs: ["typed"] },
+  { value: "label", label: "Label (basic / grade)", type: "allowance", flag: null, hint: "Names the basic salary or grade each salary structure sets: it holds no amount", creatable: false, calcs: [] },
 ];
 
 const ROLE = new Map(PAY_HEAD_ROLES.map((r) => [r.value, r]));
 export const roleDef = (role: PayHeadRole): RoleDef => ROLE.get(role) ?? PAY_HEAD_ROLES[0];
 
-/** What a stored head is, from its flags and type (the first flag wins on old data with several). */
-export function roleOf(head: Pick<PayHead, "type" | "flags">): PayHeadRole {
+/**
+ * What a stored head is, from its flags and type (the first flag wins on old data with several);
+ * onboarding's Basic Salary / Grade Amount are labels (4.12e).
+ */
+export function roleOf(head: Pick<PayHead, "code" | "type" | "flags">): PayHeadRole {
+  if (isLabelHead(head)) return "label";
   for (const r of PAY_HEAD_ROLES) if (r.flag && head.flags[r.flag]) return r.value;
   return head.type === "deduction" ? "deduction" : "allowance";
 }
@@ -76,6 +82,7 @@ export const calcNeedsPercent = (role: PayHeadRole, calc: PayHeadCalc) => role !
 /** How the amount is worked out, in a few words, for the register. */
 export function describeCalc(head: Pick<PayHead, "code" | "type" | "calcBasis" | "calcParameter" | "calcPercent" | "flags">): string {
   if (isFeedHeadCode(head.code)) return "From other records";
+  if (isLabelHead(head)) return "No amount (a label)";
   const role = roleOf(head);
   const def = roleDef(role);
   if (!def.calcs.length) return def.hint.split(":")[0];
@@ -87,8 +94,9 @@ export function describeCalc(head: Pick<PayHead, "code" | "type" | "calcBasis" |
 }
 
 /** Why a head keeps its role and sums (null: an ordinary head the company set up). */
-export function systemReason(head: Pick<PayHead, "code" | "flags">): string | null {
+export function systemReason(head: Pick<PayHead, "code" | "type" | "flags">): string | null {
   if (isFeedHeadCode(head.code)) return `Paid from ${FEED_SOURCE[head.code] ?? "other records"}.`;
+  if (isLabelHead(head)) return `A label for ${labelNames(head)} each salary structure sets: it holds no amount.`;
   if (head.flags.isTdsHead || head.flags.isPfHead || head.flags.isSsfHead || head.flags.isSsfEmployerHead || head.flags.isCitHead) return "A statutory head: payroll works it out.";
   return null;
 }
@@ -277,7 +285,7 @@ export function payHeadWrite(f: PayHeadForm, current: PayHead | null): PayHeadWr
 }
 
 /** Why a head can't be deleted (null: it can). */
-export function cannotDeletePayHead(head: Pick<PayHead, "code" | "flags">, usage: { structures: number; payslips: number; templates: number }): string | null {
+export function cannotDeletePayHead(head: Pick<PayHead, "code" | "type" | "flags">, usage: { structures: number; payslips: number; templates: number }): string | null {
   const system = systemReason(head);
   if (system) return `${system} It stays.`;
   if (usage.payslips) return `It is on ${usage.payslips} payslip line${usage.payslips === 1 ? "" : "s"}: it stays for the payroll history.`;

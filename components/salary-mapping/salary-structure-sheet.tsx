@@ -165,12 +165,13 @@ export function SalaryStructureSheet({
 
 
   // Identify pay heads
+  // A label head (4.12e: Basic Salary / Grade Amount) never takes the typed total.
   const allowanceHead = useMemo(
-    () => data.heads.find((h) => h.kind === "amount" && h.type === "allowance" && !h.occasional),
+    () => data.heads.find((h) => h.kind === "amount" && h.type === "allowance" && !h.occasional && !h.labelOnly),
     [data.heads]
   );
   const deductionHead = useMemo(
-    () => data.heads.find((h) => h.kind === "amount" && h.type === "deduction" && h.scheme !== "ssf" && h.scheme !== "pf"),
+    () => data.heads.find((h) => h.kind === "amount" && h.type === "deduction" && h.scheme !== "ssf" && h.scheme !== "pf" && !h.labelOnly),
     [data.heads]
   );
   const festivalHead = useMemo(
@@ -342,7 +343,7 @@ export function SalaryStructureSheet({
           for (const ah of allowanceHeads) {
             delete nextAmounts[ah.id];
           }
-          const primaryId = allowanceHead?.id ?? allowanceHeads[0]?.id ?? "allowance";
+          const primaryId = allowanceHead?.id ?? allowanceHeads.find((h) => !h.labelOnly)?.id ?? "allowance";
           nextAmounts[primaryId] = numVal;
           return { ...l, amounts: nextAmounts };
         }
@@ -354,7 +355,7 @@ export function SalaryStructureSheet({
           for (const dh of deductionHeads) {
             delete nextAmounts[dh.id];
           }
-          const primaryId = deductionHead?.id ?? deductionHeads[0]?.id ?? "deduction";
+          const primaryId = deductionHead?.id ?? deductionHeads.find((h) => !h.labelOnly)?.id ?? "deduction";
           nextAmounts[primaryId] = numVal;
           return { ...l, amounts: nextAmounts };
         }

@@ -10,6 +10,7 @@ import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { saveShiftAction } from "@/app/actions/shift.actions";
 import { hoursText } from "@/lib/engines/attendance-day.engine";
 import { MAX_SEASONS, parseShift, plannedMinutes, plannedWeekMinutes, shiftWarnings } from "@/lib/engines/shift.engine";
+import { ALLOWANCE_MAX } from "@/lib/engines/shift-allowance.engine";
 import { WEEKDAYS } from "@/lib/engines/pay-period.engine";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import { SHIFT_COLORS, type AttendancePageData, type ShiftColor, type ShiftKind, type ShiftSeason, type ShiftView, type ShiftWeekDay } from "@/lib/types/attendance";
@@ -35,6 +36,7 @@ interface Form {
   otMinimumMinutes: number;
   week: ShiftWeekDay[];
   seasons: ShiftSeason[];
+  allowancePerDay: number;
 }
 
 const blank: Form = {
@@ -51,6 +53,7 @@ const blank: Form = {
   otMinimumMinutes: 30,
   week: WEEKDAYS.map((_, i) => ({ working: i !== 0 && i !== 6, start: null, end: null })),
   seasons: [],
+  allowancePerDay: 0,
 };
 
 /**
@@ -76,7 +79,7 @@ export function ShiftWindow({
 }) {
   const initial = useMemo<Form>(() => {
     if (!shift) return blank;
-    const { code, name, color, kind, start, end, breakMinutes, graceMinutes, fullDayMinutes, halfDayMinutes, otMinimumMinutes, week, seasons } = shift;
+    const { code, name, color, kind, start, end, breakMinutes, graceMinutes, fullDayMinutes, halfDayMinutes, otMinimumMinutes, week, seasons, allowancePerDay } = shift;
     return {
       code: copy ? "" : code,
       name: copy ? `${name} (copy)` : name,
@@ -91,6 +94,7 @@ export function ShiftWindow({
       otMinimumMinutes,
       week: WEEKDAYS.map((_, i) => ({ working: week[i]?.working ?? true, start: week[i]?.start ?? null, end: week[i]?.end ?? null })),
       seasons: seasons.map((s) => ({ ...s })),
+      allowancePerDay,
     };
   }, [shift, copy]);
   const [form, setForm] = useState<Form>(initial);
@@ -218,7 +222,23 @@ export function ShiftWindow({
             </GridField>
           </FormGroup>
 
-          <FormGroup index={3} title="Week" description="Off days are the weekly holiday. Own hours are for a different day, e.g. a short Friday or a Saturday morning." columns={2}>
+          <FormGroup index={3} title="Shift allowance" description="Paid through payroll for each day worked on this shift, e.g. a night allowance. Changes reach open months; closed months keep what they counted.">
+            <GridField
+              label="Per day worked"
+              error={shownErrors.allowancePerDay ?? (tried ? parsed.errors.allowancePerDay : undefined)}
+              size="amount"
+              suffix="NPR a day"
+              help={
+                form.allowancePerDay > 0
+                  ? `A full day (or on duty) counts 1, a half day ½; work on a holiday or weekly off counts by its hours. 20 days worked: NPR ${(form.allowancePerDay * 20).toLocaleString("en-IN")}.`
+                  : "0: no allowance for this shift."
+              }
+            >
+              <NumberField name="allowancePerDay" decimals={2} max={ALLOWANCE_MAX} value={form.allowancePerDay} onChange={(v) => set("allowancePerDay", v)} showZero selectOnFocus />
+            </GridField>
+          </FormGroup>
+
+          <FormGroup index={4} title="Week" description="Off days are the weekly holiday. Own hours are for a different day, e.g. a short Friday or a Saturday morning." columns={2}>
             <div className="col-span-full overflow-x-auto">
               <table className="w-full min-w-[34rem] text-xs">
                 <thead>
@@ -262,7 +282,7 @@ export function ShiftWindow({
           </FormGroup>
 
           <FormGroup
-            index={4}
+            index={5}
             title="Seasons"
             description="Hours for part of the year, every year by BS date. Own weekday hours still win."
             columns={2}
@@ -327,7 +347,7 @@ export function ShiftWindow({
             </div>
           </FormGroup>
 
-          <FormGroup index={5} title="Labour Act checks" description="Reminders from the Labour Act 2074; the company decides." columns={2}>
+          <FormGroup index={6} title="Labour Act checks" description="Reminders from the Labour Act 2074; the company decides." columns={2}>
             <GridValue label="Planned a week">
               <span className={cn("text-sm tabular-nums", weekMinutes > 2880 ? "text-warning" : "text-ink")}>{parsed.value ? hoursText(weekMinutes) : "—"}</span>
               <span className="block text-2xs text-ink-muted">The Labour Act allows 48 hours a week and 8 a day.</span>

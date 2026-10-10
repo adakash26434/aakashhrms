@@ -12,6 +12,7 @@
 // morning punches. Pure: no database access.
 
 import { addDays, utcDate, weekdayOf } from "@/lib/engines/pay-period.engine";
+import { shiftAllowanceLines, type ShiftPay } from "@/lib/engines/shift-allowance.engine";
 import { DAY_CODE, type AttendanceRules, type DayLeave, type DayResult, type DayType, type MonthSummary, type OverrideType, type ShiftRule } from "@/lib/types/attendance";
 import type { PayPeriod } from "@/lib/engines/pay-period.engine";
 import { OT_LEGAL } from "@/lib/engines/overtime.engine";
@@ -272,8 +273,11 @@ export function resolveDay(input: DayInput): DayResult {
   return withFlags({ ...times, dayType: "absent", payable: 0, unpaid: 1, rule: "Nothing recorded: absent" });
 }
 
-/** A month's days summed for payroll (unpaid days include the late rule when it is on). */
-export function summariseMonth(period: PayPeriod, days: readonly DayResult[], rules: Pick<AttendanceRules, "lateRule">): MonthSummary {
+/**
+ * A month's days summed for payroll (unpaid days include the late rule when it is on). With the
+ * shifts that carry an allowance (4.12e), the days worked on each of them too.
+ */
+export function summariseMonth(period: PayPeriod, days: readonly DayResult[], rules: Pick<AttendanceRules, "lateRule">, shiftPay: ReadonlyMap<string, ShiftPay> = new Map()): MonthSummary {
   const count = (t: DayType) => days.filter((d) => d.dayType === t).length;
   const sum = (f: (d: DayResult) => number) => days.reduce((n, d) => n + f(d), 0);
   const lateDays = days.filter((d) => d.lateMinutes > 0).length;
@@ -312,6 +316,7 @@ export function summariseMonth(period: PayPeriod, days: readonly DayResult[], ru
     otWorkDayMinutes: sum((d) => d.otWorkDayMinutes),
     otOffDayMinutes: sum((d) => d.otOffDayMinutes),
     otWarnings,
+    shiftAllowance: shiftAllowanceLines(days, shiftPay),
   };
 }
 

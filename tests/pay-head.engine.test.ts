@@ -58,8 +58,8 @@ describe('what a pay head is (4.12b)', () => {
     assert.equal(PAY_HEAD_ROLES.find((r) => r.value === 'ssfEmployer')?.type, 'allowance');
   });
 
-  it('statutory heads are not offered for a new head', () => {
-    assert.deepEqual(PAY_HEAD_ROLES.filter((r) => !r.creatable).map((r) => r.value), ['tds', 'pf', 'ssf', 'ssfEmployer', 'cit']);
+  it('statutory heads and the labels are not offered for a new head', () => {
+    assert.deepEqual(PAY_HEAD_ROLES.filter((r) => !r.creatable).map((r) => r.value), ['tds', 'pf', 'ssf', 'ssfEmployer', 'cit', 'label']);
   });
 
   it('a stored head is read from its flags, else its type', () => {
@@ -267,5 +267,31 @@ describe('codes and deleting (4.12b, S51)', () => {
     assert.equal(cannotDeletePayHead(head(), { ...none, payslips: 1, structures: 2 }), 'It is on 1 payslip line: it stays for the payroll history.');
     assert.equal(cannotDeletePayHead(head(), { ...none, structures: 2 }), '2 salary structures use it (current or past). Take it off those first.');
     assert.equal(cannotDeletePayHead(head(), { ...none, templates: 1 }), '1 salary template uses it. Take it off those first.');
+  });
+});
+
+describe('label heads (4.12e)', () => {
+  const basic = head({ code: 'BASIC', name: 'Basic Salary', calcBasis: 'BasicSalary', calcParameter: 'BasicSalary' });
+  const grade = head({ code: 'grade', name: 'Grade Amount' });
+
+  it("onboarding's Basic Salary / Grade Amount are labels by their code; a deduction or another code is not", () => {
+    assert.equal(roleOf(basic), 'label');
+    assert.equal(roleOf(grade), 'label');
+    assert.equal(roleOf(head({ code: 'GRADE-X' })), 'allowance');
+    assert.equal(roleOf(head({ code: 'BASIC', type: 'deduction' })), 'deduction');
+    assert.equal(PAY_HEAD_ROLES.find((r) => r.value === 'label')?.flag, null);
+  });
+
+  it('they hold no amount and keep everything but their names; they stay', () => {
+    assert.equal(describeCalc(basic), 'No amount (a label)');
+    assert.equal(systemReason(basic), 'A label for the basic salary each salary structure sets: it holds no amount.');
+    assert.equal(systemReason(grade), 'A label for the grade each salary structure sets: it holds no amount.');
+    assert.match(cannotDeletePayHead(basic, { structures: 0, payslips: 0, templates: 0 }) ?? '', /holds no amount\. It stays\.$/);
+    // Names only: anything else is refused.
+    const keep = formOf(basic);
+    assert.deepEqual(validatePayHeadForm({ ...keep, name: 'Basic pay', nameNp: 'मूल तलब' }, ctx({ current: basic })), {});
+    assert.match(validatePayHeadForm({ ...keep, role: 'allowance', calc: 'typed' }, ctx({ current: basic })).role ?? '', /Only its names can change\.$/);
+    const w = payHeadWrite({ ...keep, name: 'Basic pay' }, basic);
+    assert.deepEqual([w.name, w.type, w.calcBasis, w.calcParameter], ['Basic pay', 'allowance', 'BasicSalary', 'BasicSalary']);
   });
 });

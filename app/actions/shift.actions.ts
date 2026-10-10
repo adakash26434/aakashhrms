@@ -51,7 +51,17 @@ export async function saveShiftAction(input: unknown): Promise<Ok<{ id: string; 
   try {
     const scope = await companyControl();
     const result = await shiftService.saveShift(input, { userId: scope.userId });
-    await recordAuditLog({ userId: scope.userId, action: result.created ? 'ADD' : 'EDIT', module: 'ATTENDANCE', recordId: `shift-${result.id}`, result: 'SUCCESS', newValues: { shift: result.code, warnings: result.warnings.length } });
+    // 4.12e: the shift allowance is pay: its rate before and after is in the audit line.
+    const { before, after } = result.allowance;
+    await recordAuditLog({
+      userId: scope.userId,
+      action: result.created ? 'ADD' : 'EDIT',
+      module: 'ATTENDANCE',
+      recordId: `shift-${result.id}`,
+      result: 'SUCCESS',
+      oldValues: before !== null && before !== after ? { allowancePerDay: before } : null,
+      newValues: { shift: result.code, warnings: result.warnings.length, allowancePerDay: after },
+    });
     refresh();
     return { success: true, data: { id: result.id, warnings: result.warnings } };
   } catch (error: unknown) {

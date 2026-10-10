@@ -484,3 +484,63 @@ describe('4.12d approvals: a company-wide approver, rules never remove approval,
     assert.doesNotMatch(read('app/actions/loan.actions.ts'), /saveLoanApprovalSettingsAction/);
   });
 });
+
+describe('4.12e shift allowance and label heads: salary data in salary scope, nothing typed, nothing dropped', () => {
+  const payHeadActions = read('app/actions/pay-head.actions.ts');
+  const payHeadPage = read('app/(dashboard)/setup/pay-heads/page.tsx');
+  const payHeadService = read('lib/services/pay-head.service.ts');
+  const salary = read('lib/services/salary-structure.service.ts');
+  const payroll = read('lib/services/payroll.service.ts');
+  const attendance = read('lib/services/attendance.service.ts');
+  const shiftActions = read('app/actions/shift.actions.ts');
+
+  it('who still holds an amount on a label head (and how much) shows only with Salary structure → View, within its scope', () => {
+    for (const [src, q] of [
+      [fn(payHeadActions, 'payHeadsPageAction'), "'"],
+      [payHeadPage, '"'],
+    ] as const) {
+      assert.match(src, new RegExp(`hasPermission\\(${q}VIEW${q}, ${q}SALARY_MAPPING${q}\\)`));
+      assert.match(src, new RegExp(`const salaryScope = salaryView \\? await checkPermissionWithScope\\(${q}VIEW${q}, ${q}SALARY_MAPPING${q}\\) : null;`));
+      assert.match(src, /payHeadsPage\(\{ add, edit, delete: del \}, salaryScope\)/);
+    }
+    const page = fn(payHeadService, 'payHeadsPage');
+    assert.match(page, /salaryScope && salaryScope\.scopeType !== "GLOBAL" \? labelAmounts\(salaryScope\) : Promise\.resolve\(null\)/);
+    assert.match(page, /labelAmounts: \{ count, people: salaryScope \? labelledInScope \?\? labelled : null \}/);
+    // The list itself follows the employee scope (null only for the company's count).
+    assert.match(fn(salary, 'labelAmounts'), /scope \? employeesInScope\(scope\) : employeeRepository\.findAll\(ALL\)/);
+  });
+
+  it('a label head never takes a new amount: a change is checked against the structure it revises; templates hold none', () => {
+    const submit = fn(salary, 'submitBatch');
+    assert.match(submit, /const check = validateLines\(lines, heads, levelStart\(emp\.shreni \?\? ""\), current\);/);
+    assert.ok(submit.indexOf('const current = currentRow') < submit.indexOf('const check = validateLines('));
+    const template = fn(salary, 'saveTemplate');
+    assert.match(template, /\(h\.kind === "amount" && !h\.labelOnly\) \|\| h\.kind === "computed"/);
+    assert.match(template, /if \(label\) errors\.heads = /);
+  });
+
+  it('lines other modules feed (shift allowance among them) never belong to a salary structure', () => {
+    assert.match(fn(salary, 'loadContext'), /\.filter\(\(h\) => !isFeedHeadCode\(h\.code\)\)/);
+  });
+
+  it('the shift allowance is set by a company-wide role and audited before → after', () => {
+    const save = fn(shiftActions, 'saveShiftAction');
+    assert.match(save, /const scope = await companyControl\(\);/);
+    assert.match(save, /oldValues: before !== null && before !== after \? \{ allowancePerDay: before \} : null,/);
+    assert.match(save, /allowancePerDay: after \}/);
+  });
+
+  it('it is paid only from attendance, never typed, and never dropped when its head is missing', () => {
+    // The browser's payslip change never carries it: only the attendance sync passes the line.
+    assert.match(read('app/actions/payroll.actions.ts'), /service\.overridePayslipAllowanceDeduction\(payload, session\.user\.id\);/);
+    assert.match(fn(payroll, 'syncPayrollRunAttendance'), /\{ shiftAllowance: Number\(calc\?\.shiftAllowanceAmount \?\? 0\) \}/);
+    assert.match(fn(payroll, 'overridePayslipAllowanceDeduction'), /if \(fromAttendance && !\(await feedsRepository\.setShiftAllowanceLine\(tx, slipId, fromAttendance\.shiftAllowance\)\)\)/);
+    for (const name of ['generatePayrollRun', 'recalculateEmployeePayslip']) {
+      assert.match(fn(payroll, name), /if \(!feedHeadRows\.shiftAllowance\) throw new UserFacingError\(MISSING_SHIFT_ALLOWANCE_HEAD\);/, name);
+    }
+    // A closed month pays what it froze; an open one is worked out with the same rules.
+    assert.match(fn(attendance, 'closeMonth'), /const summary = summariseMonth\(period, results, rules, shiftPay\);/);
+    assert.match(fn(attendance, 'attendanceForPayroll'), /shiftAllowanceAmount: String\(s\.shiftAllowanceAmount \?\? "0"\)/);
+    assert.match(read('lib/repositories/attendance.repository.ts'), /shiftAllowanceAmount: String\(s\.shiftAllowanceAmount\),/);
+  });
+});

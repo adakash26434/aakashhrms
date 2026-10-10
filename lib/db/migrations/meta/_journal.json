@@ -568,6 +568,13 @@
       "when": 1793846400000,
       "tag": "0080_holiday_applies_to",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1793932800000,
+      "tag": "0081_shift_allowance",
+      "breakpoints": true
     }
   ]
 }

@@ -1213,6 +1213,36 @@ change"), Approved by (Any approver or named levels — the kit's
 set-up footers name the rule that will apply ("Approval rule “Large
 raises”: goes to Level 1: …"), and the change's timeline records it.
 
+### Implemented settings: shift allowance and label heads (Phase 4.12e)
+
+**Shift allowance** (Attendance → Shifts):
+- The shift window has a numbered group **Shift allowance**: *Per day
+  worked* (NumberField, NPR a day, 0 = none, at most 1,00,000, two
+  decimals) with one line of help — "A full day (or on duty) counts 1, a
+  half day ½; work on a holiday or weekly off counts by its hours. 20 days
+  worked: NPR 2,000." — or "0: no allowance for this shift."
+- The Shifts grid gets a **Shift allowance** column ("NPR 150 / day", "—");
+  the guide line says it is paid through payroll for each day worked.
+- The Register gets **Shift allow. days** (Month group, read-only) while any
+  shift has an allowance; the attendance report adds the days and the
+  amount.
+- On a payslip it is the **Shift allowance** line (सिफ्ट भत्ता), from the
+  attendance month like overtime: it has no pencil (the server refuses a
+  typed amount and says where it comes from).
+
+**Label heads** (Setup → Pay heads):
+- Onboarding's *Basic Salary* / *Grade Amount* show **What it is: Label
+  (basic / grade)**, **Amount: No amount (a label)**, Taxable "–", and the
+  lock icon of a system head (only the name changes; never deleted).
+- A warning Notice above the guide when salary structures still hold an
+  amount on one ("1 salary structure still holds an amount on a label
+  head") with what it means and what to do, and — for someone with Salary
+  structure → View — the people in their scope ("Sita Sharma (EMP-001) ·
+  Basic Salary NPR 3,500.00").
+- Salary structure names them "(label)" in the Revise window; pre-flight
+  warns per person with an **Open** link to their structure; the Setup
+  overview's Pay heads line counts them in warning ink.
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

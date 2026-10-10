@@ -3,6 +3,7 @@ import { payslipStatement, type HeadFigures, type HeadRole, type SlipFigures } f
 import { balanceOn } from "@/lib/engines/leave.engine";
 import { installmentsLeft } from "@/lib/engines/loan.engine";
 import { localClock } from "@/lib/engines/attendance-day.engine";
+import { shiftAllowanceDays } from "@/lib/engines/shift-allowance.engine";
 import { asRunType, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 import { runLabel } from "@/lib/engines/pay-calendar.engine";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
@@ -353,7 +354,7 @@ export interface AttendancePerson {
   branch: string;
   days: DayResult[];
   summary: MonthSummary;
-  amounts: { otEarnedAmount: string; leaveDeductionAmount: string };
+  amounts: { otEarnedAmount: string; leaveDeductionAmount: string; shiftAllowanceAmount: string };
 }
 
 /** One person's month as a report row; the pay effect only when the viewer may see pay. */
@@ -382,8 +383,10 @@ export function attendanceRow(p: AttendancePerson, showAmounts: boolean): Attend
     otWorkDayHours: round2(s.otWorkDayMinutes / 60),
     otOffDayHours: round2(s.otOffDayMinutes / 60),
     workedHours: round2(worked / 60),
+    shiftDays: shiftAllowanceDays(s.shiftAllowance),
     otPay: showAmounts ? money(dec(p.amounts.otEarnedAmount)) : null,
     absenceDeduction: showAmounts ? money(dec(p.amounts.leaveDeductionAmount)) : null,
+    shiftAllowance: showAmounts ? money(dec(p.amounts.shiftAllowanceAmount)) : null,
     days: p.days.map((d, i) => attendanceDay(d, i + 1)),
   };
 }

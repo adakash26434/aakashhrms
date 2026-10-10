@@ -10,8 +10,10 @@ export const REIMBURSE_HEAD_CODE = "REIMBURSE";
 export const REIMBURSE_TAXABLE_HEAD_CODE = "REIMBURSE_TAX";
 /** 4.9: approved leave salary (taxable). */
 export const LEAVE_ENCASH_HEAD_CODE = "LEAVE_ENCASH";
+/** 4.12e: the month's shift allowance from the attendance month (taxable). */
+export const SHIFT_ALLOWANCE_HEAD_CODE = "SHIFT_ALLOWANCE";
 
-export const FEED_HEAD_CODES: readonly string[] = [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, LEAVE_ENCASH_HEAD_CODE];
+export const FEED_HEAD_CODES: readonly string[] = [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, LEAVE_ENCASH_HEAD_CODE, SHIFT_ALLOWANCE_HEAD_CODE];
 
 /** Where each feed line's amount comes from: said when someone tries to type or add it. */
 export const FEED_SOURCE: Readonly<Record<string, string>> = {
@@ -21,6 +23,7 @@ export const FEED_SOURCE: Readonly<Record<string, string>> = {
   [REIMBURSE_HEAD_CODE]: "approved reimbursement claims (Payroll → Reimbursements)",
   [REIMBURSE_TAXABLE_HEAD_CODE]: "approved reimbursement claims (Payroll → Reimbursements)",
   [LEAVE_ENCASH_HEAD_CODE]: "approved leave salary (Payroll → Leave salary)",
+  [SHIFT_ALLOWANCE_HEAD_CODE]: "days worked on shifts with an allowance (Attendance → Shifts)",
 };
 
 export const isFeedHeadCode = (code: string | null | undefined): boolean => !!code && FEED_HEAD_CODES.includes(code);

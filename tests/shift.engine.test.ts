@@ -26,6 +26,7 @@ const shift = (over: Partial<ShiftDefinition> = {}): ShiftDefinition => ({
   otMinimumMinutes: 30,
   week: week([0, 6]),
   seasons: [],
+  allowancePerDay: 0,
   isDefault: true,
   active: true,
   ...over,

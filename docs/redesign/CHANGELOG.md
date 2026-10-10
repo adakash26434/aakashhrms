@@ -13,6 +13,20 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-10 — 4.12e: shift allowance and label heads
+Branch: `redesign/4.12-configuration` (after the merge into `main`)
+Changed:
+- **Shift allowance:** migration `0081_shift_allowance` (`shifts.allowance_per_day`, `leave_ot_calculations.shift_allowance_amount`, the `SHIFT_ALLOWANCE` system pay head — taxable, सिफ्ट भत्ता, named "Shift allowance (attendance)" when a company already has a head called "Shift allowance"; mirrored in `ensureTenantSchema`). `lib/engines/shift-allowance.engine.ts` (8 tests): a full day or on duty counts 1, a half day ½ (paid leave taken out), work on a weekly off or holiday by its hours; lines per shift in paisa. `summariseMonth(…, shiftPay)` carries the days and amounts; the month close freezes them; an open month is worked out the same way. Attendance → Shifts: the shift window's **Shift allowance** group (company-wide roles; audited before → after), the grid's column; the Register's **Shift allow. days**; the attendance report's days and amount. Payroll: a feed head (never in a salary structure, never typed) — generation and Recalculate add it from `attendanceForPayroll`, **Sync attendance** sets the line through a server-side argument (`fromAttendance`), and a missing head stops the run with a plain message instead of dropping the pay.
+- **Label heads:** onboarding's Basic Salary / Grade Amount (`isLabelHead`: an allowance coded BASIC or GRADE) are labels: Setup → Pay heads shows role **Label (basic / grade)**, "No amount (a label)", only the name changes, never deleted; no salary change or template gives one a new amount (`validateLines(…, current)`: an amount held from before 4.4 may stay or go to 0); the salary sheet's typed totals never land on one. Who still holds an amount: the Pay heads notice (people only with Salary structure → View, within its scope; the count otherwise), the Setup overview line and a pre-flight warning per person (`label_amount`, regular runs, with an Open link) in the workspace's one pre-flight.
+- **Payslip pane:** lines fed by other records (TA-DA, arrears, reimbursements, leave salary, welfare fund, shift allowance) show where they come from and have no pencil (the server already refused them).
+- **Tests:** `shift-allowance.engine` (8), `pay-head.engine`, `salary-structure`, `report.engine`, `payroll-run` (label warning), `security-settings` (4.12e: salary scope for label amounts, nothing typed, nothing dropped, company-wide and audited rate).
+
+Verified: type-check 0 · tests 1640/1640 · eslint: no new problems in touched files (`payroll.service.ts` 25 pre-existing `no-explicit-any`) · `scripts/sync-schema.ts` on the dev database · browser (Playwright, Demo Sahakari): General shift set to NPR 100 a day (saved, grid column), the Bhadra register shows **Shift allow. days**; with 11 days of test punches for Sita Sharma, **Sync attendance** put **Shift allowance 1,100.00** on her draft payslip (pane and `payroll_slip_heads`); back to 0 and Sync again removed the line; a test Basic Salary head holding NPR 3,500 for Sita showed as **Label (basic / grade)** with the notice naming her, and the New pay run Check warned about her label amount (test data removed afterwards).
+
+Deployment notes: run `scripts/sync-schema.ts` (0081) before the new code serves. Before the next pay run, read Setup → Pay heads for label amounts still held (they are paid on top of basic / grade until revised), and set shift allowances where the company pays one.
+
+---
+
 ## 2026-10-10 — Merge `redesign/4.12-configuration` into `main` (F6, F9–F17, 4.9–4.12d on top of the 4.8 workspace)
 Branch: `main` (merge of `redesign/4.12-configuration` at `21efb4a`; closes PRs #6 and #7)
 

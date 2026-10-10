@@ -53,6 +53,7 @@ export async function ensureDefaultShift(): Promise<void> {
     otMinimumMinutes: Number.isFinite(otMin) && otMin >= 0 ? Math.round(otMin) : 30,
     week: weekFromOffs(ws.weeklyOffDays ?? []),
     seasons: [],
+    allowancePerDay: 0,
   });
 }
 
@@ -147,8 +148,14 @@ export function shiftOn(ctx: ShiftContext, e: { id: string; branchId: string }, 
 
 const toWrite = (v: ShiftInput): repo.ShiftWrite => ({ ...v });
 
-/** Adds or changes a shift. Returns its id and the Labour Act reminders. */
-export async function saveShift(raw: unknown, ctx: { userId: string }): Promise<{ id: string; created: boolean; warnings: string[]; code: string }> {
+/**
+ * Adds or changes a shift. Returns its id, the Labour Act reminders and the allowance before and
+ * after (4.12e: pay, so the action audits it).
+ */
+export async function saveShift(
+  raw: unknown,
+  ctx: { userId: string }
+): Promise<{ id: string; created: boolean; warnings: string[]; code: string; allowance: { before: number | null; after: number } }> {
   const r = (raw && typeof raw === "object" ? raw : {}) as { id?: unknown };
   const { value, errors } = parseShift(raw);
   if (!value) throw new AttendanceValidationError(errors);
@@ -156,12 +163,13 @@ export async function saveShift(raw: unknown, ctx: { userId: string }): Promise<
   const same = await repo.findShiftByCode(value.code);
   if (same && same.id !== id) throw new AttendanceValidationError({ code: `${value.code} is already used by ${same.name}` });
   if (id) {
-    if (!(await repo.updateShift(id, toWrite(value), ctx.userId))) throw new UserFacingError("That shift no longer exists. Refresh the page.");
+    const before = await repo.findShiftById(id);
+    if (!before || !(await repo.updateShift(id, toWrite(value), ctx.userId))) throw new UserFacingError("That shift no longer exists. Refresh the page.");
     await syncWorkSchedule();
-    return { id, created: false, warnings: shiftWarnings(value), code: value.code };
+    return { id, created: false, warnings: shiftWarnings(value), code: value.code, allowance: { before: before.allowancePerDay, after: value.allowancePerDay } };
   }
   const newId = await repo.insertShift(toWrite(value), ctx.userId);
-  return { id: newId, created: true, warnings: shiftWarnings(value), code: value.code };
+  return { id: newId, created: true, warnings: shiftWarnings(value), code: value.code, allowance: { before: null, after: value.allowancePerDay } };
 }
 
 export async function makeDefault(id: string, ctx: { userId: string }): Promise<{ code: string }> {

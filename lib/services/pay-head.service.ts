@@ -1,6 +1,7 @@
 import * as repository from "@/lib/repositories/pay-head.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
+import { labelAmounts } from "@/lib/services/salary-structure.service";
 import {
   appliesToLabel,
   appliesToNames,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/engines/pay-head.engine";
 import { recordAuditLog } from "@/lib/services/audit.service";
 import { UserFacingError } from "@/lib/errors/action-error";
+import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import type { PayHead, PayHeadFormErrors, PayHeadsPage } from "@/lib/types/pay-head";
 
 // Pay heads (4.12b, S51): a company-wide list — Pay heads → Add / Edit / Delete with a
@@ -38,12 +40,19 @@ export interface PayHeadCtx {
   userId: string;
 }
 
-export async function payHeadsPage(can: PayHeadsPage["can"]): Promise<PayHeadsPage> {
-  const [heads, usage, departments, designations] = await Promise.all([
+/**
+ * The register. `salaryScope` is the reader's Salary structure → View scope (null without it): who
+ * still holds an amount on a label head, and how much, is salary data (S20), so only those readers
+ * see names and amounts, within their scope; everyone sees the company's count (4.12e).
+ */
+export async function payHeadsPage(can: PayHeadsPage["can"], salaryScope: ScopeFilter | null): Promise<PayHeadsPage> {
+  const [heads, usage, departments, designations, labelled, labelledInScope] = await Promise.all([
     repository.findAllPayHeads(),
     repository.usageByHead(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
+    labelAmounts(null),
+    salaryScope && salaryScope.scopeType !== "GLOBAL" ? labelAmounts(salaryScope) : Promise.resolve(null),
   ]);
   const none = { structures: 0, payslips: 0, templates: 0 };
   const live = { departmentIds: new Set(departments.map((d) => d.id)), designationIds: new Set(designations.map((d) => d.id)) };
@@ -69,8 +78,10 @@ export async function payHeadsPage(can: PayHeadsPage["can"]): Promise<PayHeadsPa
   });
   // Allowances first, then deductions; system heads after the company's own; by name.
   rows.sort((a, b) => (a.type !== b.type ? (a.type === "allowance" ? -1 : 1) : !!a.system !== !!b.system ? (a.system ? 1 : -1) : a.name.localeCompare(b.name)));
+  const count = new Set(labelled.map((l) => l.employeeId)).size;
   return {
     heads: rows,
+    labelAmounts: { count, people: salaryScope ? labelledInScope ?? labelled : null },
     departments: departments.map((d) => ({ id: d.id, name: d.name })).sort((a, b) => a.name.localeCompare(b.name)),
     designations: designations.map((d) => ({ id: d.id, name: d.name })).sort((a, b) => a.name.localeCompare(b.name)),
     can,

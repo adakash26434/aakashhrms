@@ -91,7 +91,8 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
   // As payroll would pay it, income tax estimated (the same calculatePayslip).
   const totals = useMemo(() => estimatePay(lines, data.heads, row.profile, data.tax, settings), [lines, data.heads, row.profile, data.tax, settings.ssfBase, settings.pfPercent]); // eslint-disable-line react-hooks/exhaustive-deps
   const before = row.current?.totals ?? null;
-  const check = validateLines(lines, data.heads, level?.minSalary ?? 0);
+  // 4.12e: checked against the structure being revised (a label head keeps what it holds, or 0).
+  const check = validateLines(lines, data.heads, level?.minSalary ?? 0, row.current?.lines ?? null);
   const jump = largeChangeWarning(row.current?.lines.basic, lines.basic);
   // Heads for this employee (Pay heads → applicable departments / designations); one already
   // held outside its list stays, with a warning. Label heads (Basic Salary / Grade Amount)
@@ -232,7 +233,7 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
                     {type === "allowance" ? "Allowances (monthly)" : "Deductions (monthly)"}
                   </p>
                   {amountHeads(type).map((h) => (
-                    <GridField key={h.id} label={h.labelOnly ? `${h.name} (pay head)` : h.name} error={errors[h.id]} size="amount" help={check.warnings[h.id] ?? notForMe(h.id) ?? h.rule} suffix={check.warnings[h.id] || notForMe(h.id) ? <span className="text-warning">check</span> : undefined}>
+                    <GridField key={h.id} label={h.labelOnly ? `${h.name} (label)` : h.name} error={errors[h.id]} size="amount" help={check.warnings[h.id] ?? notForMe(h.id) ?? h.rule} suffix={check.warnings[h.id] || notForMe(h.id) ? <span className="text-warning">check</span> : undefined}>
                       <NumberField name={`head.${h.id}`} prefix="NPR" value={lines.amounts[h.id] ?? 0} onChange={(v) => setAmount(h.id, v)} />
                     </GridField>
                   ))}

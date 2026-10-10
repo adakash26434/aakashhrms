@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { Loader2, Lock, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { Confirm } from "@/components/kit/confirm";
@@ -87,7 +88,13 @@ export function PayHeadsClient({ initial }: { initial: PayHeadsPage }) {
         ),
       },
       { id: "calc", header: "Amount", width: 180, value: (h) => h.calc, cell: (h) => <span className="block truncate text-ink-muted" title={h.calc}>{h.calc}</span> },
-      { id: "tax", header: "Taxable", width: 100, value: (h) => (h.type === "allowance" ? (h.taxable ? "Yes" : "No") : ""), cell: (h) => (h.type === "allowance" ? (h.taxable ? "Yes" : "No") : <span className="text-ink-faint">–</span>) },
+      {
+        id: "tax",
+        header: "Taxable",
+        width: 100,
+        value: (h) => (h.type === "allowance" && h.role !== "label" ? (h.taxable ? "Yes" : "No") : ""),
+        cell: (h) => (h.type === "allowance" && h.role !== "label" ? (h.taxable ? "Yes" : "No") : <span className="text-ink-faint">–</span>),
+      },
       { id: "for", header: "For", width: 170, value: (h) => h.appliesTo, cell: (h) => <span className={cn("block truncate", h.appliesTo === "Everyone" ? "text-ink-muted" : h.appliesTo.startsWith("No one") ? "text-warning" : "text-ink")} title={h.appliesTo}>{h.appliesTo}</span> },
       {
         id: "use",
@@ -134,6 +141,7 @@ export function PayHeadsClient({ initial }: { initial: PayHeadsPage }) {
           {notice.text}
         </Notice>
       )}
+      <LabelAmountsNotice labelAmounts={data.labelAmounts} />
       <Guide
         id="pay-heads"
         title="How pay heads work"
@@ -142,7 +150,7 @@ export function PayHeadsClient({ initial }: { initial: PayHeadsPage }) {
           { title: "What it is", text: "An ordinary allowance or deduction, the festival or remote-area allowance, or a line worked out from attendance. It sets whether it adds to or takes from pay." },
           { title: "How much", text: "An amount typed for each employee in Salary structure, or a share of basic (or basic + grade) worked out every month." },
           { title: "Who it is for", text: "Everyone, or chosen departments and designations: Salary structure offers it only to them." },
-          { title: "System heads", text: "Tax, PF, SSF, CIT and the lines other modules pay (TA-DA, arrears, reimbursements…) are worked out by payroll: only their names change." },
+          { title: "System heads", text: "Tax, PF, SSF, CIT, the lines other modules pay (TA-DA, arrears, shift allowance…) and the Basic Salary / Grade Amount labels are worked out elsewhere: only their names change." },
         ]}
       />
       <FilterStrip
@@ -201,6 +209,48 @@ export function PayHeadsClient({ initial }: { initial: PayHeadsPage }) {
         onCancel={() => setOpen(null)}
       />
     </div>
+  );
+}
+
+const MAX_LISTED = 12;
+
+/**
+ * 4.12e: salary structures that still hold an amount on a label head (Basic Salary / Grade Amount):
+ * payroll pays it on top of basic / grade until someone revises it away. Names and amounts only
+ * for readers with Salary structure → View (the server sends them within their scope).
+ */
+function LabelAmountsNotice({ labelAmounts }: { labelAmounts: PayHeadsPage["labelAmounts"] }) {
+  const { count, people } = labelAmounts;
+  if (!count) return null;
+  const listed = people?.slice(0, MAX_LISTED) ?? [];
+  const inScope = people ? new Set(people.map((p) => p.employeeId)).size : 0;
+  return (
+    <Notice tone="warning" className="mb-3" title={`${count} salary structure${count === 1 ? " still holds" : "s still hold"} an amount on a label head`}>
+      <p>
+        Basic Salary and Grade Amount only name the basic and grade each structure sets, so they hold no amount. Payroll pays what a structure still holds on one on top of basic / grade until it
+        is revised: put the amount on an allowance if it is still due, and set the label to 0.
+      </p>
+      {people ? (
+        people.length ? (
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            {listed.map((p) => (
+              <li key={`${p.employeeId}:${p.head}`}>
+                <Link href={`/workforce/salary-mapping?employee=${encodeURIComponent(p.employeeId)}`} className="font-medium text-ink underline-offset-2 hover:underline">
+                  {p.fullName} ({p.employeeCode})
+                </Link>{" "}
+                · {p.head} <span className="tabular-nums">NPR {p.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </li>
+            ))}
+            {people.length > listed.length && <li className="text-ink-muted">and {people.length - listed.length} more</li>}
+            {inScope < count && <li className="text-ink-muted">{count - inScope} outside your scope</li>}
+          </ul>
+        ) : (
+          <p className="mt-1 text-ink-muted">None of them is in your scope.</p>
+        )
+      ) : (
+        <p className="mt-1 text-ink-muted">Who they are shows to people with Salary structure → View.</p>
+      )}
+    </Notice>
   );
 }
 
@@ -330,7 +380,7 @@ function PayHeadWindow({ page, head, onClose, onSaved }: { page: PayHeadsPage; h
           ) : (
             <p className="px-4 py-3 text-xs text-ink-muted">{head?.calc ?? def.hint}</p>
           )}
-          {def.type === "allowance" && (
+          {def.type === "allowance" && form.role !== "label" && (
             <FieldRow label="Taxable income" help={system ? undefined : "Allowances are taxable unless the law exempts them, such as reimbursed actual costs."}>
               {system ? <p className="pt-1.5 text-sm text-ink">{form.taxable ? "Yes" : "No"}</p> : <YesNoField name="taxable" value={form.taxable} onChange={(v) => set("taxable", v)} />}
             </FieldRow>
