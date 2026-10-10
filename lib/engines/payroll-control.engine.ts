@@ -190,7 +190,17 @@ export function canPublishRun(runStatus: string, publishedAt: Date | string | nu
 
 // ---- pre-flight --------------------------------------------------------------------
 
-export type PreflightCode = 'attendance_open' | 'no_salary' | 'needs_setup' | 'pending_leave' | 'no_bank_account' | 'no_pan' | 'duplicate_run' | 'missing_tds_head' | 'missing_statutory_head';
+export type PreflightCode =
+  | 'attendance_open'
+  | 'no_salary'
+  | 'needs_setup'
+  | 'pending_leave'
+  | 'no_bank_account'
+  | 'no_pan'
+  | 'duplicate_run'
+  | 'missing_tds_head'
+  | 'missing_statutory_head'
+  | 'covered_by_opening';
 
 export interface PreflightFinding {
   code: PreflightCode;
@@ -219,6 +229,8 @@ export interface PreflightFacts {
    * setup and deduct no PF / SSF / CIT, so only the checks that matter to them apply.
    */
   runType?: 'REGULAR' | 'FESTIVAL' | 'ARREARS';
+  /** F15: people whose opening balance covers this month (the old system paid it). */
+  employeesCoveredByOpening?: string[];
 }
 
 export function preflightFindings(f: PreflightFacts): PreflightFinding[] {
@@ -234,6 +246,7 @@ export function preflightFindings(f: PreflightFacts): PreflightFinding[] {
   if (f.existingRunStatus) push('duplicate_run', f.existingRunStatus === 'LOCKED' ? 'blocker' : 'warning', f.existingRunStatus === 'LOCKED' ? `A locked ${what} already exists for this month.` : `A ${f.existingRunStatus.toLowerCase().replace('_', ' ')} ${what} already exists for this month; generating again replaces it.`);
   if (regular && f.openAttendanceBranches.length) push('attendance_open', f.requireClosedAttendance ? 'blocker' : 'warning', 'Attendance for the month is not closed. Payroll will use days worked out now, which can still change.', f.openAttendanceBranches);
   if (f.runType !== 'ARREARS') push('no_salary', 'blocker', 'No salary structure in force for the month.', f.employeesWithoutSalary);
+  push('covered_by_opening', 'blocker', 'Their opening balance already covers this month (the old system paid it); paying it here would count it twice.', f.employeesCoveredByOpening ?? []);
   if (regular) push('needs_setup', 'blocker', 'New hires still need their pay heads set up in Salary structure.', f.employeesNeedingSetup);
   if (regular && f.pendingLeaveCount > 0) push('pending_leave', 'blocker', `${f.pendingLeaveCount} leave application(s) in the month are still pending. Decide them first.`);
   push('no_bank_account', 'warning', 'No bank account on file; these people cannot be paid by transfer.', f.employeesWithoutBank);

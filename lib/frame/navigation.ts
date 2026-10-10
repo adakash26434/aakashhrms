@@ -9,6 +9,7 @@ import {
   FileClock,
   FilePen,
   FileSpreadsheet,
+  History,
   Home,
   Landmark,
   LayoutDashboard,
@@ -288,6 +289,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         description: "Review, approve and lock payroll batches",
         requires: ["PAYROLL_REVIEW"],
         keywords: ["approve", "lock", "payslip", "batch"],
+      },
+      {
+        id: "opening-balances",
+        label: "Opening balances",
+        href: "/payroll/opening",
+        icon: History,
+        description: "What an old system paid before payroll started here mid-year, counted for tax and certificates",
+        requires: ["PAYROLL_GENERATE"],
+        keywords: ["opening balance", "ytd", "year to date", "previous system", "migration", "carry forward", "mid year"],
       },
       {
         id: "leave-salary",

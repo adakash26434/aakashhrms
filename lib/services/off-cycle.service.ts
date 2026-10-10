@@ -10,6 +10,8 @@ import * as systemControlRepository from '@/lib/repositories/system-control.repo
 import * as taxRateRepository from '@/lib/repositories/tax-rate.repository';
 import * as fiscalYearRepository from '@/lib/repositories/fiscal-year.repository';
 import * as arrearsService from '@/lib/services/arrears.service';
+import * as openingRepository from '@/lib/repositories/opening-balance.repository';
+import { coveredByOpeningMessage } from '@/lib/engines/opening-balance.engine';
 import { calculateAnnualTaxFromSlabs, isSsfDeductionHead, isSsfEmployerHead, occasionalHeadAmount, type TaxSlabInput } from '@/lib/engines/payroll.engine';
 import { asRunType, calculateOffCycleSlip, festivalShare, projectedBefore, RUN_TYPE_LABEL, type OffCycleLine } from '@/lib/engines/off-cycle.engine';
 import { getFiscalMonthIndex } from '@/lib/utils/fiscal-year.utils';
@@ -159,6 +161,10 @@ export async function generateOffCycleRun(payload: PayrollRunSetupPayload, userI
   }
   const payees = people.filter((e) => (linesByEmployee.get(e.id) ?? []).some((l) => new Decimal(l.amount || 0).gt(0)));
   if (!payees.length) throw new UserFacingError(runType === 'ARREARS' ? 'Nobody in scope is owed arrears.' : `Nobody in scope has a ${label} to pay.`);
+  // F15: a month an opening balance covers belongs to the old system; a payment in it here
+  // would sit outside the opening balance's months in the tax history.
+  const coveredByOpening = await openingRepository.openingsCovering(payees.map((e) => e.id), fiscalYear.id, getFiscalMonthIndex(payPeriodMonth));
+  if (coveredByOpening.length) throw new UserFacingError(coveredByOpeningMessage(coveredByOpening, BS_MONTHS_EN[payPeriodMonth]));
 
   const [bases, payee] = await Promise.all([projectionBases(payees, salaries, ctx), repository.slipPayeeFacts(payees)]);
   const slips = payees.map((e) => {

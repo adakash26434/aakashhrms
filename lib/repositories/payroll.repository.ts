@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
-import { departments, designations, employeeBank, payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
-import { eq, and, desc, inArray, sql, type SQL } from 'drizzle-orm';
+import { departments, designations, employeeBank, payrollOpeningBalances, payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
+import { eq, and, desc, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
@@ -516,7 +516,8 @@ export async function findSlipsByEmployee(employeeId: string, limit = 12) {
  * payslip in an approved / locked run before this fiscal month. F6: a regular run also counts the
  * off-cycle slips (festival, arrears) already paid in its own month (`sameMonth: 'offCycle'`, the
  * default); an off-cycle run counts every other slip of its month (`'all'`). `excludeRunId` keeps
- * the run being recalculated out of its own history.
+ * the run being recalculated out of its own history. F15: an opening balance of months before
+ * this one comes first, as one entry standing for the months it covers.
  */
 export async function findEarlierTaxMonths(
   employeeIds: string[],
@@ -524,9 +525,20 @@ export async function findEarlierTaxMonths(
   fiscalMonthIndex: number,
   excludeRunId?: string,
   sameMonth: 'none' | 'offCycle' | 'all' = 'offCycle',
-): Promise<Map<string, { taxableIncome: string; tds: string }[]>> {
-  const out = new Map<string, { taxableIncome: string; tds: string }[]>();
+): Promise<Map<string, { taxableIncome: string; tds: string; months?: number }[]>> {
+  const out = new Map<string, { taxableIncome: string; tds: string; months?: number }[]>();
   if (!employeeIds.length) return out;
+  // F15: what an old system paid before payroll started here counts as the months it covers.
+  const openings = await (await getDb())
+    .select({
+      employeeId: payrollOpeningBalances.employeeId,
+      taxableIncome: payrollOpeningBalances.taxableIncome,
+      tds: sql<string>`(${payrollOpeningBalances.sst} + ${payrollOpeningBalances.incomeTax})::text`,
+      months: payrollOpeningBalances.months,
+    })
+    .from(payrollOpeningBalances)
+    .where(and(inArray(payrollOpeningBalances.employeeId, employeeIds), eq(payrollOpeningBalances.fiscalYearId, fiscalYearId), lt(payrollOpeningBalances.months, fiscalMonthIndex)));
+  for (const o of openings) out.set(o.employeeId, [{ taxableIncome: o.taxableIncome, tds: o.tds, months: o.months }]);
   const idx = sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END)`;
   const sameMonthRule =
     sameMonth === 'all' ? sql`${idx} = ${fiscalMonthIndex}` : sameMonth === 'offCycle' ? sql`(${idx} = ${fiscalMonthIndex} AND ${payrollRuns.runType} <> 'REGULAR')` : sql`false`;

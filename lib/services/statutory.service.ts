@@ -10,6 +10,8 @@ import {
   citSchedule,
   etdsCsv,
   etdsLines,
+  openingCertificateLine,
+  openingTaxItem,
   pfCsv,
   pfSchedule,
   settlementTaxItem,
@@ -150,6 +152,8 @@ interface TaxFacts {
 interface YearBook {
   slips: SlipFact[];
   settlements: SettlementFact[];
+  /** F15: what an old system paid before payroll started here (at most one per employee). */
+  openings: repo.OpeningFactRow[];
   split: Map<string, TaxSplit>;
   /** Employees with an SSF deduction in the year. */
   ssf: Set<string>;
@@ -176,11 +180,12 @@ async function yearBook(
   fy: NonNullable<Awaited<ReturnType<typeof repo.fiscalYear>>>,
   filter: { scope?: SQL; employeeId?: string; upToFiscalMonth?: number; extra?: SQL[] },
 ): Promise<YearBook> {
-  const [slipRows, settlementRows, tax] = await Promise.all([
+  const [slipRows, settlementRows, tax, openings] = await Promise.all([
     repo.slipFacts({ fiscalYearId: fy.id, upToFiscalMonth: filter.upToFiscalMonth, employeeId: filter.employeeId, scope: filter.scope, extra: filter.extra }),
     // The portal's visibility rule is for payslips; a final settlement is shown once paid.
     repo.paidSettlements({ fromAd: addDays(new Date(fy.startDateAD), -1), toAd: addDays(new Date(fy.endDateAD), 2), employeeId: filter.employeeId, scope: filter.scope }),
     taxContext(fy.id),
+    repo.openingFacts({ fiscalYearId: fy.id, upToFiscalMonth: filter.upToFiscalMonth, employeeId: filter.employeeId, scope: filter.scope }),
   ]);
   const fyStartBsYear = Number(String(fy.startDateBS).slice(0, 4));
   const slips = slipRows.map(toSlipFact);
@@ -189,7 +194,7 @@ async function yearBook(
     .filter((s): s is SettlementFact => !!s && (!filter.upToFiscalMonth || s.fiscalMonthIndex <= filter.upToFiscalMonth));
 
   const facts = new Map<string, TaxFacts>();
-  for (const r of [...slipRows, ...settlementRows]) facts.set(r.employeeId, { category: r.category, taxStatus: r.taxStatus, isDisabled: r.isDisabled, gender: r.gender, joiningDate: r.joiningDate });
+  for (const r of [...openings, ...slipRows, ...settlementRows]) facts.set(r.employeeId, { category: r.category, taxStatus: r.taxStatus, isDisabled: r.isDisabled, gender: r.gender, joiningDate: r.joiningDate });
   const ssf = new Set(slips.filter((s) => Number(s.ssfEmployee) > 0).map((s) => s.employeeId));
 
   const split = new Map<string, TaxSplit>();
@@ -198,12 +203,13 @@ async function yearBook(
     const band = socialSecurityBand(slabsForEmployee(employee, tax.slabs));
     const sstOn = (annual: Decimal) => (band ? calculateAnnualTaxFromSlabs(Decimal.min(annual, band), employee, tax.slabs, tax.control, false) : new Decimal(0));
     const items = [
+      ...openings.filter((o) => o.employeeId === employeeId).map(openingTaxItem),
       ...slips.filter((s) => s.employeeId === employeeId).map((s) => slipTaxItem(s, Number(s.ssfEmployee) > 0)),
       ...settlements.filter((s) => s.employeeId === employeeId).map((s) => settlementTaxItem(s, ssf.has(employeeId))),
     ];
     for (const [key, value] of splitSocialSecurityTax(items, sstOn)) split.set(key, value);
   }
-  return { slips, settlements, split, ssf, facts };
+  return { slips, settlements, openings, split, ssf, facts };
 }
 
 // ── Monthly files ───────────────────────────────────────────────────────────
@@ -360,8 +366,17 @@ export async function certificateList(ctx: StatutoryCtx, fiscalYearId: unknown):
     r.taxable = add(r.taxable, s.taxable);
     r.tds = add(r.tds, s.tds);
   }
+  // F15: the months an old system paid before payroll started here.
+  const openingMonths = new Map<string, number>();
+  for (const o of book.openings) {
+    const r = row(o);
+    openingMonths.set(o.employeeId, o.months);
+    r.gross = add(r.gross, o.grossEarnings);
+    r.taxable = add(r.taxable, o.taxableIncome);
+    r.tds = add(r.tds, openingCertificateLine(o).tds);
+  }
   const rows = [...acc.values()]
-    .map(({ monthKeys, ...r }) => ({ ...r, months: monthKeys.size }))
+    .map(({ monthKeys, ...r }) => ({ ...r, months: monthKeys.size + (openingMonths.get(r.employeeId) ?? 0) }))
     .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   return { fiscalYears: years.map((y) => ({ id: y.id, label: y.label })), fiscalYearId: fy.id, rows, partialScope };
 }
@@ -369,10 +384,13 @@ export async function certificateList(ctx: StatutoryCtx, fiscalYearId: unknown):
 function certificateFrom(fy: { id: string; label: string }, book: YearBook, employeeId: string): TaxCertificateData | null {
   const slips = book.slips.filter((s) => s.employeeId === employeeId).sort((a, b) => a.fiscalMonthIndex - b.fiscalMonthIndex);
   const settlements = book.settlements.filter((s) => s.employeeId === employeeId);
-  const latest = slips[slips.length - 1] ?? settlements[0];
+  const opening = book.openings.find((o) => o.employeeId === employeeId);
+  const latest = slips[slips.length - 1] ?? settlements[0] ?? opening;
   if (!latest) return null;
   const split = (key: string, tds: string) => book.split.get(key) ?? { sst: '0.00', remuneration: new Decimal(tds || 0).toFixed(2) };
   const lines: CertificateLine[] = [
+    // F15: what an old system paid before payroll started here comes first, as it deducted it.
+    ...(opening ? [openingCertificateLine(opening)] : []),
     ...slips.map((s) => {
       const t = split(s.slipId, s.tds);
       const type = asRunType(s.runType);

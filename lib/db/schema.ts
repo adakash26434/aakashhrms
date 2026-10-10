@@ -1415,6 +1415,34 @@ export const payrollArrears = pgTable('payroll_arrears', {
   sourceIdx: index('payroll_arrears_source_idx').on(table.sourceRunId, table.employeeId),
 }));
 
+/**
+ * Opening balances (4.8 / F15, migration 0071): what an old system paid an employee in the first
+ * `months` fiscal months of a year (Shrawan = 1), for a company that starts payroll here mid-year.
+ * Read by the tax projection, the Ashadh reconciliation and the annual tax certificate as those
+ * months (lib/engines/opening-balance.engine.ts); no run here may pay a month one covers.
+ */
+export const payrollOpeningBalances = pgTable('payroll_opening_balances', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'cascade' }).notNull(),
+  months: integer('months').notNull(),
+  grossEarnings: numeric('gross_earnings', { precision: 15, scale: 2 }).default('0').notNull(),
+  /** PF and SSF contributions deducted from the employee. */
+  retirement: numeric('retirement', { precision: 15, scale: 2 }).default('0').notNull(),
+  cit: numeric('cit', { precision: 15, scale: 2 }).default('0').notNull(),
+  taxableIncome: numeric('taxable_income', { precision: 15, scale: 2 }).default('0').notNull(),
+  sst: numeric('sst', { precision: 15, scale: 2 }).default('0').notNull(),
+  incomeTax: numeric('income_tax', { precision: 15, scale: 2 }).default('0').notNull(),
+  note: text('note'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  employeeYear: unique('payroll_opening_balances_employee_year_key').on(table.employeeId, table.fiscalYearId),
+  yearIdx: index('payroll_opening_balances_year_idx').on(table.fiscalYearId),
+}));
+
 export const payrollSlipHeads = pgTable('payroll_slip_heads', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),

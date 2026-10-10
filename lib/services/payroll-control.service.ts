@@ -7,6 +7,8 @@ import * as payrollRepo from '@/lib/repositories/payroll.repository';
 import * as employeeRepository from '@/lib/repositories/employee.repository';
 import * as salaryMappingRepository from '@/lib/repositories/salary-mapping.repository';
 import * as attendanceRepo from '@/lib/repositories/attendance.repository';
+import * as openingRepository from '@/lib/repositories/opening-balance.repository';
+import { getFiscalMonthIndex } from '@/lib/utils/fiscal-year.utils';
 import { employeesNeedingSetup } from '@/lib/repositories/salary-structure.repository';
 import {
   CHECKER_MESSAGE,
@@ -262,7 +264,8 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
   const label = (e: { fullName: string; employeeCode: string }) => `${e.fullName} (${e.employeeCode})`;
 
   const db = await getDb();
-  const [settings, salaries, needSetup, periods, existing, gaps, pending, branchRows, statutoryHeads] = await Promise.all([
+  const fiscalYear = await openingRepository.activeFiscalYear();
+  const [settings, salaries, needSetup, periods, existing, gaps, pending, branchRows, statutoryHeads, coveredByOpening] = await Promise.all([
     readSettings(),
     salaryMappingRepository.findInForceByEmployeeIds(ids, endStr),
     employeesNeedingSetup(),
@@ -277,6 +280,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
       : Promise.resolve([{ n: 0 }]),
     payload.branchIds.length ? db.select({ id: branches.id, name: branches.name }).from(branches).where(inArray(branches.id, payload.branchIds)) : Promise.resolve([]),
     repo.statutoryHeadsPresent(),
+    fiscalYear ? openingRepository.openingsCovering(ids, fiscalYear.id, getFiscalMonthIndex(payload.payPeriodMonth)) : Promise.resolve([]),
   ]);
 
   const closed = new Set(periods.filter((p) => p.status === 'closed').map((p) => p.branchId));
@@ -294,6 +298,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     requireClosedAttendance: settings.requireClosedAttendance,
     statutoryHeads,
     runType: asRunType(payload.runType),
+    employeesCoveredByOpening: coveredByOpening.map(label),
   });
   return { findings, employeeCount: people.length, blocked: findings.some((f) => f.severity === 'blocker') };
 }

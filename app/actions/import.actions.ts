@@ -7,12 +7,14 @@ import { recordAuditLog } from '@/lib/services/audit.service';
 import { toActionError } from '@/lib/errors/action-error';
 import { commitEmployeeImport, previewEmployeeImport } from '@/lib/services/employee-import.service';
 import { commitPunchImport, previewPunchImport } from '@/lib/services/punch-import.service';
+import { commitOpeningImport, previewOpeningImport } from '@/lib/services/opening-balance.service';
 
 // Import templates (4.8 / F15): the server checks the whole file (the browser only sends its
 // text) and saves nothing while a row has an error. Employees need Employees → Add within the
 // user's scope (each row's branch / department is checked); pay from the file needs Salary
 // mapping → Edit. Every created employee is audited like a form save, plus one line for the import.
-// Punches need Attendance → Add within the scope, as an HR punch does (one audit line).
+// Punches need Attendance → Add within the scope, as an HR punch does (one audit line). Opening
+// balances need Payroll run → Add within the scope; each saved one is audited (months, no amounts).
 
 async function employeeCtx() {
   const scope = await checkPermissionWithScope('ADD', 'EMPLOYEES');
@@ -68,5 +70,30 @@ export async function commitPunchImportAction(csv: string) {
     return { success: true as const, data: result };
   } catch (error: unknown) {
     return toActionError(error, 'import.punches.commit');
+  }
+}
+
+export async function previewOpeningImportAction(csv: string) {
+  await ensureTenantContext();
+  try {
+    const scope = await checkPermissionWithScope('ADD', 'PAYROLL_GENERATE');
+    return { success: true as const, data: await previewOpeningImport(csv, { scope, userId: scope.userId }) };
+  } catch (error: unknown) {
+    return toActionError(error, 'import.openings.preview');
+  }
+}
+
+export async function commitOpeningImportAction(csv: string) {
+  await ensureTenantContext();
+  try {
+    const scope = await checkPermissionWithScope('ADD', 'PAYROLL_GENERATE');
+    const result = await commitOpeningImport(csv, { scope, userId: scope.userId });
+    for (const o of result.openings) {
+      await recordAuditLog({ userId: scope.userId, action: 'ADD', module: 'PAYROLL_GENERATE', recordId: o.employeeId, result: 'SUCCESS', newValues: { openingBalance: true, months: o.months } });
+    }
+    revalidatePath('/payroll/opening');
+    return { success: true as const, data: { saved: result.saved } };
+  } catch (error: unknown) {
+    return toActionError(error, 'import.openings.commit');
   }
 }

@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 import { plainCsvField } from "@/lib/export/csv";
 import { PF_RATE, REVENUE_CODE, SSF_RATE, type RevenueCode } from "@/lib/constants/statutory-returns";
 import { monthsRemainingFrom } from "@/lib/engines/tax-projection.engine";
+import { coveredMonths, openingTds, type OpeningAmounts } from "@/lib/engines/opening-balance.engine";
 import type { TaxSlabInput } from "@/lib/engines/payroll.engine";
 
 // Statutory deposit files (4.8 / F9). Pure: the service gathers payslips of approved /
@@ -96,6 +97,8 @@ export interface TaxItem {
    * before it. Its SST is the SST it adds (sst(base + taxable) − sst(base)), collected at once.
    */
   marginalBase?: Decimal.Value | null;
+  /** F15: an opening balance — the social security tax the old system deducted, taken as it is. */
+  fixedSst?: Decimal.Value | null;
 }
 
 export interface TaxSplit {
@@ -130,7 +133,9 @@ export function splitSocialSecurityTax(items: readonly TaxItem[], sstOn: (annual
     const tds = Decimal.max(0, dec(item.tds));
     const taxable = Decimal.max(0, dec(item.taxable));
     let sst = ZERO;
-    if (!item.flatRate && !item.ssf && tds.gt(0) && item.marginalBase != null) {
+    if (item.fixedSst != null) {
+      sst = Decimal.min(tds, Decimal.max(0, dec(item.fixedSst)));
+    } else if (!item.flatRate && !item.ssf && tds.gt(0) && item.marginalBase != null) {
       const base = Decimal.max(0, dec(item.marginalBase));
       const added = Decimal.max(0, sstOn(base.plus(taxable)).minus(sstOn(base)));
       sst = Decimal.min(tds, added.toDecimalPlaces(0, Decimal.ROUND_HALF_UP));
@@ -171,6 +176,34 @@ export const settlementTaxItem = (s: SettlementFact, ssf: boolean): TaxItem => (
   closing: true,
   flatRate: false,
   ssf,
+});
+
+/** F15: an opening balance in the split — first in its year, its social security tax as deducted. */
+export const openingTaxItem = (o: OpeningAmounts & { employeeId: string }): TaxItem => ({
+  key: `opening:${o.employeeId}`,
+  fiscalMonthIndex: o.months,
+  order: -1,
+  taxable: o.taxableIncome,
+  tds: openingTds(o),
+  annualTaxable: null,
+  closing: false,
+  flatRate: false,
+  ssf: false,
+  fixedSst: o.sst,
+});
+
+/** F15: the certificate line for what an old system paid before payroll started here. */
+export const openingCertificateLine = (o: OpeningAmounts): CertificateLine => ({
+  label: `Before this system (${coveredMonths(o.months)})`,
+  labelNp: `यो प्रणालीभन्दा अघि (${coveredMonths(o.months, "np")})`,
+  source: "opening",
+  paymentDateBs: "—",
+  gross: money(dec(o.grossEarnings)),
+  retirement: money(dec(o.retirement).plus(dec(o.cit))),
+  taxable: money(dec(o.taxableIncome)),
+  sst: money(dec(o.sst)),
+  remuneration: money(dec(o.incomeTax)),
+  tds: openingTds(o),
 });
 
 // ── Contribution base ───────────────────────────────────────────────────────
@@ -415,7 +448,8 @@ export interface CertificateLine {
   /** BS month, e.g. "Shrawan 2083", or "Final settlement". */
   label: string;
   labelNp: string;
-  source: TdsRow["source"];
+  /** F15 adds "opening": what an old system paid before payroll started here. */
+  source: TdsRow["source"] | "opening";
   paymentDateBs: string;
   gross: string;
   /** Employee's SSF / PF / CIT contributions deducted. */

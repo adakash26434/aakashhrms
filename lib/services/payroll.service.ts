@@ -40,7 +40,7 @@ import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
 import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
-import { getBSMonthRange } from "@/lib/utils/bs-calendar";
+import { BS_MONTHS_EN, getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh, getFiscalMonthIndex } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
@@ -50,6 +50,8 @@ import * as offCycleService from "@/lib/services/off-cycle.service";
 import { isOffCycle } from "@/lib/engines/off-cycle.engine";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { refreshRunBankDetails } from "@/lib/repositories/employee-detail.repository";
+import * as openingRepository from "@/lib/repositories/opening-balance.repository";
+import { coveredByOpeningMessage, openingAsYearEndSlip } from "@/lib/engines/opening-balance.engine";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -251,6 +253,11 @@ export async function generatePayrollRun(
     throw new SalaryMappingMissingError(missingSalaryMappings);
   }
 
+  // 4b. F15: a month an opening balance covers was paid by the old system; paying it here too
+  // would count it twice (tax, certificate).
+  const coveredByOpening = await openingRepository.openingsCovering(scopedEmployees.map((e) => e.id), activeFy.id, getFiscalMonthIndex(payPeriodMonth));
+  if (coveredByOpening.length) throw new UserFacingError(coveredByOpeningMessage(coveredByOpening, BS_MONTHS_EN[payPeriodMonth] ?? `month ${payPeriodMonth}`));
+
   // 5. Attendance for the month (4.5): the closed summary, or worked out now from the same
   // day rules without writing anything (the month stays as it is).
   const empIds = scopedEmployees.map(e => e.id);
@@ -403,6 +410,10 @@ export async function generatePayrollRun(
         citDeduction: s.payroll_slips.citDeduction,
         tdsThisMonth: s.payroll_slips.tdsThisMonth
       });
+    }
+    // F15: what an old system paid before payroll started here is one more past payslip.
+    for (const [empId, opening] of await openingRepository.openingsFor(empIds, activeFy.id)) {
+      historicalSlipsByEmployee.set(empId, [...(historicalSlipsByEmployee.get(empId) ?? []), openingAsYearEndSlip(opening)]);
     }
   }
 
@@ -832,6 +843,9 @@ export async function overridePayslipAllowanceDeduction(
         citDeduction: s.payroll_slips.citDeduction,
         tdsThisMonth: s.payroll_slips.tdsThisMonth
       }));
+      // F15: an opening balance is one more past payslip.
+      const opening = (await openingRepository.openingsFor([emp.id], run.fiscalYearId)).get(emp.id);
+      if (opening) historicalSlips.push(openingAsYearEndSlip(opening));
     }
 
     const isFestivalChecked = run.occasionalAllowanceHeadIds?.some(id => {
@@ -1200,6 +1214,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       citDeduction: s.payroll_slips.citDeduction,
       tdsThisMonth: s.payroll_slips.tdsThisMonth
     }));
+    // F15: an opening balance is one more past payslip.
+    const opening = (await openingRepository.openingsFor([emp.id], run.fiscalYearId)).get(emp.id);
+    if (opening) historicalSlips.push(openingAsYearEndSlip(opening));
   }
 
   const calcResult = calculatePayslip({

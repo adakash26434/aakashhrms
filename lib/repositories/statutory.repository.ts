@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { employeePersonal, employees, exitSettlements, fiscalYears, payrollRuns, payrollSlips } from '@/lib/db/schema';
+import { employeePersonal, employees, exitSettlements, fiscalYears, payrollOpeningBalances, payrollRuns, payrollSlips } from '@/lib/db/schema';
 import { and, asc, desc, eq, gte, inArray, lt, sql, type SQL } from 'drizzle-orm';
 
 // Statutory deposit files (4.8 / F9): Drizzle queries only. Rules live in
@@ -165,6 +165,59 @@ export async function slipFacts(f: SlipFactFilter): Promise<SlipFactRow[]> {
     .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
     .where(and(...conditions))
     .orderBy(asc(payrollRuns.payPeriodYear), asc(payrollRuns.payPeriodMonth), asc(payrollSlips.employeeName));
+}
+
+export interface OpeningFactRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  pan: string | null;
+  months: number;
+  grossEarnings: string;
+  retirement: string;
+  cit: string;
+  taxableIncome: string;
+  sst: string;
+  incomeTax: string;
+  category: string;
+  taxStatus: string;
+  isDisabled: boolean;
+  gender: string;
+  joiningDate: string;
+}
+
+/** F15: a fiscal year's opening balances (what an old system paid before payroll started here). */
+export async function openingFacts(f: { fiscalYearId: string; upToFiscalMonth?: number; employeeId?: string; scope?: SQL }): Promise<OpeningFactRow[]> {
+  return (await getDb())
+    .select({
+      employeeId: payrollOpeningBalances.employeeId,
+      employeeCode: employees.employeeCode,
+      employeeName: employees.fullName,
+      pan: employeePersonal.panNumber,
+      months: payrollOpeningBalances.months,
+      grossEarnings: payrollOpeningBalances.grossEarnings,
+      retirement: payrollOpeningBalances.retirement,
+      cit: payrollOpeningBalances.cit,
+      taxableIncome: payrollOpeningBalances.taxableIncome,
+      sst: payrollOpeningBalances.sst,
+      incomeTax: payrollOpeningBalances.incomeTax,
+      category: employees.category,
+      taxStatus: employees.taxStatus,
+      isDisabled: employees.isDisabled,
+      gender: employees.gender,
+      joiningDate: sql<string>`${employees.joiningDate}::text`,
+    })
+    .from(payrollOpeningBalances)
+    .innerJoin(employees, eq(payrollOpeningBalances.employeeId, employees.id))
+    .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
+    .where(
+      and(
+        eq(payrollOpeningBalances.fiscalYearId, f.fiscalYearId),
+        f.upToFiscalMonth ? sql`${payrollOpeningBalances.months} <= ${f.upToFiscalMonth}` : undefined,
+        f.employeeId ? eq(payrollOpeningBalances.employeeId, f.employeeId) : undefined,
+        f.scope,
+      ),
+    );
 }
 
 export interface SettlementFactRow {

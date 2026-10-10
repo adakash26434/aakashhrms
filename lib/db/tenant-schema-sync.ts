@@ -1391,6 +1391,32 @@ ON CONFLICT DO NOTHING`);
     // Ignored until employees exists; the next sync pass completes it.
   }
 
+  // Opening balances (4.8 / F15, migration 0071): what an old system paid before payroll started
+  // here mid-year, per employee and fiscal year.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "payroll_opening_balances" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE CASCADE,
+      "months" integer NOT NULL CHECK ("months" BETWEEN 1 AND 11),
+      "gross_earnings" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "retirement" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "cit" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "taxable_income" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "sst" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "income_tax" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "note" text,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "payroll_opening_balances_employee_year_key" UNIQUE ("employee_id", "fiscal_year_id")
+    )`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "payroll_opening_balances_year_idx" ON "payroll_opening_balances" ("fiscal_year_id")`);
+  } catch {
+    // Ignored until employees and fiscal_years exist; the next sync pass completes it.
+  }
+
   // Bilingual payslip (4.8 / F11, migration 0069): a pay head's Nepali name.
   try {
     await sql.unsafe(`ALTER TABLE "pay_heads" ADD COLUMN IF NOT EXISTS "name_np" varchar(255)`);

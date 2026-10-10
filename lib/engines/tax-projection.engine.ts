@@ -16,6 +16,8 @@ export interface PastMonth {
   taxableIncome: string | number;
   /** TDS deducted in that month. */
   tds: string | number;
+  /** Months this entry stands for (default 1): an opening balance (F15) carries several. */
+  months?: number;
 }
 
 export interface TaxSheetInput {
@@ -53,7 +55,7 @@ export function buildTaxSheet(i: TaxSheetInput): TaxSheet {
   const toCollect = Decimal.max(0, annualTax.minus(ytdTds));
   const tds = toCollect.dividedBy(remaining).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
   return {
-    monthsPaid: i.past.length,
+    monthsPaid: i.past.reduce((n, p) => n + (p.months ?? 1), 0),
     monthsRemaining: remaining,
     ytdTaxable: money(ytdTaxable),
     ytdTds: money(ytdTds),
