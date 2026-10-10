@@ -6,8 +6,6 @@ import {
   payrollSlipHeads,
   leaveOtCalculations,
   employees,
-  loans,
-  loanRepayments,
   leaveApplications,
   auditLogs,
   employeeBank,
@@ -17,21 +15,21 @@ import {
   fiscalYears,
   attendanceRecords
 } from "@/lib/db/schema";
-import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
+import { eq, and, inArray, sql, gte, lte } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
 import * as feedsRepository from "@/lib/repositories/payroll-feeds.repository";
 import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
-import * as loanService from "@/lib/services/loan.service";
+import * as loanPayroll from "@/lib/services/loan-payroll.service";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
-import { calculatePayslip, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
+import { calculatePayslip, isSsfEmployerHead, isSsfDeductionHead, NegativeNetPayableError } from "@/lib/engines/payroll.engine";
 import { BS_MONTHS_EN, getBSMonthRange } from "@/lib/utils/bs-calendar";
 import { isAshadh, getFiscalMonthIndex } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
@@ -313,31 +311,10 @@ export async function generatePayrollRun(
     return h?.isRemoteAllowance;
   }) ?? false;
 
-  // BATCH PREFETCH: Load all active loans for scoped employees at once (disbursed on or before period end)
-  const allActiveLoans = new Map<string, { installmentAmount: number; remainingAmount: number }[]>();
-  const activeLoansRaw = await (await getDb())
-    .select()
-    .from(loans)
-    .where(
-      and(
-        inArray(loans.employeeId, empIds),
-        eq(loans.status, "ACTIVE"),
-        lte(loans.givenDate, endStr)
-      )
-    )
-    .orderBy(asc(loans.createdAt));
-
-  for (const l of activeLoansRaw) {
-    if (Number(l.remainingAmount) > 0) {
-      if (!allActiveLoans.has(l.employeeId)) {
-        allActiveLoans.set(l.employeeId, []);
-      }
-      allActiveLoans.get(l.employeeId)!.push({
-        installmentAmount: Number(l.installmentAmount),
-        remainingAmount: Number(l.remainingAmount)
-      });
-    }
-  }
+  // 4.10: what each payslip deducts for each running loan (from its first deduction month; nothing
+  // for someone whose final settlement is approved — it recovers the loans).
+  const loanLinesByEmployee = await loanPayroll.loanLinesFor(empIds, { year: payPeriodYear, month: payPeriodMonth, periodEnd: endStr });
+  const slipLoanLines = new Map<string, { loanId: string; amount: string }[]>();
 
   // BATCH PREFETCH: Load all bank details for scoped employees
   const allBankDetails = await (await getDb()).select().from(employeeBank).where(
@@ -431,28 +408,6 @@ export async function generatePayrollRun(
       otEarnedAmount: leaveOtCalc?.otEarnedAmount || "0"
     };
     const slipWarnings = leaveOtCalc?.otWarnings || null;
-
-    // Loan deduction resolution: active loans from ledger first, or fallback to mapped loan deductions
-    let activeLoanDeduction = "0";
-    const empLoans = allActiveLoans.get(emp.id);
-    if (empLoans && empLoans.length > 0) {
-      let totalInstallment = new Decimal(0);
-      for (const loan of empLoans) {
-        // Cap each loan's installment at its remaining amount
-        const installment = Decimal.min(
-          new Decimal(loan.installmentAmount),
-          new Decimal(loan.remainingAmount)
-        );
-        totalInstallment = totalInstallment.plus(installment);
-      }
-      activeLoanDeduction = totalInstallment.toDecimalPlaces(2).toString();
-    } else {
-      // Fallback to loan deductions configured in employee salary mapping
-      const mappedLoan = new Decimal(salaryMap.loan1Deduction || 0).plus(new Decimal(salaryMap.loan2Deduction || 0));
-      if (mappedLoan.gt(0)) {
-        activeLoanDeduction = mappedLoan.toDecimalPlaces(2).toString();
-      }
-    }
 
     // Load salary heads assignments directly from DB pay heads master lookup. Feed lines (TA-DA,
     // arrears, welfare fund) come only from their records, never from a salary structure.
@@ -558,32 +513,38 @@ export async function generatePayrollRun(
       ? (historicalSlipsByEmployee.get(emp.id) || [])
       : [];
 
-    const calcResult = calculatePayslip({
-      employee: {
-        id: emp.id,
-        category: emp.category,
-        gender: emp.gender,
-        isDisabled: emp.isDisabled,
-        taxStatus: emp.taxStatus,
-        joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
-      },
-      salaryMap: {
-        basicSalary: salaryMap.basicSalary.toString(),
-        gradePercent: salaryMap.gradePercent.toString(),
-        gradeAmount: (salaryMap.gradeAmount || 0).toString(),
-      },
-      assignedHeads,
-      attendanceCalc: attendCalc,
-      loanDeduction: activeLoanDeduction,
-      systemControl,
-      taxSlabs: taxSlabInputs,
-      isFestivalMonth: isFestivalChecked,
-      isRemoteMonth: isRemoteChecked,
-      isYearEnd: isYearEndMonth,
-      historicalPayslips: historicalSlips,
-      fiscalMonthIndex,
-      projectionHistory: earlierTaxMonths.get(emp.id) ?? [],
-    });
+    // Loans (4.10): the month's lines, cut to what the pay can bear (the rest stays on the loans).
+    const { result: calcResult, lines: loanLines, warning: loanWarning } = loanPayroll.calculateWithLoans(
+      (loanDeduction) =>
+        calculatePayslip({
+          employee: {
+            id: emp.id,
+            category: emp.category,
+            gender: emp.gender,
+            isDisabled: emp.isDisabled,
+            taxStatus: emp.taxStatus,
+            joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
+          },
+          salaryMap: {
+            basicSalary: salaryMap.basicSalary.toString(),
+            gradePercent: salaryMap.gradePercent.toString(),
+            gradeAmount: (salaryMap.gradeAmount || 0).toString(),
+          },
+          assignedHeads,
+          attendanceCalc: attendCalc,
+          loanDeduction,
+          systemControl,
+          taxSlabs: taxSlabInputs,
+          isFestivalMonth: isFestivalChecked,
+          isRemoteMonth: isRemoteChecked,
+          isYearEnd: isYearEndMonth,
+          historicalPayslips: historicalSlips,
+          fiscalMonthIndex,
+          projectionHistory: earlierTaxMonths.get(emp.id) ?? [],
+        }),
+      loanLinesByEmployee.get(emp.id)
+    );
+    if (loanLines.length) slipLoanLines.set(emp.id, loanLines);
 
     // Accumulate batch run totals
     totalGrossSum = totalGrossSum.plus(calcResult.grossEarnings);
@@ -630,7 +591,7 @@ export async function generatePayrollRun(
         payslipDate,
         status: 'DRAFT',
         isYearEndReconciliation: isYearEndMonth,
-        warnings: slipWarnings,
+        warnings: [slipWarnings, loanWarning].filter(Boolean).join(' ') || null,
       },
       heads: sanitizeSlipHeads(calcResult.heads, allPayHeads)
     });
@@ -671,7 +632,12 @@ export async function generatePayrollRun(
     }
 
     // Bulk save slips and slip heads in the transaction
-    await repository.createPayrollSlips(slipsWithHeads, tx);
+    const slipIdByEmployee = await repository.createPayrollSlips(slipsWithHeads, tx);
+    // 4.10: each payslip's loan lines, posted to the loans when the run locks.
+    for (const [employeeId, lines] of slipLoanLines) {
+      const slipId = slipIdByEmployee.get(employeeId);
+      if (slipId) await loanPayroll.writeSlipLoanLines(tx, slipId, lines);
+    }
 
     // What the payslips pay from other modules is settled with them (claim-first): a claim that
     // changed meanwhile stops the run instead of being paid without being settled (4.8 fix).
@@ -760,6 +726,10 @@ export async function overridePayslipAllowanceDeduction(
     return;
   }
 
+  // 4.10: a typed loan deduction is spread over the employee's running loans (never more than
+  // they owe beyond other unlocked payslips); the lines are kept with the payslip.
+  const typedLoans = loanDeduction !== undefined ? await loanPayroll.spreadTypedDeduction(slip.employeeId, slipId, loanDeduction) : null;
+
   // Keep a snapshot of old values for forensic auditing
   const oldSlipSnapshot = { ...slip };
 
@@ -771,7 +741,10 @@ export async function overridePayslipAllowanceDeduction(
     if (gradeAmount !== undefined) updatedSlipFields.gradeAmount = gradeAmount;
     if (otAmount !== undefined) updatedSlipFields.otAmount = otAmount;
     if (absentDeduction !== undefined) updatedSlipFields.absentDeduction = absentDeduction;
-    if (loanDeduction !== undefined) updatedSlipFields.loanDeduction = loanDeduction;
+    if (typedLoans) {
+      updatedSlipFields.loanDeduction = typedLoans.total;
+      await loanPayroll.writeSlipLoanLines(tx, slipId, typedLoans.lines);
+    }
 
     if (Object.keys(updatedSlipFields).length > 0) {
       await tx.update(payrollSlips)
@@ -784,7 +757,7 @@ export async function overridePayslipAllowanceDeduction(
 
     // Process pay head override if provided
     if (headId) {
-      const slipHeads = await repository.findSlipHeadsBySlipId(slipId);
+      const slipHeads = await repository.findSlipHeadsBySlipId(slipId, tx);
       const targetHead = slipHeads.find(h => h.payHeadId === headId);
       if (!targetHead) throw new Error("Assigned pay head not found on this payslip");
 
@@ -800,14 +773,16 @@ export async function overridePayslipAllowanceDeduction(
         ));
     }
 
-    // Re-run calculatePayslip to ensure mathematical compliance of dynamic items (TDS, SSF, PF, CIT)
-    const currentSlip = await repository.findSlipById(slipId);
+    // Re-run calculatePayslip to ensure mathematical compliance of dynamic items (TDS, SSF, PF, CIT).
+    // Read through the transaction: the changes above are not committed yet (4.10 fix — the
+    // recalculation read the payslip as it was before the change).
+    const currentSlip = await repository.findSlipById(slipId, tx);
     if (!currentSlip) throw new Error("Payslip reload failed");
 
     const emp = await tx.select().from(employees).where(eq(employees.id, currentSlip.employeeId)).then(r => r[0]);
     if (!emp) throw new Error("Employee not found");
 
-    const currentSlipHeads = await repository.findSlipHeadsBySlipId(slipId);
+    const currentSlipHeads = await repository.findSlipHeadsBySlipId(slipId, tx);
     const allPayHeads = await tx.select().from(payHeads);
     const systemControl = await systemControlRepository.findSettings();
     const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
@@ -885,35 +860,42 @@ export async function overridePayslipAllowanceDeduction(
       return h?.isRemoteAllowance;
     }) ?? false;
 
-    const calcResult = calculatePayslip({
-      employee: {
-        id: emp.id,
-        category: emp.category,
-        gender: emp.gender,
-        isDisabled: emp.isDisabled,
-        taxStatus: emp.taxStatus,
-        joiningDate: emp.joiningDate
-      },
-      salaryMap: {
-        basicSalary: currentSlip.basicSalary,
-        gradePercent: "0",
-        gradeAmount: currentSlip.gradeAmount
-      },
-      assignedHeads: calculatorHeadsInput,
-      attendanceCalc: {
-        leaveDeductionAmount: currentSlip.absentDeduction,
-        otEarnedAmount: currentSlip.otAmount
-      },
-      loanDeduction: loanDeduction !== undefined ? loanDeduction : currentSlip.loanDeduction,
-      systemControl,
-      taxSlabs: taxSlabInputs,
-      isFestivalMonth: isFestivalChecked,
-      isRemoteMonth: isRemoteChecked,
-      isYearEnd,
-      historicalPayslips: historicalSlips,
-      fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
-      projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
-    });
+    // A change that takes net pay below zero is refused with the figure (the engine refuses it).
+    let calcResult: ReturnType<typeof calculatePayslip>;
+    try {
+      calcResult = calculatePayslip({
+        employee: {
+          id: emp.id,
+          category: emp.category,
+          gender: emp.gender,
+          isDisabled: emp.isDisabled,
+          taxStatus: emp.taxStatus,
+          joiningDate: emp.joiningDate
+        },
+        salaryMap: {
+          basicSalary: currentSlip.basicSalary,
+          gradePercent: "0",
+          gradeAmount: currentSlip.gradeAmount
+        },
+        assignedHeads: calculatorHeadsInput,
+        attendanceCalc: {
+          leaveDeductionAmount: currentSlip.absentDeduction,
+          otEarnedAmount: currentSlip.otAmount
+        },
+        loanDeduction: currentSlip.loanDeduction,
+        systemControl,
+        taxSlabs: taxSlabInputs,
+        isFestivalMonth: isFestivalChecked,
+        isRemoteMonth: isRemoteChecked,
+        isYearEnd,
+        historicalPayslips: historicalSlips,
+        fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
+        projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
+      });
+    } catch (error: unknown) {
+      if (error instanceof NegativeNetPayableError) throw new UserFacingError(`That takes net pay below zero (NPR ${Number(error.netPayable).toLocaleString('en-IN', { minimumFractionDigits: 2 })}): lower the deductions.`);
+      throw error;
+    }
 
     // Save new values to the slip in the DB
     await tx.update(payrollSlips)
@@ -952,7 +934,7 @@ export async function overridePayslipAllowanceDeduction(
     }
 
     // Log to audit trail
-    const finalUpdatedSlip = await repository.findSlipById(slipId);
+    const finalUpdatedSlip = await repository.findSlipById(slipId, tx);
     await tx.insert(auditLogs).values({
       userId,
       action: 'EDIT',
@@ -1095,37 +1077,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     otEarnedAmount: leaveOtCalc?.otEarnedAmount || "0"
   };
 
-  // Resolve active loans (disbursed on or before period end)
-  const empLoans = await (await getDb())
-    .select()
-    .from(loans)
-    .where(
-      and(
-        eq(loans.employeeId, emp.id),
-        eq(loans.status, "ACTIVE"),
-        lte(loans.givenDate, run.payPeriodEndDate)
-      )
-    )
-    .orderBy(asc(loans.createdAt));
-
-  let activeLoanDeduction = "0";
-  if (empLoans && empLoans.length > 0) {
-    let totalInstallment = new Decimal(0);
-    for (const loan of empLoans) {
-      const installment = Decimal.min(
-        new Decimal(loan.installmentAmount),
-        new Decimal(loan.remainingAmount)
-      );
-      totalInstallment = totalInstallment.plus(installment);
-    }
-    activeLoanDeduction = totalInstallment.toDecimalPlaces(2).toString();
-  } else {
-    // Fallback to loan deductions configured in employee salary mapping
-    const mappedLoan = new Decimal(salaryMap.loan1Deduction || 0).plus(new Decimal(salaryMap.loan2Deduction || 0));
-    if (mappedLoan.gt(0)) {
-      activeLoanDeduction = mappedLoan.toDecimalPlaces(2).toString();
-    }
-  }
+  // Loans (4.10): what this payslip deducts for each running loan, worked out again (its own
+  // earlier lines left out of what other payslips already deduct).
+  const scheduledLoans = (await loanPayroll.loanLinesFor([emp.id], { year: run.payPeriodYear, month: run.payPeriodMonth, periodEnd: run.payPeriodEndDate }, { excludeSlipId: slipId })).get(emp.id);
 
   // Load the run's fiscal year's tax slabs & system control
   const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
@@ -1262,32 +1216,37 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     if (opening) historicalSlips.push(openingAsYearEndSlip(opening));
   }
 
-  const calcResult = calculatePayslip({
-    employee: {
-      id: emp.id,
-      category: emp.category,
-      gender: emp.gender,
-      isDisabled: emp.isDisabled,
-      taxStatus: emp.taxStatus,
-      joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
-    },
-    salaryMap: {
-      basicSalary: salaryMap.basicSalary.toString(),
-      gradePercent: (salaryMap.gradePercent || 0).toString(),
-      gradeAmount: (salaryMap.gradeAmount || 0).toString(),
-    },
-    assignedHeads: calculatorHeadsInput,
-    attendanceCalc: attendCalc,
-    loanDeduction: activeLoanDeduction,
-    systemControl,
-    taxSlabs: taxSlabInputs,
-    isFestivalMonth: isFestivalChecked,
-    isRemoteMonth: isRemoteChecked,
-    isYearEnd,
-    historicalPayslips: historicalSlips,
-    fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
-    projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
-  });
+  const projectionHistory = isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []);
+  const { result: calcResult, lines: loanLines, warning: loanWarning } = loanPayroll.calculateWithLoans(
+    (loanDeduction) =>
+      calculatePayslip({
+        employee: {
+          id: emp.id,
+          category: emp.category,
+          gender: emp.gender,
+          isDisabled: emp.isDisabled,
+          taxStatus: emp.taxStatus,
+          joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
+        },
+        salaryMap: {
+          basicSalary: salaryMap.basicSalary.toString(),
+          gradePercent: (salaryMap.gradePercent || 0).toString(),
+          gradeAmount: (salaryMap.gradeAmount || 0).toString(),
+        },
+        assignedHeads: calculatorHeadsInput,
+        attendanceCalc: attendCalc,
+        loanDeduction,
+        systemControl,
+        taxSlabs: taxSlabInputs,
+        isFestivalMonth: isFestivalChecked,
+        isRemoteMonth: isRemoteChecked,
+        isYearEnd,
+        historicalPayslips: historicalSlips,
+        fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
+        projectionHistory,
+      }),
+    scheduledLoans
+  );
 
   // Transactionally update slip and replace heads
   await (await getDb()).transaction(async (tx) => {
@@ -1309,9 +1268,12 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         loanDeduction: calcResult.loanDeduction,
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
+        warnings: [leaveOtCalc?.otWarnings, loanWarning].filter(Boolean).join(' ') || null,
         updatedAt: new Date()
       })
       .where(eq(payrollSlips.id, slipId));
+    // 4.10: the loan lines go with the payslip.
+    await loanPayroll.writeSlipLoanLines(tx, slipId, loanLines);
 
     // Replace slip heads
     await tx.delete(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
@@ -1433,23 +1395,16 @@ export async function transitionPayrollRun(
   //    someone the run pays). Company administrators are exempt in the default mode only.
   await assertCanMove(run, toStatus, actionByUserId);
 
-  // Perform status transition
-  // Claim-first: the move happens only while the run still has the status it was read with.
-  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status);
-
-  // F13: a run sent back to draft takes the bank details now on the records (a change approved
-  // while it was in review — the variance review flagged it — reaches its payslips).
-  if (toStatus === 'DRAFT') {
-    const refreshed = await refreshRunBankDetails(runId);
-    if (refreshed) logger.info('Bank details refreshed from employee records', { runId, payslips: refreshed });
-  }
-
-  // 2. On LOCK: Atomic loan repayment amortisation and period sealing
+  // Perform status transition. Claim-first: the move happens only while the run still has the
+  // status it was read with. Locking is one transaction: the status, the sealed payslips and
+  // attendance, and the loans the payslips recover — a loan that no longer owes its line stops it.
+  let updatedRun: PayrollRun;
   if (toStatus === 'LOCKED') {
-    await (await getDb()).transaction(async (tx) => {
-      await repository.lockAllSlipsForRun(runId);
+    updatedRun = await (await getDb()).transaction(async (tx) => {
+      const locked = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status, tx);
+      await repository.lockAllSlipsForRun(runId, tx);
       // F6: an off-cycle run seals its payslips only — no attendance, loan or salary-structure changes.
-      if (isOffCycle(run.runType)) return;
+      if (isOffCycle(run.runType)) return locked;
 
       const slips = await repository.findSlipsByRunId(runId);
       const slipEmpIds = slips.map((s) => s.employeeId);
@@ -1476,68 +1431,24 @@ export async function transitionPayrollRun(
             )
           );
       }
-      for (const slip of slips) {
-        const loanAmt = new Decimal(slip.loanDeduction);
-        if (loanAmt.gt(0)) {
-          // Find all active loans for employee disbursed on or before period end
-          const activeLoans = await tx.select().from(loans).where(
-            and(
-              eq(loans.employeeId, slip.employeeId),
-              eq(loans.status, 'ACTIVE'),
-              lte(loans.givenDate, run.payPeriodEndDate)
-            )
-          ).orderBy(asc(loans.createdAt));
 
-          let remainingToDeduct = loanAmt;
+      // 4.10: each payslip's loan lines become salary-deduction repayments (claim-first).
+      await loanPayroll.postRunLoansTx(tx, runId, { userId: actionByUserId, date: run.payPeriodEndDate || new Date().toISOString().split('T')[0] });
 
-          for (const loan of activeLoans) {
-            if (remainingToDeduct.lte(0)) break;
-
-            const installmentCap = Decimal.min(
-              new Decimal(loan.installmentAmount),
-              new Decimal(loan.remainingAmount)
-            );
-            const portionToDeduct = Decimal.min(remainingToDeduct, installmentCap);
-
-            if (portionToDeduct.gt(0)) {
-              const paid = new Decimal(loan.totalReturned).plus(portionToDeduct).toDecimalPlaces(2);
-              const remaining = new Decimal(loan.remainingAmount).minus(portionToDeduct).toDecimalPlaces(2);
-              const newStatus = remaining.lte(0) ? "CLOSED" : "ACTIVE";
-
-              // Update loan record
-              await tx.update(loans)
-                .set({
-                  totalReturned: paid.toString(),
-                  remainingAmount: remaining.toString(),
-                  status: newStatus,
-                  updatedAt: new Date()
-                })
-                .where(eq(loans.id, loan.id));
-
-              // Record repayment ledger entry
-              await tx.insert(loanRepayments).values({
-                loanId: loan.id,
-                employeeId: slip.employeeId,
-                repaymentDate: run.payPeriodEndDate || new Date().toISOString().split('T')[0],
-                amountPaid: portionToDeduct.toString(),
-                paymentMethod: "SALARY_DEDUCTION",
-                payrollSlipId: slip.id,
-                createdBy: actionByUserId
-              });
-
-              remainingToDeduct = remainingToDeduct.minus(portionToDeduct);
-            }
-          }
-
-          // Synchronize updated active loan balances into employee salary mapping
-          await loanService.syncActiveLoansToSalaryMapping(slip.employeeId, tx);
-        }
-      }
-
-      // S45: locking never writes a payslip's heads into anyone's salary structure. A payslip's
-      // one-off lines (TA-DA, arrears, welfare fund) and a reviewer's overrides are that month only;
-      // pay changes go through Salary structure as dated, approved revisions (4.4).
+      // S45: locking never writes a payslip's heads — or loan amounts — into anyone's salary
+      // structure. A payslip's one-off lines (TA-DA, arrears, welfare fund) and a reviewer's
+      // overrides are that month only; pay changes go through Salary structure as dated, approved
+      // revisions (4.4).
+      return locked;
     });
+  } else {
+    updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status);
+    // F13: a run sent back to draft takes the bank details now on the records (a change approved
+    // while it was in review — the variance review flagged it — reaches its payslips).
+    if (toStatus === 'DRAFT') {
+      const refreshed = await refreshRunBankDetails(runId);
+      if (refreshed) logger.info('Bank details refreshed from employee records', { runId, payslips: refreshed });
+    }
   }
 
   // Log transition to audit_logs

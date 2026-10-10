@@ -85,7 +85,8 @@ describe('S45 locking never changes a salary structure', () => {
     const lock = transition.slice(transition.indexOf("if (toStatus === 'LOCKED')"));
     assert.doesNotMatch(lock, /employeeSalaryMap|employeeSalaryHeads|calculateNetSalary/);
     assert.doesNotMatch(service, /employeeSalaryHeads|syncedFromLockedPayrollRunId/);
-    // The only salary-structure write left on lock is the loan mirror (4.10 debt).
-    assert.equal(lock.split('loanService.syncActiveLoansToSalaryMapping(').length, 2);
+    // 4.10: nothing mirrors loans into a salary structure any more; the lock posts the payslips' loan lines.
+    assert.doesNotMatch(service, /syncActiveLoansToSalaryMapping|loan1Deduction|loan2Deduction/);
+    assert.match(lock, /await loanPayroll\.postRunLoansTx\(tx, runId, /);
   });
 });

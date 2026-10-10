@@ -68,6 +68,11 @@ describe('exit clearance and completion', () => {
     assert.match(funds[0], /Welfare fund balance is still held \(Staff welfare fund\)/);
     const assets = completionBlockers(all('cleared'), '2026-09-01', TODAY, [], ['LAP-001']);
     assert.match(assets[0], /assets are still out \(LAP-001\)/);
+    // 4.10: a running loan is recovered first (settlement, repayment or write-off).
+    const loan = completionBlockers(all('cleared'), '2026-09-01', TODAY, [], [], '45000.5');
+    assert.equal(loan.length, 1);
+    assert.match(loan[0], /staff loan still owes NPR 45,000\.50/);
+    assert.deepEqual(completionBlockers(all('cleared'), '2026-09-01', TODAY, [], [], '0'), []);
   });
 
   it('blocking a clearance needs a note; cancel needs a reason', () => {

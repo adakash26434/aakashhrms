@@ -6,6 +6,7 @@ import { and, eq, lte, gte, sql } from 'drizzle-orm';
 // lib/engines/settlement.engine.ts; orchestration in lib/services/settlement.service.ts.
 
 export type SettlementRow = typeof exitSettlements.$inferSelect;
+type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>['transaction']>[0]>[0];
 export const POLICY_KEY = 'settlement.policy';
 
 export async function findByCase(exitCaseId: string): Promise<SettlementRow | null> {
@@ -37,13 +38,14 @@ export async function claim(
   to: 'approved' | 'paid',
   userId: string,
   paymentRef: string | null,
+  tx?: Tx,
 ): Promise<SettlementRow | null> {
   const now = new Date();
   const set =
     to === 'approved'
       ? { status: to, approvedBy: userId, approvedAt: now }
       : { status: to, paidBy: userId, paidAt: now, paymentRef };
-  const [row] = await (await getDb())
+  const [row] = await (tx ?? (await getDb()))
     .update(exitSettlements)
     .set(set)
     .where(and(eq(exitSettlements.id, id), eq(exitSettlements.status, from)))

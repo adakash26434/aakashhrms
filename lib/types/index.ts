@@ -10,18 +10,7 @@ export type * from "./leave-rule";
 export type * from "./leave-type";
 export type * from "./leave";
 export type * from "./leave-salary";
-export type {
-  LoanType,
-  LoanTypeFormData,
-  Loan,
-  DisburseLoanFormData,
-  LoanRepayment,
-  RepaymentFormData,
-  LoanTypeValidationErrors,
-  DisbursementValidationErrors,
-  RepaymentValidationErrors,
-  PaymentMethod as LoanPaymentMethod,
-} from "./loan";
+export type * from "./loan";
 export type * from "./notification";
 export type * from "./opening-balance";
 export type * from "./ot-rule";

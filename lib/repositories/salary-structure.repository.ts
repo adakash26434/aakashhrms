@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import type { ModuleType } from "@/lib/types/role";
 import { getDb } from "@/lib/db";
 import {
   approvalActions,
@@ -345,11 +346,12 @@ export async function setApprovalPolicy(policy: ApprovalPolicy): Promise<void> {
 }
 
 /**
- * Every user, with whether they can approve salary changes (office / system
- * administrators have full access; others need a role with Salary structure →
- * Approve), their linked employee and any delegation while away.
+ * Every user, with whether they can approve a module's requests (office / system
+ * administrators have full access; others need a role with the module's Approve —
+ * Salary structure unless another module is named, e.g. LOANS), their linked
+ * employee and any delegation while away.
  */
-export async function findApprovers(): Promise<ApproverInfo[]> {
+export async function findApprovers(module: ModuleType = MODULE): Promise<ApproverInfo[]> {
   const db = await getDb();
   const [people, grants] = await Promise.all([
     db
@@ -362,7 +364,7 @@ export async function findApprovers(): Promise<ApproverInfo[]> {
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
       .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .where(or(inArray(roles.slug, ["system_admin", "office_admin"]), and(eq(permissions.module, MODULE), eq(permissions.action, "APPROVE")))),
+      .where(or(inArray(roles.slug, ["system_admin", "office_admin"]), and(eq(permissions.module, module), eq(permissions.action, "APPROVE")))),
   ]);
   const can = new Set(grants.map((g) => g.userId));
   return people

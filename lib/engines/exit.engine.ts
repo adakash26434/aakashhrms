@@ -98,9 +98,10 @@ export function clearanceProgress(clearances: ClearanceState[]): { cleared: numb
 
 /**
  * Complete needs every unit cleared and the last working day arrived — an
- * employee is never switched off while still serving or still owing.
+ * employee is never switched off while still serving or still owing (assets,
+ * welfare funds, a running loan).
  */
-export function completionBlockers(clearances: ClearanceState[], lastWorkingDayAd: string, today: string, fundsHeld: string[] = [], assetsHeld: string[] = []): string[] {
+export function completionBlockers(clearances: ClearanceState[], lastWorkingDayAd: string, today: string, fundsHeld: string[] = [], assetsHeld: string[] = [], loanOutstanding: string | null = null): string[] {
   const blockers: string[] = [];
   for (const c of clearances) {
     if (c.status !== 'cleared') {
@@ -111,6 +112,10 @@ export function completionBlockers(clearances: ClearanceState[], lastWorkingDayA
   if (lastWorkingDayAd > today) blockers.push(`The last working day (${lastWorkingDayAd}) has not arrived.`);
   if (assetsHeld.length) blockers.push(`Company assets are still out (${assetsHeld.join(', ')}) — record their return under Assets first.`);
   if (fundsHeld.length) blockers.push(`Welfare fund balance is still held (${fundsHeld.join(', ')}) — pay it out or adjust it under Payroll → Funds first.`);
+  // 4.10: a running loan is recovered before the employee goes Inactive (payroll no longer can).
+  if (loanOutstanding !== null && Number(loanOutstanding) > 0) {
+    blockers.push(`A staff loan still owes NPR ${Number(loanOutstanding).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} — the final settlement recovers it when paid; or record the repayment or write it off under Loans first.`);
+  }
   return blockers;
 }
 

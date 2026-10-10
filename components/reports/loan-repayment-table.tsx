@@ -70,7 +70,7 @@ export function LoanRepaymentTable({ rows, loading }: LoanRepaymentTableProps) {
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-md border border-teal-200/50 bg-teal-50/70 px-2 py-0.5 text-xs font-medium text-teal-800">
-                    <Banknote className="h-3 w-3" /> Direct Cash / Cheque
+                    <Banknote className="h-3 w-3" /> {row.paymentMethod === "SETTLEMENT" ? "Final settlement" : "Direct Cash / Cheque"}
                   </span>
                 )}
               </td>

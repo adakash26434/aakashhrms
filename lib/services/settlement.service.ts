@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import * as repo from '@/lib/repositories/settlement.repository';
 import { findEarlierTaxMonths } from '@/lib/repositories/payroll.repository';
 import * as exitRepo from '@/lib/repositories/exit.repository';
@@ -8,6 +9,7 @@ import * as taxRateRepo from '@/lib/repositories/tax-rate.repository';
 import * as systemControlRepo from '@/lib/repositories/system-control.repository';
 import { userNames } from '@/lib/repositories/evaluation.repository';
 import { payoutOf } from '@/lib/services/leave-salary.service';
+import * as loanService from '@/lib/services/loan.service';
 import { calculateLeaveSalary } from '@/lib/engines/leave-salary.engine';
 import { calculateAnnualTaxFromSlabs } from '@/lib/engines/payroll.engine';
 import {
@@ -29,14 +31,15 @@ import { recordAuditLog } from '@/lib/services/audit.service';
 import { UserFacingError } from '@/lib/errors/action-error';
 import { adToBS, getDaysInBSMonth } from '@/lib/utils/bs-calendar';
 import { getFiscalMonthIndex } from '@/lib/utils/fiscal-year.utils';
+import { nepalDateIso } from '@/lib/utils/nepal-time';
 import type { SettlementData, SettlementView } from '@/lib/types/settlement';
 import type { TaxSheet } from '@/lib/engines/tax-projection.engine';
 
 // Full & final settlement (4.8 / F8): gathers the facts, lets the pure engine work the
 // statement out, freezes it, and walks it draft → approved → paid. S31 (the S21 pattern):
-// nobody prepares, approves or pays the settlement of their own exit. Loans and fund
-// balances are shown, never changed here: the employee goes Inactive on Complete, so no
-// later payroll deducts the loan, and fund payouts stay under Funds (S33).
+// nobody prepares, approves or pays the settlement of their own exit. Running loans are
+// recovered by it: approved, it holds them (no pay run or repayment moves them); paid, it
+// repays and closes them (4.10). Fund payouts stay under Funds (S33).
 
 export class PolicyValidationError extends Error {
   constructor(public errors: Record<string, string>) {
@@ -210,6 +213,9 @@ export async function prepareSettlement(caseId: string, ctx: SettlementCtx): Pro
   return toView(saved);
 }
 
+/** What the settlement recovers for loans (its "Loan outstanding" line). */
+const loanRecovery = (lines: unknown) => ((Array.isArray(lines) ? lines : []) as SettlementLine[]).filter((l) => l.code === 'loan').reduce((sum, l) => sum.plus(l.amount || 0), new Decimal(0));
+
 async function move(caseId: string, to: 'approved' | 'paid', paymentRef: string | null, ctx: SettlementCtx): Promise<SettlementView> {
   const c = await scopedCase(caseId, ctx);
   await refuseOwn(ctx, c.employeeId, caseId);
@@ -219,7 +225,23 @@ async function move(caseId: string, to: 'approved' | 'paid', paymentRef: string 
   const refusal = canMove(from, to, row.preparedBy, ctx.userId);
   if (refusal) throw new UserFacingError(refusal);
   if (to === 'paid' && !paymentRef?.trim()) throw new UserFacingError('Enter the payment reference (cheque, voucher or transfer number).');
-  const claimed = await repo.claim(row.id, from as 'draft' | 'approved', to, ctx.userId, paymentRef?.trim() || null);
+  const ref = paymentRef?.trim() || null;
+  // 4.10: the settlement recovers the employee's running loans. Approving checks they still owe
+  // exactly that (and no unlocked pay run deducts from them); from then on nothing else moves them,
+  // and paying the settlement repays and closes them in the same transaction.
+  const recovers = loanRecovery(row.lines);
+  let claimed: Awaited<ReturnType<typeof repo.claim>>;
+  if (to === 'approved') {
+    const problem = await loanService.settlementLoanProblem(c.employeeId, recovers);
+    if (problem) throw new UserFacingError(problem);
+    claimed = await repo.claim(row.id, 'draft', 'approved', ctx.userId, null);
+  } else {
+    claimed = await loanService.inTransaction(async (tx) => {
+      const paid = await repo.claim(row.id, 'approved', 'paid', ctx.userId, ref, tx);
+      if (paid) await loanService.closeLoansBySettlementTx(tx, c.employeeId, recovers, { userId: ctx.userId, date: nepalDateIso(), ref });
+      return paid;
+    });
+  }
   if (!claimed) throw new UserFacingError('Someone already moved this settlement — refresh.');
   return toView(claimed);
 }

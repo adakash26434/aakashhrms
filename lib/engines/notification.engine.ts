@@ -27,6 +27,7 @@ export const APPROVAL_KINDS: readonly ApprovalKindDef[] = [
   { kind: 'reimbursements', label: 'Reimbursement claims', detail: 'Approve, return or reject', href: '/payroll/reimbursements' },
   { kind: 'travel', label: 'Travel claims', detail: 'Approve, return or reject', href: '/payroll/travel?status=submitted' },
   { kind: 'leaveSalary', label: 'Leave salary', detail: 'Prepared by someone else, waiting for approval', href: '/payroll/leave-salary?status=DRAFT' },
+  { kind: 'loans', label: 'Loan requests', detail: 'Loans and salary advances to approve', href: '/loans?tab=requests' },
   { kind: 'leavePolicy', label: 'Leave policies', detail: 'Changes to approve, or exceptions ending soon', href: '/timeAndLeave/policies?tab=types' },
   { kind: 'evaluations', label: 'Evaluations to mark', detail: 'Your stage of the evaluation', href: '/workforce/evaluation?status=waiting' },
   { kind: 'targets', label: 'Achievements to close', detail: 'Forwarded by supervisors', href: '/workforce/targets?status=forwarded' },

@@ -188,8 +188,8 @@ export async function exportLeaveApplicationsCsvAction(filter: LeaveReportFilter
 export async function getLoanReportAction(filter: LoanReportFilter) {
   await ensureTenantContext();
   try {
-    await checkPermission("VIEW", "REPORTS_LOAN");
-    const data = await reportService.getLoanReportData(filter);
+    const scope = await checkPermissionWithScope("VIEW", "REPORTS_LOAN");
+    const data = await reportService.getLoanReportData(filter, buildEmployeeScopeCondition(scope));
     return { success: true, data };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Failed to load loan report";
@@ -203,8 +203,8 @@ export async function getLoanReportAction(filter: LoanReportFilter) {
 export async function exportLoanSummaryCsvAction(filter: LoanReportFilter) {
   await ensureTenantContext();
   try {
-    await checkPermission("EXPORT", "REPORTS_LOAN");
-    const reportData = await reportService.getLoanReportData(filter);
+    const scope = await checkPermissionWithScope("EXPORT", "REPORTS_LOAN");
+    const reportData = await reportService.getLoanReportData(filter, buildEmployeeScopeCondition(scope));
     const csvString = reportEngine.buildLoanSummaryCSV(reportData.summaryRows);
     const filename = `loan-summary-report.csv`;
     return { success: true, data: csvString, filename };
@@ -220,8 +220,8 @@ export async function exportLoanSummaryCsvAction(filter: LoanReportFilter) {
 export async function exportLoanRepaymentsCsvAction(filter: LoanReportFilter) {
   await ensureTenantContext();
   try {
-    await checkPermission("EXPORT", "REPORTS_LOAN");
-    const reportData = await reportService.getLoanReportData(filter);
+    const scope = await checkPermissionWithScope("EXPORT", "REPORTS_LOAN");
+    const reportData = await reportService.getLoanReportData(filter, buildEmployeeScopeCondition(scope));
     const csvString = reportEngine.buildLoanRepaymentsCSV(reportData.repaymentRows);
     const filename = `loan-repayment-ledger.csv`;
     return { success: true, data: csvString, filename };

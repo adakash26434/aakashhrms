@@ -794,8 +794,10 @@ export async function getLeaveReportData(
 
 // ─── Loan Report ──────────────────────────────────────────────────────────
 
+/** The loan report within the viewer's employee scope (4.10: it read every branch). */
 export async function getLoanReportData(
-  filter: LoanReportFilter
+  filter: LoanReportFilter,
+  scopeCondition?: SQL<unknown>
 ): Promise<LoanReportData> {
   // 1. Fetch Loan Disbursements / Summaries
   const loansRaw = await (await getDb())
@@ -811,7 +813,8 @@ export async function getLoanReportData(
     .from(loans)
     .innerJoin(employees, eq(loans.employeeId, employees.id))
     .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id));
+    .leftJoin(departments, eq(employees.departmentId, departments.id))
+    .where(scopeCondition);
 
   let filteredLoans = loansRaw;
   if (filter.status && filter.status !== "ALL") {
@@ -870,7 +873,8 @@ export async function getLoanReportData(
     .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
     .leftJoin(departments, eq(employees.departmentId, departments.id))
     .leftJoin(payrollSlips, eq(loanRepayments.payrollSlipId, payrollSlips.id))
-    .leftJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id));
+    .leftJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(scopeCondition);
 
   let filteredRepayments = repaymentsRaw;
   if (filter.loanTypeId) {
@@ -906,7 +910,7 @@ export async function getLoanReportData(
       loanTypeName: r.loanName,
       repaymentDate: String(r.rep.repaymentDate),
       amountPaid: String(r.rep.amountPaid),
-      paymentMethod: r.rep.paymentMethod as "CASH" | "SALARY_DEDUCTION",
+      paymentMethod: r.rep.paymentMethod as "CASH" | "SALARY_DEDUCTION" | "SETTLEMENT",
       payrollRunLabel: runLabel,
     };
   });

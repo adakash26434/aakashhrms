@@ -136,7 +136,8 @@ export async function updatePayrollRunStatus(
   status: PayrollRunStatus,
   actionByUserId: string,
   notes?: string,
-  fromStatus?: PayrollRunStatus
+  fromStatus?: PayrollRunStatus,
+  tx?: Tx
 ): Promise<PayrollRun> {
   const updateData: Record<string, any> = {
     status,
@@ -158,7 +159,7 @@ export async function updatePayrollRunStatus(
     updateData.notes = notes;
   }
 
-  const rows = await (await getDb()).update(payrollRuns)
+  const rows = await (tx ?? (await getDb())).update(payrollRuns)
     .set(updateData)
     .where(fromStatus ? and(eq(payrollRuns.id, id), eq(payrollRuns.status, fromStatus)) : eq(payrollRuns.id, id))
     .returning();
@@ -235,11 +236,14 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
     amount: string;
     calculatedAmount: string;
   }>;
-}>, tx?: any): Promise<void> {
+}>, tx?: any): Promise<Map<string, string>> {
+  // The new payslip of each employee (loan lines and other per-payslip rows are written after it).
+  const slipIdByEmployee = new Map<string, string>();
   const runInsert = async (client: any) => {
     for (const item of slipsWithHeads) {
       const insertedSlip = await client.insert(payrollSlips).values(item.slip).returning();
       const slipId = insertedSlip[0].id;
+      slipIdByEmployee.set(item.slip.employeeId, slipId);
 
       if (item.heads.length > 0) {
         const headValues = item.heads
@@ -269,6 +273,7 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
       await runInsert(tx);
     });
   }
+  return slipIdByEmployee;
 }
 
 export async function findSlipsByRunId(runId: string): Promise<PayrollSlip[]> {
@@ -276,14 +281,15 @@ export async function findSlipsByRunId(runId: string): Promise<PayrollSlip[]> {
   return rows.map(mapPayrollSlip);
 }
 
-export async function findSlipById(id: string): Promise<PayrollSlip | undefined> {
-  const rows = await (await getDb()).select().from(payrollSlips).where(eq(payrollSlips.id, id));
+/** One payslip; pass the transaction that changed it to read its own changes. */
+export async function findSlipById(id: string, tx?: Tx): Promise<PayrollSlip | undefined> {
+  const rows = await (tx ?? (await getDb())).select().from(payrollSlips).where(eq(payrollSlips.id, id));
   if (!rows.length) return undefined;
   return mapPayrollSlip(rows[0]);
 }
 
-export async function findSlipHeadsBySlipId(slipId: string): Promise<PayrollSlipHead[]> {
-  const rows = await (await getDb()).select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
+export async function findSlipHeadsBySlipId(slipId: string, tx?: Tx): Promise<PayrollSlipHead[]> {
+  const rows = await (tx ?? (await getDb())).select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
   return rows.map(mapPayrollSlipHead);
 }
 
@@ -332,8 +338,8 @@ export async function updateSlipOverrideAndRecalculate(
   });
 }
 
-export async function lockAllSlipsForRun(runId: string): Promise<void> {
-  await (await getDb()).update(payrollSlips)
+export async function lockAllSlipsForRun(runId: string, tx?: Tx): Promise<void> {
+  await (tx ?? (await getDb())).update(payrollSlips)
     .set({
       status: 'LOCKED',
       updatedAt: new Date(),

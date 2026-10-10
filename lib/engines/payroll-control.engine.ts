@@ -268,7 +268,8 @@ export type PreflightCode =
   | 'duplicate_run'
   | 'missing_tds_head'
   | 'missing_statutory_head'
-  | 'covered_by_opening';
+  | 'covered_by_opening'
+  | 'loan_on_structure';
 
 export interface PreflightFinding {
   code: PreflightCode;
@@ -299,6 +300,8 @@ export interface PreflightFacts {
   runType?: 'REGULAR' | 'FESTIVAL' | 'ARREARS';
   /** F15: people whose opening balance covers this month (the old system paid it). */
   employeesCoveredByOpening?: string[];
+  /** 4.10: a loan amount on the salary structure with no loan recorded (payroll no longer deducts it). */
+  employeesWithLoanOnStructure?: string[];
 }
 
 export function preflightFindings(f: PreflightFacts): PreflightFinding[] {
@@ -317,6 +320,7 @@ export function preflightFindings(f: PreflightFacts): PreflightFinding[] {
   push('covered_by_opening', 'blocker', 'Their opening balance already covers this month (the old system paid it); paying it here would count it twice.', f.employeesCoveredByOpening ?? []);
   if (regular) push('needs_setup', 'blocker', 'New hires still need their pay heads set up in Salary structure.', f.employeesNeedingSetup);
   if (regular && f.pendingLeaveCount > 0) push('pending_leave', 'blocker', `${f.pendingLeaveCount} leave application(s) in the month are still pending. Decide them first.`);
+  if (regular) push('loan_on_structure', 'warning', 'A loan amount is on their salary structure but no loan is recorded: payroll deducts only recorded loans now. Enter it under Loans → Import opening balances.', f.employeesWithLoanOnStructure ?? []);
   push('no_bank_account', 'warning', 'No bank account on file; these people cannot be paid by transfer.', f.employeesWithoutBank);
   push('no_pan', 'warning', 'No PAN on file; tax is deducted at the higher non-PAN treatment where the law applies.', f.employeesWithoutPan);
   return out;

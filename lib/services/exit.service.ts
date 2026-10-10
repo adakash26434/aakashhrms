@@ -185,8 +185,8 @@ export async function completeExitCase(id: string, options: CompleteOptions, ctx
 
   const today = toIsoDate(nepalToday());
   const clearances = (await repo.findClearances(id)).map((c) => ({ unit: c.unit, status: (c.status === 'cleared' ? 'cleared' : c.status === 'blocked' ? 'blocked' : 'pending') as 'pending' | 'cleared' | 'blocked' }));
-  const { funds, assets } = await repo.exitFacts(existing.employeeId, existing.lastWorkingDayAd);
-  const blockers = completionBlockers(clearances, existing.lastWorkingDayAd, today, funds.map((f) => f.fund), assets.map((a) => a.tag));
+  const { funds, assets, activeLoans, loanOutstanding } = await repo.exitFacts(existing.employeeId, existing.lastWorkingDayAd);
+  const blockers = completionBlockers(clearances, existing.lastWorkingDayAd, today, funds.map((f) => f.fund), assets.map((a) => a.tag), activeLoans > 0 ? loanOutstanding : null);
   if (blockers.length) throw new UserFacingError(`Not yet: ${blockers[0]}`);
 
   // The experience letter needs the employee row, so it is rendered BEFORE

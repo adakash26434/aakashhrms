@@ -8,6 +8,7 @@ import * as employeeRepository from '@/lib/repositories/employee.repository';
 import * as salaryMappingRepository from '@/lib/repositories/salary-mapping.repository';
 import * as attendanceRepo from '@/lib/repositories/attendance.repository';
 import * as openingRepository from '@/lib/repositories/opening-balance.repository';
+import * as loanRepository from '@/lib/repositories/loan.repository';
 import { getFiscalMonthIndex } from '@/lib/utils/fiscal-year.utils';
 import { employeesNeedingSetup } from '@/lib/repositories/salary-structure.repository';
 import {
@@ -317,6 +318,13 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     fiscalYear ? openingRepository.openingsCovering(ids, fiscalYear.id, getFiscalMonthIndex(payload.payPeriodMonth)) : Promise.resolve([]),
   ]);
 
+  // 4.10: payroll deducts recorded loans only; an amount left on a salary structure is not deducted.
+  const withLoanAmount = people.filter((e) => {
+    const m = salaries.get(e.id);
+    return !!m && Number(m.loan1Deduction || 0) + Number(m.loan2Deduction || 0) > 0;
+  });
+  const recorded = new Set((await loanRepository.runningLoansFor(withLoanAmount.map((e) => e.id))).map((l) => l.employeeId));
+
   const closed = new Set(periods.filter((p) => p.status === 'closed').map((p) => p.branchId));
   const branchesInUse = new Set(people.map((e) => e.branchId));
   const openBranches = branchRows.filter((b) => branchesInUse.has(b.id) && !closed.has(b.id)).map((b) => b.name);
@@ -333,6 +341,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     statutoryHeads,
     runType: asRunType(payload.runType),
     employeesCoveredByOpening: coveredByOpening.map(label),
+    employeesWithLoanOnStructure: withLoanAmount.filter((e) => !recorded.has(e.id)).map(label),
   });
   return { findings, employeeCount: people.length, blocked: findings.some((f) => f.severity === 'blocker') };
 }

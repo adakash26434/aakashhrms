@@ -519,6 +519,13 @@
       "when": 1793241600000,
       "tag": "0073_leave_salary",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1793328000000,
+      "tag": "0074_loans",
+      "breakpoints": true
     }
   ]
 }

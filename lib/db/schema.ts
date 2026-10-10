@@ -1226,9 +1226,18 @@ export const shiftRoster = pgTable('shift_roster', {
 export const loanTypes = pgTable('loan_types', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(), // e.g., "Personal Loan"
+  nameNp: varchar('name_np', { length: 255 }),
+  // 4.10: loan | advance (a salary advance: no interest, recovered within 12 months)
+  kind: varchar('kind', { length: 20 }).default('loan').notNull(),
   maxAmount: numeric('max_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  // Months of basic + grade a request may reach (0: no such limit)
+  maxSalaryMonths: numeric('max_salary_months', { precision: 5, scale: 2 }).default('0').notNull(),
   maxInstallments: integer('max_installments').default(0).notNull(),
+  // Flat, once on the amount (installment = (amount + amount × rate %) ÷ installments)
   interestRate: numeric('interest_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  eligibleAfterMonths: integer('eligible_after_months').default(0).notNull(),
+  // Employees request it themselves in self-service
+  selfService: boolean('self_service').default(false).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -1237,28 +1246,79 @@ export const loanTypes = pgTable('loan_types', {
 /**
  * 2. LOANS (Disbursements)
  * Tracks the loan amount given to an employee and fixed deduction parameters.
+ * 4.10: disbursed from an approved request (loan_requests.loan_id) or carried from the old
+ * system (source 'opening'); payroll recovers it through payroll_slip_loans posted at lock.
  */
 export const loans = pgTable('loans', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
   loanTypeId: uuid('loan_type_id').references(() => loanTypes.id, { onDelete: 'restrict' }).notNull(),
   givenDate: date('given_date').notNull(), // YYYY-MM-DD
-  
-  // Financials
+  source: varchar('source', { length: 20 }).default('disbursed').notNull(), // disbursed | opening
+
+  // Financials (frozen when disbursed)
   loanAmount: numeric('loan_amount', { precision: 15, scale: 2 }).notNull(),
+  interestRate: numeric('interest_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  totalPayable: numeric('total_payable', { precision: 15, scale: 2 }).notNull(),
   installmentAmount: numeric('installment_amount', { precision: 15, scale: 2 }).notNull(),
   noOfInstallments: integer('no_of_installments').notNull(),
-  
+  // BS month (YYYY-MM) payroll deducts from; null: from the month it was given
+  firstDeductionMonth: varchar('first_deduction_month', { length: 7 }),
+
   totalReturned: numeric('total_returned', { precision: 15, scale: 2 }).default('0').notNull(),
   remainingAmount: numeric('remaining_amount', { precision: 15, scale: 2 }).notNull(),
-  
+
   status: varchar('status', { length: 20 }).default('ACTIVE').notNull(), // "ACTIVE" | "CLOSED"
-  
+
+  paidVia: varchar('paid_via', { length: 20 }), // bank | cash | cheque
+  paymentRef: varchar('payment_ref', { length: 100 }),
+  note: varchar('note', { length: 500 }),
+  createdBy: uuid('created_by'),
+  closedAt: timestamp('closed_at'),
+  closedHow: varchar('closed_how', { length: 20 }), // repaid | settlement | written_off
+  closedBy: uuid('closed_by'),
+  closeNote: varchar('close_note', { length: 500 }),
+  writtenOffAmount: numeric('written_off_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   employeeIdIdx: index('loans_employee_id_idx').on(table.employeeId),
   loanTypeIdIdx: index('loans_loan_type_id_idx').on(table.loanTypeId),
+  statusIdx: index('loans_status_idx').on(table.status),
+}));
+
+/**
+ * Loan requests (4.10): asked by HR or by the employee (self-service), decided through the
+ * approval engine (timeline in approval_actions, module LOANS), disbursed into a loan.
+ * One open (pending / approved) request per employee and type.
+ */
+export const loanRequests = pgTable('loan_requests', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  loanTypeId: uuid('loan_type_id').references(() => loanTypes.id, { onDelete: 'restrict' }).notNull(),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  installments: integer('installments').notNull(),
+  interestRate: numeric('interest_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  reason: varchar('reason', { length: 500 }).notNull(),
+  source: varchar('source', { length: 20 }).default('office').notNull(), // office | self_service
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn | disbursed
+  preparedBy: uuid('prepared_by'),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: varchar('decision_note', { length: 500 }),
+  loanId: uuid('loan_id').references(() => loans.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  employeeIdx: index('loan_requests_employee_idx').on(table.employeeId),
+  statusIdx: index('loan_requests_status_idx').on(table.status),
+  oneOpen: uniqueIndex('loan_requests_one_open_key').on(table.employeeId, table.loanTypeId).where(sql`${table.status} IN ('pending', 'approved')`),
+  loanKey: uniqueIndex('loan_requests_loan_key').on(table.loanId).where(sql`${table.loanId} IS NOT NULL`),
 }));
 
 /**
@@ -1271,12 +1331,13 @@ export const loanRepayments = pgTable('loan_repayments', {
   employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
   repaymentDate: date('repayment_date').notNull(), // YYYY-MM-DD
   amountPaid: numeric('amount_paid', { precision: 15, scale: 2 }).notNull(),
-  paymentMethod: varchar('payment_method', { length: 30 }).notNull(), // "CASH" | "SALARY_DEDUCTION"
-  
-  // Future-proof for Phase 6
+  paymentMethod: varchar('payment_method', { length: 30 }).notNull(), // "CASH" | "SALARY_DEDUCTION" | "SETTLEMENT"
+
+  // The payslip that deducted it (SALARY_DEDUCTION), posted once per loan when the run locks
   payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-  
+  note: varchar('note', { length: 500 }), // receipt number, "Final settlement", …
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -1284,6 +1345,22 @@ export const loanRepayments = pgTable('loan_repayments', {
   employeeIdIdx: index('loan_repayments_employee_id_idx').on(table.employeeId),
   payrollSlipIdIdx: index('loan_repayments_payroll_slip_id_idx').on(table.payrollSlipId),
   createdByIdx: index('loan_repayments_created_by_idx').on(table.createdBy),
+}));
+
+/**
+ * What a payslip deducts for each loan (4.10): written with the payslip (generation,
+ * recalculation, a reviewer's changed amount) and posted to the loan, claim-first, when the
+ * run is locked. Goes with the payslip when it is deleted.
+ */
+export const payrollSlipLoans = pgTable('payroll_slip_loans', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),
+  loanId: uuid('loan_id').references(() => loans.id, { onDelete: 'restrict' }).notNull(),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  slipLoanKey: unique('payroll_slip_loans_slip_loan_key').on(table.payrollSlipId, table.loanId),
+  loanIdx: index('payroll_slip_loans_loan_idx').on(table.loanId),
 }));
 
 // =============================================================================

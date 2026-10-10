@@ -252,7 +252,7 @@ export interface LoanRepaymentLedgerRow {
   loanTypeName: string;
   repaymentDate: string;
   amountPaid: string;
-  paymentMethod: "CASH" | "SALARY_DEDUCTION";
+  paymentMethod: "CASH" | "SALARY_DEDUCTION" | "SETTLEMENT";
   payrollRunLabel?: string;
 }
 

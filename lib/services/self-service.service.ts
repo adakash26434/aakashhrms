@@ -8,7 +8,7 @@ import {
   payrollSlips, payrollRuns,
   leaveApplications, employeeLeaveBalances, leaveTypes,
   leaveOtCalculations,
-  loans, loanRepayments, loanTypes,
+  loans,
   fiscalYears, departments, designations, branches,
 } from '@/lib/db/schema';
 import { eq, and, desc, sql, isNull, isNotNull } from 'drizzle-orm';
@@ -331,59 +331,6 @@ export async function getMyAttendanceSummary(fiscalYearId?: string) {
     .orderBy(leaveOtCalculations.bsMonth);
 
   return summaries;
-}
-
-// ---------------------------------------------------------------------------
-// My Loans
-// ---------------------------------------------------------------------------
-
-export async function getMyLoans() {
-  const { employeeId } = await getSessionEmployeeId();
-  const db = await getDbAsync();
-
-  const myLoans = await db
-    .select({
-      id: loans.id,
-      loanTypeName: loanTypes.name,
-      givenDate: loans.givenDate,
-      loanAmount: loans.loanAmount,
-      installmentAmount: loans.installmentAmount,
-      noOfInstallments: loans.noOfInstallments,
-      totalReturned: loans.totalReturned,
-      remainingAmount: loans.remainingAmount,
-      status: loans.status,
-      createdAt: loans.createdAt,
-    })
-    .from(loans)
-    .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
-    .where(eq(loans.employeeId, employeeId))
-    .orderBy(desc(loans.createdAt));
-
-  return myLoans;
-}
-
-export async function getMyLoanRepayments(loanId: string) {
-  const { employeeId } = await getSessionEmployeeId();
-  const db = await getDbAsync();
-
-  // Verify the loan belongs to this employee
-  const [loan] = await db
-    .select({ id: loans.id })
-    .from(loans)
-    .where(and(eq(loans.id, loanId), eq(loans.employeeId, employeeId)))
-    .limit(1);
-
-  if (!loan) {
-    throw new Error('Loan not found or you do not have access to view it.');
-  }
-
-  const repayments = await db
-    .select()
-    .from(loanRepayments)
-    .where(eq(loanRepayments.loanId, loanId))
-    .orderBy(desc(loanRepayments.repaymentDate));
-
-  return repayments;
 }
 
 // ---------------------------------------------------------------------------

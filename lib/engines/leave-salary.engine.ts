@@ -1,5 +1,4 @@
 import Decimal from "decimal.js";
-import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 
 // Leave salary (4.9): pure rules. Leave paid out in money comes from two places —
 //   * the days over the limit when a leave year opens (Labour Act §49): the opening already took
@@ -63,32 +62,10 @@ export const SOURCES = ["year_end", "balance"] as const;
 export type LeaveSalarySource = (typeof SOURCES)[number];
 
 // ---- the pay month ----------------------------------------------------------------------
+// A record is paid with this BS month's pay run or one of the next two (a later run also pays it);
+// the helpers are shared with loans (lib/utils/pay-month.ts).
 
-const PAY_MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
-export const isPayMonth = (v: unknown): v is string => typeof v === "string" && PAY_MONTH.test(v);
-export const payMonthOf = (year: number, month: number) => `${year}-${String(month).padStart(2, "0")}`;
-
-/** "Kartik 2083" for a pay month; anything else (records from before 4.9) as it was written. */
-export function payMonthLabel(value: string): string {
-  const m = PAY_MONTH.exec(value);
-  return m ? `${BS_MONTHS_EN[Number(m[2])]} ${m[1]}` : value;
-}
-
-/** The months a record can be paid with: this BS month and the next two (a later run also pays it). */
-export function payMonthOptions(today: { year: number; month: number }, count = 3): { value: string; label: string }[] {
-  const out: { value: string; label: string }[] = [];
-  let { year, month } = today;
-  for (let i = 0; i < count; i++) {
-    const value = payMonthOf(year, month);
-    out.push({ value, label: payMonthLabel(value) });
-    month += 1;
-    if (month > 12) {
-      month = 1;
-      year += 1;
-    }
-  }
-  return out;
-}
+export { isPayMonth, payMonthLabel, payMonthOf, payMonthOptions } from "@/lib/utils/pay-month";
 
 // ---- the form ---------------------------------------------------------------------------
 

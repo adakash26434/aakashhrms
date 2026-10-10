@@ -1948,4 +1948,82 @@ ON CONFLICT DO NOTHING`);
       // Ignored until the referenced tables and columns exist; the next sync pass completes it.
     }
   }
+
+  // Loans (4.10, migration 0074): loan types' kind and limits, requests decided through the
+  // approval engine, loans' frozen terms and closing, and what each payslip deducts per loan
+  // (posted when the run locks).
+  const loanQueries = [
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "kind" varchar(20) DEFAULT 'loan' NOT NULL`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "name_np" varchar(255)`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "max_salary_months" numeric(5,2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "eligible_after_months" integer DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "self_service" boolean DEFAULT false NOT NULL`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "source" varchar(20) DEFAULT 'disbursed' NOT NULL`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "interest_rate" numeric(5,2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "total_payable" numeric(15,2)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "first_deduction_month" varchar(7)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "paid_via" varchar(20)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "payment_ref" varchar(100)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "note" varchar(500)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "created_by" uuid`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "closed_at" timestamp`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "closed_how" varchar(20)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "closed_by" uuid`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "close_note" varchar(500)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "written_off_amount" numeric(15,2) DEFAULT '0' NOT NULL`,
+    `UPDATE "loans" SET "total_payable" = "total_returned" + "remaining_amount" WHERE "total_payable" IS NULL`,
+    `ALTER TABLE "loans" ALTER COLUMN "total_payable" SET NOT NULL`,
+    `UPDATE "loans" SET "interest_rate" = LEAST(999.99, ROUND(("total_payable" / "loan_amount" - 1) * 100, 2)) WHERE "interest_rate" = 0 AND "loan_amount" > 0 AND "total_payable" > "loan_amount"`,
+    `UPDATE "loans" SET "closed_at" = "updated_at", "closed_how" = 'repaid' WHERE "status" = 'CLOSED' AND "closed_at" IS NULL`,
+    `CREATE INDEX IF NOT EXISTS "loans_status_idx" ON "loans" ("status")`,
+    `ALTER TABLE "loan_repayments" ADD COLUMN IF NOT EXISTS "note" varchar(500)`,
+    `DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM "loan_repayments" WHERE "payroll_slip_id" IS NOT NULL GROUP BY "payroll_slip_id", "loan_id" HAVING count(*) > 1) THEN
+          CREATE UNIQUE INDEX IF NOT EXISTS "loan_repayments_slip_loan_key" ON "loan_repayments" ("payroll_slip_id", "loan_id") WHERE "payroll_slip_id" IS NOT NULL;
+        END IF;
+      END $$`,
+    `CREATE TABLE IF NOT EXISTS "loan_requests" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "loan_type_id" uuid NOT NULL REFERENCES "loan_types"("id") ON DELETE RESTRICT,
+        "amount" numeric(15,2) NOT NULL,
+        "installments" integer NOT NULL,
+        "interest_rate" numeric(5,2) DEFAULT '0' NOT NULL,
+        "reason" varchar(500) NOT NULL,
+        "source" varchar(20) DEFAULT 'office' NOT NULL,
+        "status" varchar(20) DEFAULT 'pending' NOT NULL,
+        "prepared_by" uuid,
+        "approval_type" varchar(20),
+        "approval_levels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+        "current_level" integer DEFAULT 0 NOT NULL,
+        "approval_route" varchar(20),
+        "decided_by" uuid,
+        "decided_at" timestamp,
+        "decision_note" varchar(500),
+        "loan_id" uuid REFERENCES "loans"("id") ON DELETE SET NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "loan_requests_employee_idx" ON "loan_requests" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "loan_requests_status_idx" ON "loan_requests" ("status")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "loan_requests_one_open_key" ON "loan_requests" ("employee_id", "loan_type_id") WHERE "status" IN ('pending', 'approved')`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "loan_requests_loan_key" ON "loan_requests" ("loan_id") WHERE "loan_id" IS NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS "payroll_slip_loans" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "payroll_slip_id" uuid NOT NULL REFERENCES "payroll_slips"("id") ON DELETE CASCADE,
+        "loan_id" uuid NOT NULL REFERENCES "loans"("id") ON DELETE RESTRICT,
+        "amount" numeric(15,2) NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "payroll_slip_loans_slip_loan_key" UNIQUE ("payroll_slip_id", "loan_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "payroll_slip_loans_loan_idx" ON "payroll_slip_loans" ("loan_id")`,
+  ];
+  for (const q of loanQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables and columns exist; the next sync pass completes it.
+    }
+  }
 }

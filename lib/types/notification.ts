@@ -14,6 +14,7 @@ export type ApprovalKind =
   | "reimbursements"
   | "travel"
   | "leaveSalary"
+  | "loans"
   | "evaluations"
   | "targets"
   | "teamTargets";

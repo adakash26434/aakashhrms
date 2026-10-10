@@ -26,13 +26,13 @@ const controlRepo = read('lib/repositories/payroll-control.repository.ts');
 
 describe('run types', () => {
   it('locking an off-cycle run seals its payslips and stops there', () => {
-    const lock = payroll.slice(payroll.indexOf('await repository.lockAllSlipsForRun(runId);'));
-    const stop = lock.indexOf('if (isOffCycle(run.runType)) return;');
+    const lock = payroll.slice(payroll.indexOf('await repository.lockAllSlipsForRun(runId, tx);'));
+    const stop = lock.indexOf('if (isOffCycle(run.runType)) return locked;');
     assert.ok(stop > 0 && stop < lock.indexOf('attendanceRecords'), 'returns before sealing attendance');
-    assert.ok(stop < lock.indexOf('loanRepayments'), 'returns before loan repayments');
-    // S45: no lock writes a salary structure (the loan mirror is the only one left, after the return).
+    assert.ok(stop < lock.indexOf('loanPayroll.postRunLoansTx('), 'returns before posting loan lines');
+    // S45: no lock writes a salary structure (4.10 removed the last one, the loan mirror).
     assert.equal(lock.indexOf('employeeSalaryMap'), -1, 'no salary-structure sync on lock');
-    assert.ok(stop < lock.indexOf('syncActiveLoansToSalaryMapping'), 'returns before the loan mirror');
+    assert.equal(lock.indexOf('syncActiveLoansToSalaryMapping'), -1, 'no loan mirror on lock');
   });
 
   it('only regular runs count as a paid month of salary (arrears, final settlement)', () => {
