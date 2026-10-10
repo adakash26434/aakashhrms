@@ -170,7 +170,7 @@ export interface StructureRow {
   pendingBatchId: string | null;
 }
 
-export type BatchKind = "single" | "bulk" | "import" | "hire" | "policy" | "setup";
+export type BatchKind = "single" | "bulk" | "import" | "hire" | "policy" | "setup" | "increment";
 export type BatchStatus = "pending" | "approved" | "rejected" | "withdrawn";
 
 export type { ApprovalRoute } from "@/lib/types/approval";
@@ -226,7 +226,8 @@ export interface SalaryStructureData {
   tab: StructureTab;
   rows: StructureRow[];
   heads: StructureHead[];
-  levels: { code: string; name: string; minSalary: number }[];
+  /** Pay-scale levels; maxSalary 0 = no maximum (F14 caps increments at it). */
+  levels: { code: string; name: string; minSalary: number; maxSalary: number }[];
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];
   designations: { id: string; name: string }[];
@@ -276,8 +277,8 @@ export interface RevisionInput {
 }
 
 export interface BatchInput {
-  /** setup: completing new hires' structures (basic + grade only); may be submitted unchanged. */
-  kind: "single" | "bulk" | "import" | "setup";
+  /** setup: completing new hires' structures (basic + grade only); may be submitted unchanged. increment: Bulk edit after a mass increment (F14). */
+  kind: "single" | "bulk" | "import" | "setup" | "increment";
   effectiveFrom: string;
   reason: string;
   rows: RevisionInput[];

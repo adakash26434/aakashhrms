@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardCheck, FileSignature, LayoutTemplate, ListPlus, Pencil, Plus, Printer, RefreshCw, Table2, Users } from "lucide-react";
+import { ClipboardCheck, FileSignature, LayoutTemplate, ListPlus, Pencil, Plus, Printer, RefreshCw, Table2, TrendingUp, Users } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { Tabs, type TabItem } from "@/components/kit/tabs";
 import type { SubmitResult } from "@/lib/services/salary-structure.service";
@@ -24,7 +24,8 @@ import { SalaryStructureTemplates } from "./salary-structure-templates";
  * Templates. Nothing is ever overwritten: every change is a new revision.
  *
  * Toolbar (4.4b): Add new / Bulk add for employees with no structure or only
- * basic + grade; Revise salary / Bulk edit for those who have one.
+ * basic + grade; Revise salary / Bulk edit for those who have one; Mass
+ * increment (F14) for one rule over many.
  */
 export function SalaryStructureClient({ data, initialEmployeeId = null }: { data: SalaryStructureData; initialEmployeeId?: string | null }) {
   const router = useRouter();
@@ -44,6 +45,8 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
   const [adding, setAdding] = useState(false);
   // Bulk edit opened from a template's "Apply to employees".
   const [bulkTemplate, setBulkTemplate] = useState<string | null>(null);
+  // Bulk edit opened from "Mass increment" (F14): the increment window opens at once.
+  const [bulkIncrement, setBulkIncrement] = useState(false);
   const { permissions } = data;
   const canChange = permissions.edit;
 
@@ -51,6 +54,7 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
     if (next !== "bulk") {
       setBulkSetup(false);
       setBulkTemplate(null);
+      setBulkIncrement(false);
     }
     setTab(next as StructureTab);
     window.history.replaceState(null, "", `${window.location.pathname}?tab=${next}`);
@@ -146,6 +150,22 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
             onClick: () => changeTab("bulk"),
           },
           {
+            // F14: one rule (basic by % or amount, grades added) for many salaries, through approval.
+            id: "increment",
+            label: "Mass increment",
+            icon: TrendingUp,
+            group: "create",
+            hidden: !canChange || tab !== "structures",
+            disabled: !withStructure,
+            disabledReason: "Nobody has a salary structure yet",
+            onClick: () => {
+              changeTab("bulk");
+              setBulkSetup(false);
+              setBulkTemplate(null);
+              setBulkIncrement(true);
+            },
+          },
+          {
             id: "letter",
             label: "Print salary revision",
             icon: Printer,
@@ -203,14 +223,16 @@ export function SalaryStructureClient({ data, initialEmployeeId = null }: { data
         )}
         {tab === "bulk" && canChange && (
           <SalaryStructureBulk
-            key={bulkSetup ? "setup" : bulkTemplate ? `template-${bulkTemplate}` : "edit"}
+            key={bulkSetup ? "setup" : bulkTemplate ? `template-${bulkTemplate}` : bulkIncrement ? "increment" : "edit"}
             data={data}
             setup={bulkSetup}
             templatePreset={bulkTemplate}
+            incrementPreset={bulkIncrement}
             onLeaveSetup={() => setBulkSetup(false)}
             onSubmitted={(result) => {
               setBulkSetup(false);
               setBulkTemplate(null);
+              setBulkIncrement(false);
               setSaved(result);
               // The action already sends the fresh page (revalidatePath). Changing the
               // address while the router applies it made Next reload the whole page

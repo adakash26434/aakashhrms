@@ -13,6 +13,12 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-10 — 4.8 / F14: mass increment
+Branch: feature/payroll-controls
+Changed: `lib/engines/increment.engine.ts` (rule: basic +% or +amount rounded up to 1 / 10 / 50 / 100, or raised to the level's starting salary; +0–5 grades within the grade policy's cap; optional cap at the level's maximum; increments only; `ruleErrors`, `describeRule`); `components/salary-mapping/salary-increment-window.tsx` (who: branch / department / level or the selected rows; the rule; a preview of the first rows with what limited them); Bulk edit runs it on the table (Undo, reason filled in, notes for capped rows and hand-typed grade amounts) and sends the batch as kind `increment`; Salary structure toolbar "Mass increment"; Approvals label "Mass increment"; the structure page's levels carry `maxSalary`.
+Verified: type-check 0 · 1259 tests pass (`increment.engine` 6) · eslint: no new problems · browser: Mass increment → Lekhnath Branch, +5% rounded up to 10, +1 grade → preview 40,000 → 42,000 and 50,000 → 52,500 with 0 → 1 grade → table filled, reason "Increment: basic +5% (rounded up to 10), +1 grade" → review (+7,650 a month) → submitted; the batch is `increment`, pending, 2 revisions (grade amounts by the policy), and Approvals lists it as "Mass increment".
+Notes: the rule runs in the browser on the same lines the server re-validates; approval, the effective date, arrears for back-dated months (F7) and the payroll recalculation notice all work as for any salary change. Debt: allowance heads are not part of the rule (use a template or the table); no per-level percentage table in one go (run it once per level).
+
 ## 2026-10-10 — Security S44: logins and roles from the employee record
 Branch: feature/payroll-controls
 Changed: `employee.service.syncEmployeeUserAccess` (guarded by `LoginAccessContext`: a linked login's role changes only with Users & roles → Edit and never on one's own login — refusals audited `DENIED_PERMISSION` / `DENIED_SELF` under USERS_ROLES; a new login gets the Employee role unless the user may give roles; an office-role login's email follows the record only with that permission), `isSelfServiceRole`; `employee.actions` (passes Users & roles → Edit from the server, never for platform support; `assertMayResetLogin` before Resend sign-in / Reset password: never one's own login, office-role logins only with Users & roles → Edit); employee form Access section (role picker disabled without the permission, with the reason); `tests/security-employee-logins.test.ts`.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Columns3, Download, FileUp, ListPlus, Send, Trash2, Undo2, Wand2 } from "lucide-react";
+import { Columns3, Download, FileUp, ListPlus, Send, Trash2, TrendingUp, Undo2, Wand2 } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
 import { Notice } from "@/components/kit/notice";
@@ -34,7 +34,9 @@ import {
   validateLines,
   type ImportColumn,
 } from "@/lib/engines/salary-structure.engine";
+import { applyIncrement, describeRule, type IncrementContext } from "@/lib/engines/increment.engine";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
+import { SalaryIncrementWindow, type IncrementTarget } from "./salary-increment-window";
 import type { RetirementScheme, SalaryStructureData, StructureLines, StructureRow, StructureTotals, TemplateRow } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +78,10 @@ function readHidden(): string[] {
  *
  * From a template (Templates → Apply to employees): everyone it fits, with the
  * template applied, ready to check and send through approval.
+ *
+ * Mass increment (4.8 / F14): one rule (basic by % or amount, or raised to the level's
+ * starting salary; grades added) for the chosen employees, applied to the table and sent as
+ * one "increment" batch through approval.
  */
 export function SalaryStructureBulk({
   data,
@@ -83,6 +89,7 @@ export function SalaryStructureBulk({
   setup = false,
   onLeaveSetup,
   templatePreset = null,
+  incrementPreset = false,
 }: {
   data: SalaryStructureData;
   onSubmitted: (result: SubmitResult) => void;
@@ -90,6 +97,8 @@ export function SalaryStructureBulk({
   onLeaveSetup?: () => void;
   /** Opened from a template's "Apply to employees". */
   templatePreset?: string | null;
+  /** Opened from the toolbar's "Mass increment": the increment window opens at once. */
+  incrementPreset?: boolean;
 }) {
   const policy = data.gradePolicy;
   const settings = useMemo(() => ({ ssfBase: data.ssfBase, pfPercent: data.pfPercent }), [data.ssfBase, data.pfPercent]);
@@ -97,6 +106,7 @@ export function SalaryStructureBulk({
   const gradesOff = policy?.calculationMethod === "DISABLED_NO_GRADES";
   const byId = useMemo(() => new Map(data.rows.map((r) => [r.employeeId, r])), [data.rows]);
   const levelStart = useCallback((code: string) => data.levels.find((l) => l.code === code || l.name === code)?.minSalary ?? 0, [data.levels]);
+  const levelMax = useCallback((code: string) => data.levels.find((l) => l.code === code || l.name === code)?.maxSalary ?? 0, [data.levels]);
   const preset = data.templates.find((t) => t.id === templatePreset) ?? null;
 
   // Bulk add starts with everyone who needs a structure (each filled by startLines below);
@@ -119,8 +129,10 @@ export function SalaryStructureBulk({
   const dateText = useDateText();
   const [reason, setReason] = useState(initial.reason);
   const [templateId, setTemplateId] = useState(preset?.id ?? "");
-  // The table as it was before the last template was applied (Undo template).
-  const [undo, setUndo] = useState<{ edited: Record<string, StructureLines>; name: string } | null>(null);
+  // The table as it was before the last template or increment was applied (Undo).
+  const [undo, setUndo] = useState<{ edited: Record<string, StructureLines>; label: string } | null>(null);
+  const [incrementOpen, setIncrementOpen] = useState(incrementPreset && !setup);
+  const [incremented, setIncremented] = useState(false);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
   // Browser storage is only readable after hydration.
@@ -345,7 +357,7 @@ export function SalaryStructureBulk({
     if (!t) return;
     const scope = selectedRows.length > 1 ? selectedRows : ids;
     const targets = scope.filter((id) => templateFits(t, byId.get(id)!));
-    setUndo({ edited, name: t.name });
+    setUndo({ edited, label: `Template "${t.name}"` });
     for (const id of targets) {
       const r = byId.get(id)!;
       setLines(id, (l) => fillFrom(t, r, l));
@@ -360,8 +372,46 @@ export function SalaryStructureBulk({
   const undoTemplate = () => {
     if (!undo) return;
     setEdited(undo.edited);
-    setNotice({ tone: "info", text: `Template "${undo.name}" undone: the rows are back as they were before it.` });
+    setNotice({ tone: "info", text: `${undo.label} undone: the rows are back as they were before it.` });
     setUndo(null);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Mass increment (F14)
+  // ---------------------------------------------------------------------------
+
+  const linesOf = useCallback((r: StructureRow) => edited[r.employeeId] ?? startLines(r), [edited, startLines]);
+  const contextOf = useCallback(
+    (r: StructureRow): IncrementContext => ({ levelStart: levelStart(r.levelCode), levelMax: levelMax(r.levelCode), maxGrades: policy?.maxGradesAllowedPerLevel ?? 0, gradesOff }),
+    [levelStart, levelMax, policy, gradesOff]
+  );
+
+  const runIncrement = ({ ids: targets, rule }: IncrementTarget) => {
+    const next = { ...edited };
+    const notes: string[] = [];
+    let changed = 0;
+    for (const id of targets) {
+      const r = byId.get(id);
+      if (!r) continue;
+      const result = applyIncrement(next[id] ?? startLines(r), rule, contextOf(r));
+      const l = result.lines;
+      if (result.changed) changed++;
+      if (rule.grades > 0 && l.gradeManual && !manualPolicy) notes.push(`${r.employeeCode} ${r.fullName}: grade amount is typed by hand — check it`);
+      for (const n of result.notes) notes.push(`${r.employeeCode} ${r.fullName}: ${n}`);
+      next[id] = { ...l, gradeAmount: l.gradeManual || manualPolicy ? l.gradeAmount : gradeAmountFor(l, policy) };
+    }
+    setServerErrors({});
+    setUndo({ edited, label: "The mass increment" });
+    setEdited(next);
+    setIds((cur) => [...cur, ...targets.filter((id) => !cur.includes(id))]);
+    setIncremented(true);
+    setIncrementOpen(false);
+    if (!reason.trim()) setReason(`Increment: ${describeRule(rule)}`.slice(0, 200));
+    setNotice({
+      tone: notes.length ? "warning" : "info",
+      text: `Increment applied (${describeRule(rule)}): ${changed} of ${targets.length} salar${targets.length === 1 ? "y" : "ies"} change. Check the rows, then review and send.`,
+      list: notes,
+    });
   };
 
   const csvColumns: ImportColumn[] = useMemo(
@@ -439,7 +489,7 @@ export function SalaryStructureBulk({
   const submit = async (approveNow: boolean) => {
     setSubmitting(approveNow ? "approve" : "submit");
     const result = await submitSalaryChangeAction({
-      kind: setup ? "setup" : imported ? "import" : "bulk",
+      kind: setup ? "setup" : imported ? "import" : incremented ? "increment" : "bulk",
       effectiveFrom,
       reason,
       rows: changedRows.map((r) => ({ employeeId: r.row.employeeId, lines: r.lines })),
@@ -456,6 +506,7 @@ export function SalaryStructureBulk({
     setEdited({});
     setReason("");
     setImported(false);
+    setIncremented(false);
     onSubmitted(result.data);
   };
 
@@ -563,6 +614,14 @@ export function SalaryStructureBulk({
             </span>
           </>
         )}
+        {!setup && (
+          <span className="flex flex-col">
+            <LabelSpacer />
+            <WindowButton onClick={() => setIncrementOpen(true)} title="One rule for many salaries: basic by % or amount, grades added">
+              <TrendingUp className="h-3.5 w-3.5" /> Mass increment
+            </WindowButton>
+          </span>
+        )}
         <span className="ml-auto flex flex-wrap gap-x-2">
           <LabelSpacer />
           <WindowButton onClick={() => setChooser(true)} title="Choose which pay-head columns show">
@@ -596,7 +655,7 @@ export function SalaryStructureBulk({
             <span>{notice.text}</span>
             {undo && (
               <button type="button" onClick={undoTemplate} className="cursor-pointer font-medium text-brand-strong underline-offset-2 hover:underline">
-                Undo template
+                Undo
               </button>
             )}
           </p>
@@ -654,6 +713,10 @@ export function SalaryStructureBulk({
           <Send className="h-3.5 w-3.5" /> Review {changedRows.length || ""} change{changedRows.length === 1 ? "" : "s"}
         </WindowButton>
       </div>
+
+      {incrementOpen && (
+        <SalaryIncrementWindow data={data} tableIds={ids} selectedIds={selectedRows} linesOf={linesOf} contextOf={contextOf} onClose={() => setIncrementOpen(false)} onApply={runIncrement} />
+      )}
 
       {chooser && (
         <Window open onClose={() => setChooser(false)} title="Columns" description="Pay heads shown in the table (your choice is remembered)." size="sm" footer={<WindowButton variant="primary" onClick={() => setChooser(false)}>Done</WindowButton>}>

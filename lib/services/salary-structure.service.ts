@@ -336,7 +336,7 @@ export async function getStructureData(params: {
     tab: params.tab,
     rows: rows.sort((a, b) => a.fullName.localeCompare(b.fullName)),
     heads,
-    levels: levels.map((l) => ({ code: l.code, name: l.name, minSalary: l.minSalary ?? 0 })),
+    levels: levels.map((l) => ({ code: l.code, name: l.name, minSalary: l.minSalary ?? 0, maxSalary: l.maxSalary ?? 0 })),
     branches: branches.map((b) => ({ id: b.id, name: b.name })),
     departments: departments.map((d) => ({ id: d.id, name: d.name })),
     designations: designations.map((d) => ({ id: d.id, name: d.name })),
@@ -846,7 +846,7 @@ function normalizeLines(raw: unknown): StructureLines {
 
 export function normalizeBatch(raw: unknown): BatchInput {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const kind = (["single", "bulk", "import", "setup"].includes(o.kind as string) ? o.kind : "bulk") as BatchInput["kind"];
+  const kind = (["single", "bulk", "import", "setup", "increment"].includes(o.kind as string) ? o.kind : "bulk") as BatchInput["kind"];
   const effectiveFrom = str(o.effectiveFrom, 10);
   const reason = str(o.reason, 500).trim();
   if (!ISO.test(effectiveFrom)) throw new UserFacingError("Choose the date the change takes effect.");

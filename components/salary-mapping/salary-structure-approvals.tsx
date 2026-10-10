@@ -19,7 +19,7 @@ import type { BatchRow, SalaryStructureData } from "@/lib/types/salary-structure
 import { cn } from "@/lib/utils";
 import { APPROVAL_ROUTE_LABEL, ApprovalTimeline, ApproverStanding, batchStatusText, describeChanges, money, salaryActor } from "./salary-structure-approval";
 
-const KIND: Record<BatchRow["kind"], string> = { single: "One employee", bulk: "Bulk edit", import: "CSV import", hire: "Starting salary", policy: "Grade policy", setup: "Salary structure set up" };
+const KIND: Record<BatchRow["kind"], string> = { single: "One employee", bulk: "Bulk edit", import: "CSV import", hire: "Starting salary", policy: "Grade policy", setup: "Salary structure set up", increment: "Mass increment" };
 const STATUS: Record<BatchRow["status"], string> = { pending: "pending", approved: "approved", rejected: "rejected", withdrawn: "cancelled" };
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw";
