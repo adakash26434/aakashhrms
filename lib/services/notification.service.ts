@@ -7,6 +7,7 @@ import { countWaitingFor as countDetailWaitingFor } from '@/lib/services/employe
 import { countPolicyWaitingFor } from '@/lib/services/leave-policy.service';
 import * as reimbursementService from '@/lib/services/reimbursement.service';
 import * as travelService from '@/lib/services/travel.service';
+import * as leaveSalaryService from '@/lib/services/leave-salary.service';
 import * as evaluationService from '@/lib/services/evaluation.service';
 import * as targetService from '@/lib/services/target.service';
 import { runsWaitingFor } from '@/lib/services/payroll-control.service';
@@ -55,6 +56,7 @@ export async function notificationCentre(actor: NotificationActor, today: Date =
     details: decides('APPROVE', 'EMPLOYEES'),
     reimbursements: decides('APPROVE', 'REIMBURSEMENTS'),
     travel: decides('APPROVE', 'TRAVEL'),
+    leaveSalary: decides('APPROVE', 'LEAVE_SALARY'),
     leavePolicy: policy.canApprove || policy.canEdit,
     evaluations: decides('EDIT', 'PERFORMANCE'),
     targets: decides('APPROVE', 'TARGETS'),
@@ -63,7 +65,7 @@ export async function notificationCentre(actor: NotificationActor, today: Date =
     deadlines: views('PAYROLL_GENERATE') || views('PAYROLL_REVIEW'),
   };
 
-  const [leave, attendance, salary, details, reimbursements, travel, leavePolicy, evaluations, targets, teamTargets, runs] = await Promise.all([
+  const [leave, attendance, salary, details, reimbursements, travel, leaveSalary, leavePolicy, evaluations, targets, teamTargets, runs] = await Promise.all([
     // Supervisors count their supervisees' requests too; Approve adds everyone else's in scope.
     counted('leave', gate.leave, () => countLeaveWaitingFor(scope, has('APPROVE', 'LEAVE_APPROVALS'))),
     counted('attendance', gate.attendance, () => countAdjustmentsWaitingFor(scope, has('APPROVE', 'ATTENDANCE'))),
@@ -71,6 +73,7 @@ export async function notificationCentre(actor: NotificationActor, today: Date =
     counted('details', gate.details, () => countDetailWaitingFor(scope, true)),
     counted('reimbursements', gate.reimbursements, () => reimbursementService.countWaitingFor(scope)),
     counted('travel', gate.travel, () => travelService.countWaitingFor(scope)),
+    counted('leaveSalary', gate.leaveSalary, () => leaveSalaryService.countWaitingFor(scope)),
     counted('leavePolicy', gate.leavePolicy, () => countPolicyWaitingFor({ scope, userId, ...policy, impersonation: false })),
     counted('evaluations', gate.evaluations, () => evaluationService.countWaitingFor(userId, scope)),
     counted('targets', gate.targets, () => targetService.countWaitingFor(scope)),
@@ -79,7 +82,7 @@ export async function notificationCentre(actor: NotificationActor, today: Date =
   ]);
 
   return buildCentre({
-    approvals: { leave, attendance, salary, details, reimbursements, travel, leavePolicy, evaluations, targets, teamTargets },
+    approvals: { leave, attendance, salary, details, reimbursements, travel, leaveSalary, leavePolicy, evaluations, targets, teamTargets },
     runs: runs ?? [],
     deadlines: gate.deadlines ? upcomingDeadlines(today) : null,
     deadlineHref: views('REPORTS_TAX_IRD') ? '/payroll/statutory' : '/dashboard',

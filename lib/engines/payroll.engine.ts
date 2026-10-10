@@ -7,6 +7,7 @@ import type {
 } from "@/lib/types/payroll";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import { buildTaxSheet, monthsRemainingFrom, type PastMonth, type TaxSheet } from "@/lib/engines/tax-projection.engine";
+import { ONE_OFF_TAXABLE_HEAD_CODES } from "@/lib/constants/payroll-feeds";
 
 // Standard Custom error
 export class NegativeNetPayableError extends Error {
@@ -244,6 +245,8 @@ export function calculatePayslip(args: {
   let totalAllowances = new Decimal(0);
   let totalDeductions = new Decimal(0);
   let taxableAllowancesSum = new Decimal(0);
+  // 4.9: taxable lines paid once this month (arrears, taxable reimbursements, leave salary).
+  let oneOffTaxableSum = new Decimal(0);
 
   // Separate OT and leave calculations as they are handled in attendanceCalc
   const otAmount = new Decimal(attendanceCalc.otEarnedAmount);
@@ -299,6 +302,7 @@ export function calculatePayslip(args: {
       totalAllowances = totalAllowances.plus(headAmount);
       if (head.effectOnTax) {
         taxableAllowancesSum = taxableAllowancesSum.plus(headAmount);
+        if (ONE_OFF_TAXABLE_HEAD_CODES.includes(head.code)) oneOffTaxableSum = oneOffTaxableSum.plus(headAmount);
       }
     } else if (head.type === "deduction") {
       totalDeductions = totalDeductions.plus(headAmount);
@@ -538,8 +542,10 @@ export function calculatePayslip(args: {
       const finalTds = actualAnnualTax.minus(tdsAlreadyDeducted);
       tdsThisMonth = Decimal.max(0, finalTds).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
     } else {
-      // Months 1-11: Projected estimate based on taxable monthly gross
-      const projectedAnnualTaxableGross = taxableMonthlyGross.times(12);
+      // Months 1-11: Projected estimate based on taxable monthly gross. With the F5 projection a
+      // one-off line counts once (added to the projected year), never × the months that remain.
+      const oneOffTaxable = fiscalMonthIndex !== undefined ? Decimal.min(Decimal.max(0, oneOffTaxableSum), taxableMonthlyGross) : new Decimal(0);
+      const projectedAnnualTaxableGross = taxableMonthlyGross.minus(oneOffTaxable).times(12);
       const retirementAnnual = pfEmployee.plus(ssfTotal).times(12);
       const citAnnual = citDeduction.times(12);
       const citCapped = Decimal.min(citAnnual, new Decimal(systemControl.statutoryDeductionLimits.citLimitNpr));
@@ -557,6 +563,7 @@ export function calculatePayslip(args: {
         taxSheet = buildTaxSheet({
           past: projectionHistory,
           currentTaxable: projectedTaxable.dividedBy(12),
+          oneOffTaxable,
           monthsRemaining: monthsRemainingFrom(fiscalMonthIndex),
           taxOn,
         });

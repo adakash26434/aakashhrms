@@ -478,7 +478,9 @@ describe('S24 company leave types and Leave rules retired (4.6e)', () => {
   it('leave salary reads the leave type\'s payout rate; a fixed rate is never below basic', () => {
     const salary = source('lib/services/leave-salary.service.ts');
     assert.match(fnBody(salary, 'payoutOf'), /payoutRate\(leaveType,/);
-    assert.equal((salary.match(/await payoutOf\(leaveType\)/g) ?? []).length, 2);
+    // 4.9: every amount is worked out in one place, from the leave type's rate.
+    assert.match(salary, /async function amountsFor\(type: LeaveTypeRecord, basic: number, days: number\) \{\s*const pay = await payoutOf\(type\);/);
+    assert.equal((salary.match(/calculateLeaveSalary\(/g) ?? []).length, 1);
     assert.match(source('lib/engines/leave-salary.engine.ts'), /Decimal\.max\(new Decimal\(args\.fixedDailyAmount\), new Decimal\(args\.basicSalary\)\.dividedBy\(workDays\)\)/);
   });
 

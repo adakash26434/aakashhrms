@@ -26,7 +26,7 @@ const fn = (src: string, name: string) => {
 
 describe('payroll feeds: one payslip, settled with it', () => {
   it('the feed codes and where their amounts come from', () => {
-    assert.deepEqual([...FEED_HEAD_CODES], ['TADA', 'WELFARE_FUND', 'ARREARS', 'REIMBURSE', 'REIMBURSE_TAX']);
+    assert.deepEqual([...FEED_HEAD_CODES], ['TADA', 'WELFARE_FUND', 'ARREARS', 'REIMBURSE', 'REIMBURSE_TAX', 'LEAVE_ENCASH']);
     for (const code of FEED_HEAD_CODES) assert.ok(FEED_SOURCE[code]);
     assert.equal(isFeedHeadCode('ARREARS'), true);
     assert.equal(isFeedHeadCode('BASIC'), false);
@@ -36,13 +36,13 @@ describe('payroll feeds: one payslip, settled with it', () => {
   it('a run settles what it pays in its own transaction, or stops', () => {
     const settle = feedService.slice(feedService.indexOf('export async function settleRunFeedsTx'));
     assert.match(settle, /const claims = await feedsRepository\.settleClaimsThroughRun\(\[\.\.\.feeds\.claimIds\], runId, tx\);/);
-    assert.match(settle, /if \(claims !== feeds\.claimIds\.length \|\| reimbursements !== feeds\.reimbursementIds\.length\) throw new UserFacingError\(CLAIM_CHANGED\);/);
+    assert.match(settle, /if \(claims !== feeds\.claimIds\.length \|\| reimbursements !== feeds\.reimbursementIds\.length \|\| leaveSalary !== feeds\.leaveSalaryIds\.length\) throw new UserFacingError\(CLAIM_CHANGED\);/);
     assert.match(settle, /arrearsService\.settle\(runId, feeds\.arrears, tx\)/);
     // Nothing is settled after a run's transaction any more.
     assert.doesNotMatch(service, /feedsRepository\.settleClaimsThroughRun\(|arrearsService\.settle\(/);
     assert.doesNotMatch(offCycle, /arrearsService\.settle\(/);
     const offTx = offCycle.slice(offCycle.indexOf('await repository.createPayrollSlips(slips, tx);'), offCycle.indexOf('return created;'));
-    assert.match(offTx, /payrollFeedService\.settleRunFeedsTx\(tx, created\.id, \{ claimIds: \[\], reimbursementIds: \[\], arrears:/);
+    assert.match(offTx, /payrollFeedService\.settleRunFeedsTx\(tx, created\.id, \{ claimIds: \[\], reimbursementIds: \[\], leaveSalaryIds: \[\], arrears:/);
   });
 
   it('regenerating, deleting a run or deleting one payslip gives back what it paid', () => {
@@ -56,7 +56,7 @@ describe('payroll feeds: one payslip, settled with it', () => {
     const one = feedService.slice(feedService.indexOf('export async function deleteSlipWithFeeds'));
     assert.match(
       one,
-      /transaction\(async \(tx\) => \{\s*await feedsRepository\.releaseClaimsOfRun\(slip\.payrollRunId, \{ employeeId: slip\.employeeId, tx \}\);\s*await feedsRepository\.releaseReimbursementsOfRun\(slip\.payrollRunId, \{ employeeId: slip\.employeeId, tx \}\);\s*await feedsRepository\.releaseArrearsOfRun\(slip\.payrollRunId, slip\.employeeId, tx\);\s*await payrollRepository\.deletePayrollSlip\(slip\.id, tx\);/
+      /transaction\(async \(tx\) => \{\s*await feedsRepository\.releaseClaimsOfRun\(slip\.payrollRunId, \{ employeeId: slip\.employeeId, tx \}\);\s*await feedsRepository\.releaseReimbursementsOfRun\(slip\.payrollRunId, \{ employeeId: slip\.employeeId, tx \}\);\s*await feedsRepository\.releaseLeaveSalaryOfRun\(slip\.payrollRunId, \{ employeeId: slip\.employeeId, tx \}\);\s*await feedsRepository\.releaseArrearsOfRun\(slip\.payrollRunId, slip\.employeeId, tx\);\s*await payrollRepository\.deletePayrollSlip\(slip\.id, tx\);/
     );
     assert.match(feeds, /eq\(payrollArrears\.payrollRunId, runId\), eq\(payrollArrears\.employeeId, employeeId\)/);
   });

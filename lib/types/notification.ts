@@ -13,6 +13,7 @@ export type ApprovalKind =
   | "details"
   | "reimbursements"
   | "travel"
+  | "leaveSalary"
   | "evaluations"
   | "targets"
   | "teamTargets";

@@ -512,6 +512,13 @@
       "when": 1793155200000,
       "tag": "0072_reimbursements",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793241600000,
+      "tag": "0073_leave_salary",
+      "breakpoints": true
     }
   ]
 }

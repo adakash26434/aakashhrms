@@ -246,7 +246,7 @@ export async function generateOffCycleRun(payload: PayrollRunSetupPayload, userI
     for (const s of slips) s.slip.payrollRunId = created.id;
     await repository.createPayrollSlips(slips, tx);
     // The arrears this run pays are recorded against their source months with the payslips (4.8 fix).
-    if (runType === 'ARREARS') await payrollFeedService.settleRunFeedsTx(tx, created.id, { claimIds: [], reimbursementIds: [], arrears: new Map([...arrears].filter(([, a]) => a.payable > 0)) });
+    if (runType === 'ARREARS') await payrollFeedService.settleRunFeedsTx(tx, created.id, { claimIds: [], reimbursementIds: [], leaveSalaryIds: [], arrears: new Map([...arrears].filter(([, a]) => a.payable > 0)) });
     await tx.insert(auditLogs).values({ userId, action: 'ADD', module: 'PAYROLL_GENERATE', recordId: created.id, result: 'SUCCESS', newValues: { runType, period: `${payPeriodYear}-${payPeriodMonth}`, payslips: slips.length } });
     return created;
   });

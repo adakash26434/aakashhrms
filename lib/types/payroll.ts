@@ -1,7 +1,4 @@
 export type PayrollRunStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'LOCKED';
-export type LeaveSalaryRunStatus = 'DRAFT' | 'PAID';
-export type EncashmentType = 'ANNUAL_EXCESS' | 'TERMINATION' | 'VOLUNTARY';
-export type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'CHEQUE';
 
 export interface PayrollRun {
   id: string;
@@ -94,27 +91,6 @@ export interface PayrollSlipHead {
   overrideReason: string | null;
 }
 
-export interface LeaveSalaryRun {
-  id: string;
-  payrollRunId: string | null;
-  employeeId: string;
-  leaveTypeId: string;
-  leaveDays: string;
-  perDayRate: string;
-  totalAmount: string;
-  tdsAmount: string | null;
-  encashmentType: EncashmentType;
-  paymentPeriod: string; // "BS YYYY-MM"
-  paymentMethod: PaymentMethod;
-  status: LeaveSalaryRunStatus;
-  createdBy: string;
-  createdByName?: string | null;
-  approvedBy: string | null;
-  approvedByName?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // -----------------------------------------------------------------------------
 // Form Data & Payloads
 // -----------------------------------------------------------------------------
@@ -176,15 +152,6 @@ export interface ManualSlipAdjustmentPayload {
   absentDeduction?: string;
   bankName?: string;
   bankAccountNumber?: string;
-}
-
-export interface LeaveSalarySetupPayload {
-  paymentPeriod: string; // YYYY-MM
-  employeeId: string;
-  leaveTypeId: string;
-  leaveDays: number;
-  encashmentType: EncashmentType;
-  paymentMethod?: PaymentMethod;
 }
 
 // -----------------------------------------------------------------------------

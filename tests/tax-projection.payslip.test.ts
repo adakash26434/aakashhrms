@@ -114,3 +114,34 @@ describe('tax projection in the payslip engine', () => {
     assert.ok(Number(overpaid.tdsThisMonth) < Number(steady.tdsThisMonth));
   });
 });
+
+describe('a payment made once (4.9)', () => {
+  const head = (code: string): PayHeadInput => ({ ...TDS_HEAD, id: `head-${code}`, code, name: code, type: 'allowance', effectOnTax: true, isTdsHead: false, amount: '30000', isManualOverride: true });
+  const month = (code: string) =>
+    calculatePayslip({
+      employee: BASE_EMPLOYEE,
+      salaryMap: { basicSalary: '80000', gradePercent: '0', gradeAmount: '0' },
+      assignedHeads: [TDS_HEAD, head(code)],
+      attendanceCalc: { leaveDeductionAmount: '0', otEarnedAmount: '0' },
+      loanDeduction: '0',
+      systemControl: MOCK_SYSTEM_CONTROL,
+      taxSlabs: MOCK_TAX_SLABS,
+      isFestivalMonth: false,
+      isRemoteMonth: false,
+      isYearEnd: false,
+      fiscalMonthIndex: 4,
+      projectionHistory: Array.from({ length: 3 }, () => ({ taxableIncome: '80000', tds: '1500' })),
+    });
+
+  it('leave salary, arrears and taxable reimbursements count once in the projected year', () => {
+    const recurring = month('BONUS_EVERY_MONTH');
+    for (const code of ['LEAVE_ENCASH', 'ARREARS', 'REIMBURSE_TAX']) {
+      const once = month(code);
+      assert.equal(once.taxSheet?.oneOffTaxable, '30000.00', code);
+      assert.equal(Number(recurring.taxSheet?.projectedAnnualTaxable) - Number(once.taxSheet?.projectedAnnualTaxable), 30000 * 8, code);
+      assert.ok(Number(once.tdsThisMonth) < Number(recurring.tdsThisMonth), code);
+      // It is still this month's taxable income (the history of later months reads it).
+      assert.equal(once.taxableIncome, recurring.taxableIncome, code);
+    }
+  });
+});

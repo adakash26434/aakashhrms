@@ -61,7 +61,7 @@ describe('F16 reimbursements', () => {
 
   it('paid only through the payroll feeds: settled with the payslips, given back with them', () => {
     assert.match(feedService, /settleReimbursementsThroughRun\(\[\.\.\.feeds\.reimbursementIds\], runId, tx\)/);
-    assert.match(feedService, /reimbursements !== feeds\.reimbursementIds\.length\) throw new UserFacingError\(CLAIM_CHANGED\)/);
+    assert.match(feedService, /reimbursements !== feeds\.reimbursementIds\.length \|\| leaveSalary !== feeds\.leaveSalaryIds\.length\) throw new UserFacingError\(CLAIM_CHANGED\)/);
     const discard = feedService.slice(feedService.indexOf('export async function discardDraftRun'));
     assert.ok(discard.indexOf('releaseReimbursementsOfRun(runId, { tx })') < discard.indexOf('deletePayrollRun(runId, tx)'));
     assert.match(feedService, /releaseReimbursementsOfRun\(slip\.payrollRunId, \{ employeeId: slip\.employeeId, tx \}\)/);

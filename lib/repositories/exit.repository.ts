@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { attendanceDevices, deviceUsers, employeeTermination, employees, exitCases, exitClearances, fundLedger, fundTypes, hrLetters, loans, users } from '@/lib/db/schema';
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { CLEARANCE_UNITS } from '@/lib/engines/exit.engine';
 import { fundBalance } from '@/lib/engines/fund.engine';
 import { bondActive, bondEnds } from '@/lib/engines/training.engine';
@@ -87,6 +87,16 @@ export async function hasOpenCase(employeeId: string): Promise<boolean> {
     .where(and(eq(exitCases.employeeId, employeeId), eq(exitCases.status, 'open')))
     .limit(1);
   return !!row;
+}
+
+/** Of these employees, the ones with an open exit case (they are paid in the final settlement). */
+export async function withOpenCase(employeeIds: string[]): Promise<Set<string>> {
+  if (!employeeIds.length) return new Set();
+  const rows = await (await getDb())
+    .select({ employeeId: exitCases.employeeId })
+    .from(exitCases)
+    .where(and(inArray(exitCases.employeeId, employeeIds), eq(exitCases.status, 'open')));
+  return new Set(rows.map((r) => r.employeeId));
 }
 
 export interface CaseWrite {

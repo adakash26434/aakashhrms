@@ -36,6 +36,15 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     }
   }
 
+  // Leave salary statuses (4.9, migration 0073): DRAFT → APPROVED → PAID; APPROVED → CANCELLED.
+  for (const enumVal of ['APPROVED', 'CANCELLED']) {
+    try {
+      await sql.unsafe(`ALTER TYPE "public"."leave_salary_run_status" ADD VALUE IF NOT EXISTS '${enumVal}'`);
+    } catch {
+      // Ignored until the type exists
+    }
+  }
+
   // 2. Critical authentication & scoping columns on "users" table
   const userColumnQueries = [
     `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "name" varchar(255)`,
@@ -1909,6 +1918,34 @@ ON CONFLICT DO NOTHING`);
     } catch {
       // Ignored until the referenced tables exist, or until the WELFARE_FUNDS enum
       // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Leave salary (4.9, migration 0073): year-end excess and balance encashments, paid through the
+  // pay run on the LEAVE_ENCASH system head (taxable); one record per opening line while not cancelled.
+  const leaveSalaryQueries = [
+    `ALTER TABLE "leave_salary_runs" DROP CONSTRAINT IF EXISTS "leave_salary_runs_employee_id_leave_type_id_payment_period_unique"`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "source" varchar(20) DEFAULT 'balance' NOT NULL`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "source_line_id" uuid`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "fiscal_year_id" uuid`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "basic_salary" numeric(15,2)`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "rate_basis" varchar(20)`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "note" text`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "approved_at" timestamp`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "cancel_reason" text`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "cancelled_by" uuid`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "cancelled_at" timestamp`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "settled_at" timestamp`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "leave_salary_runs_source_line_key" ON "leave_salary_runs" ("source_line_id") WHERE "source_line_id" IS NOT NULL AND "cancelled_at" IS NULL`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "name_np", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:LEAVE_ENCASH')::uuid, 'LEAVE_ENCASH', 'Leave encashment', 'बिदा साटो रकम', 'allowance', true, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'LEAVE_ENCASH')`,
+  ];
+  for (const q of leaveSalaryQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables and columns exist; the next sync pass completes it.
     }
   }
 }

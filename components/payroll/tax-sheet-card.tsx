@@ -14,6 +14,7 @@ export function TaxSheetCard({ sheet }: { sheet: TaxSheet }) {
   const rows: [string, string][] = [
     [`Taxable income of ${sheet.monthsPaid} earlier month${sheet.monthsPaid === 1 ? "" : "s"}`, rs(sheet.ytdTaxable)],
     [`This month × ${sheet.monthsRemaining} month${sheet.monthsRemaining === 1 ? "" : "s"} left (this one included)`, rs(String(Number(sheet.currentTaxable) * sheet.monthsRemaining))],
+    ...(Number(sheet.oneOffTaxable ?? 0) > 0 ? ([["Paid once this month (arrears, leave salary…)", rs(sheet.oneOffTaxable!)]] as [string, string][]) : []),
     ["Projected taxable income for the year", rs(sheet.projectedAnnualTaxable)],
     ["Tax on the projected year", rs(sheet.annualTax)],
     ["Tax already deducted", rs(sheet.ytdTds)],

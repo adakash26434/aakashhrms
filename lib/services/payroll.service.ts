@@ -262,13 +262,15 @@ export async function generatePayrollRun(
   // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
   // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
   // as fixed one-off heads; the engine's statutory maths is untouched.
-  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee, reimbursementsByEmployee] = await Promise.all([
+  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee, reimbursementsByEmployee, leaveSalaryByEmployee] = await Promise.all([
     feedsRepository.feedHeads(),
     feedsRepository.approvedClaimsByEmployee(empIds, endStr),
     feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth),
     // F7: back pay for finalised months whose revision in force now pays more (ARREARS head, taxable).
     arrearsService.arrearsFor(empIds, startStr),
     feedsRepository.approvedReimbursementsByEmployee(empIds, endStr),
+    // 4.9: approved leave salary for this pay month or earlier (LEAVE_ENCASH head, taxable).
+    feedsRepository.approvedLeaveSalaryByEmployee(empIds, `${payPeriodYear}-${String(payPeriodMonth).padStart(2, '0')}`),
   ]);
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
@@ -526,6 +528,11 @@ export async function generatePayrollRun(
     if (reimbursed && feedHeadRows.reimburseTaxable && Number(reimbursed.taxable) > 0) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.reimburseTaxable), amount: reimbursed.taxable, isManualOverride: true });
     }
+    // 4.9: approved leave salary (taxable: the tax projection withholds its TDS).
+    const leaveSalary = leaveSalaryByEmployee.get(emp.id);
+    if (leaveSalary && feedHeadRows.leaveEncash && Number(leaveSalary.amount) > 0) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.leaveEncash), amount: leaveSalary.amount, isManualOverride: true });
+    }
 
     // 1. TDS is required for every employee
     if (!assignedHeads.some((h) => h.isTdsHead)) {
@@ -675,6 +682,7 @@ export async function generatePayrollRun(
         ...(feedHeadRows.reimburse && Number(r.free) > 0 ? r.freeIds : []),
         ...(feedHeadRows.reimburseTaxable && Number(r.taxable) > 0 ? r.taxableIds : []),
       ]),
+      leaveSalaryIds: feedHeadRows.leaveEncash ? [...leaveSalaryByEmployee.values()].flatMap((l) => (Number(l.amount) > 0 ? l.ids : [])) : [],
       arrears: new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0)),
     });
 
@@ -1205,6 +1213,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   if (feedHeadRows.tada && Number(paidHere.tada) !== 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.tada), amount: paidHere.tada, isManualOverride: true });
   if (feedHeadRows.reimburse && Number(paidHere.reimburse) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.reimburse), amount: paidHere.reimburse, isManualOverride: true });
   if (feedHeadRows.reimburseTaxable && Number(paidHere.reimburseTaxable) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.reimburseTaxable), amount: paidHere.reimburseTaxable, isManualOverride: true });
+  if (feedHeadRows.leaveEncash && Number(paidHere.leaveEncash) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.leaveEncash), amount: paidHere.leaveEncash, isManualOverride: true });
   if (feedHeadRows.arrears && Number(paidHere.arrears) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: paidHere.arrears, isManualOverride: true });
   const fundHereAmount = fundHere.get(emp.id);
   if (feedHeadRows.welfare && fundHereAmount) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundHereAmount, isManualOverride: true });

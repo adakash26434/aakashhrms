@@ -9,6 +9,7 @@ export type * from "./holiday";
 export type * from "./leave-rule";
 export type * from "./leave-type";
 export type * from "./leave";
+export type * from "./leave-salary";
 export type {
   LoanType,
   LoanTypeFormData,

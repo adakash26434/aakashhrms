@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index, primaryKey } from 'drizzle-orm/pg-core';
+import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, uniqueIndex, date, index, primaryKey } from 'drizzle-orm/pg-core';
 
 
 // -----------------------------------------------------------------------------
@@ -252,7 +252,8 @@ export const moduleEnum = pgEnum('module', [
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
 export const payrollRunStatusEnum = pgEnum('payroll_run_status', ['DRAFT', 'UNDER_REVIEW', 'APPROVED', 'LOCKED']);
-export const leaveSalaryRunStatusEnum = pgEnum('leave_salary_run_status', ['DRAFT', 'PAID']);
+// 4.9: DRAFT → APPROVED → PAID (settled by a pay run); APPROVED → CANCELLED. Values in the order existing databases have them.
+export const leaveSalaryRunStatusEnum = pgEnum('leave_salary_run_status', ['DRAFT', 'PAID', 'APPROVED', 'CANCELLED']);
 
 // -----------------------------------------------------------------------------
 // 1. EMPLOYEE GROUPS (Organizational Grade - Not Permissions)
@@ -1519,18 +1520,36 @@ export const leaveSalaryRuns = pgTable('leave_salary_runs', {
   leaveDays: numeric('leave_days', { precision: 5, scale: 2 }).notNull(),
   perDayRate: numeric('per_day_rate', { precision: 15, scale: 2 }).notNull(),
   totalAmount: numeric('total_amount', { precision: 15, scale: 2 }).notNull(),
+  /** Only on records paid by hand before 4.9; since then the payslip's tax projection withholds the TDS. */
   tdsAmount: numeric('tds_amount', { precision: 15, scale: 2 }).default('0'),
-  encashmentType: varchar('encashment_type', { length: 20 }).default('VOLUNTARY').notNull(), // "ANNUAL_EXCESS" | "TERMINATION" | "VOLUNTARY"
-  paymentPeriod: varchar('payment_period', { length: 20 }).notNull(), // e.g. "2082-01"
-  paymentMethod: varchar('payment_method', { length: 50 }).default('BANK_TRANSFER').notNull(), // "BANK_TRANSFER" | "CASH" | "CHEQUE"
-  status: leaveSalaryRunStatusEnum('status').default('DRAFT').notNull(), // "DRAFT" | "PAID"
+  encashmentType: varchar('encashment_type', { length: 20 }).default('VOLUNTARY').notNull(), // "ANNUAL_EXCESS" (year_end) | "VOLUNTARY" (balance); "TERMINATION" only before 4.9
+  /** 4.9: the BS pay month (YYYY-MM) whose regular pay run — or a later one — pays it; free text before 4.9. */
+  paymentPeriod: varchar('payment_period', { length: 20 }).notNull(),
+  paymentMethod: varchar('payment_method', { length: 50 }).default('BANK_TRANSFER').notNull(), // before 4.9 only; now always the pay run
+  status: leaveSalaryRunStatusEnum('status').default('DRAFT').notNull(),
+  /** 4.9: 'year_end' (the excess at a year's opening, already off the balance) | 'balance' (encashed from the balance in force). */
+  source: varchar('source', { length: 20 }).default('balance').notNull(),
+  /** 4.9: the opening's `paid_out` ledger line a year_end record pays (one record per line while not cancelled). */
+  sourceLineId: uuid('source_line_id'),
+  /** 4.9: the leave year the days come from. */
+  fiscalYearId: uuid('fiscal_year_id'),
+  /** 4.9: frozen when prepared — the basic in force and how the day's rate was worked out. */
+  basicSalary: numeric('basic_salary', { precision: 15, scale: 2 }),
+  rateBasis: varchar('rate_basis', { length: 20 }), // BASIC_DAILY | FIXED_AMOUNT
+  note: text('note'),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }).notNull(),
   approvedBy: uuid('approved_by').references(() => users.id, { onDelete: 'set null' }),
-  
+  approvedAt: timestamp('approved_at'),
+  cancelReason: text('cancel_reason'),
+  cancelledBy: uuid('cancelled_by'),
+  cancelledAt: timestamp('cancelled_at'),
+  /** When a pay run paid it (`payroll_run_id`); null on records paid by hand before 4.9. */
+  settledAt: timestamp('settled_at'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
-  unq: unique().on(t.employeeId, t.leaveTypeId, t.paymentPeriod),
+  sourceLineKey: uniqueIndex('leave_salary_runs_source_line_key').on(t.sourceLineId).where(sql`source_line_id IS NOT NULL AND cancelled_at IS NULL`),
   payrollRunIdIdx: index('leave_salary_runs_payroll_run_id_idx').on(t.payrollRunId),
   employeeIdIdx: index('leave_salary_runs_employee_id_idx').on(t.employeeId),
   leaveTypeIdIdx: index('leave_salary_runs_leave_type_id_idx').on(t.leaveTypeId),
