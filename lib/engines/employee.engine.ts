@@ -61,7 +61,7 @@ export function calculateAgeInYears(birthDate: Date, referenceDate: Date = new D
  * Validates a single specific tab/section of the employee form.
  * Used when user clicks "Next" or navigates between sections.
  */
-export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, options: { today?: string } = {}): EmployeeValidationErrors {
+export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, options: { today?: string; scanRequired?: boolean } = {}): EmployeeValidationErrors {
   const errors: EmployeeValidationErrors = {};
 
   if (tabIndex === 0) {
@@ -151,7 +151,7 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, op
   } else if (tabIndex === 2) {
     // 2: Personal Information, Identity Documents, Contacts & Addresses
     // Documents (4.2b): Citizenship or NID required; numbers, districts, issued dates and scans.
-    Object.assign(errors, validateDocuments(data.documents ?? [], { dateOfBirth: data.dateOfBirth || "", today: options.today ?? nepalDateIso() }));
+    Object.assign(errors, validateDocuments(data.documents ?? [], { dateOfBirth: data.dateOfBirth || "", today: options.today ?? nepalDateIso(), scanRequired: options.scanRequired }));
 
     if (data.panNumber && data.panNumber.trim()) {
       const res = validatePanNo(data.panNumber);
@@ -289,9 +289,10 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, op
 }
 
 /**
- * Validates the entire employee form across all 5 sections.
+ * Validates the entire employee form across all 5 sections. `scanRequired: false` (F15 import
+ * only) accepts a new identity document without its scan.
  */
-export function validateEmployee(data: EmployeeFormData, options: { today?: string } = {}): EmployeeValidationErrors {
+export function validateEmployee(data: EmployeeFormData, options: { today?: string; scanRequired?: boolean } = {}): EmployeeValidationErrors {
   return {
     ...validateEmployeeTab(data, 0),
     ...validateEmployeeTab(data, 1),

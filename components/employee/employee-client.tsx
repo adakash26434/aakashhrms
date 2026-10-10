@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, FileClock, PanelRight, Pencil, Plus, RefreshCw, UserCheck, UserPlus, UserX } from "lucide-react";
+import { ExternalLink, FileClock, FileUp, PanelRight, Pencil, Plus, RefreshCw, UserCheck, UserPlus, UserX } from "lucide-react";
 import Link from "next/link";
 import { Notice } from "@/components/kit/notice";
 import { PageBar } from "@/components/frame/page-bar";
@@ -14,6 +14,7 @@ import type { EmployeeListRow, EmployeeRegisterData } from "@/lib/types/employee
 import { EmployeeQuickView } from "./employee-quick-view";
 import { EmployeeRegister } from "./employee-register";
 import { EmployeeStatusWindow, type StatusTarget } from "./employee-status-window";
+import { EmployeeImportWindow } from "./employee-import";
 
 const QUICK_VIEW_KEY = "aakash.employees.quickView";
 const REGISTER_FILTERS = ["dept", "branch", "category", "status"] as const;
@@ -56,6 +57,7 @@ export function EmployeeClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [quickView, setQuickView] = useState(true);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [importing, setImporting] = useState(false);
   const toggleStatus = useCallback((row: EmployeeListRow) => setStatusTarget(row), []);
 
   // Browser storage is only readable after hydration.
@@ -113,6 +115,15 @@ export function EmployeeClient({
             shortcut: "Ctrl+N",
             hidden: !permissions.add,
             onClick: () => router.push("/workforce/employees/new"),
+          },
+          {
+            // F15: many employees from a filled-in template, checked row by row first.
+            id: "import",
+            label: "Import",
+            icon: FileUp,
+            group: "create",
+            hidden: !permissions.add,
+            onClick: () => setImporting(true),
           },
           {
             id: "open",
@@ -238,6 +249,8 @@ export function EmployeeClient({
           />
         }
       />
+
+      {importing && <EmployeeImportWindow onClose={() => setImporting(false)} onImported={() => router.refresh()} />}
 
       <EmployeeStatusWindow
         target={statusTarget}

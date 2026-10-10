@@ -56,14 +56,13 @@ export async function saveEmployeeAction(
       hasPermission('APPROVE', 'EMPLOYEES'),
       hasPermission('EDIT', 'USERS_ROLES'),
     ]);
-    const result = await empService.saveEmployee(
-      id,
-      formData,
-      accessOptions,
-      { canEditPay, userId: scope.userId },
-      { scope, canApprove: canApproveDetails, reason: detail?.reason },
-      { canManageLogins: canManageLogins && !scope.isImpersonation, actorUserId: scope.userId }
-    );
+    const result = await empService.saveEmployee(id, formData, {
+      userId: scope.userId,
+      access: accessOptions,
+      canEditPay,
+      detail: { scope, canApprove: canApproveDetails, reason: detail?.reason },
+      canManageLogins: canManageLogins && !scope.isImpersonation,
+    });
     const saved = result.employee;
     await recordAuditLog({
       userId: scope.userId,

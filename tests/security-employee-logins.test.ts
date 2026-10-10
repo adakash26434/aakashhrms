@@ -35,7 +35,8 @@ describe('S44 self-service access from the employee record', () => {
 
   it('the save passes who acts and Users & roles → Edit from the server', () => {
     assert.match(actions, /hasPermission\('EDIT', 'USERS_ROLES'\)/);
-    assert.match(actions, /\{ canManageLogins: canManageLogins && !scope\.isImpersonation, actorUserId: scope\.userId \}/);
+    assert.match(actions, /userId: scope\.userId,[\s\S]*canManageLogins: canManageLogins && !scope\.isImpersonation,/);
+    assert.match(service, /const loginAccess: LoginAccessContext = \{ canManageLogins: ctx\.canManageLogins, actorUserId: ctx\.userId \};/);
   });
 
   it('reset and resend refuse one\'s own login and office logins without Users & roles → Edit (audited)', () => {

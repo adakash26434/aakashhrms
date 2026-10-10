@@ -83,6 +83,9 @@ describe('Employee documents: the list (4.2b)', () => {
     assert.match(validateDocuments([citizenship({ file: null })], ctx)['documents.0.file'] ?? '', /front and back in one file/);
     assert.equal(validateDocuments([citizenship({ id: 'd1', file: null })], ctx)['documents.0.file'], undefined);
     assert.equal(validateDocuments([citizenship(), citizenship({ type: 'passport', number: 'PA1234567', file: null })], ctx)['documents.1.file'], undefined);
+    // The import (F15) adds the scan on the record later; everything else is still checked.
+    assert.deepEqual(validateDocuments([citizenship({ file: null })], { ...ctx, scanRequired: false }), {});
+    assert.ok(validateDocuments([citizenship({ file: null, number: ' ' })], { ...ctx, scanRequired: false })['documents.0.number']);
   });
 
   it('cleans what the browser sends: one scan, trimmed text, known types only', () => {

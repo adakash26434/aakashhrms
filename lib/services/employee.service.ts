@@ -340,17 +340,27 @@ async function syncEmployeeUserAccess(
   }
 }
 
-export async function saveEmployee(
-  id: string | null,
-  formData: EmployeeFormData,
-  accessOptions?: EmployeeAccessOptions,
-  /** Salary mapping → Edit, checked by the action: without it pay is never taken from the form. */
-  payAccess: { canEditPay: boolean; userId?: string | null } = { canEditPay: false },
+/** Who saves an employee and what they may do (each checked by the caller from the server session). */
+export interface SaveEmployeeContext {
+  /** The acting user (documents, salary structure, audit). */
+  userId: string;
+  /** Self-service login: create one, and with which role (S44 decides what is allowed). */
+  access?: EmployeeAccessOptions;
+  /** Salary mapping → Edit: without it pay is never taken from the form. */
+  canEditPay: boolean;
   /** F13: needed to change an existing employee's bank, PAN or tax status (else they are kept). */
-  detailAccess: DetailSaveContext | null = null,
-  /** S44: may give logins roles (Users & roles → Edit), and who saves (never their own login's role). */
-  loginAccess: LoginAccessContext = { canManageLogins: false, actorUserId: null }
-): Promise<SaveEmployeeResult> {
+  detail?: DetailSaveContext | null;
+  /** S44: may give logins roles (Users & roles → Edit); never their own login's role. */
+  canManageLogins: boolean;
+  /** F15 import: a new employee's identity document may come without its scan (listed under records to fix). */
+  withoutScans?: boolean;
+}
+
+export async function saveEmployee(id: string | null, formData: EmployeeFormData, ctx: SaveEmployeeContext): Promise<SaveEmployeeResult> {
+  const accessOptions = ctx.access;
+  const payAccess = { canEditPay: ctx.canEditPay, userId: ctx.userId };
+  const detailAccess = ctx.detail ?? null;
+  const loginAccess: LoginAccessContext = { canManageLogins: ctx.canManageLogins, actorUserId: ctx.userId };
   // 1. Validate using engine
   const [allCodes, orgBranches, orgDepartments, orgDesignations, stored] = await Promise.all([
     repository.findAllCodes(),
@@ -368,7 +378,7 @@ export async function saveEmployee(
     dossier: normalizeDossier(formData.dossier),
   };
   const errors = {
-    ...engine.validateEmployee(formData),
+    ...engine.validateEmployee(formData, { scanRequired: !(ctx.withoutScans && !id) }),
     ...validateDossier(formData.dossier, { today: nepalDateIso(), joiningDate: formData.joiningDate }),
     // Codes are unique company-wide; say so on the field instead of failing on the constraint.
     ...engine.codeConflicts(allCodes, formData, id),

@@ -1,9 +1,9 @@
 import { getDb } from '@/lib/db';
 import { 
   employees, employeePersonal, employeeFamily, employeeBank, employeeTermination, departments, designations,
-  users
+  users, employeeDocuments
 } from '@/lib/db/schema';
-import { eq, and, ilike, or, SQL, sql } from 'drizzle-orm';
+import { eq, and, ilike, inArray, or, SQL, sql } from 'drizzle-orm';
 import type { Employee, EmployeeFilter, EmployeeStatus } from '@/lib/types/employee';
 import type { EmployeeDocumentInput } from '@/lib/types/employee-document';
 import { employeesNeedingSetup } from './salary-structure.repository';
@@ -256,6 +256,30 @@ export async function findAllCodes(): Promise<{ id: string; employeeCode: string
   return (await getDb())
     .select({ id: employees.id, employeeCode: employees.employeeCode, attendanceCode: employees.attendanceCode })
     .from(employees);
+}
+
+/** Citizenship / NID numbers and primary bank accounts on record, by employee code (the F15 import's duplicate check). */
+export async function findIdentityNumbers(): Promise<{ employeeCode: string; active: boolean; kind: 'identity' | 'account'; number: string }[]> {
+  const db = await getDb();
+  const [documents, accounts] = await Promise.all([
+    db
+      .select({ employeeCode: employees.employeeCode, status: employees.status, number: employeeDocuments.docNumber })
+      .from(employeeDocuments)
+      .innerJoin(employees, eq(employees.id, employeeDocuments.employeeId))
+      .where(inArray(employeeDocuments.docType, ['citizenship', 'nid'])),
+    db
+      .select({ employeeCode: employees.employeeCode, status: employees.status, number: employeeBank.accountNumber })
+      .from(employeeBank)
+      .innerJoin(employees, eq(employees.id, employeeBank.employeeId))
+      .where(eq(employeeBank.isPrimary, true)),
+  ]);
+  const row = (kind: 'identity' | 'account') => (r: { employeeCode: string; status: string | null; number: string | null }) => ({
+    employeeCode: r.employeeCode,
+    active: r.status === 'Active',
+    kind,
+    number: r.number ?? '',
+  });
+  return [...documents.map(row('identity')), ...accounts.map(row('account'))];
 }
 
 /** Ids in register order (by name, then code) within a scope: the record navigator's sequence. */
