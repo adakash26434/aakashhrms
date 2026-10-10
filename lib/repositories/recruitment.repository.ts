@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { applicants, approvedPositions, branches, designations, employees, vacancies } from '@/lib/db/schema';
+import { applicants, approvedPositions, branches, designations, employees, systemConfig, vacancies } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 
 // Recruitment & darbandi (G4): Drizzle queries only. Rules live in
@@ -156,4 +156,43 @@ export async function updateApplicant(
   const db = await getDb();
   const [row] = await db.update(applicants).set({ ...data, updatedBy: userId }).where(eq(applicants.id, id)).returning();
   return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Darbandi enforcement
+// ---------------------------------------------------------------------------
+
+/** Approved count and active headcount for one designation × branch; null when the board never approved the pair. */
+export async function occupancyFor(designationId: string, branchId: string): Promise<{ positions: number; filled: number } | null> {
+  const db = await getDb();
+  const [row] = await db
+    .select({
+      positions: approvedPositions.positions,
+      filled: sql<number>`(SELECT count(*)::int FROM ${employees} e WHERE e."designation_id" = ${approvedPositions.designationId} AND e."branch_id" = ${approvedPositions.branchId} AND e."status" = 'Active')`,
+    })
+    .from(approvedPositions)
+    .where(and(eq(approvedPositions.designationId, designationId), eq(approvedPositions.branchId, branchId), eq(approvedPositions.isActive, true)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function positionLabel(designationId: string, branchId: string): Promise<string> {
+  const db = await getDb();
+  const [d] = await db.select({ name: designations.name }).from(designations).where(eq(designations.id, designationId)).limit(1);
+  const [b] = await db.select({ name: branches.name }).from(branches).where(eq(branches.id, branchId)).limit(1);
+  return `${d?.name ?? 'This designation'} at ${b?.name ?? 'this branch'}`;
+}
+
+export async function readDarbandiMode(): Promise<string | null> {
+  const db = await getDb();
+  const [row] = await db.select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, 'darbandi.enforce')).limit(1);
+  return row?.value ?? null;
+}
+
+export async function writeDarbandiMode(mode: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .insert(systemConfig)
+    .values({ key: 'darbandi.enforce', value: mode, dataType: 'string' })
+    .onConflictDoUpdate({ target: systemConfig.key, set: { value: mode, updatedAt: new Date() } });
 }

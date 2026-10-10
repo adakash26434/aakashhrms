@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1883,4 +1883,206 @@ export const fundLedger = pgTable('fund_ledger', {
 }, (t) => ({
   onePerRef: unique('fund_ledger_ref_key').on(t.fundTypeId, t.employeeId, t.ref),
   employeeIdx: index('fund_ledger_employee_idx').on(t.employeeId, t.fundTypeId),
+}));
+
+// -----------------------------------------------------------------------------
+// DISCIPLINARY & GRIEVANCE CASES (G8 — docs/redesign/06-hrms-gap-analysis.md)
+// One case per matter: open → investigating → decided → closed. The subject
+// is the accused (disciplinary) or the complainant (grievance). Every step is
+// an append-only line in hr_case_events; termination is only ever
+// *recommended* here — the exit itself runs through the exit workflow.
+// -----------------------------------------------------------------------------
+
+export const hrCases = pgTable('hr_cases', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  category: varchar('category', { length: 15 }).notNull(), // disciplinary | grievance
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  severity: varchar('severity', { length: 10 }).notNull(), // minor | major | serious
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description').notNull(),
+  status: varchar('status', { length: 15 }).default('open').notNull(), // open | investigating | decided | closed
+  outcome: varchar('outcome', { length: 30 }),
+  outcomeNote: text('outcome_note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  openedBy: uuid('opened_by').notNull(),
+  openedAt: timestamp('opened_at').defaultNow().notNull(),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+}, (t) => ({
+  employeeIdx: index('hr_cases_employee_idx').on(t.employeeId),
+  statusIdx: index('hr_cases_status_idx').on(t.status),
+}));
+
+export const hrCaseEvents = pgTable('hr_case_events', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  caseId: uuid('case_id').references(() => hrCases.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // opened | note | status | decision | closed
+  text: text('text').notNull(),
+  actorId: uuid('actor_id'),
+  at: timestamp('at').defaultNow().notNull(),
+}, (t) => ({
+  caseIdx: index('hr_case_events_case_idx').on(t.caseId, t.at),
+}));
+
+// -----------------------------------------------------------------------------
+// TRAINING (G7 — docs/redesign/06-hrms-gap-analysis.md)
+// A programme moves planned → running → completed (or cancelled). Staff are
+// nominated and marked attended / absent / completed; a programme may carry a
+// service bond (months to stay after completion — the end date is derived).
+// -----------------------------------------------------------------------------
+
+export const trainingPrograms = pgTable('training_programs', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  provider: varchar('provider', { length: 200 }).default('').notNull(),
+  kind: varchar('kind', { length: 12 }).notNull(), // internal | external | regulatory
+  startAd: date('start_ad').notNull(),
+  endAd: date('end_ad').notNull(),
+  hours: numeric('hours', { precision: 7, scale: 2 }).notNull(),
+  cost: numeric('cost', { precision: 15, scale: 2 }).default('0').notNull(),
+  bondMonths: integer('bond_months').default(0).notNull(),
+  note: text('note'),
+  status: varchar('status', { length: 10 }).default('planned').notNull(), // planned | running | completed | cancelled
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  statusIdx: index('training_programs_status_idx').on(t.status),
+}));
+
+export const trainingParticipants = pgTable('training_participants', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  programId: uuid('program_id').references(() => trainingPrograms.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 10 }).default('nominated').notNull(), // nominated | attended | absent | completed
+  score: numeric('score', { precision: 5, scale: 2 }),
+  certificateNo: varchar('certificate_no', { length: 60 }),
+  markedBy: uuid('marked_by'),
+  markedAt: timestamp('marked_at'),
+  nominatedBy: uuid('nominated_by'),
+  nominatedAt: timestamp('nominated_at').defaultNow().notNull(),
+}, (t) => ({
+  onePerPerson: unique('training_participants_key').on(t.programId, t.employeeId),
+  employeeIdx: index('training_participants_employee_idx').on(t.employeeId),
+}));
+
+// -----------------------------------------------------------------------------
+// ASSETS & NOTICE BOARD (G14 — docs/redesign/06-hrms-gap-analysis.md)
+// assets: the register (laptop, phone, keys, ID card…); asset_handovers: who
+// holds what since when, returned when — an asset has at most one open
+// handover; the exit case shows unreturned items. notices: the board.
+// -----------------------------------------------------------------------------
+
+export const assets = pgTable('assets', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  tag: varchar('tag', { length: 50 }).notNull(), // asset tag / serial, unique
+  name: varchar('name', { length: 200 }).notNull(),
+  category: varchar('category', { length: 30 }).notNull(), // laptop | phone | key | id_card | vehicle | furniture | other
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
+  note: text('note'),
+  status: varchar('status', { length: 12 }).default('available').notNull(), // available | issued | retired
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  tagKey: unique('assets_tag_key').on(t.tag),
+  statusIdx: index('assets_status_idx').on(t.status),
+}));
+
+export const assetHandovers = pgTable('asset_handovers', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  issuedAd: date('issued_ad').notNull(),
+  returnedAd: date('returned_ad'),
+  condition: varchar('condition', { length: 12 }), // on return: good | damaged | lost
+  note: text('note'),
+  issuedBy: uuid('issued_by'),
+  returnedBy: uuid('returned_by'),
+}, (t) => ({
+  employeeIdx: index('asset_handovers_employee_idx').on(t.employeeId),
+  assetIdx: index('asset_handovers_asset_idx').on(t.assetId),
+}));
+
+export const notices = pgTable('notices', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  body: text('body').notNull(),
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }), // null = whole company
+  publishAd: date('publish_ad').notNull(),
+  expiresAd: date('expires_ad'),
+  pinned: boolean('pinned').default(false).notNull(),
+  status: varchar('status', { length: 10 }).default('published').notNull(), // draft | published | withdrawn
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  publishIdx: index('notices_publish_idx').on(t.status, t.publishAd),
+}));
+
+// -----------------------------------------------------------------------------
+// TRAVEL & DAILY ALLOWANCE — TA-DA (G11 — docs/redesign/06-hrms-gap-analysis.md)
+// travel_rates: the card (default or per designation). travel_claims: one trip
+// per claim; amounts are computed by the engine from the card in force when
+// the claim is saved and FROZEN on the row (a later card change never changes
+// an existing claim). draft → submitted → approved / rejected; settled when paid.
+// -----------------------------------------------------------------------------
+
+export const travelRates = pgTable('travel_rates', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  designationId: uuid('designation_id').references(() => designations.id, { onDelete: 'cascade' }), // null = default card
+  dailyAllowance: numeric('daily_allowance', { precision: 12, scale: 2 }).default('0').notNull(),
+  lodgingPerNight: numeric('lodging_per_night', { precision: 12, scale: 2 }).default('0').notNull(),
+  kmRate: numeric('km_rate', { precision: 8, scale: 2 }).default('0').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  onePerDesignation: unique('travel_rates_designation_key').on(t.designationId),
+}));
+
+export const travelClaims = pgTable('travel_claims', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  purpose: varchar('purpose', { length: 300 }).notNull(),
+  fromPlace: varchar('from_place', { length: 120 }).notNull(),
+  toPlace: varchar('to_place', { length: 120 }).notNull(),
+  startAd: date('start_ad').notNull(),
+  endAd: date('end_ad').notNull(),
+  mode: varchar('mode', { length: 15 }).notNull(),
+  km: numeric('km', { precision: 8, scale: 1 }).default('0').notNull(),
+  nights: integer('nights').default(0).notNull(),
+  fareActual: numeric('fare_actual', { precision: 12, scale: 2 }).default('0').notNull(),
+  lodgingActual: numeric('lodging_actual', { precision: 12, scale: 2 }).default('0').notNull(),
+  advance: numeric('advance', { precision: 12, scale: 2 }).default('0').notNull(),
+  // Frozen from the card when saved:
+  rateName: varchar('rate_name', { length: 100 }).default('').notNull(),
+  days: integer('days').notNull(),
+  dailyAllowance: numeric('daily_allowance', { precision: 12, scale: 2 }).notNull(),
+  lodging: numeric('lodging', { precision: 12, scale: 2 }).notNull(),
+  travel: numeric('travel', { precision: 12, scale: 2 }).notNull(),
+  gross: numeric('gross', { precision: 12, scale: 2 }).notNull(),
+  payable: numeric('payable', { precision: 12, scale: 2 }).notNull(),
+  note: text('note'),
+  status: varchar('status', { length: 10 }).default('draft').notNull(), // draft | submitted | approved | rejected | settled
+  decisionNote: text('decision_note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  settledAt: timestamp('settled_at'),
+  /** The payroll run that paid this claim (settled through payroll); null when settled by hand or still open. */
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('travel_claims_employee_idx').on(t.employeeId, t.startAd),
+  statusIdx: index('travel_claims_status_idx').on(t.status),
 }));

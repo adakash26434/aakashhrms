@@ -80,7 +80,7 @@ function flowOf(run: PayrollRun): ApprovalFlow {
   return run.approvalType === "multi_level" ? { type: "multi_level", levels: run.approvalLevels ?? [] } : { type: "simple", levels: run.approvalLevels ?? [] };
 }
 
-/** The run as an approval request. Subject employees are left out on purpose: see S34 in 03. */
+/** The run as an approval request. Subject employees are left out on purpose: see S40 in 03. */
 function requestOf(run: PayrollRun): ApprovalRequest {
   return {
     status: run.status === "UNDER_REVIEW" ? "pending" : run.status === "DRAFT" ? "withdrawn" : "approved",

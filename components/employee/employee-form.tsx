@@ -274,12 +274,12 @@ export function EmployeeForm({ ctx }: { ctx: EmployeeFormContext }) {
       return;
     }
     setBaseline(data); // saved: leaving no longer asks
-    const { employee, provisionedAccess, accessWarning } = result.data;
+    const { employee, provisionedAccess, accessWarning, darbandiWarning } = result.data;
     const next = () => finish(another, employee.id, data);
     if (provisionedAccess) {
       setNotice({ kind: "login", name: employee.fullName, email: provisionedAccess.email, tempPassword: provisionedAccess.tempPassword, next });
-    } else if (accessWarning) {
-      setNotice({ kind: "warning", message: accessWarning, next });
+    } else if (accessWarning || darbandiWarning) {
+      setNotice({ kind: "warning", message: [accessWarning, darbandiWarning].filter(Boolean).join(" "), next });
     } else {
       next();
     }

@@ -5,11 +5,11 @@ import { join, relative, sep } from 'node:path';
 import { authConfig } from '../lib/auth/auth.config';
 
 // Redesign Phase 1 invariants (docs/redesign/02-design-system.md §3, §7).
-// The entry pages (marketing homepage, login) keep their website styling until
+// The entry page (login) keeps its website styling until
 // Phase 6, so they are exempt from the in-app rules.
 
 const root = join(__dirname, '..');
-const ENTRY_PAGES = new Set(['components/home/home-page-client.tsx', 'app/(auth)/login/page.tsx']);
+const ENTRY_PAGES = new Set(['app/(auth)/login/page.tsx']);
 
 function tsxFiles(dir: string): string[] {
   const out: string[] = [];

@@ -21,6 +21,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
+import * as feedsRepository from "@/lib/repositories/payroll-feeds.repository";
 import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
@@ -40,7 +41,6 @@ import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { periodFor, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
 import * as fundRepository from "@/lib/repositories/fund.repository";
-import { recomputeTotals } from "@/lib/repositories/payroll-run.repository";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
 
@@ -296,6 +296,18 @@ export async function generatePayrollRun(
   const empIds = scopedEmployees.map(e => e.id);
   const leaveOtByEmployeeId = runType === "REGULAR" ? await attendanceForPayroll(empIds, period) : new Map<string, Awaited<ReturnType<typeof attendanceForPayroll>> extends Map<string, infer V> ? V : never>();
 
+  // 5b. Feeds from other modules (4.8): approved TA-DA claims whose trip ended in or before the
+  // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
+  // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
+  // as fixed one-off heads; the engine's statutory maths is untouched.
+  // Regular runs only (merge 2026-10-10): a bonus run must not settle claims it does not pay.
+  const feedsApply = runType === "REGULAR";
+  const [feedHeadRows, claimsByEmployee, fundByEmployee] = await Promise.all([
+    feedsRepository.feedHeads(),
+    feedsApply ? feedsRepository.approvedClaimsByEmployee(empIds, endStr) : Promise.resolve(new Map() as Awaited<ReturnType<typeof feedsRepository.approvedClaimsByEmployee>>),
+    feedsApply ? feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth) : Promise.resolve(new Map() as Awaited<ReturnType<typeof feedsRepository.fundContributionsByEmployee>>),
+  ]);
+
   // 6. Verify that there are no pending (unapproved) leave applications in the period
   const pendingLeaves = await (await getDb()).select({ count: sql`count(*)` }).from(leaveApplications).where(
     and(
@@ -311,8 +323,8 @@ export async function generatePayrollRun(
     throw new PendingLeaveApplicationsError(pendingCount);
   }
 
-  // Income tax slabs of the active fiscal year only (4.8a: every year's slabs used to be loaded).
-  const slabs = (await taxRateRepository.findAllSlabs()).filter((x) => x.fiscalYearId === activeFy.id);
+  // Load the run's fiscal year's tax slabs (4.8 fix: every year's slabs stacked up before).
+  const slabs = await taxRateRepository.findSlabsByFiscalYear(activeFy.id);
   const taxSlabInputs = slabs.map(s => ({
     id: s.id,
     category: s.category,
@@ -493,6 +505,18 @@ export async function generatePayrollRun(
       isManualOverride: false,
     });
 
+    // 0. One-off feeds for this employee (4.8): TA-DA reimbursement and the welfare-fund deduction.
+    const claimFeed = claimsByEmployee.get(emp.id);
+    if (claimFeed && feedHeadRows.tada && Number(claimFeed.payable) !== 0) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.tada), amount: claimFeed.payable, isManualOverride: true });
+    }
+    const fundFeed = fundByEmployee.get(emp.id);
+    // One welfare-fund deduction only (merge 2026-10-10): the 4.8a per-fund deduction
+    // (fundDeduction / fundDetail) wins; the WELFARE_FUND head is used only when it is absent.
+    if (fundFeed && feedHeadRows.welfare && !(fundsByEmployeeId.get(emp.id) ?? []).length) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundFeed, isManualOverride: true });
+    }
+
     // 1. TDS is required for every employee
     if (!assignedHeads.some((h) => h.isTdsHead)) {
       const tdsMaster = allPayHeads.find((h) => h.isTdsHead);
@@ -661,6 +685,10 @@ export async function generatePayrollRun(
     return run;
   });
 
+  // The claims this run pays are settled once the run exists (claim-first on status; the FK
+  // needs the committed run). A failed run above leaves them approved and unpaid.
+  await feedsRepository.settleClaimsThroughRun([...claimsByEmployee.values()].flatMap((c) => c.ids), runRecord.id);
+
   logger.info('Payroll run generated', {
     runId: runRecord.id,
     payPeriodMonth,
@@ -754,7 +782,7 @@ export async function overridePayslipAllowanceDeduction(
     const currentSlipHeads = await repository.findSlipHeadsBySlipId(slipId);
     const allPayHeads = await tx.select().from(payHeads);
     const systemControl = await systemControlRepository.findSettings();
-    const slabs = (await taxRateRepository.findAllSlabs()).filter((x) => x.fiscalYearId === run.fiscalYearId);
+    const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
     const taxSlabInputs = slabs.map(s => ({
       id: s.id,
       category: s.category,
@@ -870,9 +898,6 @@ export async function overridePayslipAllowanceDeduction(
       }
     }
 
-    // The run's totals are always the sum of its payslips (4.8a).
-    await recomputeTotals(run.id, tx);
-
     // Log to audit trail
     const finalUpdatedSlip = await repository.findSlipById(slipId);
     await tx.insert(auditLogs).values({
@@ -885,6 +910,9 @@ export async function overridePayslipAllowanceDeduction(
       newValues: finalUpdatedSlip
     });
   });
+
+  // Totals from the committed payslips (4.8 fix: summing inside the transaction read the old slip).
+  await repository.refreshRunTotals(run.id);
 }
 
 // -----------------------------------------------------------------------------
@@ -929,6 +957,8 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
     throw new PayrollLockedError();
   }
 
+  // A deleted draft gives its TA-DA claims back before the row goes.
+  await feedsRepository.releaseClaimsOfRun(runId);
   await repository.deletePayrollRun(runId);
 
   await (await getDb()).insert(auditLogs).values({
@@ -955,8 +985,9 @@ export async function deleteEmployeePayslip(slipId: string, userId: string): Pro
   // Delete slip (cascades to slip heads in DB)
   await repository.deletePayrollSlip(slipId);
 
-  // The run's totals and employee count are the sum of the payslips left (4.8a).
-  await recomputeTotals(run.id);
+  // Totals and employee count from the remaining payslips (4.8 fix).
+  await repository.refreshRunTotals(run.id);
+
   const remainingSlips = await repository.findSlipsByRunId(run.id);
 
   await (await getDb()).insert(auditLogs).values({
@@ -1033,8 +1064,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     }
   }
 
-  // Load tax slabs & system control
-  const slabs = (await taxRateRepository.findAllSlabs()).filter((x) => x.fiscalYearId === run.fiscalYearId);
+  // Load the run's fiscal year's tax slabs & system control
+  const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
   const fundLines = (await fundRepository.contributionsForMonth([emp.id], run.payPeriodYear, run.payPeriodMonth)).get(emp.id) ?? null;
   const fundDeduction = (fundLines ?? []).reduce((n, l) => n.plus(new Decimal(l.employeeAmount || 0)), new Decimal(0)).toDecimalPlaces(2).toString();
   const taxSlabInputs = slabs.map(s => ({
@@ -1202,9 +1233,6 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       );
     }
 
-    // The run's totals are always the sum of its payslips (4.8a).
-    await recomputeTotals(run.id, tx);
-
     await tx.insert(auditLogs).values({
       userId,
       action: 'EDIT',
@@ -1215,6 +1243,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
       newValues: { action: 'Recalculated from master data' }
     });
   });
+
+  // Totals from the committed payslips (4.8 fix).
+  await repository.refreshRunTotals(run.id);
 
   return getPayslipWithHeads(slipId);
 }

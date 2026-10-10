@@ -11,11 +11,14 @@ export const metadata: Metadata = {
   description: "Promotions, transfers and confirmations as dated records with letters.",
 };
 
-export default async function LifecyclePage() {
+export default async function LifecyclePage({ searchParams }: { searchParams?: Promise<{ new?: string; employee?: string }> }) {
+  const params = (await searchParams) ?? {};
   await ensureTenantContext();
   // Events change the employee record, so they live under EMPLOYEES.
   const scope = await checkPermissionWithScope("VIEW", "EMPLOYEES");
   const [add, issueLetter] = await Promise.all([hasPermission("EDIT", "EMPLOYEES"), hasPermission("ADD", "HR_LETTERS")]);
   const data = await eventsPage(scope, { add, cancel: add, issueLetter });
-  return <LifecycleClient data={data} />;
+  // Deep link from the promotion ranking: open the new-event window pre-filled (the server still validates everything).
+  const preset = add && params.new === 'promotion' && typeof params.employee === 'string' && /^[0-9a-f-]{36}$/i.test(params.employee) ? { kind: 'promotion', employeeId: params.employee } : null;
+  return <LifecycleClient data={data} preset={preset} />;
 }

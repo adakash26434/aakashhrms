@@ -1,3 +1,6 @@
+import { checkPlacement } from '@/lib/services/darbandi.service';
+import { findAllEmploymentTypes } from '@/lib/repositories/employment-type.repository';
+import { finalTotals } from '@/lib/repositories/promotion.repository';
 import * as repo from '@/lib/repositories/employee-event.repository';
 import * as letterRepo from '@/lib/repositories/letter.repository';
 import * as letterService from '@/lib/services/letter.service';
@@ -15,6 +18,7 @@ import {
   validateCancelReason,
   validateEventForm,
   type EventKind,
+  confirmationGate,
 } from '@/lib/engines/employee-event.engine';
 import { buildEmployeeScopeCondition, type ScopeFilter } from '@/lib/auth/scope-filter';
 import { DENIED_SELF, isOwnRecord } from '@/lib/auth/self-action';
@@ -136,6 +140,28 @@ export async function createEvent(raw: unknown, ctx: EventCtx): Promise<CreateEv
     department: (id) => name(departments, id, 'toDepartmentId'),
   });
 
+  // Probation gating: a confirmation waits for the employment type's probation period and
+  // notes a missing final का.स.मू. evaluation.
+  let probationWarning: string | null = null;
+  if (kind === 'confirmation') {
+    const [types, finals] = await Promise.all([findAllEmploymentTypes(), finalTotals([employee!.id])]);
+    const type = types.find((t) => t.name.toLowerCase() === employee!.category.toLowerCase() || t.code.toLowerCase() === employee!.category.toLowerCase());
+    const gate = confirmationGate(employee!.joiningDate, form.effectiveDateAd, type?.probationMonths ?? 0, (finals.get(employee!.id) ?? []).length > 0);
+    if (gate.blocker) throw new EventValidationError({ effectiveDateAd: gate.blocker });
+    probationWarning = gate.warning;
+  }
+
+  // Darbandi (G4): the post the person will hold after the event (promotion: new designation at
+  // the current or new branch; transfer: new branch) — warn or block per company setting.
+  const darbandiWarning =
+    changes.patch.designationId || changes.patch.branchId
+      ? await checkPlacement({
+          designationId: changes.patch.designationId ?? employee!.designationId,
+          branchId: changes.patch.branchId ?? employee!.branchId,
+          current: { designationId: employee!.designationId, branchId: employee!.branchId },
+        })
+      : null;
+
   const effectiveDateBs = adToBSString(new Date(`${form.effectiveDateAd}T00:00:00`));
   const row = await repo.insertEventTx(
     {
@@ -183,7 +209,7 @@ export async function createEvent(raw: unknown, ctx: EventCtx): Promise<CreateEv
   }
 
   const saved = await repo.findEventById(row.id);
-  return { event: toListRow(saved!), letterId, letterWarning };
+  return { event: toListRow(saved!), letterId, letterWarning: [letterWarning, darbandiWarning, probationWarning].filter(Boolean).join(' ') || null };
 }
 
 export async function cancelScheduledEvent(id: string, reason: string, ctx: EventCtx): Promise<EventListRow> {

@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { availableActions } from '../lib/engines/approval.engine';
 
-// S34 (4.8a): payroll runs — maker-checker, never your own payslip, scoped permissions, audit.
+// S40 (4.8a): payroll runs — maker-checker, never your own payslip, scoped permissions, audit.
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 
-describe('S34 payroll run approval', () => {
+describe('S40 payroll run approval', () => {
   const service = read('lib/services/payroll-run.service.ts');
   const actions = read('app/actions/payroll-run.actions.ts');
 
@@ -88,7 +88,7 @@ describe('S21 on payslips (4.8a): never your own', () => {
   });
 });
 
-describe('S35 pay calendar and year-to-date tax (4.8b)', () => {
+describe('S41 pay calendar and year-to-date tax (4.8b)', () => {
   const service = read('lib/services/payroll.service.ts');
   const runService = read('lib/services/payroll-run.service.ts');
   const repo = read('lib/repositories/payroll.repository.ts');
@@ -123,7 +123,7 @@ describe('S35 pay calendar and year-to-date tax (4.8b)', () => {
   });
 });
 
-describe('S35 arrears (4.8b)', () => {
+describe('S41 arrears (4.8b)', () => {
   const service = read('lib/services/arrears.service.ts');
   const runService = read('lib/services/payroll-run.service.ts');
 
@@ -159,5 +159,17 @@ describe('S35 arrears (4.8b)', () => {
     assert.match(attendance, /export async function reopenMonth[\s\S]*?const afterLock = \(await repo\.countFinalisedPayrollRuns\(period\.calendar, period\.year, period\.month\)\) > 0;/);
     assert.match(attendance, /export async function reopenMonth[\s\S]*?reason\.length < 3[\s\S]*?Give a reason for reopening/);
     assert.match(read('app/actions/attendance.actions.ts'), /event: result\.afterLock \? 'REOPEN_AFTER_LOCK' : 'REOPEN'/);
+  });
+});
+
+describe('Merge with main (2026-10-10): the payroll feeds and the 4.8a fund deduction', () => {
+  const service = read('lib/services/payroll.service.ts');
+
+  it('one welfare-fund deduction per payslip: the WELFARE_FUND head only when the per-fund deduction is absent', () => {
+    assert.match(service, /if \(fundFeed && feedHeadRows\.welfare && !\(fundsByEmployeeId\.get\(emp\.id\) \?\? \[\]\)\.length\)/);
+  });
+
+  it('TA-DA claims and fund feeds are read for regular runs only (a bonus run never settles claims it does not pay)', () => {
+    assert.match(service, /const feedsApply = runType === "REGULAR";[\s\S]*?feedsApply \? feedsRepository\.approvedClaimsByEmployee\(empIds, endStr\)/);
   });
 });

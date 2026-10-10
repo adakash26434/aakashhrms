@@ -223,12 +223,15 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
 
   it('the run totals are recomputed from the payslips after every change (the stored totals used to drift)', () => {
     assert.doesNotMatch(service, /updatePayrollRunTotals/);
-    assert.equal((service.match(/recomputeTotals\(run\.id/g) ?? []).length, 3);
+    // Merged with main (2026-10-10): the team's refreshRunTotals, after each transaction commits.
+    assert.doesNotMatch(service, /recomputeTotals\(/);
+    assert.equal((service.match(/await repository\.refreshRunTotals\(run\.id\)/g) ?? []).length, 3);
   });
 
   it('income tax slabs come from the active fiscal year only, and the month dates from the BS month itself', () => {
-    assert.match(service, /findAllSlabs\(\)\)\.filter\(\(x\) => x\.fiscalYearId === activeFy\.id\)/);
-    assert.equal((service.match(/\.filter\(\(x\) => x\.fiscalYearId === run\.fiscalYearId\)/g) ?? []).length, 2);
+    assert.match(service, /findSlabsByFiscalYear\(activeFy\.id\)/);
+    assert.equal((service.match(/findSlabsByFiscalYear\(run\.fiscalYearId\)/g) ?? []).length, 2);
+    assert.doesNotMatch(service, /findAllSlabs\(\)/);
     assert.match(service, /export async function generatePayrollRun[\s\S]*?periodFor\(calendar, payPeriodYear, payPeriodMonth\)/);
     assert.doesNotMatch(service, /getBSMonthRange/);
   });

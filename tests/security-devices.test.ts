@@ -104,3 +104,12 @@ describe('S30 management screen', () => {
     assert.match(importFn, /devicePush\(device\.serialNo, 'ATTLOG'/);
   });
 });
+
+describe('S30 devices: unknown serials cannot fan out across tenants', () => {
+  it('misses are cached (bounded) before any company database is scanned', () => {
+    const src = readFileSync(join(__dirname, '..', 'lib/services/device-tenant.ts'), 'utf8');
+    assert.match(src, /MISS_MAX/);
+    assert.ok(src.indexOf('recentlyMissed(serialNo)') < src.indexOf('platformDb.select'), 'miss check before the scan');
+    assert.match(src, /rememberMiss\(serialNo\)/);
+  });
+});

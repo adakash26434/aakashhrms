@@ -1,3 +1,4 @@
+import { darbandiMode as readDarbandiMode } from '@/lib/services/darbandi.service';
 import * as repo from '@/lib/repositories/recruitment.repository';
 import { findAllDesignations } from '@/lib/repositories/designation.repository';
 import { findAllBranches } from '@/lib/repositories/branch.repository';
@@ -41,11 +42,12 @@ const scopeBranchIds = (scope: ScopeFilter): string[] | undefined => (scope.scop
 
 export async function recruitmentPage(ctx: RecruitmentCtx, permissions: { manage: boolean }): Promise<RecruitmentPageData> {
   const branchIds = scopeBranchIds(ctx.scope);
-  const [positions, vacancyRows, designations, branches] = await Promise.all([
+  const [positions, vacancyRows, designations, branches, darbandiMode] = await Promise.all([
     repo.listPositions(branchIds),
     repo.listVacancies(branchIds),
     findAllDesignations(),
     findAllBranches(),
+    readDarbandiMode(),
   ]);
   return {
     positions: positions.map((p) => {
@@ -65,6 +67,7 @@ export async function recruitmentPage(ctx: RecruitmentCtx, permissions: { manage
         isActive: p.isActive,
       };
     }),
+    darbandiMode,
     vacancies: vacancyRows.map((v) => ({
       id: v.id,
       designationId: v.designationId,

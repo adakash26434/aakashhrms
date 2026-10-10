@@ -12,6 +12,8 @@ import {
   validateMarks,
   validatePositionForm,
   validateVacancyForm,
+  darbandiDecision,
+  asDarbandiMode,
 } from '../lib/engines/recruitment.engine';
 
 // Recruitment & darbandi (G4): stage pipeline, occupancy and merit order.
@@ -87,5 +89,24 @@ describe('merit order', () => {
     assert.equal(ranks.get('b'), 3);
     assert.equal(ranks.get('d'), undefined);
     assert.equal(ranks.get('e'), undefined);
+  });
+});
+
+describe('darbandi enforcement', () => {
+  const full = occupancy(2, 2);
+  const open = occupancy(3, 1);
+  it('off is silent; warn allows with a message; block refuses', () => {
+    assert.deepEqual(darbandiDecision('off', 'Officer at HO', null), { allowed: true, message: null });
+    assert.deepEqual(darbandiDecision('warn', 'Officer at HO', open), { allowed: true, message: null });
+    const warn = darbandiDecision('warn', 'Officer at HO', full);
+    assert.ok(warn.allowed && /full: 2 of 2/.test(warn.message ?? ''));
+    const block = darbandiDecision('block', 'Officer at HO', full);
+    assert.ok(!block.allowed && /Add positions/.test(block.message ?? ''));
+    assert.ok(!darbandiDecision('block', 'Officer at HO', null).allowed, 'unapproved post is refused in block mode');
+  });
+
+  it('unknown modes fall back to warn', () => {
+    assert.equal(asDarbandiMode('strict'), 'warn');
+    assert.equal(asDarbandiMode('block'), 'block');
   });
 });

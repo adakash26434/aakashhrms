@@ -19,6 +19,11 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'PERFORMANCE',
     'RECRUITMENT',
     'WELFARE_FUNDS',
+    'DISCIPLINE',
+    'TRAINING',
+    'ASSETS',
+    'NOTICE_BOARD',
+    'TRAVEL',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -802,7 +807,7 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
-  // Payroll run (4.8a, migration 0056): run type, the approval flow, who submitted, the variance
+  // Payroll run (4.8a, migration 0061): run type, the approval flow, who submitted, the variance
   // review; fund contributions on payslips. Additive only.
   for (const q of [
     `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`,
@@ -819,11 +824,11 @@ ON CONFLICT DO NOTHING`);
     try {
       await sql.unsafe(q);
     } catch (err) {
-      console.error("[tenant-schema-sync] payroll run 0056:", err instanceof Error ? err.message.slice(0, 200) : err);
+      console.error("[tenant-schema-sync] payroll run 0061:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
 
-  // Pay calendar and year-to-date tax (4.8b, migration 0057): runs carry their calendar, payslips
+  // Pay calendar and year-to-date tax (4.8b, migration 0062): runs carry their calendar, payslips
   // keep the tax projection, and the month summaries are keyed by (employee, calendar, year,
   // month). The old (employee, fiscal year, bs_month) constraint goes once the period index is in.
   for (const q of [
@@ -845,11 +850,11 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     try {
       await sql.unsafe(q);
     } catch (err) {
-      console.error("[tenant-schema-sync] pay calendar 0057:", err instanceof Error ? err.message.slice(0, 200) : err);
+      console.error("[tenant-schema-sync] pay calendar 0062:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
 
-  // Arrears (4.8b, migration 0058): one row per source month on an arrears payslip. Additive.
+  // Arrears (4.8b, migration 0063): one row per source month on an arrears payslip. Additive.
   for (const q of [
     `CREATE TABLE IF NOT EXISTS "arrears_items" (
   "id" uuid PRIMARY KEY NOT NULL,
@@ -873,11 +878,11 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     try {
       await sql.unsafe(q);
     } catch (err) {
-      console.error("[tenant-schema-sync] arrears 0058:", err instanceof Error ? err.message.slice(0, 200) : err);
+      console.error("[tenant-schema-sync] arrears 0063:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
 
-  // Final settlement (4.8b, migration 0059): the run's exit case and the slip's settlement detail. Additive.
+  // Final settlement (4.8b, migration 0064): the run's exit case and the slip's settlement detail. Additive.
   for (const q of [
     `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "exit_case_id" uuid REFERENCES "exit_cases"("id") ON DELETE SET NULL`,
     `CREATE INDEX IF NOT EXISTS "payroll_runs_exit_case_idx" ON "payroll_runs" ("exit_case_id")`,
@@ -886,7 +891,7 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     try {
       await sql.unsafe(q);
     } catch (err) {
-      console.error("[tenant-schema-sync] final settlement 0059:", err instanceof Error ? err.message.slice(0, 200) : err);
+      console.error("[tenant-schema-sync] final settlement 0064:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
 
@@ -1304,6 +1309,294 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     } catch {
       // Ignored until the referenced tables exist, or until the RECRUITMENT enum
       // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Disciplinary & grievance cases (G8, migration 0055): cases, their append-only
+  // timeline, plus the DISCIPLINE permission module (the 0047 pattern).
+  const disciplineQueries = [
+    `CREATE TABLE IF NOT EXISTS "hr_cases" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "category" varchar(15) NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "severity" varchar(10) NOT NULL,
+        "title" varchar(200) NOT NULL,
+        "description" text NOT NULL,
+        "status" varchar(15) DEFAULT 'open' NOT NULL,
+        "outcome" varchar(30),
+        "outcome_note" text,
+        "decided_by" uuid,
+        "decided_at" timestamp,
+        "opened_by" uuid NOT NULL,
+        "opened_at" timestamp DEFAULT now() NOT NULL,
+        "closed_by" uuid,
+        "closed_at" timestamp
+      )`,
+    `CREATE TABLE IF NOT EXISTS "hr_case_events" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "case_id" uuid NOT NULL REFERENCES "hr_cases"("id") ON DELETE CASCADE,
+        "kind" varchar(12) NOT NULL,
+        "text" text NOT NULL,
+        "actor_id" uuid,
+        "at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "hr_cases_employee_idx" ON "hr_cases" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "hr_cases_status_idx" ON "hr_cases" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "hr_case_events_case_idx" ON "hr_case_events" ("case_id", "at")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':DISCIPLINE')::uuid, a::action, 'DISCIPLINE'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'DISCIPLINE'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'APPROVE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of disciplineQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the DISCIPLINE enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Training (G7, migration 0056): programmes and participants, plus the TRAINING
+  // permission module (the 0047 pattern).
+  const trainingQueries = [
+    `CREATE TABLE IF NOT EXISTS "training_programs" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "title" varchar(200) NOT NULL,
+        "provider" varchar(200) DEFAULT '' NOT NULL,
+        "kind" varchar(12) NOT NULL,
+        "start_ad" date NOT NULL,
+        "end_ad" date NOT NULL,
+        "hours" numeric(7,2) NOT NULL,
+        "cost" numeric(15,2) DEFAULT 0 NOT NULL,
+        "bond_months" integer DEFAULT 0 NOT NULL,
+        "note" text,
+        "status" varchar(10) DEFAULT 'planned' NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE TABLE IF NOT EXISTS "training_participants" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "program_id" uuid NOT NULL REFERENCES "training_programs"("id") ON DELETE CASCADE,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "status" varchar(10) DEFAULT 'nominated' NOT NULL,
+        "score" numeric(5,2),
+        "certificate_no" varchar(60),
+        "marked_by" uuid,
+        "marked_at" timestamp,
+        "nominated_by" uuid,
+        "nominated_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "training_participants_key" UNIQUE ("program_id", "employee_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "training_programs_status_idx" ON "training_programs" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "training_participants_employee_idx" ON "training_participants" ("employee_id")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':TRAINING')::uuid, a::action, 'TRAINING'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'TRAINING'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of trainingQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the TRAINING enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Assets & notice board (G14, migration 0057): register, handovers, notices,
+  // plus the ASSETS and NOTICE_BOARD permission modules (the 0047 pattern).
+  const assetNoticeQueries = [
+    `CREATE TABLE IF NOT EXISTS "assets" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "tag" varchar(50) NOT NULL,
+        "name" varchar(200) NOT NULL,
+        "category" varchar(30) NOT NULL,
+        "branch_id" uuid REFERENCES "branches"("id") ON DELETE SET NULL,
+        "note" text,
+        "status" varchar(12) DEFAULT 'available' NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "assets_tag_key" UNIQUE ("tag")
+      )`,
+    `CREATE TABLE IF NOT EXISTS "asset_handovers" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "asset_id" uuid NOT NULL REFERENCES "assets"("id") ON DELETE CASCADE,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "issued_ad" date NOT NULL,
+        "returned_ad" date,
+        "condition" varchar(12),
+        "note" text,
+        "issued_by" uuid,
+        "returned_by" uuid
+      )`,
+    `CREATE TABLE IF NOT EXISTS "notices" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "title" varchar(200) NOT NULL,
+        "body" text NOT NULL,
+        "branch_id" uuid REFERENCES "branches"("id") ON DELETE CASCADE,
+        "publish_ad" date NOT NULL,
+        "expires_ad" date,
+        "pinned" boolean DEFAULT false NOT NULL,
+        "status" varchar(10) DEFAULT 'published' NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "assets_status_idx" ON "assets" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "asset_handovers_employee_idx" ON "asset_handovers" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "asset_handovers_asset_idx" ON "asset_handovers" ("asset_id")`,
+    `CREATE INDEX IF NOT EXISTS "notices_publish_idx" ON "notices" ("status", "publish_ad")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':ASSETS')::uuid, a::action, 'ASSETS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'ASSETS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':NOTICE_BOARD')::uuid, a::action, 'NOTICE_BOARD'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'NOTICE_BOARD'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'DELETE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of assetNoticeQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the enum values from
+      // step 1 are committed (the next sync pass completes it).
+    }
+  }
+
+  // TA-DA (G11, migration 0058): rate cards and travel claims, plus the TRAVEL
+  // permission module (the 0047 pattern).
+  const travelQueries = [
+    `CREATE TABLE IF NOT EXISTS "travel_rates" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "name" varchar(100) NOT NULL,
+        "designation_id" uuid REFERENCES "designations"("id") ON DELETE CASCADE,
+        "daily_allowance" numeric(12,2) DEFAULT 0 NOT NULL,
+        "lodging_per_night" numeric(12,2) DEFAULT 0 NOT NULL,
+        "km_rate" numeric(8,2) DEFAULT 0 NOT NULL,
+        "is_active" boolean DEFAULT true NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "travel_rates_designation_key" UNIQUE ("designation_id")
+      )`,
+    `CREATE TABLE IF NOT EXISTS "travel_claims" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "purpose" varchar(300) NOT NULL,
+        "from_place" varchar(120) NOT NULL,
+        "to_place" varchar(120) NOT NULL,
+        "start_ad" date NOT NULL,
+        "end_ad" date NOT NULL,
+        "mode" varchar(15) NOT NULL,
+        "km" numeric(8,1) DEFAULT 0 NOT NULL,
+        "nights" integer DEFAULT 0 NOT NULL,
+        "fare_actual" numeric(12,2) DEFAULT 0 NOT NULL,
+        "lodging_actual" numeric(12,2) DEFAULT 0 NOT NULL,
+        "advance" numeric(12,2) DEFAULT 0 NOT NULL,
+        "rate_name" varchar(100) DEFAULT '' NOT NULL,
+        "days" integer NOT NULL,
+        "daily_allowance" numeric(12,2) NOT NULL,
+        "lodging" numeric(12,2) NOT NULL,
+        "travel" numeric(12,2) NOT NULL,
+        "gross" numeric(12,2) NOT NULL,
+        "payable" numeric(12,2) NOT NULL,
+        "note" text,
+        "status" varchar(10) DEFAULT 'draft' NOT NULL,
+        "decision_note" text,
+        "decided_by" uuid,
+        "decided_at" timestamp,
+        "settled_at" timestamp,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "travel_claims_employee_idx" ON "travel_claims" ("employee_id", "start_ad")`,
+    `CREATE INDEX IF NOT EXISTS "travel_claims_status_idx" ON "travel_claims" ("status")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':TRAVEL')::uuid, a::action, 'TRAVEL'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'TRAVEL'
+        AND (r."slug" = 'system_admin' OR (r."slug" = 'hr_manager' AND p."action" IN ('VIEW', 'ADD', 'EDIT', 'APPROVE')) OR (r."slug" = 'payroll_controller' AND p."action" IN ('VIEW', 'LOCK')))
+      WHERE r."slug" IN ('system_admin', 'hr_manager', 'payroll_controller')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of travelQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the TRAVEL enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Payroll feeds (4.8, migration 0059): TA-DA claims paid through the run and
+  // the welfare-fund deduction, with their two system pay heads.
+  const payrollFeedQueries = [
+    `ALTER TABLE "travel_claims" ADD COLUMN IF NOT EXISTS "payroll_run_id" uuid REFERENCES "payroll_runs"("id") ON DELETE SET NULL`,
+    `CREATE INDEX IF NOT EXISTS "travel_claims_run_idx" ON "travel_claims" ("payroll_run_id")`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:TADA')::uuid, 'TADA', 'Travel / TA-DA reimbursement', 'allowance', false, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'TADA')`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:WELFARE_FUND')::uuid, 'WELFARE_FUND', 'Welfare fund contribution', 'deduction', false, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'WELFARE_FUND')`,
+  ];
+  for (const q of payrollFeedQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until travel_claims / pay_heads exist.
     }
   }
 

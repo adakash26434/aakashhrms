@@ -19,12 +19,14 @@ interface NewEventWindowProps {
   open: boolean;
   onClose: () => void;
   data: EventsPageData;
+  /** Pre-filled from a deep link (promotion ranking); still editable. */
+  preset?: { kind: string; employeeId: string } | null;
   onSaved: (message: string, letterId: string | null, warning: string | null) => void;
 }
 
-export function NewEventWindow({ open, onClose, data, onSaved }: NewEventWindowProps) {
-  const [employeeId, setEmployeeId] = useState("");
-  const [kind, setKind] = useState("");
+export function NewEventWindow({ open, onClose, data, preset = null, onSaved }: NewEventWindowProps) {
+  const [employeeId, setEmployeeId] = useState(preset?.employeeId ?? "");
+  const [kind, setKind] = useState(preset?.kind ?? "");
   const [effectiveDateAd, setEffectiveDateAd] = useState("");
   const [toDesignationId, setToDesignationId] = useState("");
   const [toBranchId, setToBranchId] = useState("");

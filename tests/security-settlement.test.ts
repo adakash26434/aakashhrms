@@ -7,7 +7,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace
 
 // 4.8b-3 Final settlement and the working period: the server decides everything.
 
-describe('S36 final settlement (4.8b)', () => {
+describe('S42 final settlement (4.8b)', () => {
   const service = read('lib/services/settlement.service.ts');
   const payroll = read('lib/services/payroll.service.ts');
   const runService = read('lib/services/payroll-run.service.ts');

@@ -33,6 +33,11 @@ export type ModuleType =
   | 'HR_LETTERS'
   | 'PERFORMANCE'
   | 'RECRUITMENT'
+  | 'DISCIPLINE'
+  | 'TRAINING'
+  | 'ASSETS'
+  | 'NOTICE_BOARD'
+  | 'TRAVEL'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -167,6 +172,36 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         label: 'Recruitment & Darbandi',
         description: 'Approved positions (दरबन्दी), vacancies and applicants with exam/interview marks: Add opens positions, vacancies and applicants, Edit moves stages and marks',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'TRAVEL',
+        label: 'Travel & TA-DA',
+        description: 'Travel / field-visit claims and the TA-DA rate card: Add records a claim, Edit changes drafts and the card, Approve decides, Lock marks it settled (paid)',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
+      },
+      {
+        key: 'ASSETS',
+        label: 'Assets',
+        description: 'Company assets and who holds them (laptops, phones, keys, ID cards): Add registers and issues, Edit returns and retires',
+        allowedActions: ['VIEW', 'ADD', 'EDIT'],
+      },
+      {
+        key: 'NOTICE_BOARD',
+        label: 'Notice board',
+        description: 'Company and branch notices on the Home screen: Add posts, Edit changes, Delete withdraws',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+      },
+      {
+        key: 'TRAINING',
+        label: 'Training',
+        description: 'Training programmes, nominations, attendance, scores and service bonds: Add creates programmes and nominates, Edit changes them and marks participants',
+        allowedActions: ['VIEW', 'ADD', 'EDIT'],
+      },
+      {
+        key: 'DISCIPLINE',
+        label: 'Discipline & Grievance',
+        description: 'Disciplinary and grievance cases (confidential): Add opens a case, Edit investigates, adds notes and closes, Approve records the decision',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE'],
       },
       {
         key: 'PERFORMANCE',

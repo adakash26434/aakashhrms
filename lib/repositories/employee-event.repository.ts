@@ -32,6 +32,7 @@ export async function findEmployeeSnapshot(employeeId: string, scopeCondition?: 
       branch: branches.name,
       category: employees.category,
       confirmationDate: employees.confirmationDate,
+      joiningDate: employees.joiningDate,
       status: employees.status,
     })
     .from(employees)

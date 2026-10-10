@@ -29,6 +29,7 @@ export interface EmployeeSnapshot {
   branch: string;
   category: string;
   confirmationDate: string | null; // YYYY-MM-DD
+  joiningDate: string; // YYYY-MM-DD
   status: string;
 }
 
@@ -196,4 +197,37 @@ export function validateCancelReason(reason: string): string | null {
   if (r.length < 5) return 'Give the reason this event is being cancelled (at least 5 characters).';
   if (r.length > 500) return 'Keep the reason under 500 characters.';
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Probation gating (G1 / G2 follow-up)
+// ---------------------------------------------------------------------------
+
+/** ISO date `months` after `iso`, day clamped (31 Jan + 1 → 28/29 Feb). */
+export function probationEndsOn(joiningDate: string, probationMonths: number): string {
+  const [y, m, d] = joiningDate.split('-').map(Number);
+  const total = y * 12 + (m - 1) + probationMonths;
+  const year = Math.floor(total / 12);
+  const month = (total % 12) + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
+}
+
+export interface ConfirmationGate {
+  /** Null when the confirmation may go ahead; otherwise why it is refused. */
+  blocker: string | null;
+  /** Advice that does not stop the confirmation (e.g. no evaluation on file). */
+  warning: string | null;
+}
+
+/**
+ * A confirmation (स्थायी) is refused while the employment type's probation
+ * period is still running on the effective date; it goes ahead with a warning
+ * when no final का.स.मू. evaluation is on file (the bylaw usually wants one).
+ */
+export function confirmationGate(joiningDate: string, effectiveDateAd: string, probationMonths: number, hasFinalEvaluation: boolean): ConfirmationGate {
+  const ends = probationMonths > 0 ? probationEndsOn(joiningDate, probationMonths) : null;
+  const blocker = ends && effectiveDateAd < ends ? `The probation period (${probationMonths} months from ${joiningDate}) runs until ${ends}; a confirmation cannot take effect before that.` : null;
+  const warning = !blocker && !hasFinalEvaluation ? 'No final का.स.मू. evaluation is on file for this employee; the confirmation was recorded without one.' : null;
+  return { blocker, warning };
 }

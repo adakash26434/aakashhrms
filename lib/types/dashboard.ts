@@ -241,6 +241,8 @@ export interface DashboardFilters {
   branches: { id: string; name: string }[];
 }
 
+import type { BoardNotice } from '@/lib/types/notice';
+
 export interface DashboardData {
   generatedAt: string;
   todayIso: string;
@@ -263,6 +265,8 @@ export interface DashboardData {
   onLeaveToday: { name: string; leaveType: string; until: string }[] | null;
   headcount: { name: string; count: number }[] | null;
   activity: DashboardActivity[] | null;
+  /** Notice board (G14): what this reader is addressed today; everyone signed in gets it. */
+  notices: BoardNotice[] | null;
   /** Sections that failed to load; shown in place as error panels. */
   failed: string[];
 }

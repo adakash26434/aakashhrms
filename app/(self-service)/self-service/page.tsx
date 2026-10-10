@@ -21,6 +21,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fmt } from "@/lib/engines/leave.engine";
+import { essLang } from "@/lib/i18n/ess-server";
+import { t } from "@/lib/i18n/ess";
+import { myNotices } from "@/lib/services/ess-extras.service";
+import { EssNoticeBoard } from "@/components/self-service/ess-notice-board";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +34,7 @@ export const metadata = {
 };
 
 export default async function SelfServiceDashboardPage() {
+  const lang = await essLang();
   let dashboard;
   try {
     dashboard = await getSelfServiceDashboard();
@@ -62,6 +67,7 @@ export default async function SelfServiceDashboardPage() {
   const emp = dashboard.employee;
   const payslip = dashboard.latestPayslip;
   const leave = dashboard.leaveBalance;
+  const notices = await myNotices(5).catch(() => []);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -72,10 +78,10 @@ export default async function SelfServiceDashboardPage() {
               <CalendarDays className="h-3.5 w-3.5 text-payroll-primary" />
               <span>{dashboard.activeFiscalYear?.label || "Current fiscal year"}</span>
               <span className="text-zinc-300">·</span>
-              <span>Personal workspace</span>
+              <span>{t(lang, "home.workspace")}</span>
             </div>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-payroll-navy sm:text-4xl">
-              Hello, {emp?.fullName || "Employee"}
+              {t(lang, "home.hello")}, {emp?.fullName || "Employee"}
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
               {emp?.designationName || "Staff"} · {emp?.departmentName || "Department"}
@@ -95,19 +101,21 @@ export default async function SelfServiceDashboardPage() {
 
       <section aria-labelledby="quick-actions-title" className="overflow-hidden bg-transparent sm:rounded-xl sm:border sm:border-payroll-light/80 sm:bg-white sm:shadow-payroll-xs">
         <div className="grid grid-cols-2 divide-x divide-y divide-zinc-200/70 py-3 sm:grid-cols-4 sm:divide-y-0 sm:py-4">
-          <QuickAction href="/self-service/my-leave" title="Apply leave" description="Request time off" icon={Plus} />
-          <QuickAction href="/self-service/my-payslips" title="View payslip" description="Open salary statement" icon={FileText} />
-          <QuickAction href="/self-service/my-attendance" title="Attendance" description="Review your records" icon={Clock} />
-          <QuickAction href="/self-service/my-loans" title="Request loan" description="Apply or view loans" icon={Banknote} />
+          <QuickAction href="/self-service/my-leave" title={t(lang, "home.applyLeave")} description={t(lang, "home.applyLeaveHint")} icon={Plus} />
+          <QuickAction href="/self-service/my-payslips" title={t(lang, "home.viewPayslip")} description={t(lang, "home.viewPayslipHint")} icon={FileText} />
+          <QuickAction href="/self-service/my-attendance" title={t(lang, "home.attendance")} description={t(lang, "home.attendanceHint")} icon={Clock} />
+          <QuickAction href="/self-service/my-loans" title={t(lang, "home.requestLoan")} description={t(lang, "home.requestLoanHint")} icon={Banknote} />
         </div>
       </section>
 
       <section aria-labelledby="personal-summary-title" className="grid grid-cols-2 divide-x divide-payroll-light/70 border-y border-payroll-light/70 bg-white sm:grid-cols-4">
-        <DashboardMetric icon={Clock} label="Attendance" value="—" subtext="Current month" href="/self-service/my-attendance" />
-        <DashboardMetric icon={CalendarDays} label="Leave left" value={`${fmt(leave.totalBalance)} days`} subtext={`${fmt(leave.totalTaken)} taken of ${fmt(leave.totalAllotted)} allotted`} href="/self-service/my-leave" />
-        <DashboardMetric icon={Wallet} label="Last net pay" value={payslip ? `NPR ${Number(payslip.netPayable).toLocaleString("en-NP")}` : "—"} subtext={payslip ? `${payslip.payPeriodMonth}/${payslip.payPeriodYear} BS` : "No payslip yet"} href="/self-service/my-payslips" />
-        <DashboardMetric icon={Clock3} label="Open requests" value={String(dashboard.pendingLeaveCount)} subtext="Awaiting review" href="/self-service/my-leave" />
+        <DashboardMetric icon={Clock} label={t(lang, "home.attendance")} value="—" subtext={t(lang, "home.currentMonth")} href="/self-service/my-attendance" />
+        <DashboardMetric icon={CalendarDays} label={t(lang, "home.leaveLeft")} value={`${fmt(leave.totalBalance)} ${t(lang, "home.days")}`} subtext={`${fmt(leave.totalTaken)} ${t(lang, "home.takenOf")} ${fmt(leave.totalAllotted)} ${t(lang, "home.allotted")}`} href="/self-service/my-leave" />
+        <DashboardMetric icon={Wallet} label={t(lang, "home.lastNetPay")} value={payslip ? `NPR ${Number(payslip.netPayable).toLocaleString("en-NP")}` : "—"} subtext={payslip ? `${payslip.payPeriodMonth}/${payslip.payPeriodYear} BS` : t(lang, "home.noPayslip")} href="/self-service/my-payslips" />
+        <DashboardMetric icon={Clock3} label={t(lang, "home.openRequests")} value={String(dashboard.pendingLeaveCount)} subtext={t(lang, "home.awaitingReview")} href="/self-service/my-leave" />
       </section>
+
+      {notices.length > 0 && <EssNoticeBoard notices={notices} title={t(lang, "home.noticeBoard")} empty={t(lang, "home.noNotices")} compact />}
 
       <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
         <LatestPayslip payslip={payslip} />

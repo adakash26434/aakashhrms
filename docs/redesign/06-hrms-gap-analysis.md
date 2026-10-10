@@ -216,3 +216,26 @@ clearance hook. Build last; both are small template-A screens.
 - [MoHA — कार्यसम्पादन मूल्याङ्कन forms](https://www.moha.gov.np/page/performance-evaluation) · [half-yearly form](https://daodarchula.moha.gov.np/post/half-yearly-work-editing-evaluation-form)
 - [Cooperative Rules 2075](https://lawcommission.gov.np/content/13046/13046-cooperative-regulation-2075/)
 - [ZKTeco ADMS push integration example](https://apps.odoo.com/apps/modules/17.0/zkteco_adms_attendance)
+
+## Hardening pass (senior review) and next plan
+
+Done on `feature/phase-g-hardening`:
+- Exit Complete now deactivates the exited employee's login in the same transaction (before: employee Inactive but the user could still sign in).
+- `/iclock` serial lookup keeps a bounded 60 s negative cache, so unauthenticated unknown-serial requests no longer scan every company database.
+
+Still to review/do (ordered by value for a sahakari):
+1. ~~Welfare-fund payout at exit~~ — step 1 done: the exit case shows fund balances held (read-only); the payout is still posted under Funds (S33 separation). Done: Complete is blocked while a fund balance is held. (use the exit case facts; Bonus Act 2030 §13 welfare-fund and the Contribution-based Social Security Act are the statutory neighbours — cooperative staff funds follow the bylaw, so keep rates/caps as per-company config).
+2. G8 Disciplinary & grievance, G7 Training, G13 HR analytics and COPOMIS/DoC returns.
+3. दरबन्दी enforcement in hiring / promotion / transfer; promotion score composite (का.स.मू. + seniority) feeding the बढुवा event.
+4. G10 core-banking voucher export — needs real Pumari / MFin / FinPro sample files from the customer.
+5. Duplicate device serial across two companies resolves to the first active match; consider a platform-level serial registry.
+
+6. G8 Disciplinary & grievance — **done** (`/workforce/discipline`, DISCIPLINE module, migration 0055, S34). Debt: show-cause/warning letters from the decision (needs HR_LETTERS templates), attachments, appeal step.
+7. G7 Training — **done** (`/workforce/training`, TRAINING module, migration 0056, S35). Service bonds show on the exit case. Debt: training needs from evaluation gaps, budget per fiscal year, certificates as documents.
+8. G13 HR analytics + DoC/COPOMIS staff return — **done** (`/reports/hr-analytics`, EMPLOYEES VIEW within scope, no migration). Debt: the official COPOMIS upload format (needs the DoC template from the customer); monthly trend series; pay-cost analytics stay with payroll reports.
+9. G14 Assets + notice board — **done** (`/workforce/assets`, `/workforce/notices`, ASSETS and NOTICE_BOARD modules, migration 0057, S37). Exit Complete is blocked while assets are out; Home shows the board. Debt: asset photos / invoices, bulk import, notice acknowledgement (read receipts) for ESS (Phase 5).
+10. G11 TA-DA — **done** (`/payroll/travel`, TRAVEL module, migration 0058, S38). Rate card default / per designation; amounts frozen per claim. Debt: feed approved claims into a payroll head (4.8), ESS self-claim (Phase 5), receipts as attachments, per-claim BS dates in the print view.
+11. दरबन्दी enforcement — **done**: hire (employee form), promotion and transfer (lifecycle events) check the approved positions; company setting off / warn (default) / block under Recruitment → दरबन्दी. Debt: manpower-request approval before a vacancy; promotion score composite (का.स.मू. + seniority).
+12. Promotion score composite — **done** (`/workforce/promotion`, PERFORMANCE VIEW; weights under PERFORMANCE LOCK; computed never stored; deep link to the बढुवा lifecycle event). Debt: probation gating on the confirmation event; written-exam marks as a fourth component where the bylaw has one.
+13. Payroll feeds — **done**: approved TA-DA claims paid through the run (TADA head), welfare-fund employee share deducted (WELFARE_FUND head), claims settled by the run / released on delete. Open 4.8 items proper: arrears for back-dated revisions, settlement (F8) maths, maker-checker on the run.
+14. G12 Nepali ESS groundwork — **done**: language toggle (EN/NP dictionary), portal notices, my training, my travel claims. Debt: translate the older portal pages (leave, payslips, loans) with the same dictionary; Nepali numerals option; notice read-receipts.
