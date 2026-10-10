@@ -22,7 +22,8 @@ import {
   findUserByEmail,
   updateUser as updateUserRepository,
 } from "@/lib/repositories/user.repository";
-import { EMPLOYEE_ROLE_SLUG } from "@/lib/auth/employee-self-service-role";
+import { EMPLOYEE_ROLE_SLUG, EMPLOYEE_ROLE_SLUG_FALLBACK } from "@/lib/auth/employee-self-service-role";
+import { DENIED_SELF } from "@/lib/auth/self-action";
 import { employeeInScope } from "@/lib/engines/leave.engine";
 import { recordAuditLog } from "@/lib/services/audit.service";
 import { isUuid } from "@/lib/utils/uuid";
@@ -189,6 +190,19 @@ export interface EmployeeAccessOptions {
 }
 
 /**
+ * Who saves, for the self-service login (S44): giving a login any role but the Employee one, or
+ * changing a linked login's role, needs Users & roles → Edit (as in Admin → Users), and never on
+ * one's own login; the email of a login with an office role follows the record only with it too.
+ */
+export interface LoginAccessContext {
+  canManageLogins: boolean;
+  actorUserId: string | null;
+}
+
+/** The self-service roles (the canonical Employee role and its legacy slug). */
+export const isSelfServiceRole = (slug: string | null | undefined) => slug === EMPLOYEE_ROLE_SLUG || slug === EMPLOYEE_ROLE_SLUG_FALLBACK;
+
+/**
  * Keeps the employee's self-service login in sync with the employee record.
  *
  * - Unlinked employee with a real email -> creates a linked user with the
@@ -208,30 +222,38 @@ export interface EmployeeAccessOptions {
 async function syncEmployeeUserAccess(
   employee: Employee,
   loginEmail: string,
-  accessOptions?: EmployeeAccessOptions
+  accessOptions: EmployeeAccessOptions | undefined,
+  guard: LoginAccessContext
 ): Promise<{
   provisionedAccess?: EmployeeAccessProvisioning;
   accessWarning?: string;
 }> {
   const email = loginEmail.trim().toLowerCase();
-  const roleSlug = accessOptions?.roleSlug || EMPLOYEE_ROLE_SLUG;
+  let roleSlug = accessOptions?.roleSlug || EMPLOYEE_ROLE_SLUG;
   const roleId = accessOptions?.roleId;
+  const warnings: string[] = [];
 
   const linkedUser = await findUserByEmployeeId(employee.id);
 
   if (linkedUser) {
+    const access = await userService.getEmployeeAccess(employee.id);
+    const own = !!guard.actorUserId && linkedUser.id === guard.actorUserId;
+    // S44: a login with an office role (Branch HR, Payroll controller, …) is managed under Admin → Users.
+    const officeLogin = !isSelfServiceRole(access?.roleSlug);
+
     // Linked: keep the login email in sync with the employee record.
     if (email && linkedUser.email.trim().toLowerCase() !== email) {
       const conflict = await findUserByEmail(email);
       if (conflict && conflict.id !== linkedUser.id) {
-        return {
-          accessWarning: `Login email not updated: ${email} is already in use by another account.`,
-        };
+        warnings.push(`Login email not updated: ${email} is already in use by another account.`);
+      } else if (officeLogin && !guard.canManageLogins) {
+        warnings.push("Login email not updated: this login has an office role, so its email is changed under Admin → Users.");
+      } else {
+        await updateUserRepository(linkedUser.id, { email });
       }
-      await updateUserRepository(linkedUser.id, { email });
     }
 
-    // Role update support on existing linked user
+    // Role update support on existing linked user (S44: Users & roles → Edit, never one's own).
     let targetRoleId = roleId;
     if (!targetRoleId && accessOptions?.roleSlug) {
       const { findRoleBySlug } = await import("@/lib/repositories/role.repository");
@@ -239,11 +261,19 @@ async function syncEmployeeUserAccess(
       if (r) targetRoleId = r.id;
     }
 
-    if (targetRoleId) {
-      await updateUserRepository(linkedUser.id, {}, targetRoleId);
+    if (targetRoleId && targetRoleId !== access?.roleId) {
+      if (own) {
+        warnings.push("Role not changed: nobody changes the role of their own login.");
+        await recordAuditLog({ userId: guard.actorUserId, action: "EDIT", module: "USERS_ROLES", recordId: linkedUser.id, result: DENIED_SELF, newValues: { roleChange: true } });
+      } else if (!guard.canManageLogins) {
+        warnings.push("Role not changed: giving a login another role needs Users & roles → Edit.");
+        await recordAuditLog({ userId: guard.actorUserId, action: "EDIT", module: "USERS_ROLES", recordId: linkedUser.id, result: "DENIED_PERMISSION", newValues: { roleChange: true } });
+      } else {
+        await updateUserRepository(linkedUser.id, {}, targetRoleId);
+      }
     }
 
-    return {};
+    return warnings.length ? { accessWarning: warnings.join(" ") } : {};
   }
 
   // Unlinked: only provision when the toggle is on (or unspecified) and a real
@@ -257,11 +287,16 @@ async function syncEmployeeUserAccess(
 
   try {
     const { createSecureUserAccount } = await import("@/lib/services/user.service");
-    let resolvedSlug = roleSlug;
     if (roleId) {
       const { findRoleById } = await import("@/lib/repositories/role.repository");
       const r = await findRoleById(roleId);
-      if (r) resolvedSlug = r.slug;
+      if (r) roleSlug = r.slug;
+    }
+    // S44: a new login gets the Employee role unless the user may give roles (Users & roles → Edit).
+    let resolvedSlug = roleSlug;
+    if (!isSelfServiceRole(resolvedSlug) && !guard.canManageLogins) {
+      resolvedSlug = EMPLOYEE_ROLE_SLUG;
+      warnings.push("The login was given the Employee role: another role needs Users & roles → Edit.");
     }
 
     const { user, tempPassword } = await createSecureUserAccount(
@@ -290,6 +325,7 @@ async function syncEmployeeUserAccess(
         tempPassword,
         userName: user.name || employee.fullName,
       },
+      ...(warnings.length ? { accessWarning: warnings.join(" ") } : {}),
     };
   } catch (err) {
     if (err instanceof Error && err.name === "UserExistsError") {
@@ -311,7 +347,9 @@ export async function saveEmployee(
   /** Salary mapping → Edit, checked by the action: without it pay is never taken from the form. */
   payAccess: { canEditPay: boolean; userId?: string | null } = { canEditPay: false },
   /** F13: needed to change an existing employee's bank, PAN or tax status (else they are kept). */
-  detailAccess: DetailSaveContext | null = null
+  detailAccess: DetailSaveContext | null = null,
+  /** S44: may give logins roles (Users & roles → Edit), and who saves (never their own login's role). */
+  loginAccess: LoginAccessContext = { canManageLogins: false, actorUserId: null }
 ): Promise<SaveEmployeeResult> {
   // 1. Validate using engine
   const [allCodes, orgBranches, orgDepartments, orgDesignations, stored] = await Promise.all([
@@ -499,7 +537,8 @@ export async function saveEmployee(
     const syncResult = await syncEmployeeUserAccess(
       updated,
       formData.companyEmail || formData.email || "",
-      accessOptions
+      accessOptions,
+      loginAccess
     );
 
     return { employee: updated, ...syncResult, darbandiWarning, detailChange };
@@ -513,7 +552,8 @@ export async function saveEmployee(
     const syncResult = await syncEmployeeUserAccess(
       employee,
       formData.companyEmail || formData.email || "",
-      accessOptions
+      accessOptions,
+      loginAccess
     );
 
     // Leave on hire (4.6b): yearly credits (sick 12, company types), pro-rata from joining, in
@@ -683,7 +723,9 @@ export async function getEmployeeFormContext(
   /** Salary mapping → Edit (the save checks it again). */
   canEditPay = false,
   /** Employees → Approve: decides what saving a change to bank, PAN or tax status does (F13). */
-  canApproveDetails = false
+  canApproveDetails = false,
+  /** Users & roles → Edit: may give a login another role (S44). */
+  canManageLogins = false
 ): Promise<EmployeeFormContext> {
   const noDetails: DetailFormInfo = { pending: null, onSave: "wait" };
   const [lookups, codes, employmentTypes, roles, access, details] = await Promise.all([
@@ -752,6 +794,8 @@ export async function getEmployeeFormContext(
           state: !access.isActive ? "disabled" : access.mustChangePassword ? "pending" : "active",
         }
       : null,
+    // S44: another role only with Users & roles → Edit, and never on one's own login.
+    roleChoice: !canManageLogins || scope.isImpersonation ? "employee_only" : access && access.userId === scope.userId ? "own_login" : "any",
     details,
   };
 }

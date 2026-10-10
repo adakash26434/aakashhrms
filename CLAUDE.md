@@ -64,6 +64,7 @@ These come from Phase 0 (`docs/redesign/03-security-plan.md`). `tests/security-i
 - **Raw SQL:** no `sql.raw()` with interpolated values; use Drizzle operators (`inArray`, `eq`) or `sql` template params.
 - **HTML from user input** (emails, print views): escape with `escapeHtml()`; no `dangerouslySetInnerHTML`.
 - **Secrets:** `AUTH_SECRET`, `PLATFORM_SESSION_SECRET` and `PLATFORM_SECRETS_KEY` are distinct (see `lib/security/secrets.ts`). Never read, print or commit `.env`.
+- **Logins from the employee record (S44):** the employee form gives a new login the Employee role and never changes a linked login's role, unless the user has Users & roles → Edit — and never on their own login (`syncEmployeeUserAccess`, `LoginAccessContext`). An office-role login's email follows the record and its password is reset from the record only with that permission (`assertMayResetLogin`); nobody issues a temporary password for their own login.
 - **Never your own pay record (S21):** approvals and corrections about the acting user's own employee record need someone else. Use `isOwnRecord` / `includesOwnRecord` (`lib/auth/self-action.ts`, on `ScopeFilter.employeeId`) and audit refusals as `DENIED_SELF`. A platform impersonation (`ScopeFilter.isImpersonation`) never counts as a company administrator.
 - Add a `tests/security-*.test.ts` case for any new guard. Where practical, confirm it fails on the old code.
 

@@ -411,6 +411,8 @@ export interface EmployeeFormContext {
   codes: { id: string; employeeCode: string; attendanceCode: string }[];
   roles: { id: string; name: string; slug: string }[];
   access: { email: string; roleId: string | null; roleName: string | null; state: "active" | "pending" | "disabled" } | null;
+  /** S44: which roles this user may give the login here (Users & roles → Edit; never one's own login). */
+  roleChoice: "any" | "employee_only" | "own_login";
   /** F13: a change to bank, PAN or tax status already waiting, and what saving one does for this user. */
   details: DetailFormInfo;
 }

@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 export default async function NewEmployeePage() {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("ADD", "EMPLOYEES");
-  const ctx = await getEmployeeFormContext(scope, null, await hasPermission("EDIT", "SALARY_MAPPING"));
+  const [canEditPay, canManageLogins] = await Promise.all([hasPermission("EDIT", "SALARY_MAPPING"), hasPermission("EDIT", "USERS_ROLES")]);
+  const ctx = await getEmployeeFormContext(scope, null, canEditPay, false, canManageLogins);
   return <EmployeeForm ctx={ctx} />;
 }
