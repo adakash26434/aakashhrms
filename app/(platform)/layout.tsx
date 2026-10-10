@@ -1,15 +1,12 @@
 import React from "react";
-import Image from "next/image";
-import { headers, cookies } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Shield, Sparkles } from "lucide-react";
+import { Shield } from "lucide-react";
 import { PlatformLogoutButton } from "@/components/platform/platform-logout-button";
 import { PlatformNav } from "@/components/platform/platform-nav";
-import {
-  verifyPlatformSession,
-  PLATFORM_COOKIE_NAME,
-} from "@/lib/platform/auth";
+import { verifyPlatformSession } from "@/lib/platform/auth";
 import { DateFormatProvider } from "@/lib/contexts/date-format-context";
+import { BrandMark } from "@/components/frame/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -44,16 +41,8 @@ export default async function PlatformLayout({
       <header className="h-15 border-b border-white/10 bg-payroll-navy px-5 sm:px-6 flex items-center justify-between shrink-0 z-40 shadow-payroll-sm">
         {/* Brand */}
         <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-white overflow-hidden flex items-center justify-center shadow-2xs border border-white/20">
-            <Image
-              src="/AakashHrmsLogo.jpeg"
-              alt="AakashHRMS Control Plane"
-              width={36}
-              height={36}
-              className="object-cover h-full w-full"
-              priority
-              unoptimized
-            />
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-2xs border border-white/20">
+            <BrandMark size={30} alt="AakashHRMS Control Plane" priority />
           </div>
           <div>
             <div className="flex items-center space-x-2">

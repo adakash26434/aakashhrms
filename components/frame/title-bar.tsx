@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, HelpCircle, Menu, Search } from "lucide-react";
 import { DateFormatMenu } from "@/components/ui/date-format-menu";
@@ -10,6 +9,7 @@ import { ClockButton } from "./clock-button";
 import { NotificationBell } from "./notification-bell";
 import { UserMenu } from "./user-menu";
 import { WorkingPeriodPill } from "./working-period-pill";
+import { BrandMark } from "./brand";
 
 /** Title bar (2.2): brand, command trigger, calendar, fiscal year, alerts, account. */
 export function TitleBar({ context }: { context?: WorkspaceContext }) {
@@ -32,9 +32,7 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
         </button>
 
         <Link href="/dashboard" className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1" aria-label="AakashHRMS home">
-          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md border border-line bg-white">
-            <Image src="/AakashHrmsLogo.jpeg" alt="" width={28} height={28} className="h-full w-full object-cover" priority unoptimized />
-          </span>
+          <BrandMark size={32} priority />
           <span className="hidden text-sm font-semibold tracking-tight text-ink sm:inline">
             Aakash<span className="text-brand-red">HRMS</span>
           </span>

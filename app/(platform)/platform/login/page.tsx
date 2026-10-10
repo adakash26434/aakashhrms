@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, AlertCircle, ArrowRight, Eye, EyeOff, Shield } from "lucide-react";
+import { Lock, Mail, AlertCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/frame/brand";
 
 export default function SuperAdminLoginPage() {
   const router = useRouter();
@@ -35,8 +35,8 @@ export default function SuperAdminLoginPage() {
 
       router.push("/platform");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Invalid Super Admin credentials.");
+    } catch (err: unknown) {
+      setError((err instanceof Error && err.message) || "Invalid Super Admin credentials.");
     } finally {
       setLoading(false);
     }
@@ -50,16 +50,8 @@ export default function SuperAdminLoginPage() {
       <div className="w-full max-w-md relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-white overflow-hidden flex items-center justify-center mx-auto shadow-payroll-md border border-payroll-light/80">
-            <Image
-              src="/AakashHrmsLogo.jpeg"
-              alt="AakashHRMS Control Plane"
-              width={64}
-              height={64}
-              className="object-cover h-full w-full"
-              priority
-              unoptimized
-            />
+          <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center mx-auto shadow-payroll-md border border-payroll-light/80">
+            <BrandMark size={52} alt="AakashHRMS Control Plane" priority />
           </div>
           <div>
             <div className="flex items-center justify-center gap-2">

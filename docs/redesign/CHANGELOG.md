@@ -13,6 +13,18 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-10 — Brand: a clean, uncropped logo everywhere
+Branch: `fix/brand-logo` (from `main`; asked for on the sign-in page and the self-service header)
+Changed:
+- The original logo (1600 × 800 with wide margins and its tagline inside) was shrunk into a 40 px line on the sign-in page and cropped by `object-cover` into square tiles ("Aakash H" in self-service, the title bar, the lock screen and the platform pages). The favicon, `icon.png` and `apple-icon.png` were the same wide image.
+- `public/brand/` (cut from the original, nothing redrawn): `aakash-hrms-logo.png` (the mark with "Aakash HRMS" and its underline, margins trimmed), `aakash-hrms-mark.png` / `-128.png` (the three people and the swoosh, square), `aakash-hrms-logo-tagline.png` and `og-image.png` (1200 × 630 for shared links). `app/favicon.ico` is a real 16 / 32 / 48 icon, `app/icon.png` 512 and `app/apple-icon.png` 180 on white, all from the mark; the root layout's hand-written icon links and `icons` config are gone (Next's file icons win anyway).
+- `components/frame/brand.tsx`: `BrandMark` (square places: title bar, lock screen, self-service side bar and phone bar, platform login and header) and `BrandLogo` (sign-in). The sign-in page shows the logo at 56–64 px with the tagline as sharp text below it; the self-service wordmark is "Aakash**HRMS**" in the logo's green and red like the title bar.
+- Lint cleanup in the two platform files touched (unused imports, `catch (err: any)`).
+
+Verified: type-check 0 · tests 1646/1646 · eslint clean on touched files · build exit 0 · browser at 1440 and 390 (2× pixels): sign-in logo sharp and whole with the tagline below; title bar mark + "AakashHRMS"; self-service header mark + "AakashHRMS / Self-Service Portal"; `/favicon.ico` 16 / 32 / 48, `<head>` lists favicon, `icon.png` 512 and `apple-icon.png` 180.
+
+---
+
 ## 2026-10-10 — Security S58: payroll endpoints and scope
 Branch: `fix/s58-payroll-scope` (from `main`)
 Found while merging: the payroll screens the workspace replaced left eleven exported server actions behind (status changes without the approval flow, generation without pre-flight, payslip changes with no scope check), and the workspace itself listed and acted on every run for branch- or department-scoped roles. A browser could also send a made-up overtime working with a payslip change.

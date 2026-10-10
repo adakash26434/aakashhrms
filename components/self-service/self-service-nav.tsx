@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Banknote, Target, Users, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, Receipt, ReceiptText, ScrollText, Shield, UserCircle } from "lucide-react";
@@ -10,6 +9,7 @@ import { logoutAction } from "@/app/actions/auth.actions";
 import { setEssLanguageAction } from "@/app/actions/ess-extras.actions";
 import { t, type EssKey, type EssLang } from "@/lib/i18n/ess";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/frame/brand";
 
 interface SelfServiceNavProps {
   userEmail: string;
@@ -57,11 +57,11 @@ export function SelfServiceNav({ userEmail, scopeType, lang, hasTeam = false }: 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-payroll-border bg-white sm:flex print:hidden">
         <div className="flex min-h-16 items-center border-b border-payroll-border px-5">
           <Link href="/self-service" className="flex items-center gap-2.5 text-base font-bold tracking-tight text-payroll-navy">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-payroll-border bg-white shadow-2xs">
-              <Image src="/AakashHrmsLogo.jpeg" alt="AakashHRMS" width={36} height={36} className="h-full w-full object-cover" unoptimized />
-            </div>
+            <BrandMark size={40} />
             <div className="flex flex-col leading-none">
-              <span className="text-sm font-bold">AakashHRMS</span>
+              <span className="text-sm font-bold">
+                Aakash<span className="text-brand-red">HRMS</span>
+              </span>
               <span className="mt-1 text-2xs font-bold text-payroll-primary">{t(lang, "nav.portal")}</span>
             </div>
           </Link>
@@ -94,17 +94,10 @@ export function SelfServiceNav({ userEmail, scopeType, lang, hasTeam = false }: 
               className="flex items-center gap-2 sm:hidden"
               aria-label="AakashHRMS Self-Service home"
             >
-              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-payroll-border bg-white shadow-2xs">
-                <Image
-                  src="/AakashHrmsLogo.jpeg"
-                  alt="AakashHRMS"
-                  width={32}
-                  height={32}
-                  className="h-full w-full object-cover"
-                  unoptimized
-                />
+              <BrandMark size={32} />
+              <span className="text-xs font-bold tracking-tight text-payroll-navy">
+                Aakash<span className="text-brand-red">HRMS</span>
               </span>
-              <span className="text-xs font-bold tracking-tight text-payroll-navy">AakashHRMS</span>
             </Link>
           </div>
 

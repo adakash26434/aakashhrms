@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { getImpersonationSession } from "@/lib/platform/impersonation";
 import { LoginForm } from "./login-form";
+import { BrandLogo } from "@/components/frame/brand";
 
 export const metadata = {
   title: "Sign in | AakashHRMS",
@@ -31,9 +31,9 @@ export default async function LoginPage() {
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-[#f4f8f5] px-4 py-10 font-sans">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <Image src="/AakashHrmsLogo.png" alt="AakashHRMS" width={176} height={48} className="h-10 w-auto object-contain" priority />
-          <p className="text-xs font-medium text-slate-500">Smart People, Strong Organization</p>
+        <div className="mb-7 flex flex-col items-center gap-2.5 text-center">
+          <BrandLogo className="h-14 sm:h-16" priority />
+          <p className="text-sm font-medium tracking-wide text-slate-500">Smart People, Strong Organization</p>
         </div>
 
         <section aria-labelledby="login-title" className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-[0_8px_30px_rgba(16,185,129,0.08)] sm:p-8">

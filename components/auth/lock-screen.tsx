@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import Image from "next/image";
 import { Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { signOutFromLockAction, unlockSessionAction } from "@/app/actions/session-lock.actions";
 import { useClientReady } from "@/lib/hooks/use-client-ready";
+import { BrandMark } from "@/components/frame/brand";
 
 function initials(name: string): string {
   const parts = name.trim().split(/[\s@._-]+/).filter(Boolean);
@@ -61,9 +61,7 @@ export function LockScreen({
       <main className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-lg">
           <div className="mb-5 flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md border border-line bg-white">
-              <Image src="/AakashHrmsLogo.jpeg" alt="" width={28} height={28} className="h-full w-full object-cover" unoptimized />
-            </span>
+            <BrandMark size={28} />
             <span className="text-sm font-semibold text-ink">
               Aakash<span className="text-brand-red">HRMS</span>
             </span>

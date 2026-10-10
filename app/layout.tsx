@@ -51,16 +51,6 @@ export const metadata: Metadata = {
   creator: "Aakash Digital",
   publisher: "Aakash HRMS",
   applicationName: "Aakash HRMS",
-  icons: {
-    icon: [
-      { url: "/AakashHrmsLogo.png", sizes: "any", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
-    ],
-    shortcut: "/AakashHrmsLogo.png",
-    apple: [
-      { url: "/AakashHrmsLogo.png", sizes: "180x180", type: "image/png" },
-    ],
-  },
   openGraph: {
     type: "website",
     locale: "en_NP",
@@ -71,7 +61,7 @@ export const metadata: Metadata = {
     siteName: "Aakash HRMS",
     images: [
       {
-        url: "/AakashHrmsLogo.png",
+        url: "/brand/og-image.png",
         width: 1200,
         height: 630,
         alt: "Aakash HRMS - Smart People, Strong Organization",
@@ -83,7 +73,7 @@ export const metadata: Metadata = {
     title: "Aakash HRMS — Smart People, Strong Organization",
     description:
       "Enterprise Nepal-compliant payroll & workforce management system.",
-    images: ["/AakashHrmsLogo.png"],
+    images: ["/brand/og-image.png"],
   },
 };
 
@@ -97,10 +87,6 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <head>
-        <link rel="icon" href="/AakashHrmsLogo.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/AakashHrmsLogo.png" />
-      </head>
       <body className="min-h-full flex flex-col font-sans">
         <ToastProvider>{children}</ToastProvider>
       </body>
