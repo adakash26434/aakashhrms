@@ -11,7 +11,7 @@ import {
   loans, loanRepayments, loanTypes,
   fiscalYears, departments, designations, branches,
 } from '@/lib/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, isNull, isNotNull } from 'drizzle-orm';
 import * as leaveService from '@/lib/services/leave.service';
 import * as homeLeaveService from '@/lib/services/home-leave.service';
 import { assertSessionUsable } from '@/lib/auth/session-updates';
@@ -127,11 +127,18 @@ export async function getMyProfile() {
 // My Payslips
 // ---------------------------------------------------------------------------
 
+/** F3: the conditions that make a payslip visible to its employee (see `slipVisibleToEmployee`). */
+function visibleToEmployee() {
+  return [eq(payrollRuns.status, 'LOCKED'), isNotNull(payrollRuns.publishedAt), isNull(payrollSlips.heldAt)];
+}
+
 export async function getMyPayslips(fiscalYearId?: string) {
   const { employeeId } = await getSessionEmployeeId();
   const db = await getDbAsync();
 
-  const conditions = [eq(payrollSlips.employeeId, employeeId)];
+  // F3: only payslips of locked, published runs, and not one held back (before this, any
+  // payslip in any status — drafts included — was visible in the portal).
+  const conditions = [eq(payrollSlips.employeeId, employeeId), ...visibleToEmployee()];
 
   if (fiscalYearId) {
     conditions.push(eq(payrollRuns.fiscalYearId, fiscalYearId));
@@ -181,11 +188,13 @@ export async function getMyPayslipDetail(payslipId: string) {
   const db = await getDbAsync();
 
   // Verify the payslip belongs to this employee
-  const [slip] = await db
-    .select()
+  const [row] = await db
+    .select({ slip: payrollSlips })
     .from(payrollSlips)
-    .where(and(eq(payrollSlips.id, payslipId), eq(payrollSlips.employeeId, employeeId)))
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(eq(payrollSlips.id, payslipId), eq(payrollSlips.employeeId, employeeId), ...visibleToEmployee()))
     .limit(1);
+  const slip = row?.slip;
 
   if (!slip) {
     throw new Error('Payslip not found or you do not have access to view it.');

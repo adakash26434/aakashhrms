@@ -144,6 +144,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["training", "talim", "programme", "course", "certificate", "bond", "workshop"],
       },
       {
+        id: "targets",
+        label: "Targets",
+        href: "/workforce/targets",
+        icon: ListChecks,
+        description: "Monthly and yearly targets, reported achievements and supervisor review",
+        requires: ["TARGETS"],
+        keywords: ["target", "achievement", "kpi", "monthly", "yearly", "goal", "lakshya", "pragati"],
+      },
+      {
         id: "assets",
         label: "Assets",
         href: "/workforce/assets",
@@ -296,6 +305,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         description: "Staff welfare, medical and gratuity funds: contributions, balances, payouts",
         requires: ["WELFARE_FUNDS"],
         keywords: ["welfare", "kalyan kosh", "gratuity", "medical fund", "provision", "payout"],
+      },
+      {
+        id: "payroll-controls",
+        label: "Payroll controls",
+        href: "/payroll/controls",
+        icon: Shield,
+        description: "Maker-checker, variance threshold and attendance rule for pay runs",
+        requires: ["SYSTEM_CONTROL"],
+        keywords: ["maker checker", "variance", "approval", "publish", "payslip release"],
       },
       {
         id: "travel",

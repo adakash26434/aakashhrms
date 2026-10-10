@@ -15,6 +15,9 @@ import { PayrollScopeToolbar } from "./payroll-scope-toolbar";
 import { PayrollPreflightSummary } from "./payroll-preflight-summary";
 import { PayrollEmployeeSelectionTable, type ScopeEmployee } from "./payroll-employee-selection-table";
 import { PayrollStickyActionBar } from "./payroll-sticky-action-bar";
+import { PayrollReadiness } from "./payroll-readiness";
+import { preflightAction } from "@/app/actions/payroll-control.actions";
+import { hasBlocker, type PreflightFinding } from "@/lib/engines/payroll-control.engine";
 
 interface PayrollSetupFormProps {
   branches: Array<{ id: string; name: string }>;
@@ -54,6 +57,7 @@ export function PayrollSetupForm({
 }: PayrollSetupFormProps) {
   const currentYear = adToBS(new Date()).year;
 
+  const [findings, setFindings] = useState<PreflightFinding[] | null>(null);
   const [payPeriodMonth, setPayPeriodMonth] = useState<number>(4); // Default to Shrawan (Month 4)
   const [payPeriodYear, setPayPeriodYear] = useState<number>(currentYear);
   const [payslipMonth, setPayslipMonth] = useState<number>(4);
@@ -209,33 +213,44 @@ export function PayrollSetupForm({
       return;
     }
 
+    const payload: PayrollRunSetupPayload = {
+      payPeriodMonth,
+      payPeriodYear,
+      branchIds: selectedBranches,
+      departmentIds:
+        selectedDepartments.length === departments.length
+          ? null
+          : selectedDepartments,
+      designationIds:
+        selectedDesignations.length === designations.length
+          ? null
+          : selectedDesignations,
+      employeeCategories:
+        selectedCategories.length === 0 ? null : selectedCategories,
+      employeeIds:
+        selectedEmployeeIds.length === matchedEmployees.length
+          ? null
+          : selectedEmployeeIds,
+      occasionalAllowanceHeadIds:
+        selectedOccasionalAllowances.length > 0
+          ? selectedOccasionalAllowances
+          : null,
+      payslipMonth,
+      payslipDate: payslipDate || null,
+      recreateIfExists,
+    };
+
     try {
-      await onSubmit({
-        payPeriodMonth,
-        payPeriodYear,
-        branchIds: selectedBranches,
-        departmentIds:
-          selectedDepartments.length === departments.length
-            ? null
-            : selectedDepartments,
-        designationIds:
-          selectedDesignations.length === designations.length
-            ? null
-            : selectedDesignations,
-        employeeCategories:
-          selectedCategories.length === 0 ? null : selectedCategories,
-        employeeIds:
-          selectedEmployeeIds.length === matchedEmployees.length
-            ? null
-            : selectedEmployeeIds,
-        occasionalAllowanceHeadIds:
-          selectedOccasionalAllowances.length > 0
-            ? selectedOccasionalAllowances
-            : null,
-        payslipMonth,
-        payslipDate: payslipDate || null,
-        recreateIfExists,
-      });
+      // 4.8 / F1: the pre-flight check runs first; a blocker stops the run before anything is generated.
+      const check = await preflightAction(payload);
+      if (check.success) {
+        setFindings(check.data.findings);
+        if (hasBlocker(check.data.findings)) {
+          setError("Fix the blockers listed under Readiness before generating.");
+          return;
+        }
+      }
+      await onSubmit(payload);
     } catch (error: unknown) {
       setError(
         error instanceof Error
@@ -340,6 +355,8 @@ export function PayrollSetupForm({
         occasionalAllowancesCount={selectedOccasionalAllowances.length}
         occasionalAllowanceNames={selectedOccasionalNames}
       />
+
+      <PayrollReadiness findings={findings} />
 
       {/* 4. OPTION A: COMPACT EMPLOYEE SELECTION TABLE */}
       <PayrollEmployeeSelectionTable

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MODULE_CATEGORIES, ModuleType, ActionType } from '../lib/types/role';
 
 describe('Flexible Roles & Dynamic RBAC Module', () => {
-  it('should define all 35 system modules across 7 categorized domains', () => {
+  it('should define all 36 system modules across 7 categorized domains', () => {
     assert.equal(MODULE_CATEGORIES.length, 7);
 
     const allModuleKeys: ModuleType[] = [];
@@ -14,7 +14,7 @@ describe('Flexible Roles & Dynamic RBAC Module', () => {
     });
 
     // 31 modules in the schema (HR_LETTERS, PERFORMANCE, RECRUITMENT and WELFARE_FUNDS added in Phase G); Leave rules (retired in 4.6e, kept until Phase 8) is no longer offered on the Roles screen.
-    assert.equal(allModuleKeys.length, 35);
+    assert.equal(allModuleKeys.length, 36);
     assert.ok(!allModuleKeys.includes('LEAVE_RULES'));
     assert.ok(allModuleKeys.includes('HR_LETTERS'));
     assert.ok(allModuleKeys.includes('PERFORMANCE'));

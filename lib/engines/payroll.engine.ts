@@ -6,6 +6,7 @@ import type {
   SlabTaxDetail
 } from "@/lib/types/payroll";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
+import { buildTaxSheet, monthsRemainingFrom, type PastMonth, type TaxSheet } from "@/lib/engines/tax-projection.engine";
 
 // Standard Custom error
 export class NegativeNetPayableError extends Error {
@@ -158,6 +159,12 @@ export function calculatePayslip(args: {
   // If month 12 (Ashadh), pass historical payslips to run year-end reconciliation
   isYearEnd: boolean;
   historicalPayslips?: HistoricalPayslipInput[];
+  /**
+   * F5 tax projection for months 1–11: the fiscal-month index (Shrawan = 1) and the earlier months
+   * of the year. Without them the month is annualised on its own (the pre-F5 behaviour).
+   */
+  fiscalMonthIndex?: number;
+  projectionHistory?: PastMonth[];
 }): PayrollCalculationResult {
   const {
     employee,
@@ -170,7 +177,9 @@ export function calculatePayslip(args: {
     isFestivalMonth,
     isRemoteMonth,
     isYearEnd,
-    historicalPayslips = []
+    historicalPayslips = [],
+    fiscalMonthIndex,
+    projectionHistory = []
   } = args;
 
   const basic = new Decimal(salaryMap.basicSalary);
@@ -447,6 +456,7 @@ export function calculatePayslip(args: {
   // 4. TDS (Tax) Engine Calculations
   // ---------------------------------------------------------------------------
   let tdsThisMonth = new Decimal(0);
+  let taxSheet: TaxSheet | undefined;
 
   // Check if employee actually has insurance deduction heads assigned
   const medicalHead = assignedHeads.find(
@@ -531,8 +541,19 @@ export function calculatePayslip(args: {
       const totalDeductionsProjected = totalRetirementDeduction.plus(totalInsuranceDeduction);
       const projectedTaxable = Decimal.max(0, projectedAnnualTaxableGross.minus(totalDeductionsProjected));
 
-      const estimatedAnnualTax = calculateAnnualTaxFromSlabs(projectedTaxable, employee, taxSlabs, systemControl, ssfEmployee.gt(0));
-      tdsThisMonth = estimatedAnnualTax.dividedBy(12).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+      const taxOn = (annual: Decimal) => calculateAnnualTaxFromSlabs(annual, employee, taxSlabs, systemControl, ssfEmployee.gt(0));
+      if (fiscalMonthIndex !== undefined) {
+        // F5: tax still to collect on the projected year, spread over the months that remain.
+        taxSheet = buildTaxSheet({
+          past: projectionHistory,
+          currentTaxable: projectedTaxable.dividedBy(12),
+          monthsRemaining: monthsRemainingFrom(fiscalMonthIndex),
+          taxOn,
+        });
+        tdsThisMonth = new Decimal(taxSheet.tdsThisMonth);
+      } else {
+        tdsThisMonth = taxOn(projectedTaxable).dividedBy(12).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+      }
     }
   }
 
@@ -586,14 +607,15 @@ export function calculatePayslip(args: {
     loanDeduction: loanVal.toString(),
     absentDeduction: absentDeduction.toString(),
     otAmount: otAmount.toString(),
-    heads: calculatedHeads
+    heads: calculatedHeads,
+    ...(taxSheet ? { taxSheet } : {}),
   };
 }
 
 /**
  * Calculates progressive annual tax liability using progressive tax slabs.
  */
-function calculateAnnualTaxFromSlabs(
+export function calculateAnnualTaxFromSlabs(
   taxableIncome: Decimal,
   employee: EmployeeInput,
   taxSlabs: TaxSlabInput[],

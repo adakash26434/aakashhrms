@@ -8,13 +8,13 @@ import { NoticesClient } from "@/components/notices/notices-client";
 
 export const metadata: Metadata = {
   title: "Notice board | AakashHRMS",
-  description: "Company and branch notices shown on Home.",
+  description: "Company, branch, department and individual notices shown on Home.",
 };
 
 export default async function NoticesPage() {
   await ensureTenantContext();
-  await checkPermissionWithScope("VIEW", "NOTICE_BOARD");
+  const scope = await checkPermissionWithScope("VIEW", "NOTICE_BOARD");
   const [add, manage, withdraw] = await Promise.all([hasPermission("ADD", "NOTICE_BOARD"), hasPermission("EDIT", "NOTICE_BOARD"), hasPermission("DELETE", "NOTICE_BOARD")]);
-  const data = await noticesPage({ add, manage, withdraw });
+  const data = await noticesPage({ userId: scope.userId, scope }, { add, manage, withdraw });
   return <NoticesClient data={data} />;
 }

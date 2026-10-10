@@ -421,6 +421,55 @@
       "when": 1792032000000,
       "tag": "0059_payroll_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792118400000,
+      "tag": "0060_employee_dossier",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1792204800000,
+      "tag": "0061_notice_audience",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1792291200000,
+      "tag": "0062_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1792377600000,
+      "tag": "0063_payroll_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1792464000000,
+      "tag": "0064_payroll_arrears",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792550400000,
+      "tag": "0065_tax_sheet",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792636800000,
+      "tag": "0066_exit_settlement",
+      "breakpoints": true
     }
   ]
 }

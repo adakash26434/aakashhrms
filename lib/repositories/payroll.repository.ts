@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
-import { eq, and, sql, type SQL } from 'drizzle-orm';
+import { eq, and, inArray, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
@@ -127,7 +127,8 @@ export async function updatePayrollRunStatus(
   id: string,
   status: PayrollRunStatus,
   actionByUserId: string,
-  notes?: string
+  notes?: string,
+  fromStatus?: PayrollRunStatus
 ): Promise<PayrollRun> {
   const updateData: Record<string, any> = {
     status,
@@ -151,9 +152,10 @@ export async function updatePayrollRunStatus(
 
   const rows = await (await getDb()).update(payrollRuns)
     .set(updateData)
-    .where(eq(payrollRuns.id, id))
+    .where(fromStatus ? and(eq(payrollRuns.id, id), eq(payrollRuns.status, fromStatus)) : eq(payrollRuns.id, id))
     .returning();
 
+  if (!rows.length) throw new Error("Someone else already moved this payroll run. Refresh and try again.");
   return mapPayrollRun(rows[0]);
 }
 
@@ -501,4 +503,35 @@ export async function findSlipsByEmployee(employeeId: string, limit = 12) {
     net: Number(r.net),
     status: String(r.runStatus),
   }));
+}
+
+
+/**
+ * F5: the earlier months of a fiscal year for the tax projection — taxable income and TDS of the
+ * approved / locked payslips whose fiscal month comes before `fiscalMonthIndex` (Shrawan = 1).
+ * `excludeRunId` keeps the run being recalculated out of its own history.
+ */
+export async function findEarlierTaxMonths(
+  employeeIds: string[],
+  fiscalYearId: string,
+  fiscalMonthIndex: number,
+  excludeRunId?: string,
+): Promise<Map<string, { taxableIncome: string; tds: string }[]>> {
+  const out = new Map<string, { taxableIncome: string; tds: string }[]>();
+  if (!employeeIds.length) return out;
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, taxableIncome: payrollSlips.taxableIncome, tds: payrollSlips.tdsThisMonth })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(
+      and(
+        inArray(payrollSlips.employeeId, employeeIds),
+        eq(payrollRuns.fiscalYearId, fiscalYearId),
+        inArray(payrollRuns.status, ['APPROVED', 'LOCKED']),
+        sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END) < ${fiscalMonthIndex}`,
+        excludeRunId ? sql`${payrollRuns.id} <> ${excludeRunId}` : undefined,
+      ),
+    );
+  for (const r of rows) out.set(r.employeeId, [...(out.get(r.employeeId) ?? []), { taxableIncome: r.taxableIncome, tds: r.tds }]);
+  return out;
 }

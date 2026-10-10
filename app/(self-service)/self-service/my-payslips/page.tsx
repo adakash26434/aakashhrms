@@ -5,6 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PayslipsClientList } from "@/components/self-service/payslips-client-list";
 
+import { essLang } from "@/lib/i18n/ess-server";
+import { t } from "@/lib/i18n/ess";
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -13,6 +16,7 @@ export const metadata = {
 };
 
 export default async function MyPayslipsPage() {
+  const lang = await essLang();
   let payslips;
   try {
     payslips = await getMyPayslips();
@@ -36,15 +40,15 @@ export default async function MyPayslipsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-payroll-navy tracking-tight">
-            Salary Payslips Statement
+            {t(lang, "payslips.title")}
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-            Click on any monthly payslip to inspect full itemized allowances, tax TDS, and statutory deductions.
+            {t(lang, "payslips.description")}
           </p>
         </div>
 
         <span className="text-xs font-bold text-gray-500 bg-payroll-cream px-3 py-1.5 rounded-xl border border-payroll-light">
-          {payslips.length} payslip(s) recorded
+          {payslips.length} {t(lang, "payslips.count")}
         </span>
       </div>
 

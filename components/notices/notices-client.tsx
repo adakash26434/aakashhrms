@@ -11,11 +11,14 @@ import { DateCell } from "@/components/kit/date-cell";
 import { Notice } from "@/components/kit/notice";
 import { Confirm } from "@/components/kit/confirm";
 import { Window, WindowButton } from "@/components/kit/window";
+import { X } from "lucide-react";
+import { Combobox } from "@/components/kit/combobox";
 import { PropertyForm, FieldGroup, FieldRow, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
 import { DateField } from "@/components/kit/date-field";
 import { YesNoField } from "@/components/kit/yes-no-field";
 import { saveNoticeAction, withdrawNoticeAction } from "@/app/actions/notice.actions";
+import { AUDIENCES, MAX_RECIPIENTS, type Audience } from "@/lib/engines/notice.engine";
 import type { NoticeRow, NoticesPageData } from "@/lib/types/notice";
 
 // Notice board (G14): the register of notices and a form; Home shows the
@@ -38,7 +41,7 @@ export function NoticesClient({ data }: { data: NoticesPageData }) {
     const q = search.trim().toLowerCase();
     return data.notices.filter((n) => {
       if (filters.status && n.status !== filters.status) return false;
-      if (filters.branch && (n.branchId ?? "all") !== filters.branch) return false;
+      if (filters.audience && n.audience !== filters.audience) return false;
       if (q && ![n.title, n.body].some((v) => v.toLowerCase().includes(q))) return false;
       return true;
     });
@@ -51,7 +54,7 @@ export function NoticesClient({ data }: { data: NoticesPageData }) {
           {n.title}
         </span>
       ) },
-    { id: "audience", header: "Audience", value: (n) => n.branch ?? "Whole company", width: 160 },
+    { id: "audience", header: "Audience", value: (n) => n.audienceLabel, width: 160 },
     { id: "publish", header: "From", value: (n) => n.publishAd, type: "date", width: 120, cell: (n) => <DateCell value={n.publishAd} /> },
     { id: "expires", header: "Until", value: (n) => n.expiresAd ?? "", type: "date", width: 120, cell: (n) => (n.expiresAd ? <DateCell value={n.expiresAd} /> : <span className="text-ink-faint">—</span>) },
     { id: "status", header: "Status", value: (n) => n.status, width: 120, cell: (n) => statusChip(n.status) },
@@ -71,7 +74,7 @@ export function NoticesClient({ data }: { data: NoticesPageData }) {
     <div>
       <PageBar
         title="Notice board"
-        description="Company and branch notices: Home shows each person the ones addressed to them, from the publish date until expiry"
+        description="Company, branch, department or named-employee notices: Home and self-service show each person the ones addressed to them, from the publish date until expiry"
         actions={[
           { id: "new", label: "New notice", icon: Plus, group: "create", primary: true, shortcut: "Ctrl+N", hidden: !data.permissions.add, onClick: () => setEditing("new") },
           { id: "refresh", label: pending ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: pending, onClick: refresh },
@@ -87,7 +90,7 @@ export function NoticesClient({ data }: { data: NoticesPageData }) {
         className="mb-3"
         search={{ value: search, onChange: setSearch, placeholder: "Title or text" }}
         filters={[
-          { id: "branch", label: "Audience", options: [{ value: "all", label: "Whole company" }, ...data.branches.map((b) => ({ value: b.id, label: b.name }))], allLabel: "Any audience" },
+          { id: "audience", label: "Audience", options: AUDIENCES.map((a) => ({ value: a.code, label: a.label })), allLabel: "Any audience" },
           {
             id: "status",
             label: "Status",
@@ -117,7 +120,7 @@ export function NoticesClient({ data }: { data: NoticesPageData }) {
         <NoticeFormWindow
           key={editing === "new" ? "new" : editing.id}
           notice={editing === "new" ? null : editing}
-          branches={data.branches}
+          data={data}
           canWithdraw={data.permissions.withdraw}
           onWithdraw={(row) => {
             setEditing(null);
@@ -144,10 +147,13 @@ export function NoticesClient({ data }: { data: NoticesPageData }) {
   );
 }
 
-function NoticeFormWindow({ notice, branches, canWithdraw, onClose, onSaved, onWithdraw }: { notice: NoticeRow | null; branches: NoticesPageData["branches"]; canWithdraw: boolean; onClose: () => void; onSaved: (row: NoticeRow) => void; onWithdraw: (row: NoticeRow) => void }) {
+function NoticeFormWindow({ notice, data, canWithdraw, onClose, onSaved, onWithdraw }: { notice: NoticeRow | null; data: NoticesPageData; canWithdraw: boolean; onClose: () => void; onSaved: (row: NoticeRow) => void; onWithdraw: (row: NoticeRow) => void }) {
   const [title, setTitle] = useState(notice?.title ?? "");
   const [body, setBody] = useState(notice?.body ?? "");
+  const [audience, setAudience] = useState<Audience>(notice?.audience ?? "company");
   const [branchId, setBranchId] = useState(notice?.branchId ?? "");
+  const [departmentId, setDepartmentId] = useState(notice?.departmentId ?? "");
+  const [recipients, setRecipients] = useState<{ id: string; name: string }[]>(notice?.recipients ?? []);
   const [publishAd, setPublishAd] = useState(notice?.publishAd ?? "");
   const [expiresAd, setExpiresAd] = useState(notice?.expiresAd ?? "");
   const [pinned, setPinned] = useState(notice?.pinned ?? false);
@@ -158,7 +164,7 @@ function NoticeFormWindow({ notice, branches, canWithdraw, onClose, onSaved, onW
   const save = () =>
     startTransition(async () => {
       setError(null);
-      const result = await saveNoticeAction(notice?.id ?? null, { title, body, branchId, publishAd, expiresAd, pinned });
+      const result = await saveNoticeAction(notice?.id ?? null, { title, body, audience, branchId, departmentId, recipientIds: recipients.map((r) => r.id), publishAd, expiresAd, pinned });
       if (result.success) onSaved(result.data);
       else {
         setErrors(("validationErrors" in result && result.validationErrors) || {});
@@ -193,9 +199,47 @@ function NoticeFormWindow({ notice, branches, canWithdraw, onClose, onSaved, onW
             <FieldRow label="Text" required error={errors.body}>
               <textarea className={`${inputClass} h-auto min-h-32 max-w-none py-2`} value={body} maxLength={8000} onChange={(e) => setBody(e.target.value)} />
             </FieldRow>
-            <FieldRow label="Audience" error={errors.branchId}>
-              <SelectField options={branches.map((b) => ({ value: b.id, label: b.name }))} value={branchId} onChange={setBranchId} placeholder="Whole company" />
+            <FieldRow label="Send to" required>
+              <SelectField options={AUDIENCES.map((a) => ({ value: a.code, label: a.label }))} value={audience} onChange={(v) => setAudience(v as Audience)} />
             </FieldRow>
+            {audience === "branch" && (
+              <FieldRow label="Branch" required error={errors.branchId}>
+                <SelectField options={data.branches.map((b) => ({ value: b.id, label: b.name }))} value={branchId} onChange={setBranchId} placeholder="Choose the branch" />
+              </FieldRow>
+            )}
+            {audience === "department" && (
+              <FieldRow label="Department" required error={errors.departmentId}>
+                <SelectField options={data.departments.map((d) => ({ value: d.id, label: d.name }))} value={departmentId} onChange={setDepartmentId} placeholder="Choose the department" />
+              </FieldRow>
+            )}
+            {audience === "employees" && (
+              <FieldRow label="Employees" required error={errors.recipientIds} help={`Up to ${MAX_RECIPIENTS}. Only the people named see this notice.`}>
+                <div className="space-y-2">
+                  <Combobox
+                    options={data.employees.filter((e) => !recipients.some((r) => r.id === e.id)).map((e) => ({ value: e.id, label: e.fullName, hint: `${e.employeeCode} · ${e.branch}` }))}
+                    value=""
+                    onChange={(id) => {
+                      const e = data.employees.find((x) => x.id === id);
+                      if (e && recipients.length < MAX_RECIPIENTS) setRecipients((r) => [...r, { id: e.id, name: e.fullName }]);
+                    }}
+                    placeholder="Type a name or code to add"
+                    aria-label="Add an employee"
+                  />
+                  {recipients.length > 0 && (
+                    <ul className="flex flex-wrap gap-1.5" aria-label="Named employees">
+                      {recipients.map((r) => (
+                        <li key={r.id} className="inline-flex items-center gap-1 rounded-md border border-line bg-surface-sunken px-2 py-0.5 text-xs text-ink">
+                          {r.name}
+                          <button type="button" data-enter-skip aria-label={`Remove ${r.name}`} className="cursor-pointer text-ink-muted hover:text-danger" onClick={() => setRecipients((list) => list.filter((x) => x.id !== r.id))}>
+                            <X aria-hidden className="h-3 w-3" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </FieldRow>
+            )}
             <FieldRow label="Publish from" required error={errors.publishAd}>
               <DateField value={publishAd} onChange={setPublishAd} />
             </FieldRow>

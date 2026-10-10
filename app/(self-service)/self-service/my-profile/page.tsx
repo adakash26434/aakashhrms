@@ -20,6 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/kit/avatar";
 import { photoUrl } from "@/lib/engines/employee-document.engine";
+import { myDossier } from "@/lib/services/ess-extras.service";
+import { essLang } from "@/lib/i18n/ess-server";
+import { EssDossier } from "@/components/self-service/ess-dossier";
 
 export const dynamic = "force-dynamic";
 
@@ -81,9 +84,11 @@ function AddressDisplay({ raw }: { raw: string | null | undefined }) {
 }
 
 export default async function MyProfilePage() {
+  const lang = await essLang();
   let profile;
+  let dossier;
   try {
-    profile = await getMyProfile();
+    [profile, dossier] = await Promise.all([getMyProfile(), myDossier()]);
   } catch (error: any) {
     return (
       <Card className="border-payroll-light/80 shadow-payroll-xs bg-white">
@@ -244,6 +249,8 @@ export default async function MyProfilePage() {
           </CardContent>
         </Card>
       )}
+
+      {dossier && <EssDossier dossier={dossier} lang={lang} />}
     </div>
   );
 }

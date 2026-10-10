@@ -6,13 +6,13 @@ import { bothCalendars } from "@/components/kit/date-cell";
 import { activeStages, stageDef } from "@/lib/engines/evaluation.engine";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import type { EvaluationDetail } from "@/lib/types/evaluation";
-import type { LetterheadData } from "@/lib/types/letter";
+import type { LetterheadBase } from "@/lib/types/letter";
 
 // Printable का.स.मू. form (G1), A4, bilingual headings: criteria × stages
 // marks, weighted totals, grade and signature blocks. Print with Ctrl+P;
 // the app frame is hidden in print.
 
-export function EvaluationPrint({ evaluation, letterhead }: { evaluation: EvaluationDetail; letterhead: LetterheadData }) {
+export function EvaluationPrint({ evaluation, letterhead }: { evaluation: EvaluationDetail; letterhead: LetterheadBase }) {
   const stages = activeStages(evaluation.form);
   const marks = (stage: string, criterionId: string) => evaluation.scores[stage]?.find((s) => s.criterionId === criterionId)?.marks ?? null;
   return (

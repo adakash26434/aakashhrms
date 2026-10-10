@@ -4,8 +4,11 @@ export interface NoticeRow {
   id: string;
   title: string;
   body: string;
+  audience: 'company' | 'branch' | 'department' | 'employees';
+  audienceLabel: string; // "Whole company", the branch / department name, or "3 employees"
   branchId: string | null;
-  branch: string | null;
+  departmentId: string | null;
+  recipients: { id: string; name: string }[];
   publishAd: string;
   expiresAd: string | null;
   pinned: boolean;
@@ -16,6 +19,8 @@ export interface NoticeRow {
 export interface NoticesPageData {
   notices: NoticeRow[];
   branches: { id: string; name: string }[];
+  departments: { id: string; name: string }[];
+  employees: { id: string; fullName: string; employeeCode: string; branch: string }[];
   permissions: { add: boolean; manage: boolean; withdraw: boolean };
 }
 
@@ -24,6 +29,7 @@ export interface BoardNotice {
   id: string;
   title: string;
   body: string;
+  /** Who it was addressed to, for the reader: null = whole company. */
   branch: string | null;
   publishAd: string;
   pinned: boolean;

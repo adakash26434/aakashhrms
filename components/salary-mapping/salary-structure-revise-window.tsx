@@ -28,7 +28,7 @@ import { gradeBreakdown } from "@/lib/engines/grade-policy.engine";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import type { RetirementScheme, SalaryStructureData, StructureLines, StructureRow } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
-import { SaveButtons, SaveOutcome, saveOutcome, usePayrollLock } from "./salary-structure-approval";
+import { SaveButtons, SaveOutcome, saveOutcome } from "./salary-structure-approval";
 import { SalaryBreakdown } from "./salary-breakdown";
 
 const SCHEMES = [
@@ -120,16 +120,13 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
     ...fitting.map((t) => ({ value: t.id, label: `${t.name} (${t.code})` })),
     ...other.map((t) => ({ value: t.id, label: `${t.name} (${t.code}) · other level / designation` })),
   ];
-  // Same rules as the server: what saving does, and payroll still open for the date.
+  // Same rules as the server: what saving does.
   const outcome = saveOutcome(data, [row.employeeId]);
-  const payrollLock = usePayrollLock(data);
-  const lockMessage = payrollLock(effectiveFrom, [row.employeeId]);
 
   const save = async (approveNow = false) => {
     if (saving) return;
     const local: Record<string, string> = { ...check.errors };
     if (!effectiveFrom) local.effectiveFrom = "Choose the date the change takes effect";
-    else if (lockMessage) local.effectiveFrom = lockMessage;
     if (reason.trim().length < 3) local.reason = "Give a short reason";
     setErrors(local);
     if (Object.keys(local).length) {
@@ -149,7 +146,7 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
   };
 
   const validate = (name: string) => {
-    const message = name === "reason" ? (reason.trim().length < 3 ? "Give a short reason" : undefined) : name === "effectiveFrom" ? (!effectiveFrom ? "Choose a date" : lockMessage ?? undefined) : check.errors[name];
+    const message = name === "reason" ? (reason.trim().length < 3 ? "Give a short reason" : undefined) : name === "effectiveFrom" ? (!effectiveFrom ? "Choose a date" : undefined) : check.errors[name];
     setErrors((e) => ({ ...e, [name]: message ?? "" }));
     return !message;
   };
@@ -201,7 +198,7 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
                 <SelectField name="template" options={templateOptions} value={templateId} onChange={chooseTemplate} />
               </GridField>
             )}
-            <GridField label="Effective from" required error={errors.effectiveFrom || lockMessage || undefined} size="date" help="Payroll uses the revision in force at each month's end, so a change counts for the whole month it falls in.">
+            <GridField label="Effective from" required error={errors.effectiveFrom || undefined} size="date" help="Payroll uses the revision in force at each month's end, so a change counts for the whole month it falls in. A date in a month already approved or locked pays the difference as arrears in the next run.">
               <DateField name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} />
             </GridField>
             <GridField label="Reason" required error={errors.reason} size="lg">

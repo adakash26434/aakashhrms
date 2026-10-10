@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { DEFAULT_LETTER_TEMPLATES } from '../lib/constants/letter-templates';
 import {
+  JOINING_PACK,
   LETTER_KINDS,
   applyConditions,
   conditionErrors,
@@ -160,11 +162,57 @@ describe('letter.engine void reason', () => {
 });
 
 describe('letter.engine constants', () => {
-  it('has the six system letter kinds', () => {
+  it('has the system letter kinds, one default template each', () => {
     assert.deepEqual(
       LETTER_KINDS.map((k) => k.code),
-      ['appointment', 'confirmation', 'promotion', 'transfer', 'experience', 'noc'],
+      ['appointment', 'confirmation', 'promotion', 'transfer', 'experience', 'noc', 'kyc', 'dhanjamani', 'job_description', 'agreement'],
     );
+    assert.deepEqual(DEFAULT_LETTER_TEMPLATES.map((t) => t.code), LETTER_KINDS.map((k) => k.code));
+  });
+
+  it('every default template is valid in both languages and uses only known fields', () => {
+    for (const t of DEFAULT_LETTER_TEMPLATES) {
+      const errors = validateTemplateForm(normalizeTemplateForm({ ...t, isActive: true }));
+      assert.deepEqual(errors, {}, t.code);
+      assert.ok(t.bodyNp && t.subjectNp, `${t.code} has a Nepali version`);
+      for (const language of ['en', 'np'] as const) {
+        const { subject, body } = templateText({ ...t, isActive: true }, language);
+        const all: Record<string, string> = Object.fromEntries(LETTER_MERGE_FIELDS.map((f) => [f.key, `<${f.key}>`]));
+        const r = renderLetterText(`${subject}\n${body}`, all);
+        assert.deepEqual(r.unknown, [], `${t.code}/${language}`);
+        assert.deepEqual(r.missing, [], `${t.code}/${language}`);
+      }
+    }
+  });
+
+  it('optional clauses drop out cleanly: no guarantee amount, no father name, no notice period', () => {
+    const base: Record<string, string> = Object.fromEntries(LETTER_MERGE_FIELDS.map((f) => [f.key, `<${f.key}>`]));
+    const dhan = DEFAULT_LETTER_TEMPLATES.find((t) => t.code === 'dhanjamani')!;
+    const text = renderLetterText(dhan.bodyEn, { ...base, guarantee_amount: '' }).text;
+    assert.ok(!text.includes('up to NPR'));
+    assert.ok(!text.includes('<guarantee_amount>'));
+    const np = renderLetterText(dhan.bodyNp, { ...base, guarantee_amount: '', guarantor_father: '' });
+    assert.deepEqual(np.missing, []);
+    const kyc = renderLetterText(DEFAULT_LETTER_TEMPLATES.find((t) => t.code === 'kyc')!.bodyEn, { ...base, father_name: '', grandfather_name: '' }).text;
+    assert.ok(!kyc.includes('son/daughter of'));
+  });
+
+  it('the job description keeps one line per fact and drops the unused ones', () => {
+    const base: Record<string, string> = Object.fromEntries(LETTER_MERGE_FIELDS.map((f) => [f.key, `<${f.key}>`]));
+    const jd = DEFAULT_LETTER_TEMPLATES.find((t) => t.code === 'job_description')!;
+    const text = renderLetterText(jd.bodyEn, { ...base, reports_to: '', working_hours: '' }).text;
+    assert.ok(!text.includes('Reports to') && !text.includes('Working hours'));
+    assert.ok(text.includes('Place of work: <branch> office\n\nDuties and responsibilities'));
+  });
+
+  it('long input fields keep several lines; short ones are cut to a line length', () => {
+    const form = normalizeIssueForm({ inputs: { duties: 'a\n'.repeat(500), guarantor_name: 'x'.repeat(500) } });
+    assert.ok(form.inputs.duties.length > 200 && form.inputs.duties.length <= 3000);
+    assert.equal(form.inputs.guarantor_name.length, 200);
+  });
+
+  it('the joining pack lists only known kinds', () => {
+    for (const code of JOINING_PACK) assert.ok(LETTER_KINDS.some((k) => k.code === code), code);
   });
 
   it('merge field keys are unique and lowercase', () => {

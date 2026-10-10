@@ -6,7 +6,7 @@ import { Amount } from "@/components/kit/amount";
 import { Combobox } from "@/components/kit/combobox";
 import { Notice } from "@/components/kit/notice";
 import { useDateText } from "@/components/kit/date-cell";
-import { SaveButtons, SaveOutcome, describeChanges, money, saveOutcome, usePayrollLock } from "./salary-structure-approval";
+import { SaveButtons, SaveOutcome, describeChanges, money, saveOutcome } from "./salary-structure-approval";
 import { DateField } from "@/components/kit/date-field";
 import { EditGrid, type EditGridColumn, type GridValueChange } from "@/components/kit/edit-grid";
 import { inputClass } from "@/components/kit/property-form";
@@ -117,7 +117,6 @@ export function SalaryStructureBulk({
   const [filters, setFilters] = useState({ branch: "", dept: "", level: "" });
   const [effectiveFrom, setEffectiveFrom] = useState(initial.effectiveFrom);
   const dateText = useDateText();
-  const payrollLock = usePayrollLock(data);
   const [reason, setReason] = useState(initial.reason);
   const [templateId, setTemplateId] = useState(preset?.id ?? "");
   // The table as it was before the last template was applied (Undo template).
@@ -464,15 +463,12 @@ export function SalaryStructureBulk({
   const changedIds = changedRows.map((r) => r.row.employeeId);
   const outcome = saveOutcome(data, changedIds);
   const ownInTable = !!data.me.employeeId && ids.includes(data.me.employeeId);
-  const payrollLocked = payrollLock(effectiveFrom, changedIds);
-  const canReview = changedRows.length > 0 && !errorRows.length && !!effectiveFrom && reason.trim().length >= 3 && !payrollLocked;
+  const canReview = changedRows.length > 0 && !errorRows.length && !!effectiveFrom && reason.trim().length >= 3;
   // Said next to the button, not only in a tooltip.
   const reviewBlocker = !changedRows.length
     ? null
     : errorRows.length
       ? "Fix the cells in red first"
-      : payrollLocked
-        ? payrollLocked
       : !effectiveFrom
         ? "Choose the effective date (step 2)"
         : reason.trim().length < 3

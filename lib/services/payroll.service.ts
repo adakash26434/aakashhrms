@@ -41,9 +41,11 @@ import { auth } from "@/lib/auth";
 import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { getBSMonthRange } from "@/lib/utils/bs-calendar";
-import { isAshadh } from "@/lib/utils/fiscal-year.utils";
+import { isAshadh, getFiscalMonthIndex } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
+import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
+import * as arrearsService from "@/lib/services/arrears.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -266,10 +268,12 @@ export async function generatePayrollRun(
   // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
   // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
   // as fixed one-off heads; the engine's statutory maths is untouched.
-  const [feedHeadRows, claimsByEmployee, fundByEmployee] = await Promise.all([
+  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee] = await Promise.all([
     feedsRepository.feedHeads(),
     feedsRepository.approvedClaimsByEmployee(empIds, endStr),
     feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth),
+    // F7: back pay for finalised months whose revision in force now pays more (ARREARS head, taxable).
+    arrearsService.arrearsFor(empIds, startStr),
   ]);
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
@@ -410,6 +414,10 @@ export async function generatePayrollRun(
     }
   }
 
+  // F5: the earlier months of the year for the tax projection (months 1–11; the year-end month reconciles).
+  const fiscalMonthIndex = getFiscalMonthIndex(payPeriodMonth);
+  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, activeFy.id, fiscalMonthIndex);
+
   // 7. Calculate payslips for each employee (all data pre-loaded — no per-employee queries)
   for (const emp of scopedEmployees) {
     const salaryMap = salaryMapByEmployeeId.get(emp.id);
@@ -502,6 +510,10 @@ export async function generatePayrollRun(
     if (claimFeed && feedHeadRows.tada && Number(claimFeed.payable) !== 0) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.tada), amount: claimFeed.payable, isManualOverride: true });
     }
+    const arrearsFeed = arrearsByEmployee.get(emp.id);
+    if (arrearsFeed && arrearsFeed.payable > 0 && feedHeadRows.arrears) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: arrearsFeed.payable.toFixed(2), isManualOverride: true });
+    }
     const fundFeed = fundByEmployee.get(emp.id);
     if (fundFeed && feedHeadRows.welfare) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundFeed, isManualOverride: true });
@@ -553,7 +565,9 @@ export async function generatePayrollRun(
       isFestivalMonth: isFestivalChecked,
       isRemoteMonth: isRemoteChecked,
       isYearEnd: isYearEndMonth,
-      historicalPayslips: historicalSlips
+      historicalPayslips: historicalSlips,
+      fiscalMonthIndex,
+      projectionHistory: earlierTaxMonths.get(emp.id) ?? [],
     });
 
     // Accumulate batch run totals
@@ -585,6 +599,7 @@ export async function generatePayrollRun(
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -659,6 +674,8 @@ export async function generatePayrollRun(
   // The claims this run pays are settled once the run exists (claim-first on status; the FK
   // needs the committed run). A failed run above leaves them approved and unpaid.
   await feedsRepository.settleClaimsThroughRun([...claimsByEmployee.values()].flatMap((c) => c.ids), runRecord.id);
+  // The arrears this run pays are recorded against their source months (a deleted draft takes them with it).
+  await arrearsService.settle(runRecord.id, new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0)));
 
   logger.info('Payroll run generated', {
     runId: runRecord.id,
@@ -678,6 +695,8 @@ export async function overridePayslipAllowanceDeduction(
   payload: PayrollSlipOverridePayload,
   userId: string
 ): Promise<void> {
+  // S21: nobody edits their own payslip.
+  await assertNotOwnSlip(payload.slipId, userId, 'EDIT');
   const { 
     slipId, 
     headId, 
@@ -848,7 +867,9 @@ export async function overridePayslipAllowanceDeduction(
       isFestivalMonth: isFestivalChecked,
       isRemoteMonth: isRemoteChecked,
       isYearEnd,
-      historicalPayslips: historicalSlips
+      historicalPayslips: historicalSlips,
+      fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
+      projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
     });
 
     // Save new values to the slip in the DB
@@ -858,6 +879,7 @@ export async function overridePayslipAllowanceDeduction(
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -964,6 +986,7 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
 }
 
 export async function deleteEmployeePayslip(slipId: string, userId: string): Promise<{ remainingCount: number }> {
+  await assertNotOwnSlip(slipId, userId, 'DELETE');
   const slip = await repository.findSlipById(slipId);
   if (!slip) throw new Error("Payslip not found");
 
@@ -997,6 +1020,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   slip: PayrollSlip;
   heads: PayrollSlipHead[];
 }> {
+  await assertNotOwnSlip(slipId, userId, 'EDIT');
   const currentSlip = await repository.findSlipById(slipId);
   if (!currentSlip) throw new Error("Payslip not found");
 
@@ -1192,7 +1216,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     isFestivalMonth: isFestivalChecked,
     isRemoteMonth: isRemoteChecked,
     isYearEnd,
-    historicalPayslips: historicalSlips
+    historicalPayslips: historicalSlips,
+    fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
+    projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
   });
 
   // Transactionally update slip and replace heads
@@ -1205,6 +1231,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -1258,6 +1285,7 @@ export async function addPayHeadToPayslip(
   userId: string
 ): Promise<{ slip: PayrollSlip; heads: PayrollSlipHead[] }> {
   const { slipId, payHeadId, amount, reason } = payload;
+  await assertNotOwnSlip(slipId, userId, 'EDIT');
   const currentSlip = await repository.findSlipById(slipId);
   if (!currentSlip) throw new Error("Payslip not found");
 
@@ -1330,23 +1358,14 @@ export async function transitionPayrollRun(
     );
   }
 
-  // 1. Separation of Duties Check for final LOCK
-  //    System Admins are explicitly exempt — they can generate AND lock.
-  if (toStatus === 'LOCKED' && run.generatedBy === actionByUserId) {
-    const actorRoles = await (await getDb())
-      .select({ slug: roles.slug })
-      .from(userRoles)
-      .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .where(eq(userRoles.userId, actionByUserId));
-
-    const isAdmin = actorRoles.some((r: { slug: string }) => r.slug === 'system_admin' || r.slug === 'office_admin');
-    if (!isAdmin) {
-      throw new SeparationOfDutiesError();
-    }
-  }
+  // 1. Maker-checker (4.8 / F2): approving needs every variance flag acknowledged and someone other
+  //    than the generator; locking needs someone other than the generator (strict mode: also not
+  //    someone the run pays). Company administrators are exempt in the default mode only.
+  await assertCanMove(run, toStatus, actionByUserId);
 
   // Perform status transition
-  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes);
+  // Claim-first: the move happens only while the run still has the status it was read with.
+  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status);
 
   // 2. On LOCK: Atomic loan repayment amortisation and period sealing
   if (toStatus === 'LOCKED') {

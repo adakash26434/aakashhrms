@@ -1,10 +1,18 @@
 import * as repo from '@/lib/repositories/letter.repository';
+import { findAllEmploymentTypes } from '@/lib/repositories/employment-type.repository';
+import { formatAmount } from '@/lib/kit/amount';
 import { getCompanyProfileSetup } from '@/lib/repositories/company-setup.repository';
 import { addressLine } from '@/lib/constants/nepal-locations';
 import { DEFAULT_LETTER_TEMPLATES } from '@/lib/constants/letter-templates';
+import { DEFAULT_DESIGN, normalizeDesign, validateDesign, type LetterDesign } from '@/lib/engines/letter-design.engine';
 import {
   LETTER_KINDS,
+  JOINING_PACK,
+  LETTER_MERGE_FIELDS,
   formatLetterNumber,
+  normalizePackForm,
+  packLanguages,
+  validatePackForm,
   inputFieldsFor,
   normalizeIssueForm,
   normalizeTemplateForm,
@@ -14,6 +22,8 @@ import {
   validateTemplateForm,
   validateVoidReason,
   type IssueLetterForm,
+  type JoiningPackForm,
+  type LetterLanguage,
   type LetterMergeField,
 } from '@/lib/engines/letter.engine';
 import { buildEmployeeScopeCondition, type ScopeFilter } from '@/lib/auth/scope-filter';
@@ -49,9 +59,9 @@ const kindName = (kind: string, templates: LetterTemplateRow[]): string => {
   return templates.find((t) => t.code === kind)?.name ?? kind;
 };
 
-/** Seeds the six system templates once per company (first read). */
+/** Seeds every system template the company does not have yet (first read; later releases add new kinds the same way). */
 export async function ensureDefaultTemplates(): Promise<void> {
-  if ((await repo.countTemplates()) > 0) return;
+  if ((await repo.countSystemTemplates()) >= DEFAULT_LETTER_TEMPLATES.length) return;
   await repo.insertDefaultTemplates(DEFAULT_LETTER_TEMPLATES);
 }
 
@@ -87,11 +97,12 @@ export async function lettersPage(
 ): Promise<LettersPageData> {
   await ensureDefaultTemplates();
   const scopeCondition = buildEmployeeScopeCondition(scope);
-  const [letters, templates, employees, fiscalYears] = await Promise.all([
+  const [letters, templates, employees, fiscalYears, head] = await Promise.all([
     repo.listLetters(filter, scopeCondition),
     repo.findTemplates(),
     repo.findEmployeeOptions(scopeCondition),
     repo.findFiscalYearsForLetters(),
+    letterhead(),
   ]);
   return {
     letters: letters.map((r) => toListRow(r, templates)),
@@ -100,6 +111,7 @@ export async function lettersPage(
     fiscalYears: fiscalYears.map((f) => ({ id: f.id, label: f.label })),
     currentFiscalYearId: currentFiscalYear(fiscalYears)?.id ?? null,
     permissions,
+    letterhead: head,
   };
 }
 
@@ -117,15 +129,40 @@ function currentFiscalYear(years: repo.FiscalYearFacts[]): repo.FiscalYearFacts 
 // Merge data
 // ---------------------------------------------------------------------------
 
+export async function readDesign(): Promise<LetterDesign> {
+  const json = await repo.readLetterDesignJson();
+  if (!json) return DEFAULT_DESIGN;
+  try {
+    return normalizeDesign(JSON.parse(json));
+  } catch {
+    return DEFAULT_DESIGN;
+  }
+}
+
 async function letterhead(): Promise<LetterheadData> {
-  const company = await getCompanyProfileSetup().catch(() => null);
+  const [company, design] = await Promise.all([getCompanyProfileSetup().catch(() => null), readDesign()]);
   return {
     name: company?.displayName || company?.legalName || '',
     address: addressLine(company?.headOfficeAddress) ?? '',
     pan: company?.panVatNumber ?? '',
     signatoryName: company?.signatory1Name ?? '',
     signatoryTitle: company?.signatory1Title ?? '',
+    signatory2Name: company?.signatory2Name ?? '',
+    signatory2Title: company?.signatory2Title ?? '',
+    regNo: company?.registrationNumber ?? '',
+    phone: company?.contactPhone ?? '',
+    email: company?.contactEmail ?? '',
+    design,
   };
+}
+
+/** Saves the company's letter design (HR_LETTERS EDIT). The text of issued letters never changes. */
+export async function saveDesign(raw: unknown): Promise<LetterDesign> {
+  const errors = validateDesign(raw);
+  if (Object.keys(errors).length) throw new LetterValidationError(errors);
+  const design = normalizeDesign(raw);
+  await repo.writeLetterDesignJson(JSON.stringify(design));
+  return design;
 }
 
 function employeeMergeData(emp: repo.EmployeeLetterFacts): Record<string, string> {
@@ -144,6 +181,11 @@ function employeeMergeData(emp: repo.EmployeeLetterFacts): Record<string, string
     branch: emp.branch,
     join_date_ad: joinAd ?? '',
     join_date_bs: joinBs,
+    father_name: emp.fatherName,
+    grandfather_name: emp.grandfatherName,
+    citizenship_no: emp.citizenshipNo,
+    employee_address: emp.permanentAddress,
+    employee_mobile: emp.mobileNo,
   };
 }
 
@@ -166,6 +208,8 @@ export interface LetterPreview {
   body: string;
   /** Fields the chosen template asks the issuer to type. */
   inputFields: LetterMergeField[];
+  /** Values already known for the template's input fields (e.g. duties from the designation), to prefill the window. */
+  defaults: Record<string, string>;
   /** Placeholders still without a value — issuing is blocked while any remain. */
   missing: string[];
   letterhead: LetterheadData;
@@ -190,6 +234,8 @@ async function renderForIssue(form: IssueLetterForm, ctx: LetterCtx, seqText: st
     letter_number: seqText,
     issue_date_bs: adToBSString(today),
     issue_date_ad: toIsoDate(today),
+    // The designation's description is the starting point for a job description's duties.
+    ...(employee.designationDescription.trim() ? { duties: employee.designationDescription.trim() } : {}),
     ...form.inputs,
   };
   return { template: t, employee, head, subject, body, data, today };
@@ -206,6 +252,7 @@ export async function previewLetter(rawForm: unknown, ctx: LetterCtx): Promise<L
     subject: renderedSubject.text,
     body: renderedBody.text,
     inputFields: inputFieldsFor(body, subject),
+    defaults: employee.designationDescription.trim() ? { duties: employee.designationDescription.trim() } : {},
     missing,
     letterhead: head,
     employee: {
@@ -336,4 +383,162 @@ export async function removeTemplate(id: string): Promise<void> {
   if (result === 'is_system') throw new UserFacingError('System templates cannot be deleted; deactivate instead.');
   if (result === 'in_use') throw new UserFacingError('This template has issued letters; deactivate it instead.');
   if (result === 'missing') throw new UserFacingError('Not found: this template no longer exists.');
+}
+
+// ---------------------------------------------------------------------------
+// Joining pack
+// ---------------------------------------------------------------------------
+
+export interface PackKindPlan {
+  code: string;
+  name: string;
+  nameNp: string;
+  /** False when the company has no active template of this kind. */
+  available: boolean;
+  hasNepali: boolean;
+}
+
+export interface PackPlan {
+  employee: { fullName: string; employeeCode: string; designation: string; branch: string };
+  kinds: PackKindPlan[];
+  /** The details the chosen letters ask the issuer for. */
+  inputFields: LetterMergeField[];
+  /** Values known from the employee's record (salary, probation, notice, duties), to prefill the window. */
+  defaults: Record<string, string>;
+  /** Input fields still empty across the chosen letters. */
+  missingInputs: string[];
+  /** Employee or company facts the letters need that the record does not have (fix the record first). */
+  missingRecord: string[];
+  /** Chosen kind+language versions that cannot be issued (no Nepali text). */
+  unavailable: string[];
+}
+
+interface PackEntry {
+  kind: string;
+  language: LetterLanguage;
+  templateId: string;
+  subject: string;
+  body: string;
+}
+
+async function packBase(form: JoiningPackForm, ctx: LetterCtx) {
+  const formErrors = validatePackForm(form);
+  if (Object.keys(formErrors).length) throw new LetterValidationError(formErrors);
+  const employee = await repo.findEmployeeForLetter(form.employeeId, buildEmployeeScopeCondition(ctx.scope));
+  if (!employee) throw new LetterValidationError({ employeeId: 'Choose an employee (within your scope).' });
+  const [templates, head, facts, types] = await Promise.all([repo.findTemplates(), letterhead(), repo.findPackFacts(form.employeeId), findAllEmploymentTypes()]);
+  const today = nepalToday();
+
+  const defaults: Record<string, string> = {};
+  const type = types.find((t) => t.name.toLowerCase() === (facts?.category ?? '').toLowerCase() || t.code.toLowerCase() === (facts?.category ?? '').toLowerCase());
+  const joinBs = employeeMergeData(employee).join_date_bs;
+  if (joinBs) defaults.effective_date = joinBs;
+  if (facts?.basicSalary) defaults.basic_salary = formatAmount(facts.basicSalary);
+  if (type && type.probationMonths > 0) defaults.probation_months = String(type.probationMonths);
+  if (type && type.noticePeriodDays > 0) defaults.notice_days = String(type.noticePeriodDays);
+  if (employee.designationDescription.trim()) defaults.duties = employee.designationDescription.trim();
+
+  const data: Record<string, string> = {
+    ...employeeMergeData(employee),
+    ...companyMergeData(head),
+    issue_date_bs: adToBSString(today),
+    issue_date_ad: toIsoDate(today),
+    letter_number: 'x',
+    ...defaults,
+    ...form.inputs,
+  };
+
+  const entries: PackEntry[] = [];
+  const unavailable: string[] = [];
+  const kinds: PackKindPlan[] = [];
+  for (const code of JOINING_PACK) {
+    const t = templates.find((x) => x.code === code && x.isActive);
+    kinds.push({ code, name: t?.name ?? LETTER_KINDS.find((k) => k.code === code)?.name ?? code, nameNp: t?.nameNp ?? '', available: !!t, hasNepali: !!t && !!t.bodyNp && !!t.subjectNp });
+    if (!t || !form.kinds.includes(code)) continue;
+    for (const language of packLanguages(form.language)) {
+      const text = templateText(t, language);
+      if (!text.body || !text.subject) {
+        unavailable.push(`${t.name} (${language === 'np' ? 'Nepali' : 'English'})`);
+        continue;
+      }
+      entries.push({ kind: code, language, templateId: t.id, subject: text.subject, body: text.body });
+    }
+  }
+  return { employee, kinds, entries, unavailable, data, defaults, form };
+}
+
+export async function planPack(rawForm: unknown, ctx: LetterCtx): Promise<PackPlan> {
+  const { employee, kinds, entries, unavailable, data, defaults } = await packBase(normalizePackForm(rawForm), ctx);
+  const inputKeys = new Set(LETTER_MERGE_FIELDS.filter((f) => f.source === 'input').map((f) => f.key));
+  const inputFields = new Map<string, LetterMergeField>();
+  const missing = new Set<string>();
+  for (const e of entries) {
+    for (const f of inputFieldsFor(e.body, e.subject)) inputFields.set(f.key, f);
+    for (const k of renderLetterText(`${e.subject}\n${e.body}`, data).missing) missing.add(k);
+  }
+  const label = (k: string) => LETTER_MERGE_FIELDS.find((f) => f.key === k)?.label ?? k;
+  return {
+    employee: { fullName: employee.fullName, employeeCode: employee.employeeCode, designation: employee.designation, branch: employee.branch },
+    kinds,
+    inputFields: [...inputFields.values()],
+    defaults,
+    missingInputs: [...missing].filter((k) => inputKeys.has(k)),
+    missingRecord: [...missing].filter((k) => !inputKeys.has(k)).map(label),
+    unavailable,
+  };
+}
+
+export interface PackResult {
+  issued: LetterDetail[];
+  failed: { kind: string; language: LetterLanguage; error: string }[];
+}
+
+/**
+ * Issues the chosen letters for a new employee, each under its own chalani
+ * number. Everything is checked first (no letter is issued if any detail is
+ * missing); after that, one letter failing does not undo the ones issued.
+ */
+export async function issuePack(rawForm: unknown, ctx: LetterCtx): Promise<PackResult> {
+  const form = normalizePackForm(rawForm);
+  if (isOwnRecord(ctx.actorEmployeeId, form.employeeId)) {
+    await recordAuditLog({ userId: ctx.userId, action: 'ADD', module: 'HR_LETTERS', recordId: form.employeeId, result: DENIED_SELF });
+    throw new UserFacingError('Letters about your own record must be issued by someone else.');
+  }
+  const { entries, unavailable, data, defaults } = await packBase(form, ctx);
+  if (unavailable.length) throw new LetterValidationError({ language: `No text for: ${unavailable.join(', ')}.` });
+  const errors: Record<string, string> = {};
+  for (const e of entries) {
+    for (const k of renderLetterText(`${e.subject}\n${e.body}`, data).missing) {
+      const isInput = LETTER_MERGE_FIELDS.some((f) => f.key === k && f.source === 'input');
+      if (isInput) errors[`inputs.${k}`] = 'Required for the chosen letters.';
+      else errors.employeeId = "The employee's record lacks details these letters need; complete the record first.";
+    }
+  }
+  if (Object.keys(errors).length) throw new LetterValidationError(errors);
+
+  const result: PackResult = { issued: [], failed: [] };
+  const inputs = { ...defaults, ...form.inputs };
+  for (const e of entries) {
+    try {
+      result.issued.push(await issueLetter({ employeeId: form.employeeId, templateId: e.templateId, language: e.language, inputs }, ctx));
+    } catch (error: unknown) {
+      result.failed.push({ kind: e.kind, language: e.language, error: error instanceof Error ? error.message : 'Could not issue this letter.' });
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Self-service: the signed-in employee's own letters (scope SELF, issued only)
+// ---------------------------------------------------------------------------
+
+export async function listMyLetters(scope: ScopeFilter): Promise<LetterListRow[]> {
+  const [rows, templates] = await Promise.all([repo.listLetters({ status: 'issued' }, buildEmployeeScopeCondition(scope)), repo.findTemplates()]);
+  return rows.map((r) => toListRow(r, templates));
+}
+
+/** One own letter for reading and printing; a voided letter is not shown to the employee. */
+export async function getMyLetter(id: string, scope: ScopeFilter): Promise<LetterPrintData | null> {
+  const data = await getLetterForPrint(id, scope);
+  return data && data.letter.status === 'issued' ? data : null;
 }

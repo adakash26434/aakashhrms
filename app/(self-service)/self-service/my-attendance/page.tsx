@@ -7,6 +7,9 @@ import { dayName, hoursText, localClock } from "@/lib/engines/attendance-day.eng
 import { bsDayOf, shiftPeriod, weekdayOf } from "@/lib/engines/pay-period.engine";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 
+import { essLang } from "@/lib/i18n/ess-server";
+import { t } from "@/lib/i18n/ess";
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -24,6 +27,7 @@ const AD_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
  * Always the signed-in employee.
  */
 export default async function MyAttendancePage({ searchParams }: { searchParams: Promise<{ year?: string; month?: string }> }) {
+  const lang = await essLang();
   const sp = await searchParams;
   let data: Awaited<ReturnType<typeof myMonth>>;
   try {
@@ -53,8 +57,8 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">My attendance</h1>
-          <p className="mt-0.5 text-xs text-ink-muted">Each day as HR and payroll count it. Something wrong? Ask HR for an adjustment.</p>
+          <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">{t(lang, "attendance.title")}</h1>
+          <p className="mt-0.5 text-xs text-ink-muted">{t(lang, "attendance.description")}</p>
         </div>
         <nav aria-label="Month" className="inline-flex items-center gap-1 rounded-md border border-line bg-surface p-0.5">
           <Link href={`?year=${prev.year}&month=${prev.month}`} aria-label="Previous month" className="flex h-8 w-8 items-center justify-center rounded text-ink-muted hover:bg-surface-sunken">
