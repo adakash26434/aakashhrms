@@ -11,6 +11,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { addSlipHeadAction, overrideSlipAction, recalculateSlipAction, removeSlipAction, slipDetailAction } from "@/app/actions/payroll-run.actions";
 import { describeDetail } from "@/lib/engines/overtime.engine";
+import { TaxSheetCard, isTaxSheet } from "@/components/payroll/tax-sheet-card";
 import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 import type { PayrollRunView, PayrollRunsPageData } from "@/lib/types/payroll-run";
 import { cn } from "@/lib/utils";
@@ -136,75 +137,9 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
           <Amount value={slip.totalDeductions} emphasis />
         </div>
       </PaneSection>
-      {slip.arrearsDetail && slip.arrearsDetail.length > 0 && (
-        <PaneSection title="Arrears: the months">
-          <table className="w-full text-2xs">
-            <thead>
-              <tr className="text-left text-ink-muted">
-                <th className="py-0.5 pr-2 font-medium">Month</th>
-                <th className="py-0.5 pr-2 font-medium">Why</th>
-                <th className="py-0.5 pr-2 text-right font-medium">Paid</th>
-                <th className="py-0.5 pr-2 text-right font-medium">Due</th>
-                <th className="py-0.5 text-right font-medium">Difference</th>
-              </tr>
-            </thead>
-            <tbody>
-              {slip.arrearsDetail.map((l) => (
-                <tr key={`${l.calendar}-${l.year}-${l.month}`} className="border-t border-line">
-                  <td className="py-0.5 pr-2 text-ink">{l.label}</td>
-                  <td className="py-0.5 pr-2 text-ink-muted">{l.kind === "salary" ? "Salary revision" : "Attendance corrected"}</td>
-                  <td className="py-0.5 pr-2 text-right tabular-nums"><Amount value={l.paid.grossEarnings} /></td>
-                  <td className="py-0.5 pr-2 text-right tabular-nums"><Amount value={l.due.grossEarnings} /></td>
-                  <td className="py-0.5 text-right tabular-nums"><Amount value={l.diff.grossEarnings} emphasis /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </PaneSection>
-      )}
-      {slip.settlementDetail && (
-        <PaneSection title="Settlement">
-          <p className="mb-1 text-2xs text-ink-muted">
-            Last working day {slip.settlementDetail.lastWorkingDay} · {slip.settlementDetail.monthsServed} months served
-            {slip.settlementDetail.month === null ? " · the last month was already paid" : slip.settlementDetail.month.unpaidDays ? ` · ${slip.settlementDetail.month.unpaidDays} unpaid days in ${slip.settlementDetail.month.label}` : ""}
-          </p>
-          <dl className="space-y-0.5 text-2xs">
-            {slip.settlementDetail.earnings.map((l, i) => (
-              <div key={`e${i}`} className="flex justify-between gap-2">
-                <dt className="text-ink">{l.label}</dt>
-                <dd className="tabular-nums"><Amount value={l.amount} /></dd>
-              </div>
-            ))}
-            {slip.settlementDetail.deductions.map((l, i) => (
-              <div key={`d${i}`} className="flex justify-between gap-2 text-ink-muted">
-                <dt>{l.label}</dt>
-                <dd className="tabular-nums">−<Amount value={l.amount} /></dd>
-              </div>
-            ))}
-          </dl>
-          {slip.settlementDetail.gratuity.reason && <p className="mt-1 text-3xs text-ink-faint">No gratuity: {slip.settlementDetail.gratuity.reason}.</p>}
-        </PaneSection>
-      )}
-      {slip.taxDetail && slip.taxDetail.method === "ytd" && (
+      {isTaxSheet(slip.taxSheet) && (
         <PaneSection title="Income tax">
-          {(() => {
-            const t = slip.taxDetail!;
-            const n = (v: string | number) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-            return (
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-2xs">
-                <dt className="text-ink-muted">Paid so far this year</dt>
-                <dd className="text-right tabular-nums text-ink">{n(t.ytd.taxableGross)} taxable · {t.ytd.months} month{t.ytd.months === 1 ? "" : "s"}</dd>
-                <dt className="text-ink-muted">This month taxable</dt>
-                <dd className="text-right tabular-nums text-ink">{n(t.month.taxableGross)}{Number(t.month.oneOffTaxable) ? ` (one-off ${n(t.month.oneOffTaxable)})` : ""}</dd>
-                <dt className="text-ink-muted">Projected year</dt>
-                <dd className="text-right tabular-nums text-ink">{n(t.projected.gross)} − retirement {n(t.projected.retirement)} − insurance {n(t.month.insuranceAnnual)} = {n(t.projected.taxable)}</dd>
-                <dt className="text-ink-muted">Annual tax</dt>
-                <dd className="text-right tabular-nums text-ink">{n(t.annualTax)} · deducted so far {n(t.ytd.tds)}</dd>
-                <dt className="text-ink-muted">{t.monthsRemaining === 1 ? "Year-end month: the rest" : `Spread over ${t.monthsRemaining} months`}</dt>
-                <dd className="text-right font-medium tabular-nums text-ink">{n(t.tdsThisMonth)}</dd>
-              </dl>
-            );
-          })()}
+          <TaxSheetCard sheet={slip.taxSheet} />
         </PaneSection>
       )}
       <PaneSection>

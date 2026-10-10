@@ -15,13 +15,25 @@ const actions = read('app/actions/ess-extras.actions.ts');
 
 describe('S40 ESS extras', () => {
   it('every service function takes the employee from the session', () => {
-    for (const fn of ['myNotices(', 'myTraining(', 'myClaims(', 'submitMyClaim(']) {
+    for (const fn of ['myNotices(', 'myTraining(', 'myClaims(', 'submitMyClaim(', 'myLetters(', 'myDossier(']) {
       const start = service.indexOf(`export async function ${fn}`);
       assert.ok(start >= 0, fn);
       const body = service.slice(start, service.indexOf('\n}\n', start));
       assert.match(body, /await getSessionEmployeeId\(\)/, `${fn} session employee`);
       assert.ok(!/employeeId: string/.test(service.slice(start, service.indexOf(')', start))), `${fn} takes no employee id`);
     }
+  });
+
+  it('one own letter: the id is the only parameter, scope is SELF, voided letters read as not found', () => {
+    const start = service.indexOf('export async function myLetter(');
+    const body = service.slice(start, service.indexOf('\n}\n', start));
+    assert.match(body, /await getSessionEmployeeId\(\)/);
+    assert.match(body, /selfScope\(employeeId, userId\)/);
+    const letters = read('lib/services/letter.service.ts');
+    const mine = letters.slice(letters.indexOf('export async function getMyLetter('));
+    assert.match(mine, /letter\.status === 'issued'/);
+    const page = read('app/(self-service)/self-service/my-letters/[id]/page.tsx');
+    assert.match(page, /notFound\(\)/);
   });
 
   it('own claims use a SELF scope and the travel service (amounts from the card, submit-own only)', () => {

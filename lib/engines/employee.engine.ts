@@ -15,6 +15,7 @@ import { validateMobileNumber } from "@/lib/utils/phone-mobile";
 import { validatePanNo } from "@/lib/utils/nepal-docs";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { documentsChanged, isPrimaryDocument, validateDocuments } from "@/lib/engines/employee-document.engine";
+import { dossierChanged } from "@/lib/engines/employee-dossier.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 
 const WARD_ERROR = "Ward number must be between 1 and 35";
@@ -590,6 +591,7 @@ export function changedEmployeeFields(before: Partial<Employee>, after: Partial<
   });
   // Identity documents (4.2b): one name for any change to the list, its dates or its scans.
   if (after.documents && documentsChanged(before.documents ?? [], after.documents)) changed.push("documents");
+  if (after.dossier && dossierChanged(before.dossier ?? { qualifications: [], workHistory: [], attachments: [] }, after.dossier)) changed.push("dossier");
   if (typeof after.photoId === "string" && after.photoId !== (before.photoId ?? "")) changed.push("photoId");
   return changed;
 }

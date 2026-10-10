@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { fundLedger, fundTypes, payHeads, travelClaims } from '@/lib/db/schema';
+import { fundLedger, fundTypes, payHeads, payrollArrears, payrollRuns, payrollSlips, travelClaims } from '@/lib/db/schema';
 import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 // Payroll feeds (4.8): what other modules hand the pay run — approved TA-DA
@@ -9,6 +9,7 @@ import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 export const TADA_HEAD_CODE = 'TADA';
 export const WELFARE_FUND_HEAD_CODE = 'WELFARE_FUND';
+export const ARREARS_HEAD_CODE = 'ARREARS';
 
 /** Approved, unsettled claims whose trip ended on or before the period end, summed per employee. */
 export async function approvedClaimsByEmployee(employeeIds: string[], periodEndAd: string): Promise<Map<string, { ids: string[]; payable: string }>> {
@@ -67,8 +68,64 @@ export async function fundContributionsByEmployee(employeeIds: string[], bsYear:
   return out;
 }
 
-export async function feedHeads(): Promise<{ tada: typeof payHeads.$inferSelect | null; welfare: typeof payHeads.$inferSelect | null }> {
+export async function feedHeads(): Promise<{ tada: typeof payHeads.$inferSelect | null; welfare: typeof payHeads.$inferSelect | null; arrears: typeof payHeads.$inferSelect | null }> {
   const db = await getDb();
-  const rows = await db.select().from(payHeads).where(inArray(payHeads.code, [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE]));
-  return { tada: rows.find((r) => r.code === TADA_HEAD_CODE) ?? null, welfare: rows.find((r) => r.code === WELFARE_FUND_HEAD_CODE) ?? null };
+  const rows = await db.select().from(payHeads).where(inArray(payHeads.code, [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE]));
+  return { tada: rows.find((r) => r.code === TADA_HEAD_CODE) ?? null, welfare: rows.find((r) => r.code === WELFARE_FUND_HEAD_CODE) ?? null, arrears: rows.find((r) => r.code === ARREARS_HEAD_CODE) ?? null };
+}
+
+export interface PaidMonthFact {
+  employeeId: string;
+  runId: string;
+  periodEnd: string;
+  /** basic + grade on the payslip. */
+  paid: number;
+  /** Arrears already paid for this month in earlier runs. */
+  alreadyPaid: number;
+}
+
+/**
+ * Payslips of approved / locked runs that ended before `beforeStart` (YYYY-MM-DD), with the
+ * arrears already paid for each. Held slips count: the pay was calculated, only its release waits.
+ */
+export async function paidMonths(employeeIds: string[], beforeStart: string): Promise<PaidMonthFact[]> {
+  if (!employeeIds.length) return [];
+  const db = await getDb();
+  const slips = await db
+    .select({
+      employeeId: payrollSlips.employeeId,
+      runId: payrollRuns.id,
+      periodEnd: payrollRuns.payPeriodEndDate,
+      basic: payrollSlips.basicSalary,
+      grade: payrollSlips.gradeAmount,
+    })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollRuns.status, ['APPROVED', 'LOCKED']), sql`${payrollRuns.payPeriodEndDate} < ${beforeStart}::date`, inArray(payrollSlips.employeeId, employeeIds)));
+  if (!slips.length) return [];
+  const prior = await db
+    .select({ employeeId: payrollArrears.employeeId, sourceRunId: payrollArrears.sourceRunId, amount: sql<string>`sum(${payrollArrears.amount})::text` })
+    .from(payrollArrears)
+    .where(inArray(payrollArrears.employeeId, employeeIds))
+    .groupBy(payrollArrears.employeeId, payrollArrears.sourceRunId);
+  const already = new Map(prior.map((r) => [`${r.employeeId}|${r.sourceRunId}`, Number(r.amount)]));
+  return slips.map((r) => ({
+    employeeId: r.employeeId,
+    runId: r.runId,
+    periodEnd: String(r.periodEnd).slice(0, 10),
+    paid: Number(r.basic) + Number(r.grade),
+    alreadyPaid: already.get(`${r.employeeId}|${r.runId}`) ?? 0,
+  }));
+}
+
+/** Records what this run pays as arrears (idempotent per employee, source run and paying run). */
+export async function settleArrears(runId: string, rows: { employeeId: string; sourceRunId: string; amount: number }[]): Promise<number> {
+  if (!rows.length) return 0;
+  const db = await getDb();
+  const inserted = await db
+    .insert(payrollArrears)
+    .values(rows.map((r) => ({ employeeId: r.employeeId, sourceRunId: r.sourceRunId, payrollRunId: runId, amount: r.amount.toFixed(2) })))
+    .onConflictDoNothing()
+    .returning({ id: payrollArrears.id });
+  return inserted.length;
 }

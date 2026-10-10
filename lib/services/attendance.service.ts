@@ -1,3 +1,5 @@
+import { otPay, resolveOtMultipliers, type OtMultipliers } from "@/lib/engines/ot-pay.engine";
+import * as otRuleRepository from "@/lib/repositories/ot-rule.repository";
 import * as repo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
@@ -16,8 +18,9 @@ import { addDays, datesIn, periodContaining, periodFor, type PayPeriod } from "@
 import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
 import { plannedWeekMinutes, shiftSummary, shiftWarnings } from "@/lib/engines/shift.engine";
 import { clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
-import { OT_MAX_ENTRY_MINUTES, decidable, monthOvertime, otDetail } from "@/lib/engines/overtime.engine";
+import { OT_MAX_ENTRY_MINUTES, decidable, monthOvertime } from "@/lib/engines/overtime.engine";
 import * as overtimeService from "@/lib/services/overtime.service";
+import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as overtimeRepo from "@/lib/repositories/overtime.repository";
 import type { OvertimeDayView, OvertimeDetail, OvertimeEntry, OvertimeLine, OvertimePolicy } from "@/lib/types/overtime";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
@@ -356,7 +359,7 @@ export async function getAttendancePage(params: {
   const adjustmentRows = await repo.findAdjustments({ employeeIds: ids, from: addDays(period.start, -62), to: period.end });
   const timeline = await repo.findAdjustmentTimeline(adjustmentRows.map((a) => a.id));
   // Overtime (4.7b): every day with overtime this month, and the decisions taken.
-  const [otEntries, { policy: otPolicy }] = await Promise.all([overtimeRepo.findEntries({ employeeIds: ids, from: period.start, to: period.end }), overtimeService.getPolicy()]);
+  const [otEntries, { policy: otPolicy }] = await Promise.all([overtimeRepo.findEntries({ employeeIds: ids, from: period.start, to: period.end }), overtimeService.getPayPolicy()]);
   const otTimeline = await overtimeRepo.findTimeline(otEntries.map((x) => x.id));
   const names = await findUserNames([
     ...punchRows.map((p) => p.createdBy ?? ""),
@@ -583,7 +586,7 @@ export async function ownDays(employeeId: string, from: string, to: string): Pro
  * Overtime tab. The caller has already resolved the employee from the session.
  */
 export async function ownOvertime(employeeId: string, days: readonly DayResult[], from: string, to: string): Promise<{ lines: OvertimeLine[]; approval: OvertimePolicy["approval"] }> {
-  const [entries, { policy }] = await Promise.all([overtimeRepo.findEntries({ employeeIds: [employeeId], from, to }), overtimeService.getPolicy()]);
+  const [entries, { policy }] = await Promise.all([overtimeRepo.findEntries({ employeeIds: [employeeId], from, to }), overtimeService.getPayPolicy()]);
   return { lines: monthOvertime(employeeId, days, entries, policy).lines, approval: policy.approval };
 }
 
@@ -807,7 +810,7 @@ async function overtimeMonthOf(e: Employee, date: string) {
   const [c, entries, { policy }] = await Promise.all([
     loadContext([e], period.start, period.end, rules),
     overtimeRepo.findEntries({ employeeIds: [e.id], from: period.start, to: period.end }),
-    overtimeService.getPolicy(),
+    overtimeService.getPayPolicy(),
   ]);
   const days = datesIn(period).map((d) => resolveFor(c, e, d));
   return { days, ot: monthOvertime(e.id, days, entries, policy), eligible: c.ot.get(e.category) ?? true };
@@ -915,7 +918,7 @@ export async function overtimeWaitingFor(employeeIds: string[], period: PayPerio
   if (!employeeIds.length) return out;
   const rules = await getRules();
   const people = await repo.findEmployeesByIds(employeeIds);
-  const [c, entries, { policy }] = await Promise.all([loadContext(people, period.start, period.end, rules), overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }), overtimeService.getPolicy()]);
+  const [c, entries, { policy }] = await Promise.all([loadContext(people, period.start, period.end, rules), overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }), overtimeService.getPayPolicy()]);
   for (const e of people) {
     const days = datesIn(period).map((d) => resolveFor(c, e, d));
     const waiting = monthOvertime(e.id, days, entries, policy).waiting;
@@ -951,16 +954,26 @@ export async function countAdjustmentsWaitingFor(scope: ScopeFilter, canApprove:
 }
 
 /**
- * Overtime pay and the unpaid-day deduction for a month (4.7): the overtime
- * the policy lets through (approved, or detected when approval is automatic;
- * 4.7b), each day rounded, paid at (basic + grade) ÷ 240 × the policy's rate
- * for that kind of day (overtime.engine.ts).
+ * Overtime pay and the unpaid-day deduction for a month (4.7, merged with the
+ * team's formula): the minutes the overtime policy lets through (approved, or
+ * detected when approval is automatic; each day rounded) are paid with the
+ * one OT formula, `otPay` (basic ÷ 240 × the OT-rule multiplier, never below
+ * the Labour Act's 1.5).
  */
-function amountsFor(employeeId: string, summary: MonthSummary, days: readonly DayResult[], entries: readonly OvertimeEntry[], salary: { basic: number; grade: number } | undefined, policy: OvertimePolicy) {
+function amountsFor(employeeId: string, summary: MonthSummary, days: readonly DayResult[], entries: readonly OvertimeEntry[], salary: { basic: number; grade: number } | undefined, policy: OvertimePolicy, multipliers: OtMultipliers) {
   const ot = monthOvertime(employeeId, days, entries, policy);
-  const detail = otDetail(ot.paid, salary, policy);
+  const amount = salary ? otPay({ basic: salary.basic, workDayMinutes: ot.paid.work, offDayMinutes: ot.paid.off, multipliers }) : 0;
+  const hours = (m: number) => Math.round(((m || 0) / 60) * 100) / 100;
+  const detail: OvertimeDetail = {
+    amount,
+    hourlyRate: salary ? Math.round((salary.basic / 240) * 100) / 100 : 0,
+    workHours: hours(ot.paid.work),
+    offHours: hours(ot.paid.off),
+    workRate: multipliers.work,
+    offRate: multipliers.off,
+  };
   return {
-    otEarnedAmount: detail.amount,
+    otEarnedAmount: amount,
     otDetail: detail,
     otMinutes: ot.paid,
     otWaiting: ot.waiting,
@@ -969,13 +982,19 @@ function amountsFor(employeeId: string, summary: MonthSummary, days: readonly Da
 }
 
 async function payInputs(employeeIds: string[], period: { start: string; end: string }) {
-  const [salaries, { policy }, entries] = await Promise.all([
+  const [salaries, { policy }, entries, settings, rules] = await Promise.all([
     salaryMappingRepository.findInForceByEmployeeIds(employeeIds, period.end),
-    overtimeService.getPolicy(),
+    overtimeService.getPayPolicy(),
     overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }),
+    systemControlRepository.findSettings(),
+    otRuleRepository.findActiveOtRules(),
   ]);
   const salary = new Map([...salaries].map(([id, m]) => [id, { basic: Number(m.basicSalary) || 0, grade: Number(m.gradeAmount) || 0 }]));
-  return { salary, policy, entries };
+  const multipliers = resolveOtMultipliers(
+    rules.map((r) => ({ ruleType: r.ruleType, isActive: r.isActive, rateOfficeDay: Number(r.rateOfficeDay), rateOffDay: Number(r.rateOffDay) })),
+    { work: settings.officeTime.otMultiplierOfficeDay, off: settings.officeTime.otMultiplierOffDay },
+  );
+  return { salary, policy, entries, multipliers };
 }
 
 /** BS month number of a period (summaries keep it for today's payroll reads). */
@@ -1022,7 +1041,7 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
       const results = datesIn(period).map((d) => resolveFor(c, e, d));
       for (const res of results) days.push({ employeeId: e.id, fiscalYearId: res.date < period.end && fyStart !== fyEnd ? await repo.fiscalYearFor(res.date) : fyEnd, result: res });
       const summary = summariseMonth(period, results, rules);
-      const a = amountsFor(e.id, summary, results, pay.entries, pay.salary.get(e.id), pay.policy);
+      const a = amountsFor(e.id, summary, results, pay.entries, pay.salary.get(e.id), pay.policy, pay.multipliers);
       otWaiting += a.otWaiting;
       summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, otEarnedAmount: a.otEarnedAmount, otDetail: a.otDetail, otMinutes: a.otMinutes, leaveDeductionAmount: a.leaveDeductionAmount });
     }
@@ -1060,9 +1079,12 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const branchId = typeof r.branchId === "string" ? r.branchId : "";
   if (ctx.scope.scopeType === "DEPARTMENT" || ctx.scope.scopeType === "SELF") throw new UserFacingError("Reopening a month needs a company-wide or branch role.");
   if (ctx.scope.scopeType === "BRANCH" && !ctx.scope.branchIds.includes(branchId)) throw new OutOfScopeError();
-  // Payroll already approved or locked for this month (4.8b): the month may still be corrected;
-  // the locked payslips never change, the difference is paid as arrears in a later run.
-  const afterLock = (await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0;
+  // Payroll approved or locked for this month: its attendance stays closed. The team's arrears
+  // (F7) pay back-dated salary revisions only, so a day corrected now would never be paid.
+  if ((await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0) {
+    throw new UserFacingError("Payroll for this month is already approved or locked, so its attendance can't be reopened.");
+  }
+  const afterLock = false;
   const p = (await repo.findPeriods(period.calendar, period.year, period.month)).find((x) => x.branchId === branchId);
   if (!p || p.status !== "closed") throw new UserFacingError("That month is not closed for this branch.");
   const people = (await repo.findEmployees()).filter((e) => e.branchId === branchId);
@@ -1153,7 +1175,7 @@ export async function attendanceForPayroll(employeeIds: string[], period: PayPer
   for (const e of people) {
     const days = datesIn(period).map((d) => resolveFor(c, e, d));
     const summary = summariseMonth(period, days, rules);
-    const a = amountsFor(e.id, summary, days, pay.entries, pay.salary.get(e.id), pay.policy);
+    const a = amountsFor(e.id, summary, days, pay.entries, pay.salary.get(e.id), pay.policy, pay.multipliers);
     // Overtime waiting for a decision is not paid yet: say so on the payslip.
     const waiting = a.otWaiting ? [`${a.otWaiting} overtime day${a.otWaiting === 1 ? "" : "s"} waiting for a decision (not paid yet)`] : [];
     out.set(e.id, {

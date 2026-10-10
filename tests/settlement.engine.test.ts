@@ -1,71 +1,85 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { DEFAULT_SETTLEMENT_SETTINGS, encashmentAmount, gratuityAmount, monthsServed, parseSettlementSettings, settlementFigures, settlementShortfall, validateSettlementSettings } from '../lib/engines/settlement.engine';
+import test from "node:test";
+import assert from "node:assert/strict";
+import Decimal from "decimal.js";
+import { buildSettlement, canMove, completedYears, DEFAULT_POLICY, normalizePolicy, type SettlementInput } from "@/lib/engines/settlement.engine";
 
-// 4.8b-3 Final settlement: the rules that need no database.
+// 1% on the first 500,000, 10% above.
+const taxOn = (a: Decimal) => (a.lte(500000) ? a.times(0.01) : new Decimal(5000).plus(a.minus(500000).times(0.1)));
 
-const settings = { ...DEFAULT_SETTLEMENT_SETTINGS };
+const base: SettlementInput = {
+  kind: "resignation",
+  monthlyBasic: "30000",
+  monthlyGrade: "3000",
+  periods: [{ label: "Falgun", workedDays: 15, monthDays: 30 }],
+  leave: [{ leaveType: "Home leave", days: 10, perDayRate: "1000.00" }],
+  noticeServedDays: 30,
+  yearsOfService: 5,
+  loanOutstanding: "0",
+  past: [],
+  taxOn,
+  policy: DEFAULT_POLICY,
+};
 
-describe('Final settlement: service and gratuity (4.8b)', () => {
-  it('counts whole months served, the last working day included', () => {
-    assert.equal(monthsServed('2024-01-01', '2024-12-31'), 12);
-    assert.equal(monthsServed('2024-01-15', '2025-01-14'), 12);
-    assert.equal(monthsServed('2024-01-15', '2025-01-13'), 11);
-    assert.equal(monthsServed('2024-03-01', '2024-03-15'), 0);
-    assert.equal(monthsServed('2025-01-01', '2024-01-01'), 0);
-  });
-
-  it('gratuity: 8.33% of basic per month from one year; none for an SSF member unless the company says so', () => {
-    assert.deepEqual(gratuityAmount({ basic: '30000', months: 24, ssfMember: false, settings }), { amount: '59976', reason: null });
-    assert.equal(gratuityAmount({ basic: '30000', months: 11, ssfMember: false, settings }).amount, '0');
-    assert.match(gratuityAmount({ basic: '30000', months: 11, ssfMember: false, settings }).reason!, /Under 12 months/);
-    assert.match(gratuityAmount({ basic: '30000', months: 24, ssfMember: true, settings }).reason!, /SSF member/);
-    assert.equal(gratuityAmount({ basic: '30000', months: 24, ssfMember: true, settings: { ...settings, gratuityForSsfMembers: true } }).amount, '59976');
-  });
-
-  it('leave is encashed at basic per day (÷ 30) or at the type\'s fixed daily amount', () => {
-    assert.deepEqual(encashmentAmount({ days: 30, basic: '30000', rate: 'BASIC_DAILY', fixed: null }), { perDay: '1000', amount: '30000' });
-    assert.deepEqual(encashmentAmount({ days: 4.5, basic: '30000', rate: 'FIXED_AMOUNT', fixed: 800 }), { perDay: '800', amount: '3600' });
-  });
-
-  it('settings are parsed from JSON with defaults and validated', () => {
-    assert.deepEqual(parseSettlementSettings('{"gratuityPctPerMonth":"10","gratuityForSsfMembers":"true"}'), { gratuityPctPerMonth: 10, gratuityMinMonths: 12, gratuityWithholdingPct: 5, gratuityForSsfMembers: true });
-    assert.deepEqual(parseSettlementSettings('not json'), DEFAULT_SETTLEMENT_SETTINGS);
-    assert.deepEqual(validateSettlementSettings({ ...settings, gratuityPctPerMonth: 120, gratuityMinMonths: 1.5 }), { gratuityPctPerMonth: 'Between 0 and 100 percent', gratuityMinMonths: 'Whole months, 0 to 120' });
-  });
+test("salary is pro rata on basic + grade, leave at the type's rate", () => {
+  const s = buildSettlement(base);
+  const salary = s.lines.find((l) => l.code === "salary")!;
+  assert.equal(salary.amount, "16500.00");
+  assert.equal(s.lines.find((l) => l.code === "leave")!.amount, "10000.00");
+  assert.equal(s.earnings, "26500.00");
 });
 
-describe('Final settlement: the payslip lines (4.8b)', () => {
-  const figures = settlementFigures({
-    month: { label: 'Aswin 2083', grossEarnings: '20000', statutoryDeductions: [{ label: 'SSF', amount: '3300' }], taxableGross: '20000' },
-    encashment: [{ label: 'Home leave encashment (10 days)', amount: '10000' }, { label: 'Sick leave encashment (0 days)', amount: '0' }],
-    gratuity: { amount: '59976', withholdingPct: 5 },
-    funds: [{ label: 'Welfare fund', employee: '6000', employer: '6000' }],
-    loans: [{ label: 'Staff loan', remaining: '15000' }],
-    noticeRecovery: '5000',
-  });
+test("gratuity is off by default and needs the company's rate when on", () => {
+  assert.ok(!buildSettlement(base).lines.some((l) => l.code === "gratuity"));
+  const on = buildSettlement({ ...base, policy: { ...DEFAULT_POLICY, gratuity: { enabled: true, minYears: 3, monthsPerYear: 0.5 } } });
+  assert.equal(on.lines.find((l) => l.code === "gratuity")!.amount, "75000.00"); // 30000 × 0.5 × 5
+  const tooShort = buildSettlement({ ...base, yearsOfService: 2, policy: { ...DEFAULT_POLICY, gratuity: { enabled: true, minYears: 3, monthsPerYear: 0.5 } } });
+  assert.ok(!tooShort.lines.some((l) => l.code === "gratuity"));
+  const fired = buildSettlement({ ...base, kind: "termination", policy: { ...DEFAULT_POLICY, gratuity: { enabled: true, minYears: 3, monthsPerYear: 0.5 } } });
+  assert.ok(!fired.lines.some((l) => l.code === "gratuity"));
+});
 
-  it('pays the month, the encashment, the gratuity and the fund; deducts the contributions, the gratuity tax, the loans and the notice', () => {
-    assert.deepEqual(figures.earnings.map((l) => [l.code, l.amount]), [['MONTH', '20000'], ['ENCASHMENT', '10000'], ['GRATUITY', '59976'], ['FUND_PAYOUT', '12000']]);
-    assert.deepEqual(figures.deductions.map((l) => [l.code, l.amount]), [['MONTH', '3300'], ['GRATUITY_TDS', '2998.8'], ['LOAN_CLOSEOUT', '15000'], ['NOTICE_RECOVERY', '5000']]);
-    assert.equal(figures.grossEarnings, '101976');
-    assert.equal(figures.totalDeductions, '26298.8');
-  });
+test("notice shortfall applies to resignation only, at monthly pay ÷ 30 a day", () => {
+  const policy = { ...DEFAULT_POLICY, noticeDays: 30 };
+  const s = buildSettlement({ ...base, noticeServedDays: 10, policy });
+  assert.equal(s.lines.find((l) => l.code === "notice")!.amount, "22000.00"); // 20 × 1100
+  assert.ok(!buildSettlement({ ...base, kind: "retirement", noticeServedDays: 0, policy }).lines.some((l) => l.code === "notice"));
+  assert.ok(!buildSettlement({ ...base, noticeServedDays: 30, policy }).lines.some((l) => l.code === "notice"));
+});
 
-  it('taxes the month, the encashment and the employer\'s fund share once; not the gratuity, not the employee\'s own fund money', () => {
-    assert.equal(figures.taxableGross, '36000'); // 20000 + 10000 + 6000
-    assert.equal(figures.oneOffTaxable, '16000'); // 10000 + 6000
-    assert.equal(figures.gratuityWithheld, '2998.8');
-  });
+test("loan outstanding is deducted; net can go negative and flags a recovery", () => {
+  const s = buildSettlement({ ...base, leave: [], loanOutstanding: "50000" });
+  assert.equal(s.lines.find((l) => l.code === "loan")!.amount, "50000.00");
+  assert.equal(s.net, "-33665.00");
+  assert.equal(s.recovery, true);
+});
 
-  it('a settlement whose deductions exceed the pay is refused by name', () => {
-    assert.equal(settlementShortfall(figures, '1000'), null);
-    assert.match(settlementShortfall({ grossEarnings: '1000', totalDeductions: '5000' }, '0')!, /more than the pay/);
-  });
+test("final TDS is the tax on earlier + settlement taxable income less TDS already paid", () => {
+  const past = Array.from({ length: 6 }, () => ({ taxableIncome: "100000", tds: "1000" }));
+  const s = buildSettlement({ ...base, past });
+  // taxable now 26,500; annual 626,500; tax 5,000 + 12,650 = 17,650; minus 6,000 paid
+  assert.equal(s.lines.find((l) => l.code === "tds")!.amount, "11650.00");
+  assert.equal(s.taxSheet!.monthsRemaining, 1);
+  assert.equal(s.net, new Decimal("26500").minus("11650").toFixed(2));
+});
 
-  it('a month already paid in a locked run adds no month line', () => {
-    const f = settlementFigures({ month: null, encashment: [], gratuity: { amount: '0', withholdingPct: 5 }, funds: [], loans: [], noticeRecovery: '0' });
-    assert.deepEqual(f.earnings, []);
-    assert.equal(f.grossEarnings, '0');
-  });
+test("no tax line when TDS already covers the year", () => {
+  const past = [{ taxableIncome: "100000", tds: "99999" }];
+  assert.ok(!buildSettlement({ ...base, past }).lines.some((l) => l.code === "tds"));
+});
+
+test("completedYears counts anniversaries", () => {
+  assert.equal(completedYears("2020-05-10", "2025-05-09"), 4);
+  assert.equal(completedYears("2020-05-10", "2025-05-10"), 5);
+  assert.equal(completedYears("2025-01-01", "2024-01-01"), 0);
+});
+
+test("policy input is cleaned", () => {
+  assert.deepEqual(normalizePolicy({ noticeDays: -5, gratuity: { enabled: "yes", monthsPerYear: 99 } }), { noticeDays: 0, gratuity: { enabled: false, minYears: 0, monthsPerYear: 12 } });
+});
+
+test("approval needs a second person; only draft→approved→paid", () => {
+  assert.ok(canMove("draft", "approved", "a", "a"));
+  assert.equal(canMove("draft", "approved", "a", "b"), null);
+  assert.equal(canMove("approved", "paid", "a", "a"), null);
+  assert.ok(canMove("paid", "draft", "a", "b"));
 });

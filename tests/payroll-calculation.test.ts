@@ -1,11 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Decimal from 'decimal.js';
-import { calculatePayslip, isSsfEmployerHead, isSsfDeductionHead, ssfContribution, type PayHeadInput, type TaxSlabInput, type EmployeeInput, EMPTY_YTD, projectTds, ytdFromSlips, calculateBonusSlip } from '../lib/engines/payroll.engine';
+import { 
+  calculatePayslip, 
+  isSsfEmployerHead, 
+  isSsfDeductionHead, 
+  ssfContribution,
+  type PayHeadInput, 
+  type TaxSlabInput, 
+  type EmployeeInput 
+} from '../lib/engines/payroll.engine';
 import type { SystemControlData } from '../lib/types/system-control';
-
-/** 4.8b: a first month of the year with nothing paid yet (equals the old "this month × 12" projection). */
-const NO_YTD = { ytd: EMPTY_YTD, monthsRemaining: 12 };
 
 const MOCK_SYSTEM_CONTROL: SystemControlData = {
   officeTime: {
@@ -169,7 +174,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // Basic: 40,000 + DA: 5,000 + HRA: 8,000 = Gross: 53,000
@@ -273,7 +278,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // 15% of 50,000 = 7,500
@@ -383,7 +388,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // Check non-statutory deductions in slip heads
@@ -522,7 +527,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // Gross includes both taxable and non-taxable: 50,000 + 10,000 + 5,000 = 65,000
@@ -633,7 +638,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // Basic = 40,000 (when basis is BasicSalary)
@@ -732,7 +737,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // Non-enrolled employee has 0 SSF
@@ -796,7 +801,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     const resDisabled = calculatePayslip({
@@ -809,7 +814,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     const resWidow = calculatePayslip({
@@ -822,7 +827,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     const standardTds = new Decimal(resStandard.tdsThisMonth);
@@ -896,7 +901,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     const disabledTds = new Decimal(resDisabled.tdsThisMonth);
@@ -1014,7 +1019,7 @@ describe('Payroll Calculation & Syncing Engine', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
     // Basic: 35,000. SSF Employer 20% = 7,000.
@@ -1062,7 +1067,7 @@ describe('SSF contribution base (company setting, default basic + grade)', () =>
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
 
   it('defaults to basic + grade: 11% and 20% of 45,000', () => {
@@ -1091,7 +1096,7 @@ describe('SSF contribution base (company setting, default basic + grade)', () =>
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
     });
     assert.equal(r.ssfEmployee, '4400');
   });
@@ -1102,104 +1107,5 @@ describe('SSF contribution base (company setting, default basic + grade)', () =>
     assert.equal(s.employer.toString(), '6600');
     assert.equal(s.total.toString(), '10230');
     assert.equal(ssfContribution(30000, 3000, 'BasicSalary').employee.toString(), '3300');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 4.8b: income tax from the year to date, spread over the remaining months
-// ---------------------------------------------------------------------------
-describe('Income tax: year-to-date projection (4.8b)', () => {
-  const base = (over: Partial<Parameters<typeof projectTds>[0]> = {}) =>
-    projectTds({
-      employee: BASE_EMPLOYEE,
-      taxSlabs: MOCK_TAX_SLABS,
-      systemControl: MOCK_SYSTEM_CONTROL,
-      monthlyGross: new Decimal(50000),
-      taxableMonthlyGross: new Decimal(50000),
-      oneOffTaxable: new Decimal(0),
-      retirementThisMonth: new Decimal(0),
-      citThisMonth: new Decimal(0),
-      insuranceAnnual: new Decimal(0),
-      ssfEnrolled: false,
-      ytd: EMPTY_YTD,
-      monthsRemaining: 12,
-      ...over,
-    });
-
-  it('the first month of the year equals the old "this month × 12" projection', () => {
-    // 600,000 a year: 1% of 500,000 + 10% of 100,000 = 15,000 → 1,250 a month.
-    const r = base();
-    assert.equal(r.detail.projected.gross, '600000');
-    assert.equal(r.detail.annualTax, '15000');
-    assert.equal(r.tdsThisMonth.toString(), '1250');
-    assert.equal(r.detail.method, 'ytd');
-  });
-
-  it('a mid-year increment is projected from what was paid plus the new pay for the months left', () => {
-    // 5 months at 50,000 paid (TDS 1,250 each), month 6 at 60,000: 250,000 + 60,000 + 6 × 60,000 = 670,000 → tax 22,000; less 6,250 paid → 15,750 over 7 months = 2,250.
-    const r = base({ taxableMonthlyGross: new Decimal(60000), monthlyGross: new Decimal(60000), ytd: { taxableGross: '250000', retirement: '0', cit: '0', tds: '6250', months: 5 }, monthsRemaining: 7 });
-    assert.equal(r.detail.projected.gross, '670000');
-    assert.equal(r.detail.annualTax, '22000');
-    assert.equal(r.tdsThisMonth.toString(), '2250');
-  });
-
-  it('a one-off (festival bonus) is taxed once, not projected over the remaining months', () => {
-    // Month 1 of 12: 50,000 regular + 50,000 bonus: 100,000 + 11 × 50,000 = 650,000 → 20,000 a year → 1,667 this month.
-    const r = base({ taxableMonthlyGross: new Decimal(100000), monthlyGross: new Decimal(100000), oneOffTaxable: new Decimal(50000) });
-    assert.equal(r.detail.projected.gross, '650000');
-    assert.equal(r.tdsThisMonth.toString(), '1667');
-    // Projected ×12 it would have been 1,200,000 and far more tax.
-    assert.ok(Number(base({ taxableMonthlyGross: new Decimal(100000), monthlyGross: new Decimal(100000) }).tdsThisMonth) > 1667);
-  });
-
-  it('the year-end month reconciles exactly: annual tax less what was deducted', () => {
-    const r = base({ ytd: { taxableGross: '550000', retirement: '0', cit: '0', tds: '13000', months: 11 }, monthsRemaining: 1 });
-    assert.equal(r.detail.projected.gross, '600000');
-    assert.equal(r.tdsThisMonth.toString(), '2000'); // 15,000 − 13,000
-    // Over-deducted earlier: nothing more this month (no refund through payroll).
-    assert.equal(base({ ytd: { taxableGross: '550000', retirement: '0', cit: '0', tds: '16000', months: 11 }, monthsRemaining: 1 }).tdsThisMonth.toString(), '0');
-  });
-
-  it('retirement contributions and CIT are projected within the limits; contract staff pay a flat 15%', () => {
-    const r = base({ retirementThisMonth: new Decimal(10000), citThisMonth: new Decimal(30000) });
-    // 120,000 + 360,000 = 480,000, capped at a third of 600,000 = 200,000.
-    assert.equal(r.detail.projected.retirement, '200000');
-    assert.equal(r.detail.projected.taxable, '400000');
-    const c = base({ employee: { ...BASE_EMPLOYEE, category: 'Contract' } });
-    assert.equal(c.detail.method, 'flat15');
-    assert.equal(c.tdsThisMonth.toString(), '7500');
-    assert.equal(base({ employee: { ...BASE_EMPLOYEE, category: 'Trainee' } }).tdsThisMonth.toString(), '0');
-  });
-
-  it('the year to date is read from locked payslips; older slips count their gross as taxable', () => {
-    const ytd = ytdFromSlips([
-      { grossEarnings: '50000', pfEmployee: '0', ssfEmployee: '5500', ssfEmployer: '10000', citDeduction: '1000', tdsThisMonth: '1250', taxDetail: { method: 'ytd', monthsRemaining: 12, ytd: EMPTY_YTD, month: { taxableGross: '48000', oneOffTaxable: '0', retirement: '15500', cit: '1000', insuranceAnnual: '0' }, projected: { gross: '0', retirement: '0', cit: '0', taxable: '0' }, annualTax: '0', tdsThisMonth: '1250' } },
-      { grossEarnings: '50000', pfEmployee: '0', ssfEmployee: '5500', ssfEmployer: '10000', citDeduction: '1000', tdsThisMonth: '1250', taxDetail: null },
-    ]);
-    assert.deepEqual(ytd, { taxableGross: '98000', retirement: '31000', cit: '2000', tds: '2500', months: 2 });
-  });
-
-  it('a festival bonus payslip pays only the festival heads, with no PF or SSF, taxed once', () => {
-    const festival: PayHeadInput = { id: 'h-fest', code: 'FEST', name: 'Dashain allowance', type: 'allowance', effectOnTax: true, isFestivalAllowance: true, isAbsentDeduct: false, isOtHead: false, isLeaveHead: false, isTdsHead: false, isPfHead: false, isSsfHead: false, isSsfEmployerHead: false, isRemoteAllowance: false, isCitHead: false, calcBasis: 'BasicSalary', calcParameter: 'Calculated', calcPercent: '0', amount: '0', isManualOverride: false };
-    const tds: PayHeadInput = { ...festival, id: 'h-tds', code: 'TDS', name: 'TDS', type: 'deduction', isFestivalAllowance: false, isTdsHead: true, calcBasis: 'None', calcParameter: 'FixedAmount' };
-    const r = calculateBonusSlip({
-      employee: BASE_EMPLOYEE,
-      salaryMap: { basicSalary: '50000', gradePercent: '0', gradeAmount: '0' },
-      festivalHeads: [festival],
-      tdsHead: tds,
-      systemControl: MOCK_SYSTEM_CONTROL,
-      taxSlabs: MOCK_TAX_SLABS,
-      ssfEnrolled: false,
-      tax: { ytd: { taxableGross: '150000', retirement: '0', cit: '0', tds: '3750', months: 3 }, monthsRemaining: 9 },
-    });
-    assert.equal(r.grossEarnings, '50000');
-    assert.equal(r.pfEmployee, '0');
-    assert.equal(r.ssfEmployee, '0');
-    // 150,000 + 50,000 + 8 × 0 regular = 200,000 taxable → 2,000 − 3,750 paid → nothing more, so no TDS line.
-    assert.equal(r.heads.length, 1);
-    assert.equal(r.heads[0].calculatedAmount, '50000');
-    assert.equal(r.tdsThisMonth, '0');
-    assert.equal(r.netPayable, '50000');
-    assert.equal(r.taxDetail?.month.oneOffTaxable, '50000');
   });
 });

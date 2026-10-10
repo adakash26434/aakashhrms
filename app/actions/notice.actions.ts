@@ -24,9 +24,9 @@ const validationFailure = (error: unknown) =>
 export async function getNoticesPageAction() {
   await ensureTenantContext();
   try {
-    await checkPermissionWithScope('VIEW', 'NOTICE_BOARD');
+    const scope = await checkPermissionWithScope('VIEW', 'NOTICE_BOARD');
     const [add, manage, withdraw] = await Promise.all([hasPermission('ADD', 'NOTICE_BOARD'), hasPermission('EDIT', 'NOTICE_BOARD'), hasPermission('DELETE', 'NOTICE_BOARD')]);
-    return { success: true as const, data: await noticeService.noticesPage({ add, manage, withdraw }) };
+    return { success: true as const, data: await noticeService.noticesPage({ userId: scope.userId, scope }, { add, manage, withdraw }) };
   } catch (error: unknown) {
     return toActionError(error, 'notices.list');
   }
@@ -35,9 +35,10 @@ export async function getNoticesPageAction() {
 export async function saveNoticeAction(id: string | null, form: unknown) {
   await ensureTenantContext();
   try {
-    const { userId } = await checkPermissionWithScope(id ? 'EDIT' : 'ADD', 'NOTICE_BOARD');
-    const row = await noticeService.saveNotice(typeof id === 'string' ? id : null, form, userId);
-    await recordAuditLog({ userId, action: id ? 'EDIT' : 'ADD', module: 'NOTICE_BOARD', recordId: row.id, result: 'SUCCESS', newValues: { title: row.title, branchId: row.branchId, pinned: row.pinned } });
+    const scope = await checkPermissionWithScope(id ? 'EDIT' : 'ADD', 'NOTICE_BOARD');
+    const { userId } = scope;
+    const row = await noticeService.saveNotice(typeof id === 'string' ? id : null, form, { userId, scope });
+    await recordAuditLog({ userId, action: id ? 'EDIT' : 'ADD', module: 'NOTICE_BOARD', recordId: row.id, result: 'SUCCESS', newValues: { title: row.title, audience: row.audience, branchId: row.branchId, departmentId: row.departmentId, recipients: row.recipients.length, pinned: row.pinned } });
     revalidate();
     return { success: true as const, data: row };
   } catch (error: unknown) {

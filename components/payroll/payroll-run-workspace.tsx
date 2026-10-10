@@ -11,12 +11,13 @@ import { PaneTimeline, approvalSteps } from "@/components/kit/pane";
 import { SplitView } from "@/components/kit/split-view";
 import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
-import { acknowledgeVarianceAction, checkRunAction, decideRunAction, discardRunAction, lockRunAction, refreshVarianceAction, submitRunAction, syncRunAttendanceAction } from "@/app/actions/payroll-run.actions";
+import { checkRunAction, decideRunAction, discardRunAction, lockRunAction, submitRunAction, syncRunAttendanceAction } from "@/app/actions/payroll-run.actions";
+import { PayrollControlsPanel } from "@/components/payroll/payroll-controls-panel";
 import { generateBankExportCSVAction } from "@/app/actions/payroll.actions";
 import { downloadTextFile } from "@/lib/export/download";
 import { stepOf, stepsFor } from "@/lib/engines/payroll-run.engine";
-import type { PayrollSlip } from "@/lib/types/payroll";
-import { RUN_STEPS, RUN_STEP_LABEL, type PayrollRunsPageData, type PreflightProblem, type PreflightResult, type RunDetail, type RunStep, type VarianceItem } from "@/lib/types/payroll-run";
+import type { PayrollRun, PayrollSlip } from "@/lib/types/payroll";
+import { RUN_STEPS, RUN_STEP_LABEL, type PayrollRunsPageData, type PreflightProblem, type PreflightResult, type RunDetail, type RunStep } from "@/lib/types/payroll-run";
 import type { ApprovalActionKind } from "@/lib/types/approval";
 import { cn } from "@/lib/utils";
 import { PayslipPane } from "./payslip-pane";
@@ -65,7 +66,6 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
   const [preflight, setPreflight] = useState<PreflightResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [pending, setPending] = useState<null | "submit" | "reject" | "lock" | "discard" | "approve" | "final_approve">(null);
-  const [ack, setAck] = useState<VarianceItem | null>(null);
   const [activeSlipId, setActiveSlipId] = useState<string | null>(null);
   const dateText = useDateText();
   const done = (index: number) => RUN_STEPS.indexOf(current) > index || run.status === "LOCKED";
@@ -117,7 +117,6 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
     ],
     []
   );
-  const flagged = useMemo(() => new Set((run.variance?.items ?? []).filter((i) => !i.acknowledgedAt).map((i) => i.employeeId)), [run.variance]);
   const activeSlip = slips.find((s) => s.id === activeSlipId) ?? null;
 
   return (
@@ -184,59 +183,10 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
         </section>
       )}
 
-      {step === "variance" && (
-        <section className="text-xs">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="text-ink-muted">
-              {run.variance?.baseLabel ? `Against ${run.variance.baseLabel} (locked), ±${run.variance.thresholdPct}%.` : "First run: nothing to compare with, only new, missing or odd pay is flagged."}
-              {run.variance ? ` Worked out ${dateText(run.variance.computedAt)}.` : ""}
-            </span>
-            {run.can.edit && (
-              <WindowButton onClick={() => act("variance", () => refreshVarianceAction(run.id), "Variance worked out again.")} disabled={!!busy}>
-                {busy === "variance" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Work out again
-              </WindowButton>
-            )}
-          </div>
-          {!run.variance?.items.length ? (
-            <p className="font-medium text-success">No employee needs a look: every figure is within the threshold.</p>
-          ) : (
-            <ul className="divide-y divide-line rounded-md border border-line bg-surface">
-              {run.variance.items.map((item) => (
-                <li key={item.employeeId} className={cn("flex flex-wrap items-start gap-3 px-3 py-2", !item.acknowledgedAt && "border-l-2 border-l-warning")}>
-                  <div className="min-w-48">
-                    <p className="font-medium text-ink">
-                      {item.employeeName} <span className="font-code text-3xs text-ink-faint">{item.employeeCode}</span>
-                    </p>
-                    <button type="button" className="cursor-pointer text-2xs text-brand-strong hover:underline" onClick={() => { setStep("review"); setActiveSlipId(item.slipId); }}>
-                      Open payslip
-                    </button>
-                  </div>
-                  <ul className="flex-1 space-y-0.5">
-                    {item.flags.map((f) => (
-                      <li key={f.code} className={cn(f.code === "negative_net" || f.code === "leaver_paid" || f.code === "bank_changed" ? "text-danger" : "text-ink")}>
-                        {f.text}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="w-60 text-2xs">
-                    {item.acknowledgedAt ? (
-                      <p className="text-success">
-                        <Check className="mr-1 inline h-3 w-3" />
-                        {item.acknowledgedByName ?? "Acknowledged"} · {dateText(item.acknowledgedAt)}
-                        <span className="block text-ink-muted">“{item.note}”</span>
-                      </p>
-                    ) : run.can.edit && item.employeeId !== data.myEmployeeId ? (
-                      <WindowButton onClick={() => setAck(item)}>
-                        <Check className="h-3.5 w-3.5" /> Acknowledge
-                      </WindowButton>
-                    ) : (
-                      <span className="text-warning">{item.employeeId === data.myEmployeeId ? "Your own payslip: someone else acknowledges it." : "Waiting for acknowledgement"}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+      {(step === "variance" || step === "lock") && (
+        <section className="mb-3 text-xs">
+          {/* The team's Payroll controls (F1 variance review, F3 publish / hold): approval needs every flag acknowledged. */}
+          <PayrollControlsPanel run={{ id: run.id, status: run.status, publishedAt: run.publishedAt ?? null } as unknown as PayrollRun} slips={slips} onChanged={() => onDone(null)} />
         </section>
       )}
 
@@ -256,7 +206,7 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
               activeRowId={activeSlipId}
               onActiveRowChange={(s) => setActiveSlipId(s.id)}
               onOpen={(s) => setActiveSlipId(s.id)}
-              rowTone={(s) => (flagged.has(s.employeeId) ? "warning" : Number(s.netPayable) < 0 ? "danger" : undefined)}
+              rowTone={(s) => (Number(s.netPayable) < 0 ? "danger" : undefined)}
               defaultSort={{ columnId: "name", direction: "asc" }}
               pageSize={50}
               exportModule={run.can.export ? "PAYROLL_GENERATE" : undefined}
@@ -375,22 +325,6 @@ export function PayrollRunWorkspace({ data, detail, onDone, onOpenSettings }: { 
         }}
         onCancel={() => setPending(null)}
       />
-      {ack && (
-        <NoteWindow
-          title={`Acknowledge ${ack.employeeName}'s changes?`}
-          description={ack.flags.map((f) => f.text).join(" · ")}
-          action="Acknowledge"
-          label="Why this is right"
-          onClose={() => setAck(null)}
-          onConfirm={async (note) => {
-            const r = await acknowledgeVarianceAction(run.id, ack.employeeId, note);
-            if (!r.success) return r.validationErrors?.note ?? r.error;
-            setAck(null);
-            onDone(r.data?.open ? `Acknowledged. ${r.data.open} left.` : "Every variance flag is acknowledged: the run can be submitted.");
-            return null;
-          }}
-        />
-      )}
     </div>
   );
 }

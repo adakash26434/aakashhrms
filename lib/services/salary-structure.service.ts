@@ -14,9 +14,7 @@ import {
   batchSummary,
   changedLines,
   classifyHead,
-  earliestOpenDate,
   estimatePay,
-  finalisedConflicts,
   gradeAmountFor,
   headsFromLines,
   latestApproved,
@@ -44,7 +42,7 @@ import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry
 import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
-import { BS_MONTHS_EN, formatBSDate } from "@/lib/utils/bs-calendar";
+import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import type { PayHead } from "@/lib/types/pay-head";
 import type { Employee } from "@/lib/types/employee";
 import type {
@@ -413,27 +411,6 @@ function requestOf(b: repository.BatchRowDb, subjectEmployeeIds: string[]): Appr
 }
 
 /**
- * A change may not reach a month whose payroll is being prepared (a draft, a
- * run under review, or approved but not locked): that run would differ from
- * what is approved. Months already locked are fine (4.8b): the difference is
- * paid as arrears in a later run.
- */
-async function assertPayrollOpen(effectiveFrom: string, employeeIds: string[], names: Map<string, string>) {
-  const until = await repository.findOpenRunUntil(employeeIds);
-  const conflicts = finalisedConflicts(effectiveFrom, until, employeeIds);
-  if (!conflicts.size) return;
-  const [, lastPaid] = [...conflicts.entries()].sort((a, b) => b[1].localeCompare(a[1]))[0];
-  const open = earliestOpenDate(until, [...conflicts.keys()])!;
-  const who = [...conflicts.keys()].slice(0, 3).map((id) => names.get(id) ?? "an employee").join(", ");
-  const more = conflicts.size > 3 ? ` and ${conflicts.size - 3} more` : "";
-  throw new UserFacingError(
-    `Payroll is being prepared for ${who}${more} up to ${formatBSDate(new Date(`${lastPaid}T00:00:00`), "long")}` +
-      `. Lock or discard that run first, or choose an effective date from ${formatBSDate(new Date(`${open}T00:00:00`), "long")} (${open}) or later. ` +
-      `Months already locked are paid as arrears.`
-  );
-}
-
-/**
  * One change batch (a single revision, a bulk edit or an import). Every value
  * is re-checked here: employees must be active and in scope, with no change
  * already waiting; grades follow the policy unless typed by hand; rows that
@@ -454,7 +431,6 @@ export async function submitBatch(raw: unknown, ctx: { scope: ScopeFilter; userI
   const left = input.rows.filter((r) => scoped.get(r.employeeId)!.status !== "Active");
   if (left.length) throw new UserFacingError(`Only active employees can be revised: ${left.slice(0, 5).map((r) => scoped.get(r.employeeId)!.fullName).join(", ")}.`);
   const byId = scoped;
-  await assertPayrollOpen(input.effectiveFrom, input.rows.map((r) => r.employeeId), new Map(employees.map((e) => [e.id, e.fullName])));
   const pending = await repository.countPendingFor(input.rows.map((r) => r.employeeId));
   if (pending.size) {
     const names = [...pending.keys()].map((id) => byId.get(id)?.fullName).filter(Boolean).slice(0, 5).join(", ");
@@ -691,7 +667,6 @@ export async function decideBatch(
   if (decision === "reject" && (!cleanNote || cleanNote.length < 3)) throw new UserFacingError("Give a reason for rejecting.");
 
   const next = applyDecision(request, decision);
-  if (next.status === "approved") await assertPayrollOpen(batch.effectiveFrom, inBatch, new Map(scoped.map((e) => [e.id, e.fullName])));
   const level = decision === "approve" ? can.approve!.level : 0;
   const changed = await repository.decideBatch({
     batchId,

@@ -17,7 +17,8 @@ import {
   payHeads,
   employeeSalaryMap,
   employeeSalaryHeads,
-  attendanceRecords
+  attendanceRecords,
+  payrollRuns
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
@@ -34,8 +35,8 @@ import * as designationRepository from "@/lib/repositories/designation.repositor
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
-import { calculatePayslip, calculateBonusSlip, ytdFromSlips, EMPTY_YTD, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead, type PayHeadInput } from "@/lib/engines/payroll.engine";
-import { monthsRemaining } from "@/lib/engines/pay-calendar.engine";
+import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead, type PayHeadInput } from "@/lib/engines/payroll.engine";
+import { fiscalMonthIndexFor } from "@/lib/engines/pay-calendar.engine";
 import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
@@ -43,6 +44,8 @@ import { periodFor, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pa
 import * as fundRepository from "@/lib/repositories/fund.repository";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
+import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
+import * as arrearsService from "@/lib/services/arrears.service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -134,24 +137,22 @@ export function periodOfRun(run: Pick<PayrollRun, "calendar" | "payPeriodYear" |
 const fyDates = (fy: { startDateAD: Date; endDateAD: Date }) => ({ start: new Date(fy.startDateAD).toISOString().slice(0, 10), end: new Date(fy.endDateAD).toISOString().slice(0, 10) });
 
 /**
- * What the tax projection starts from for some employees: the year to date
- * from LOCKED payslips of the fiscal year (every run type), and the months
- * left in the year from the pay month on. `excludeRunId` leaves out the run
- * being recalculated (its own slips are never locked, but keep it explicit).
+ * The year's locked payslips per employee, for the team's year-end (last
+ * fiscal month) reconciliation in calculatePayslip.
  */
-export async function taxInputsFor(employeeIds: string[], fiscalYearId: string, period: PayPeriod, calendar: PeriodCalendar, excludeRunId?: string) {
-  const fy = await fiscalYearRepository.findFiscalYearById(fiscalYearId);
-  if (!fy) throw new Error("The run's fiscal year no longer exists.");
-  let remaining = 12;
-  try {
-    remaining = monthsRemaining(period, fyDates(fy), calendar);
-  } catch {
-    remaining = 1;
+async function yearEndHistory(employeeIds: string[], fiscalYearId: string, excludeSlipId?: string): Promise<Map<string, { grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }[]>> {
+  const out = new Map<string, { grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }[]>();
+  if (!employeeIds.length) return out;
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, id: payrollSlips.id, grossEarnings: payrollSlips.grossEarnings, pfEmployee: payrollSlips.pfEmployee, citDeduction: payrollSlips.citDeduction, tdsThisMonth: payrollSlips.tdsThisMonth })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollSlips.employeeId, employeeIds), eq(payrollRuns.fiscalYearId, fiscalYearId), eq(payrollRuns.status, 'LOCKED')));
+  for (const r of rows) {
+    if (r.id === excludeSlipId) continue;
+    out.set(r.employeeId, [...(out.get(r.employeeId) ?? []), { grossEarnings: r.grossEarnings, pfEmployee: r.pfEmployee, citDeduction: r.citDeduction, tdsThisMonth: r.tdsThisMonth }]);
   }
-  const slips = await repository.findLockedSlipsForFiscalYear(employeeIds, fiscalYearId, excludeRunId);
-  const byEmployee = new Map<string, typeof slips>();
-  for (const x of slips) byEmployee.set(x.employeeId, [...(byEmployee.get(x.employeeId) ?? []), x]);
-  return { monthsRemaining: remaining, ytdOf: (employeeId: string) => (byEmployee.has(employeeId) ? ytdFromSlips(byEmployee.get(employeeId)!) : EMPTY_YTD) };
+  return out;
 }
 
 // -----------------------------------------------------------------------------
@@ -300,12 +301,12 @@ export async function generatePayrollRun(
   // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
   // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
   // as fixed one-off heads; the engine's statutory maths is untouched.
-  // Regular runs only (merge 2026-10-10): a bonus run must not settle claims it does not pay.
-  const feedsApply = runType === "REGULAR";
-  const [feedHeadRows, claimsByEmployee, fundByEmployee] = await Promise.all([
+  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee] = await Promise.all([
     feedsRepository.feedHeads(),
-    feedsApply ? feedsRepository.approvedClaimsByEmployee(empIds, endStr) : Promise.resolve(new Map() as Awaited<ReturnType<typeof feedsRepository.approvedClaimsByEmployee>>),
-    feedsApply ? feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth) : Promise.resolve(new Map() as Awaited<ReturnType<typeof feedsRepository.fundContributionsByEmployee>>),
+    feedsRepository.approvedClaimsByEmployee(empIds, endStr),
+    feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth),
+    // F7: back pay for finalised months whose revision in force now pays more (ARREARS head, taxable).
+    arrearsService.arrearsFor(empIds, startStr),
   ]);
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
@@ -375,8 +376,6 @@ export async function generatePayrollRun(
   }
 
   // Welfare fund contributions posted for the month (4.8a): the employee share is deducted.
-  const fundsByEmployeeId = await fundRepository.contributionsForMonth(empIds, payPeriodYear, payPeriodMonth);
-  const fundSum = (lines: { employeeAmount: string }[] | undefined) => (lines ?? []).reduce((n, l) => n.plus(new Decimal(l.employeeAmount || 0)), new Decimal(0)).toDecimalPlaces(2).toString();
 
   // BATCH PREFETCH: Load all bank details for scoped employees
   const allBankDetails = await (await getDb()).select().from(employeeBank).where(
@@ -414,9 +413,12 @@ export async function generatePayrollRun(
   let totalPfSum = new Decimal(0);
   let totalSsfSum = new Decimal(0);
 
-  // 4.8b: the income tax projection starts from the year to date (locked payslips of the fiscal year).
-  const taxInputs = await taxInputsFor(empIds, activeFy.id, period, calendar);
-  const festivalHeadIds = new Set((occasionalAllowanceHeadIds ?? []).filter((id) => payHeadMap.get(id)?.isFestivalAllowance));
+  // F5 (team): the tax still due on the projected year, spread over the months left; the
+  // year-end month reconciles on the year's locked payslips. Months counted in the pay calendar.
+  const fiscalMonthIndex = fiscalMonthIndexFor(calendar, payPeriodMonth);
+  const isYearEndMonth = fiscalMonthIndex === 12;
+  const historicalSlipsByEmployee = isYearEndMonth ? await yearEndHistory(empIds, activeFy.id) : new Map<string, { grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }[]>();
+  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, activeFy.id, fiscalMonthIndex, undefined, calendar);
 
   // 7. Calculate payslips for each employee (all data pre-loaded — no per-employee queries)
   for (const emp of scopedEmployees) {
@@ -510,10 +512,12 @@ export async function generatePayrollRun(
     if (claimFeed && feedHeadRows.tada && Number(claimFeed.payable) !== 0) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.tada), amount: claimFeed.payable, isManualOverride: true });
     }
+    const arrearsFeed = arrearsByEmployee.get(emp.id);
+    if (arrearsFeed && arrearsFeed.payable > 0 && feedHeadRows.arrears) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: arrearsFeed.payable.toFixed(2), isManualOverride: true });
+    }
     const fundFeed = fundByEmployee.get(emp.id);
-    // One welfare-fund deduction only (merge 2026-10-10): the 4.8a per-fund deduction
-    // (fundDeduction / fundDetail) wins; the WELFARE_FUND head is used only when it is absent.
-    if (fundFeed && feedHeadRows.welfare && !(fundsByEmployeeId.get(emp.id) ?? []).length) {
+    if (fundFeed && feedHeadRows.welfare) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundFeed, isManualOverride: true });
     }
 
@@ -536,7 +540,7 @@ export async function generatePayrollRun(
       }
     }
 
-    const tax = { ytd: taxInputs.ytdOf(emp.id), monthsRemaining: taxInputs.monthsRemaining };
+    const historicalSlips = historicalSlipsByEmployee.get(emp.id) ?? [];
     const employeeInput = {
       id: emp.id,
       category: emp.category,
@@ -545,22 +549,7 @@ export async function generatePayrollRun(
       taxStatus: emp.taxStatus,
       joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
     };
-    // A festival bonus run pays only the chosen festival heads (the employee's own line if assigned, else the master head), taxed once.
-    const bonusHeads = (runType === "FESTIVAL_BONUS"
-      ? [...festivalHeadIds].map((id) => assignedHeads.find((h) => h.payHeadId === id) ?? (payHeadMap.get(id) ? toPayHeadObj(payHeadMap.get(id)!) : null)).filter((h) => !!h)
-      : []) as unknown as PayHeadInput[];
-    const calcResult = runType === "FESTIVAL_BONUS"
-      ? calculateBonusSlip({
-          employee: employeeInput,
-          salaryMap: { basicSalary: salaryMap.basicSalary.toString(), gradePercent: salaryMap.gradePercent.toString(), gradeAmount: (salaryMap.gradeAmount || 0).toString() },
-          festivalHeads: bonusHeads,
-          tdsHead: assignedHeads.find((h) => h.isTdsHead),
-          systemControl,
-          taxSlabs: taxSlabInputs,
-          ssfEnrolled: assignedHeads.some((h) => isSsfDeductionHead(h)),
-          tax,
-        })
-      : calculatePayslip({
+    const calcResult = calculatePayslip({
       employee: employeeInput,
       salaryMap: {
         basicSalary: salaryMap.basicSalary.toString(),
@@ -570,12 +559,14 @@ export async function generatePayrollRun(
       assignedHeads,
       attendanceCalc: attendCalc,
       loanDeduction: activeLoanDeduction,
-      fundDeduction: fundSum(fundsByEmployeeId.get(emp.id)),
       systemControl,
       taxSlabs: taxSlabInputs,
       isFestivalMonth: isFestivalChecked,
       isRemoteMonth: isRemoteChecked,
-      tax,
+      isYearEnd: isYearEndMonth,
+      historicalPayslips: historicalSlips,
+      fiscalMonthIndex,
+      projectionHistory: earlierTaxMonths.get(emp.id) ?? [],
     });
 
     // Accumulate batch run totals
@@ -608,6 +599,7 @@ export async function generatePayrollRun(
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -618,15 +610,12 @@ export async function generatePayrollRun(
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
         otDetail: leaveOtCalc?.otDetail ?? null,
-        fundDeduction: calcResult.fundDeduction,
-        fundDetail: runType === "REGULAR" ? fundsByEmployeeId.get(emp.id) ?? null : null,
-        taxDetail: calcResult.taxDetail,
         bankAccountNumber,
         bankName,
         payslipMonth,
         payslipDate,
         status: 'DRAFT',
-        isYearEndReconciliation: calcResult.isYearEndReconciliation,
+        isYearEndReconciliation: isYearEndMonth,
         warnings: slipWarnings,
       },
       heads: sanitizeSlipHeads(calcResult.heads, allPayHeads)
@@ -688,6 +677,8 @@ export async function generatePayrollRun(
   // The claims this run pays are settled once the run exists (claim-first on status; the FK
   // needs the committed run). A failed run above leaves them approved and unpaid.
   await feedsRepository.settleClaimsThroughRun([...claimsByEmployee.values()].flatMap((c) => c.ids), runRecord.id);
+  // The arrears this run pays are recorded against their source months (a deleted draft takes them with it).
+  await arrearsService.settle(runRecord.id, new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0)));
 
   logger.info('Payroll run generated', {
     runId: runRecord.id,
@@ -707,6 +698,8 @@ export async function overridePayslipAllowanceDeduction(
   payload: PayrollSlipOverridePayload,
   userId: string
 ): Promise<void> {
+  // S21: nobody edits their own payslip.
+  await assertNotOwnSlip(payload.slipId, userId, 'EDIT');
   const { 
     slipId, 
     headId, 
@@ -821,7 +814,10 @@ export async function overridePayslipAllowanceDeduction(
       };
     });
 
-    const taxInputs = await taxInputsFor([emp.id], run.fiscalYearId, periodOfRun(run), run.calendar === "AD" ? "AD" : "BS", run.id);
+    const runCalendar = run.calendar === "AD" ? "AD" : "BS";
+    const fiscalMonthIdx = fiscalMonthIndexFor(runCalendar, run.payPeriodMonth);
+    const isYearEnd = fiscalMonthIdx === 12;
+    const historicalSlips = isYearEnd ? (await yearEndHistory([emp.id], run.fiscalYearId, slipId)).get(emp.id) ?? [] : [];
 
     const isFestivalChecked = run.occasionalAllowanceHeadIds?.some(id => {
       const h = allPayHeads.find((dbH: typeof allPayHeads[number]) => dbH.id === id);
@@ -853,23 +849,25 @@ export async function overridePayslipAllowanceDeduction(
         otEarnedAmount: currentSlip.otAmount
       },
       loanDeduction: loanDeduction !== undefined ? loanDeduction : currentSlip.loanDeduction,
-      fundDeduction: currentSlip.fundDeduction ?? "0",
       systemControl,
       taxSlabs: taxSlabInputs,
       isFestivalMonth: isFestivalChecked,
       isRemoteMonth: isRemoteChecked,
-      tax: { ytd: taxInputs.ytdOf(emp.id), monthsRemaining: taxInputs.monthsRemaining },
+      isYearEnd,
+      historicalPayslips: historicalSlips,
+      fiscalMonthIndex: fiscalMonthIdx,
+      projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, fiscalMonthIdx, run.id, runCalendar)).get(emp.id) ?? []),
     });
 
     // Save new values to the slip in the DB
     await tx.update(payrollSlips)
       .set({
-        taxDetail: calcResult.taxDetail,
-        isYearEndReconciliation: calcResult.isYearEndReconciliation,
+        isYearEndReconciliation: isYearEnd,
         grossEarnings: calcResult.grossEarnings,
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -973,6 +971,7 @@ export async function deletePayrollRun(runId: string, userId: string): Promise<v
 }
 
 export async function deleteEmployeePayslip(slipId: string, userId: string): Promise<{ remainingCount: number }> {
+  await assertNotOwnSlip(slipId, userId, 'DELETE');
   const slip = await repository.findSlipById(slipId);
   if (!slip) throw new Error("Payslip not found");
 
@@ -1007,6 +1006,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   slip: PayrollSlip;
   heads: PayrollSlipHead[];
 }> {
+  await assertNotOwnSlip(slipId, userId, 'EDIT');
   const currentSlip = await repository.findSlipById(slipId);
   if (!currentSlip) throw new Error("Payslip not found");
 
@@ -1066,8 +1066,6 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
 
   // Load the run's fiscal year's tax slabs & system control
   const slabs = await taxRateRepository.findSlabsByFiscalYear(run.fiscalYearId);
-  const fundLines = (await fundRepository.contributionsForMonth([emp.id], run.payPeriodYear, run.payPeriodMonth)).get(emp.id) ?? null;
-  const fundDeduction = (fundLines ?? []).reduce((n, l) => n.plus(new Decimal(l.employeeAmount || 0)), new Decimal(0)).toDecimalPlaces(2).toString();
   const taxSlabInputs = slabs.map(s => ({
     id: s.id,
     category: s.category,
@@ -1160,7 +1158,10 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     }
   }
 
-  const taxInputs = await taxInputsFor([emp.id], run.fiscalYearId, periodOfRun(run), run.calendar === "AD" ? "AD" : "BS", run.id);
+  const runCalendar = run.calendar === "AD" ? "AD" : "BS";
+  const fiscalMonthIdx = fiscalMonthIndexFor(runCalendar, run.payPeriodMonth);
+  const isYearEnd = fiscalMonthIdx === 12;
+  const historicalSlips = isYearEnd ? (await yearEndHistory([emp.id], run.fiscalYearId, slipId)).get(emp.id) ?? [] : [];
 
   const calcResult = calculatePayslip({
     employee: {
@@ -1179,12 +1180,14 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     assignedHeads: calculatorHeadsInput,
     attendanceCalc: attendCalc,
     loanDeduction: activeLoanDeduction,
-    fundDeduction,
     systemControl,
     taxSlabs: taxSlabInputs,
     isFestivalMonth: isFestivalChecked,
     isRemoteMonth: isRemoteChecked,
-    tax: { ytd: taxInputs.ytdOf(emp.id), monthsRemaining: taxInputs.monthsRemaining },
+    isYearEnd,
+    historicalPayslips: historicalSlips,
+    fiscalMonthIndex: fiscalMonthIdx,
+    projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, fiscalMonthIdx, run.id, runCalendar)).get(emp.id) ?? []),
   });
 
   // Transactionally update slip and replace heads
@@ -1197,6 +1200,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -1207,10 +1211,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
         otDetail: leaveOtCalc?.otDetail ?? null,
-        fundDeduction: calcResult.fundDeduction,
-        fundDetail: fundLines,
-        taxDetail: calcResult.taxDetail,
-        isYearEndReconciliation: calcResult.isYearEndReconciliation,
+        isYearEndReconciliation: isYearEnd,
         updatedAt: new Date()
       })
       .where(eq(payrollSlips.id, slipId));
@@ -1255,6 +1256,7 @@ export async function addPayHeadToPayslip(
   userId: string
 ): Promise<{ slip: PayrollSlip; heads: PayrollSlipHead[] }> {
   const { slipId, payHeadId, amount, reason } = payload;
+  await assertNotOwnSlip(slipId, userId, 'EDIT');
   const currentSlip = await repository.findSlipById(slipId);
   if (!currentSlip) throw new Error("Payslip not found");
 
@@ -1327,10 +1329,14 @@ export async function transitionPayrollRun(
     );
   }
 
-  // Maker-checker (4.8a): a run reaches APPROVED only through the approval step, where the
-  // preparer never approves (payroll-run.service). Locking is the last operational step.
+  // 1. Maker-checker (4.8 / F2): approving needs every variance flag acknowledged and someone other
+  //    than the generator; locking needs someone other than the generator (strict mode: also not
+  //    someone the run pays). Company administrators are exempt in the default mode only.
+  await assertCanMove(run, toStatus, actionByUserId);
+
   // Perform status transition
-  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes);
+  // Claim-first: the move happens only while the run still has the status it was read with.
+  const updatedRun = await repository.updatePayrollRunStatus(runId, toStatus, actionByUserId, notes, run.status);
 
   // 2. On LOCK: Atomic loan repayment amortisation and period sealing
   if (toStatus === 'LOCKED') {
@@ -1422,11 +1428,6 @@ export async function transitionPayrollRun(
         }
       }
 
-      // Final settlement (4.8b-3): loans closed, funds and leave paid out, attendance sealed, in this transaction.
-      if (run.runType === "FINAL_SETTLEMENT") {
-        const { applyLock } = await import("@/lib/services/settlement.service");
-        await applyLock(run, tx, actionByUserId);
-      }
 
       // 3. Synchronize newly added or overridden pay heads into master Salary Mapping (regular runs
       // only: a bonus, arrears or settlement head is paid once and never belongs to the structure).

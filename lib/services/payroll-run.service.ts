@@ -12,17 +12,15 @@ import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as payrollService from "@/lib/services/payroll.service";
-import * as arrearsService from "@/lib/services/arrears.service";
-import * as settlementService from "@/lib/services/settlement.service";
-import * as settlementRepo from "@/lib/repositories/settlement.repository";
-import { parseSettlementSettings, validateSettlementSettings } from "@/lib/engines/settlement.engine";
-import type { SettlementSettings, WorkingPeriod } from "@/lib/types/payroll-run";
+import * as controlService from "@/lib/services/payroll-control.service";
+import * as controlRepo from "@/lib/repositories/payroll-control.repository";
+import type { WorkingPeriod } from "@/lib/types/payroll-run";
 import { overtimeWaitingFor } from "@/lib/services/attendance.service";
 import { getDb } from "@/lib/db";
 import { leaveApplications } from "@/lib/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { applyDecision, availableActions, buildFlow, isCompanyAdministrator, parsePolicy, statusText, validatePolicy, type ApprovalActor, type ApprovalRequest, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
-import { canTransition, normalizeThreshold, preflight, scopeText, variance, varianceOpen, type PreflightEmployee } from "@/lib/engines/payroll-run.engine";
+import { canTransition, preflight, scopeText, type PreflightEmployee } from "@/lib/engines/payroll-run.engine";
 import { canSwitchCalendar, parseCalendar, runLabel } from "@/lib/engines/pay-calendar.engine";
 import { periodFor, periodContaining, shiftPeriod, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
 import { isOwnRecord } from "@/lib/auth/self-action";
@@ -32,7 +30,7 @@ import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { adToBS } from "@/lib/utils/bs-calendar";
 import type { ApprovalFlow, ApprovalPolicy, ApprovalTimelineEntry } from "@/lib/types/approval";
 import type { PayrollRun, PayrollSlip } from "@/lib/types/payroll";
-import { RUN_TYPES, type NewRunInput, type PayrollRunView, type PayrollRunsPageData, type PreflightResult, type RunActions, type RunDetail, type RunType, type RunVariance, type SlipDetail } from "@/lib/types/payroll-run";
+import { RUN_TYPES, type NewRunInput, type PayrollRunView, type PayrollRunsPageData, type PreflightResult, type RunActions, type RunDetail, type RunType, type SlipDetail } from "@/lib/types/payroll-run";
 
 // Payroll run (4.8a): the run workspace. Pre-flight before a month is
 // generated or submitted, the variance review against the last locked run,
@@ -95,8 +93,8 @@ function actorOf(ctx: RunCtx): ApprovalActor {
   return { userId: ctx.userId, employeeId: ctx.scope.employeeId, canApprove: ctx.canApprove, isAdministrator: isCompanyAdministrator(ctx.scope, ctx.canApprove) };
 }
 
-async function runView(run: PayrollRun, ctx: RunCtx, extras: { approvers: Awaited<ReturnType<typeof runRepo.findApprovers>>; names: Map<string, string>; timeline: Awaited<ReturnType<typeof runRepo.findTimeline>>; branchName: (id: string) => string; branchCount: number; openMonths: string[]; today: string }): Promise<PayrollRunView> {
-  const open = varianceOpen(run.variance);
+async function runView(run: PayrollRun, ctx: RunCtx, extras: { varianceOpen: number; approvers: Awaited<ReturnType<typeof runRepo.findApprovers>>; names: Map<string, string>; timeline: Awaited<ReturnType<typeof runRepo.findTimeline>>; branchName: (id: string) => string; branchCount: number; openMonths: string[]; today: string }): Promise<PayrollRunView> {
+  const open = extras.varianceOpen;
   const request = requestOf(run);
   const actor = actorOf(ctx);
   const can = run.status === "UNDER_REVIEW" ? availableActions(request, actor, { approvers: extras.approvers, today: extras.today, wording: WORDING, preparerMayFinalApprove: false }) : null;
@@ -143,7 +141,7 @@ async function runView(run: PayrollRun, ctx: RunCtx, extras: { approvers: Awaite
     flow: flowOf(run),
     currentLevel: run.currentLevel ?? 0,
     approvalRoute: (run.approvalRoute as PayrollRunView["approvalRoute"]) ?? null,
-    variance: run.variance ?? null,
+    variance: null,
     varianceOpen: open,
     timeline,
     statusText: run.status === "UNDER_REVIEW" ? statusText(request, nameOf) : run.status === "LOCKED" ? "Locked" : run.status === "APPROVED" ? "Approved" : open ? `${open} to acknowledge` : "Draft",
@@ -162,7 +160,7 @@ async function openMonthsOf(run: Pick<PayrollRun, "calendar" | "payPeriodYear" |
 /** Everything the Payroll page shows: the runs, the selected run with its payslips, settings and the lists for a new run. */
 export async function pageData(ctx: RunCtx, selectedRunId: string | null, workingPeriod: WorkingPeriod | null = null): Promise<PayrollRunsPageData> {
   const today = nepalDateIso();
-  const [runs, settings, approvers, branches, departments, designations, employees, payHeads, exitCases, settlement] = await Promise.all([
+  const [runs, settings, approvers, branches, departments, designations, employees, payHeads] = await Promise.all([
     payrollRepo.findAllPayrollRuns(),
     runRepo.findSettings(),
     runRepo.findApprovers(),
@@ -171,8 +169,6 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
     designationRepository.findAllDesignations(),
     employeeRepository.findAll({ search: "", branchId: "all", departmentId: "all", category: "all", status: "Active" }),
     payHeadRepository.findAllPayHeads(),
-    settlementService.closedCases(ctx.scope),
-    settlementRepo.getSettlementSettings(),
   ]);
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? "";
   const timeline = await runRepo.findTimeline(runs.map((r) => r.id));
@@ -181,7 +177,8 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
   const views: PayrollRunView[] = [];
   for (const r of sorted) {
     const openMonths = r.status === "LOCKED" || r.runType !== "REGULAR" ? [] : await openMonthsOf(r, branchName);
-    views.push(await runView(r, ctx, { approvers, names, timeline, branchName, branchCount: branches.length, openMonths, today }));
+    const varianceOpen = r.status === "LOCKED" ? 0 : (await controlService.varianceReview(r.id)).unresolved.length;
+    views.push(await runView(r, ctx, { varianceOpen, approvers, names, timeline, branchName, branchCount: branches.length, openMonths, today }));
   }
   let selected: RunDetail | null = null;
   const chosen = selectedRunId ? views.find((v) => v.id === selectedRunId) ?? null : null;
@@ -204,7 +201,6 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
     selected,
     policy: settings.policy,
     approvers,
-    varianceThresholdPct: settings.thresholdPct,
     branches: branches.map((b) => ({ id: b.id, name: b.name })),
     departments: departments.map((d) => ({ id: d.id, name: d.name })),
     designations: designations.map((d) => ({ id: d.id, name: d.name })),
@@ -213,8 +209,6 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
     occasionalAllowances: payHeads.filter((h) => h.flags.isFestivalAllowance || h.flags.isRemoteAllowance).map((h) => ({ id: h.id, name: h.name, isFestivalAllowance: !!h.flags.isFestivalAllowance, isRemoteAllowance: !!h.flags.isRemoteAllowance })),
     allPayHeads: payHeads.map((h) => ({ id: h.id, name: h.name, code: h.code, type: h.type as "allowance" | "deduction" })),
     suggested: { year: suggested.year, month: suggested.month },
-    exitCases,
-    settlement,
     today,
     currentUserId: ctx.userId,
     myEmployeeId: ctx.scope.employeeId,
@@ -238,7 +232,8 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
   const errors: Record<string, string> = {};
   const year = Number(r.payPeriodYear);
   const month = Number(r.payPeriodMonth);
-  const runType: RunType = (RUN_TYPES as readonly string[]).includes(String(r.runType)) ? (r.runType as RunType) : "REGULAR";
+  // Regular runs only (merge with the team's F7 arrears and F8 settlement, 2026-10-10).
+  const runType: RunType = "REGULAR";
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) errors.period = "Choose the month";
   else {
     try {
@@ -248,11 +243,7 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     }
   }
   const branchIds = ids(r.branchIds);
-  if (!branchIds.length && runType !== "FINAL_SETTLEMENT") errors.branchIds = "Choose at least one branch";
-  const exitCaseId = typeof r.exitCaseId === "string" && r.exitCaseId ? r.exitCaseId : null;
-  if (runType === "FINAL_SETTLEMENT" && !exitCaseId) errors.exitCaseId = "Choose the exit case";
-  const notice = Number(r.noticeRecovery ?? 0);
-  if (!Number.isFinite(notice) || notice < 0) errors.noticeRecovery = "An amount, 0 or more";
+  if (!branchIds.length) errors.branchIds = "Choose at least one branch";
   const payslipDate = typeof r.payslipDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.payslipDate) ? r.payslipDate : null;
   if (Object.keys(errors).length) throw new RunValidationError(errors);
   return {
@@ -267,21 +258,6 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     occasionalAllowanceHeadIds: ids(r.occasionalAllowanceHeadIds),
     payslipDate,
     recreateIfExists: r.recreateIfExists === true,
-    exitCaseId,
-    noticeRecovery: notice > 0 ? String(notice) : "0",
-    picks: Array.isArray(r.picks)
-      ? r.picks
-          .map((p) => {
-            const x = (p && typeof p === "object" ? p : {}) as { employeeId?: unknown; months?: unknown };
-            const months = (Array.isArray(x.months) ? x.months : [])
-              .map((m) => (m && typeof m === "object" ? m : {}) as { calendar?: unknown; year?: unknown; month?: unknown; kind?: unknown })
-              .filter((m) => Number.isInteger(Number(m.year)) && Number.isInteger(Number(m.month)))
-              .map((m) => ({ calendar: (m.calendar === "AD" ? "AD" : "BS") as "BS" | "AD", year: Number(m.year), month: Number(m.month), kind: (m.kind === "attendance" ? "attendance" : "salary") as "salary" | "attendance" }));
-            return typeof x.employeeId === "string" && months.length ? { employeeId: x.employeeId, months } : null;
-          })
-          .filter((p): p is NonNullable<typeof p> => !!p)
-          .slice(0, 500)
-      : undefined,
   };
 }
 
@@ -298,17 +274,14 @@ async function scopedEmployees(input: NewRunInput) {
   );
 }
 
-/** Pre-flight for a run that does not exist yet (the New run window's Check). An arrears run also lists its candidates (scope applied). */
-export async function checkNewRun(raw: unknown, scope?: ScopeFilter): Promise<PreflightResult> {
+/** Pre-flight for a run that does not exist yet (the New run window's Check). */
+export async function checkNewRun(raw: unknown, _scope?: ScopeFilter): Promise<PreflightResult> {
+  void _scope; // the action checks ADD on PAYROLL_GENERATE in the user's scope
   const calendar = (await runRepo.findSettings()).calendar;
   const input = cleanInput(raw, calendar);
   const period = periodFor(calendar, input.payPeriodYear, input.payPeriodMonth);
   const existing = await payrollRepo.findPayrollRunByPeriodAndBranch({ calendar, payPeriodMonth: input.payPeriodMonth, payPeriodYear: input.payPeriodYear, branchIds: input.branchIds, runType: input.runType });
-  const arrears = input.runType === "ARREARS" && scope ? await arrearsService.candidates(scope, input) : undefined;
-  const settlement = input.runType === "FINAL_SETTLEMENT" && scope ? await settlementService.preview(input.exitCaseId, input.noticeRecovery, { scope, userId: scope.userId }) : undefined;
-  const result = await preflightFor(period, input, { existing, settlement: input.runType === "FINAL_SETTLEMENT" ? { ready: !!settlement, blocked: settlement?.blocked ?? null } : null, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds), arrearsCandidates: arrears ? arrears.filter((c) => !c.blocked).length : null });
-  if (settlement) return { ...result, settlement };
-  return arrears ? { ...result, arrears } : result;
+  return preflightFor(period, input, { existing, festivalHeads: await festivalHeadCount(input.occasionalAllowanceHeadIds) });
 }
 
 async function festivalHeadCount(ids: string[]): Promise<number> {
@@ -317,7 +290,8 @@ async function festivalHeadCount(ids: string[]): Promise<number> {
   return heads.filter((h) => ids.includes(h.id) && h.flags.isFestivalAllowance).length;
 }
 
-async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number; arrearsCandidates?: number | null; settlement?: { ready: boolean; blocked: string | null } | null }): Promise<PreflightResult> {
+async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number }): Promise<PreflightResult> {
+  const [controls, statutoryHeads] = await Promise.all([controlService.readSettings(), controlRepo.statutoryHeadsPresent()]);
   const today = nepalDateIso();
   const full: NewRunInput = { ...input, payPeriodYear: period.year, payPeriodMonth: period.month, occasionalAllowanceHeadIds: [], payslipDate: null };
   const people = await scopedEmployees(full);
@@ -369,8 +343,8 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
   return preflight({
     runType: input.runType,
     festivalHeads: opts.festivalHeads,
-    arrearsCandidates: opts.arrearsCandidates ?? null,
-    settlement: opts.settlement ?? null,
+    requireClosedAttendance: controls.requireClosedAttendance,
+    statutoryHeads,
     period: { year: period.year, month: period.month, label: period.label, start: period.start, end: period.end },
     today,
     branches: input.branchIds.map((id) => ({ id, name: branches.find((b) => b.id === id)?.name ?? id, closed: closed.has(id) })),
@@ -405,16 +379,6 @@ export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: Payrol
   const check = await checkNewRun(raw, ctx.scope);
   const blocking = check.problems.filter((p) => p.severity === "blocking" && !(input.recreateIfExists && p.code === "run_exists"));
   if (blocking.length) throw new UserFacingError(blocking.length === 1 ? blocking[0].text : `${blocking.length} problems stop this run. Fix them first (the list is in the window).`);
-  if (input.runType === "ARREARS") {
-    const run = await arrearsService.generateArrearsRun(input, ctx);
-    await refreshVariance(run.id);
-    return { run, preflight: check };
-  }
-  if (input.runType === "FINAL_SETTLEMENT") {
-    const run = await settlementService.generateSettlementRun(input, ctx);
-    await refreshVariance(run.id);
-    return { run, preflight: check };
-  }
   const run = await payrollService.generatePayrollRun(
     {
       payPeriodMonth: input.payPeriodMonth,
@@ -432,7 +396,6 @@ export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: Payrol
     },
     ctx.userId
   );
-  await refreshVariance(run.id);
   return { run, preflight: check };
 }
 
@@ -440,54 +403,12 @@ export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: Payrol
 // Variance
 // ---------------------------------------------------------------------------
 
-/** Works the variance out again (after edits, syncs or recalculations); acknowledgements stand while the flags are the same. */
-export async function refreshVariance(runId: string): Promise<RunVariance> {
-  const run = await payrollRepo.findPayrollRunById(runId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
-  if (run.status === "LOCKED") return run.variance ?? { baseRunId: null, baseLabel: null, thresholdPct: 0, computedAt: new Date().toISOString(), items: [] };
-  // Only a regular run is compared with the month before; bonus, arrears and settlement runs stand alone.
-  if (run.runType !== "REGULAR") {
-    const empty: RunVariance = { baseRunId: null, baseLabel: null, thresholdPct: 0, computedAt: new Date().toISOString(), items: [] };
-    await runRepo.saveVariance(runId, empty);
-    return empty;
-  }
-  const [slips, settings, base] = await Promise.all([payrollRepo.findSlipsByRunId(runId), runRepo.findSettings(), runRepo.findLastLockedRunBefore(run.calendar, run.payPeriodYear, run.payPeriodMonth)]);
-  const ids = slips.map((s) => s.employeeId);
-  const [previous, people] = await Promise.all([base ? runRepo.findRunSlipsByEmployee(base.id, ids) : Promise.resolve(new Map<string, PayrollSlip>()), attendanceRepo.findEmployeesByIds(ids)]);
-  const period = periodFor(parseCalendar(run.calendar), run.payPeriodYear, run.payPeriodMonth);
-  const v = variance({
-    slips,
-    previous,
-    employees: new Map(people.map((e) => [e.id, { status: e.status, terminationDate: e.terminationDate }])),
-    period: { start: period.start, end: period.end },
-    thresholdPct: settings.thresholdPct,
-    base: base ? { runId: base.id, label: runLabel(base) } : null,
-    computedAt: new Date().toISOString(),
-    earlier: run.variance,
-  });
-  await runRepo.saveVariance(runId, v);
-  return v;
+/** Flags still to acknowledge on a run (the team's variance review, F1; they stop approval in assertCanMove). */
+export async function varianceOpenCount(runId: string): Promise<number> {
+  return (await controlService.varianceReview(runId)).unresolved.length;
 }
 
-/** Acknowledges one employee's flags with a note (who and when are kept with it; audited by the action). */
-export async function acknowledge(runId: string, employeeId: string, noteRaw: unknown, ctx: RunCtx): Promise<{ open: number }> {
-  const run = await payrollRepo.findPayrollRunById(runId);
-  if (!run) throw new UserFacingError("That run no longer exists. Refresh the page.");
-  if (run.status !== "DRAFT") throw new UserFacingError("Only a draft run's variance can be acknowledged.");
-  const note = typeof noteRaw === "string" ? noteRaw.trim().slice(0, MAX_NOTE) : "";
-  if (note.length < 3) throw new RunValidationError({ note: "Say why this is right" });
-  const v = run.variance ?? (await refreshVariance(runId));
-  const item = v.items.find((i) => i.employeeId === employeeId);
-  if (!item) throw new UserFacingError("Nothing is flagged for that employee any more.");
-  if (isOwnRecord(ctx.scope.employeeId, employeeId)) throw new OwnPayslipError("This is your own payslip: someone else has to acknowledge its variance.");
-  const names = await runRepo.findUserNames([ctx.userId]);
-  item.acknowledgedBy = ctx.userId;
-  item.acknowledgedByName = names.get(ctx.userId) ?? null;
-  item.acknowledgedAt = new Date().toISOString();
-  item.note = note;
-  await runRepo.saveVariance(runId, v);
-  return { open: varianceOpen(v) };
-}
+
 
 // ---------------------------------------------------------------------------
 // Submit, decide, lock, discard
@@ -507,9 +428,8 @@ export async function submit(runId: string, noteRaw: unknown, ctx: RunCtx): Prom
   const check = await checkRun(runId);
   const blocking = check.problems.filter((p) => p.severity === "blocking");
   if (blocking.length) throw new UserFacingError(blocking[0].text);
-  const v = await refreshVariance(runId);
-  const open = varianceOpen(v);
-  if (open) throw new UserFacingError(`${open} employee${open === 1 ? "" : "s"} still ${open === 1 ? "has" : "have"} unacknowledged changes. Review the Variance step first.`);
+  const open = await varianceOpenCount(runId);
+  if (open) throw new UserFacingError(`${open} variance flag${open === 1 ? "" : "s"} still need${open === 1 ? "s" : ""} acknowledging. Review the Variance step first.`);
   const [settings, approvers] = await Promise.all([runRepo.findSettings(), runRepo.findApprovers()]);
   const policy: ApprovalPolicy = settings.policy.type === "none" ? { type: "simple", levels: [] } : settings.policy;
   const outcome = buildFlow(policy, { preparerId: ctx.userId, preparerEmployeeId: ctx.scope.employeeId, subjectEmployeeIds: [], approvers });
@@ -592,10 +512,9 @@ export async function guardSlip(slipId: string, ctx: RunCtx): Promise<PayrollSli
 // Settings
 // ---------------------------------------------------------------------------
 
-/** Approval policy for pay runs (simple or multi-level; never none), the variance threshold and the pay calendar. */
-export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPolicy; thresholdPct: number; calendar: PeriodCalendar; settlement: SettlementSettings }> {
-  const r = (raw && typeof raw === "object" ? raw : {}) as { policy?: unknown; thresholdPct?: unknown; calendar?: unknown; settlement?: unknown };
-  const settlement = r.settlement === undefined ? await settlementRepo.getSettlementSettings() : parseSettlementSettings(r.settlement);
+/** Approval policy for pay runs (simple or multi-level; never none) and the pay calendar. The variance threshold and maker-checker mode are the team's Payroll controls (/payroll/controls). */
+export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPolicy; calendar: PeriodCalendar }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { policy?: unknown; calendar?: unknown };
   const policy = parsePolicy(r.policy);
   const requested = r.policy && typeof r.policy === "object" ? (r.policy as { type?: unknown }).type : undefined;
   const errors: Record<string, string> = {};
@@ -603,8 +522,6 @@ export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPoli
   if (requested === "multi_level" && policy.type !== "multi_level") errors.levels = "Add at least one approver";
   const approvers = await runRepo.findApprovers();
   Object.assign(errors, validatePolicy(policy, approvers));
-  const n = Number(r.thresholdPct);
-  if (!Number.isFinite(n) || n < 1 || n > 50) errors.thresholdPct = "Between 1 and 50 percent";
   const current = await runRepo.findSettings();
   const calendar = r.calendar === undefined ? current.calendar : parseCalendar(r.calendar);
   if (calendar !== current.calendar) {
@@ -612,12 +529,9 @@ export async function saveSettings(raw: unknown): Promise<{ policy: ApprovalPoli
     const reason = canSwitchCalendar({ openPeriods: await attendanceRepo.countOpenPeriods(current.calendar), unlockedRuns: await runRepo.countUnlockedRuns() });
     if (reason) errors.calendar = reason;
   }
-  Object.assign(errors, validateSettlementSettings(settlement));
   if (Object.keys(errors).length) throw new RunValidationError(errors);
-  const thresholdPct = normalizeThreshold(n);
-  await settlementRepo.setSettlementSettings(settlement);
-  await Promise.all([runRepo.setApprovalPolicy(policy.type === "none" ? { type: "simple", levels: [] } : policy), runRepo.setThreshold(thresholdPct), calendar !== current.calendar ? runRepo.setCalendar(calendar) : Promise.resolve()]);
-  return { policy, thresholdPct, calendar, settlement };
+  await Promise.all([runRepo.setApprovalPolicy(policy.type === "none" ? { type: "simple", levels: [] } : policy), calendar !== current.calendar ? runRepo.setCalendar(calendar) : Promise.resolve()]);
+  return { policy, calendar };
 }
 
 /** The current BS month (for the New run window's year list). */

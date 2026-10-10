@@ -1,6 +1,12 @@
 import Decimal from "decimal.js";
 import type { SystemControlData } from "@/lib/types/system-control";
-import type { TDSCalculation, PayrollCalculationResult, SlabTaxDetail, TaxDetail, YtdFigures } from "@/lib/types/payroll";
+import type { 
+  TDSCalculation, 
+  PayrollCalculationResult,
+  SlabTaxDetail
+} from "@/lib/types/payroll";
+import { isAshadh } from "@/lib/utils/fiscal-year.utils";
+import { buildTaxSheet, monthsRemainingFrom, type PastMonth, type TaxSheet } from "@/lib/engines/tax-projection.engine";
 
 // Standard Custom error
 export class NegativeNetPayableError extends Error {
@@ -125,17 +131,16 @@ export interface AttendanceCalcInput {
   otEarnedAmount: string;
 }
 
-/** 4.8b: what the tax projection starts from (year to date) and how many months are left. */
-export interface TaxInput {
-  ytd: YtdFigures;
-  /** Months of the fiscal year from this one on, this one included (1 = the year-end month). */
-  monthsRemaining: number;
-  /** Taxable amounts paid once (bonus, arrears): not projected over the remaining months. Default: the festival heads. */
-  oneOffTaxable?: string;
+export interface HistoricalPayslipInput {
+  grossEarnings: string;
+  pfEmployee: string;
+  citDeduction: string;
+  tdsThisMonth: string;
+  // Deducted insurance from pay head amounts for actual annual deduction check
+  medicalInsurance?: string;
+  houseInsurance?: string;
+  lifeInsurance?: string;
 }
-
-/** Nothing paid yet this fiscal year. */
-export const EMPTY_YTD: YtdFigures = { taxableGross: "0", retirement: "0", cit: "0", tds: "0", months: 0 };
 
 /**
  * Calculates a single employee's payslip breakdown.
@@ -147,14 +152,19 @@ export function calculatePayslip(args: {
   assignedHeads: PayHeadInput[];
   attendanceCalc: AttendanceCalcInput;
   loanDeduction: string;
-  /** 4.8a: welfare fund contributions (employee share), deducted after tax like a loan instalment. */
-  fundDeduction?: string;
   systemControl: SystemControlData;
   taxSlabs: TaxSlabInput[];
   isFestivalMonth: boolean;
   isRemoteMonth: boolean;
-  /** 4.8b: the income tax is projected from the year to date over the remaining months. */
-  tax: TaxInput;
+  // If month 12 (Ashadh), pass historical payslips to run year-end reconciliation
+  isYearEnd: boolean;
+  historicalPayslips?: HistoricalPayslipInput[];
+  /**
+   * F5 tax projection for months 1–11: the fiscal-month index (Shrawan = 1) and the earlier months
+   * of the year. Without them the month is annualised on its own (the pre-F5 behaviour).
+   */
+  fiscalMonthIndex?: number;
+  projectionHistory?: PastMonth[];
 }): PayrollCalculationResult {
   const {
     employee,
@@ -162,12 +172,14 @@ export function calculatePayslip(args: {
     assignedHeads,
     attendanceCalc,
     loanDeduction,
-    fundDeduction = "0",
     systemControl,
     taxSlabs,
     isFestivalMonth,
     isRemoteMonth,
-    tax,
+    isYearEnd,
+    historicalPayslips = [],
+    fiscalMonthIndex,
+    projectionHistory = []
   } = args;
 
   const basic = new Decimal(salaryMap.basicSalary);
@@ -198,8 +210,6 @@ export function calculatePayslip(args: {
   let totalAllowances = new Decimal(0);
   let totalDeductions = new Decimal(0);
   let taxableAllowancesSum = new Decimal(0);
-  // Festival bonus paid this month: taxable once, not projected over the remaining months (4.8b).
-  let festivalTaxable = new Decimal(0);
 
   // Separate OT and leave calculations as they are handled in attendanceCalc
   const otAmount = new Decimal(attendanceCalc.otEarnedAmount);
@@ -279,7 +289,6 @@ export function calculatePayslip(args: {
       totalAllowances = totalAllowances.plus(headAmount);
       if (head.effectOnTax) {
         taxableAllowancesSum = taxableAllowancesSum.plus(headAmount);
-        if (head.isFestivalAllowance) festivalTaxable = festivalTaxable.plus(headAmount);
       }
     } else if (head.type === "deduction") {
       totalDeductions = totalDeductions.plus(headAmount);
@@ -439,15 +448,15 @@ export function calculatePayslip(args: {
   // Taxable monthly gross considers only taxable allowances
   const taxableMonthlyGross = Decimal.max(0, basicPlusGrade.plus(taxableAllowancesSum).plus(otAmount).minus(absentDeduction));
   
-  // Total deductions include the loan instalment and welfare fund contributions (4.8a).
+  // Total deductions include loan installment
   const loanVal = new Decimal(loanDeduction);
-  const fundVal = new Decimal(fundDeduction || 0);
-  totalDeductions = totalDeductions.plus(loanVal).plus(fundVal);
+  totalDeductions = totalDeductions.plus(loanVal);
 
   // ---------------------------------------------------------------------------
   // 4. TDS (Tax) Engine Calculations
   // ---------------------------------------------------------------------------
   let tdsThisMonth = new Decimal(0);
+  let taxSheet: TaxSheet | undefined;
 
   // Check if employee actually has insurance deduction heads assigned
   const medicalHead = assignedHeads.find(
@@ -489,24 +498,64 @@ export function calculatePayslip(args: {
   const totalInsuranceDeduction = medicalAnnual.plus(houseAnnual).plus(lifeAnnual);
   const monthlyInsuranceDeduct = totalInsuranceDeduction.dividedBy(12);
 
-  // 4.8b: one projection for every month: the year to date plus this month plus the remaining
-  // months at this month's regular pay, less the tax already deducted, spread over what is left.
-  const oneOffTaxable = tax.oneOffTaxable !== undefined ? new Decimal(tax.oneOffTaxable || 0) : festivalTaxable;
-  const projected = projectTds({
-    employee,
-    taxSlabs,
-    systemControl,
-    monthlyGross,
-    taxableMonthlyGross,
-    oneOffTaxable,
-    retirementThisMonth: pfEmployee.plus(ssfTotal),
-    citThisMonth: citDeduction,
-    insuranceAnnual: totalInsuranceDeduction,
-    ssfEnrolled: ssfEmployee.gt(0),
-    ytd: tax.ytd,
-    monthsRemaining: tax.monthsRemaining,
-  });
-  tdsThisMonth = projected.tdsThisMonth;
+  if (isContractor) {
+    // Contractors are subject to flat 15% TDS on gross earnings under Section 89 of Nepal Income Tax Act
+    tdsThisMonth = monthlyGross.times(0.15).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+  } else if (!isTraineeOrVolunteer) {
+    // Standard employee tax slab calculation
+    if (isYearEnd) {
+      // Ashadh year-end tax reconciliation
+      const totalPastGross = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.grossEarnings)), new Decimal(0));
+      const actualAnnualGross = totalPastGross.plus(monthlyGross);
+
+      const totalPastPf = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.pfEmployee || 0)), new Decimal(0));
+      const actualPfSsf = totalPastPf.plus(pfEmployee).plus(ssfTotal);
+
+      const totalPastCit = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.citDeduction || 0)), new Decimal(0));
+      const actualCit = totalPastCit.plus(citDeduction);
+
+      const capCit = Decimal.min(actualCit, new Decimal(systemControl.statutoryDeductionLimits.citLimitNpr));
+      const oneThirdActual = actualAnnualGross.dividedBy(3);
+      const maxRetirement = Decimal.min(oneThirdActual, new Decimal(systemControl.statutoryDeductionLimits.retirementFundLimitNpr));
+      const capRetirement = Decimal.min(actualPfSsf.plus(capCit), maxRetirement);
+
+      const actualDeductions = capRetirement.plus(totalInsuranceDeduction);
+      const actualTaxable = Decimal.max(0, actualAnnualGross.minus(actualDeductions));
+
+      const actualAnnualTax = calculateAnnualTaxFromSlabs(actualTaxable, employee, taxSlabs, systemControl, ssfEmployee.gt(0));
+      const tdsAlreadyDeducted = historicalPayslips.reduce((sum, p) => sum.plus(new Decimal(p.tdsThisMonth)), new Decimal(0));
+
+      const finalTds = actualAnnualTax.minus(tdsAlreadyDeducted);
+      tdsThisMonth = Decimal.max(0, finalTds).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+    } else {
+      // Months 1-11: Projected estimate based on taxable monthly gross
+      const projectedAnnualTaxableGross = taxableMonthlyGross.times(12);
+      const retirementAnnual = pfEmployee.plus(ssfTotal).times(12);
+      const citAnnual = citDeduction.times(12);
+      const citCapped = Decimal.min(citAnnual, new Decimal(systemControl.statutoryDeductionLimits.citLimitNpr));
+
+      const oneThirdIncome = projectedAnnualTaxableGross.dividedBy(3);
+      const retirementLimit = Decimal.min(oneThirdIncome, new Decimal(systemControl.statutoryDeductionLimits.retirementFundLimitNpr));
+      const totalRetirementDeduction = Decimal.min(retirementAnnual.plus(citCapped), retirementLimit);
+
+      const totalDeductionsProjected = totalRetirementDeduction.plus(totalInsuranceDeduction);
+      const projectedTaxable = Decimal.max(0, projectedAnnualTaxableGross.minus(totalDeductionsProjected));
+
+      const taxOn = (annual: Decimal) => calculateAnnualTaxFromSlabs(annual, employee, taxSlabs, systemControl, ssfEmployee.gt(0));
+      if (fiscalMonthIndex !== undefined) {
+        // F5: tax still to collect on the projected year, spread over the months that remain.
+        taxSheet = buildTaxSheet({
+          past: projectionHistory,
+          currentTaxable: projectedTaxable.dividedBy(12),
+          monthsRemaining: monthsRemainingFrom(fiscalMonthIndex),
+          taxOn,
+        });
+        tdsThisMonth = new Decimal(taxSheet.tdsThisMonth);
+      } else {
+        tdsThisMonth = taxOn(projectedTaxable).dividedBy(12).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+      }
+    }
+  }
 
   // Add TDS to deductions
   if (tdsThisMonth.gt(0)) {
@@ -558,177 +607,15 @@ export function calculatePayslip(args: {
     loanDeduction: loanVal.toString(),
     absentDeduction: absentDeduction.toString(),
     otAmount: otAmount.toString(),
-    fundDeduction: fundVal.toDecimalPlaces(2).toString(),
-    taxDetail: projected.detail,
-    isYearEndReconciliation: projected.detail.monthsRemaining <= 1,
-    heads: calculatedHeads
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 4.8b Income tax: year-to-date projection
-// ---------------------------------------------------------------------------
-
-export interface TdsInput {
-  employee: EmployeeInput;
-  taxSlabs: TaxSlabInput[];
-  systemControl: SystemControlData;
-  monthlyGross: Decimal;
-  taxableMonthlyGross: Decimal;
-  /** Part of taxableMonthlyGross paid once (bonus, arrears). */
-  oneOffTaxable: Decimal;
-  /** PF + SSF this month, employee and employer sides. */
-  retirementThisMonth: Decimal;
-  citThisMonth: Decimal;
-  /** Insurance relief for the year (already capped). */
-  insuranceAnnual: Decimal;
-  ssfEnrolled: boolean;
-  ytd: YtdFigures;
-  monthsRemaining: number;
-}
-
-const ROUND0 = (d: Decimal) => d.toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
-
-/**
- * This month's income tax. Annual taxable income is projected as the year to
- * date + this month + the remaining months at this month's regular taxable
- * pay (one-offs such as a festival bonus or arrears are counted once);
- * retirement contributions and CIT likewise, within the Act's limits; the
- * annual tax on that, less the tax already deducted, is spread over the
- * remaining months. In the year-end month (1 remaining) it reconciles exactly.
- * Contract staff: a flat 15% of gross (ITA §88). Trainees and volunteers: none.
- */
-export function projectTds(i: TdsInput): { tdsThisMonth: Decimal; detail: TaxDetail } {
-  const rem = Math.max(1, Math.floor(i.monthsRemaining || 1));
-  const ytd = i.ytd ?? EMPTY_YTD;
-  const s = (d: Decimal) => d.toDecimalPlaces(2).toString();
-  const month = { taxableGross: s(i.taxableMonthlyGross), oneOffTaxable: s(i.oneOffTaxable), retirement: s(i.retirementThisMonth), cit: s(i.citThisMonth), insuranceAnnual: s(i.insuranceAnnual) };
-  const category = i.employee.category;
-  if (category === "Contract") {
-    const tds = ROUND0(i.monthlyGross.times(0.15));
-    return { tdsThisMonth: tds, detail: { method: "flat15", monthsRemaining: rem, ytd, month, projected: { gross: "0", retirement: "0", cit: "0", taxable: "0" }, annualTax: "0", tdsThisMonth: tds.toString() } };
-  }
-  if (category === "Trainee" || category === "Volunteer") {
-    return { tdsThisMonth: new Decimal(0), detail: { method: "none", monthsRemaining: rem, ytd, month, projected: { gross: "0", retirement: "0", cit: "0", taxable: "0" }, annualTax: "0", tdsThisMonth: "0" } };
-  }
-  const regular = Decimal.max(0, i.taxableMonthlyGross.minus(i.oneOffTaxable));
-  const projGross = new Decimal(ytd.taxableGross || 0).plus(i.taxableMonthlyGross).plus(regular.times(rem - 1));
-  const projRetirement = new Decimal(ytd.retirement || 0).plus(i.retirementThisMonth.times(rem));
-  const projCit = Decimal.min(new Decimal(ytd.cit || 0).plus(i.citThisMonth.times(rem)), new Decimal(i.systemControl.statutoryDeductionLimits.citLimitNpr));
-  const retirementCap = Decimal.min(projGross.dividedBy(3), new Decimal(i.systemControl.statutoryDeductionLimits.retirementFundLimitNpr));
-  const retirementAllowed = Decimal.min(projRetirement.plus(projCit), retirementCap);
-  const projTaxable = Decimal.max(0, projGross.minus(retirementAllowed).minus(i.insuranceAnnual));
-  const annualTax = calculateAnnualTaxFromSlabs(projTaxable, i.employee, i.taxSlabs, i.systemControl, i.ssfEnrolled);
-  const tds = ROUND0(Decimal.max(0, annualTax.minus(new Decimal(ytd.tds || 0))).dividedBy(rem));
-  return {
-    tdsThisMonth: tds,
-    detail: {
-      method: "ytd",
-      monthsRemaining: rem,
-      ytd,
-      month,
-      projected: { gross: s(projGross), retirement: s(retirementAllowed), cit: s(projCit), taxable: s(projTaxable) },
-      annualTax: s(annualTax),
-      tdsThisMonth: tds.toString(),
-    },
-  };
-}
-
-/** The year to date from LOCKED payslips of the fiscal year (older slips without a tax detail count their gross as taxable). */
-export function ytdFromSlips(slips: readonly { grossEarnings: string; pfEmployee: string; ssfEmployee: string; ssfEmployer: string; citDeduction: string; tdsThisMonth: string; taxDetail?: TaxDetail | null }[]): YtdFigures {
-  let taxable = new Decimal(0);
-  let retirement = new Decimal(0);
-  let cit = new Decimal(0);
-  let tds = new Decimal(0);
-  for (const x of slips) {
-    taxable = taxable.plus(x.taxDetail?.month.taxableGross ?? x.grossEarnings ?? 0);
-    retirement = retirement.plus(x.pfEmployee || 0).plus(x.ssfEmployee || 0).plus(x.ssfEmployer || 0);
-    cit = cit.plus(x.citDeduction || 0);
-    tds = tds.plus(x.tdsThisMonth || 0);
-  }
-  const s = (d: Decimal) => d.toDecimalPlaces(2).toString();
-  return { taxableGross: s(taxable), retirement: s(retirement), cit: s(cit), tds: s(tds), months: slips.length };
-}
-
-/**
- * A festival bonus payslip (4.8b, run type FESTIVAL_BONUS): only the festival
- * heads, worked out as in a regular month (basic, basic + grade or a percent),
- * taxed once through the projection. No PF, SSF, CIT, attendance, loans or funds.
- */
-export function calculateBonusSlip(args: {
-  employee: EmployeeInput;
-  salaryMap: SalaryMapInput;
-  festivalHeads: PayHeadInput[];
-  tdsHead: PayHeadInput | undefined;
-  systemControl: SystemControlData;
-  taxSlabs: TaxSlabInput[];
-  ssfEnrolled: boolean;
-  tax: Pick<TaxInput, "ytd" | "monthsRemaining">;
-}): PayrollCalculationResult {
-  const basic = new Decimal(args.salaryMap.basicSalary || 0);
-  const basicPlusGrade = basic.plus(args.salaryMap.gradeAmount || 0);
-  const heads: PayrollCalculationResult["heads"] = [];
-  let gross = new Decimal(0);
-  let taxable = new Decimal(0);
-  for (const head of args.festivalHeads) {
-    let amount = new Decimal(head.amount || 0);
-    if (!head.isManualOverride) {
-      if (head.calcBasis === "BasicSalary") amount = basic;
-      else if (head.calcBasis === "BasicPlusGrade") amount = basicPlusGrade;
-      else if (new Decimal(head.calcPercent || 0).gt(0)) amount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
-      else if (amount.lte(0)) amount = basic;
-    }
-    gross = gross.plus(amount);
-    if (head.effectOnTax) taxable = taxable.plus(amount);
-    heads.push({ payHeadId: head.id, payHeadName: head.name, headType: "allowance", amount: head.amount, calculatedAmount: amount.toDecimalPlaces(2).toString() });
-  }
-  const projected = projectTds({
-    employee: args.employee,
-    taxSlabs: args.taxSlabs,
-    systemControl: args.systemControl,
-    monthlyGross: gross,
-    taxableMonthlyGross: taxable,
-    oneOffTaxable: taxable,
-    retirementThisMonth: new Decimal(0),
-    citThisMonth: new Decimal(0),
-    insuranceAnnual: new Decimal(0),
-    ssfEnrolled: args.ssfEnrolled,
-    ytd: args.tax.ytd,
-    monthsRemaining: args.tax.monthsRemaining,
-  });
-  const tds = projected.tdsThisMonth;
-  if (tds.gt(0)) {
-    if (!args.tdsHead) throw new MissingStatutoryHeadError("Tax Deducted at Source (TDS)");
-    heads.push({ payHeadId: args.tdsHead.id, payHeadName: args.tdsHead.name, headType: "deduction", amount: args.tdsHead.amount || "0", calculatedAmount: tds.toString() });
-  }
-  const zero = "0";
-  return {
-    basicSalary: zero,
-    gradeAmount: zero,
-    grossEarnings: gross.toDecimalPlaces(2).toString(),
-    totalDeductions: tds.toString(),
-    netPayable: gross.minus(tds).toDecimalPlaces(2).toString(),
-    taxableIncome: taxable.toDecimalPlaces(2).toString(),
-    tdsThisMonth: tds.toString(),
-    pfEmployee: zero,
-    pfEmployer: zero,
-    ssfEmployee: zero,
-    ssfEmployer: zero,
-    citDeduction: zero,
-    loanDeduction: zero,
-    absentDeduction: zero,
-    otAmount: zero,
-    fundDeduction: zero,
-    taxDetail: projected.detail,
-    isYearEndReconciliation: projected.detail.monthsRemaining <= 1,
-    heads,
+    heads: calculatedHeads,
+    ...(taxSheet ? { taxSheet } : {}),
   };
 }
 
 /**
  * Calculates progressive annual tax liability using progressive tax slabs.
  */
-function calculateAnnualTaxFromSlabs(
+export function calculateAnnualTaxFromSlabs(
   taxableIncome: Decimal,
   employee: EmployeeInput,
   taxSlabs: TaxSlabInput[],

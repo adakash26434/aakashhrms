@@ -5,7 +5,6 @@ import { ensureTenantContext } from '@/lib/db';
 import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
 import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
-import { OwnSettlementError } from '@/lib/services/settlement.service';
 import * as service from '@/lib/services/payroll-run.service';
 import * as payroll from '@/lib/services/payroll.service';
 import { UserFacingError, toActionError, type ActionFailure } from '@/lib/errors/action-error';
@@ -53,7 +52,6 @@ async function ctxFor(action: 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'LOCK' | 'EXP
 async function auditSelf(error: unknown, scope: ScopeFilter | null, action: 'EDIT' | 'DELETE' | 'APPROVE', recordId: string) {
   if (!scope) return;
   if (error instanceof service.OwnPayslipError) await recordAuditLog({ userId: scope.userId, action, module: MODULE, recordId, result: DENIED_SELF });
-  if (error instanceof OwnSettlementError) await recordAuditLog({ userId: scope.userId, action, module: MODULE, recordId, result: DENIED_SELF });
 }
 
 /** Pre-flight for a run that is not generated yet (the New run window's Check). */
@@ -105,28 +103,11 @@ export async function refreshVarianceAction(runId: string): Promise<Ok<{ open: n
   await ensureTenantContext();
   try {
     await checkPermissionWithScope('EDIT', MODULE);
-    const v = await service.refreshVariance(String(runId));
+    const open = await service.varianceOpenCount(String(runId));
     refresh();
-    return { success: true, data: { open: v.items.filter((i) => !i.acknowledgedAt).length } };
+    return { success: true, data: { open } };
   } catch (error: unknown) {
     return fail(error, 'payroll.variance');
-  }
-}
-
-/** Acknowledges one employee's variance flags with a note (never your own payslip). */
-export async function acknowledgeVarianceAction(runId: string, employeeId: string, note: string): Promise<Ok<{ open: number }> | Fail> {
-  await ensureTenantContext();
-  let scope: ScopeFilter | null = null;
-  try {
-    const ctx = await ctxFor('EDIT');
-    scope = ctx.scope;
-    const r = await service.acknowledge(String(runId), String(employeeId), note, ctx);
-    await recordAuditLog({ userId: ctx.userId, action: 'EDIT', module: MODULE, recordId: String(runId), result: 'SUCCESS', newValues: { variance: 'acknowledged', employee: employeeId } });
-    refresh();
-    return { success: true, data: r };
-  } catch (error: unknown) {
-    await auditSelf(error, scope, 'EDIT', `${runId}:${employeeId}`);
-    return fail(error, 'payroll.acknowledge');
   }
 }
 
@@ -206,7 +187,6 @@ export async function overrideSlipAction(payload: PayrollSlipOverridePayload): P
     scope = ctx.scope;
     const slip = await service.guardSlip(String(payload?.slipId), ctx);
     await payroll.overridePayslipAllowanceDeduction({ ...payload, slipId: slip.id }, ctx.userId);
-    await service.refreshVariance(slip.payrollRunId);
     refresh();
     return { success: true, data: await service.slipDetail(slip.id) };
   } catch (error: unknown) {
@@ -224,7 +204,6 @@ export async function addSlipHeadAction(payload: AddSlipHeadPayload): Promise<Ok
     scope = ctx.scope;
     const slip = await service.guardSlip(String(payload?.slipId), ctx);
     await payroll.addPayHeadToPayslip({ ...payload, slipId: slip.id }, ctx.userId);
-    await service.refreshVariance(slip.payrollRunId);
     refresh();
     return { success: true, data: await service.slipDetail(slip.id) };
   } catch (error: unknown) {
@@ -242,7 +221,6 @@ export async function recalculateSlipAction(slipId: string): Promise<Ok<SlipDeta
     scope = ctx.scope;
     const slip = await service.guardSlip(String(slipId), ctx);
     await payroll.recalculateEmployeePayslip(slip.id, ctx.userId);
-    await service.refreshVariance(slip.payrollRunId);
     refresh();
     return { success: true, data: await service.slipDetail(slip.id) };
   } catch (error: unknown) {
@@ -260,7 +238,6 @@ export async function removeSlipAction(slipId: string): Promise<Ok<{ remainingCo
     scope = ctx.scope;
     const slip = await service.guardSlip(String(slipId), ctx);
     const r = await payroll.deleteEmployeePayslip(slip.id, ctx.userId);
-    await service.refreshVariance(slip.payrollRunId);
     refresh();
     return { success: true, data: r };
   } catch (error: unknown) {
@@ -275,7 +252,6 @@ export async function syncRunAttendanceAction(runId: string): Promise<Ok | Fail>
   try {
     const ctx = await ctxFor('EDIT');
     await payroll.syncPayrollRunAttendance(String(runId), ctx.userId);
-    await service.refreshVariance(String(runId));
     await recordAuditLog({ userId: ctx.userId, action: 'EDIT', module: MODULE, recordId: String(runId), result: 'SUCCESS', newValues: { attendanceSynced: true } });
     refresh();
     return { success: true };
@@ -292,7 +268,7 @@ export async function savePayrollRunSettingsAction(input: unknown): Promise<Ok |
     if (scope.scopeType !== 'GLOBAL') throw new UserFacingError('Only a company-wide administrator can change payroll approval settings.');
     if (scope.isImpersonation) throw new UserFacingError('Platform support cannot change this company control.');
     const saved = await service.saveSettings(input);
-    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'PAYROLL_REVIEW', recordId: 'approvals.payrollRun', result: 'SUCCESS', newValues: { policy: saved.policy, thresholdPct: saved.thresholdPct } });
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'PAYROLL_REVIEW', recordId: 'approvals.payrollRun', result: 'SUCCESS', newValues: { policy: saved.policy } });
     refresh();
     return { success: true };
   } catch (error: unknown) {

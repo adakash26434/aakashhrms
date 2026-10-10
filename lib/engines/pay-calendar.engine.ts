@@ -76,3 +76,14 @@ export function canSwitchCalendar(state: { openPeriods: number; unlockedRuns: nu
   ].filter(Boolean);
   return parts.length ? `The pay calendar changes only between months: ${parts.join(" and ")}. Close the months and lock or discard the runs first.` : null;
 }
+
+/**
+ * The fiscal-month index (1 = the first month of the year, 12 = the year-end
+ * month) of a pay month, in the company's calendar: BS Shrawan = 1 … Ashadh = 12;
+ * AD August = 1 … July = 12 (the AD month that holds the fiscal year's end).
+ * The team's tax projection (F5) counts months this way.
+ */
+export function fiscalMonthIndexFor(calendar: PeriodCalendar, month: number): number {
+  if (calendar === "AD") return month >= 8 ? month - 7 : month + 5;
+  return month >= 4 ? month - 3 : month + 9;
+}

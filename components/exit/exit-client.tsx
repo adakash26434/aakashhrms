@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, DoorOpen, FileText, Plus, RefreshCw, ShieldAlert } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
@@ -16,6 +15,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Combobox } from "@/components/kit/combobox";
 import { DateField } from "@/components/kit/date-field";
 import { Amount } from "@/components/kit/amount";
+import { SettlementPanel } from "@/components/exit/settlement-panel";
 import { EXIT_KINDS } from "@/lib/engines/exit.engine";
 import { openExitCaseAction, getExitCaseAction, decideExitClearanceAction, completeExitCaseAction, cancelExitCaseAction } from "@/app/actions/exit.actions";
 import type { ExitDetail, ExitListRow, ExitPageData } from "@/lib/types/exit";
@@ -329,23 +329,6 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
         <div className="space-y-4">
           {detail.reason && <p className="text-sm text-ink-muted">Reason: {detail.reason}</p>}
           {detail.status === "cancelled" && <Notice tone="danger">Cancelled: {detail.cancelReason}</Notice>}
-          {detail.status === "closed" && (
-            <p className="text-xs text-ink-muted">
-              Final settlement:{" "}
-              {detail.settlementRun ? (
-                <Link href={`/payroll?run=${detail.settlementRun.id}&tab=run`} className="font-medium text-brand underline-offset-2 hover:underline">
-                  open the payroll run ({detail.settlementRun.status.toLowerCase().replace("_", " ")})
-                </Link>
-              ) : (
-                <>
-                  not prepared yet —{" "}
-                  <Link href="/payroll" className="font-medium text-brand underline-offset-2 hover:underline">
-                    Payroll → New run → Final settlement
-                  </Link>
-                </>
-              )}
-            </p>
-          )}
 
           <div className="rounded-md border border-line bg-surface-sunken p-3 text-xs">
             <p className="mb-1 font-semibold uppercase tracking-wide text-ink-muted">Before clearing</p>
@@ -423,6 +406,8 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
             </div>
           </div>
 
+          {detail.status !== "cancelled" && <SettlementPanel caseId={detail.id} caseOpen={open && canManage} />}
+
           {open && (
             <div className="rounded-md border border-line p-3">
               <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Complete</h3>
@@ -433,7 +418,7 @@ function ExitCaseWindow({ caseId, canManage, canIssueLetter, onClose, onNotice, 
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-ink-muted">All clear. Completing marks {detail.employeeName} inactive and writes the exit record; the settlement itself is prepared in payroll.</p>
+                <p className="text-xs text-ink-muted">All clear. Completing marks {detail.employeeName} inactive and writes the exit record; prepare and pay the settlement above (before or after).</p>
               )}
               {canIssueLetter && canManage && (
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">

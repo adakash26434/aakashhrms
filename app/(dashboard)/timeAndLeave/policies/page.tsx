@@ -9,11 +9,13 @@ import { auth } from "@/lib/auth";
 import { resolvePlatformCompanyForTenant } from "@/lib/platform/company-resolver";
 import { companyTypesData } from "@/lib/services/leave-type.service";
 import { getPolicyData as overtimePolicyData } from "@/lib/services/overtime.service";
+import { getOtRulesWithKPIs } from "@/lib/services/ot-rule.service";
+import { getSystemControlData } from "@/lib/services/system-control.service";
 import { PoliciesHubClient, type PolicyTab } from "@/components/time-and-leave/policies-hub-client";
 
 export const metadata: Metadata = {
   title: "Policies | AakashHRMS",
-  description: "Statutory and company leave types, and the overtime policy.",
+  description: "Statutory and company leave types, the overtime policy and the overtime rates.",
 };
 
 interface PoliciesPageProps {
@@ -31,15 +33,14 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
 
   const allowedTabs: PolicyTab[] = [];
   if (canTypes) allowedTabs.push("types");
-  if (canOt) allowedTabs.push("overtime");
+  if (canOt) allowedTabs.push("overtime", "ot-rules");
 
   if (allowedTabs.length === 0) {
     throw new Error("Unauthorized: You do not have permission to view Policies.");
   }
 
   // 2. Active Tab resolution (defaulting to first allowed tab)
-  // "ot-rules" is the old name of the Overtime tab (links from before 4.7).
-  const requestedTab = (resolvedParams.tab === "ot-rules" ? "overtime" : resolvedParams.tab) as PolicyTab;
+  const requestedTab = resolvedParams.tab as PolicyTab;
   const activeTab: PolicyTab =
     requestedTab && allowedTabs.includes(requestedTab)
       ? requestedTab
@@ -50,6 +51,7 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
   let policyData = null;
   let typePermissions = { add: false, edit: false, delete: false };
   let otData = null;
+  let otRulesData = null;
 
   if (activeTab === "types") {
     // Statutory leave settings: changes proposed with Leave types → Edit and approved by a second person (4.6c).
@@ -67,6 +69,10 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
     const scope = await checkPermissionWithScope("VIEW", "OT_RULES");
     const [canEdit, impersonation] = await Promise.all([hasPermission("EDIT", "OT_RULES"), getImpersonationSession()]);
     otData = await overtimePolicyData(canEdit && scope.scopeType === "GLOBAL" && !impersonation);
+  } else if (activeTab === "ot-rules") {
+    // The team's OT rules: the multipliers payroll uses (ot-pay.engine), Labour Act floor 1.5.
+    const [otRules, systemData] = await Promise.all([getOtRulesWithKPIs(), getSystemControlData()]);
+    otRulesData = { rules: otRules.rules, kpis: otRules.kpis, otMultiplierOfficeDay: systemData.officeTime?.otMultiplierOfficeDay, otMultiplierOffDay: systemData.officeTime?.otMultiplierOffDay };
   }
 
   return (
@@ -77,6 +83,7 @@ export default async function PoliciesPage({ searchParams }: PoliciesPageProps) 
       policyData={policyData}
       typePermissions={typePermissions}
       otData={otData}
+      otRulesData={otRulesData}
     />
   );
 }

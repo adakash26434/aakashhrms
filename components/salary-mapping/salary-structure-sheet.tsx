@@ -51,7 +51,7 @@ import type {
   StructureTotals,
 } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
-import { saveOutcome, usePayrollLock } from "./salary-structure-approval";
+import { saveOutcome } from "./salary-structure-approval";
 
 interface SheetGridRow {
   row: StructureRow;
@@ -151,7 +151,6 @@ export function SalaryStructureSheet({
     return isNaN(adDate.getTime()) ? toIsoDate(nepalToday()) : toIsoDate(adDate);
   }, [bsYear, bsMonth]);
 
-  const payrollLock = usePayrollLock(data);
 
   // Identify pay heads
   const allowanceHead = useMemo(
@@ -884,7 +883,8 @@ export function SalaryStructureSheet({
   const changedRows = allGridRows.filter((r) => r.changed);
   const changedIds = changedRows.map((r) => r.row.employeeId);
   const outcome = saveOutcome(data, changedIds);
-  const payrollLocked = payrollLock(effectiveFrom, changedIds);
+  // Back-dated changes are allowed (the team's F7 pays the difference as arrears in the next run).
+  const payrollLocked: string | null = null;
 
   // Save handler (submit for approval or save as final)
   const handleSave = async (approveNow: boolean) => {

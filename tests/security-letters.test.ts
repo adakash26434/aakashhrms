@@ -137,3 +137,35 @@ describe('S26 HR letters: rendered output stays plain text', () => {
     assert.match(service, /normalizeIssueForm\(rawForm\)/);
   });
 });
+
+describe('S26 joining pack and letter design', () => {
+  it('the pack and the design go through the same permission gate as single letters', () => {
+    assert.match(body(actions, 'export async function planJoiningPackAction('), /letterCtx\('ADD'\)/);
+    assert.match(body(actions, 'export async function issueJoiningPackAction('), /letterCtx\('ADD'\)/);
+    assert.match(body(actions, 'export async function saveLetterDesignAction('), /letterCtx\('EDIT'\)/);
+  });
+
+  it('nobody issues a pack about their own record, and the check comes before anything is issued', () => {
+    const b = body(service, 'export async function issuePack(');
+    assert.match(b, /isOwnRecord\(ctx\.actorEmployeeId, form\.employeeId\)/);
+    assert.match(b, /DENIED_SELF/);
+    assert.ok(b.indexOf('isOwnRecord') < b.indexOf('issueLetter('), 'own-record refusal precedes the first issue');
+  });
+
+  it('every detail is checked before the first letter is issued', () => {
+    const b = body(service, 'export async function issuePack(');
+    assert.ok(b.indexOf('throw new LetterValidationError(errors)') < b.indexOf('issueLetter('), 'validation precedes issuing');
+  });
+
+  it('a pack uses the single-letter path, so scope, S26 and the chalani bump still apply to each letter', () => {
+    assert.match(body(service, 'export async function issuePack('), /await issueLetter\(\{ employeeId: form\.employeeId/);
+    assert.match(body(service, 'async function packBase('), /findEmployeeForLetter\(form\.employeeId, buildEmployeeScopeCondition\(ctx\.scope\)\)/);
+  });
+
+  it('the design is a company setting that carries no script: logo is a checked data URL, text is plain', () => {
+    const engine = read('lib/engines/letter-design.engine.ts');
+    assert.match(engine, /data:image\\\/\(png\|jpeg\);base64/);
+    const sheet = read('components/letters/letter-sheet.tsx');
+    assert.ok(!sheet.includes('dangerouslySetInnerHTML'));
+  });
+});

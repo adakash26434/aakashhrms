@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DEFAULT_VARIANCE_PCT, canTransition, normalizeThreshold, pctChange, preflight, runTotals, scopeText, stepOf, stepsFor, variance, varianceOpen, type PreflightInput } from '../lib/engines/payroll-run.engine';
+import { DEFAULT_VARIANCE_PCT, canTransition, normalizeThreshold, pctChange, preflight, runTotals, scopeText, stepOf, variance, varianceOpen, type PreflightInput } from '../lib/engines/payroll-run.engine';
 import type { PayrollSlip } from '../lib/types/payroll';
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
@@ -236,44 +236,27 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
     assert.doesNotMatch(service, /getBSMonthRange/);
   });
 
-  it('welfare fund contributions reach the payslip as a deduction with their detail', () => {
-    assert.match(service, /contributionsForMonth\(empIds, payPeriodYear, payPeriodMonth\)/);
-    assert.match(service, /fundDeduction: calcResult\.fundDeduction,\s*fundDetail: runType === "REGULAR" \? fundsByEmployeeId\.get\(emp\.id\) \?\? null : null/);
-    const engine = read('lib/engines/payroll.engine.ts');
-    assert.match(engine, /totalDeductions = totalDeductions\.plus\(loanVal\)\.plus\(fundVal\)/);
+  it('welfare fund contributions reach the payslip through the team\'s WELFARE_FUND head', () => {
+    assert.match(service, /feedsRepository\.fundContributionsByEmployee\(empIds, payPeriodYear, payPeriodMonth\)/);
+    assert.match(service, /assignedHeads\.push\(\{ \.\.\.toPayHeadObj\(feedHeadRows\.welfare\), amount: fundFeed, isManualOverride: true \}\)/);
   });
 
   it('a run is generated only after pre-flight, and submitted only with the month closed and every flag acknowledged', () => {
     const run = read('lib/services/payroll-run.service.ts');
     assert.match(run, /export async function generate[\s\S]*?checkNewRun\(raw, ctx\.scope\)[\s\S]*?severity === "blocking"[\s\S]*?throw new UserFacingError/);
-    assert.match(run, /export async function submit[\s\S]*?checkRun\(runId\)[\s\S]*?refreshVariance\(runId\)[\s\S]*?varianceOpen\(v\)[\s\S]*?throw new UserFacingError/);
+    assert.match(run, /export async function submit[\s\S]*?checkRun\(runId\)[\s\S]*?varianceOpenCount\(runId\)[\s\S]*?throw new UserFacingError/);
   });
 });
 
-describe('Payroll run: festival bonus pre-flight and steps (4.8b)', () => {
-  it('a bonus run needs a festival head and does not need closed attendance; a regular run stays blocked', () => {
+describe('Payroll run: the team pre-flight rules (merge 2026-10-10)', () => {
+  it('a missing TDS head blocks; missing PF / SSF / CIT heads warn; an open month only warns when the company allows it', () => {
+    const heads = { tds: true, pf: true, ssf: true, cit: true };
+    assert.deepEqual(codes(preflight(ready({ statutoryHeads: heads }))), []);
+    assert.ok(codes(preflight(ready({ statutoryHeads: { ...heads, tds: false } }))).includes('missing_tds_head'));
+    const warn = preflight(ready({ statutoryHeads: { ...heads, cit: false } }));
+    assert.equal(warn.problems.find((p) => p.code === 'missing_statutory_head')?.severity, 'warning');
     const open = ready({ branches: [{ id: 'B1', name: 'Head Office', closed: false }] });
-    assert.ok(codes(preflight(open)).includes('month_open'));
-    const bonus = preflight({ ...open, runType: 'FESTIVAL_BONUS', festivalHeads: 0 });
-    assert.deepEqual(codes(bonus), ['no_festival_head']);
-    assert.deepEqual(codes(preflight({ ...open, runType: 'FESTIVAL_BONUS', festivalHeads: 1 })), []);
-    assert.ok(codes(preflight(ready({ runType: 'FESTIVAL_BONUS', festivalHeads: 1, existingRuns: [{ id: 'R', status: 'DRAFT' }] }))).includes('bonus_exists'));
-  });
-
-  it('only regular runs have a variance step', () => {
-    assert.deepEqual(stepsFor('FESTIVAL_BONUS'), ['preflight', 'review', 'approval', 'lock']);
-    assert.deepEqual(stepsFor('FINAL_SETTLEMENT'), ['preflight', 'review', 'approval', 'lock']);
-    assert.equal(stepOf({ status: 'DRAFT', runType: 'FESTIVAL_BONUS' }, 3), 'review');
-  });
-});
-
-describe('Payroll run: final settlement pre-flight (4.8b-3)', () => {
-  it('needs a closed exit case; the month need not have ended; the employees in scope are not checked', () => {
-    const none = ready({ runType: 'FINAL_SETTLEMENT', employees: [], today: '2026-10-05', settlement: { ready: false, blocked: null } });
-    assert.deepEqual(codes(preflight(none)), ['no_exit_case']);
-    const okRun = ready({ runType: 'FINAL_SETTLEMENT', employees: [], today: '2026-10-05', settlement: { ready: true, blocked: null } });
-    assert.deepEqual(codes(preflight(okRun)), []);
-    const held = ready({ runType: 'FINAL_SETTLEMENT', employees: [], settlement: { ready: true, blocked: 'Already settled: Aswin 2083 · Final settlement (draft)' } });
-    assert.deepEqual(codes(preflight(held)), ['settlement_blocked']);
+    assert.equal(preflight(open).problems.find((p) => p.code === 'month_open')?.severity, 'blocking');
+    assert.equal(preflight({ ...open, requireClosedAttendance: false }).problems.find((p) => p.code === 'month_open')?.severity, 'warning');
   });
 });

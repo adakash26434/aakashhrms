@@ -24,6 +24,7 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'ASSETS',
     'NOTICE_BOARD',
     'TRAVEL',
+    'TARGETS',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -807,7 +808,7 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
-  // Payroll run (4.8a, migration 0061): run type, the approval flow, who submitted, the variance
+  // Payroll run (4.8a, migration 0068): run type, the approval flow, who submitted, the variance
   // review; fund contributions on payslips. Additive only.
   for (const q of [
     `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`,
@@ -824,11 +825,11 @@ ON CONFLICT DO NOTHING`);
     try {
       await sql.unsafe(q);
     } catch (err) {
-      console.error("[tenant-schema-sync] payroll run 0061:", err instanceof Error ? err.message.slice(0, 200) : err);
+      console.error("[tenant-schema-sync] payroll run 0068:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
 
-  // Pay calendar and year-to-date tax (4.8b, migration 0062): runs carry their calendar, payslips
+  // Pay calendar and year-to-date tax (4.8b, migration 0069): runs carry their calendar, payslips
   // keep the tax projection, and the month summaries are keyed by (employee, calendar, year,
   // month). The old (employee, fiscal year, bs_month) constraint goes once the period index is in.
   for (const q of [
@@ -850,48 +851,7 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     try {
       await sql.unsafe(q);
     } catch (err) {
-      console.error("[tenant-schema-sync] pay calendar 0062:", err instanceof Error ? err.message.slice(0, 200) : err);
-    }
-  }
-
-  // Arrears (4.8b, migration 0063): one row per source month on an arrears payslip. Additive.
-  for (const q of [
-    `CREATE TABLE IF NOT EXISTS "arrears_items" (
-  "id" uuid PRIMARY KEY NOT NULL,
-  "payroll_slip_id" uuid NOT NULL REFERENCES "payroll_slips"("id") ON DELETE CASCADE,
-  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE RESTRICT,
-  "kind" varchar(12) NOT NULL,
-  "calendar" varchar(2) NOT NULL,
-  "period_year" integer NOT NULL,
-  "period_month" integer NOT NULL,
-  "source_slip_id" uuid REFERENCES "payroll_slips"("id") ON DELETE SET NULL,
-  "source_ref" varchar(80) NOT NULL,
-  "paid" jsonb NOT NULL,
-  "due" jsonb NOT NULL,
-  "diff" jsonb NOT NULL,
-  "created_at" timestamp DEFAULT now() NOT NULL
-)`,
-    `CREATE INDEX IF NOT EXISTS "arrears_items_employee_period_idx" ON "arrears_items" ("employee_id", "calendar", "period_year", "period_month")`,
-    `CREATE INDEX IF NOT EXISTS "arrears_items_slip_idx" ON "arrears_items" ("payroll_slip_id")`,
-    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "arrears_detail" jsonb`,
-  ]) {
-    try {
-      await sql.unsafe(q);
-    } catch (err) {
-      console.error("[tenant-schema-sync] arrears 0063:", err instanceof Error ? err.message.slice(0, 200) : err);
-    }
-  }
-
-  // Final settlement (4.8b, migration 0064): the run's exit case and the slip's settlement detail. Additive.
-  for (const q of [
-    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "exit_case_id" uuid REFERENCES "exit_cases"("id") ON DELETE SET NULL`,
-    `CREATE INDEX IF NOT EXISTS "payroll_runs_exit_case_idx" ON "payroll_runs" ("exit_case_id")`,
-    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "settlement_detail" jsonb`,
-  ]) {
-    try {
-      await sql.unsafe(q);
-    } catch (err) {
-      console.error("[tenant-schema-sync] final settlement 0064:", err instanceof Error ? err.message.slice(0, 200) : err);
+      console.error("[tenant-schema-sync] pay calendar 0069:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
 
@@ -1424,6 +1384,165 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     }
   }
 
+  // Payroll controls (4.8 / F1-F3, migration 0063): publish state on runs, held
+  // payslips, variance acknowledgements. Existing locked runs are published once,
+  // inside the guarded block that adds the column (never on later passes).
+  const payrollControlQueries = [
+    `DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'payroll_runs' AND column_name = 'published_at') THEN
+          ALTER TABLE "payroll_runs" ADD COLUMN "published_at" timestamp;
+          ALTER TABLE "payroll_runs" ADD COLUMN "published_by" uuid;
+          UPDATE "payroll_runs" SET "published_at" = COALESCE("locked_at", now()) WHERE "status" = 'LOCKED';
+        END IF;
+      END $$`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "held_at" timestamp`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "held_by" uuid`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "hold_reason" text`,
+    `CREATE TABLE IF NOT EXISTS "payroll_variance_acks" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"("id") ON DELETE CASCADE,
+        "flag_key" varchar(100) NOT NULL,
+        "employee_id" uuid NOT NULL,
+        "note" text DEFAULT '' NOT NULL,
+        "acked_by" uuid NOT NULL,
+        "acked_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "payroll_variance_acks_key" UNIQUE ("payroll_run_id", "flag_key")
+      )`,
+  ];
+  for (const q of payrollControlQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until payroll_runs exists; the next sync pass completes it.
+    }
+  }
+
+  // Arrears (4.8 / F7, migration 0064): back pay paid through a run for earlier
+  // finalised months, and the ARREARS system pay head (taxable allowance).
+  const arrearsQueries = [
+    `CREATE TABLE IF NOT EXISTS "payroll_arrears" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "source_run_id" uuid NOT NULL REFERENCES "payroll_runs"("id") ON DELETE CASCADE,
+        "payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"("id") ON DELETE CASCADE,
+        "amount" numeric(15,2) NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "payroll_arrears_key" UNIQUE ("employee_id", "source_run_id", "payroll_run_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "payroll_arrears_source_idx" ON "payroll_arrears" ("source_run_id", "employee_id")`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:ARREARS')::uuid, 'ARREARS', 'Arrears (back pay)', 'allowance', true, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'ARREARS')`,
+  ];
+  for (const q of arrearsQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until payroll_runs exists; the next sync pass completes it.
+    }
+  }
+
+  // Tax projection (4.8 / F5, migration 0065): the computation sheet kept on each slip.
+  try {
+    await sql.unsafe(`ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "tax_sheet" jsonb`);
+  } catch {
+    // Ignored until payroll_slips exists; the next sync pass completes it.
+  }
+
+  // Full & final settlement (4.8 / F8, migration 0066): one frozen statement per exit case.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "exit_settlements" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "exit_case_id" uuid NOT NULL REFERENCES "exit_cases"("id") ON DELETE CASCADE,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "status" varchar(10) DEFAULT 'draft' NOT NULL,
+      "lines" jsonb NOT NULL,
+      "earnings" numeric(15,2) NOT NULL,
+      "deductions" numeric(15,2) NOT NULL,
+      "net" numeric(15,2) NOT NULL,
+      "tax_sheet" jsonb,
+      "policy" jsonb NOT NULL,
+      "prepared_by" uuid NOT NULL,
+      "prepared_at" timestamp DEFAULT now() NOT NULL,
+      "approved_by" uuid,
+      "approved_at" timestamp,
+      "paid_by" uuid,
+      "paid_at" timestamp,
+      "payment_ref" varchar(100),
+      CONSTRAINT "exit_settlements_case_key" UNIQUE ("exit_case_id")
+    )`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "exit_settlements_employee_idx" ON "exit_settlements" ("employee_id")`);
+  } catch {
+    // Ignored until exit_cases exists; the next sync pass completes it.
+  }
+
+  // Targets & achievements (G15, migration 0062): employee targets with the
+  // reported / verified achievement, attachments, and the TARGETS permission
+  // module (the 0047 pattern).
+  const targetQueries = [
+    `CREATE TABLE IF NOT EXISTS "employee_targets" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "period_kind" varchar(5) NOT NULL,
+        "fy" varchar(9) NOT NULL,
+        "month_no" integer,
+        "title" varchar(160) NOT NULL,
+        "unit" varchar(30) DEFAULT '' NOT NULL,
+        "target_value" numeric(18,2) NOT NULL,
+        "weight" numeric(5,2) DEFAULT 0 NOT NULL,
+        "status" varchar(10) DEFAULT 'set' NOT NULL,
+        "achieved_value" numeric(18,2),
+        "achieved_note" text,
+        "verified_value" numeric(18,2),
+        "reviewer_note" text,
+        "return_reason" text,
+        "submitted_at" timestamp,
+        "reviewed_by" uuid,
+        "reviewed_at" timestamp,
+        "closed_by" uuid,
+        "closed_at" timestamp,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE TABLE IF NOT EXISTS "target_attachments" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "target_id" uuid REFERENCES "employee_targets"("id") ON DELETE CASCADE,
+        "file_name" varchar(200) NOT NULL,
+        "mime" varchar(40) NOT NULL,
+        "size" integer NOT NULL,
+        "content" bytea NOT NULL,
+        "uploaded_by" uuid NOT NULL,
+        "uploaded_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "employee_targets_employee_period_idx" ON "employee_targets" ("employee_id", "fy", "period_kind", "month_no")`,
+    `CREATE INDEX IF NOT EXISTS "employee_targets_status_idx" ON "employee_targets" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "target_attachments_target_idx" ON "target_attachments" ("target_id")`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':TARGETS')::uuid, a::action, 'TARGETS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'TARGETS'
+        AND (r."slug" = 'system_admin' OR p."action" IN ('VIEW', 'ADD', 'EDIT', 'APPROVE'))
+      WHERE r."slug" IN ('system_admin', 'hr_manager')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of targetQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the TARGETS enum
+      // value from step 1 is committed (the next sync pass completes it).
+    }
+  }
+
   // Assets & notice board (G14, migration 0057): register, handovers, notices,
   // plus the ASSETS and NOTICE_BOARD permission modules (the 0047 pattern).
   const assetNoticeQueries = [
@@ -1497,6 +1616,18 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
           SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
         )`,
   ];
+  // Notice audiences (migration 0061): company | branch | department | named employees.
+  assetNoticeQueries.push(
+    `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "audience" varchar(12) DEFAULT 'company' NOT NULL`,
+    `ALTER TABLE "notices" ADD COLUMN IF NOT EXISTS "department_id" uuid REFERENCES "departments"("id") ON DELETE CASCADE`,
+    `UPDATE "notices" SET "audience" = 'branch' WHERE "branch_id" IS NOT NULL AND "audience" = 'company'`,
+    `CREATE TABLE IF NOT EXISTS "notice_recipients" (
+        "notice_id" uuid NOT NULL REFERENCES "notices"("id") ON DELETE CASCADE,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        PRIMARY KEY ("notice_id", "employee_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "notice_recipients_employee_idx" ON "notice_recipients" ("employee_id")`,
+  );
   for (const q of assetNoticeQueries) {
     try {
       await sql.unsafe(q);
@@ -1597,6 +1728,68 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
       await sql.unsafe(q);
     } catch {
       // Ignored until travel_claims / pay_heads exist.
+    }
+  }
+
+  // Employee dossier (4.2c, migration 0060): qualifications, past employment,
+  // attachments; files they own are marked attached_to.
+  const dossierQueries = [
+    `ALTER TABLE "employee_document_files" ADD COLUMN IF NOT EXISTS "attached_to" varchar(20)`,
+    `CREATE TABLE IF NOT EXISTS "employee_qualifications" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "level" varchar(12) NOT NULL,
+        "degree" varchar(120) NOT NULL,
+        "institution" varchar(200) DEFAULT '' NOT NULL,
+        "board" varchar(200) DEFAULT '' NOT NULL,
+        "passed_year" varchar(10) DEFAULT '' NOT NULL,
+        "division" varchar(40) DEFAULT '' NOT NULL,
+        "major" varchar(120) DEFAULT '' NOT NULL,
+        "file_id" uuid REFERENCES "employee_document_files"("id") ON DELETE SET NULL,
+        "sort_order" integer DEFAULT 0 NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE TABLE IF NOT EXISTS "employee_work_history" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "organisation" varchar(200) NOT NULL,
+        "designation" varchar(120) NOT NULL,
+        "from_ad" date NOT NULL,
+        "to_ad" date,
+        "duties" text,
+        "reference" varchar(200) DEFAULT '' NOT NULL,
+        "file_id" uuid REFERENCES "employee_document_files"("id") ON DELETE SET NULL,
+        "sort_order" integer DEFAULT 0 NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE TABLE IF NOT EXISTS "employee_attachments" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "kind" varchar(20) NOT NULL,
+        "title" varchar(150) NOT NULL,
+        "note" text,
+        "file_id" uuid NOT NULL REFERENCES "employee_document_files"("id") ON DELETE CASCADE,
+        "sort_order" integer DEFAULT 0 NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "employee_qualifications_employee_idx" ON "employee_qualifications" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "employee_work_history_employee_idx" ON "employee_work_history" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "employee_attachments_employee_idx" ON "employee_attachments" ("employee_id")`,
+  ];
+  for (const q of dossierQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until employees / employee_document_files exist.
     }
   }
 

@@ -63,10 +63,10 @@ export interface PreflightInput {
   today: string;
   /** Festival heads chosen for a bonus run. */
   festivalHeads: number;
-  /** Arrears run: employees with a difference to pay (null: not an arrears run). */
-  arrearsCandidates?: number | null;
-  /** Final settlement: whether a closed exit case is chosen, and why its settlement cannot be generated (null: not a settlement). */
-  settlement?: { ready: boolean; blocked: string | null } | null;
+  /** The team's Payroll controls (F3): an open attendance month blocks only when this is on. */
+  requireClosedAttendance?: boolean;
+  /** Statutory pay heads present in Setup → Pay heads (the team's check). */
+  statutoryHeads?: { tds: boolean; pf: boolean; ssf: boolean; cit: boolean };
   /** The branches chosen, with whether their attendance month is closed. */
   branches: { id: string; name: string; closed: boolean }[];
   employees: PreflightEmployee[];
@@ -93,14 +93,12 @@ export function preflight(input: PreflightInput): PreflightResult {
   const add = (code: string, severity: PreflightProblem["severity"], text: string, extra: Partial<PreflightProblem> = {}) => p.push({ code, severity, text, ...extra });
   const regular = input.runType === "REGULAR";
   const bonus = input.runType === "FESTIVAL_BONUS";
-  const arrears = input.runType === "ARREARS";
-  const settlement = input.runType === "FINAL_SETTLEMENT";
-
-  // Arrears are paid in the month they are decided, ended or not; a settlement on the last working day.
-  if (!arrears && !settlement && input.period.end >= input.today) add("month_not_ended", "blocking", `${input.period.label} has not ended yet: a month is paid after its last day.`);
-  if (settlement && !input.settlement?.ready) add("no_exit_case", "blocking", "Choose the closed exit case to settle (Workforce → Exit: complete the clearance first).", { href: "/workforce/exit" });
-  if (settlement && input.settlement?.blocked) add("settlement_blocked", "blocking", input.settlement.blocked);
-  if (arrears && input.arrearsCandidates === 0) add("no_arrears", "blocking", "Nobody in the scope has a locked month that differs from what is due now (a back-dated revision approved after the lock, or attendance closed again).");
+  if (input.period.end >= input.today) add("month_not_ended", "blocking", `${input.period.label} has not ended yet: a month is paid after its last day.`);
+  if (input.statutoryHeads && !input.statutoryHeads.tds) add("missing_tds_head", "blocking", "The TDS (income tax) pay head is missing from Setup → Pay heads; payroll cannot post tax without it.", { href: "/setup/pay-heads" });
+  if (input.statutoryHeads) {
+    const absent = (["pf", "ssf", "cit"] as const).filter((k) => !input.statutoryHeads![k]).map((k) => k.toUpperCase());
+    if (absent.length) add("missing_statutory_head", "warning", `${absent.join(", ")} pay head${absent.length === 1 ? " is" : "s are"} not set up; a run that deducts under ${absent.length === 1 ? "it" : "them"} will fail.`, { href: "/setup/pay-heads" });
+  }
   if (!input.activeFiscalYear) add("no_fiscal_year", "blocking", "No active fiscal year. Set one in Company setup → Fiscal years.", { href: "/setup/fiscal-year" });
   else if (!input.slabCount) add("no_tax_slabs", "blocking", `No income tax slabs for ${input.activeFiscalYear.label}. Add them in Setup → Tax rates.`, { href: "/setup/tax-rates" });
 
@@ -112,14 +110,14 @@ export function preflight(input: PreflightInput): PreflightResult {
 
   if (regular) {
     for (const b of input.branches) {
-      if (!b.closed) add("month_open", "blocking", `Attendance for ${input.period.label} is not closed for ${b.name}. Close it in Attendance → Month close (overtime decisions are part of closing).`, { href: "/timeAndLeave/attendance?tab=close" });
+      if (!b.closed) add("month_open", input.requireClosedAttendance === false ? "warning" : "blocking", `Attendance for ${input.period.label} is not closed for ${b.name}. Close it in Attendance → Month close (overtime decisions are part of closing).`, { href: "/timeAndLeave/attendance?tab=close" });
     }
     if (input.pendingLeaves) add("pending_leaves", "blocking", `${plural(input.pendingLeaves, "leave request")} for ${input.period.label} still waiting for a decision.`, { href: "/timeAndLeave/leaves" });
   }
   if (input.pendingSalaryChanges) add("pending_salary", "blocking", `${plural(input.pendingSalaryChanges, "salary change")} waiting for approval would apply to ${input.period.label}. Decide ${input.pendingSalaryChanges === 1 ? "it" : "them"} first.`, { href: "/workforce/salary-mapping?tab=approvals" });
 
-  if (!settlement && !input.employees.length) add("no_employees", "blocking", "Nobody in the chosen scope was employed this month.");
-  for (const e of arrears || settlement ? [] : input.employees) {
+  if (!input.employees.length) add("no_employees", "blocking", "Nobody in the chosen scope was employed this month.");
+  for (const e of input.employees) {
     const about = { employeeId: e.id, employeeName: e.name };
     if (e.salary === "none") add("no_salary", "blocking", `${e.name} (${e.code}) has no salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
     else if (regular && e.salary === "setup") add("salary_setup", "blocking", `${e.name} (${e.code}) has only basic and grade: finish the salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });

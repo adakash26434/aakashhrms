@@ -16,14 +16,14 @@ export default async function EmployeeRecordPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string | string[] }>;
+  searchParams: Promise<{ tab?: string | string[]; joining?: string | string[] }>;
 }) {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("VIEW", "EMPLOYEES");
-  const [{ id }, { tab }] = await Promise.all([params, searchParams]);
+  const [{ id }, { tab, joining }] = await Promise.all([params, searchParams]);
 
   // Each related tab needs its own module permission; the record itself is scoped (S18).
-  const [leave, attendance, payslips, payslipReport, loans, history, edit] = await Promise.all([
+  const [leave, attendance, payslips, payslipReport, loans, history, edit, issueLetters] = await Promise.all([
     hasPermission("VIEW", "LEAVE_APPLICATIONS"),
     hasPermission("VIEW", "ATTENDANCE"),
     hasPermission("VIEW", "PAYROLL_REVIEW"),
@@ -31,6 +31,7 @@ export default async function EmployeeRecordPage({
     hasPermission("VIEW", "LOANS"),
     hasPermission("VIEW", "AUDIT_LOG"),
     hasPermission("EDIT", "EMPLOYEES"),
+    hasPermission("ADD", "HR_LETTERS"),
   ]);
 
   const record = await getEmployeeRecord(
@@ -42,5 +43,5 @@ export default async function EmployeeRecordPage({
   );
   if (!record) notFound();
 
-  return <EmployeeRecord record={record} />;
+  return <EmployeeRecord record={record} joiningLetters={issueLetters ? { prompt: joining === "1" } : null} />;
 }

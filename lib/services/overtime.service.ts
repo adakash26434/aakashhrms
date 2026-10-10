@@ -4,6 +4,8 @@ import { findAllEmploymentTypes } from "@/lib/repositories/employment-type.repos
 import { findShifts } from "@/lib/repositories/shift.repository";
 import { lawful, normalizePolicy, validatePolicy } from "@/lib/engines/overtime.engine";
 import type { OvertimePolicy, OvertimePolicyChange, OvertimePolicyData } from "@/lib/types/overtime";
+import * as otRuleRepository from "@/lib/repositories/ot-rule.repository";
+import { resolveOtMultipliers } from "@/lib/engines/ot-pay.engine";
 
 // Overtime (4.7): the company's overtime policy. Payroll reads it through
 // getPolicy() (attendance.service → month close and payroll figures).
@@ -43,8 +45,22 @@ export async function getPolicy(): Promise<{ policy: OvertimePolicy; isDefault: 
 }
 
 /** Everything the Policies → Overtime tab shows. */
+/**
+ * The policy as payroll applies it: approval and rounding from the policy, the
+ * rates from the OT rules (the team's ot-pay.engine; never below the Labour
+ * Act's 1.5). Every screen that shows or applies overtime reads this.
+ */
+export async function getPayPolicy(): Promise<{ policy: OvertimePolicy; isDefault: boolean }> {
+  const [{ policy, isDefault }, rules, settings] = await Promise.all([getPolicy(), otRuleRepository.findActiveOtRules(), systemControlRepository.findSettings()]);
+  const rates = resolveOtMultipliers(
+    rules.map((r) => ({ ruleType: r.ruleType, isActive: r.isActive, rateOfficeDay: Number(r.rateOfficeDay), rateOffDay: Number(r.rateOffDay) })),
+    { work: settings.officeTime.otMultiplierOfficeDay, off: settings.officeTime.otMultiplierOffDay },
+  );
+  return { policy: { ...policy, workRate: rates.work, offRate: rates.off }, isDefault };
+}
+
 export async function getPolicyData(canEdit: boolean): Promise<OvertimePolicyData> {
-  const [{ policy, isDefault }, history, types, shifts] = await Promise.all([getPolicy(), repo.findPolicyHistory(), findAllEmploymentTypes(), findShifts()]);
+  const [{ policy, isDefault }, history, types, shifts] = await Promise.all([getPayPolicy(), repo.findPolicyHistory(), findAllEmploymentTypes(), findShifts()]);
   return {
     policy,
     isDefault,

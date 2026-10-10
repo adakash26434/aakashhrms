@@ -63,11 +63,12 @@ export interface PayrollRun {
   approvedBy: string | null;
   approvedAt: Date | null;
   lockedAt: Date | null;
+  /** F3: set when the run is published to employees (only a locked run can be). */
+  publishedAt?: Date | null;
+  publishedBy?: string | null;
   notes: string | null;
   /** 4.8b: the calendar of pay_period_year / pay_period_month ("BS" | "AD"). */
   calendar: string;
-  /** 4.8b-3: the closed exit case a final settlement run settles. */
-  exitCaseId?: string | null;
   /** 4.8a */
   runType: string;
   approvalType: string | null;
@@ -109,18 +110,18 @@ export interface PayrollSlip {
   /** 4.8a: welfare fund contributions deducted this month, and the detail per fund. */
   fundDeduction?: string;
   fundDetail?: FundLine[] | null;
-  /** 4.8b: how the income tax was projected; null on older slips. */
-  taxDetail?: TaxDetail | null;
-  /** 4.8b: an arrears payslip's source months (paid, due, difference). */
-  settlementDetail?: import('@/lib/types/payroll-run').SettlementDetail | null;
-  arrearsDetail?: import('@/lib/types/payroll-run').ArrearsMonthLine[] | null;
   bankAccountNumber: string;
   bankName: string;
+  /** F5: the tax computation behind the TDS (months 1–11); validated with `isTaxSheet` before use. */
+  taxSheet?: unknown;
   payslipMonth: number | null;
   payslipDate: string | null;
   status: 'DRAFT' | 'LOCKED';
   isYearEndReconciliation: boolean;
   warnings: string | null;
+  /** F3: a held payslip stays hidden from the employee. */
+  heldAt?: Date | null;
+  holdReason?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -277,10 +278,6 @@ export interface PayrollCalculationResult {
   loanDeduction: string;
   absentDeduction: string;
   otAmount: string;
-  fundDeduction: string;
-  /** 4.8b */
-  taxDetail: TaxDetail | null;
-  isYearEndReconciliation: boolean;
   heads: Array<{
     payHeadId: string;
     payHeadName: string;
@@ -288,4 +285,6 @@ export interface PayrollCalculationResult {
     amount: string;
     calculatedAmount: string;
   }>;
+  /** F5: the tax computation behind this month's TDS (months 1–11, when history was supplied). */
+  taxSheet?: import('@/lib/engines/tax-projection.engine').TaxSheet;
 }

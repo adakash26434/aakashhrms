@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { branches, departments, designations, employees, fiscalYears, hrLetters, letterSequences, letterTemplates, users } from '@/lib/db/schema';
+import { branches, departments, designations, employeeFamily, employeePersonal, employeeSalaryMap, employees, fiscalYears, hrLetters, letterSequences, letterTemplates, systemConfig, users } from '@/lib/db/schema';
 import { and, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { DefaultLetterTemplate } from '@/lib/constants/letter-templates';
@@ -32,6 +32,13 @@ const toTemplateRow = (r: TemplateDbRow): LetterTemplateRow => ({
 export async function countTemplates(): Promise<number> {
   const db = await getDb();
   const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(letterTemplates);
+  return row?.n ?? 0;
+}
+
+/** System templates present — the seed runs again only when a release adds a kind. */
+export async function countSystemTemplates(): Promise<number> {
+  const db = await getDb();
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(letterTemplates).where(eq(letterTemplates.isSystem, true));
   return row?.n ?? 0;
 }
 
@@ -130,6 +137,12 @@ export interface EmployeeLetterFacts {
   branch: string;
   joiningDate: string; // YYYY-MM-DD (AD)
   status: string;
+  designationDescription: string;
+  fatherName: string;
+  grandfatherName: string;
+  citizenshipNo: string;
+  permanentAddress: string;
+  mobileNo: string;
 }
 
 /** The employee a letter is about, with names resolved — only within the caller's scope. */
@@ -146,14 +159,42 @@ export async function findEmployeeForLetter(employeeId: string, scopeCondition?:
       branch: branches.name,
       joiningDate: employees.joiningDate,
       status: employees.status,
+      designationDescription: sql<string>`COALESCE(${designations.description}, '')`,
+      fatherName: sql<string>`COALESCE(${employeeFamily.fatherName}, '')`,
+      grandfatherName: sql<string>`COALESCE(${employeeFamily.grandfatherName}, '')`,
+      citizenshipNo: sql<string>`COALESCE(${employeePersonal.citizenshipNo}, '')`,
+      permanentAddress: sql<string>`COALESCE(${employeePersonal.permanentAddress}, '')`,
+      mobileNo: sql<string>`COALESCE(${employeePersonal.mobileNo}, '')`,
     })
     .from(employees)
     .innerJoin(designations, eq(employees.designationId, designations.id))
     .innerJoin(departments, eq(employees.departmentId, departments.id))
     .innerJoin(branches, eq(employees.branchId, branches.id))
+    .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
+    .leftJoin(employeeFamily, eq(employeeFamily.employeeId, employees.id))
     .where(where)
     .limit(1);
   return row ?? null;
+}
+
+export interface PackFacts {
+  category: string;
+  /** Monthly basic salary of the current approved revision, as stored; null when none yet. */
+  basicSalary: string | null;
+}
+
+/** What the joining pack can fill by itself for this employee (scope is checked by the caller's earlier employee lookup). */
+export async function findPackFacts(employeeId: string): Promise<PackFacts | null> {
+  const db = await getDb();
+  const [emp] = await db.select({ category: employees.category }).from(employees).where(eq(employees.id, employeeId)).limit(1);
+  if (!emp) return null;
+  const [pay] = await db
+    .select({ basic: employeeSalaryMap.basicSalary })
+    .from(employeeSalaryMap)
+    .where(and(eq(employeeSalaryMap.employeeId, employeeId), eq(employeeSalaryMap.isActive, true), eq(employeeSalaryMap.status, 'approved')))
+    .orderBy(desc(employeeSalaryMap.effectiveFrom))
+    .limit(1);
+  return { category: emp.category, basicSalary: pay?.basic ?? null };
 }
 
 export interface FiscalYearFacts {
@@ -325,4 +366,24 @@ export async function countLetters(scopeCondition?: SQL<unknown>): Promise<{ tot
     else out.kinds[r.kind] = (out.kinds[r.kind] ?? 0) + r.n;
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Letter design (system_config, one JSON value)
+// ---------------------------------------------------------------------------
+
+export const LETTER_DESIGN_KEY = 'letters.design';
+
+export async function readLetterDesignJson(): Promise<string | null> {
+  const db = await getDb();
+  const [row] = await db.select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, LETTER_DESIGN_KEY)).limit(1);
+  return row?.value ?? null;
+}
+
+export async function writeLetterDesignJson(json: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .insert(systemConfig)
+    .values({ key: LETTER_DESIGN_KEY, value: json, dataType: 'json' })
+    .onConflictDoUpdate({ target: systemConfig.key, set: { value: json, updatedAt: new Date() } });
 }

@@ -9,10 +9,14 @@ import type { EmployeeDocumentInput } from '@/lib/types/employee-document';
 import { employeesNeedingSetup } from './salary-structure.repository';
 import { employeesWithIdentityScan, findDocuments, saveDocumentsTx } from './employee-document.repository';
 import { findPhotoIdFor, photoIdsByEmployee, savePhotoTx } from './employee-photo.repository';
+import { findDossier, saveDossierTx } from './employee-dossier.repository';
+import type { EmployeeDossierInput } from '@/lib/types/employee-dossier';
 
 /** The documents list and photo to save with the employee (4.2b), and who saves them. */
 export interface DocumentsSave {
   rows: EmployeeDocumentInput[];
+  /** 4.2c: qualifications, past employment, attachments (undefined = leave as is). */
+  dossier?: EmployeeDossierInput;
   /** The photo's id ("" = no photo). */
   photoId: string;
   userId: string;
@@ -274,8 +278,8 @@ export async function findById(id: string): Promise<Employee | undefined> {
   const setups = await salarySetups();
   const employee = { ...mapRowToEmployee(rows[0] as EmployeeJoinedRow), salarySetupMissing: setups ? setups.has(id) : undefined };
   try {
-    const [documents, scans, photoId] = await Promise.all([findDocuments(id), employeesWithIdentityScan(), findPhotoIdFor(id)]);
-    return { ...employee, documents, identityScanMissing: !scans.has(id), photoId };
+    const [documents, scans, photoId, dossier] = await Promise.all([findDocuments(id), employeesWithIdentityScan(), findPhotoIdFor(id), findDossier(id)]);
+    return { ...employee, documents, identityScanMissing: !scans.has(id), photoId, dossier };
   } catch (error) {
     console.error('[EMPLOYEE_REPOSITORY] identity documents unavailable:', error instanceof Error ? error.message.slice(0, 120) : error);
     return employee;
@@ -367,6 +371,7 @@ export async function create(data: Partial<Employee>, documents?: DocumentsSave)
     if (documents) {
       await saveDocumentsTx(tx, newEmpId, documents.rows, documents.userId);
       await savePhotoTx(tx, newEmpId, documents.photoId, documents.userId);
+      if (documents.dossier) await saveDossierTx(tx, newEmpId, documents.dossier, documents.userId);
     }
 
     if (data.departmentId) {
@@ -454,6 +459,7 @@ export async function update(id: string, data: Partial<Employee>, documents?: Do
     if (documents) {
       await saveDocumentsTx(tx, id, documents.rows, documents.userId);
       await savePhotoTx(tx, id, documents.photoId, documents.userId);
+      if (documents.dossier) await saveDossierTx(tx, id, documents.dossier, documents.userId);
     }
 
     await tx.update(employeeFamily).set({

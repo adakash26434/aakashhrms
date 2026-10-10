@@ -114,11 +114,11 @@ describe('Overtime: the Labour Act rules (4.7)', () => {
 });
 
 describe('Overtime: one policy, payroll reads it (4.7)', () => {
-  it('month close and payroll figures use the overtime engine, not System control multipliers', () => {
+  it('month close and payroll figures: the policy decides the minutes, the team\'s otPay and OT rules the rate (merge 2026-10-10)', () => {
     const src = read('lib/services/attendance.service.ts');
-    assert.match(src, /function amountsFor\([\s\S]*?monthOvertime\(employeeId, days, entries, policy\)[\s\S]*?otDetail\(ot\.paid, salary, policy\)/);
-    assert.match(src, /async function payInputs[\s\S]*?overtimeService\.getPolicy\(\)[\s\S]*?overtimeRepo\.findEntries/);
-    assert.doesNotMatch(src, /otMultiplierOfficeDay|otMultiplierOffDay|dividedBy\(240\)/);
+    assert.match(src, /function amountsFor\([\s\S]*?monthOvertime\(employeeId, days, entries, policy\)[\s\S]*?otPay\(\{ basic: salary\.basic, workDayMinutes: ot\.paid\.work, offDayMinutes: ot\.paid\.off, multipliers \}\)/);
+    assert.match(src, /async function payInputs[\s\S]*?overtimeService\.getPayPolicy\(\)[\s\S]*?overtimeRepo\.findEntries[\s\S]*?otRuleRepository\.findActiveOtRules\(\)[\s\S]*?resolveOtMultipliers\(/);
+    assert.doesNotMatch(src, /dividedBy\(240\)/);
   });
 
   it('before a company saves its own, the policy comes from the old settings with approval automatic, raised to the law', () => {
@@ -126,10 +126,8 @@ describe('Overtime: one policy, payroll reads it (4.7)', () => {
     assert.match(src, /settings\.officeTime\.otMultiplierOfficeDay[\s\S]*?approval: "auto"[\s\S]*?lawful\(legacy\)/);
   });
 
-  it('the old OT rules screen and table writers are gone; the platform never changes a company policy', () => {
-    for (const p of ['app/actions/ot-rule.actions.ts', 'lib/services/ot-rule.service.ts', 'components/ot-rules/ot-rules-client.tsx']) {
-      assert.throws(() => read(p), /ENOENT/, `${p} should be removed`);
-    }
+  it('the OT rules set the rates (team); the platform never changes a company policy', () => {
+    assert.match(read('components/time-and-leave/policies-hub-client.tsx'), /activeTab === "ot-rules" && otRulesData && \(/);
     const sync = read('app/api/platform/policies/sync/route.ts');
     assert.doesNotMatch(sync, /otRules|ot_rules|overtime\.policy|OVERTIME_POLICY_KEY/);
     for (const p of ['app/api/platform/companies/[id]/route.ts', 'lib/platform/provisioning/seed-tenant.ts', 'lib/repositories/onboarding.repository.ts']) {

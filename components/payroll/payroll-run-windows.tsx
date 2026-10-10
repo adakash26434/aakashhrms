@@ -5,25 +5,15 @@ import { ArrowDown, ArrowUp, Check, Loader2, Plus, Save, ShieldCheck, Trash2 } f
 import { Combobox } from "@/components/kit/combobox";
 import { DateField } from "@/components/kit/date-field";
 import { FormGrid, GridField } from "@/components/kit/form-grid";
-import { NumberField } from "@/components/kit/number-field";
 import { PropertyForm, inputClass } from "@/components/kit/property-form";
 import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { checkNewRunAction, generateRunAction, savePayrollRunSettingsAction } from "@/app/actions/payroll-run.actions";
 import { BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
-import { RUN_TYPE_LABEL } from "@/lib/engines/pay-calendar.engine";
 import type { ApprovalPolicy, ApprovalType } from "@/lib/types/approval";
-import type { ArrearsCandidate, NewRunInput, PayrollRunsPageData, PreflightResult, RunType, SettlementSettings } from "@/lib/types/payroll-run";
+import type { NewRunInput, PayrollRunsPageData, PreflightResult } from "@/lib/types/payroll-run";
 
 const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-/** The kinds of run the New run window offers in b1 (arrears and final settlement come with b2 / b3). */
-const NEW_RUN_TYPES: { value: RunType; help: string }[] = [
-  { value: "REGULAR", help: "The month's pay from attendance and the salary structures." },
-  { value: "FESTIVAL_BONUS", help: "Only the festival allowance (Dashain), beside the regular run; taxed once." },
-  { value: "ARREARS", help: "Differences for months already paid: a back-dated revision, or attendance corrected after the lock." },
-  { value: "FINAL_SETTLEMENT", help: "One person's last pay from a closed exit case: the month, leave encashment, gratuity, fund payout, loans closed out." },
-];
-const money = (v: string | number) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 import { cn } from "@/lib/utils";
 import { ProblemList } from "./payroll-run-workspace";
 
@@ -84,8 +74,6 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
   const [checking, setChecking] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<PreflightResult | null>(null);
-  // Arrears: the employee-months ticked (all by default, blocked ones never).
-  const [picked, setPicked] = useState<Set<string>>(new Set());
   const checkRef = useRef<HTMLButtonElement>(null);
   const set = <K extends keyof NewRunInput>(k: K, v: NewRunInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -96,16 +84,6 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     return [y + 1, y, y - 1, y - 2].map((v) => ({ value: String(v), label: String(v) }));
   }, [data.suggested.year]);
   const months = (data.calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN).slice(1).map((m, i) => ({ value: String(i + 1), label: m }));
-  const bonus = form.runType === "FESTIVAL_BONUS";
-  const arrears = form.runType === "ARREARS";
-  const settlement = form.runType === "FINAL_SETTLEMENT";
-  const openCases = data.exitCases.filter((c) => !c.runId);
-  const festivalOptions = data.occasionalAllowances.filter((a) => a.isFestivalAllowance);
-  const keyOf = (c: ArrearsCandidate, l: ArrearsCandidate["lines"][number]) => `${c.employeeId}|${l.calendar}|${l.year}|${l.month}`;
-  const picks = (): NewRunInput["picks"] =>
-    (result?.arrears ?? [])
-      .map((c) => ({ employeeId: c.employeeId, months: c.lines.filter((l) => picked.has(keyOf(c, l))).map((l) => ({ calendar: l.calendar, year: l.year, month: l.month, kind: l.kind })) }))
-      .filter((p) => p.months.length);
   const employees = useMemo(
     () => data.employees.filter((e) => form.branchIds.includes(e.branchId) && (!form.departmentIds.length || form.departmentIds.includes(e.departmentId)) && (!form.designationIds.length || form.designationIds.includes(e.designationId)) && (!form.employeeCategories.length || form.employeeCategories.includes(e.category))),
     [data.employees, form.branchIds, form.departmentIds, form.designationIds, form.employeeCategories]
@@ -125,12 +103,11 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     }
     setErrors({});
     setResult(r.data ?? null);
-    setPicked(new Set((r.data?.arrears ?? []).filter((c) => !c.blocked).flatMap((c) => c.lines.map((l) => keyOf(c, l)))));
   };
   const generate = async () => {
     setGenerating(true);
     setFailure(null);
-    const r = await generateRunAction(arrears ? { ...form, picks: picks() } : form);
+    const r = await generateRunAction(form);
     setGenerating(false);
     if (!r.success) {
       setErrors(r.validationErrors ?? {});
@@ -140,7 +117,6 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     onGenerated(r.data!.runId, result?.employees ?? employees.length);
   };
   const busy = checking || generating;
-  const nothingPicked = (arrears && !picks()?.length) || (settlement && !form.exitCaseId);
 
   return (
     <Window
@@ -157,7 +133,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
           <WindowButton ref={checkRef} onClick={check} disabled={busy}>
             {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Check
           </WindowButton>
-          <WindowButton variant="primary" onClick={generate} disabled={busy || blocking === null || blocking > 0 || nothingPicked}>
+          <WindowButton variant="primary" onClick={generate} disabled={busy || blocking === null || blocking > 0}>
             {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Generate
           </WindowButton>
         </>
@@ -165,51 +141,18 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     >
       <PropertyForm onSubmit={check} enterNavigation={{ end: () => checkRef.current }} className="-mx-4 -my-4 space-y-0 bg-surface-panel">
         <FormGrid columns={2}>
-          <GridField label="Kind of run" required span={2} size="lg">
-            <div role="radiogroup" aria-label="Kind of run" className="flex flex-wrap gap-2">
-              {NEW_RUN_TYPES.map((t) => (
-                <label key={t.value} className={cn("flex cursor-pointer gap-2 rounded-md border px-3 py-1.5", form.runType === t.value ? "border-brand bg-brand-subtle" : "border-line hover:bg-surface-sunken")}>
-                  <input type="radio" name="runType" className="mt-0.5 h-3.5 w-3.5 accent-brand" checked={form.runType === t.value} onChange={() => set("runType", t.value)} />
-                  <span>
-                    <span className="block text-xs font-medium text-ink">{RUN_TYPE_LABEL[t.value]}</span>
-                    <span className="block text-2xs text-ink-muted">{t.help}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </GridField>
-          {settlement ? (
-            <>
-              <GridField label="Exit case" required error={errors.exitCaseId} span={2} size="lg" help={openCases.length ? "Closed cases without a settlement run (Workforce → Exit)." : "No closed exit case waits for a settlement."}>
-                <Combobox
-                  name="exitCase"
-                  options={openCases.map((c) => ({ value: c.id, label: `${c.employeeName} · ${c.kindName}`, hint: `${c.employeeCode} · last day ${c.lastWorkingDay}` }))}
-                  value={form.exitCaseId ?? ""}
-                  onChange={(v) => set("exitCaseId", v || null)}
-                  placeholder="Choose the person leaving"
-                />
-              </GridField>
-              <GridField label="Notice period recovery" error={errors.noticeRecovery} size="amount" help="NPR to recover for notice not served (0 = none).">
-                <NumberField name="noticeRecovery" value={Number(form.noticeRecovery ?? 0)} min={0} onChange={(v) => set("noticeRecovery", String(v ?? 0))} />
-              </GridField>
-            </>
-          ) : (
           <GridField label="Month" required error={errors.period} size="md">
             <div className="flex gap-2">
               <SelectField name="month" options={months} value={String(form.payPeriodMonth)} onChange={(v) => set("payPeriodMonth", Number(v))} />
               <SelectField name="year" options={years} value={String(form.payPeriodYear)} onChange={(v) => set("payPeriodYear", Number(v))} className="w-24" />
             </div>
           </GridField>
-          )}
           <GridField label="Payslip date" size="date" help="Printed on the payslips; blank = the day they are locked">
             <DateField name="payslipDate" value={form.payslipDate ?? ""} onChange={(v) => set("payslipDate", v || null)} />
           </GridField>
-          {!settlement && (
           <GridField label="Branches" required error={errors.branchIds} span={2} size="lg">
             <PickList label="" items={data.branches} value={form.branchIds} onChange={(v) => set("branchIds", v)} allLabel="none" />
           </GridField>
-          )}
-          {!settlement && (
           <GridField label="Narrow to" span={2} size="lg" help="Leave everything unticked to pay everyone in the branches.">
             <div className="space-y-2">
               <PickList label="Departments" items={data.departments} value={form.departmentIds} onChange={(v) => set("departmentIds", v)} allLabel="all" />
@@ -217,17 +160,11 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               <PickList label="Employment types" items={data.categories.map((c) => ({ id: c, name: c }))} value={form.employeeCategories} onChange={(v) => set("employeeCategories", v)} allLabel="all" />
             </div>
           </GridField>
-          )}
-          {settlement ? null : bonus ? (
-            <GridField label="Festival allowance" required span={2} size="lg" help={festivalOptions.length ? undefined : "No pay head is marked as a festival allowance (Setup → Pay heads)."}>
-              <PickList label="" items={festivalOptions.map((a) => ({ id: a.id, name: a.name }))} value={form.occasionalAllowanceHeadIds.filter((id) => festivalOptions.some((a) => a.id === id))} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
-            </GridField>
-          ) : data.occasionalAllowances.length > 0 ? (
+          {data.occasionalAllowances.length > 0 ? (
             <GridField label="This month also pays" span={2} size="lg">
               <PickList label="" items={data.occasionalAllowances.map((a) => ({ id: a.id, name: `${a.name} (${a.isFestivalAllowance ? "festival" : "remote area"})` }))} value={form.occasionalAllowanceHeadIds} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
             </GridField>
           ) : null}
-          {!settlement && (
           <GridField label="Only these people" span={2} size="lg" help="Optional: a few people instead of everyone in the scope (e.g. a missed joiner).">
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-64 flex-1">
@@ -243,11 +180,10 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               })}
             </div>
           </GridField>
-          )}
         </FormGrid>
         <div className="border-t border-line px-4 py-3 text-xs">
           <p className="text-ink-muted">
-            {settlement ? <span>One person: the settlement is worked out from the exit case.</span> : <><span className="font-medium text-ink">{employees.length}</span> employee{employees.length === 1 ? "" : "s"} in scope.</>}
+            <span className="font-medium text-ink">{employees.length}</span> employee{employees.length === 1 ? "" : "s"} in scope.
             {existing && (
               <label className="ml-3 inline-flex cursor-pointer items-center gap-1.5 text-warning">
                 <input type="checkbox" className="h-3.5 w-3.5 accent-brand" checked={!!form.recreateIfExists} onChange={(e) => setForm((f) => ({ ...f, recreateIfExists: e.target.checked }))} />
@@ -264,81 +200,6 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               )}
             </div>
           )}
-          {result?.settlement && (
-            <div className="mt-3">
-              <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-ink-muted">
-                Settlement for {result.settlement.employeeName} · last day {result.settlement.lastWorkingDay} · {result.settlement.monthsServed} months served
-              </p>
-              <table className="w-full text-xs">
-                <tbody>
-                  {result.settlement.earnings.map((l, i) => (
-                    <tr key={`e${i}`} className="border-b border-line">
-                      <td className="py-1 pr-2">{l.label}</td>
-                      <td className="py-1 text-right tabular-nums">{money(l.amount)}</td>
-                    </tr>
-                  ))}
-                  {result.settlement.deductions.map((l, i) => (
-                    <tr key={`d${i}`} className="border-b border-line text-ink-muted">
-                      <td className="py-1 pr-2">{l.label}</td>
-                      <td className="py-1 text-right tabular-nums">−{money(l.amount)}</td>
-                    </tr>
-                  ))}
-                  {Number(result.settlement.tds) > 0 && (
-                    <tr className="border-b border-line text-ink-muted">
-                      <td className="py-1 pr-2">Income tax (the year reconciled)</td>
-                      <td className="py-1 text-right tabular-nums">−{money(result.settlement.tds)}</td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td className="py-1 pr-2 font-semibold text-ink">Net payable</td>
-                    <td className={cn("py-1 text-right font-semibold tabular-nums", Number(result.settlement.net) < 0 ? "text-danger" : "text-ink")}>{money(result.settlement.net)}</td>
-                  </tr>
-                </tbody>
-              </table>
-              {result.settlement.gratuity.reason && <p className="mt-1 text-3xs text-ink-faint">No gratuity: {result.settlement.gratuity.reason}.</p>}
-              {result.settlement.month === null && <p className="mt-1 text-3xs text-ink-faint">The last month was already paid in a locked run.</p>}
-            </div>
-          )}
-          {result?.arrears && result.arrears.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-ink-muted">Months with a difference to pay</p>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-line text-left text-2xs text-ink-muted">
-                    <th className="w-6 py-1" />
-                    <th className="py-1 pr-2 font-medium">Employee</th>
-                    <th className="py-1 pr-2 font-medium">Month</th>
-                    <th className="py-1 pr-2 font-medium">Why</th>
-                    <th className="py-1 pr-2 text-right font-medium">Paid</th>
-                    <th className="py-1 pr-2 text-right font-medium">Due</th>
-                    <th className="py-1 text-right font-medium">Difference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.arrears.flatMap((c) =>
-                    c.lines.map((l, i) => {
-                      const key = keyOf(c, l);
-                      const diff = Number(l.diff.grossEarnings);
-                      return (
-                        <tr key={key} className={cn("border-b border-line last:border-0", c.blocked && "text-ink-faint")}>
-                          <td className="py-1">
-                            <input type="checkbox" className="h-3.5 w-3.5 accent-brand" checked={picked.has(key)} disabled={!!c.blocked} onChange={(e) => setPicked((s) => { const n = new Set(s); if (e.target.checked) n.add(key); else n.delete(key); return n; })} aria-label={`${c.employeeName} ${l.label}`} />
-                          </td>
-                          <td className="py-1 pr-2">{i === 0 ? <span className="font-medium text-ink">{c.employeeName} <span className="font-code text-3xs text-ink-faint">{c.employeeCode}</span>{c.blocked && <span className="block text-3xs text-warning">{c.blocked}</span>}</span> : ""}</td>
-                          <td className="py-1 pr-2">{l.label}</td>
-                          <td className="py-1 pr-2 text-ink-muted">{l.kind === "salary" ? "Salary revision" : "Attendance corrected"}</td>
-                          <td className="py-1 pr-2 text-right tabular-nums">{money(l.paid.grossEarnings)}</td>
-                          <td className="py-1 pr-2 text-right tabular-nums">{money(l.due.grossEarnings)}</td>
-                          <td className={cn("py-1 text-right font-medium tabular-nums", diff < 0 ? "text-danger" : "text-ink")}>{diff < 0 ? "−" : "+"}{money(Math.abs(diff))}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-              <p className="mt-1 text-3xs text-ink-faint">Gross differences; retirement contributions and CIT follow, income tax is worked out once on the arrears. Untick a month to leave it for later.</p>
-            </div>
-          )}
         </div>
       </PropertyForm>
     </Window>
@@ -347,13 +208,11 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
 
 const APPROVAL_TYPE_LABEL: Record<ApprovalType, string> = { none: "No approval", simple: "Simple", multi_level: "Multi-level" };
 
-/** Approval policy for pay runs (simple or multi-level) and the variance threshold. */
+/** Approval policy for pay runs (simple or multi-level) and the pay calendar; the variance threshold, maker-checker mode and attendance rule are on Payroll controls. */
 export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: PayrollRunsPageData; onClose: () => void; onSaved: () => void }) {
-  const initial = { policy: data.policy.type === "none" ? ({ type: "simple", levels: [] } as ApprovalPolicy) : data.policy, thresholdPct: data.varianceThresholdPct, calendar: data.calendar };
+  const initial = { policy: data.policy.type === "none" ? ({ type: "simple", levels: [] } as ApprovalPolicy) : data.policy, calendar: data.calendar };
   const [policy, setPolicy] = useState<ApprovalPolicy>(initial.policy);
-  const [threshold, setThreshold] = useState(initial.thresholdPct);
   const [calendar, setCalendar] = useState<"BS" | "AD">(initial.calendar);
-  const [settlement, setSettlement] = useState<SettlementSettings>(data.settlement);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -366,7 +225,7 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
   };
   const save = async () => {
     setSaving(true);
-    const r = await savePayrollRunSettingsAction({ policy: { type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] }, thresholdPct: threshold, calendar, settlement });
+    const r = await savePayrollRunSettingsAction({ policy: { type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] }, calendar });
     setSaving(false);
     if (!r.success) {
       setErrors(r.validationErrors ?? {});
@@ -383,7 +242,7 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
     <Window
       open
       onClose={saving ? () => {} : onClose}
-      dirty={JSON.stringify({ policy, thresholdPct: threshold, calendar }) !== JSON.stringify(initial)}
+      dirty={JSON.stringify({ policy, calendar }) !== JSON.stringify(initial)}
       size="lg"
       title="Payroll settings"
       description="Who approves a run before it can be locked and paid (the person who prepares a run never approves it), what counts as a variance, and the pay calendar."
@@ -448,13 +307,6 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
         </div>
       )}
       <div className="mt-4 border-t border-line pt-3">
-        <label className="block text-xs font-semibold text-ink">
-          Variance threshold {errors.thresholdPct && <span className="font-normal text-danger">· {errors.thresholdPct}</span>}
-          <div className="mt-1 flex items-center gap-2">
-            <NumberField name="thresholdPct" decimals={1} max={50} value={threshold} onChange={setThreshold} className="max-w-24" aria-label="Variance threshold in percent" />
-            <span className="text-2xs font-normal text-ink-muted">% change in gross, net, income tax or SSF against the last locked run that an approver must see acknowledged.</span>
-          </div>
-        </label>
       </div>
       <fieldset className="mt-4 border-t border-line pt-3">
         <legend className="mb-1 text-xs font-semibold text-ink">
@@ -478,28 +330,10 @@ export function PayrollSettingsWindow({ data, onClose, onSaved }: { data: Payrol
         </div>
         <p className="mt-1.5 text-2xs text-ink-muted">Attendance months follow the pay calendar. It changes only between months: every attendance month closed, every run locked or discarded.</p>
       </fieldset>
-      <fieldset className="mt-4 border-t border-line pt-3">
-        <legend className="mb-1 text-xs font-semibold text-ink">Final settlement</legend>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <label className="block text-2xs text-ink-muted">
-            Gratuity, % of basic per month served {errors.gratuityPctPerMonth && <span className="text-danger">· {errors.gratuityPctPerMonth}</span>}
-            <input type="number" step="0.01" min={0} max={100} className={cn(inputClass, "mt-0.5")} value={settlement.gratuityPctPerMonth} onChange={(e) => setSettlement((s) => ({ ...s, gratuityPctPerMonth: Number(e.target.value) }))} />
-          </label>
-          <label className="block text-2xs text-ink-muted">
-            Months of service before gratuity {errors.gratuityMinMonths && <span className="text-danger">· {errors.gratuityMinMonths}</span>}
-            <input type="number" step="1" min={0} max={120} className={cn(inputClass, "mt-0.5")} value={settlement.gratuityMinMonths} onChange={(e) => setSettlement((s) => ({ ...s, gratuityMinMonths: Number(e.target.value) }))} />
-          </label>
-          <label className="block text-2xs text-ink-muted">
-            Tax withheld on gratuity, % {errors.gratuityWithholdingPct && <span className="text-danger">· {errors.gratuityWithholdingPct}</span>}
-            <input type="number" step="0.01" min={0} max={100} className={cn(inputClass, "mt-0.5")} value={settlement.gratuityWithholdingPct} onChange={(e) => setSettlement((s) => ({ ...s, gratuityWithholdingPct: Number(e.target.value) }))} />
-          </label>
-        </div>
-        <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-ink">
-          <input type="checkbox" className="h-3.5 w-3.5 accent-brand" checked={settlement.gratuityForSsfMembers} onChange={(e) => setSettlement((s) => ({ ...s, gratuityForSsfMembers: e.target.checked }))} />
-          Pay a gratuity to SSF members too (off: the Social Security Fund carries it)
-        </label>
-        <p className="mt-1.5 text-2xs text-ink-muted">Labour Act §53: 8.33% of the basic salary per month served, from one year of service. Leave is encashed at the last basic salary (§49).</p>
-      </fieldset>
+      <p className="mt-4 border-t border-line pt-3 text-2xs text-ink-muted">
+        Maker-checker mode, the variance threshold and whether attendance must be closed are set in{" "}
+        <a href="/payroll/controls" className="font-medium text-brand-strong hover:underline">Payroll controls</a>.
+      </p>
       {eligible.length === 0 && <p className="mt-3 text-2xs text-warning">No active user can approve pay runs yet. Give a role Payroll review → Approve in Roles.</p>}
       <span className="hidden">
         <ShieldCheck className="hidden" />

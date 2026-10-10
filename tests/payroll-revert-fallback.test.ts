@@ -1,12 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Decimal from 'decimal.js';
-import { calculatePayslip, type PayHeadInput, type TaxSlabInput, type EmployeeInput, EMPTY_YTD } from '../lib/engines/payroll.engine';
+import { calculatePayslip, type PayHeadInput, type TaxSlabInput, type EmployeeInput } from '../lib/engines/payroll.engine';
 import { PayrollLockedError, PayrollRunAlreadyExistsError } from '../lib/services/payroll.service';
 import type { SystemControlData } from '../lib/types/system-control';
-
-/** 4.8b: a first month of the year with nothing paid yet (equals the old "this month × 12" projection). */
-const NO_YTD = { ytd: EMPTY_YTD, monthsRemaining: 12 };
 
 const MOCK_SYSTEM_CONTROL: SystemControlData = {
   officeTime: {
@@ -148,7 +145,8 @@ describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
+      historicalPayslips: [],
     });
 
     assert.strictEqual(Number(initialResult.grossEarnings), 50000);
@@ -216,7 +214,8 @@ describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
+      historicalPayslips: [],
     });
 
     // Gross should now include Fuel Allowance (50,000 + 5,000 = 55,000)
@@ -355,7 +354,8 @@ describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
+      historicalPayslips: [],
     });
 
     assert.strictEqual(Number(initialSlip.otAmount), 3500);
@@ -389,7 +389,8 @@ describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
+      historicalPayslips: [],
     });
     const initialNet = Number(initialSlip.netPayable);
 
@@ -411,7 +412,8 @@ describe('Payroll Fallback, Revert & Recalculate Architecture', () => {
       taxSlabs: MOCK_TAX_SLABS,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: NO_YTD,
+      isYearEnd: false,
+      historicalPayslips: [],
     });
 
     assert.strictEqual(Number(updatedSlip.otAmount), 1500);

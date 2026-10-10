@@ -5,7 +5,14 @@
 
 import Decimal from "decimal.js";
 import { calculateTotalGradeAmount, DEFAULT_GRADE_POLICY } from "@/lib/engines/grade-policy.engine";
-import { calculatePayslip, isSsfDeductionHead, isSsfEmployerHead, NegativeNetPayableError, ssfContribution, type PayHeadInput, EMPTY_YTD } from "@/lib/engines/payroll.engine";
+import {
+  calculatePayslip,
+  isSsfDeductionHead,
+  isSsfEmployerHead,
+  NegativeNetPayableError,
+  ssfContribution,
+  type PayHeadInput,
+} from "@/lib/engines/payroll.engine";
 import type { GradePolicySettings, SystemControlData } from "@/lib/types/system-control";
 import type {
   BreakdownItem,
@@ -299,7 +306,7 @@ export function estimatePay(lines: StructureLines, heads: readonly StructureHead
       taxSlabs: tax.slabs,
       isFestivalMonth: false,
       isRemoteMonth: false,
-      tax: { ytd: EMPTY_YTD, monthsRemaining: 12 },
+      isYearEnd: false,
     });
     const d = (v: string) => new Decimal(v || 0);
     const basic = d(r.basicSalary);
@@ -689,10 +696,8 @@ export function setupEffectiveFrom(joiningDate: string, employeeId: string, fina
   return open && open > joiningDate ? open : joiningDate;
 }
 
-/** The tab to open: a known one, else Salary sheet. */
+/** The tab to open: a known one, else Structures. */
 export function resolveStructureTab(raw: string | undefined | null): StructureTab {
   if (raw === "changes") return "approvals"; // the tab's earlier name
-  if (raw === "structures" || raw === "bulk") return "sheet";
-  if (raw && (STRUCTURE_TABS as readonly string[]).includes(raw)) return raw as StructureTab;
-  return "sheet";
+  return (STRUCTURE_TABS as readonly string[]).includes(raw ?? "") ? (raw as StructureTab) : "structures";
 }

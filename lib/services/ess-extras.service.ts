@@ -1,5 +1,9 @@
 import { getSessionEmployeeId } from '@/lib/services/self-service.service';
 import { boardFor } from '@/lib/services/notice.service';
+import { getMyLetter, listMyLetters, type LetterPrintData } from '@/lib/services/letter.service';
+import { findDossier } from '@/lib/repositories/employee-dossier.repository';
+import type { EmployeeDossierInput } from '@/lib/types/employee-dossier';
+import type { LetterListRow } from '@/lib/types/letter';
 import * as travelService from '@/lib/services/travel.service';
 import * as travelRepo from '@/lib/repositories/travel.repository';
 import { bondEnds } from '@/lib/engines/training.engine';
@@ -21,6 +25,23 @@ const selfScope = (employeeId: string, userId: string): ScopeFilter => ({ scopeT
 export async function myNotices(limit = 20): Promise<BoardNotice[]> {
   const { employeeId, userId } = await getSessionEmployeeId();
   return boardFor(selfScope(employeeId, userId), limit);
+}
+
+export async function myLetters(): Promise<LetterListRow[]> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return listMyLetters(selfScope(employeeId, userId));
+}
+
+/** One of the signed-in employee's own issued letters; anything else reads as not found. */
+export async function myLetter(id: string): Promise<LetterPrintData | null> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return getMyLetter(id, selfScope(employeeId, userId));
+}
+
+/** The employee's own qualifications, past jobs and papers (names and dates; the scans stay with HR). */
+export async function myDossier(): Promise<EmployeeDossierInput> {
+  const { employeeId } = await getSessionEmployeeId();
+  return findDossier(employeeId);
 }
 
 export interface MyTrainingRow {

@@ -37,10 +37,6 @@ export interface PreflightProblem {
 
 export interface PreflightResult {
   problems: PreflightProblem[];
-  /** Kind Arrears: the employees and months with a difference to pay (ticked in the window). */
-  arrears?: ArrearsCandidate[];
-  /** Kind Final settlement: the preview for the chosen exit case. */
-  settlement?: SettlementPreview;
   blocking: number;
   warnings: number;
   /** Employees the run would include. */
@@ -143,7 +139,6 @@ export interface PayrollRunsPageData {
   selected: RunDetail | null;
   policy: ApprovalPolicy;
   approvers: ApproverInfo[];
-  varianceThresholdPct: number;
   /** For the New run window. */
   branches: { id: string; name: string }[];
   departments: { id: string; name: string }[];
@@ -154,9 +149,6 @@ export interface PayrollRunsPageData {
   allPayHeads: { id: string; name: string; code: string; type: "allowance" | "deduction" }[];
   /** The month a new run would be for: the working period, else the month after the last regular run, else the month before today's. */
   suggested: { year: number; month: number };
-  /** Closed exit cases in scope (kind Final settlement), with the run that settles them when there is one. */
-  exitCases: { id: string; employeeId: string; employeeName: string; employeeCode: string; lastWorkingDay: string; kindName: string; runId: string | null }[];
-  settlement: SettlementSettings;
   today: string;
   currentUserId: string;
   myEmployeeId: string | null;
@@ -183,76 +175,6 @@ export interface NewRunInput {
   payslipDate: string | null;
   /** Replace an existing draft for the same period and branches. */
   recreateIfExists?: boolean;
-  /** Kind Arrears: the source months to pay, per employee. */
-  picks?: { employeeId: string; months: { calendar: "BS" | "AD"; year: number; month: number; kind: "salary" | "attendance" }[] }[];
-  /** Kind Final settlement: the closed exit case to settle, and the notice period recovery (NPR). */
-  exitCaseId?: string | null;
-  noticeRecovery?: string;
-}
-
-// ---------------------------------------------------------------------------
-// 4.8b Arrears
-// ---------------------------------------------------------------------------
-
-/** A month's pay in the parts arrears compare (NPR, 2 decimals). */
-export interface ArrearsComponents {
-  basic: string;
-  grade: string;
-  allowances: string;
-  otAmount: string;
-  absentDeduction: string;
-  grossEarnings: string;
-  pfEmployee: string;
-  pfEmployer: string;
-  ssfEmployee: string;
-  ssfEmployer: string;
-  citDeduction: string;
-  otherDeductions: string;
-}
-
-/** One source month on an arrears payslip: what was paid, what is due now, the difference. */
-export interface ArrearsMonthLine {
-  kind: "salary" | "attendance";
-  calendar: "BS" | "AD";
-  year: number;
-  month: number;
-  /** "Bhadra 2083" */
-  label: string;
-  /** `batch:<id>` for a salary revision, `attendance:<periodId>` for a re-closed month. */
-  sourceRef: string;
-  /** The locked regular payslip of that month. */
-  sourceSlipId: string;
-  paid: ArrearsComponents;
-  due: ArrearsComponents;
-  diff: ArrearsComponents;
-}
-
-/** What an arrears payslip pays for its month lines. */
-export interface ArrearsSlipFigures {
-  earnings: { label: string; amount: string }[];
-  deductions: { label: string; amount: string }[];
-  grossEarnings: string;
-  totalDeductions: string;
-  /** The positive earnings: taxed once through the projection. */
-  taxableGross: string;
-  retirement: string;
-  cit: string;
-  pfEmployee: string;
-  pfEmployer: string;
-  ssfEmployee: string;
-  ssfEmployer: string;
-}
-
-/** An employee with months whose pay differs from what was locked (the New run window, kind Arrears). */
-export interface ArrearsCandidate {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  lines: ArrearsMonthLine[];
-  /** Net effect of every line (earnings − deductions). */
-  net: string;
-  /** Why it cannot be included now (an arrears run already holds it). */
-  blocked: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,56 +186,4 @@ export interface WorkingPeriod {
   calendar: "BS" | "AD";
   year: number;
   month: number;
-}
-
-/** Company rules for a leaver's gratuity (Payroll settings, `payroll.settlement`). */
-export interface SettlementSettings {
-  /** Percent of the basic salary per month served (Labour Act §53: 8.33). */
-  gratuityPctPerMonth: number;
-  /** Months of service before any gratuity is due (12). */
-  gratuityMinMonths: number;
-  /** Flat tax withheld on the gratuity (ITA §88: 5). */
-  gratuityWithholdingPct: number;
-  /** Pay a gratuity to SSF members too (off: the fund carries it). */
-  gratuityForSsfMembers: boolean;
-}
-
-export type SettlementLineCode = "MONTH" | "ENCASHMENT" | "GRATUITY" | "FUND_PAYOUT" | "LOAN_CLOSEOUT" | "NOTICE_RECOVERY" | "GRATUITY_TDS";
-
-export interface SettlementFigures {
-  earnings: { code: SettlementLineCode; label: string; amount: string }[];
-  deductions: { code: SettlementLineCode; label: string; amount: string }[];
-  grossEarnings: string;
-  /** Without the income tax (worked out once by the projection). */
-  totalDeductions: string;
-  /** Income taxed through the projection: the month, the encashment, the employer's fund share. */
-  taxableGross: string;
-  /** The part of taxableGross paid once. */
-  oneOffTaxable: string;
-  gratuityWithheld: string;
-}
-
-/** What a settlement payslip settled (kept on the slip; the LOCK posts it). */
-export interface SettlementDetail extends SettlementFigures {
-  exitCaseId: string;
-  lastWorkingDay: string;
-  monthsServed: number;
-  /** The last month's pay, or null when that month was already paid in a locked run. */
-  month: { label: string; calendar: "BS" | "AD"; year: number; month: number; unpaidDays: number; closed: boolean } | null;
-  encashment: { leaveTypeId: string; leaveTypeName: string; days: number; perDay: string; amount: string }[];
-  gratuity: { basic: string; months: number; pct: number; amount: string; reason: string | null };
-  funds: { fundTypeId: string; code: string; name: string; employee: string; employer: string }[];
-  loans: { loanId: string; name: string; remaining: string }[];
-  noticeRecovery: string;
-}
-
-/** The New run window's preview of a settlement (worked out again at generation). */
-export interface SettlementPreview extends SettlementDetail {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  tds: string;
-  net: string;
-  /** Why it cannot be generated now. */
-  blocked: string | null;
 }

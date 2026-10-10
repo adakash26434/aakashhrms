@@ -425,36 +425,71 @@
     {
       "idx": 60,
       "version": "7",
-      "when": 1792200000000,
-      "tag": "0060_overtime",
+      "when": 1792118400000,
+      "tag": "0060_employee_dossier",
       "breakpoints": true
     },
     {
       "idx": 61,
       "version": "7",
-      "when": 1792300000000,
-      "tag": "0061_payroll_run_approval",
+      "when": 1792204800000,
+      "tag": "0061_notice_audience",
       "breakpoints": true
     },
     {
       "idx": 62,
       "version": "7",
-      "when": 1792400000000,
-      "tag": "0062_pay_calendar_ytd_tax",
+      "when": 1792291200000,
+      "tag": "0062_targets",
       "breakpoints": true
     },
     {
       "idx": 63,
       "version": "7",
-      "when": 1792500000000,
-      "tag": "0063_arrears",
+      "when": 1792377600000,
+      "tag": "0063_payroll_controls",
       "breakpoints": true
     },
     {
       "idx": 64,
       "version": "7",
-      "when": 1792600000000,
-      "tag": "0064_final_settlement",
+      "when": 1792464000000,
+      "tag": "0064_payroll_arrears",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792550400000,
+      "tag": "0065_tax_sheet",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792636800000,
+      "tag": "0066_exit_settlement",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792723200000,
+      "tag": "0067_overtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1792809600000,
+      "tag": "0068_payroll_run_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1792896000000,
+      "tag": "0069_pay_calendar",
       "breakpoints": true
     }
   ]

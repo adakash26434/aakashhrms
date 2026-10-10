@@ -33,14 +33,11 @@ import {
   validateLines,
   type PayHeadLike,
 } from '../lib/engines/salary-structure.engine';
-import { calculatePayslip, type TaxSlabInput, EMPTY_YTD } from '../lib/engines/payroll.engine';
+import { calculatePayslip, type TaxSlabInput } from '../lib/engines/payroll.engine';
 import { DEFAULT_GRADE_POLICY } from '../lib/engines/grade-policy.engine';
 import { normalizeBatch } from '../lib/services/salary-structure.service';
 import type { PayProfile, StructureLines, TaxRules, TemplateRow } from '../lib/types/salary-structure';
 import type { SystemControlData } from '../lib/types/system-control';
-
-/** 4.8b: a first month of the year with nothing paid yet (equals the old "this month × 12" projection). */
-const NO_YTD = { ytd: EMPTY_YTD, monthsRemaining: 12 };
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 
@@ -284,14 +281,15 @@ describe('Salary structure security (S20)', () => {
     assert.match(actions, /slice\(0, MAX_BULK\)/);
   });
 
-  it('the server applies the rules: flow on submit, engine on every decision over all employees, payroll still open', () => {
+  it('the server applies the rules: flow on submit, engine on every decision over all employees', () => {
     const service = read('lib/services/salary-structure.service.ts');
     assert.match(service, /buildFlow\(policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId/);
     assert.match(service, /if \(finalNow && !actor\.isAdministrator\)/);
     assert.match(service, /if \(finalNow && ownSalary\) throw new SelfDecisionError/);
     assert.match(service, /findBatchEmployeeIds\(batchId\)/);
     assert.match(service, /availableActions\(request, actor, \{ approvers, today: nepalDateIso\(\) \}\)/);
-    assert.equal((service.match(/await assertPayrollOpen\(/g) ?? []).length, 2); // submit and final approval
+    // Back-dated changes into finalised months are no longer refused: payroll pays the difference as arrears (F7).
+    assert.ok(!/assertPayrollOpen/.test(service));
     const repo = read('lib/repositories/salary-structure.repository.ts');
     // A decision applies only while the batch is pending at the level the person saw.
     assert.match(repo, /eq\(salaryChangeBatches\.status, "pending"\), eq\(salaryChangeBatches\.currentLevel, params\.expectedLevel\)/);
@@ -309,12 +307,8 @@ describe('Salary structure security (S20)', () => {
   });
 
   it('opens a known tab', () => {
-    assert.equal(resolveStructureTab('approvals'), 'approvals');
-    assert.equal(resolveStructureTab('templates'), 'templates');
-    assert.equal(resolveStructureTab('sheet'), 'sheet');
-    assert.equal(resolveStructureTab('bulk'), 'sheet');
-    assert.equal(resolveStructureTab('structures'), 'sheet');
-    assert.equal(resolveStructureTab('x'), 'sheet');
+    assert.equal(resolveStructureTab('bulk'), 'bulk');
+    assert.equal(resolveStructureTab('x'), 'structures');
   });
 });
 
@@ -382,7 +376,7 @@ const payrollRun = (l: StructureLines, profile: PayProfile = PROFILE) =>
     taxSlabs: SLABS,
     isFestivalMonth: false,
     isRemoteMonth: false,
-    tax: NO_YTD,
+    isYearEnd: false,
   });
 
 describe('Pay estimate = payroll (estimatePay → calculatePayslip)', () => {

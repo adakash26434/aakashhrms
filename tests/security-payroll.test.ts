@@ -40,7 +40,7 @@ describe('S40 payroll run approval', () => {
   });
 
   it('every run action checks a payroll permission on the server and audits the change', () => {
-    for (const fn of ['generateRunAction', 'submitRunAction', 'decideRunAction', 'lockRunAction', 'acknowledgeVarianceAction', 'syncRunAttendanceAction', 'savePayrollRunSettingsAction']) {
+    for (const fn of ['generateRunAction', 'submitRunAction', 'decideRunAction', 'lockRunAction', 'syncRunAttendanceAction', 'savePayrollRunSettingsAction']) {
       const body = actions.match(new RegExp(`export async function ${fn}[\\s\\S]*?\\n}\\n`))![0];
       assert.match(body, /checkPermissionWithScope\('(VIEW|ADD|EDIT|DELETE|LOCK|APPROVE)', '(PAYROLL_GENERATE|PAYROLL_REVIEW)'\)|ctxFor\('(VIEW|ADD|EDIT|DELETE|LOCK)'/, fn);
       assert.match(body, /recordAuditLog\(/, `${fn} audits`);
@@ -73,8 +73,9 @@ describe('S21 on payslips (4.8a): never your own', () => {
     assert.match(actions, /OwnPayslipError\) await recordAuditLog\(\{[^}]*result: DENIED_SELF/);
   });
 
-  it('acknowledging the variance of your own payslip is refused', () => {
-    assert.match(service, /export async function acknowledge[\s\S]*?isOwnRecord\(ctx\.scope\.employeeId, employeeId\)[\s\S]*?throw new OwnPayslipError/);
+  it('acknowledging a variance flag about your own pay is refused (the team\'s variance review)', () => {
+    const control = read('lib/services/payroll-control.service.ts');
+    assert.match(control, /export async function acknowledgeFlags[\s\S]*?rows\.some\(\(r\) => r\.employeeId === ctx\.actorEmployeeId\)[\s\S]*?DENIED_SELF/);
   });
 
   it('payslips change only while the run is a draft', () => {
@@ -93,10 +94,10 @@ describe('S41 pay calendar and year-to-date tax (4.8b)', () => {
   const runService = read('lib/services/payroll-run.service.ts');
   const repo = read('lib/repositories/payroll.repository.ts');
 
-  it('the year to date comes only from LOCKED payslips of the fiscal year', () => {
-    assert.match(repo, /export async function findLockedSlipsForFiscalYear[\s\S]*?eq\(payrollRuns\.status, "LOCKED"\)/);
-    assert.match(service, /async function taxInputsFor[\s\S]*?findLockedSlipsForFiscalYear\(employeeIds, fiscalYearId, excludeRunId\)/);
-    assert.doesNotMatch(service, /historicalPayslips|isAshadh/);
+  it('income tax follows the team\'s projection (F5): earlier months counted in the run\'s calendar, the year-end on LOCKED payslips', () => {
+    assert.match(service, /async function yearEndHistory[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
+    assert.match(repo, /export async function findEarlierTaxMonths[\s\S]*?eq\(payrollRuns\.calendar, calendar\)/);
+    assert.doesNotMatch(service, /taxInputsFor|ytdFromSlips/);
   });
 
   it('the fiscal year of a run is the one containing the month, never "the first active one"', () => {
@@ -110,66 +111,43 @@ describe('S41 pay calendar and year-to-date tax (4.8b)', () => {
     assert.match(actions, /export async function savePayrollRunSettingsAction[\s\S]*?scope\.scopeType !== 'GLOBAL'[\s\S]*?scope\.isImpersonation/);
   });
 
-  it('a bonus run reads no attendance, posts no loans and writes nothing back to the salary map', () => {
+  it('only a regular run reads attendance, posts loans or writes back to the salary map; the workspace makes regular runs only', () => {
     assert.match(service, /runType === "REGULAR" \? await attendanceForPayroll\(empIds, period\)/);
-    assert.match(service, /const regular = run\.runType === "REGULAR";[\s\S]*?for \(const slip of regular \? slips : \[\]\)/);
     assert.match(service, /for \(const slip of regular \? slips : \[\]\) \{\s*const slipHeads = await tx\.select\(\)\.from\(payrollSlipHeads\)/);
+    assert.match(runService, /function cleanInput[\s\S]*?const runType: RunType = "REGULAR";/);
   });
 
-  it('employees see only locked payslips', () => {
+  it('employees see only payslips of locked, published runs that are not held (the team\'s F3)', () => {
     const self = read('lib/services/self-service.service.ts');
-    assert.match(self, /export async function getMyPayslips[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
-    assert.match(self, /export async function getMyPayslipDetail[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
+    assert.match(self, /function visibleToEmployee\(\) \{\s*return \[eq\(payrollRuns\.status, 'LOCKED'\), isNotNull\(payrollRuns\.publishedAt\), isNull\(payrollSlips\.heldAt\)\];/);
+    assert.match(self, /export async function getMyPayslips[\s\S]*?\.\.\.visibleToEmployee\(\)/);
+    assert.match(self, /export async function getMyPayslipDetail[\s\S]*?\.\.\.visibleToEmployee\(\)/);
   });
 });
 
-describe('S41 arrears (4.8b)', () => {
-  const service = read('lib/services/arrears.service.ts');
+describe('Merge with the team\'s payroll controls (2026-10-10)', () => {
+  const service = read('lib/services/payroll.service.ts');
   const runService = read('lib/services/payroll-run.service.ts');
 
-  it('candidates come from the scope only, and the run recomputes them on the server (the screen figures are never trusted)', () => {
-    assert.match(service, /export async function candidates\(scope: ScopeFilter[\s\S]*?buildEmployeeScopeCondition\(scope\)/);
-    assert.match(service, /export async function generateArrearsRun[\s\S]*?const found = await candidates\(ctx\.scope/);
-    assert.match(runService, /export async function checkNewRun\(raw: unknown, scope\?: ScopeFilter\)[\s\S]*?arrearsService\.candidates\(scope, input\)/);
-    assert.match(read('app/actions/payroll-run.actions.ts'), /export async function checkNewRunAction[\s\S]*?service\.checkNewRun\(input, scope\)/);
+  it('every status move passes the team\'s maker-checker, and the workspace submits only with every variance flag acknowledged', () => {
+    assert.match(service, /await assertCanMove\(run, toStatus, actionByUserId\)/);
+    assert.match(runService, /export async function submit[\s\S]*?const open = await varianceOpenCount\(runId\);\s*if \(open\) throw new UserFacingError/);
+    assert.match(runService, /export async function varianceOpenCount[\s\S]*?controlService\.varianceReview\(runId\)\)\.unresolved\.length/);
   });
 
-  it('a month already paid as arrears counts as paid (locked items only), and an employee-month waits in one run at a time', () => {
-    const repo = read('lib/repositories/arrears.repository.ts');
-    assert.match(repo, /export async function findLockedArrearsItems[\s\S]*?eq\(payrollRuns\.status, "LOCKED"\)/);
-    assert.match(service, /findLockedArrearsItems\(\[slip\.employeeId\]\)[\s\S]*?sumComponents\(\[paidSlip, \.\.\.lockedItems\.map\(\(i\) => i\.diff\)\]\)/);
-    assert.match(service, /const blocked = chosen\.find\(\(c\) => c\.blocked\);\s*if \(blocked\) throw new UserFacingError/);
+  it('one welfare-fund deduction per payslip (the team\'s WELFARE_FUND head); the engine has no second fund deduction', () => {
+    assert.match(service, /if \(fundFeed && feedHeadRows\.welfare\) \{/);
+    assert.doesNotMatch(read('lib/engines/payroll.engine.ts'), /fundDeduction/);
   });
 
-  it('a locked payslip is never changed: arrears are a new run of kind ARREARS', () => {
-    assert.match(service, /runType: "ARREARS"/);
-    assert.doesNotMatch(service, /update\(payrollSlips\)/);
-  });
-
-  it('back-dated revisions wait only for runs being prepared; locked months are paid as arrears', () => {
-    const salary = read('lib/services/salary-structure.service.ts');
-    assert.match(salary, /async function assertPayrollOpen[\s\S]*?repository\.findOpenRunUntil\(employeeIds\)/);
-    assert.equal((salary.match(/await assertPayrollOpen\(/g) ?? []).length, 2);
-    const repo = read('lib/repositories/salary-structure.repository.ts');
-    assert.match(repo, /export async function findOpenRunUntil[\s\S]*?inArray\(payrollRuns\.status, \["DRAFT", "UNDER_REVIEW", "APPROVED"\]\), eq\(payrollRuns\.runType, "REGULAR"\)/);
-  });
-
-  it('reopening a month after payroll is locked keeps the reason and is audited as such', () => {
+  it('attendance after a lock stays closed: the team\'s arrears pay revisions only', () => {
     const attendance = read('lib/services/attendance.service.ts');
-    assert.match(attendance, /export async function reopenMonth[\s\S]*?const afterLock = \(await repo\.countFinalisedPayrollRuns\(period\.calendar, period\.year, period\.month\)\) > 0;/);
-    assert.match(attendance, /export async function reopenMonth[\s\S]*?reason\.length < 3[\s\S]*?Give a reason for reopening/);
-    assert.match(read('app/actions/attendance.actions.ts'), /event: result\.afterLock \? 'REOPEN_AFTER_LOCK' : 'REOPEN'/);
-  });
-});
-
-describe('Merge with main (2026-10-10): the payroll feeds and the 4.8a fund deduction', () => {
-  const service = read('lib/services/payroll.service.ts');
-
-  it('one welfare-fund deduction per payslip: the WELFARE_FUND head only when the per-fund deduction is absent', () => {
-    assert.match(service, /if \(fundFeed && feedHeadRows\.welfare && !\(fundsByEmployeeId\.get\(emp\.id\) \?\? \[\]\)\.length\)/);
+    assert.match(attendance, /export async function reopenMonth[\s\S]*?countFinalisedPayrollRuns\(period\.calendar, period\.year, period\.month\)\) > 0\) \{\s*throw new UserFacingError/);
   });
 
-  it('TA-DA claims and fund feeds are read for regular runs only (a bonus run never settles claims it does not pay)', () => {
-    assert.match(service, /const feedsApply = runType === "REGULAR";[\s\S]*?feedsApply \? feedsRepository\.approvedClaimsByEmployee\(empIds, endStr\)/);
+  it('overtime: the policy decides the minutes, the team\'s otPay and OT rules the rate', () => {
+    const attendance = read('lib/services/attendance.service.ts');
+    assert.match(attendance, /const ot = monthOvertime\(employeeId, days, entries, policy\);\s*const amount = salary \? otPay\(\{ basic: salary\.basic, workDayMinutes: ot\.paid\.work, offDayMinutes: ot\.paid\.off, multipliers \}\) : 0;/);
+    assert.match(attendance, /otRuleRepository\.findActiveOtRules\(\)/);
   });
 });

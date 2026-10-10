@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, uniqueIndex, date, index } from 'drizzle-orm/pg-core';
+import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, uniqueIndex, date, index, primaryKey } from 'drizzle-orm/pg-core';
 
 
 // -----------------------------------------------------------------------------
@@ -244,7 +244,7 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL', 'TARGETS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -512,6 +512,8 @@ export const employeeDocumentFiles = pgTable('employee_document_files', {
   documentId: uuid('document_id').references(() => employeeDocuments.id, { onDelete: 'cascade' }),
   employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
   side: varchar('side', { length: 10 }).notNull(), // 'scan' (one file per document)
+  /** 4.2c: set when a dossier row (qualification / work_history / attachment) owns the file; null + document_id null = not saved yet. */
+  attachedTo: varchar('attached_to', { length: 20 }),
   fileName: varchar('file_name', { length: 150 }).notNull(),
   mimeType: varchar('mime_type', { length: 50 }).notNull(), // from the file's content, never the browser
   sizeBytes: integer('size_bytes').notNull(),
@@ -1132,24 +1134,6 @@ export const overtimeEntries = pgTable('overtime_entries', {
  * LOCKED items of a month are added to "paid" when the next difference is worked out, so a
  * month is never paid twice.
  */
-export const arrearsItems = pgTable('arrears_items', {
-  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
-  payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),
-  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
-  kind: varchar('kind', { length: 12 }).notNull(), // salary | attendance
-  calendar: varchar('calendar', { length: 2 }).notNull(),
-  periodYear: integer('period_year').notNull(),
-  periodMonth: integer('period_month').notNull(),
-  sourceSlipId: uuid('source_slip_id').references(() => payrollSlips.id, { onDelete: 'set null' }),
-  sourceRef: varchar('source_ref', { length: 80 }).notNull(),
-  paid: jsonb('paid').$type<import('@/lib/types/payroll-run').ArrearsComponents>().notNull(),
-  due: jsonb('due').$type<import('@/lib/types/payroll-run').ArrearsComponents>().notNull(),
-  diff: jsonb('diff').$type<import('@/lib/types/payroll-run').ArrearsComponents>().notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => ({
-  employeePeriodIdx: index('arrears_items_employee_period_idx').on(t.employeeId, t.calendar, t.periodYear, t.periodMonth),
-  slipIdx: index('arrears_items_slip_idx').on(t.payrollSlipId),
-}));
 
 /** 4.5: an attendance month per branch (BS now, AD with 4.8): open, or closed for payroll. */
 export const attendancePeriods = pgTable('attendance_periods', {
@@ -1346,14 +1330,15 @@ export const payrollRuns = pgTable('payroll_runs', {
   approvedBy: uuid('approved_by').references(() => users.id, { onDelete: 'set null' }),
   approvedAt: timestamp('approved_at'),
   lockedAt: timestamp('locked_at'),
+  // F3: employees see the payslips of a run only after it is locked and published.
+  publishedAt: timestamp('published_at'),
+  publishedBy: uuid('published_by'),
   notes: text('notes'),
   // 4.8b: the calendar of the pay month ("BS" | "AD"; the company pays in one calendar).
   calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
   // 4.8a: the kind of run, the approval flow copied on at submission (approval.engine), who
   // submitted it, and the variance review against the last locked run.
   runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
-  /** 4.8b-3: the closed exit case a FINAL_SETTLEMENT run settles (one run per case). */
-  exitCaseId: uuid('exit_case_id').references(() => exitCases.id, { onDelete: 'set null' }),
   approvalType: varchar('approval_type', { length: 20 }),
   approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
   currentLevel: integer('current_level').default(0).notNull(),
@@ -1403,9 +1388,6 @@ export const payrollSlips = pgTable('payroll_slips', {
   // 4.8b: how the income tax was projected (year to date, remaining months, annual tax).
   taxDetail: jsonb('tax_detail').$type<import('@/lib/types/payroll').TaxDetail>(),
   // 4.8b: an arrears payslip's source months (paid, due, difference per component).
-  arrearsDetail: jsonb('arrears_detail').$type<import('@/lib/types/payroll-run').ArrearsMonthLine[]>(),
-  /** 4.8b-3: what a final settlement payslip settled (the LOCK posts it). */
-  settlementDetail: jsonb('settlement_detail').$type<import('@/lib/types/payroll-run').SettlementDetail>(),
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),
@@ -1413,12 +1395,52 @@ export const payrollSlips = pgTable('payroll_slips', {
   status: varchar('status', { length: 20 }).default('DRAFT').notNull(), // "DRAFT" | "LOCKED"
   isYearEndReconciliation: boolean('is_year_end_reconciliation').default(false).notNull(),
   warnings: text('warnings'),
+  /** F5: the tax computation sheet behind this slip's TDS (months 1–11). */
+  taxSheet: jsonb('tax_sheet'),
+  // F3: a held payslip stays hidden from the employee even after its run is published.
+  heldAt: timestamp('held_at'),
+  heldBy: uuid('held_by'),
+  holdReason: text('hold_reason'),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   payrollRunIdIdx: index('payroll_slips_payroll_run_id_idx').on(table.payrollRunId),
   employeeIdIdx: index('payroll_slips_employee_id_idx').on(table.employeeId),
+}));
+
+/**
+ * F1: acknowledgements of variance flags on a run. A flag (key =
+ * `<employee id>:<code>`) that needs a look blocks approval until someone
+ * acknowledges it with a note; the flags themselves are computed on read.
+ */
+export const payrollVarianceAcks = pgTable('payroll_variance_acks', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'cascade' }).notNull(),
+  flagKey: varchar('flag_key', { length: 100 }).notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  note: text('note').default('').notNull(),
+  ackedBy: uuid('acked_by').notNull(),
+  ackedAt: timestamp('acked_at').defaultNow().notNull(),
+}, (table) => ({
+  oncePerFlag: unique('payroll_variance_acks_key').on(table.payrollRunId, table.flagKey),
+}));
+
+/**
+ * Arrears (4.8 / F7): back pay paid through `payrollRunId` for an earlier approved or locked month
+ * (`sourceRunId`). The sum per (employee, source run) is what has already been paid for that month,
+ * so the next calculation only pays what is still missing.
+ */
+export const payrollArrears = pgTable('payroll_arrears', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  sourceRunId: uuid('source_run_id').references(() => payrollRuns.id, { onDelete: 'cascade' }).notNull(),
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'cascade' }).notNull(),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  oncePerRun: unique('payroll_arrears_key').on(table.employeeId, table.sourceRunId, table.payrollRunId),
+  sourceIdx: index('payroll_arrears_source_idx').on(table.sourceRunId, table.employeeId),
 }));
 
 export const payrollSlipHeads = pgTable('payroll_slip_heads', {
@@ -1762,6 +1784,33 @@ export const exitCases = pgTable('exit_cases', {
   statusIdx: index('exit_cases_status_idx').on(t.status),
 }));
 
+/**
+ * Full & final settlement (4.8 / F8): one per exit case. `lines` are frozen when it is prepared
+ * (see lib/engines/settlement.engine.ts); draft → approved → paid, never edited afterwards.
+ */
+export const exitSettlements = pgTable('exit_settlements', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  exitCaseId: uuid('exit_case_id').references(() => exitCases.id, { onDelete: 'cascade' }).notNull(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 10 }).default('draft').notNull(), // draft | approved | paid
+  lines: jsonb('lines').notNull(),
+  earnings: numeric('earnings', { precision: 15, scale: 2 }).notNull(),
+  deductions: numeric('deductions', { precision: 15, scale: 2 }).notNull(),
+  net: numeric('net', { precision: 15, scale: 2 }).notNull(),
+  taxSheet: jsonb('tax_sheet'),
+  policy: jsonb('policy').notNull(),
+  preparedBy: uuid('prepared_by').notNull(),
+  preparedAt: timestamp('prepared_at').defaultNow().notNull(),
+  approvedBy: uuid('approved_by'),
+  approvedAt: timestamp('approved_at'),
+  paidBy: uuid('paid_by'),
+  paidAt: timestamp('paid_at'),
+  paymentRef: varchar('payment_ref', { length: 100 }),
+}, (t) => ({
+  caseKey: unique('exit_settlements_case_key').on(t.exitCaseId),
+  employeeIdx: index('exit_settlements_employee_idx').on(t.employeeId),
+}));
+
 /** One row per clearance unit per case, seeded when the case opens. */
 export const exitClearances = pgTable('exit_clearances', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
@@ -1969,6 +2018,58 @@ export const trainingParticipants = pgTable('training_participants', {
 }));
 
 // -----------------------------------------------------------------------------
+// TARGETS & ACHIEVEMENTS (G15 — docs/redesign/06-hrms-gap-analysis.md)
+// One row is one metric for one employee and one period (a fiscal month or the
+// fiscal year). The employee reports the achievement (with attachments), the
+// supervisor verifies and forwards, HR closes: set → submitted → forwarded →
+// closed, with returned loops. The verified value (supervisor) wins over the
+// reported one for scoring.
+// -----------------------------------------------------------------------------
+
+export const employeeTargets = pgTable('employee_targets', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  periodKind: varchar('period_kind', { length: 5 }).notNull(), // month | year
+  fy: varchar('fy', { length: 9 }).notNull(), // BS fiscal year, e.g. 2082/83
+  monthNo: integer('month_no'), // 1 = Shrawan … 12 = Ashadh; null for a year
+  title: varchar('title', { length: 160 }).notNull(),
+  unit: varchar('unit', { length: 30 }).default('').notNull(),
+  targetValue: numeric('target_value', { precision: 18, scale: 2 }).notNull(),
+  weight: numeric('weight', { precision: 5, scale: 2 }).default('0').notNull(),
+  status: varchar('status', { length: 10 }).default('set').notNull(), // set | submitted | returned | forwarded | closed
+  achievedValue: numeric('achieved_value', { precision: 18, scale: 2 }),
+  achievedNote: text('achieved_note'),
+  verifiedValue: numeric('verified_value', { precision: 18, scale: 2 }),
+  reviewerNote: text('reviewer_note'),
+  returnReason: text('return_reason'),
+  submittedAt: timestamp('submitted_at'),
+  reviewedBy: uuid('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at'),
+  closedBy: uuid('closed_by'),
+  closedAt: timestamp('closed_at'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeePeriodIdx: index('employee_targets_employee_period_idx').on(t.employeeId, t.fy, t.periodKind, t.monthNo),
+  statusIdx: index('employee_targets_status_idx').on(t.status),
+}));
+
+export const targetAttachments = pgTable('target_attachments', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  targetId: uuid('target_id').references(() => employeeTargets.id, { onDelete: 'cascade' }),
+  fileName: varchar('file_name', { length: 200 }).notNull(),
+  mime: varchar('mime', { length: 40 }).notNull(),
+  size: integer('size').notNull(),
+  content: bytea('content').notNull(),
+  uploadedBy: uuid('uploaded_by').notNull(), // user id; target_id null = staged, not saved yet
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+}, (t) => ({
+  targetIdx: index('target_attachments_target_idx').on(t.targetId),
+}));
+
+// -----------------------------------------------------------------------------
 // ASSETS & NOTICE BOARD (G14 — docs/redesign/06-hrms-gap-analysis.md)
 // assets: the register (laptop, phone, keys, ID card…); asset_handovers: who
 // holds what since when, returned when — an asset has at most one open
@@ -2011,7 +2112,9 @@ export const notices = pgTable('notices', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   title: varchar('title', { length: 200 }).notNull(),
   body: text('body').notNull(),
-  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }), // null = whole company
+  audience: varchar('audience', { length: 12 }).default('company').notNull(), // company | branch | department | employees
+  branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'cascade' }), // audience 'branch'
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }), // audience 'department'
   publishAd: date('publish_ad').notNull(),
   expiresAd: date('expires_ad'),
   pinned: boolean('pinned').default(false).notNull(),
@@ -2022,6 +2125,15 @@ export const notices = pgTable('notices', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
   publishIdx: index('notices_publish_idx').on(t.status, t.publishAd),
+}));
+
+// Named recipients of an audience 'employees' notice.
+export const noticeRecipients = pgTable('notice_recipients', {
+  noticeId: uuid('notice_id').notNull().references(() => notices.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.noticeId, t.employeeId] }),
+  employeeIdx: index('notice_recipients_employee_idx').on(t.employeeId),
 }));
 
 // -----------------------------------------------------------------------------
@@ -2085,4 +2197,64 @@ export const travelClaims = pgTable('travel_claims', {
 }, (t) => ({
   employeeIdx: index('travel_claims_employee_idx').on(t.employeeId, t.startAd),
   statusIdx: index('travel_claims_status_idx').on(t.status),
+}));
+
+// -----------------------------------------------------------------------------
+// EMPLOYEE DOSSIER (4.2c): qualifications, past employment, other attachments.
+// Each row may own one scan in employee_document_files (attached_to set).
+// -----------------------------------------------------------------------------
+
+export const employeeQualifications = pgTable('employee_qualifications', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  level: varchar('level', { length: 12 }).notNull(),
+  degree: varchar('degree', { length: 120 }).notNull(),
+  institution: varchar('institution', { length: 200 }).default('').notNull(),
+  board: varchar('board', { length: 200 }).default('').notNull(),
+  passedYear: varchar('passed_year', { length: 10 }).default('').notNull(),
+  division: varchar('division', { length: 40 }).default('').notNull(),
+  major: varchar('major', { length: 120 }).default('').notNull(),
+  fileId: uuid('file_id').references(() => employeeDocumentFiles.id, { onDelete: 'set null' }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_qualifications_employee_idx').on(t.employeeId),
+}));
+
+export const employeeWorkHistory = pgTable('employee_work_history', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  organisation: varchar('organisation', { length: 200 }).notNull(),
+  designation: varchar('designation', { length: 120 }).notNull(),
+  fromAd: date('from_ad').notNull(),
+  toAd: date('to_ad'),
+  duties: text('duties'),
+  reference: varchar('reference', { length: 200 }).default('').notNull(),
+  fileId: uuid('file_id').references(() => employeeDocumentFiles.id, { onDelete: 'set null' }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_work_history_employee_idx').on(t.employeeId),
+}));
+
+export const employeeAttachments = pgTable('employee_attachments', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(),
+  title: varchar('title', { length: 150 }).notNull(),
+  note: text('note'),
+  fileId: uuid('file_id').references(() => employeeDocumentFiles.id, { onDelete: 'cascade' }).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_attachments_employee_idx').on(t.employeeId),
 }));

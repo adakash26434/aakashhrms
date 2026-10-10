@@ -15,6 +15,7 @@ export const stagedSince = () => new Date(Date.now() - STAGED_FILE_HOURS * 3600_
 const FILE_META = {
   id: employeeDocumentFiles.id,
   documentId: employeeDocumentFiles.documentId,
+  attachedTo: employeeDocumentFiles.attachedTo,
   employeeId: employeeDocumentFiles.employeeId,
   side: employeeDocumentFiles.side,
   fileName: employeeDocumentFiles.fileName,
@@ -24,7 +25,7 @@ const FILE_META = {
   uploadedAt: employeeDocumentFiles.uploadedAt,
 };
 
-export type DocumentFileMeta = { id: string; documentId: string | null; employeeId: string | null; side: string; fileName: string; mimeType: string; sizeBytes: number; uploadedBy: string; uploadedAt: Date };
+export type DocumentFileMeta = { id: string; documentId: string | null; attachedTo: string | null; employeeId: string | null; side: string; fileName: string; mimeType: string; sizeBytes: number; uploadedBy: string; uploadedAt: Date };
 
 const toRef = (f: Pick<DocumentFileMeta, "id" | "fileName" | "sizeBytes" | "mimeType">): DocumentFileRef => ({
   id: f.id,
@@ -83,13 +84,13 @@ export async function countStagedBy(userId: string): Promise<number> {
   const [row] = await (await getDb())
     .select({ n: sql<number>`count(*)::int` })
     .from(employeeDocumentFiles)
-    .where(and(isNull(employeeDocumentFiles.documentId), eq(employeeDocumentFiles.uploadedBy, userId), gt(employeeDocumentFiles.uploadedAt, stagedSince())));
+    .where(and(isNull(employeeDocumentFiles.documentId), isNull(employeeDocumentFiles.attachedTo), eq(employeeDocumentFiles.uploadedBy, userId), gt(employeeDocumentFiles.uploadedAt, stagedSince())));
   return Number(row?.n ?? 0);
 }
 
 /** Uploads never saved with a form are removed after a day. */
 export async function pruneStaged(): Promise<void> {
-  await (await getDb()).delete(employeeDocumentFiles).where(and(isNull(employeeDocumentFiles.documentId), lt(employeeDocumentFiles.uploadedAt, stagedSince())));
+  await (await getDb()).delete(employeeDocumentFiles).where(and(isNull(employeeDocumentFiles.documentId), isNull(employeeDocumentFiles.attachedTo), lt(employeeDocumentFiles.uploadedAt, stagedSince())));
 }
 
 export async function insertStagedFile(file: {
@@ -110,7 +111,7 @@ export async function insertStagedFile(file: {
 export async function deleteStagedFile(id: string, userId: string): Promise<boolean> {
   const rows = await (await getDb())
     .delete(employeeDocumentFiles)
-    .where(and(eq(employeeDocumentFiles.id, id), isNull(employeeDocumentFiles.documentId), eq(employeeDocumentFiles.uploadedBy, userId)))
+    .where(and(eq(employeeDocumentFiles.id, id), isNull(employeeDocumentFiles.documentId), isNull(employeeDocumentFiles.attachedTo), eq(employeeDocumentFiles.uploadedBy, userId)))
     .returning({ id: employeeDocumentFiles.id });
   return rows.length > 0;
 }

@@ -14,8 +14,8 @@ import { ReasonWindow } from "./attendance-windows";
 /**
  * Month close (per branch): every day is worked out, stored and locked, and
  * each person's month summary is ready for payroll. Blocked while
- * adjustments or overtime days wait for a decision; reopening needs a reason; after payroll is
- * locked a correction is paid as arrears (4.8b).
+ * adjustments or overtime days wait for a decision; reopening needs a reason and is refused once that
+ * month's payroll is approved or locked.
  */
 export function AttendanceClose({ data, onDone, onOpenOvertime }: { data: AttendancePageData; onDone: (text: string) => void; onOpenOvertime: () => void }) {
   const dateText = useDateText();
@@ -52,7 +52,8 @@ export function AttendanceClose({ data, onDone, onOpenOvertime }: { data: Attend
             <button
               type="button"
               tabIndex={-1}
-              title={m.payrollFinalised ? "Payroll for this month is approved or locked: a correction is paid as arrears" : "Reopen this month for the branch"}
+              disabled={m.payrollFinalised}
+              title={m.payrollFinalised ? "Payroll for this month is approved or locked" : "Reopen this month for the branch"}
               className="cursor-pointer text-2xs font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:text-ink-faint disabled:no-underline"
               onClick={(e) => {
                 e.stopPropagation();
@@ -134,14 +135,14 @@ export function AttendanceClose({ data, onDone, onOpenOvertime }: { data: Attend
       {reopening && (
         <ReasonWindow
           title={`Reopen ${data.period.label} for ${reopening.branchName}?`}
-          description={reopening.payrollFinalised ? "Payroll for this month is already approved or locked. The payslips do not change; once the month is closed again, the difference is paid as arrears in a later run." : "Its days can be changed again; payroll works them out afresh until the month is closed again."}
+          description="Its days can be changed again; payroll works them out afresh until the month is closed again."
           action="Reopen"
           onClose={() => setReopening(null)}
           onConfirm={async (reason) => {
             const result = await reopenAttendanceMonthAction({ year: data.period.year, month: data.period.month, branchId: reopening.branchId, reason });
             if (!result.success) return result.error;
             setReopening(null);
-            onDone(`${data.period.label} reopened for ${reopening.branchName}.${result.data?.afterLock ? " Payroll for it is locked: the difference is paid as arrears once it is closed again." : ""}`);
+            onDone(`${data.period.label} reopened for ${reopening.branchName}.`);
             return null;
           }}
         />

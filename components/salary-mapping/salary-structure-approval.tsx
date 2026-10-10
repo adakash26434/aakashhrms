@@ -8,7 +8,7 @@ import { PaneTimeline, approvalSteps, type TimelineStep } from "@/components/kit
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { saveSalaryApprovalSettingsAction } from "@/app/actions/salary-structure.actions";
 import { buildFlow, statusText, type ApprovalActor, type SubmitOutcome } from "@/lib/engines/approval.engine";
-import { changedLines, earliestOpenDate, finalisedConflicts } from "@/lib/engines/salary-structure.engine";
+import { changedLines } from "@/lib/engines/salary-structure.engine";
 import type { ApprovalActionKind, ApprovalPolicy, ApprovalRoute, ApprovalType } from "@/lib/types/approval";
 import type { BatchRow, RetirementScheme, SalaryStructureData, StructureLines } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
@@ -119,21 +119,6 @@ export function SaveButtons({
 /** "Level 1 of 2 · Hari Thapa", "Waiting for an approver", "Approved". */
 export function batchStatusText(batch: BatchRow, data: SalaryStructureData): string {
   return statusText({ status: batch.status, flow: batch.flow, currentLevel: batch.currentLevel }, nameOf(data));
-}
-
-/**
- * Payroll is approved or locked up to some month for these employees: the
- * first date a change may take effect, as an error message (null when open).
- */
-export function usePayrollLock(data: SalaryStructureData) {
-  const dateText = useDateText();
-  return (effectiveFrom: string, employeeIds: readonly string[]): string | null => {
-    if (!effectiveFrom) return null;
-    const conflicts = finalisedConflicts(effectiveFrom, data.finalisedUntil, employeeIds);
-    if (!conflicts.size) return null;
-    const open = earliestOpenDate(data.finalisedUntil, [...conflicts.keys()]);
-    return `Payroll is being prepared up to ${dateText([...conflicts.values()].sort().pop()!)} for ${conflicts.size === 1 ? "this employee" : `${conflicts.size} employees`}: lock or discard that run first, or choose ${dateText(open)} or later. Months already locked are paid as arrears.`;
-  };
 }
 
 /** The approval timeline of a change ("View approval"): each step, then the levels still to come. */

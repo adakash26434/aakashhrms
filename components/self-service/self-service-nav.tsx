@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Banknote, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, Shield, UserCircle } from "lucide-react";
+import { Banknote, Target, Users, CalendarDays, ChevronDown, Clock3, FileText, GraduationCap, Home, Languages, LogOut, Megaphone, MoreHorizontal, Plane, ScrollText, Shield, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth.actions";
 import { setEssLanguageAction } from "@/app/actions/ess-extras.actions";
@@ -15,9 +15,11 @@ interface SelfServiceNavProps {
   userEmail: string;
   scopeType: string;
   lang: EssLang;
+  /** The signed-in employee has people reporting to them (shows Team targets). */
+  hasTeam?: boolean;
 }
 
-const NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home }[] = [
+const BASE_NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home }[] = [
   { href: "/self-service", key: "nav.home", exact: true, icon: Home },
   { href: "/self-service/my-attendance", key: "nav.attendance", icon: Clock3 },
   { href: "/self-service/my-leave", key: "nav.leave", icon: CalendarDays },
@@ -25,14 +27,18 @@ const NAV_ITEMS: { href: string; key: EssKey; exact?: boolean; icon: typeof Home
   { href: "/self-service/my-notices", key: "nav.notices", icon: Megaphone },
   { href: "/self-service/my-training", key: "nav.training", icon: GraduationCap },
   { href: "/self-service/my-claims", key: "nav.claims", icon: Plane },
+  { href: "/self-service/my-letters", key: "nav.letters", icon: ScrollText },
   { href: "/self-service/my-profile", key: "nav.profile", icon: UserCircle },
   { href: "/self-service/my-loans", key: "nav.loans", icon: Banknote },
 ];
 
-const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.slice(0, 4);
-const SECONDARY_ITEMS = NAV_ITEMS.slice(4);
+const TARGET_ITEMS: typeof BASE_NAV_ITEMS = [{ href: "/self-service/my-targets", key: "nav.targets", icon: Target }];
+const TEAM_ITEMS: typeof BASE_NAV_ITEMS = [{ href: "/self-service/team-targets", key: "nav.team", icon: Users }];
 
-export function SelfServiceNav({ userEmail, scopeType, lang }: SelfServiceNavProps) {
+export function SelfServiceNav({ userEmail, scopeType, lang, hasTeam = false }: SelfServiceNavProps) {
+  const NAV_ITEMS = [...BASE_NAV_ITEMS.slice(0, 7), ...TARGET_ITEMS, ...(hasTeam ? TEAM_ITEMS : []), ...BASE_NAV_ITEMS.slice(7)];
+  const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.slice(0, 4);
+  const SECONDARY_ITEMS = NAV_ITEMS.slice(4);
   const pathname = usePathname();
   const router = useRouter();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -46,7 +52,7 @@ export function SelfServiceNav({ userEmail, scopeType, lang }: SelfServiceNavPro
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-payroll-border bg-white sm:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-payroll-border bg-white sm:flex print:hidden">
         <div className="flex min-h-16 items-center border-b border-payroll-border px-5">
           <Link href="/self-service" className="flex items-center gap-2.5 text-base font-bold tracking-tight text-payroll-navy">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-payroll-border bg-white shadow-2xs">
@@ -77,7 +83,7 @@ export function SelfServiceNav({ userEmail, scopeType, lang }: SelfServiceNavPro
           </div>
         </div>
       </aside>
-      <nav className="sticky top-0 z-40 border-b border-payroll-border bg-white/95 backdrop-blur-xs shadow-payroll-xs sm:ml-64">
+      <nav className="sticky top-0 z-40 border-b border-payroll-border bg-white/95 backdrop-blur-xs shadow-payroll-xs sm:ml-64 print:hidden">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex min-h-15 items-center justify-between gap-3 py-2">
           <div className="flex items-center gap-6">
@@ -153,7 +159,7 @@ export function SelfServiceNav({ userEmail, scopeType, lang }: SelfServiceNavPro
         </div>
 
         {/* Mobile navigation keeps the four most common destinations within thumb reach. */}
-        <div className="fixed inset-x-0 bottom-0 z-60 flex h-16 items-stretch border-t border-payroll-light bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(17,24,39,0.08)] backdrop-blur-md sm:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-60 flex h-16 items-stretch border-t border-payroll-light bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(17,24,39,0.08)] backdrop-blur-md sm:hidden print:hidden">
           {MOBILE_PRIMARY_ITEMS.map((item) => {
             const isActive = item.exact
               ? pathname === item.href

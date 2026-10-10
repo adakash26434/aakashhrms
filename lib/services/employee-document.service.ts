@@ -78,7 +78,7 @@ export async function openScan(fileId: unknown, scope: ScopeFilter): Promise<Ope
   if (!isUuid(fileId)) return null;
   const meta = await repo.findFileMeta(fileId);
   if (!meta) return null;
-  if (meta.documentId === null) {
+  if (meta.documentId === null && meta.attachedTo === null) {
     if (meta.uploadedBy !== scope.userId) return null;
   } else {
     if (!meta.employeeId) return null;

@@ -14,7 +14,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { StatusChip } from "@/components/kit/status-chip";
 import { WindowButton } from "@/components/kit/window";
 import { saveOvertimePolicyAction } from "@/app/actions/overtime.actions";
-import { OT_LEGAL, describeRates, describeRounding, otPay, roundMinutes, validatePolicy } from "@/lib/engines/overtime.engine";
+import { describeRates, describeRounding, otPay, roundMinutes, validatePolicy } from "@/lib/engines/overtime.engine";
 import { cn } from "@/lib/utils";
 import type { OvertimePolicy, OvertimePolicyData } from "@/lib/types/overtime";
 
@@ -37,11 +37,11 @@ const APPROVAL = [
   { value: "auto", label: "Automatic: pay detected overtime" },
 ];
 /** A worked example on the form: basic 30,000 + grade 2,000, 2 hours on a working day. */
-const EXAMPLE = { basic: 30000, grade: 2000, minutes: 120 };
+const EXAMPLE = { basic: 30000, minutes: 120 };
 
 /**
  * Policies → Overtime (4.7): the company's one overtime policy. Rates are
- * multiples of (basic + grade) ÷ 240, never below the Labour Act's 1.5;
+ * multiples of basic ÷ 240 (the team's one OT formula), never below the Labour Act's 1.5;
  * eligibility is per employment type and the shortest overtime per shift.
  */
 export function OvertimePolicyView({ data, onDone }: { data: OvertimePolicyData; onDone: (text: string) => void }) {
@@ -53,7 +53,7 @@ export function OvertimePolicyView({ data, onDone }: { data: OvertimePolicyData;
   const dateText = useDateText();
   const dirty = JSON.stringify(form) !== JSON.stringify(data.policy);
   const local = validatePolicy(form);
-  const example = useMemo(() => otPay({ work: EXAMPLE.minutes, off: 0 }, { basic: EXAMPLE.basic, grade: EXAMPLE.grade }, form), [form]);
+  const example = useMemo(() => otPay({ work: EXAMPLE.minutes, off: 0 }, { basic: EXAMPLE.basic, grade: 0 }, form), [form]);
   const readOnly = !data.canEdit;
   const set = <K extends keyof OvertimePolicy>(k: K, v: OvertimePolicy[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -90,7 +90,7 @@ export function OvertimePolicyView({ data, onDone }: { data: OvertimePolicyData;
         title="How overtime works"
         steps={[
           { title: "Only with consent", text: "Nobody is made to work overtime against their will (Labour Act §29). Approval records that it was agreed." },
-          { title: "Paid at least 1.5 times", text: "Hourly rate = (basic + grade) ÷ 240. Overtime is paid at least 1.5 times that (§31)." },
+          { title: "Paid at least 1.5 times", text: "Hourly rate = basic ÷ 240. Overtime is paid at least 1.5 times that (§31)." },
           { title: "4 hours a day, 24 a week", text: "The law's limits (§30). Hours above them are still paid, but approving them needs a reason." },
           { title: "Weekly offs and holidays", text: "The normal day's hours earn a substitute day off (§42, in Leave). Only the hours beyond a full day are overtime." },
         ]}
@@ -107,11 +107,11 @@ export function OvertimePolicyView({ data, onDone }: { data: OvertimePolicyData;
         <section aria-label="Overtime policy" className="rounded-md border border-line bg-surface">
           <PropertyForm onSubmit={() => void save()} enterNavigation={{ end: () => saveRef.current }} className="space-y-0 bg-surface-panel">
             <FormGrid columns={2}>
-              <GridField label="Working day rate" required error={errors.workRate || undefined} size="sm" suffix="× hourly rate" help={`Overtime beyond the planned day. At least ${OT_LEGAL.minRate}.`}>
-                <NumberField name="workRate" value={form.workRate} onChange={(v) => set("workRate", v)} readOnly={readOnly} />
+              <GridField label="Working day rate" required error={errors.workRate || undefined} size="sm" suffix="× hourly rate" help="Overtime beyond the planned day. Set in Policies → Overtime rates (never below 1.5).">
+                <NumberField name="workRate" value={form.workRate} onChange={(v) => set("workRate", v)} readOnly />
               </GridField>
-              <GridField label="Weekly off / holiday rate" required error={errors.offRate || undefined} size="sm" suffix="× hourly rate" help={`Only hours beyond a full day (the normal hours earn a substitute day off). At least ${OT_LEGAL.minRate}.`}>
-                <NumberField name="offRate" value={form.offRate} onChange={(v) => set("offRate", v)} readOnly={readOnly} />
+              <GridField label="Weekly off / holiday rate" required error={errors.offRate || undefined} size="sm" suffix="× hourly rate" help="Only hours beyond a full day (the normal hours earn a substitute day off). Set in Policies → Overtime rates.">
+                <NumberField name="offRate" value={form.offRate} onChange={(v) => set("offRate", v)} readOnly />
               </GridField>
               <GridField label="Rounding" size="md" help="Each day's overtime is rounded on its own, then the days are added up. The table below shows what every choice pays.">
                 <SelectField
@@ -176,7 +176,7 @@ export function OvertimePolicyView({ data, onDone }: { data: OvertimePolicyData;
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2.5 text-xs">
             <p className="mr-auto text-ink-muted">
-              Example: basic {EXAMPLE.basic.toLocaleString("en-IN")} + grade {EXAMPLE.grade.toLocaleString("en-IN")} → hourly rate{" "}
+              Example: basic {EXAMPLE.basic.toLocaleString("en-IN")} → hourly rate{" "}
               <Amount value={example.hourlyRate} />; 2 hours on a working day = <Amount value={example.amount} emphasis />.
             </p>
             {failure && (

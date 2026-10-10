@@ -126,3 +126,48 @@ export async function deleteLetterTemplateAction(id: string) {
     return toActionError(error, 'letter.template-delete');
   }
 }
+
+export async function saveLetterDesignAction(design: unknown) {
+  await ensureTenantContext();
+  try {
+    const ctx = await letterCtx('EDIT');
+    const saved = await letterService.saveDesign(design);
+    await recordAuditLog({ userId: ctx.userId, action: 'EDIT', module: 'HR_LETTERS', recordId: 'letter-design', result: 'SUCCESS', newValues: { design: 'updated', logo: !!saved.logoDataUrl } });
+    revalidate();
+    return { success: true as const, data: saved };
+  } catch (error: unknown) {
+    return validationFailure(error) ?? toActionError(error, 'letter.design');
+  }
+}
+
+export async function planJoiningPackAction(form: unknown) {
+  await ensureTenantContext();
+  try {
+    const ctx = await letterCtx('ADD');
+    return { success: true as const, data: await letterService.planPack(form, ctx) };
+  } catch (error: unknown) {
+    return validationFailure(error) ?? toActionError(error, 'letter.pack.plan');
+  }
+}
+
+export async function issueJoiningPackAction(form: unknown) {
+  await ensureTenantContext();
+  try {
+    const ctx = await letterCtx('ADD');
+    const result = await letterService.issuePack(form, ctx);
+    for (const letter of result.issued) {
+      await recordAuditLog({
+        userId: ctx.userId,
+        action: 'ADD',
+        module: 'HR_LETTERS',
+        recordId: letter.id,
+        result: 'SUCCESS',
+        newValues: { letterNumber: letter.letterNumber, kind: letter.kind, employee: letter.employeeCode, language: letter.language, joiningPack: true },
+      });
+    }
+    revalidate();
+    return { success: true as const, data: result };
+  } catch (error: unknown) {
+    return validationFailure(error) ?? toActionError(error, 'letter.pack.issue');
+  }
+}
