@@ -22,7 +22,7 @@ export function SettlementPrint({ exit, settlement, letterhead }: { exit: ExitDe
         </WindowButton>
       </div>
       <article className="rounded-md border border-line bg-white p-10 text-sm leading-relaxed text-ink shadow-sm print:border-0 print:p-0 print:shadow-none">
-        <header className="mb-4 text-center">
+        <div className="mb-4 text-center">
           <p className="text-base font-semibold">{letterhead.name}</p>
           <p className="text-xs text-ink-muted">
             {letterhead.address}
@@ -30,7 +30,7 @@ export function SettlementPrint({ exit, settlement, letterhead }: { exit: ExitDe
           </p>
           <h1 className="mt-3 text-lg font-semibold">अन्तिम भुक्तानी विवरण · Full &amp; Final Settlement</h1>
           {draft && <p className="text-xs font-semibold uppercase tracking-wide text-danger">Draft — not yet approved</p>}
-        </header>
+        </div>
 
         <dl className="mb-4 grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
           <div className="flex justify-between">

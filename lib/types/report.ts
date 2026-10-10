@@ -99,6 +99,8 @@ export interface PayslipPrintData {
   run: ReportPayrollRunOption;
   slip: PayrollSlip;
   heads: PayrollSlipHead[];
+  /** F11: the bilingual payslip as it prints. */
+  sheet: import('@/lib/types/payslip-sheet').PayslipSheetData;
 }
 
 // ─── Payslip Head Summary Report ──────────────────────────────────────────

@@ -3,8 +3,8 @@
 import { ensureTenantContext } from '@/lib/db';
 import { checkPermission, checkPermissionWithScope } from "@/lib/auth/check-permission";
 import { toActionError } from "@/lib/errors/action-error";
+import { buildEmployeeScopeCondition } from "@/lib/auth/scope-filter";
 import { recordAuditLog } from "@/lib/services/audit.service";
-import { auth } from "@/lib/auth";
 import * as reportService from "@/lib/services/report.service";
 import * as reportEngine from "@/lib/engines/report.engine";
 import type {
@@ -73,12 +73,12 @@ export async function exportSalarySheetCsvAction(filter: SalarySheetFilter) {
 export async function getPayslipReportAction(filter: PayslipFilter) {
   await ensureTenantContext();
   try {
-    await checkPermission("VIEW", "REPORTS_PAYSLIP");
-    const data = await reportService.getPayslipPrintData(filter);
-    return { success: true, data };
+    // F11: only payslips of employees in the viewer's scope, from locked runs.
+    const scope = await checkPermissionWithScope("VIEW", "REPORTS_PAYSLIP");
+    const data = await reportService.getPayslipPrintData(filter, buildEmployeeScopeCondition(scope));
+    return { success: true as const, data };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Failed to load payslip data";
-    return { success: false, error: msg };
+    return toActionError(error, "report.payslips");
   }
 }
 

@@ -29,7 +29,7 @@ export function TaxCertificatePrint({ certificate, letterhead, printable = true 
         </div>
       )}
       <article className="rounded-md border border-line bg-white p-8 text-sm leading-relaxed text-ink shadow-sm print:border-0 print:p-0 print:shadow-none">
-        <header className="mb-4 text-center">
+        <div className="mb-4 text-center">
           <p className="text-base font-semibold">{letterhead.name}</p>
           <p className="text-xs text-ink-muted">
             {letterhead.address}
@@ -38,7 +38,7 @@ export function TaxCertificatePrint({ certificate, letterhead, printable = true 
           <h1 className="mt-3 text-lg font-semibold">पारिश्रमिक कर कट्टी प्रमाणपत्र</h1>
           <p className="text-sm font-medium">Tax Deduction Certificate (Remuneration)</p>
           <p className="text-xs text-ink-muted">आर्थिक वर्ष · Fiscal year {year}</p>
-        </header>
+        </div>
 
         <dl className="mb-4 grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
           <div className="flex justify-between gap-2">

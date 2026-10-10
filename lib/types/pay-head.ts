@@ -177,6 +177,8 @@ export interface PayHead {
   /** Human code, e.g. "PH-001". Server-assigned on create. */
   code: string;
   name: string;
+  /** F11: Nepali name for the bilingual payslip; null / absent = print the English name. */
+  nameNp?: string | null;
   type: PayHeadType;
   /** Whether this head is part of taxable income. */
   effectOnTax: boolean;
@@ -206,6 +208,8 @@ export interface PayHead {
 
 export interface PayHeadFormData {
   name: string;
+  /** F11: optional Nepali name for the payslip. */
+  nameNp?: string;
   type: PayHeadType;
   effectOnTax: boolean;
   calcBasis: CalcBasis;

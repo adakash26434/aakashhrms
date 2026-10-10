@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
-import { PayslipPrintable } from "./payslip-printable";
+import { PayslipSheet } from "@/components/payroll/payslip-sheet";
+import { SelectField } from "@/components/kit/select-field";
+import { asPayslipLanguage, type PayslipLanguage } from "@/lib/constants/payslip-labels";
 import { ReportActionToolbar } from "./report-action-toolbar";
 import { ReportDataTableShell } from "./report-data-table-shell";
 import { ReportPreviewModal } from "./report-preview-modal";
@@ -28,6 +30,26 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  // F11: print in English, Nepali or both (a per-viewer convenience, remembered in this browser).
+  const [lang, setLangState] = useState<PayslipLanguage>("both");
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("aakash.payslip.lang");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a remembered choice, read once after hydration
+      if (saved) setLangState(asPayslipLanguage(saved));
+    } catch {
+      // Storage may be blocked; English + Nepali stays.
+    }
+  }, []);
+  const setLang = (next: string) => {
+    const value = asPayslipLanguage(next);
+    setLangState(value);
+    try {
+      window.localStorage.setItem("aakash.payslip.lang", value);
+    } catch {
+      // Storage may be blocked; the choice still applies on this page.
+    }
+  };
 
   const toast = useToast();
 
@@ -45,7 +67,7 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
         payrollRunId: filters.payrollRunId,
       });
 
-      if (!res.success || !res.data) {
+      if (!res.success) {
         const msg = res.error || "Failed to load payslips.";
         setError(msg);
         toast.error(msg);
@@ -176,13 +198,29 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
             <span className="text-xs font-semibold text-zinc-900">
               Printable salary slips
             </span>
+            <div className="w-44">
+              <SelectField
+                aria-label="Payslip language"
+                options={[
+                  { value: "both", label: "English + नेपाली" },
+                  { value: "en", label: "English" },
+                  { value: "np", label: "नेपाली" },
+                ]}
+                value={lang}
+                onChange={setLang}
+              />
+            </div>
           </div>
         </ReportActionToolbar>
 
         {/* Printable Payslips — occupies full print viewport from top */}
         <div className={isPreviewOpen ? "print:hidden" : "mt-4 print:mt-0"}>
           {activePayslips.length > 0 ? (
-            <PayslipPrintable data={activePayslips} company={lookupData.company} />
+            <div className="space-y-6 print:space-y-0">
+              {activePayslips.map((p) => (
+                <PayslipSheet key={p.sheet.slipId} data={p.sheet} lang={lang} />
+              ))}
+            </div>
           ) : (
             <ReportDataTableShell
               isEmpty={true}
@@ -216,7 +254,11 @@ export function PayslipClient({ lookupData }: PayslipClientProps) {
           { label: "Total Slips", value: `${activePayslips.length} Employee(s)` },
         ]}
       >
-        <PayslipPrintable data={activePayslips} company={lookupData.company} />
+        <div className="space-y-6">
+          {activePayslips.map((p) => (
+            <PayslipSheet key={p.sheet.slipId} data={p.sheet} lang={lang} />
+          ))}
+        </div>
       </ReportPreviewModal>
     </PageFrame>
   );

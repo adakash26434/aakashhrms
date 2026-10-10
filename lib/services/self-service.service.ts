@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import {
   users,
   employees, employeePersonal, employeeFamily, employeeBank,
-  payrollSlips, payrollSlipHeads, payrollRuns,
+  payrollSlips, payrollRuns,
   leaveApplications, employeeLeaveBalances, leaveTypes,
   leaveOtCalculations,
   loans, loanRepayments, loanTypes,
@@ -17,6 +17,8 @@ import * as homeLeaveService from '@/lib/services/home-leave.service';
 import { assertSessionUsable } from '@/lib/auth/session-updates';
 import { findPhotoIdFor } from "@/lib/repositories/employee-photo.repository";
 import { ownCertificate } from "@/lib/services/statutory.service";
+import { ownSheet } from "@/lib/services/payslip-sheet.service";
+import type { PayslipSheetData } from "@/lib/types/payslip-sheet";
 import { getCompanyProfileSetup } from "@/lib/repositories/company-setup.repository";
 import { addressLine } from "@/lib/constants/nepal-locations";
 import type { LetterheadBase } from "@/lib/types/letter";
@@ -216,30 +218,14 @@ export async function getMyPayslips(fiscalYearId?: string) {
   return slips;
 }
 
-export async function getMyPayslipDetail(payslipId: string) {
+/**
+ * One of the employee's own payslips as the bilingual sheet (F11): released payslips only (the
+ * same visibility rule as the list); someone else's, or one not released, reads as not found.
+ */
+export async function getMyPayslipSheet(payslipId: string): Promise<PayslipSheetData | null> {
   const { employeeId } = await getSessionEmployeeId();
-  const db = await getDbAsync();
-
-  // Verify the payslip belongs to this employee
-  const [row] = await db
-    .select({ slip: payrollSlips })
-    .from(payrollSlips)
-    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .where(and(eq(payrollSlips.id, payslipId), eq(payrollSlips.employeeId, employeeId), ...visibleToEmployee()))
-    .limit(1);
-  const slip = row?.slip;
-
-  if (!slip) {
-    throw new Error('Payslip not found or you do not have access to view it.');
-  }
-
-  // Get payslip heads (allowances & deductions breakdown)
-  const heads = await db
-    .select()
-    .from(payrollSlipHeads)
-    .where(eq(payrollSlipHeads.payrollSlipId, payslipId));
-
-  return { slip, heads };
+  if (typeof payslipId !== 'string' || !/^[0-9a-f-]{36}$/i.test(payslipId)) return null;
+  return ownSheet(employeeId, payslipId, visibleToEmployee());
 }
 
 // ---------------------------------------------------------------------------

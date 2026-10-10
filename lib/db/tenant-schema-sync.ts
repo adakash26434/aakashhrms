@@ -1367,6 +1367,13 @@ ON CONFLICT DO NOTHING`);
     // Ignored until payroll_slips exists; the next sync pass completes it.
   }
 
+  // Bilingual payslip (4.8 / F11, migration 0069): a pay head's Nepali name.
+  try {
+    await sql.unsafe(`ALTER TABLE "pay_heads" ADD COLUMN IF NOT EXISTS "name_np" varchar(255)`);
+  } catch {
+    // Ignored until pay_heads exists; the next sync pass completes it.
+  }
+
   // Pay run types (4.8 / F6, migration 0068): REGULAR / FESTIVAL / ARREARS; existing runs are REGULAR.
   try {
     await sql.unsafe(`ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`);

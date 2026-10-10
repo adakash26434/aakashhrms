@@ -10,6 +10,7 @@ function mapRowToPayHead(row: PayHeadRow): PayHead {
     id: row.id,
     code: row.code,
     name: row.name,
+    nameNp: row.nameNp ?? null,
     type: row.type as PayHeadType,
     effectOnTax: row.effectOnTax,
     calcBasis: row.calcBasis as CalcBasis,
@@ -53,6 +54,7 @@ export async function createPayHead(data: CreatePayload): Promise<PayHead> {
   const rows = await (await getDb()).insert(payHeads).values({
     code,
     name: data.name,
+    nameNp: data.nameNp,
     type: data.type,
     effectOnTax: data.effectOnTax,
     calcBasis: data.calcBasis,
@@ -78,6 +80,7 @@ export async function createPayHead(data: CreatePayload): Promise<PayHead> {
 export async function updatePayHead(id: string, data: CreatePayload): Promise<PayHead> {
   const rows = await (await getDb()).update(payHeads).set({
     name: data.name,
+    nameNp: data.nameNp,
     type: data.type,
     effectOnTax: data.effectOnTax,
     calcBasis: data.calcBasis,

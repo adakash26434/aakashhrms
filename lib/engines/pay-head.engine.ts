@@ -33,6 +33,7 @@ import { STATUTORY_FLAGS, STATUTORY_KPI_FLAGS } from "@/lib/types/pay-head";
 
 export interface PayHeadValidationErrors {
   name?: string;
+  nameNp?: string;
   type?: string;
   effectOnTax?: string;
   calcBasis?: string;
@@ -138,6 +139,11 @@ export function validatePayHead(
     !isNameUnique({ candidate: data.name, existing, excludeId })
   ) {
     errors.name = `A pay head named "${data.name.trim()}" already exists.`;
+  }
+
+  // 1b. F11: the optional Nepali name printed on the payslip
+  if (data.nameNp && data.nameNp.trim().length > NAME_MAX) {
+    errors.nameNp = `Nepali name must be ${NAME_MAX} characters or less.`;
   }
 
   // 2. Type — just verify it parses as one of the two values

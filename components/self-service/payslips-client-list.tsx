@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { FileText, ArrowRight, Eye, CreditCard } from "lucide-react";
+import React from "react";
+import { FileText, Eye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { PayslipDetailModal } from "@/components/self-service/payslip-detail-modal";
+import Link from "next/link";
 import { asRunType, isOffCycle, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 
 interface Payslip {
@@ -36,8 +35,6 @@ const BS_MONTHS = [
 ];
 
 export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
-  const [selectedPayslipId, setSelectedPayslipId] = useState<string | null>(null);
-
   return (
     <>
       <div className="space-y-3">
@@ -47,9 +44,9 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
           const isLocked = slip.status === "LOCKED" || slip.status === "CONFIRMED";
 
           return (
+            // F11: each payslip opens as the bilingual printable sheet.
+            <Link key={slip.id} href={`/self-service/my-payslips/${slip.id}`} className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
             <Card
-              key={slip.id}
-              onClick={() => setSelectedPayslipId(slip.id)}
               className="border-payroll-light/80 shadow-payroll-xs bg-white hover:shadow-payroll-sm hover:border-payroll-primary/40 transition-all cursor-pointer group"
             >
               <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -118,26 +115,18 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                       {slip.status || "CONFIRMED"}
                     </Badge>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2.5 text-xs font-semibold text-payroll-primary group-hover:bg-payroll-cream hidden sm:inline-flex"
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1" />
+                    <span className="hidden h-8 items-center rounded-md border border-payroll-light px-2.5 text-xs font-semibold text-payroll-primary group-hover:bg-payroll-cream sm:inline-flex">
+                      <Eye className="w-3.5 h-3.5 mr-1" aria-hidden />
                       <span>View</span>
-                    </Button>
+                    </span>
                   </div>
                 </div>
               </CardContent>
             </Card>
+            </Link>
           );
         })}
       </div>
-
-      <PayslipDetailModal
-        payslipId={selectedPayslipId}
-        onClose={() => setSelectedPayslipId(null)}
-      />
     </>
   );
 }

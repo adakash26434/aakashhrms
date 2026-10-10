@@ -129,6 +129,8 @@ const DICT = {
   'leave.title': ['Leave entitlement and applications', 'बिदा हक र निवेदन'],
   'leave.description': ['Your leave balances for this leave year and your requests. Weekly offs and holidays inside a leave are not counted.', 'यस बिदा वर्षको तपाईंको बिदा मौज्दात र अनुरोधहरू। बिदा भित्र परेका साप्ताहिक बिदा र सार्वजनिक बिदा गणना हुँदैनन्।'],
   'payslips.title': ['Salary payslips', 'तलब पर्ची'],
+  'payslips.back': ['Back to my payslips', 'मेरा तलब पर्चीमा फर्कनुहोस्'],
+  'payslips.print': ['Print', 'छाप्नुहोस्'],
   'payslips.description': ['Open a month to see every allowance, tax and statutory deduction.', 'सबै भत्ता, कर र कानूनी कट्टी हेर्न महिना खोल्नुहोस्।'],
   'payslips.count': ['payslip(s) recorded', 'तलब पर्ची अभिलेखमा'],
   'loans.title': ['Loans and advances', 'ऋण तथा पेश्की'],

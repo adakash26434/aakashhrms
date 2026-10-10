@@ -4,7 +4,6 @@ import {
   payrollSlips,
   payrollSlipHeads,
   employees,
-  employeePersonal,
   departments,
   designations,
   branches,
@@ -20,9 +19,10 @@ import {
 } from "@/lib/db/schema";
 import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
 import { companies } from "@/lib/platform/schema";
-import { getImpersonationSession } from "@/lib/platform/impersonation";
-import { auth } from "@/lib/auth";
-import { eq, inArray, desc } from "drizzle-orm";
+import { eq, inArray, desc, type SQL } from "drizzle-orm";
+import * as payslipSheetService from "@/lib/services/payslip-sheet.service";
+import { asRunType, isOffCycle, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
+import { UserFacingError } from "@/lib/errors/action-error";
 import * as engine from "@/lib/engines/report.engine";
 import * as attendanceService from "@/lib/services/attendance.service";
 import { localClock } from "@/lib/engines/attendance-day.engine";
@@ -52,7 +52,6 @@ import type {
   LoanSummaryRow,
   LoanRepaymentLedgerRow,
 } from "@/lib/types/report";
-import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 
 // ─── Filter Lookups ────────────────────────────────────────────────────────
 
@@ -174,6 +173,7 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
         payPeriodMonth: payrollRuns.payPeriodMonth,
         payPeriodYear: payrollRuns.payPeriodYear,
         status: payrollRuns.status,
+        runType: payrollRuns.runType,
         employeeCount: payrollRuns.employeeCount,
         totalNetPayable: payrollRuns.totalNetPayable,
       })
@@ -205,9 +205,11 @@ export async function getReportFilterLookupData(): Promise<ReportFilterLookupDat
 
   const lockedPayrollRuns: ReportPayrollRunOption[] = lockedRuns.map((r) => {
     const monthName = BS_MONTHS_EN[r.payPeriodMonth] || `Month ${r.payPeriodMonth}`;
+    // F6: an off-cycle run says what it paid.
+    const kind = isOffCycle(r.runType) ? ` · ${RUN_TYPE_LABEL[asRunType(r.runType)].en}` : "";
     return {
       id: r.id,
-      label: `${monthName} ${r.payPeriodYear} (LOCKED)`,
+      label: `${monthName} ${r.payPeriodYear}${kind} (LOCKED)`,
       payPeriodMonth: r.payPeriodMonth,
       payPeriodYear: r.payPeriodYear,
       status: r.status,
@@ -397,7 +399,8 @@ export async function getSalarySheetData(
 // ─── Payslip Print ─────────────────────────────────────────────────────────
 
 export async function getPayslipPrintData(
-  filter: PayslipFilter
+  filter: PayslipFilter,
+  scope?: SQL
 ): Promise<PayslipPrintData[]> {
   if (!filter.payrollRunId) {
     throw new Error("Payroll Run ID is required for Payslip Print.");
@@ -413,6 +416,10 @@ export async function getPayslipPrintData(
   if (!runRecord) {
     throw new Error("Payroll run not found.");
   }
+  // F11: payslips are handed out from locked runs only (the figures can still change before).
+  if (runRecord.status !== "LOCKED") {
+    throw new UserFacingError("Payslips are printed from locked payroll runs only.");
+  }
 
   const monthName =
     BS_MONTHS_EN[runRecord.payPeriodMonth] || `Month ${runRecord.payPeriodMonth}`;
@@ -426,39 +433,9 @@ export async function getPayslipPrintData(
     totalNetPayable: runRecord.totalNetPayable ?? "0.00",
   };
 
-  // Load slips
-  const rawSlips = await (await getDb())
-    .select()
-    .from(payrollSlips)
-    .where(eq(payrollSlips.payrollRunId, filter.payrollRunId));
-
-  let targetSlips = rawSlips;
-
-  if (filter.employeeId) {
-    targetSlips = rawSlips.filter((s) => s.employeeId === filter.employeeId);
-  }
-
-  if (targetSlips.length === 0) return [];
-
-  // Batch query heads
-  const slipIds = targetSlips.map((s) => s.id);
-  const allHeads = await (await getDb())
-    .select()
-    .from(payrollSlipHeads)
-    .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
-
-  const headsMap = new Map<string, PayrollSlipHead[]>();
-  allHeads.forEach((h) => {
-    const list = headsMap.get(h.payrollSlipId) || [];
-    list.push(h as PayrollSlipHead);
-    headsMap.set(h.payrollSlipId, list);
-  });
-
-  return targetSlips.map((slip) => ({
-    run: runOption,
-    slip: slip as unknown as PayrollSlip,
-    heads: headsMap.get(slip.id) || [],
-  }));
+  // F11: the slips within the viewer's employee scope, with their bilingual sheets.
+  const { items } = await payslipSheetService.sheetsForRun(filter.payrollRunId, { scope, employeeId: filter.employeeId });
+  return items.map((item) => ({ run: runOption, slip: item.slip, heads: item.heads, sheet: item.sheet }));
 }
 
 // ─── Payslip Head Summary Report ──────────────────────────────────────────

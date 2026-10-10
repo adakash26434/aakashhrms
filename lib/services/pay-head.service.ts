@@ -123,6 +123,7 @@ export async function getDesignations(): Promise<Array<{ id: string; name: strin
 function toWriteInput(data: PayHeadFormData) {
   return {
     name: data.name,
+    nameNp: data.nameNp?.trim() || null,
     type: data.type,
     effectOnTax: data.effectOnTax,
     calcBasis: data.calcBasis,

@@ -27,10 +27,12 @@ interface PayHeadFormModalProps {
   onSubmit: (data: PayHeadFormData) => void;
 }
 
-type FormErrors = Partial<Record<"name" | "type" | "effectOnTax" | "calcBasis" | "calcParameter" | "calcPercent" | "applicableDepartmentIds" | "applicableDesignationIds" | "flagAlignment" | "taxEffect", string>>;
+type FormErrors = Partial<Record<"name" | "nameNp" | "type" | "effectOnTax" | "calcBasis" | "calcParameter" | "calcPercent" | "applicableDepartmentIds" | "applicableDesignationIds" | "flagAlignment" | "taxEffect", string>>;
 
 interface FormState {
   name: string;
+  /** F11: Nepali name for the payslip (optional). */
+  nameNp: string;
   type: PayHeadType;
   effectOnTax: boolean;
   calcBasis: CalcBasis;
@@ -45,6 +47,7 @@ function buildInitialForm(editing: PayHead | null, allDepts: string[], allDesigs
   if (editing) {
     return {
       name: editing.name,
+      nameNp: editing.nameNp ?? "",
       type: editing.type,
       effectOnTax: editing.effectOnTax,
       calcBasis: editing.calcBasis,
@@ -59,6 +62,7 @@ function buildInitialForm(editing: PayHead | null, allDepts: string[], allDesigs
   // CREATE mode: Default to all explicit IDs
   return {
     name: "",
+    nameNp: "",
     type: "allowance",
     effectOnTax: true,
     calcBasis: "BasicSalary",
@@ -73,6 +77,7 @@ function buildInitialForm(editing: PayHead | null, allDepts: string[], allDesigs
 function toPayload(state: FormState): PayHeadFormData {
   return {
     name: state.name.trim(),
+    nameNp: state.nameNp.trim(),
     type: state.type,
     effectOnTax: state.effectOnTax,
     calcBasis: state.calcBasis,
@@ -94,6 +99,9 @@ function validateLocal(state: FormState): FormErrors {
     errors.name = "Pay Head Name is required.";
   } else if (state.name.trim().length > 60) {
     errors.name = "Pay Head Name must be 60 characters or less.";
+  }
+  if (state.nameNp.trim().length > 60) {
+    errors.nameNp = "Nepali name must be 60 characters or less.";
   }
 
   if (state.calcBasis !== "None") {
@@ -342,6 +350,7 @@ export function PayHeadFormModal({
     const prefix = isEdit ? "edit" : "new";
     return {
       name: `${prefix}-ph-name`,
+      nameNp: `${prefix}-ph-name-np`,
       type: `${prefix}-ph-type`,
       effectOnTax: `${prefix}-ph-effect-on-tax`,
       calcBasis: `${prefix}-ph-calc-basis`,
@@ -398,6 +407,18 @@ export function PayHeadFormModal({
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Basic Salary"
                 className={inputClass(Boolean(errors.name), false)}
+              />
+            </Field>
+
+            <Field id={fieldId.nameNp} label="Name in Nepali (payslip)" error={errors.nameNp}>
+              <input
+                id={fieldId.nameNp}
+                type="text"
+                lang="ne"
+                value={form.nameNp}
+                onChange={(e) => setForm((f) => ({ ...f, nameNp: e.target.value }))}
+                placeholder="e.g. आधारभूत तलब"
+                className={inputClass(Boolean(errors.nameNp), false)}
               />
             </Field>
 

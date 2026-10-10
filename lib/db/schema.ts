@@ -166,6 +166,8 @@ export const payHeads = pgTable('pay_heads', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   code: varchar('code', { length: 50 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
+  /** F11: the Nepali name printed on the bilingual payslip (optional). */
+  nameNp: varchar('name_np', { length: 255 }),
   
   // "allowance" | "deduction"
   type: varchar('type', { length: 20 }).notNull(),
