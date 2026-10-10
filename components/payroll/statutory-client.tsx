@@ -22,6 +22,8 @@ import type { CertificateListData, CertificateListRow, StatutoryMonthData } from
 
 type Tab = StatutoryFile | "certificates";
 
+const PAID_THROUGH: Record<TdsRow["source"], string> = { payroll: "Payroll", festival: "Festival allowance", arrears: "Arrears run", settlement: "Final settlement" };
+
 const money = (value: string) => <Amount value={Number(value)} />;
 const amountColumn = <T,>(id: string, header: string, pick: (r: T) => string, width = 130): GridColumn<T> => ({
   id,
@@ -93,7 +95,7 @@ export function StatutoryClient({ initialMonth, initialCertificates }: { initial
   const tdsColumns: GridColumn<TdsRow>[] = [
     employeeColumn<TdsRow>(),
     { id: "pan", header: "PAN", value: (r) => r.pan ?? "", type: "code", width: 104, cell: (r) => (r.pan ? <span className="font-mono">{r.pan}</span> : <span className="text-warning">Missing</span>) },
-    { id: "source", header: "Paid through", value: (r) => (r.source === "payroll" ? "Payroll" : "Final settlement"), width: 130, defaultHidden: !month.etds.rows.some((r) => r.source === "settlement") },
+    { id: "source", header: "Paid through", value: (r) => PAID_THROUGH[r.source], width: 140, defaultHidden: !month.etds.rows.some((r) => r.source !== "payroll") },
     { id: "date", header: "Paid on (BS)", value: (r) => r.paymentDateBs, type: "code", width: 112 },
     amountColumn<TdsRow>("gross", "Gross payment", (r) => r.gross, 130),
     amountColumn<TdsRow>("taxable", "Taxable", (r) => r.taxable, 120),

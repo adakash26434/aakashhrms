@@ -46,6 +46,9 @@ import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
 import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
 import * as arrearsService from "@/lib/services/arrears.service";
+import * as offCycleService from "@/lib/services/off-cycle.service";
+import { isOffCycle } from "@/lib/engines/off-cycle.engine";
+import { UserFacingError } from "@/lib/errors/action-error";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -161,6 +164,9 @@ export async function generatePayrollRun(
   payload: PayrollRunSetupPayload,
   userId: string
 ): Promise<PayrollRun> {
+  // F6: festival allowance and arrears runs pay one thing on their own (off-cycle.service).
+  if (isOffCycle(payload.runType)) return offCycleService.generateOffCycleRun(payload, userId);
+
   const { 
     payPeriodMonth, 
     payPeriodYear, 
@@ -183,7 +189,8 @@ export async function generatePayrollRun(
   const existingRuns = await repository.findPayrollRunByPeriodAndBranch({
     payPeriodMonth,
     payPeriodYear,
-    branchIds
+    branchIds,
+    runType: 'REGULAR'
   });
   if (existingRuns.length > 0) {
     const hasLocked = existingRuns.some(r => r.status === 'LOCKED');
@@ -217,24 +224,8 @@ export async function generatePayrollRun(
   if (!activeFys.length) throw new Error("No active fiscal year found in system");
   const activeFy = activeFys[0] as { id: string; label: string };
 
-  // 3. Load all active employees in scoped branches/departments
-  const allEmployees = await employeeRepository.findAll({
-    search: "",
-    branchId: branchIds.length === 1 ? branchIds[0] : "all",
-    departmentId: departmentIds && departmentIds.length === 1 ? departmentIds[0] : "all",
-    category: "all",
-    status: "Active"
-  });
-
-  // Filter in memory for multi-select branches/departments/designations/categories/employees
-  const scopedEmployees = allEmployees.filter(emp => {
-    const matchesBranch = branchIds.includes(emp.branchId);
-    const matchesDept = !departmentIds || departmentIds.length === 0 || departmentIds.includes(emp.departmentId);
-    const matchesDesig = !designationIds || designationIds.length === 0 || designationIds.includes(emp.designationId);
-    const matchesCategory = !employeeCategories || employeeCategories.length === 0 || employeeCategories.includes(emp.category);
-    const matchesEmployee = !employeeIds || employeeIds.length === 0 || employeeIds.includes(emp.id);
-    return matchesBranch && matchesDept && matchesDesig && matchesCategory && matchesEmployee;
-  });
+  // 3. Active employees in the run's scope (branches, departments, designations, categories, people)
+  const scopedEmployees = await employeeRepository.findForPayrollScope({ branchIds, departmentIds, designationIds, employeeCategories, employeeIds });
 
   if (scopedEmployees.length === 0) {
     throw new Error("No active employees found in the selected scope.");
@@ -718,6 +709,18 @@ export async function overridePayslipAllowanceDeduction(
   if (!run) throw new Error("Payroll run not found");
   if (run.status !== 'DRAFT') throw new PayrollLockedError();
 
+  // F6: an off-cycle payslip has only its own allowance lines; its TDS is re-worked on its own.
+  if (isOffCycle(run.runType)) {
+    if ([basicSalary, gradeAmount, otAmount, absentDeduction, loanDeduction].some((v) => v !== undefined)) {
+      throw new UserFacingError('An off-cycle payslip has no basic, attendance or loan lines to change.');
+    }
+    if (bankName !== undefined || bankAccountNumber !== undefined) {
+      await (await getDb()).update(payrollSlips).set({ ...(bankName !== undefined ? { bankName } : {}), ...(bankAccountNumber !== undefined ? { bankAccountNumber } : {}), updatedAt: new Date() }).where(eq(payrollSlips.id, slipId));
+    }
+    await offCycleService.recalculateOffCycleSlip(slipId, userId, headId ? { headId, amount, reason } : undefined);
+    return;
+  }
+
   // Keep a snapshot of old values for forensic auditing
   const oldSlipSnapshot = { ...slip };
 
@@ -942,6 +945,7 @@ export async function syncPayrollRunAttendance(
   if (run.status === 'LOCKED') {
     throw new PayrollLockedError();
   }
+  if (isOffCycle(run.runType)) throw new UserFacingError('An off-cycle run does not read attendance.');
 
   const slips = await repository.findSlipsByRunId(runId);
   // Re-reads attendance for the month (closed summary, or worked out now); never unlocks anything (4.5).
@@ -1028,6 +1032,11 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   if (!run) throw new Error("Parent payroll run not found");
   if (run.status === 'LOCKED') {
     throw new PayrollLockedError();
+  }
+  // F6: an off-cycle payslip is re-worked from its own lines (fresh marginal TDS).
+  if (isOffCycle(run.runType)) {
+    await offCycleService.recalculateOffCycleSlip(slipId, userId);
+    return getPayslipWithHeads(slipId);
   }
 
   const emp = await employeeRepository.findById(currentSlip.employeeId);
@@ -1294,6 +1303,7 @@ export async function addPayHeadToPayslip(
   if (run.status === 'LOCKED') {
     throw new PayrollLockedError();
   }
+  if (isOffCycle(run.runType)) throw new UserFacingError('An off-cycle payslip pays only its own heads; add the line in a regular run.');
 
   const allPayHeads = await (await getDb()).select().from(payHeads);
   const targetHead = allPayHeads.find(h => h.id === payHeadId);
@@ -1371,6 +1381,8 @@ export async function transitionPayrollRun(
   if (toStatus === 'LOCKED') {
     await (await getDb()).transaction(async (tx) => {
       await repository.lockAllSlipsForRun(runId);
+      // F6: an off-cycle run seals its payslips only — no attendance, loan or salary-structure changes.
+      if (isOffCycle(run.runType)) return;
 
       const slips = await repository.findSlipsByRunId(runId);
       const slipEmpIds = slips.map((s) => s.employeeId);

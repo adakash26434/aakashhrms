@@ -36,6 +36,7 @@ import { getFiscalMonthIndex } from '@/lib/utils/fiscal-year.utils';
 import { toNepaliNumerals } from '@/lib/utils/date-input-formatter';
 import { addDays, nepalDateIso, nepalToday } from '@/lib/utils/nepal-time';
 import type { SystemControlData } from '@/lib/types/system-control';
+import { isMarginalSheet, RUN_TYPE_LABEL, asRunType } from '@/lib/engines/off-cycle.engine';
 import type { SettlementLine } from '@/lib/engines/settlement.engine';
 import type { TaxSheet } from '@/lib/engines/tax-projection.engine';
 import type { CertificateListData, CertificateListRow, PayPeriodOption, StatutoryMonthData, TaxCertificateData } from '@/lib/types/statutory';
@@ -105,6 +106,9 @@ function toSlipFact(r: repo.SlipFactRow): SlipFact {
     isYearEnd: r.isYearEnd,
     // The payroll engine withholds a flat 15% for the contract category (no slabs, so no SST).
     flatRate: r.category === 'Contract',
+    runType: r.runType,
+    // F6: off-cycle slips keep the projected year their marginal TDS was worked on.
+    marginalBase: isMarginalSheet(r.taxSheet) ? r.taxSheet.marginalBase : null,
   };
 }
 
@@ -371,10 +375,12 @@ function certificateFrom(fy: { id: string; label: string }, book: YearBook, empl
   const lines: CertificateLine[] = [
     ...slips.map((s) => {
       const t = split(s.slipId, s.tds);
+      const type = asRunType(s.runType);
+      const kind = type === 'REGULAR' ? null : RUN_TYPE_LABEL[type];
       return {
-        label: monthLabel(s.payYear, s.payMonth),
-        labelNp: monthLabelNp(s.payYear, s.payMonth),
-        source: 'payroll' as const,
+        label: kind ? `${monthLabel(s.payYear, s.payMonth)} · ${kind.en}` : monthLabel(s.payYear, s.payMonth),
+        labelNp: kind ? `${monthLabelNp(s.payYear, s.payMonth)} · ${kind.np}` : monthLabelNp(s.payYear, s.payMonth),
+        source: (type === 'FESTIVAL' ? 'festival' : type === 'ARREARS' ? 'arrears' : 'payroll') as CertificateLine['source'],
         paymentDateBs: s.paymentDateBs,
         gross: new Decimal(s.grossEarnings || 0).toFixed(2),
         retirement: slipRetirement(s),

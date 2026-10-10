@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { isOffCycle } from "@/lib/constants/run-types";
 import { 
   Search, 
   Eye, 
@@ -255,6 +256,8 @@ export function PayrollReviewGrid({
   const isDraft = run.status === "DRAFT";
   const isUnderReview = run.status === "UNDER_REVIEW";
   const isApproved = run.status === "APPROVED";
+  // F6: festival allowance and arrears runs read no attendance.
+  const offCycle = isOffCycle(run.runType);
   const isLocked = run.status === "LOCKED";
 
   // Check roles (dynamic RBAC helper check on UI boundary)
@@ -289,7 +292,7 @@ export function PayrollReviewGrid({
               />
             </div>
             <div className="flex items-center gap-2">
-              {isDraft && (
+              {isDraft && !offCycle && (
                 <button
                   type="button"
                   onClick={handleSyncAttendance}
@@ -458,6 +461,7 @@ export function PayrollReviewGrid({
             {/* HR / Admin submits draft to auditor */}
             {isDraft && isHR && (
               <>
+                {!offCycle && (
                 <button
                   type="button"
                   onClick={handleSyncAttendance}
@@ -467,6 +471,7 @@ export function PayrollReviewGrid({
                   <RefreshCw className={isSyncingAttendance ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
                   {isSyncingAttendance ? "Syncing Attendance..." : "Sync Latest Attendance"}
                 </button>
+                )}
                 <button
                   onClick={() => handleStatusTransition("UNDER_REVIEW")}
                   disabled={isSubmitting || isSyncingAttendance}

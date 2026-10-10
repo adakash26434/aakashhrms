@@ -8,6 +8,8 @@ export interface PayrollRun {
   fiscalYearId: string;
   payPeriodMonth: number;
   payPeriodYear: number;
+  /** F6: REGULAR | FESTIVAL | ARREARS (lib/engines/off-cycle.engine.ts). */
+  runType: string;
   payPeriodStartDate: string; // YYYY-MM-DD
   payPeriodEndDate: string;   // YYYY-MM-DD
   branchIds: string[];
@@ -131,6 +133,10 @@ export interface PayrollRunSetupPayload {
   includeFestivalAllowance?: boolean; // Keep for fallback compatibility
   includeRemoteAllowance?: boolean;   // Keep for fallback compatibility
   recreateIfExists?: boolean;         // Discard existing draft and regenerate if true
+  /** F6: REGULAR (default) | FESTIVAL | ARREARS. */
+  runType?: string;
+  /** F6 festival runs: pay in proportion for service under a year (Labour Act §37); default true. */
+  prorateFestival?: boolean;
 }
 
 export interface AddSlipHeadPayload {

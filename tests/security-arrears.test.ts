@@ -36,7 +36,9 @@ describe('arrears guards', () => {
 
   it('the amount comes from the server calculation, never from the request payload', () => {
     assert.match(payroll, /arrearsService\.arrearsFor\(empIds, startStr\)/);
-    assert.ok(!/arrears/i.test(read('lib/types/payroll.ts').split('PayrollRunSetupPayload')[1] ?? ''), 'setup payload carries no arrears figure');
+    // No arrears amount field on the setup payload (F6's runType may name the ARREARS run type).
+    const payloadType = (read('lib/types/payroll.ts').split('export interface PayrollRunSetupPayload')[1] ?? '').split('\n}')[0];
+    assert.ok(!/^\s*\w*arrears\w*\??\s*:/im.test(payloadType), 'setup payload carries no arrears figure');
   });
 
   it('recorded after the run commits and tied to the run (a deleted draft gives it back)', () => {

@@ -52,6 +52,10 @@ export interface SlipFact extends PayeeFacts {
   isYearEnd: boolean;
   /** Flat-rate TDS (contract category): all of it is remuneration tax. */
   flatRate: boolean;
+  /** F6: the run type (REGULAR, FESTIVAL, ARREARS). */
+  runType: string;
+  /** F6: an off-cycle slip's TDS is marginal — the projected annual taxable income before it. */
+  marginalBase: string | null;
 }
 
 /** A final settlement (F8) paid in the year: its TDS closes the employee's year. */
@@ -87,6 +91,11 @@ export interface TaxItem {
   flatRate: boolean;
   /** SSF contributors do not pay the 1% social security tax. */
   ssf: boolean;
+  /**
+   * F6: a one-off payment taxed with the marginal method — the projected annual taxable income
+   * before it. Its SST is the SST it adds (sst(base + taxable) − sst(base)), collected at once.
+   */
+  marginalBase?: Decimal.Value | null;
 }
 
 export interface TaxSplit {
@@ -121,7 +130,11 @@ export function splitSocialSecurityTax(items: readonly TaxItem[], sstOn: (annual
     const tds = Decimal.max(0, dec(item.tds));
     const taxable = Decimal.max(0, dec(item.taxable));
     let sst = ZERO;
-    if (!item.flatRate && !item.ssf && tds.gt(0)) {
+    if (!item.flatRate && !item.ssf && tds.gt(0) && item.marginalBase != null) {
+      const base = Decimal.max(0, dec(item.marginalBase));
+      const added = Decimal.max(0, sstOn(base.plus(taxable)).minus(sstOn(base)));
+      sst = Decimal.min(tds, added.toDecimalPlaces(0, Decimal.ROUND_HALF_UP));
+    } else if (!item.flatRate && !item.ssf && tds.gt(0)) {
       const remaining = item.closing ? 1 : monthsRemainingFrom(item.fiscalMonthIndex);
       const annual = item.annualTaxable !== null ? dec(item.annualTaxable) : taxableSoFar.plus(taxable.times(remaining));
       const due = Decimal.max(0, sstOn(annual).minus(sstSoFar));
@@ -137,6 +150,7 @@ export function splitSocialSecurityTax(items: readonly TaxItem[], sstOn: (annual
 export const slipTaxItem = (s: SlipFact, ssf: boolean): TaxItem => ({
   key: s.slipId,
   fiscalMonthIndex: s.fiscalMonthIndex,
+  // Within a month, off-cycle slips sit with the regular one in payment order (both are history to the other).
   order: 0,
   taxable: s.taxableIncome,
   tds: s.tds,
@@ -144,6 +158,7 @@ export const slipTaxItem = (s: SlipFact, ssf: boolean): TaxItem => ({
   closing: s.isYearEnd,
   flatRate: s.flatRate,
   ssf,
+  marginalBase: s.marginalBase,
 });
 
 export const settlementTaxItem = (s: SettlementFact, ssf: boolean): TaxItem => ({
@@ -275,7 +290,8 @@ export interface TdsRow {
   employeeCode: string;
   employeeName: string;
   pan: string | null;
-  source: "payroll" | "settlement";
+  /** Paid through: the regular payroll, an off-cycle run (F6) or a final settlement (F8). */
+  source: "payroll" | "festival" | "arrears" | "settlement";
   paymentDateBs: string;
   /** Gross payment (payslip gross earnings / settlement earnings). */
   gross: string;
@@ -292,7 +308,7 @@ export function tdsRowFromSlip(s: SlipFact, split: TaxSplit | undefined): TdsRow
     employeeCode: s.employeeCode,
     employeeName: s.employeeName,
     pan: s.pan?.trim() || null,
-    source: "payroll",
+    source: s.runType === "FESTIVAL" ? "festival" : s.runType === "ARREARS" ? "arrears" : "payroll",
     paymentDateBs: s.paymentDateBs,
     gross: money(dec(s.grossEarnings)),
     taxable: money(dec(s.taxableIncome)),
@@ -399,7 +415,7 @@ export interface CertificateLine {
   /** BS month, e.g. "Shrawan 2083", or "Final settlement". */
   label: string;
   labelNp: string;
-  source: "payroll" | "settlement";
+  source: TdsRow["source"];
   paymentDateBs: string;
   gross: string;
   /** Employee's SSF / PF / CIT contributions deducted. */

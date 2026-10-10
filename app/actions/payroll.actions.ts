@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types/payroll";
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { plainCsvField } from '@/lib/export/csv';
+import { asRunType, isOffCycle, RUN_TYPE_LABEL } from '@/lib/constants/run-types';
 
 export async function getPayrollHistoryAction() {
   await ensureTenantContext();
@@ -122,7 +123,9 @@ export async function generateBankExportCSVAction(runId: string) {
     // Nepal commercial bank bulk payment format: SN, AccountNumber, AccountName, Amount, Remarks.
     // S16: fields are quoted when needed and cleaned (a comma in a name used
     // to shift every later column in the file sent to the bank).
-    const remarks = `Salary Month ${details.payrollRun.payPeriodMonth} ${details.payrollRun.payPeriodYear}`;
+    // F6: an off-cycle run's transfers say what they pay.
+    const what = isOffCycle(details.payrollRun.runType) ? RUN_TYPE_LABEL[asRunType(details.payrollRun.runType)].en : 'Salary';
+    const remarks = `${what} Month ${details.payrollRun.payPeriodMonth} ${details.payrollRun.payPeriodYear}`;
     const lines = ["SN,AccountNumber,AccountName,Amount,Remarks"];
     details.slips.forEach((slip, idx) => {
       lines.push(

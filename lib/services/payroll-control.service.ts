@@ -1,4 +1,5 @@
 import { getDb } from '@/lib/db';
+import { asRunType, isOffCycle } from '@/lib/engines/off-cycle.engine';
 import { branches, leaveApplications, roles, userRoles } from '@/lib/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import * as repo from '@/lib/repositories/payroll-control.repository';
@@ -93,6 +94,11 @@ export interface VarianceReview {
 export async function varianceReview(runId: string): Promise<VarianceReview> {
   const run = await payrollRepo.findPayrollRunById(runId);
   if (!run) throw new UserFacingError('Not found: this payroll run no longer exists.');
+  // F6: an off-cycle run pays one thing on its own, so there is no month-on-month variance to review.
+  if (isOffCycle(run.runType)) {
+    const settings = await readSettings();
+    return { runId, flags: [], acknowledged: [], unresolved: [], comparedWith: null, thresholdPct: settings.variancePct };
+  }
   const [settings, slips, acks, earlier] = await Promise.all([readSettings(), payrollRepo.findSlipsByRunId(runId), repo.acksFor(runId), repo.earlierRuns(run)]);
   const previous = earlier.find((e) => sameBranches(e.branchIds, run.branchIds)) ?? null;
   const previousSlips = previous ? (await payrollRepo.findSlipsByRunId(previous.id)).map(factOf) : null;
@@ -247,7 +253,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     salaryMappingRepository.findInForceByEmployeeIds(ids, endStr),
     employeesNeedingSetup(),
     attendanceRepo.findPeriods('BS', payload.payPeriodYear, payload.payPeriodMonth),
-    payrollRepo.findPayrollRunByPeriodAndBranch({ payPeriodMonth: payload.payPeriodMonth, payPeriodYear: payload.payPeriodYear, branchIds: payload.branchIds }),
+    payrollRepo.findPayrollRunByPeriodAndBranch({ payPeriodMonth: payload.payPeriodMonth, payPeriodYear: payload.payPeriodYear, branchIds: payload.branchIds, runType: asRunType(payload.runType) }),
     repo.bankAndPanGaps(ids),
     ids.length
       ? db
@@ -273,6 +279,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     existingRunStatus: statuses.includes('LOCKED') ? 'LOCKED' : statuses[0] ?? null,
     requireClosedAttendance: settings.requireClosedAttendance,
     statutoryHeads,
+    runType: asRunType(payload.runType),
   });
   return { findings, employeeCount: people.length, blocked: findings.some((f) => f.severity === 'blocker') };
 }

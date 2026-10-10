@@ -205,6 +205,8 @@ export async function getMyPayslips(fiscalYearId?: string) {
       // From payroll run
       payPeriodMonth: payrollRuns.payPeriodMonth,
       payPeriodYear: payrollRuns.payPeriodYear,
+      // F6: regular salary, festival allowance or arrears.
+      runType: payrollRuns.runType,
     })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))

@@ -101,7 +101,8 @@ export async function paidMonths(employeeIds: string[], beforeStart: string): Pr
     })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .where(and(inArray(payrollRuns.status, ['APPROVED', 'LOCKED']), sql`${payrollRuns.payPeriodEndDate} < ${beforeStart}::date`, inArray(payrollSlips.employeeId, employeeIds)));
+    // F6: only the regular salary pays basic + grade; off-cycle slips (festival, arrears) carry none.
+    .where(and(inArray(payrollRuns.status, ['APPROVED', 'LOCKED']), eq(payrollRuns.runType, 'REGULAR'), sql`${payrollRuns.payPeriodEndDate} < ${beforeStart}::date`, inArray(payrollSlips.employeeId, employeeIds)));
   if (!slips.length) return [];
   const prior = await db
     .select({ employeeId: payrollArrears.employeeId, sourceRunId: payrollArrears.sourceRunId, amount: sql<string>`sum(${payrollArrears.amount})::text` })

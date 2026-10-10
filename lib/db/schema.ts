@@ -1266,6 +1266,8 @@ export const payrollRuns = pgTable('payroll_runs', {
   fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
   payPeriodMonth: integer('pay_period_month').notNull(), // 1 to 12 (BS month number)
   payPeriodYear: integer('pay_period_year').notNull(),   // e.g. 2082 (BS year)
+  /** F6: REGULAR (monthly salary) | FESTIVAL | ARREARS (off-cycle, marginal tax); see off-cycle.engine. */
+  runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
   payPeriodStartDate: date('pay_period_start_date').notNull(), // AD date first day of month
   payPeriodEndDate: date('pay_period_end_date').notNull(),     // AD date last day of month
   branchIds: text('branch_ids').array().notNull().default(sql`ARRAY[]::text[]`),
@@ -1302,6 +1304,7 @@ export const payrollRuns = pgTable('payroll_runs', {
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   fiscalYearIdIdx: index('payroll_runs_fiscal_year_id_idx').on(table.fiscalYearId),
+  periodTypeIdx: index('payroll_runs_period_type_idx').on(table.payPeriodYear, table.payPeriodMonth, table.runType),
   generatedByIdx: index('payroll_runs_generated_by_idx').on(table.generatedBy),
   reviewedByIdx: index('payroll_runs_reviewed_by_idx').on(table.reviewedBy),
   approvedByIdx: index('payroll_runs_approved_by_idx').on(table.approvedBy),

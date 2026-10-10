@@ -71,6 +71,40 @@ export function ssfContribution(
 }
 
 /**
+ * A festival or remote allowance for one month. A manual override is paid as typed. Otherwise a
+ * festival head pays basic, basic + grade or a % of basic + grade (basic when nothing is set) and a
+ * remote head pays its % of basic / basic + grade, capped at the remote allowance limit. Null when
+ * the head is not paid this month (the festival / remote month is not selected).
+ */
+export function occasionalHeadAmount(
+  head: Pick<PayHeadInput, "isFestivalAllowance" | "isRemoteAllowance" | "isManualOverride" | "calcBasis" | "calcPercent" | "amount">,
+  basic: Decimal,
+  basicPlusGrade: Decimal,
+  opts: { festivalMonth: boolean; remoteMonth: boolean; remoteLimit: Decimal.Value }
+): Decimal | null {
+  const typed = new Decimal(head.amount || 0);
+  // An explicit manual override or payslip attachment is always honoured.
+  if (head.isManualOverride) return typed;
+  const pct = new Decimal(head.calcPercent || 0);
+  if (head.isFestivalAllowance) {
+    if (!opts.festivalMonth) return null;
+    if (head.calcBasis === "BasicSalary") return basic;
+    if (head.calcBasis === "BasicPlusGrade") return basicPlusGrade;
+    if (pct.gt(0)) return basicPlusGrade.times(pct.dividedBy(100));
+    return typed.lte(0) ? basic : typed;
+  }
+  if (head.isRemoteAllowance) {
+    if (!opts.remoteMonth) return null;
+    let amount = typed;
+    if (head.calcBasis === "BasicSalary" && pct.gt(0)) amount = basic.times(pct.dividedBy(100));
+    else if (head.calcBasis === "BasicPlusGrade" && pct.gt(0)) amount = basicPlusGrade.times(pct.dividedBy(100));
+    const limit = new Decimal(opts.remoteLimit);
+    return amount.gt(limit) ? limit : amount;
+  }
+  return typed;
+}
+
+/**
  * Helper to identify SSF employer contribution head from various database conventions:
  * - flag isSsfEmployerHead === true
  * - allowance type + code SSF-ER, SSF_ER, SSFER
@@ -235,39 +269,15 @@ export function calculatePayslip(args: {
 
     let headAmount = new Decimal(head.amount || 0);
 
-    // Apply specific logic for Festival & Remote allowances based on parameters
-    if (head.isFestivalAllowance) {
-      if (head.isManualOverride) {
-        // Explicit manual override or payslip attachment must always be honored
-        headAmount = new Decimal(head.amount || 0);
-      } else {
-        if (!isFestivalMonth) continue; // Skip in non-festival months
-        if (head.calcBasis === "BasicSalary") {
-          headAmount = basic;
-        } else if (head.calcBasis === "BasicPlusGrade") {
-          headAmount = basicPlusGrade;
-        } else if (new Decimal(head.calcPercent || 0).gt(0)) {
-          headAmount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
-        } else if (headAmount.lte(0)) {
-          headAmount = basic;
-        }
-      }
-    } else if (head.isRemoteAllowance) {
-      if (head.isManualOverride) {
-        // Explicit manual override or payslip attachment must always be honored
-        headAmount = new Decimal(head.amount || 0);
-      } else {
-        if (!isRemoteMonth) continue; // Skip if not active for remote work
-        if (head.calcBasis === "BasicSalary" && new Decimal(head.calcPercent || 0).gt(0)) {
-          headAmount = basic.times(new Decimal(head.calcPercent).dividedBy(100));
-        } else if (head.calcBasis === "BasicPlusGrade" && new Decimal(head.calcPercent || 0).gt(0)) {
-          headAmount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
-        }
-        const limit = new Decimal(systemControl.insuranceDiscounts.remoteAllowanceNpr);
-        if (headAmount.gt(limit)) {
-          headAmount = limit;
-        }
-      }
+    // Festival & remote allowances follow their own rule (see occasionalHeadAmount).
+    if (head.isFestivalAllowance || head.isRemoteAllowance) {
+      const occasional = occasionalHeadAmount(head, basic, basicPlusGrade, {
+        festivalMonth: isFestivalMonth,
+        remoteMonth: isRemoteMonth,
+        remoteLimit: systemControl.insuranceDiscounts.remoteAllowanceNpr,
+      });
+      if (occasional === null) continue; // not paid this month
+      headAmount = occasional;
     } else {
       // General allowances and non-statutory deductions
       const calcPct = new Decimal(head.calcPercent || 0);

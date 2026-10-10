@@ -92,6 +92,8 @@ export interface SlipFactRow {
   payYear: number;
   payMonth: number;
   runStatus: string;
+  /** F6: REGULAR | FESTIVAL | ARREARS. */
+  runType: string;
   category: string;
   taxStatus: string;
   isDisabled: boolean;
@@ -146,6 +148,7 @@ export async function slipFacts(f: SlipFactFilter): Promise<SlipFactRow[]> {
       payYear: payrollRuns.payPeriodYear,
       payMonth: payrollRuns.payPeriodMonth,
       runStatus: payrollRuns.status,
+      runType: payrollRuns.runType,
       category: employees.category,
       taxStatus: employees.taxStatus,
       isDisabled: employees.isDisabled,

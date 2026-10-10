@@ -1367,6 +1367,14 @@ ON CONFLICT DO NOTHING`);
     // Ignored until payroll_slips exists; the next sync pass completes it.
   }
 
+  // Pay run types (4.8 / F6, migration 0068): REGULAR / FESTIVAL / ARREARS; existing runs are REGULAR.
+  try {
+    await sql.unsafe(`ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "payroll_runs_period_type_idx" ON "payroll_runs" ("pay_period_year", "pay_period_month", "run_type")`);
+  } catch {
+    // Ignored until payroll_runs exists; the next sync pass completes it.
+  }
+
   // Statutory IDs (4.8 / F9, migration 0067): SSF ID, Provident Fund and CIT numbers.
   for (const column of ['ssf_number', 'pf_number', 'cit_number']) {
     try {

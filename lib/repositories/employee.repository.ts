@@ -267,6 +267,35 @@ export async function findOrderedIdsInScope(scopeCondition?: SQL<unknown>): Prom
   return rows.map((r) => r.id);
 }
 
+/**
+ * Active employees a pay run covers: its branches, and its departments / designations / categories /
+ * named employees when any are given (an empty or null list means all).
+ */
+export async function findForPayrollScope(scope: {
+  branchIds: string[];
+  departmentIds?: string[] | null;
+  designationIds?: string[] | null;
+  employeeCategories?: string[] | null;
+  employeeIds?: string[] | null;
+}): Promise<Employee[]> {
+  const all = await findAll({
+    search: '',
+    branchId: scope.branchIds.length === 1 ? scope.branchIds[0] : 'all',
+    departmentId: scope.departmentIds && scope.departmentIds.length === 1 ? scope.departmentIds[0] : 'all',
+    category: 'all',
+    status: 'Active',
+  });
+  const within = (list: string[] | null | undefined, value: string) => !list || list.length === 0 || list.includes(value);
+  return all.filter(
+    (e) =>
+      scope.branchIds.includes(e.branchId) &&
+      within(scope.departmentIds, e.departmentId) &&
+      within(scope.designationIds, e.designationId) &&
+      within(scope.employeeCategories, e.category) &&
+      within(scope.employeeIds, e.id),
+  );
+}
+
 export async function findById(id: string): Promise<Employee | undefined> {
   const rows = await (await getDb())
     .select()

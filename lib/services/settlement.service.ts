@@ -182,7 +182,8 @@ export async function prepareSettlement(caseId: string, ctx: SettlementCtx): Pro
   const employeeInput = { id: emp.id, category: emp.category, gender: emp.gender, isDisabled: emp.isDisabled, taxStatus: emp.taxStatus, joiningDate: String(emp.joiningDate) };
 
   const lastBs = adToBS(new Date(`${c.lastWorkingDayAd}T00:00:00`));
-  const past = (await findEarlierTaxMonths([emp.id], fy.id, getFiscalMonthIndex(lastBs.month) + 1)).get(emp.id) ?? [];
+  // Every final payslip up to and including the last working day's month (off-cycle runs too).
+  const past = (await findEarlierTaxMonths([emp.id], fy.id, getFiscalMonthIndex(lastBs.month) + 1, undefined, 'none')).get(emp.id) ?? [];
 
   const basic = String(mapping.basicSalary);
   const settlement = buildSettlement({

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PayslipDetailModal } from "@/components/self-service/payslip-detail-modal";
+import { asRunType, isOffCycle, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 
 interface Payslip {
   id: string;
@@ -21,6 +22,8 @@ interface Payslip {
   status: string | null;
   payPeriodMonth: number | null;
   payPeriodYear: number | null;
+  /** F6: REGULAR | FESTIVAL | ARREARS. */
+  runType?: string | null;
 }
 
 interface PayslipsClientListProps {
@@ -57,6 +60,11 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                   <div>
                     <h3 className="text-sm font-bold text-payroll-navy group-hover:text-payroll-primary transition-colors">
                       {monthName} {slip.payPeriodYear || ""} BS
+                      {isOffCycle(slip.runType) && (
+                        <span className="ml-2 rounded-full bg-brand-subtle px-2 py-0.5 text-2xs font-semibold text-brand">
+                          {RUN_TYPE_LABEL[asRunType(slip.runType)].en} · {RUN_TYPE_LABEL[asRunType(slip.runType)].np}
+                        </span>
+                      )}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {slip.departmentName || "General"} · {slip.designationName || "Staff"}

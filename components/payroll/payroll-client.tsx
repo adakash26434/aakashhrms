@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { asRunType, isOffCycle, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 import {
   Plus,
   List,
@@ -320,12 +321,13 @@ export default function PayrollClient({
       {/* Top Header */}
       {selectedRun ? (
         <PageHeader
-          title={`Payroll Batch: ${getBSMonthName(selectedRun.payPeriodMonth)} ${selectedRun.payPeriodYear}`}
+          title={`Payroll Batch: ${getBSMonthName(selectedRun.payPeriodMonth)} ${selectedRun.payPeriodYear}${isOffCycle(selectedRun.runType) ? ` · ${RUN_TYPE_LABEL[asRunType(selectedRun.runType)].en}` : ""}`}
           description={`BS Period: ${getBSMonthName(selectedRun.payPeriodMonth)} ${selectedRun.payPeriodYear} (${selectedRun.payPeriodStartDate} to ${selectedRun.payPeriodEndDate}) · Active Role: ${userRole}`}
         >
           <div className="flex flex-wrap items-center gap-2">
             {selectedRun.status === "DRAFT" && (
               <>
+                {!isOffCycle(selectedRun.runType) && (
                 <Button
                   type="button"
                   onClick={handleSyncAttendance}
@@ -337,6 +339,7 @@ export default function PayrollClient({
                   <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", isSyncingAttendance && "animate-spin")} />
                   {isSyncingAttendance ? "Syncing..." : "Sync Attendance"}
                 </Button>
+                )}
                 <Button
                   type="button"
                   onClick={() => handleStatusChange("UNDER_REVIEW")}

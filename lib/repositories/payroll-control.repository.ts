@@ -9,13 +9,14 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 export type RunRecord = typeof payrollRuns.$inferSelect;
 
 /** Runs before this one (by pay month), newest first. */
-export async function earlierRuns(run: Pick<RunRecord, 'payPeriodYear' | 'payPeriodMonth' | 'id'>, limit = 12): Promise<RunRecord[]> {
+export async function earlierRuns(run: Pick<RunRecord, 'payPeriodYear' | 'payPeriodMonth' | 'id'> & { runType?: string }, limit = 12): Promise<RunRecord[]> {
   const db = await getDb();
   const key = run.payPeriodYear * 100 + run.payPeriodMonth;
   return db
     .select()
     .from(payrollRuns)
-    .where(and(sql`(${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}) < ${key}`, inArray(payrollRuns.status, ['UNDER_REVIEW', 'APPROVED', 'LOCKED'])))
+    // F6: a run is compared with earlier runs of its own type only.
+    .where(and(sql`(${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}) < ${key}`, eq(payrollRuns.runType, run.runType ?? 'REGULAR'), inArray(payrollRuns.status, ['UNDER_REVIEW', 'APPROVED', 'LOCKED'])))
     .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth), desc(payrollRuns.generatedAt))
     .limit(limit);
 }

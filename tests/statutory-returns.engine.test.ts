@@ -64,6 +64,8 @@ const slip = (over: Partial<SlipFact> = {}): SlipFact => ({
   projectedAnnualTaxable: null,
   isYearEnd: false,
   flatRate: false,
+  runType: "REGULAR",
+  marginalBase: null,
   ...over,
 });
 
@@ -109,6 +111,16 @@ describe("TDS split between 11211 and 11112", () => {
     // 417 + 417 collected; the year closes at 3,000 of SST on 3,00,000.
     assert.equal(split.get("fs")!.sst, "2166.00");
     assert.equal(split.get("fs")!.remuneration, "6834.00");
+  });
+
+  it("an off-cycle payment adds only the SST it causes, at once (F6 marginal)", () => {
+    // Base 4,80,000: a 50,000 bonus puts 20,000 into the 1% band → 200 of SST.
+    const split = splitSocialSecurityTax([item({ key: "b", fiscalMonthIndex: 3, taxable: 50000, tds: 3200, marginalBase: 480000 })], sstOn);
+    assert.deepEqual(split.get("b"), { sst: "200.00", remuneration: "3000.00" });
+    // Above the band: all remuneration tax.
+    assert.deepEqual(splitSocialSecurityTax([item({ key: "c", fiscalMonthIndex: 3, taxable: 50000, tds: 10000, marginalBase: 800000 })], sstOn).get("c"), { sst: "0.00", remuneration: "10000.00" });
+    // An off-cycle slip maps its base through.
+    assert.equal(slipTaxItem(slip({ runType: "FESTIVAL", marginalBase: "480000.00" }), false).marginalBase, "480000.00");
   });
 
   it("derives the projection when an older slip has no tax sheet", () => {

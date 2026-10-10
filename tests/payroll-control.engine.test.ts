@@ -119,4 +119,12 @@ describe('pre-flight', () => {
     const f = preflightFindings({ ...clean, pendingLeaveCount: 3 });
     assert.ok(/3 leave application/.test(f[0].title));
   });
+  it('F6: off-cycle runs skip attendance, leave, setup and PF / SSF / CIT checks', () => {
+    const messy: PreflightFacts = { ...clean, openAttendanceBranches: ['Lekhnath'], pendingLeaveCount: 2, employeesNeedingSetup: ['N (E9)'], employeesWithoutSalary: ['A (E1)'], statutoryHeads: { tds: true, pf: false, ssf: true, cit: true } };
+    assert.deepEqual(preflightFindings({ ...messy, runType: 'FESTIVAL' }).map((x) => x.code), ['no_salary']);
+    assert.deepEqual(preflightFindings({ ...messy, runType: 'ARREARS' }).map((x) => x.code), []);
+    assert.equal(preflightFindings({ ...messy, runType: 'REGULAR' }).length, 5);
+    assert.match(preflightFindings({ ...clean, runType: 'FESTIVAL', existingRunStatus: 'DRAFT' })[0].title, /festival allowance run/);
+    assert.equal(preflightFindings({ ...clean, runType: 'ARREARS', statutoryHeads: { tds: false, pf: true, ssf: true, cit: true } })[0].code, 'missing_tds_head');
+  });
 });

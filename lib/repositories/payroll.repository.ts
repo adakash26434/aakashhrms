@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
-import { payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
-import { eq, and, inArray, sql, type SQL } from 'drizzle-orm';
+import { departments, designations, employeeBank, payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
+import { eq, and, desc, inArray, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
@@ -55,12 +55,15 @@ export async function findPayrollRunByPeriodAndBranch(args: {
   payPeriodMonth: number;
   payPeriodYear: number;
   branchIds: string[];
+  /** F6: only runs of this type (one of each type per month and branch). */
+  runType?: string;
 }): Promise<PayrollRun[]> {
   // Query to find existing runs with overlapping branch sets and same month/year
   const allRuns = await (await getDb()).select().from(payrollRuns).where(
     and(
       eq(payrollRuns.payPeriodMonth, args.payPeriodMonth),
-      eq(payrollRuns.payPeriodYear, args.payPeriodYear)
+      eq(payrollRuns.payPeriodYear, args.payPeriodYear),
+      args.runType ? eq(payrollRuns.runType, args.runType) : undefined
     )
   );
 
@@ -74,6 +77,7 @@ export async function createPayrollRun(data: {
   fiscalYearId: string;
   payPeriodMonth: number;
   payPeriodYear: number;
+  runType?: string;
   payPeriodStartDate: string;
   payPeriodEndDate: string;
   branchIds: string[];
@@ -99,6 +103,7 @@ export async function createPayrollRun(data: {
     fiscalYearId: data.fiscalYearId,
     payPeriodMonth: data.payPeriodMonth,
     payPeriodYear: data.payPeriodYear,
+    runType: data.runType ?? 'REGULAR',
     payPeriodStartDate: data.payPeriodStartDate,
     payPeriodEndDate: data.payPeriodEndDate,
     branchIds: data.branchIds,
@@ -507,18 +512,24 @@ export async function findSlipsByEmployee(employeeId: string, limit = 12) {
 
 
 /**
- * F5: the earlier months of a fiscal year for the tax projection — taxable income and TDS of the
- * approved / locked payslips whose fiscal month comes before `fiscalMonthIndex` (Shrawan = 1).
- * `excludeRunId` keeps the run being recalculated out of its own history.
+ * F5: the earlier months of a fiscal year for the tax projection — taxable income and TDS of each
+ * payslip in an approved / locked run before this fiscal month. F6: a regular run also counts the
+ * off-cycle slips (festival, arrears) already paid in its own month (`sameMonth: 'offCycle'`, the
+ * default); an off-cycle run counts every other slip of its month (`'all'`). `excludeRunId` keeps
+ * the run being recalculated out of its own history.
  */
 export async function findEarlierTaxMonths(
   employeeIds: string[],
   fiscalYearId: string,
   fiscalMonthIndex: number,
   excludeRunId?: string,
+  sameMonth: 'none' | 'offCycle' | 'all' = 'offCycle',
 ): Promise<Map<string, { taxableIncome: string; tds: string }[]>> {
   const out = new Map<string, { taxableIncome: string; tds: string }[]>();
   if (!employeeIds.length) return out;
+  const idx = sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END)`;
+  const sameMonthRule =
+    sameMonth === 'all' ? sql`${idx} = ${fiscalMonthIndex}` : sameMonth === 'offCycle' ? sql`(${idx} = ${fiscalMonthIndex} AND ${payrollRuns.runType} <> 'REGULAR')` : sql`false`;
   const rows = await (await getDb())
     .select({ employeeId: payrollSlips.employeeId, taxableIncome: payrollSlips.taxableIncome, tds: payrollSlips.tdsThisMonth })
     .from(payrollSlips)
@@ -528,10 +539,74 @@ export async function findEarlierTaxMonths(
         inArray(payrollSlips.employeeId, employeeIds),
         eq(payrollRuns.fiscalYearId, fiscalYearId),
         inArray(payrollRuns.status, ['APPROVED', 'LOCKED']),
-        sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END) < ${fiscalMonthIndex}`,
+        sql`(${idx} < ${fiscalMonthIndex} OR ${sameMonthRule})`,
         excludeRunId ? sql`${payrollRuns.id} <> ${excludeRunId}` : undefined,
       ),
     );
   for (const r of rows) out.set(r.employeeId, [...(out.get(r.employeeId) ?? []), { taxableIncome: r.taxableIncome, tds: r.tds }]);
+  return out;
+}
+
+/**
+ * F6: what an off-cycle payslip's marginal tax starts from, per employee: whether this month's
+ * regular salary is already final (then it is in the history), and the monthly taxable income of
+ * the latest regular payslip of the year up to this month in any state (the best estimate of the
+ * months still to come).
+ */
+export async function offCycleProjectionFacts(
+  employeeIds: string[],
+  fiscalYearId: string,
+  fiscalMonthIndex: number,
+): Promise<Map<string, { regularFinalThisMonth: boolean; latestRegularTaxable: string | null }>> {
+  const out = new Map<string, { regularFinalThisMonth: boolean; latestRegularTaxable: string | null }>();
+  if (!employeeIds.length) return out;
+  const idx = sql<number>`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END)`;
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, taxableIncome: payrollSlips.taxableIncome, status: payrollRuns.status, fiscalIdx: idx })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(
+      and(
+        inArray(payrollSlips.employeeId, employeeIds),
+        eq(payrollRuns.fiscalYearId, fiscalYearId),
+        eq(payrollRuns.runType, 'REGULAR'),
+        sql`${idx} <= ${fiscalMonthIndex}`,
+      ),
+    )
+    .orderBy(desc(idx));
+  for (const r of rows) {
+    const current = out.get(r.employeeId) ?? { regularFinalThisMonth: false, latestRegularTaxable: null };
+    if (current.latestRegularTaxable === null) current.latestRegularTaxable = r.taxableIncome;
+    if (Number(r.fiscalIdx) === fiscalMonthIndex && (r.status === 'APPROVED' || r.status === 'LOCKED')) current.regularFinalThisMonth = true;
+    out.set(r.employeeId, current);
+  }
+  return out;
+}
+
+/** F6: what a new payslip records about each payee — primary bank account, department and designation names. */
+export async function slipPayeeFacts(
+  people: readonly { id: string; departmentId: string; designationId: string }[],
+): Promise<Map<string, { bankAccountNumber: string; bankName: string; departmentName: string; designationName: string }>> {
+  const out = new Map<string, { bankAccountNumber: string; bankName: string; departmentName: string; designationName: string }>();
+  if (!people.length) return out;
+  const db = await getDb();
+  const ids = people.map((p) => p.id);
+  const [banks, depts, desigs] = await Promise.all([
+    db.select({ employeeId: employeeBank.employeeId, accountNumber: employeeBank.accountNumber, bankName: employeeBank.bankName }).from(employeeBank).where(and(inArray(employeeBank.employeeId, ids), eq(employeeBank.isPrimary, true))),
+    db.select({ id: departments.id, name: departments.name }).from(departments),
+    db.select({ id: designations.id, name: designations.name }).from(designations),
+  ]);
+  const bank = new Map(banks.map((b) => [b.employeeId, b]));
+  const dept = new Map(depts.map((d) => [d.id, d.name]));
+  const desig = new Map(desigs.map((d) => [d.id, d.name]));
+  for (const p of people) {
+    const b = bank.get(p.id);
+    out.set(p.id, {
+      bankAccountNumber: b?.accountNumber ?? 'N/A',
+      bankName: b?.bankName ?? 'N/A',
+      departmentName: dept.get(p.departmentId) ?? 'Unknown Department',
+      designationName: desig.get(p.designationId) ?? 'Unknown Designation',
+    });
+  }
   return out;
 }

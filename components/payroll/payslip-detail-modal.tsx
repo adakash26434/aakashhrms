@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Save, AlertCircle, Edit3, Plus, RefreshCw } from "lucide-react";
 import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
-import { TaxSheetCard, isTaxSheet } from "./tax-sheet-card";
+import { MarginalTaxCard, TaxSheetCard, isMarginalTaxSheet, isTaxSheet } from "./tax-sheet-card";
 
 interface PayslipDetailModalProps {
   slip: PayrollSlip;
@@ -209,6 +209,7 @@ export function PayslipDetailModal({
           </div>
 
           {isTaxSheet(slip.taxSheet) && <TaxSheetCard sheet={slip.taxSheet} />}
+          {isMarginalTaxSheet(slip.taxSheet) && <MarginalTaxCard sheet={slip.taxSheet} />}
 
           {/* Bank details & Payment Details */}
           <div className="rounded-xl border border-payroll-light bg-payroll-cream p-4 space-y-3">

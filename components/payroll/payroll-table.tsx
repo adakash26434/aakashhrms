@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { asRunType, isOffCycle, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 import { Eye, Trash2, AlertTriangle, FileText, Search, Clock, CheckCircle2, Lock, Calendar } from "lucide-react";
 import type { PayrollRun, PayrollRunStatus } from "@/lib/types/payroll";
 import { TableShell } from "@/components/ui/table-shell";
@@ -190,9 +191,13 @@ export function PayrollTable({ runs, onSelect, onDelete, selectedRunId }: Payrol
                             <span className="font-medium text-zinc-900 text-xs">
                               {getBSMonthName(run.payPeriodMonth)} {run.payPeriodYear}
                             </span>
-                            <p className="text-2xs text-zinc-400 font-mono">
-                              Month {run.payPeriodMonth}
-                            </p>
+                            {isOffCycle(run.runType) ? (
+                              <p className="text-2xs font-semibold text-brand">{RUN_TYPE_LABEL[asRunType(run.runType)].en}</p>
+                            ) : (
+                              <p className="text-2xs text-zinc-400 font-mono">
+                                Month {run.payPeriodMonth}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>

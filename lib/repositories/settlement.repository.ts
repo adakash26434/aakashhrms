@@ -51,13 +51,13 @@ export async function claim(
   return row ?? null;
 }
 
-/** Pay months (BS) the employee already has a payslip for, in any run state. */
+/** Pay months (BS) the employee already has a regular payslip for, in any run state (an off-cycle run, F6, pays no salary). */
 export async function slipMonths(employeeId: string): Promise<{ year: number; month: number }[]> {
   const rows = await (await getDb())
     .select({ year: payrollRuns.payPeriodYear, month: payrollRuns.payPeriodMonth })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .where(eq(payrollSlips.employeeId, employeeId))
+    .where(and(eq(payrollSlips.employeeId, employeeId), eq(payrollRuns.runType, 'REGULAR')))
     .groupBy(payrollRuns.payPeriodYear, payrollRuns.payPeriodMonth);
   return rows;
 }

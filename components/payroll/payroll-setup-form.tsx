@@ -16,8 +16,10 @@ import { PayrollPreflightSummary } from "./payroll-preflight-summary";
 import { PayrollEmployeeSelectionTable, type ScopeEmployee } from "./payroll-employee-selection-table";
 import { PayrollStickyActionBar } from "./payroll-sticky-action-bar";
 import { PayrollReadiness } from "./payroll-readiness";
+import { PayrollRunTypePicker } from "./payroll-run-type";
 import { preflightAction } from "@/app/actions/payroll-control.actions";
 import { hasBlocker, type PreflightFinding } from "@/lib/engines/payroll-control.engine";
+import { RUN_TYPE_LABEL, type RunType } from "@/lib/constants/run-types";
 
 interface PayrollSetupFormProps {
   branches: Array<{ id: string; name: string }>;
@@ -58,6 +60,11 @@ export function PayrollSetupForm({
   const currentYear = adToBS(new Date()).year;
 
   const [findings, setFindings] = useState<PreflightFinding[] | null>(null);
+  // F6: the monthly salary, or an off-cycle festival allowance / arrears run in the same month.
+  const [runType, setRunType] = useState<RunType>("REGULAR");
+  const festivalHeads = useMemo(() => occasionalAllowances.filter((a) => a.isFestivalAllowance), [occasionalAllowances]);
+  const [festivalHeadIds, setFestivalHeadIds] = useState<string[]>(() => (festivalHeads.length === 1 ? [festivalHeads[0].id] : []));
+  const [prorateFestival, setProrateFestival] = useState(true);
   const [payPeriodMonth, setPayPeriodMonth] = useState<number>(4); // Default to Shrawan (Month 4)
   const [payPeriodYear, setPayPeriodYear] = useState<number>(currentYear);
   const [payslipMonth, setPayslipMonth] = useState<number>(4);
@@ -212,6 +219,10 @@ export function PayrollSetupForm({
       setError("Please select at least one employee to generate payslips.");
       return;
     }
+    if (runType === "FESTIVAL" && festivalHeadIds.length === 0) {
+      setError("Choose the festival allowance head to pay.");
+      return;
+    }
 
     const payload: PayrollRunSetupPayload = {
       payPeriodMonth,
@@ -232,12 +243,16 @@ export function PayrollSetupForm({
           ? null
           : selectedEmployeeIds,
       occasionalAllowanceHeadIds:
-        selectedOccasionalAllowances.length > 0
-          ? selectedOccasionalAllowances
-          : null,
+        runType === "FESTIVAL"
+          ? festivalHeadIds
+          : runType === "REGULAR" && selectedOccasionalAllowances.length > 0
+            ? selectedOccasionalAllowances
+            : null,
       payslipMonth,
       payslipDate: payslipDate || null,
       recreateIfExists,
+      runType,
+      prorateFestival: runType === "FESTIVAL" ? prorateFestival : undefined,
     };
 
     try {
@@ -276,7 +291,7 @@ export function PayrollSetupForm({
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
             <div>
               <p className="font-bold text-amber-900">
-                A Payroll Run Already Exists for This Period
+                {runType === "REGULAR" ? "A Payroll Run Already Exists for This Period" : `A ${RUN_TYPE_LABEL[runType].en} Run Already Exists for This Period`}
               </p>
               <p className="mt-0.5 text-amber-800">
                 A draft payroll run already exists for{" "}
@@ -313,6 +328,21 @@ export function PayrollSetupForm({
           <span>{error}</span>
         </div>
       ) : null}
+
+      {/* 0. RUN TYPE (F6): monthly salary, festival allowance or arrears */}
+      <PayrollRunTypePicker
+        value={runType}
+        onChange={(next) => {
+          setRunType(next);
+          setFindings(null);
+          setError(null);
+        }}
+        festivalHeads={festivalHeads}
+        selectedFestivalHeads={festivalHeadIds}
+        onToggleFestivalHead={(id) => setFestivalHeadIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))}
+        prorate={prorateFestival}
+        onProrate={setProrateFestival}
+      />
 
       {/* 1. COMPACT PERIOD SUMMARY BAR WITH EDIT */}
       <PayrollPeriodSummaryBar
@@ -369,7 +399,8 @@ export function PayrollSetupForm({
         onToggleSelectAllVisible={handleToggleSelectAllVisible}
       />
 
-      {/* 5. OPTIONAL ADJUSTMENTS ACCORDION (FESTIVAL / REMOTE ALLOWANCES) */}
+      {/* 5. OPTIONAL ADJUSTMENTS ACCORDION (FESTIVAL / REMOTE ALLOWANCES) — regular runs only */}
+      {runType === "REGULAR" && (
       <div className="rounded-xl border border-payroll-light bg-white overflow-hidden shadow-xs">
         <button
           type="button"
@@ -429,6 +460,7 @@ export function PayrollSetupForm({
           </div>
         )}
       </div>
+      )}
 
       {/* 6. STICKY BOTTOM ACTION BAR */}
       <PayrollStickyActionBar
