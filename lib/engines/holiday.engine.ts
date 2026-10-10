@@ -1,382 +1,211 @@
 /**
- * Holiday engine — pure domain logic for validating, aggregating,
- * and querying holidays.
+ * Holidays (4.12c) — pure logic for the Holiday calendar and the service.
  *
- * This module is **framework-agnostic** by design:
- *   - No React imports
- *   - No Next.js imports
- *   - No Drizzle / database imports
- *
- * Everything here is a pure function of its inputs. The same
- * engine is used by:
- *   1. The Holiday Setup UI (form validation, KPI card math)
- *   2. The Service layer (re-validates before persisting)
- *   3. Unit tests (Vitest, no DOM)
- *
- * **Date conventions:**
- *   - Holiday dates are BS ISO strings: `"YYYY-MM-DD"` (e.g. `"2081-06-15"`).
- *   - Day count is computed in BS space by counting the inclusive
- *     span from start to end. We can't just diff the two strings
- *     because BS months have variable lengths (28..32 days).
- *     Instead, we convert each BS date to its AD `Date` and count
- *     the AD-day gap. This is mathematically equivalent to "how
- *     many calendar days are between the two BS dates" because BS
- *     is a continuous count of days with no DST or skipped days.
- *
- * **Cross-field rules:**
- *   - Name uniqueness (case-insensitive, trim-aware).
- *   - End date >= start date.
- *   - Branch IDs (when non-empty) must be a subset of the
- *     available branches (passed in by the caller).
+ * A holiday runs from one AD day to another (stored in BS beside them), for
+ * every branch or chosen ones, for everyone or women only. Attendance and
+ * leave decide whether a day is a holiday for someone with `holidayApplies`
+ * only. Who may change a holiday follows the user's scope (a company-wide
+ * role for every branch, a branch role for its own branches), and nothing
+ * changes inside a closed attendance month. Tests: tests/holiday.engine.test.ts.
  */
 
-import {
-  bsStringToAD,
-  getDaysInBSMonth,
-  isValidBSDate,
-} from "@/lib/utils/bs-calendar";
-import type { Holiday, HolidayFormData, CategoryFilter } from "@/lib/types/holiday";
+import { fiscalOpeningYearOf, formatFiscalYearLabel } from "@/lib/engines/fiscal-year.engine";
+import { bsDayOf } from "@/lib/engines/pay-period.engine";
+import { HOLIDAY_CATEGORIES, type Holiday, type HolidayAppliesTo, type HolidayCategory, type HolidayForm, type HolidayFormErrors } from "@/lib/types/holiday";
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
+export const HOLIDAY_CATEGORY: Record<HolidayCategory, { label: string; hint: string }> = {
+  "major-festival": { label: "Major festival", hint: "Several days: Dashain, Tihar" },
+  "cultural-festival": { label: "Cultural festival", hint: "A religious or cultural day: Maghe Sankranti, Shree Panchami" },
+  "regional-festival": { label: "Regional festival", hint: "Kept in some places (Chhath, Gai Jatra): usually for chosen branches" },
+  "national-holiday": { label: "National holiday", hint: "A gazetted public holiday: Constitution Day, New Year" },
+  "international-holiday": { label: "International day", hint: "Labour Day, International Women's Day" },
+};
 
-export interface HolidayValidationErrors {
-  name?: string;
-  category?: string;
-  startDate?: string;
-  endDate?: string;
-  branchIds?: string;
-  /** Cross-field: end before start. */
-  dateOrder?: string;
+export const APPLIES_TO_LABEL: Record<HolidayAppliesTo, string> = { everyone: "Everyone", women: "Women only" };
+
+export const NAME_MAX = 60;
+/** Longest holiday, in days (Dashain with the days around it fits). */
+export const MAX_DAYS = 30;
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A real AD calendar day "YYYY-MM-DD". */
+export function isAdDate(v: string): boolean {
+  if (!ISO.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
 }
 
-const NAME_MIN = 1;
-const NAME_MAX = 60;
+/** Days from one AD date to another, both counted. */
+export const daysInclusive = (from: string, to: string): number => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
 
-function isValidName(n: string): boolean {
-  return n.trim().length >= NAME_MIN && n.trim().length <= NAME_MAX;
+/** The BS date "YYYY-MM-DD" of an AD date. */
+export function bsIsoOf(adIso: string): string {
+  const b = bsDayOf(adIso);
+  return `${b.year}-${pad(b.month)}-${pad(b.day)}`;
 }
 
-function isValidBSDateString(s: string): boolean {
-  const match = s.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  return isValidBSDate(year, month, day);
+/** The opening BS year of the fiscal year (Shrawan–Asar) an AD date falls in. */
+export function fiscalYearOf(adIso: string): number {
+  const b = bsDayOf(adIso);
+  return fiscalOpeningYearOf(b.year, b.month);
 }
+
+export const fiscalYearLabel = (openingYear: number) => formatFiscalYearLabel(openingYear);
 
 /**
- * Parse a BS ISO string into {year, month, day}. Returns null if
- * the string is malformed. The components are returned as numbers.
+ * Whether a holiday gives this person this day off: the day is inside it, it
+ * covers their branch (no branches: all), and a women-only day reaches women.
  */
-function parseBSDate(s: string): { year: number; month: number; day: number } | null {
-  const match = s.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (!match) return null;
+export function holidayApplies(
+  h: { start: string; end: string; branchIds: readonly string[]; appliesTo: HolidayAppliesTo },
+  person: { branchId: string | null; gender: string | null },
+  date: string
+): boolean {
+  return (
+    date >= h.start &&
+    date <= h.end &&
+    (!h.branchIds.length || (!!person.branchId && h.branchIds.includes(person.branchId))) &&
+    (h.appliesTo !== "women" || person.gender === "Female")
+  );
+}
+
+/** "All branches", or the branches by name. */
+export function describeBranches(ids: readonly string[], names: ReadonlyMap<string, string>): string {
+  if (!ids.length) return "All branches";
+  return ids
+    .map((id) => names.get(id) ?? "a deleted branch")
+    .sort((a, b) => a.localeCompare(b))
+    .join(", ");
+}
+
+/** "2083-06-24 BS" or "2083-06-24 – 2083-06-28 BS". */
+export const describeDates = (fromBs: string, toBs: string) => (fromBs === toBs ? `${fromBs} BS` : `${fromBs} – ${toBs} BS`);
+
+// ---------------------------------------------------------------------------
+// Who may change a holiday, and when
+// ---------------------------------------------------------------------------
+
+export interface HolidayScope {
+  scopeType: string;
+  branchIds: readonly string[];
+  isImpersonation?: boolean;
+}
+
+/** Why this user can't set a holiday for these branches (null: they can). No branches: every branch. */
+export function scopeProblem(scope: HolidayScope, branchIds: readonly string[]): string | null {
+  if (scope.isImpersonation) return "Platform support cannot change the holiday calendar.";
+  if (scope.scopeType === "GLOBAL") return null;
+  if (scope.scopeType !== "BRANCH") return "Holidays are set per branch: only a company-wide or branch role can change them.";
+  if (!branchIds.length) return "A holiday for every branch needs a company-wide role: choose your branches instead.";
+  if (branchIds.some((id) => !scope.branchIds.includes(id))) return "You can set holidays for your own branches only.";
+  return null;
+}
+
+export interface ClosedMonth {
+  branchId: string;
+  /** AD "YYYY-MM-DD". */
+  startDate: string;
+  endDate: string;
+  /** "Aswin 2083". */
+  label: string;
+}
+
+/** The closed attendance month a holiday's days would change (null: none). No branches: every branch. */
+export function closedProblem(h: { from: string; to: string; branchIds: readonly string[] }, closed: readonly ClosedMonth[], branchName: (id: string) => string): string | null {
+  const hit = closed.find((c) => c.startDate <= h.to && c.endDate >= h.from && (!h.branchIds.length || h.branchIds.includes(c.branchId)));
+  return hit ? `${branchName(hit.branchId)}'s attendance for ${hit.label} is closed: reopen that month first.` : null;
+}
+
+// ---------------------------------------------------------------------------
+// The form
+// ---------------------------------------------------------------------------
+
+const ids = (v: unknown): string[] => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && x.length > 0))].slice(0, 200) : []);
+const text = (v: unknown) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "");
+
+/** The form from the browser: known categories and choices only. */
+export function normalizeHolidayForm(raw: unknown): HolidayForm {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const category = HOLIDAY_CATEGORIES.includes(r.category as HolidayCategory) ? (r.category as HolidayCategory) : ("" as HolidayCategory);
+  const from = text(r.from);
+  const to = text(r.to) || from;
   return {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
+    name: text(r.name),
+    category,
+    from,
+    to,
+    appliesTo: r.appliesTo === "women" ? "women" : r.appliesTo === "everyone" ? "everyone" : ("" as HolidayAppliesTo),
+    branchIds: ids(r.branchIds),
   };
 }
 
-// ----- Uniqueness helpers (public) -----------------------------------------
+export const NEW_HOLIDAY: HolidayForm = { name: "", category: "national-holiday", from: "", to: "", appliesTo: "everyone", branchIds: [] };
 
-/**
- * Case-insensitive name uniqueness. Used at create and update
- * time. Pass `excludeId` when updating so the holiday's own
- * current name doesn't collide with itself.
- */
-export function isNameUnique(args: {
-  candidate: string;
-  existing: Holiday[];
-  excludeId?: string;
-}): boolean {
-  const target = args.candidate.trim().toLowerCase();
-  return !args.existing.some(
-    (h) =>
-      h.id !== args.excludeId && h.name.trim().toLowerCase() === target,
-  );
-}
-
-// ----- Main validator ------------------------------------------------------
-
-export interface ValidateHolidayArgs {
-  data: HolidayFormData;
-  existing: Holiday[];
-  excludeId?: string;
-  /** Valid branch IDs (used to validate the chosen list). */
-  validBranchIds: string[];
+/** The checks the window can make on its own. */
+export function validateHolidayFields(f: HolidayForm): HolidayFormErrors {
+  const e: HolidayFormErrors = {};
+  if (!f.name) e.name = "Give the holiday a name.";
+  else if (f.name.length > NAME_MAX) e.name = `At most ${NAME_MAX} characters.`;
+  if (!HOLIDAY_CATEGORIES.includes(f.category)) e.category = "Choose a category.";
+  if (!isAdDate(f.from)) e.from = "Choose the first day.";
+  if (!isAdDate(f.to)) e.to = "Choose the last day.";
+  else if (isAdDate(f.from) && f.to < f.from) e.to = "The last day is before the first.";
+  else if (isAdDate(f.from) && daysInclusive(f.from, f.to) > MAX_DAYS) e.to = `At most ${MAX_DAYS} days.`;
+  if (f.appliesTo !== "everyone" && f.appliesTo !== "women") e.appliesTo = "Choose who gets the day off.";
+  return e;
 }
 
 /**
- * Validate a holiday form payload. Combines per-field rules with
- * cross-field rules:
- *
- *   1. Name required, 1–60 chars, unique.
- *   2. Category must be one of the 5 known categories (form
- *      guarantees this via the dropdown, so we just sanity-check).
- *   3. Start date is a valid BS date string.
- *   4. End date is a valid BS date string.
- *   5. End date >= start date.
- *   6. Branch IDs (when non-empty) must be a subset of
- *      `validBranchIds`.
- *
- * Note: we don't enforce "exactly 1 branch" or "at most N branches"
- * — the design's UX lets the user pick any subset (or none for
- * "All Branches").
+ * Checks a holiday against the others: a name once in a fiscal year (the
+ * same holiday comes back every year), branches that exist (one already on
+ * the holiday may stay).
  */
-export function validateHoliday(
-  args: ValidateHolidayArgs,
-): HolidayValidationErrors {
-  const { data, existing, excludeId, validBranchIds } = args;
-  const errors: HolidayValidationErrors = {};
-
-  // 1. Name
-  if (!data.name || !data.name.trim()) {
-    errors.name = "Holiday Name is required.";
-  } else if (!isValidName(data.name)) {
-    errors.name = `Holiday Name must be ${NAME_MIN}–${NAME_MAX} characters.`;
-  } else if (
-    !isNameUnique({ candidate: data.name, existing, excludeId })
-  ) {
-    errors.name = `A holiday named "${data.name.trim()}" already exists.`;
+export function validateHolidayForm(
+  f: HolidayForm,
+  ctx: { others: readonly { name: string; from: string }[]; branchIds: readonly string[]; current: { branchIds: readonly string[] } | null }
+): HolidayFormErrors {
+  const e = validateHolidayFields(f);
+  if (!e.name && !e.from) {
+    const year = fiscalYearOf(f.from);
+    const name = f.name.toLowerCase();
+    if (ctx.others.some((o) => o.name.trim().toLowerCase() === name && isAdDate(o.from) && fiscalYearOf(o.from) === year)) e.name = `${fiscalYearLabel(year)} already has a holiday with this name.`;
   }
-
-  // 2. Category
-  const knownCategories = [
-    "major-festival",
-    "cultural-festival",
-    "regional-festival",
-    "national-holiday",
-    "international-holiday",
-  ] as const;
-  if (!knownCategories.includes(data.category as (typeof knownCategories)[number])) {
-    errors.category = "Category is required.";
-  }
-
-  // 3. Start date
-  if (!data.startDate || !data.startDate.trim()) {
-    errors.startDate = "Start date is required.";
-  } else if (!isValidBSDateString(data.startDate)) {
-    errors.startDate = "Start date must be a valid BS date (YYYY-MM-DD).";
-  }
-
-  // 4. End date
-  if (!data.endDate || !data.endDate.trim()) {
-    errors.endDate = "End date is required.";
-  } else if (!isValidBSDateString(data.endDate)) {
-    errors.endDate = "End date must be a valid BS date (YYYY-MM-DD).";
-  }
-
-  // 5. Cross-field: date order
-  if (
-    !errors.startDate &&
-    !errors.endDate &&
-    data.startDate &&
-    data.endDate
-  ) {
-    // Compare the BS strings directly — they sort lexicographically
-    // the same way they sort chronologically because BS ISO format
-    // is YYYY-MM-DD with month/day zero-padded.
-    if (data.startDate > data.endDate) {
-      errors.dateOrder = "End date cannot be before start date.";
-    }
-  }
-
-  // 6. Branch IDs
-  if (data.branchIds.length > 0) {
-    const invalid = data.branchIds.filter(
-      (id) => !validBranchIds.includes(id),
-    );
-    if (invalid.length > 0) {
-      errors.branchIds =
-        "One or more selected branches are no longer available.";
-    }
-  }
-
-  return errors;
+  if (f.branchIds.some((id) => !ctx.branchIds.includes(id) && !ctx.current?.branchIds.includes(id))) e.branchIds = "A chosen branch no longer exists.";
+  return e;
 }
 
-// ---------------------------------------------------------------------------
-// Day count
-// ---------------------------------------------------------------------------
+export const holidayFormIsValid = (e: HolidayFormErrors) => Object.keys(e).length === 0;
 
-/**
- * Calculate the inclusive day count for a holiday defined by its
- * BS start / end dates.
- *
- * Algorithm:
- *   1. Convert both BS strings to AD `Date` objects.
- *   2. Round to UTC midnight to dodge timezone drift.
- *   3. Count the inclusive gap in whole days.
- *
- * Falls back to 0 if either date is malformed. Does NOT require the
- * dates to be in order — returns a non-positive number if end < start
- * (caller is expected to validate ordering first).
- */
-export function calculateDays(startDate: string, endDate: string): number {
-  const start = bsStringToAD(startDate);
-  const end = bsStringToAD(endDate);
-  if (!start || !end) return 0;
-  // Convert to UTC midnight to avoid timezone-induced off-by-one.
-  const startUTC = Date.UTC(
-    start.getUTCFullYear(),
-    start.getUTCMonth(),
-    start.getUTCDate(),
-  );
-  const endUTC = Date.UTC(
-    end.getUTCFullYear(),
-    end.getUTCMonth(),
-    end.getUTCDate(),
-  );
-  const diffMs = endUTC - startUTC;
-  // Inclusive day count: if start == end, that's 1 day.
-  return Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+export interface HolidayWrite {
+  name: string;
+  category: HolidayCategory;
+  /** BS "YYYY-MM-DD". */
+  startDate: string;
+  endDate: string;
+  appliesTo: HolidayAppliesTo;
+  branchIds: string[];
 }
 
-/**
- * Total number of BS days the holiday spans. Same as
- * `calculateDays` but returns 0 for negative results.
- */
-export function holidayDayCount(h: Pick<Holiday, "startDate" | "endDate">): number {
-  const n = calculateDays(h.startDate, h.endDate);
-  return n > 0 ? n : 0;
-}
+/** What is stored for a checked form: BS days, branches in order. */
+export const holidayWrite = (f: HolidayForm): HolidayWrite => ({
+  name: f.name,
+  category: f.category,
+  startDate: bsIsoOf(f.from),
+  endDate: bsIsoOf(f.to),
+  appliesTo: f.appliesTo,
+  branchIds: [...f.branchIds].sort(),
+});
 
-// ---------------------------------------------------------------------------
-// Aggregations (used by KPI cards)
-// ---------------------------------------------------------------------------
+/** Whether two holidays are for the same branches (order aside). */
+export const sameBranches = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");
 
-export interface HolidayCounts {
-  /** Total number of holidays defined. */
-  total: number;
-  /** Sum of `holidayDayCount` across every holiday. */
-  totalDays: number;
-  /** Holidays whose `branchIds` list is empty (i.e. "All Branches"). */
-  allBranchCount: number;
-}
-
-export function countHolidays(holidays: Holiday[]): HolidayCounts {
-  let totalDays = 0;
-  let allBranchCount = 0;
-  for (const h of holidays) {
-    totalDays += holidayDayCount(h);
-    if (h.branchIds.length === 0) allBranchCount++;
-  }
-  return {
-    total: holidays.length,
-    totalDays,
-    allBranchCount,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Filter + search helpers
-// ---------------------------------------------------------------------------
-
-export interface FilterHolidaysArgs {
-  holidays: Holiday[];
-  /**
-   * Free-text query. Matches the holiday name OR the formatted date
-   * range (BS ISO), case-insensitive. Empty string returns every
-   * holiday. The category label (e.g. "Major Festival") is also
-   * considered so a search for "festival" surfaces festivals only.
-   */
-  search?: string;
-  category?: CategoryFilter;
-}
-
-/**
- * Apply the search query to a holiday list. Order is preserved (the
- * caller is expected to pass a pre-sorted list).
- */
-export function filterHolidays(args: FilterHolidaysArgs): Holiday[] {
-  const { holidays, search, category } = args;
-  const q = (search ?? "").trim().toLowerCase();
-
-  return holidays.filter((h) => {
-    // 1. Category match
-    if (category && category !== "all" && h.category !== category) {
-      return false;
-    }
-    
-    // 2. Search match
-    if (!q) return true;
-
-    const hay = [
-      h.name,
-      h.category,
-      h.category.replace(/-/g, " "),
-      h.startDate,
-      h.endDate,
-    ]
-      .join(" ")
-      .toLowerCase();
-    return hay.includes(q);
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Sorting
-// ---------------------------------------------------------------------------
-
-/**
- * Sort holidays by start date ascending (earliest first). Ties are
- * broken by id for stability. This is the order shown in the
- * design screenshots (Constitution Day in March is the first card,
- * Dashain in June is the third, etc.).
- */
-export function sortByStartDate(holidays: Holiday[]): Holiday[] {
-  return [...holidays].sort((a, b) => {
-    if (a.startDate < b.startDate) return -1;
-    if (a.startDate > b.startDate) return 1;
-    return a.id.localeCompare(b.id);
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Code generation
-// ---------------------------------------------------------------------------
-
-/**
- * Generate the next sequential holiday code, e.g. "HOL-001",
- * "HOL-002", …, "HOL-012", "HOL-013".
- *
- * Inspects the existing list and returns `HOL-` zero-padded to 3
- * digits using the max numeric suffix + 1. Falls back to
- * `HOL-001` if no existing holidays.
- */
-export function nextHolidayCode(existing: Holiday[]): string {
-  let max = 0;
-  for (const h of existing) {
-    // Note: we use the row id rather than a separate `code` field
-    // (unlike pay-heads, holidays don't have a separate code today).
-    const m = /^hol-(\d+)$/i.exec(h.id);
-    if (m) {
-      const n = Number(m[1]);
-      if (Number.isFinite(n) && n > max) max = n;
-    }
-  }
-  return `hol-${String(max + 1).padStart(3, "0")}`;
-}
-
-// ---------------------------------------------------------------------------
-// Cross-month helper (re-exported for convenience)
-// ---------------------------------------------------------------------------
-
-/**
- * Return the number of days in the given BS month/year. Re-exported
- * from `bs-calendar` so callers can stay within the engine for date
- * math.
- */
-export function daysInBSMonth(year: number, month: number): number {
-  return getDaysInBSMonth(year, month);
-}
-
-// Suppress unused-import lint for `parseBSDate` — it's a documented
-// helper but not used by the engine itself today. Keeping it in
-// the file because the form layer may want to parse BS strings
-// without round-tripping to AD.
-void parseBSDate;
+/** What the audit line keeps of a holiday. */
+export const auditedHoliday = (h: Pick<Holiday, "name" | "category" | "startDate" | "endDate" | "appliesTo" | "branchIds">, names: ReadonlyMap<string, string>) => ({
+  name: h.name,
+  dates: describeDates(h.startDate, h.endDate),
+  category: HOLIDAY_CATEGORY[h.category]?.label ?? h.category,
+  for: APPLIES_TO_LABEL[h.appliesTo] ?? h.appliesTo,
+  branches: describeBranches(h.branchIds, names),
+});

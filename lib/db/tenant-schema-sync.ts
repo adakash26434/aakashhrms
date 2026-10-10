@@ -2066,4 +2066,18 @@ ON CONFLICT DO NOTHING`);
   } catch (err) {
     console.error("[tenant-schema-sync] pay heads 0076:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
+
+  // Holidays (4.12c, migration 0077, S52): who gets the day off ("everyone" | "women"). Holidays
+  // named for women become women-only once, in the block that adds the column.
+  try {
+    await sql.unsafe(`DO $$
+      BEGIN
+        IF to_regclass('holidays') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'holidays' AND column_name = 'applies_to') THEN
+          ALTER TABLE "holidays" ADD COLUMN "applies_to" varchar(10) DEFAULT 'everyone' NOT NULL;
+          UPDATE "holidays" SET "applies_to" = 'women' WHERE "name" ~* 'women';
+        END IF;
+      END $$`);
+  } catch (err) {
+    console.error("[tenant-schema-sync] holidays 0077:", err instanceof Error ? err.message.slice(0, 200) : err);
+  }
 }

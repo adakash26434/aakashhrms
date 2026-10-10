@@ -18,6 +18,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql, type SQL
 import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
 import type { DayResult, MonthSummary, OverrideType, PunchSource } from "@/lib/types/attendance";
 import { postLedgerLines, type NewLedgerLine } from "@/lib/repositories/leave.repository";
+import type { HolidayAppliesTo } from "@/lib/types/holiday";
 
 // Attendance (4.5): punches, HR overrides, daily results, adjustments
 // (regularization), attendance months per branch and the month summaries
@@ -105,15 +106,15 @@ export async function findOtEligibility(): Promise<Map<string, boolean>> {
   return new Map(rows.map((r) => [r.name, r.ot]));
 }
 
-/** Holidays overlapping a range (AD dates), with the branches they apply to (none = all). */
+/** Holidays overlapping a range (AD dates), with the branches they apply to (none = all) and who gets them. */
 export async function findHolidays(from: string, to: string) {
   const rows = await (await getDb())
-    .select({ name: holidays.name, start: holidays.startDateAD, end: holidays.endDateAD, branchIds: holidays.branchIds })
+    .select({ name: holidays.name, start: holidays.startDateAD, end: holidays.endDateAD, branchIds: holidays.branchIds, appliesTo: holidays.appliesTo })
     .from(holidays)
     .where(and(lte(holidays.startDateAD, new Date(`${to}T23:59:59Z`)), gte(holidays.endDateAD, new Date(`${from}T00:00:00Z`))));
   // Holiday dates are stored as local-midnight timestamps; read the calendar day back in Nepal time.
   const day = (d: Date) => new Date(d.getTime() + 345 * 60000).toISOString().slice(0, 10);
-  return rows.map((r) => ({ name: r.name, start: day(r.start), end: day(r.end), branchIds: r.branchIds ?? [] }));
+  return rows.map((r) => ({ name: r.name, start: day(r.start), end: day(r.end), branchIds: r.branchIds ?? [], appliesTo: (r.appliesTo === "women" ? "women" : "everyone") as HolidayAppliesTo }));
 }
 
 /** The fiscal year an AD date falls in (falls back to the active one). */

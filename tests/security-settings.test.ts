@@ -285,3 +285,74 @@ describe('S51 pay heads: a company-wide role, system heads keep their role, read
     }
   });
 });
+
+// Holiday calendar (4.12c, S52). Found while migrating: adding, saving and deleting holidays
+// checked the permission only — no scope — so a branch role with Holidays → Add / Edit / Delete,
+// or platform support, could give or take days off for every branch; holidays inside a closed
+// attendance month could be added, moved or deleted (changing finalised attendance and pay); raw
+// errors were returned and nothing was audited. Also: a name could be used once ever (Dashain
+// could not come back next year), and "women only" was guessed from the holiday's name.
+describe('S52 holidays: scope, closed months and an audit line for every change', () => {
+  const actions = read('app/actions/holiday.actions.ts');
+  const service = read('lib/services/holiday.service.ts');
+  const engine = read('lib/engines/holiday.engine.ts');
+  const page = read('app/(dashboard)/setup/holidays/page.tsx');
+
+  it('every action checks Holidays with the user\'s scope; errors are safe', () => {
+    assert.match(actions, /^'use server';/);
+    assert.match(fn(actions, 'saveHolidayAction'), /const scope = await checkPermissionWithScope\(id \? 'EDIT' : 'ADD', 'HOLIDAYS'\);\s*const result = await service\.saveHoliday\(id \? String\(id\) : null, input, \{ scope, userId: scope\.userId \}\);/);
+    assert.match(fn(actions, 'deleteHolidayAction'), /const scope = await checkPermissionWithScope\('DELETE', 'HOLIDAYS'\);\s*const result = await service\.deleteHoliday\(String\(id\), \{ scope, userId: scope\.userId \}\);/);
+    assert.match(fn(actions, 'holidaysPageAction'), /const scope = await checkPermissionWithScope\('VIEW', 'HOLIDAYS'\);/);
+    assert.match(page, /const scope = await checkPermissionWithScope\("VIEW", "HOLIDAYS"\);/);
+    for (const [action, context] of [['saveHolidayAction', 'save'], ['deleteHolidayAction', 'delete'], ['holidaysPageAction', 'page']]) {
+      assert.match(fn(actions, action), new RegExp(`return toActionError\\(error, 'holiday\\.${context}'\\);`), action);
+    }
+    assert.equal(actions.match(/error\.message/g)?.length, 1, 'only the checked form\'s message');
+    assert.doesNotMatch(actions, /checkPermission\(|createHolidayAction|updateHolidayAction/);
+  });
+
+  it('a branch role works on its own branches; every branch needs a company-wide role; never support', () => {
+    const scope = fn(engine, 'scopeProblem');
+    assert.match(scope, /if \(scope\.isImpersonation\) return/);
+    assert.match(scope, /if \(scope\.scopeType === "GLOBAL"\) return null;\s*if \(scope\.scopeType !== "BRANCH"\) return/);
+    assert.match(scope, /if \(!branchIds\.length\) return "A holiday for every branch needs a company-wide role/);
+    assert.match(scope, /if \(branchIds\.some\(\(id\) => !scope\.branchIds\.includes\(id\)\)\) return/);
+    const save = fn(service, 'saveHoliday');
+    assert.ok(save.indexOf('scopeProblem(ctx.scope, current.branchIds)') < save.indexOf('normalizeHolidayForm(raw)'), 'the holiday as it was, first');
+    assert.match(save, /const reach = scopeProblem\(ctx\.scope, form\.branchIds\);/);
+    const del = fn(service, 'deleteHoliday');
+    assert.ok(del.indexOf('scopeProblem(ctx.scope, current.branchIds)') < del.indexOf('repository.deleteHoliday('));
+  });
+
+  it('nothing moves inside a closed attendance month, before or after', () => {
+    const save = fn(service, 'saveHoliday');
+    assert.match(save, /const touchesDays = !current \|\| write\.startDate !== current\.startDate \|\| write\.endDate !== current\.endDate \|\| write\.appliesTo !== current\.appliesTo \|\| !sameBranches\(write\.branchIds, current\.branchIds\);/);
+    assert.match(save, /const problem = \(was \? closedProblem\(was, closed, branchName\) : null\) \?\? closedProblem\(\{ from: form\.from, to: form\.to, branchIds: write\.branchIds \}, closed, branchName\);\s*if \(problem\) throw new UserFacingError\(problem\);/);
+    assert.ok(save.indexOf('if (problem) throw') < save.indexOf('repository.insertHoliday('), 'checked before writing');
+    const del = fn(service, 'deleteHoliday');
+    assert.ok(del.indexOf('closedProblem(') < del.indexOf('repository.deleteHoliday('));
+    assert.match(fn(service, 'closedMonths'), /attendanceRepo\.findClosedPeriodsOverlapping\(from, to\)/);
+  });
+
+  it('every change is audited with the user', () => {
+    const save = fn(service, 'saveHoliday');
+    assert.match(save, /recordAuditLog\(\{ userId: ctx\.userId, action: "ADD", module: "HOLIDAYS"/);
+    assert.match(save, /recordAuditLog\(\{\s*userId: ctx\.userId,\s*action: "EDIT",\s*module: "HOLIDAYS"/);
+    assert.match(save, /if \(!changed\.length\) throw new UserFacingError\("Nothing changed\."\);/);
+    assert.match(fn(service, 'deleteHoliday'), /recordAuditLog\(\{ userId: ctx\.userId, action: "DELETE", module: "HOLIDAYS"/);
+  });
+
+  it('attendance and leave read who a holiday reaches from one rule, never the name', () => {
+    for (const p of ['lib/services/attendance.service.ts', 'lib/services/leave.service.ts']) {
+      const src = read(p);
+      assert.match(src, /holidays\.find\(\(h\) => holidayApplies\(h, (e|person), date\)\)/, p);
+      assert.doesNotMatch(src, /\/women\/i/, p);
+    }
+    assert.match(fn(engine, 'holidayApplies'), /\(h\.appliesTo !== "women" \|\| person\.gender === "Female"\)/);
+    const migration = read('lib/db/migrations/0077_holiday_applies_to.sql');
+    const sync = read('lib/db/tenant-schema-sync.ts');
+    for (const [label, src] of [['migration', migration], ['tenant sync', sync]]) {
+      assert.match(src, /ALTER TABLE "holidays" ADD COLUMN "applies_to" varchar\(10\) DEFAULT 'everyone' NOT NULL;\s*UPDATE "holidays" SET "applies_to" = 'women' WHERE "name" ~\* 'women';/, label);
+    }
+  });
+});

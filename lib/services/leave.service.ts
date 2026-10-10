@@ -12,6 +12,7 @@ import { UserFacingError } from "@/lib/errors/action-error";
 import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "@/lib/services/attendance-errors";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { addDays, periodContaining } from "@/lib/engines/pay-period.engine";
+import { holidayApplies } from "@/lib/engines/holiday.engine";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording } from "@/lib/engines/approval.engine";
 import { balanceOn, capOf, checkRequest, countDays, creditedMonthly, fmt, homeLeaveEarned, ledgerSummary, monthlyCredit, plainLedgerNote, creditedYearly, splitPaid, typeAppliesTo, yearShare, type CalendarDay } from "@/lib/engines/leave.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
@@ -94,9 +95,7 @@ export async function calendarsFor(people: Person[], from: string, to: string): 
     out.set(
       person.id,
       dates.map((date) => {
-        const holiday = holidays.find(
-          (h) => date >= h.start && date <= h.end && (!h.branchIds.length || h.branchIds.includes(person.branchId)) && (!/women/i.test(h.name) || person.gender === "Female")
-        );
+        const holiday = holidays.find((h) => holidayApplies(h, person, date));
         if (holiday) return { date, off: true, why: `Holiday: ${holiday.name}` };
         if (shiftService.shiftOn(ctx, person, date).plan.off) return { date, off: true, why: "Weekly off" };
         return { date, off: false };

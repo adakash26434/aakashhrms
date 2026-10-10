@@ -229,6 +229,8 @@ export const holidays = pgTable('holidays', {
   endDateAD: timestamp('end_date_ad').notNull(),
   
   branchIds: text('branch_ids').array().notNull().default(sql`ARRAY[]::text[]`),
+  /** 4.12c: "everyone" | "women" (International Women's Day). */
+  appliesTo: varchar('applies_to', { length: 10 }).default('everyone').notNull(),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),

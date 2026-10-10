@@ -540,6 +540,13 @@
       "when": 1793500800000,
       "tag": "0076_pay_head_applicability",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793587200000,
+      "tag": "0077_holiday_applies_to",
+      "breakpoints": true
     }
   ]
 }

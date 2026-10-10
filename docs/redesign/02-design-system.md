@@ -1092,6 +1092,26 @@ listed in italics so it can be unticked). A system head shows what it is,
 its amount and who it is for as read-only text, with the reason in the
 window's description; only its names can change.
 
+### Implemented settings: holiday calendar (Phase 4.12c, template A + Window)
+
+**Setup → Holiday calendar** (`/setup/holidays`, register): PageBar with
+**New holiday** (Ctrl+N; hidden for a branch role without branches),
+**Edit** (F2, double-click), **Delete** (both disabled with the reason —
+another branch's or every branch's holiday for a branch role, or a closed
+attendance month) and Refresh; the Guide; a FilterStrip — fiscal year
+(the current one chosen, marked "(current)"), category, search; a DataGrid
+— holiday (a lock with the reason when it can't change), dates BS first
+("Kartik 2, 2083 – Kartik 7, 2083", AD in the tooltip), days (with a
+total), category, for (Everyone / Women only) and branches ("All
+branches" or names).
+
+The **holiday window**: The holiday (name, category with its hint), Days
+(first and last day as `DateField`s — the last follows the first until set
+on its own — with "6 days off." under it) and Who gets it (Everyone /
+Women only; All branches / Chosen branches as a tick list — a branch role
+gets only its own branches, ticked when there is one). After saving, a
+warning Notice counts approved leave inside the days.
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:
