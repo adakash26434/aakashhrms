@@ -225,7 +225,7 @@ export async function getStructureData(params: {
   const ids = employees.map((e) => e.id);
   const [{ revisions, heads: stored }, finalisedUntil, tax, ssfExpected] = await Promise.all([
     repository.findRevisions(ids),
-    repository.findFinalisedUntil(ids),
+    repository.findOpenRunUntil(ids),
     loadTaxRules(settings),
     ssfExpectation(settings),
   ]);
@@ -256,6 +256,7 @@ export async function getStructureData(params: {
       employeeId: e.id,
       employeeCode: e.employeeCode,
       fullName: e.fullName,
+      bankAccountNumber: e.bankAccountNumber || "",
       branchId: e.branchId,
       branchName: branchName.get(e.branchId) ?? "",
       departmentId: e.departmentId,

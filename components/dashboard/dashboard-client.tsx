@@ -133,7 +133,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           ) : undefined
         }
         actions={[
-          { id: "run", label: "Run payroll", icon: Play, group: "create", href: "/payroll/generate", hidden: !access.payrollGenerate || access.supportView },
+          { id: "run", label: "Run payroll", icon: Play, group: "create", href: "/payroll", hidden: !access.payrollGenerate || access.supportView },
           { id: "employee", label: "Add employee", icon: UserPlus, group: "create", href: "/workforce/employees/new", hidden: !access.employeesAdd },
           { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", onClick: refresh, disabled: refreshing },
         ]}

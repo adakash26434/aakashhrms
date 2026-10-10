@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, date, index, primaryKey } from 'drizzle-orm/pg-core';
+import { customType, pgTable, timestamp, uuid, varchar, text, integer, boolean, numeric, jsonb, pgEnum, unique, uniqueIndex, date, index, primaryKey } from 'drizzle-orm/pg-core';
 
 
 // -----------------------------------------------------------------------------
@@ -1016,6 +1016,8 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
   leaveDeductionAmount: numeric('leave_deduction_amount', { precision: 15, scale: 2 }).default('0').notNull(),
   
   otWarnings: text('ot_warnings'),
+  // 4.7b: how the overtime amount was worked out (hours, hourly rate, rates).
+  otDetail: jsonb('ot_detail').$type<import('@/lib/types/overtime').OvertimeDetail>(),
 
   // 4.5: the attendance month (BS or AD) and the day counts payroll uses.
   calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
@@ -1036,7 +1038,9 @@ export const leaveOtCalculations = pgTable('leave_ot_calculations', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
-  unq: unique().on(t.employeeId, t.fiscalYearId, t.bsMonth),
+  // 4.8b: one summary per employee and attendance month in the company's calendar (the old
+  // (employee, fiscal year, bs_month) key is gone: AD months do not map to one BS month).
+  periodIdx: uniqueIndex('leave_ot_calculations_period_idx').on(t.employeeId, t.calendar, t.periodYear, t.periodMonth).where(sql`period_year is not null`),
   fyMonthIdx: index('leave_ot_calculations_fy_month_idx').on(t.fiscalYearId, t.bsMonth),
 }));
 
@@ -1093,6 +1097,43 @@ export const attendanceAdjustments = pgTable('attendance_adjustments', {
   empDateIdx: index('attendance_adjustments_emp_date_idx').on(t.employeeId, t.attendanceDate),
   statusIdx: index('attendance_adjustments_status_idx').on(t.status),
 }));
+
+/**
+ * 4.7b: decided overtime days. "detected": written when an approver decides the
+ * overtime the punches show (detected_minutes at that moment; a later change
+ * sends the day back for a decision). "manual": overtime added by hand.
+ */
+export const overtimeEntries = pgTable('overtime_entries', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  workDate: date('work_date').notNull(),
+  source: varchar('source', { length: 10 }).notNull(), // detected | manual
+  dayKind: varchar('day_kind', { length: 5 }).notNull(), // work | off
+  detectedMinutes: integer('detected_minutes').default(0).notNull(),
+  requestedMinutes: integer('requested_minutes').default(0).notNull(),
+  approvedMinutes: integer('approved_minutes').default(0).notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn
+  overLimit: boolean('over_limit').default(false).notNull(),
+  reason: text('reason'),
+  preparedBy: uuid('prepared_by'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  uniqueDay: unique('overtime_entries_employee_date_source_key').on(t.employeeId, t.workDate, t.source),
+  dateIdx: index('overtime_entries_date_idx').on(t.workDate),
+  statusIdx: index('overtime_entries_status_idx').on(t.status),
+}));
+
+/**
+ * 4.8b: one row per source month on an arrears payslip: what the locked regular payslip
+ * paid, what is due with the revision or attendance now in force, and the difference. The
+ * LOCKED items of a month are added to "paid" when the next difference is worked out, so a
+ * month is never paid twice.
+ */
 
 /** 4.5: an attendance month per branch (BS now, AD with 4.8): open, or closed for payroll. */
 export const attendancePeriods = pgTable('attendance_periods', {
@@ -1293,11 +1334,24 @@ export const payrollRuns = pgTable('payroll_runs', {
   publishedAt: timestamp('published_at'),
   publishedBy: uuid('published_by'),
   notes: text('notes'),
-  
+  // 4.8b: the calendar of the pay month ("BS" | "AD"; the company pays in one calendar).
+  calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
+  // 4.8a: the kind of run, the approval flow copied on at submission (approval.engine), who
+  // submitted it, and the variance review against the last locked run.
+  runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  variance: jsonb('variance').$type<import('@/lib/types/payroll-run').RunVariance>(),
+  submittedBy: uuid('submitted_by'),
+  submittedAt: timestamp('submitted_at'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   fiscalYearIdIdx: index('payroll_runs_fiscal_year_id_idx').on(table.fiscalYearId),
+  periodIdx: index('payroll_runs_period_idx').on(table.calendar, table.payPeriodYear, table.payPeriodMonth, table.runType, table.status),
   generatedByIdx: index('payroll_runs_generated_by_idx').on(table.generatedBy),
   reviewedByIdx: index('payroll_runs_reviewed_by_idx').on(table.reviewedBy),
   approvedByIdx: index('payroll_runs_approved_by_idx').on(table.approvedBy),
@@ -1326,6 +1380,14 @@ export const payrollSlips = pgTable('payroll_slips', {
   loanDeduction: numeric('loan_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
   absentDeduction: numeric('absent_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
   otAmount: numeric('ot_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  // 4.7b: how ot_amount was worked out (the payslip's overtime line); absent on older slips.
+  otDetail: jsonb('ot_detail').$type<import('@/lib/types/overtime').OvertimeDetail>(),
+  // 4.8a: the month's welfare fund contributions (employee share deducted; the detail per fund).
+  fundDeduction: numeric('fund_deduction', { precision: 15, scale: 2 }).default('0').notNull(),
+  fundDetail: jsonb('fund_detail').$type<import('@/lib/types/payroll').FundLine[]>(),
+  // 4.8b: how the income tax was projected (year to date, remaining months, annual tax).
+  taxDetail: jsonb('tax_detail').$type<import('@/lib/types/payroll').TaxDetail>(),
+  // 4.8b: an arrears payslip's source months (paid, due, difference per component).
   bankAccountNumber: varchar('bank_account_number', { length: 100 }).notNull(),
   bankName: varchar('bank_name', { length: 255 }).notNull(),
   payslipMonth: integer('payslip_month'),

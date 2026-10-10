@@ -152,6 +152,9 @@ export interface MyMonth {
   days: DayResult[];
   summary: MonthSummary;
   requests: { id: string; kind: "remote_in" | "remote_out"; at: string; status: string; reason: string }[];
+  /** 4.7b: each overtime day and where it stands; how the company decides overtime. */
+  overtime: import("@/lib/types/overtime").OvertimeLine[];
+  overtimeApproval: "required" | "auto";
 }
 
 export async function myMonth(employeeId: string, year?: number, month?: number): Promise<MyMonth> {
@@ -168,8 +171,8 @@ export async function myMonth(employeeId: string, year?: number, month?: number)
   const counted = own.days.filter((d) => d.date <= today);
   const fromInstant = new Date(Date.parse(`${period.start}T00:00:00Z`) - 6 * 3600 * 1000).toISOString();
   const toInstant = new Date(Date.parse(`${period.end}T00:00:00Z`) + 36 * 3600 * 1000).toISOString();
-  const requests = await repo.findOwnRemote(employeeId, fromInstant, toInstant);
-  return { period, today, days: own.days, summary: summariseMonth(period, counted, rules), requests };
+  const [requests, ot] = await Promise.all([repo.findOwnRemote(employeeId, fromInstant, toInstant), attendanceService.ownOvertime(employeeId, counted, period.start, period.end)]);
+  return { period, today, days: own.days, summary: summariseMonth(period, counted, rules), requests, overtime: ot.lines, overtimeApproval: ot.approval };
 }
 
 // ---------------------------------------------------------------------------

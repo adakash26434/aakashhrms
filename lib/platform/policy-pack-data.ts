@@ -201,8 +201,8 @@ export const DEFAULT_NEPAL_POLICY_PACK_V1: StatutoryPolicyPackPayload = {
       rateOffDay: 1.5,
       maxWeeklyHours: 24,
       description:
-        'Overtime remuneration must be calculated at 1.5 times the regular basic hourly rate. Maximum 24 overtime hours allowed per week.',
-      legalSection: 'Section 31, Nepal Labour Act 2074',
+        'The legal minimum: overtime is paid at 1.5 times the hourly rate of the basic remuneration (basic + grade) ÷ 240, at most 4 hours a day and 24 hours a week. Companies may pay more; the sync never changes the overtime policy a company has saved.',
+      legalSection: 'Sections 30–31, Labour Act 2074',
       isPlatformLocked: true,
     },
   ],

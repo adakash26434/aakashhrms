@@ -3,7 +3,7 @@ import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
 import { platformPolicyPacks, platformAuditLogs, companies } from '@/lib/platform/schema';
 import { requirePlatformAuth } from '@/lib/platform/auth';
 import { getTenantDb } from '@/lib/db/tenant-pool-manager';
-import { leaveTypes, otRules, auditLogs, payHeads, taxRateSlabs, fiscalYears } from '@/lib/db/schema';
+import { leaveTypes, auditLogs, payHeads, taxRateSlabs, fiscalYears } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { DEFAULT_NEPAL_POLICY_PACK_V1, StatutoryPolicyPackPayload } from '@/lib/platform/policy-pack-data';
 import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
@@ -125,32 +125,8 @@ export async function POST(request: Request) {
         // Leave exceptions granted to this company (4.6d), copied read-only.
         await pushToCompany(company.id);
 
-        // B. Upsert Statutory Overtime Rules
-        for (const ot of packPayload.otRules || []) {
-          await tenantDb
-            .insert(otRules)
-            .values({
-              ruleName: ot.name,
-              ruleType: ot.ruleType,
-              rateOfficeDay: String(ot.rateOfficeDay),
-              rateOffDay: String(ot.rateOffDay),
-              isPlatformLocked: true,
-              platformCode: ot.code,
-              isActive: true,
-            })
-            .onConflictDoUpdate({
-              target: otRules.ruleName,
-              set: {
-                ruleType: ot.ruleType,
-                rateOfficeDay: String(ot.rateOfficeDay),
-                rateOffDay: String(ot.rateOffDay),
-                isPlatformLocked: true,
-                platformCode: ot.code,
-                isActive: true,
-                updatedAt: new Date(),
-              },
-            });
-        }
+        // B. Overtime (4.7): the pack's rate is the legal minimum; a company's own policy is
+        // never changed by the sync (the app raises anything below the law when it reads it).
 
         // C. Upsert Statutory Deductions (SSF, EPF, CIT) into pay_heads
         for (const ded of packPayload.statutoryDeductions || []) {

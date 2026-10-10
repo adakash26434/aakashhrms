@@ -6,7 +6,7 @@ import { join } from 'node:path';
 // F5 wiring: every place that calculates a payslip gives the engine the earlier months of the
 // fiscal year (approved / locked only, never the run being recalculated) and keeps the sheet.
 
-const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
+const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const service = read('lib/services/payroll.service.ts');
 const repo = read('lib/repositories/payroll.repository.ts');
 
@@ -20,7 +20,10 @@ describe('tax projection wiring', () => {
   });
 
   it('all three calculation sites pass the month index and history; the year-end month keeps reconciling', () => {
-    assert.equal((service.match(/fiscalMonthIndex: getFiscalMonthIndex\(run\.payPeriodMonth\)/g) ?? []).length, 2);
+    // Merged with the pay calendar (2026-10-10): the index is counted in the run's calendar (BS or AD).
+    assert.equal((service.match(/fiscalMonthIndex: fiscalMonthIdx,/g) ?? []).length, 2);
+    assert.equal((service.match(/const fiscalMonthIdx = fiscalMonthIndexFor\(runCalendar, run\.payPeriodMonth\);/g) ?? []).length, 2);
+    assert.match(service, /const fiscalMonthIndex = fiscalMonthIndexFor\(calendar, payPeriodMonth\);/);
     assert.match(service, /fiscalMonthIndex,\n\s+projectionHistory: earlierTaxMonths\.get\(emp\.id\)/);
     assert.equal((service.match(/isYearEnd \? \[\]/g) ?? []).length, 2);
     assert.match(service, /isYearEndMonth \? new Map/);

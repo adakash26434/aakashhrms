@@ -101,7 +101,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       // Section Roots
-      { source: "/payroll", destination: "/payroll/generate", permanent: false },
+      // 4.8a: /payroll is the Payroll page itself; the old /payroll/generate and /payroll/review redirect to it.
       { source: "/timeAndLeave", destination: "/timeAndLeave/attendance", permanent: false },
       { source: "/time-and-leave", destination: "/timeAndLeave/attendance", permanent: false },
       { source: "/time-and-leave/:path*", destination: "/timeAndLeave/:path*", permanent: false },

@@ -15,6 +15,17 @@ import { cn } from "@/lib/utils";
 import { DayCode, DayLegend, dayName } from "./attendance-shared";
 import { AdjustmentWindow, PunchWindow } from "./attendance-windows";
 
+/** The day's overtime and where it stands (4.7b): "1h 30m · waiting", "2h · approved 1h 30m". */
+const overtimeText = (lines: AttendancePageData["overtime"]) =>
+  lines.length
+    ? lines
+        .map((o) => {
+          const state = o.state === "auto" ? "paid" : o.state === "waiting" || o.state === "changed" ? "waiting" : o.state === "approved" ? `approved ${hoursText(o.approvedMinutes ?? 0)}` : o.state === "rejected" ? "rejected" : "withdrawn";
+          return `${hoursText(o.minutes)}${o.source === "manual" ? " (by hand)" : ""} · ${state}`;
+        })
+        .join("; ")
+    : "—";
+
 const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 const WEEKDAY_NAME = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CLEAR = "auto";
@@ -249,7 +260,7 @@ export function AttendanceRegister({ data, onSaved }: { data: AttendancePageData
               ["Worked", activeDay.workMinutes ? hoursText(activeDay.workMinutes) : "—"],
               ["Late", activeDay.lateMinutes ? `${activeDay.lateMinutes} min` : "—"],
               ["Left early", activeDay.earlyMinutes ? `${activeDay.earlyMinutes} min` : "—"],
-              ["Overtime", activeDay.otWorkDayMinutes + activeDay.otOffDayMinutes ? hoursText(activeDay.otWorkDayMinutes + activeDay.otOffDayMinutes) : "—"],
+              ["Overtime", overtimeText(data.overtime.filter((o) => o.employeeId === activeRow.employee.id && o.date === activeDay.date))],
             ].map(([k, v]) => (
               <div key={k}>
                 <dt className="text-3xs uppercase tracking-wide text-ink-muted">{k}</dt>

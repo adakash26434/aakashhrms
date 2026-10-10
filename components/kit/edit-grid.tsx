@@ -103,6 +103,7 @@ export function EditGrid<R>({
   maxHeight = "calc(100vh - 360px)",
   empty,
   footer,
+  singleClickEdit = false,
 }: {
   rows: readonly R[];
   getRowId: (row: R) => string;
@@ -116,6 +117,7 @@ export function EditGrid<R>({
   maxHeight?: string;
   empty?: ReactNode;
   footer?: ReactNode;
+  singleClickEdit?: boolean;
 }) {
   const cols = columns as readonly EditGridColumn<unknown>[];
   const dims = { rows: rows.length, cols: columns.length };
@@ -422,7 +424,7 @@ export function EditGrid<R>({
                     title={c.hint}
                     style={{ width: c.width ?? 120, minWidth: c.width ?? 120, left: c.pinned ? pinnedOffsets.offsets[j] : undefined }}
                     className={cn(
-                      "border-b border-r border-line-strong bg-surface-sunken px-2 py-1.5 text-2xs font-semibold text-ink-muted",
+                      "border-b border-r border-line-strong bg-surface-sunken px-2 py-1.5 text-2xs font-semibold uppercase tracking-wider text-ink-muted",
                       c.align === "left" || c.kind === "choice" ? "text-left" : c.kind === "check" ? "text-center" : "text-right",
                       c.pinned && "sticky z-30",
                       c.pinned && !columns[j + 1]?.pinned && "border-r-line-strong",
@@ -464,6 +466,9 @@ export function EditGrid<R>({
                           gridRef.current?.focus({ preventScroll: true });
                         }}
                         onMouseEnter={() => dragging.current && setActive(cell)}
+                        onClick={() => {
+                          if (singleClickEdit && editable && !editing) startEdit();
+                        }}
                         onDoubleClick={() => startEdit()}
                         className={cn(
                           "relative h-8 border-b border-r border-line px-2 py-0",

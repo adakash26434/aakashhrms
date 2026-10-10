@@ -17,6 +17,7 @@ import {
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
 import type { ApprovalActionKind, ApprovalRoute } from "@/lib/types/approval";
 import type { DayResult, MonthSummary, OverrideType, PunchSource } from "@/lib/types/attendance";
+import type { OvertimeDetail } from "@/lib/types/overtime";
 import { postLedgerLines, type NewLedgerLine } from "@/lib/repositories/leave.repository";
 
 // Attendance (4.5): punches, HR overrides, daily results, adjustments
@@ -468,12 +469,21 @@ export async function findClosedPeriodsOverlapping(from: string, to: string): Pr
     .where(and(eq(attendancePeriods.status, "closed"), lte(attendancePeriods.startDate, to), gte(attendancePeriods.endDate, from)));
 }
 
-/** Payroll runs for a BS month that are approved or locked (they stop reopening attendance). */
-export async function countFinalisedPayrollRuns(bsYear: number, bsMonth: number): Promise<number> {
+/** Regular payroll runs for a month (company calendar) that are approved or locked (4.8b: arrears pay later corrections). */
+export async function countFinalisedPayrollRuns(calendar: string, year: number, month: number): Promise<number> {
   const [row] = await (await getDb())
     .select({ n: sql<number>`count(*)::int` })
     .from(payrollRuns)
-    .where(and(eq(payrollRuns.payPeriodYear, bsYear), eq(payrollRuns.payPeriodMonth, bsMonth), inArray(payrollRuns.status, ["APPROVED", "LOCKED"])));
+    .where(and(eq(payrollRuns.calendar, calendar), eq(payrollRuns.payPeriodYear, year), eq(payrollRuns.payPeriodMonth, month), eq(payrollRuns.runType, "REGULAR"), inArray(payrollRuns.status, ["APPROVED", "LOCKED"])));
+  return row?.n ?? 0;
+}
+
+/** Attendance months still open in a calendar (the pay calendar can change only when none is). */
+export async function countOpenPeriods(calendar: string): Promise<number> {
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(attendancePeriods)
+    .where(and(eq(attendancePeriods.calendar, calendar), eq(attendancePeriods.status, "open")));
   return row?.n ?? 0;
 }
 
@@ -483,6 +493,10 @@ export interface SummaryWrite {
   bsMonth: number;
   summary: MonthSummary;
   otEarnedAmount: number;
+  /** 4.7b: how the amount was worked out (hours, hourly rate, rates). */
+  otDetail: OvertimeDetail;
+  /** Overtime minutes paid (4.7: each day rounded by the policy), stored as the month's OT hours. */
+  otMinutes: { work: number; off: number };
   leaveDeductionAmount: number;
 }
 
@@ -547,9 +561,10 @@ export async function closePeriod(params: {
         absentDays: String(m.absentDays + m.missingPunchDays),
         payLeaveDays: String(m.paidLeaveDays),
         nonPayLeaveDays: String(m.unpaidLeaveDays),
-        totalOtHoursOffice: String(Math.round((m.otWorkDayMinutes / 60) * 100) / 100),
-        totalOtHoursOff: String(Math.round((m.otOffDayMinutes / 60) * 100) / 100),
+        totalOtHoursOffice: String(Math.round((s.otMinutes.work / 60) * 100) / 100),
+        totalOtHoursOff: String(Math.round((s.otMinutes.off / 60) * 100) / 100),
         otEarnedAmount: String(s.otEarnedAmount),
+        otDetail: s.otDetail,
         leaveDeductionAmount: String(s.leaveDeductionAmount),
         otWarnings: m.otWarnings.length ? m.otWarnings.join("\n") : null,
         calendar: m.calendar,
@@ -570,7 +585,8 @@ export async function closePeriod(params: {
       await tx
         .insert(leaveOtCalculations)
         .values({ employeeId: s.employeeId, fiscalYearId: s.fiscalYearId, bsMonth: s.bsMonth, ...values })
-        .onConflictDoUpdate({ target: [leaveOtCalculations.employeeId, leaveOtCalculations.fiscalYearId, leaveOtCalculations.bsMonth], set: values });
+        // One summary per employee and attendance month in the company's calendar (4.8b).
+        .onConflictDoUpdate({ target: [leaveOtCalculations.employeeId, leaveOtCalculations.calendar, leaveOtCalculations.periodYear, leaveOtCalculations.periodMonth], targetWhere: sql`period_year is not null`, set: values });
     }
     if (params.ledger?.length) await postLedgerLines(params.ledger, tx);
   });

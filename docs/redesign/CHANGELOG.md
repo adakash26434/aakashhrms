@@ -13,6 +13,21 @@ Notes: follow-ups, decisions
 
 ---
 
+## 2026-10-10 — Merge the team's payroll controls (PR #4) into 4.8
+Branch: `redesign/4.8-payroll` (merge of `origin/main` at `21fc40e`)
+
+**Your decision:** the team's payroll logic is the base; our good parts stay on top.
+
+**Kept from the team (base):** maker-checker on every status move and variance acknowledgements (F1–F2), publish / hold to self-service and pre-flight rules (F3), the tax projection with its computation sheet (F5), arrears inside the regular run (F7), full & final settlement on the exit case with print (F8), OT rules with the one formula `otPay` (4.7), Payroll controls settings.
+**Kept from ours, on top:** the `/payroll` workspace (the team's controls panel sits in its Variance and Lock steps; submit needs every team flag acknowledged), multi-level approval routes, the AD pay calendar (the team's tax months are counted in the run's calendar: `fiscalMonthIndexFor`, `findEarlierTaxMonths(..., calendar)`), the working period, overtime approvals and rounding (the policy decides the minutes, `otPay` and the OT rules the rate), the pre-flight engine with the team's statutory-head and closed-attendance rules added, the payslip pane (the team's tax sheet replaces our income-tax block).
+**Retired (two of each would pay twice):** our YTD tax (`projectTds`, `taxInputsFor`), the Arrears run (`arrears_items`), the Final settlement run (`exit_case_id`, `settlement_detail`), the Festival bonus run, our variance store (`payroll_runs.variance`), our 4.8a fund deduction (the team's `WELFARE_FUND` head is the one deduction), reopening attendance after a lock (the team's arrears pay revisions only, so it is refused again), the payroll lock on back-dated revisions (the team allows them; arrears pay the difference).
+**Migrations:** the team's 0060–0066 keep their numbers; ours are `0067_overtime`, `0068_payroll_run_approval`, `0069_pay_calendar` (journal timestamps after the team's); our `0063_arrears` and `0064_final_settlement` are dropped (a dev database that ran them keeps two unused tables / columns).
+**Tests:** ours updated to the merged behaviour; the team's tax-wiring test follows the calendar-aware index.
+
+**Verified:** type-check 0 · tests 1262/1262 · eslint clean on the files edited in the merge · build exit 0 (tests and build run in a separate worktree with a placeholder `DATABASE_URL`; no `.env` there) · browser: not run yet (the dev server runs from the main folder on `main`; needs the branch checked out and a restart).
+
+---
+
 ## 2026-10-10 — 4.8 / F8: full & final settlement
 Branch: feature/payroll-controls
 Changed: `lib/engines/settlement.engine.ts` (salary for unpaid BS months, leave encashment, optional gratuity, notice shortfall, loan outstanding, final TDS through `buildTaxSheet` with one month left; draft → approved → paid), migration `0066_exit_settlement` (`exit_settlements`, mirrored in `ensureTenantSchema`), `settlement.repository/service`, `app/actions/settlement.actions.ts`, `components/exit/settlement-panel.tsx` (inside the exit case window) and a printable bilingual statement at `/workforce/exit/[caseId]/settlement`.
@@ -43,6 +58,161 @@ Changed: migration `0062_targets` (`employee_targets`, `target_attachments`, TAR
 Verified: tsc 0; 1100+ tests incl. `target.engine.test.ts` (14) and `security-targets.test.ts` (12, S42); eslint clean on touched files; browser flow on the demo company: HR set a monthly target for two people → employee reported 30 with a PDF → sent to supervisor → supervisor verified 45 and forwarded → HR closed; evidence download 200 for the owner and for an in-scope office reader.
 Notes: S42 — nobody sets, changes, reviews or closes their own targets (`DENIED_SELF`); the supervisor is the employee's `supervisor_id`; every step claim-first; the verified figure wins over the reported one for scoring. Debt: feed the closed yearly score into the evaluation's KPI rows (G1), reminders for unreported months (G6 job), target templates / copy last month, supervisor reassignment history.
 
+---
+
+## 2026-10-10 — Merge main into 4.8 (the team's Phase G, TA-DA and payroll feeds)
+Branch: `redesign/4.8-payroll` (merge of `origin/main` at `453bcca`)
+
+**Your decision:** keep both the team's work and the 4.7 / 4.8 work.
+
+**Changed:**
+- **Migrations renumbered:** both sides had used 0055–0059. The team's keep their numbers (discipline, training, assets & notices, travel, payroll feeds); ours are now `0060_overtime`, `0061_payroll_run_approval`, `0062_pay_calendar_ytd_tax`, `0063_arrears`, `0064_final_settlement`, with journal timestamps after the team's (drizzle applies a migration only when its timestamp is newer than the last one applied). All five are idempotent, so a database that already ran them under the old numbers is unaffected.
+- **Security finding IDs renumbered:** the team used S33–S39 in their code and tests; our payroll findings are now **S40** (4.8a, was S34), **S41** (4.8b, was S35), **S42** (settlement, was S36).
+- **Payroll service:** the team's per-year tax slabs (`findSlabsByFiscalYear`) and run totals refreshed after each transaction commits (`refreshRunTotals`) replace our versions of the same fixes.
+- **One welfare-fund deduction:** both sides deducted the month's welfare-fund contributions (the team's `WELFARE_FUND` head, our 4.8a `fundDeduction` / `fundDetail`). Our per-fund deduction stays; the head is added only when it is absent, so nobody pays twice.
+- **TA-DA claims and fund feeds for regular runs only:** a festival bonus run would otherwise have marked claims paid without paying them.
+- **Exit case:** the team's fund-aware facts and our settlement run link both stay. The team blocks completing an exit while a welfare-fund balance is held, so a settlement's fund payout line normally finds nothing to pay (the balance is paid out before the case closes).
+- **Tests:** the funds test reads files with LF endings (a fresh Windows checkout has CRLF); our payroll-run tests follow the team's helpers; two tests pin the merge decisions.
+
+**Verified:** type-check 0 · tests 1164/1164 (run with a placeholder `DATABASE_URL` in the worktree, which has no `.env`) · eslint clean on the merge-touched files (`payroll.service.ts` 31 problems, the team's version 32) · build exit 0 (also with the placeholder `DATABASE_URL`; the build only needs it defined).
+
+---
+
+## 2026-10-09 — 4.8b-3 Payroll run: final settlement; E1 working period
+Branch: `redesign/4.8-payroll`
+
+**Your decisions:** the final settlement is part of 4.8b; the working period (E1) lives in the title bar.
+
+**Changed:**
+- **Final settlement run** (kind Final settlement in New run): pick a closed exit case (Workforce → Exit), optionally a notice period recovery; Check shows the settlement worked out on the server — the last month pro rata from attendance (not paid again when a locked regular run already paid it), home / sick and encashable leave at the last basic salary (§49), the gratuity by the company's rules (§53: 8.33% of basic per month served from 12 months, none for SSF members unless allowed, withheld at 5%), each welfare fund's balance paid out, every active loan closed out, the income tax reconciled for the year (everything taxable now, one month remaining); a net below zero is refused by name. Generate makes a one-slip FINAL_SETTLEMENT run tied to the case (one per case); approval and lock as any run; the **LOCK** closes the loans with a repayment each, posts the fund payouts, pays the leave out in the ledger with a PAID termination leave-salary row and seals the month's attendance for the leaver — all inside the lock transaction. The payslip pane shows a **Settlement** block; the exit case links to its run. Migration 0059.
+- **Payroll settings** gain the settlement rules (gratuity % per month served, months before gratuity, tax withheld %, SSF members too).
+- **Salary-map write-back on lock now for regular runs only** (a bonus, arrears or settlement head never reaches the structure; the earlier test matched the loan loop, not this one).
+- **E1 working period:** a title-bar pill ("Period · Aswin 2083") with previous / next, month, year and This month; kept in a cookie the server validates against the company's pay calendar. Payroll's New run month, Attendance's month (when the URL names none) and the report month start from it.
+- **Docs:** 03 S42, 04 row 4.8 and E1 note, 02 payroll and title-bar sections, CLAUDE.md known debt.
+
+**Verified:** type-check 0 · tests 1059/1059 · eslint clean on the 4.8b-3 files (`payroll.service.ts` 31 and `payroll.repository.ts` 4 pre-existing problems, unchanged) · build exit 0 · browser (Goodlife finance admin, Playwright, after migration 0064): New run → Final settlement shows the Exit case picker ("No closed exit case waits for a settlement"), Generate disabled, Check answers "Choose the exit case"; Settings shows the Final settlement fieldset with 8.33 / 12 / 5 and the SSF checkbox; the title-bar pill read "Period · Aswin 2083", Previous month + Use this period set the cookie to BS:2083-05, New run opened on Bhadra and the Attendance register showed "Bhadra 2083 (2026-08-17 – 2026-09-16, 31 days)", This month reset it; console 0 errors. The generate / lock path of a settlement is covered by the unit tests only (Goodlife has no closed exit case).
+
+---
+
+## 2026-10-09 — 4.8b-2 Payroll run: arrears
+Branch: `redesign/4.8-payroll`
+
+**Your decisions:** attendance may be reopened after payroll is locked and the difference paid as arrears; the locked payslip never changes.
+
+**Changed:**
+- **Arrears run** (kind Arrears in New run): Check lists the employees and months already paid whose pay differs now — a salary revision approved after the lock with an effective date in the month, or a month's attendance reopened and closed again — each recomputed on the server with the revision in force at the month's end and the closed summary (`lib/services/arrears.service.ts`, `lib/engines/arrears.engine.ts`: basic, grade, allowances, overtime, unpaid days, retirement contributions, CIT and the other deductions compared; loans, funds and income tax not). HR ticks the months; Generate recomputes them again and pays one earning per month (a negative month as a recovery), the employee's contribution differences as deductions, the employer's on the slip, and the income tax once through the year-to-date projection. The payslip keeps the months (`arrears_detail`, shown in the pane) and `arrears_items` rows, whose LOCKED diffs count as paid next time; an employee-month waits in one unlocked arrears run at a time. Migration 0063.
+- **Back-dated revisions** are allowed into locked months (`assertPayrollOpen` now refuses only months with a regular run being prepared: draft, under review or approved); the revision window says so.
+- **Attendance reopen after lock** allowed (reason required, audited `REOPEN_AFTER_LOCK`); the Month close window says the payslips do not change and the difference is paid as arrears.
+- **From the browser check:** a month's arrears line is the gross difference (paid against due), not the sum of the parts — payslips made before 4.8 split the heads differently (the grade as a head, the employer's SSF inside the gross), so the parts explain the line without defining it; a back-dated revision rates the month's unpaid days again with the revised basic and grade (the close had stored the amount for the basic in force then); a month that owes money back (recovery more than the arrears) is refused by name — the recovery belongs on a regular run, which is not built yet (known debt).
+- **Payslip pane:** each head shows its calculated amount (the base amount read 0.00 for computed heads such as SSF and for the arrears heads).
+- **Docs:** 03 S41 extended, 04 row 4.8, 02 payroll section, CLAUDE.md known debt.
+
+**Verified:** type-check 0 · tests 1040/1040 · eslint clean on the 4.8b-2 files (`payroll.service.ts` keeps its 31 pre-existing problems, same as the committed version) · build exit 0 · browser (Goodlife finance admin, Playwright): a TEST ONLY revision back-dated to Shrawan 1, 2083 was allowed past the locked Shrawan run (no lock message); New run → Arrears → Check listed Shrawan 2083 for both Head Office employees — the Shrawan attendance summaries had been written again on 2026-10-05 with 21 of 31 days unpaid, so Sumina shows "Attendance corrected" and both owe money back; Generate refused Pramod's month by name ("the recovery (26298.55) is more than the arrears (0)"); with a second TEST ONLY revision (DA 30,000) Pramod's line read paid 39,500.00 · due 48,551.61 · +9,051.61, Sumina unticked, Generate opened "Bhadra 2083 · Arrears" (gross 9,051.61, SSF 605, net 8,446.61; one `arrears_items` row, `batch:` source); the pane showed **Arrears: the months** above the Income tax block; Discard (type DISCARD) removed the run; the test revisions and batches were removed by script and Pramod's current revision restored; console 0 errors.
+
+---
+
+## 2026-10-09 — 4.8b-1 Payroll run: pay calendar, year-to-date income tax, run types
+Branch: `redesign/4.8-payroll`
+
+**Your decisions:** AD months included now; year-to-date tax; the three run-type steps of 4.8b in order (this is the first).
+
+**Changed:**
+- **Pay calendar:** one company setting (`payroll.calendar`, BS / AD) in the Payroll settings window, changed only between months (every attendance month closed, every run locked or discarded). Attendance months follow it (`getRules()`); runs carry it (`payroll_runs.calendar`); month summaries are keyed by `(employee, calendar, year, month)` (migration 0062; the old fiscal-year + BS-month constraint dropped; pre-4.5 rows backfilled). `lib/engines/pay-calendar.engine.ts`: the fiscal year's months in either calendar (with AD months the year-end month is July), months remaining, run labels, the switch rule.
+- **Income tax:** `projectTds` replaces "this month × 12" and the Ashadh branch: year to date (LOCKED payslips of the run's fiscal year) + this month + the remaining months at this month's regular pay, one-offs (festival bonus) counted once, retirement and CIT within the limits, less the tax already deducted, spread over the months left; the year-end month reconciles exactly; contract 15% and trainee none unchanged. The working is stored on the slip (`tax_detail`) and shown in the payslip pane. The run's fiscal year is the one containing the month, not "the first Active one".
+- **Run types:** Regular and Festival bonus (a bonus run beside the regular one: only the chosen festival heads, no attendance, loans, funds or salary-map write-back; taxed once); the New run window asks the kind first; Type column in the Runs grid; the step rail shows Variance for regular runs only.
+- **Reports / self-service:** the TDS report counts LOCKED runs only; employees see LOCKED payslips only, with the run label; the salary sheet and dashboard unchanged for BS companies.
+- Leave and attendance read the pay calendar where they assumed BS (home leave months, months waiting for close, the leave calendar, the attendance report, overtime waiting, finalised-payroll checks).
+- **Docs:** 03 S41, 04 row 4.8, 02 payroll section, CLAUDE.md known debt.
+
+**Verified:** type-check 0 · 1030/1030 tests (new `tests/pay-calendar.test.ts`; year-to-date cases in `payroll-calculation.test.ts`; S35 in `security-payroll.test.ts`; bonus pre-flight in `payroll-run.test.ts`) · eslint: no new problems on the touched files (payroll.service.ts 35 → 31) · `npm run build` OK · browser on Goodlife finance: `/payroll` with the Type column; a regular Bhadra 2083 run for Head Office whose payslip pane shows the Income tax block (paid so far 39,500 taxable · 1 month, this month 18,210, projected 2,39,806 − retirement 79,935, annual tax 0, spread over 11 months); the Settings window refused the switch to Gregorian months while that draft existed ("changes only between months … 1 pay run not locked"); a Festival bonus run for the same month beside it (3 employees, each payslip the festival allowance only, net 87,000, no Variance step, label "Bhadra 2083 · Festival bonus"); both runs discarded. Console 0 errors.
+
+---
+
+## 2026-10-09 — 4.8a Payroll run: the run workspace, pre-flight, variance, maker-checker
+Branch: `redesign/4.8-payroll` (from the 4.7 tip, which includes `main` G1–G9)
+
+**Your decisions:** 4.8 in three steps, 4.8a first; desktop structure like Attendance (PageBar, folder tabs, DataGrid + pane, Windows) with short wording and no explanatory banners.
+
+**Changed:**
+- **One page `/payroll`** (template C): Runs (DataGrid) and Run (step rail Pre-flight → Variance → Review → Approval → Lock). `/payroll/generate` and `/payroll/review` redirect; the navigator has one Payroll runs entry. New: `components/payroll/payroll-runs-client.tsx`, `payroll-run-workspace.tsx`, `payroll-run-windows.tsx`, `payslip-pane.tsx`. Removed: the 17 old payroll screen files (client, setup form, pipeline, exceptions card, review grid, pre-flight cards, scope pickers, payslip modal, bank export button).
+- **Pre-flight** (`lib/engines/payroll-run.engine.ts` → `preflight`): blocking — month not ended, attendance month open for a chosen branch (4.5 only warned), leave requests waiting, salary changes waiting that touch the month, no salary structure or basic + grade only, overtime days waiting, no active fiscal year / no slabs, an existing run; warnings — no bank account, no PAN, the previous month not locked, fund contributions not posted; information — joiners and leavers. Run in the New run window (Check) and again before submission.
+- **Variance** (`variance`): each payslip against the same person's slip in the last LOCKED run — gross, net, income tax, SSF beyond ±threshold (default 5%, setting `payroll.varianceThreshold`), bank account changed, first payslip, leaver still paid, zero or negative net. Stored on the run; every flag acknowledged with a note (who, when) before the run can be submitted; acknowledgements stand while the flags are unchanged.
+- **Approval:** the approval engine in strict mode (`approvals.payrollRun`: simple / multi-level; "none" refused). Submit copies the flow on; Approve (level), Final approve, Reject with a reason back to draft; claim-first on the level; timeline in `approval_actions`. The preparer never approves, administrators included (the old role-slug exemption in `transitionPayrollRun` is gone). Lock needs an APPROVED run and PAYROLL_REVIEW → LOCK.
+- **S21 on payslips:** `guardSlip` refuses changing, adding to, recalculating or removing your own payslip, and acknowledging its variance (audited `DENIED_SELF`).
+- **Figures:** run totals recomputed from the payslips after every change (`recomputeTotals`; the 4.1 drift is fixed); income tax slabs of the run's fiscal year only; the month's AD dates from the BS month itself (`periodFor`), not `toISOString()`.
+- **Payslip:** the overtime working line (4.7b) and the month's welfare fund contributions (`fund_deduction` as a post-tax deduction like a loan instalment, `fund_detail` per fund with the employer share) — `calculatePayslip` takes `fundDeduction`.
+- **Migration 0061** (`0061_payroll_run_approval`, additive; mirrored in `ensureTenantSchema`).
+- **Docs:** 03 S40, 04 row 4.8, 02 "Implemented payroll run", CLAUDE.md known debt.
+
+**Verified:** type-check 0 · 1010/1010 tests (new `tests/payroll-run.test.ts`, `tests/security-payroll.test.ts`) · eslint clean on the touched files (payroll.service.ts 35 → 32 pre-existing problems) · `npm run build` OK · browser on Goodlife finance: `/payroll` lists the locked Shrawan run; New run suggested Bhadra 2083, Check found the one blocker (Pokhara's attendance month open), with Head Office only pre-flight passed and Generate produced 3 payslips; the variance step flagged Pramod (gross −53.9%) and Sumina (−47.8%) against Shrawan — both real, −21,290.32 of unpaid days from Bhadra's attendance — and Kushal's first payslip; three acknowledgements with notes; Submit → "Waiting for an approver" and the preparing administrator told "You prepared this run, so someone else has to approve it (maker-checker)" with no Approve buttons; the run then discarded (type DISCARD). Console 0 errors. Also removed the `/payroll → /payroll/generate` redirect from `next.config.ts` (it looped with the new page).
+
+---
+
+## 2026-10-08 — 4.7b Overtime: approvals, month close blocking, and payslip breakdown
+Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
+
+**Your decisions:**
+- Overtime approvals in Attendance → **Overtime** tab: SplitView master/detail with DataGrid, filter between *Waiting for me* and *All*, bulk and single decisions.
+- Part approval pays the approved minutes rounded by policy; rejecting or part approval requires an explanatory note.
+- Days exceeding the Labour Act limits (4 hours a day, 24 hours a week) are flagged with warning/danger status and require a reason before approval.
+- Overtime added by hand (work without punches, e.g. at client sites) entered via desktop `Window` modal with Enter-navigation; waits for supervisor or attendance approver.
+- Month close blocked when overtime decisions are pending for any branch, displaying a direct link to the Overtime tab.
+- Payslips and printable reports show the exact formula breakdown (e.g. `6.5 h × NPR 199.79 × 1.5`).
+- Self-service *My attendance* displays each overtime day and whether it is paid, waiting, approved, or rejected.
+
+**Changed:**
+- **Schema & Migration:** `0060_overtime.sql` adds `overtime_entries` table (`employee_id`, `work_date`, `source`, `day_kind`, `detected_minutes`, `requested_minutes`, `approved_minutes`, `status`, `over_limit`, `reason`, `prepared_by`, `decided_by`, `decided_at`, `decision_note`, `approval_route`) and `ot_detail` JSONB column on `leave_ot_calculations` and `payroll_slips`. Mirrored in `lib/db/tenant-schema-sync.ts`.
+- **Engine:** `lib/engines/overtime.engine.ts` (`monthOvertime`, `limitBreaches`, `otDetail`, `describeDetail`, `decidable`).
+- **Service & Repositories:** `lib/services/attendance.service.ts`, `lib/repositories/overtime.repository.ts`, `lib/services/payroll.service.ts` (records overtime decisions, ties into month close checks, calculates pay slip details).
+- **Actions:** `app/actions/overtime.actions.ts` (`decideOvertimeAction`, `addOvertimeAction`).
+- **Screens:**
+  - `components/attendance/attendance-overtime.tsx`: desktop-style SplitView with DataGrid, timeline, reason/part-approval windows, and Add Overtime window.
+  - `components/attendance/attendance-close.tsx`: blocked close notice with button to open Overtime tab.
+  - `components/attendance/attendance-client.tsx`: Overtime tab and toolbar integration.
+  - `components/payroll/payslip-detail-modal.tsx`, `components/reports/payslip-printable.tsx`, `components/self-service/payslip-detail-modal.tsx`: formula working lines.
+  - `app/(self-service)/self-service/my-attendance/page.tsx`: personal overtime list and status.
+- **Security:** S21 (nobody approves/decides their own overtime, `DENIED_SELF`) and S26 (scoped authorization, audited decisions and additions).
+
+**Verified:**
+- `npm run type-check`: exit 0.
+- `npm test`: 817/817 tests passing (202 suites).
+- `npx eslint`: clean on all touched overtime files.
+- `npm run build`: production standalone build clean.
+- Browser test data verified and cleaned up (`scratch/cleanup-test-ot.ts --apply`).
+
+---
+
+## 2026-10-08 — 4.7a Overtime: one policy and the lawful formula
+Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
+
+**Your decisions:** hourly rate (basic + grade) ÷ 240; weekly off / holiday work earns a substitute day for the normal hours and overtime only beyond a full day; approval chosen by each company (new companies required, existing ones automatic until switched); hours above the legal limits paid but needing a reason (4.7b).
+
+**Changed:**
+- **Engine** `lib/engines/overtime.engine.ts`: the legal numbers (`OT_LEGAL`: 1.5 times, 4 h a day, 24 h a week, 240 hours a month), `normalizePolicy` / `validatePolicy` / `lawful`, `hourlyRate`, `roundMinutes` / `payableMinutes` (each day rounded on its own: down to whole blocks or to the nearest block, your choice of both on 2026-10-08), `describeRounding`, `otPay`, `seedPolicy`.
+- **Formula:** month close and payroll figures (`attendance.service.ts` → `amountsFor`) now pay (basic + grade) ÷ 240 × the policy's rate, instead of basic ÷ 240 × the System control multipliers. The month summary's OT hours are the hours paid. Closed months are unchanged.
+- **Weekly off / holiday:** overtime only beyond the shift's full day (`attendance-day.engine.ts`); before, every hour worked was overtime and the substitute day off was suggested as well (paid twice).
+- **Policies → Overtime** (`components/overtime/overtime-policy.tsx`) replaces the Overtime rules tab: guide, rates, rounding (not rounded · down to 15 / 30 · nearest 15 / 30, with a table comparing every choice on the same days), approval, who gets overtime, the shortest overtime per shift, history. Saved by `saveOvertimePolicyAction` (company-wide administrators, audited).
+- **Retired:** the OT rules screen, actions, service, repository, engine, types and mock data; System control's OT multipliers (a link to the new tab instead). `ot_rules` is no longer read or written.
+- **Platform:** the policy pack's overtime is the legal minimum (Sections 30–31); the sync no longer writes company overtime; provisioning, onboarding and the company-setup route only seed a company without a policy, never below 1.5.
+- **Security:** S26 in `03-security-plan.md`.
+- **No migration** (the policy is a `system_config` value).
+
+**Verified:**
+- tsc 0; 797/797 tests (new `tests/overtime.test.ts`, `tests/security-overtime.test.ts`; `attendance-day.test.ts` updated for the off-day split); eslint clean on the new and changed files (the platform and onboarding files keep their older counts, unchanged); `npm run build` OK.
+- Browser (Goodlife finance, nothing saved): the Overtime tab shows the guide, "Not saved yet" with the company's current rates (1.5 / 2, automatic), who gets overtime and the shift minimums; a rate of 1.2 is refused with the §31 message; `/timeAndLeave/ot-rules` opens the tab.
+
+**Notes:**
+- **Pay change in open months:** overtime now includes grade and off-day work counts only beyond a full day. Months already closed keep their amounts.
+- **4.7b next:** approvals (Attendance → Overtime), month close waiting for them, payslip hours × rate, migration 0060.
+
+---
+
+## 2026-10-08 — Deploy result (4.4b live)
+Branch: `redesign/4.7-overtime` (from `main` = `40c0dca`)
+
+**4.4b is live on Yeti Cloud** (`40c0dca`, tag `deploy-2026-10-08`): no migration, no new env, packages unchanged; `sync-schema` ✅ for every company, build OK, screens checked by the user. Recorded in the release log of `docs/deployment/yeti-cloud.md`, with a note to use GitHub's "Rebase and merge" (PR #1 used a merge commit, whose files equal `cafa6c9`).
+
+---
 ## 2026-10-09 — G9: welfare / medical / gratuity funds — ledger, monthly contributions, payouts
 Branch: `feature/welfare-funds` (stacked on `feature/exit-workflow`) — first Phase G **Tier B** item.
 

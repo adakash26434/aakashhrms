@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { branches, employees, fundLedger, fundTypes } from '@/lib/db/schema';
-import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, sql, type SQL } from 'drizzle-orm';
 
 // Welfare funds (G9): Drizzle queries only. The ledger is APPEND-ONLY —
 // this file has no update or delete on fund_ledger, and must never grow one;
@@ -147,4 +147,30 @@ export async function fundTotals(scopeCondition?: SQL<unknown>): Promise<FundTot
 export async function contributionEmployees(): Promise<{ id: string; basicSalary: string | null }[]> {
   const db = await getDb();
   return db.select({ id: employees.id, basicSalary: employees.basicSalary }).from(employees).where(eq(employees.status, 'Active'));
+}
+
+/**
+ * The month's posted contributions per employee (4.8a: the payslip deducts the
+ * employee share). Lines are matched by their `contrib:<code>:<year>-<month>` ref.
+ */
+export async function contributionsForMonth(employeeIds: string[], bsYear: number, bsMonth: number): Promise<Map<string, { code: string; name: string; employeeAmount: string; employerAmount: string }[]>> {
+  const out = new Map<string, { code: string; name: string; employeeAmount: string; employerAmount: string }[]>();
+  if (!employeeIds.length) return out;
+  const suffix = `:${bsYear}-${String(bsMonth).padStart(2, '0')}`;
+  const rows = await (await getDb())
+    .select({ employeeId: fundLedger.employeeId, code: fundTypes.code, name: fundTypes.name, employeeAmount: fundLedger.employeeAmount, employerAmount: fundLedger.employerAmount, ref: fundLedger.ref })
+    .from(fundLedger)
+    .innerJoin(fundTypes, eq(fundLedger.fundTypeId, fundTypes.id))
+    .where(and(inArray(fundLedger.employeeId, employeeIds), eq(fundLedger.kind, 'contribution'), like(fundLedger.ref, `contrib:%${suffix}`)));
+  for (const r of rows) {
+    if (!r.ref.endsWith(suffix)) continue;
+    out.set(r.employeeId, [...(out.get(r.employeeId) ?? []), { code: r.code, name: r.name, employeeAmount: String(r.employeeAmount), employerAmount: String(r.employerAmount) }]);
+  }
+  return out;
+}
+
+/** Whether the company has any active fund (pre-flight: contributions expected). */
+export async function hasActiveFunds(): Promise<boolean> {
+  const [row] = await (await getDb()).select({ id: fundTypes.id }).from(fundTypes).where(eq(fundTypes.isActive, true)).limit(1);
+  return !!row;
 }

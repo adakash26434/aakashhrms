@@ -449,7 +449,7 @@ export const ADJUSTMENT_KIND_LABEL: Record<AdjustmentKind, string> = {
 };
 
 /** Attendance page tabs (4.5). */
-export const ATTENDANCE_TABS = ["today", "register", "roster", "shifts", "adjustments", "close", "punches", "checkin"] as const;
+export const ATTENDANCE_TABS = ["today", "register", "roster", "shifts", "adjustments", "overtime", "close", "punches", "checkin"] as const;
 export type AttendanceTab = (typeof ATTENDANCE_TABS)[number];
 
 export interface RegisterEmployee {
@@ -524,6 +524,8 @@ export interface BranchMonth {
   otHours: number;
   missingPunchDays: number;
   pendingAdjustments: number;
+  /** 4.7b: overtime days waiting for a decision (they stop the close). */
+  waitingOvertime: number;
   closedBy: string | null;
   closedAt: string | null;
   reopenReason: string | null;
@@ -544,6 +546,10 @@ export interface AttendancePageData {
   todayRows: { employee: RegisterEmployee; day: DayResult }[];
   punches: PunchView[];
   adjustments: AdjustmentView[];
+  /** 4.7b: every overtime day this month (detected or added by hand) and where it stands. */
+  overtime: import("@/lib/types/overtime").OvertimeDayView[];
+  /** The company's overtime policy (Policies → Overtime), for the Overtime tab's wording. */
+  overtimePolicy: Pick<import("@/lib/types/overtime").OvertimePolicy, "approval" | "rounding" | "roundingMode" | "workRate" | "offRate">;
   months: BranchMonth[];
   /** Shifts (all, archived included) and the company default. */
   shifts: ShiftView[];

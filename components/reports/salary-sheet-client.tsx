@@ -387,7 +387,7 @@ export function SalarySheetClient({ lookupData }: SalarySheetClientProps) {
                 emptyDescription="Select a locked payroll run from the filter options above and click &quot;Generate Report&quot;."
                 emptyAction={
                   <a
-                    href="/payroll/review"
+                    href="/payroll"
                     className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline text-xs inline-flex items-center gap-1"
                   >
                     Lock a payroll run in Review section

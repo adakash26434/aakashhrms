@@ -51,6 +51,9 @@ export interface WorkspaceContext {
   myEmployeeId: string | null;
   allowedModules: string[];
   isImpersonating: boolean;
+  /** E1 (4.8b-3): the company's pay calendar and the title bar's working period (set by the dashboard layout). */
+  payCalendar?: "BS" | "AD";
+  workingPeriod?: import('@/lib/types/payroll-run').WorkingPeriod | null;
   impersonationDetails?: {
     actorName: string;
     companyName: string;

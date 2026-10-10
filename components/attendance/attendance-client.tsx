@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, MapPin, ChevronRight, ClipboardCheck, Fingerprint, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
+import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, MapPin, ChevronRight, ClipboardCheck, Fingerprint, Hourglass, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { useDateText } from "@/components/kit/date-cell";
 import { SelectField } from "@/components/kit/select-field";
@@ -13,6 +13,7 @@ import type { AttendancePageData, AttendanceTab } from "@/lib/types/attendance";
 import { AttendanceAdjustments } from "./attendance-adjustments";
 import { AttendanceCheckin } from "./attendance-checkin";
 import { AttendanceClose } from "./attendance-close";
+import { AttendanceOvertime, OvertimeWindow } from "./attendance-overtime";
 import { AttendancePunches } from "./attendance-punches";
 import { AttendanceRegister } from "./attendance-register";
 import { AttendanceRoster } from "./attendance-roster";
@@ -22,7 +23,7 @@ import { AdjustmentWindow, PunchWindow, RulesWindow } from "./attendance-windows
 
 /**
  * Attendance (4.5): Today · Register (month) · Roster · Shifts ·
- * Adjustments · Month close · Punch log. The month follows the company calendar (BS now; AD with
+ * Adjustments · Overtime (4.7b) · Month close · Punch log. The month follows the company calendar (BS now; AD with
  * payroll runs in AD months, 4.8). Every day is decided by one set of rules
  * (lib/engines/attendance-day.engine.ts) and the server re-checks every change.
  */
@@ -32,7 +33,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
   const dateText = useDateText();
   const [refreshing, startRefresh] = useTransition();
   const [tab, setTab] = useState<AttendanceTab>(data.tab);
-  const [windowOpen, setWindowOpen] = useState<null | "punch" | "adjustment" | "rules">(null);
+  const [windowOpen, setWindowOpen] = useState<null | "punch" | "adjustment" | "rules" | "overtime">(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { permissions: can, period } = data;
 
@@ -54,6 +55,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
 
   const defaultShift = data.shifts.find((s) => s.id === data.defaultShiftId);
   const waiting = data.adjustments.filter((a) => a.status === "pending" && (a.can.approve || a.can.finalApprove)).length;
+  const otWaiting = data.overtime.filter((o) => (o.state === "waiting" || o.state === "changed") && (o.can.approve || o.can.finalApprove)).length;
   const missing = data.register.reduce((n, r) => n + r.summary.missingPunchDays, 0);
   const closed = data.months.filter((m) => m.status === "closed").length;
   const tabs = useMemo<TabItem[]>(
@@ -63,11 +65,12 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
       { id: "roster", label: "Roster", icon: CalendarRange },
       { id: "shifts", label: "Shifts", icon: Clock3, badge: data.shifts.filter((s) => s.active).length || undefined },
       { id: "adjustments", label: "Adjustments", icon: ClipboardCheck, badge: waiting || undefined },
+      { id: "overtime", label: "Overtime", icon: Hourglass, badge: otWaiting || undefined },
       { id: "close", label: "Month close", icon: LockKeyhole, badge: data.months.length ? `${closed}/${data.months.length}` : undefined },
       { id: "punches", label: "Punch log", icon: Fingerprint },
       { id: "checkin", label: "Web clock-in", icon: MapPin },
     ],
-    [missing, waiting, closed, data.months.length, data.shifts]
+    [missing, waiting, otWaiting, closed, data.months.length, data.shifts]
   );
 
   const done = (text: string) => {
@@ -84,6 +87,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
         actions={[
           { id: "punch", label: "Add punch", icon: Plus, group: "create", primary: tab === "today" || tab === "register", hidden: !can.add, onClick: () => setWindowOpen("punch") },
           { id: "adjustment", label: "New adjustment", icon: TimerReset, group: "create", hidden: !can.add, onClick: () => setWindowOpen("adjustment") },
+          { id: "overtime", label: "Add overtime", icon: Hourglass, group: "create", primary: tab === "overtime", hidden: !can.add, onClick: () => setWindowOpen("overtime") },
           { id: "rules", label: "Attendance rules", icon: Settings2, group: "output", hidden: !can.settings, onClick: () => setWindowOpen("rules") },
           { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
         ]}
@@ -129,7 +133,8 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
         {tab === "roster" && <AttendanceRoster data={data} onSaved={(t) => done(t)} />}
         {tab === "shifts" && <AttendanceShifts data={data} onSaved={(t) => done(t)} />}
         {tab === "adjustments" && <AttendanceAdjustments data={data} onNew={() => setWindowOpen("adjustment")} onDone={(t) => done(t)} />}
-        {tab === "close" && <AttendanceClose data={data} onDone={(t) => done(t)} />}
+        {tab === "overtime" && <AttendanceOvertime data={data} onAdd={() => setWindowOpen("overtime")} onDone={(t) => done(t)} />}
+        {tab === "close" && <AttendanceClose data={data} onDone={(t) => done(t)} onOpenOvertime={() => changeTab("overtime")} />}
         {tab === "punches" && <AttendancePunches data={data} onDone={(t) => done(t)} />}
         {tab === "checkin" && <AttendanceCheckin data={data} onSaved={(t) => done(t)} />}
       </Tabs>
@@ -137,6 +142,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
       {windowOpen === "punch" && <PunchWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
       {windowOpen === "adjustment" && <AdjustmentWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
       {windowOpen === "rules" && <RulesWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
+      {windowOpen === "overtime" && <OvertimeWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { fiscalYears } from '@/lib/db/schema';
-import { eq, ne } from 'drizzle-orm';
+import { and, eq, gte, lte, ne } from 'drizzle-orm';
 import type { FiscalYear, FiscalYearStatus, BSMonthNumber } from '@/lib/types/fiscal-year';
 import { formatBSDate } from '@/lib/utils/bs-calendar';
 
@@ -139,4 +139,15 @@ export async function lockFiscalYear(id: string): Promise<FiscalYear> {
 
 export async function deleteFiscalYear(id: string): Promise<void> {
   await (await getDb()).delete(fiscalYears).where(eq(fiscalYears.id, id));
+}
+
+/** The fiscal year containing an AD date ("YYYY-MM-DD"), never a locked one; null when none covers it (4.8b). */
+export async function findFiscalYearForDate(iso: string): Promise<FiscalYear | null> {
+  const at = new Date(`${iso}T06:00:00.000Z`);
+  const rows = await (await getDb())
+    .select()
+    .from(fiscalYears)
+    .where(and(lte(fiscalYears.startDateAD, at), gte(fiscalYears.endDateAD, at), ne(fiscalYears.status, 'Locked')));
+  const row = rows.find((r) => r.status === 'Active') ?? rows[0];
+  return row ? mapRowToFiscalYear(row) : null;
 }

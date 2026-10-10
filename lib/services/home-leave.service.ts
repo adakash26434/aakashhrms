@@ -159,10 +159,11 @@ export async function addHomeLeave(data: LeavePageData, scope: ScopeFilter): Pro
   });
   data.homeSwitch = pending ? { people: pending, givenUpFront: r2(given) } : null;
   // Months that have ended but whose home leave isn't added yet (not closed for someone's branch).
+  const rules = await attendanceService.getRules();
   const waiting = new Map<string, { label: string; year: number; month: number; people: number }>();
   for (const y of years.values()) {
     for (const m of y.months.filter((x) => x.status === "waiting")) {
-      const p = periodContaining("BS", m.start);
+      const p = periodContaining(rules.calendar, m.start);
       const w = waiting.get(m.start) ?? { label: m.label, year: p.year, month: p.month, people: 0 };
       w.people++;
       waiting.set(m.start, w);

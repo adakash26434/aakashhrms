@@ -14,12 +14,13 @@
 import { addDays, utcDate, weekdayOf } from "@/lib/engines/pay-period.engine";
 import { DAY_CODE, type AttendanceRules, type DayLeave, type DayResult, type DayType, type MonthSummary, type OverrideType, type ShiftRule } from "@/lib/types/attendance";
 import type { PayPeriod } from "@/lib/engines/pay-period.engine";
+import { OT_LEGAL } from "@/lib/engines/overtime.engine";
 
 /** Nepal is UTC+05:45 all year (no daylight saving). */
 export const NEPAL_OFFSET_MINUTES = 345;
-/** Labour Act 2074: overtime at most 4 hours a day and 24 hours a week. */
-export const OT_DAILY_LIMIT_MINUTES = 240;
-export const OT_WEEKLY_LIMIT_MINUTES = 1440;
+/** Labour Act 2074 §30: overtime at most 4 hours a day and 24 hours a week (overtime.engine.ts). */
+export const OT_DAILY_LIMIT_MINUTES = OT_LEGAL.dailyMinutes;
+export const OT_WEEKLY_LIMIT_MINUTES = OT_LEGAL.weeklyMinutes;
 /** Labour Act: half an hour's rest after 5 hours; the break counts only on days longer than that. */
 const BREAK_AFTER_MINUTES = 300;
 const WINDOW_BEFORE_START = 240;
@@ -152,8 +153,11 @@ function measure(input: DayInput, offDay: boolean) {
   const outAt = minutesIntoDay(out.lastOut, input.date);
   const spanWorked = Math.max(0, outAt - inAt);
   out.workMinutes = Math.max(0, spanWorked - (spanWorked > BREAK_AFTER_MINUTES ? input.shift.breakMinutes : 0));
+  // Weekly off or holiday (4.7): the normal day's hours earn a substitute day off
+  // (Labour Act §42, Leave); only the hours beyond a full day are overtime.
   if (offDay) {
-    out.otOffDayMinutes = input.otEligible && out.workMinutes >= input.shift.otMinimumMinutes ? out.workMinutes : 0;
+    const beyond = out.workMinutes - input.shift.fullDayMinutes;
+    out.otOffDayMinutes = input.otEligible && beyond >= input.shift.otMinimumMinutes ? beyond : 0;
     return { ...out, punchCount: p.length };
   }
   // Flexible hours: no late or early; overtime after a full day's hours.
@@ -194,11 +198,11 @@ export function resolveDay(input: DayInput): DayResult {
     const onLeave = t === "paid_leave" || t === "unpaid_leave" ? { leaveDays: 1, leavePaidDays: pay } : {};
     return withFlags({ ...times, ...onLeave, dayType: t, payable: pay, unpaid: 1 - pay, rule: `Set by HR: ${input.override.reason}` });
   }
-  // 3. Holiday (paid); hours worked are off-day overtime.
+  // 3. Holiday (paid); hours beyond a full day are off-day overtime.
   if (input.holiday) {
     return withFlags({ ...times, dayType: "holiday", payable: 1, unpaid: 0, rule: `Holiday: ${input.holiday.name}`, holidayName: input.holiday.name });
   }
-  // 4. Weekly off (paid); hours worked are off-day overtime.
+  // 4. Weekly off (paid); hours beyond a full day are off-day overtime.
   if (input.shift.off) {
     return withFlags({ ...times, dayType: "weekly_off", payable: 1, unpaid: 0, rule: "Weekly off" });
   }

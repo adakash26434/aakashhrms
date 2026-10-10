@@ -7,7 +7,6 @@ import {
   departments,
   designations,
   leaveTypes,
-  otRules,
   payHeads,
   users,
   auditLogs,
@@ -23,6 +22,7 @@ import type {
 import { platformDb } from '@/lib/platform/db';
 import { companies } from '@/lib/platform/schema';
 import { DEFAULT_NEPAL_POLICY_PACK_V1 } from '@/lib/platform/policy-pack-data';
+import { OVERTIME_POLICY_KEY, seedPolicy } from '@/lib/engines/overtime.engine';
 import { STATUTORY_FLOOR } from '@/lib/engines/leave.engine';
 import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
 
@@ -343,22 +343,11 @@ export async function bootstrapStatutoryLeavesAndOT(
     });
   }
 
-  // 2. Insert / Update Default Overtime Rule
-  const existingOT = await db
-    .select()
-    .from(otRules)
-    .where(eq(otRules.ruleName, 'Standard Nepal Labour Act Overtime (1.5x)'));
-
-  if (existingOT.length === 0) {
-    await db.insert(otRules).values({
-      ruleName: 'Standard Nepal Labour Act Overtime (1.5x)',
-      ruleType: 'Hourly',
-      rateOfficeDay: String(data.otHourlyMultiplier || 1.5),
-      rateOffDay: String(data.otHourlyMultiplier || 1.5),
-      isPlatformLocked: true,
-      isActive: true,
-    });
-  }
+  // 2. The overtime policy (4.7): written only when the company has none, never below the law.
+  await db
+    .insert(systemConfig)
+    .values({ key: OVERTIME_POLICY_KEY, value: JSON.stringify(seedPolicy(data.otHourlyMultiplier)), dataType: 'json' })
+    .onConflictDoNothing();
 }
 
 export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Promise<void> {

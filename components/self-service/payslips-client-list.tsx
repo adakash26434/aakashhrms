@@ -21,6 +21,9 @@ interface Payslip {
   status: string | null;
   payPeriodMonth: number | null;
   payPeriodYear: number | null;
+  /** 4.8b: "Aswin 2083", "October 2026 · Festival bonus". */
+  label?: string;
+  runType?: string;
 }
 
 interface PayslipsClientListProps {
@@ -56,7 +59,7 @@ export function PayslipsClientList({ payslips }: PayslipsClientListProps) {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-payroll-navy group-hover:text-payroll-primary transition-colors">
-                      {monthName} {slip.payPeriodYear || ""} BS
+                      {slip.label ?? `${monthName} ${slip.payPeriodYear || ""} BS`}
                     </h3>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {slip.departmentName || "General"} · {slip.designationName || "Staff"}

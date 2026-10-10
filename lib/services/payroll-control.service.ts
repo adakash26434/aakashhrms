@@ -247,7 +247,7 @@ export async function preflight(payload: PayrollRunSetupPayload): Promise<Prefli
     salaryMappingRepository.findInForceByEmployeeIds(ids, endStr),
     employeesNeedingSetup(),
     attendanceRepo.findPeriods('BS', payload.payPeriodYear, payload.payPeriodMonth),
-    payrollRepo.findPayrollRunByPeriodAndBranch({ payPeriodMonth: payload.payPeriodMonth, payPeriodYear: payload.payPeriodYear, branchIds: payload.branchIds }),
+    payrollRepo.findPayrollRunByPeriodAndBranch({ calendar: 'BS', runType: 'REGULAR', payPeriodMonth: payload.payPeriodMonth, payPeriodYear: payload.payPeriodYear, branchIds: payload.branchIds }),
     repo.bankAndPanGaps(ids),
     ids.length
       ? db

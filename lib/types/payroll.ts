@@ -1,4 +1,34 @@
 export type PayrollRunStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'LOCKED';
+
+/** 4.8b: income paid so far this fiscal year (LOCKED payslips only), the base of the tax projection. */
+export interface YtdFigures {
+  taxableGross: string;
+  /** PF + SSF, employee and employer sides. */
+  retirement: string;
+  cit: string;
+  tds: string;
+  /** Payslips counted. */
+  months: number;
+}
+
+/** 4.8b: how a payslip's income tax was projected (kept on the slip; the payslip pane shows it). */
+export interface TaxDetail {
+  method: 'ytd' | 'flat15' | 'none';
+  monthsRemaining: number;
+  ytd: YtdFigures;
+  month: { taxableGross: string; oneOffTaxable: string; retirement: string; cit: string; insuranceAnnual: string };
+  projected: { gross: string; retirement: string; cit: string; taxable: string };
+  annualTax: string;
+  tdsThisMonth: string;
+}
+
+/** 4.8a: one welfare fund's contribution on a payslip (the employee share is deducted). */
+export interface FundLine {
+  code: string;
+  name: string;
+  employeeAmount: string;
+  employerAmount: string;
+}
 export type LeaveSalaryRunStatus = 'DRAFT' | 'PAID';
 export type EncashmentType = 'ANNUAL_EXCESS' | 'TERMINATION' | 'VOLUNTARY';
 export type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'CHEQUE';
@@ -37,6 +67,17 @@ export interface PayrollRun {
   publishedAt?: Date | null;
   publishedBy?: string | null;
   notes: string | null;
+  /** 4.8b: the calendar of pay_period_year / pay_period_month ("BS" | "AD"). */
+  calendar: string;
+  /** 4.8a */
+  runType: string;
+  approvalType: string | null;
+  approvalLevels: { level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[];
+  currentLevel: number;
+  approvalRoute: string | null;
+  variance: import('@/lib/types/payroll-run').RunVariance | null;
+  submittedBy: string | null;
+  submittedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,6 +105,11 @@ export interface PayrollSlip {
   loanDeduction: string;
   absentDeduction: string;
   otAmount: string;
+  /** 4.7b: how otAmount was worked out (hours, hourly rate, rates); null on older slips. */
+  otDetail?: import('@/lib/types/overtime').OvertimeDetail | null;
+  /** 4.8a: welfare fund contributions deducted this month, and the detail per fund. */
+  fundDeduction?: string;
+  fundDetail?: FundLine[] | null;
   bankAccountNumber: string;
   bankName: string;
   /** F5: the tax computation behind the TDS (months 1–11); validated with `isTaxSheet` before use. */
@@ -128,6 +174,8 @@ export interface PayrollRunSetupPayload {
   occasionalAllowanceHeadIds: string[] | null;
   payslipMonth: number | null;
   payslipDate: string | null;
+  /** 4.8b: the kind of run (REGULAR when absent). */
+  runType?: import('@/lib/types/payroll-run').RunType;
   includeFestivalAllowance?: boolean; // Keep for fallback compatibility
   includeRemoteAllowance?: boolean;   // Keep for fallback compatibility
   recreateIfExists?: boolean;         // Discard existing draft and regenerate if true
@@ -148,6 +196,8 @@ export interface PayrollSlipOverridePayload {
   basicSalary?: string;
   gradeAmount?: string;
   otAmount?: string;
+  /** 4.7b: kept with the attendance figures when they are read again. */
+  otDetail?: import('@/lib/types/overtime').OvertimeDetail | null;
   absentDeduction?: string;
   loanDeduction?: string;
   bankName?: string;

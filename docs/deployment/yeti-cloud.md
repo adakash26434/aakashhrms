@@ -92,7 +92,7 @@ To make a new secret: `openssl rand -base64 48`, then add it with `nano .env`.
 - **Work happens on stacked branches.** Each `redesign/<step>` branch starts from the previous one, so the newest branch holds everything.
 - **`main` is what is live.** The server only ever follows `origin/main`.
 - **A deploy:**
-  1. **Fast-forward** local `main` to the signed-off tip: `git checkout main && git merge --ff-only <tip>`. Never merge-commit.
+  1. **Fast-forward** local `main` to the signed-off tip: `git checkout main && git merge --ff-only <tip>`. Never merge-commit. When merging a pull request on GitHub instead, choose **Rebase and merge** (a plain "Merge" adds a merge commit, harmless but not straight history).
   2. **Tag it** `deploy-YYYY-MM-DD`.
   3. **Push:** `git push origin main <tag>`.
   4. **Start the next step** on a new branch from `main`.
@@ -273,4 +273,5 @@ Newest first. One line per deploy: date · tag · commit · what went live · mi
 
 | Date | Tag | Commit | Contents | Migrations | Notes |
 |---|---|---|---|---|---|
+| 2026-10-08 | `deploy-2026-10-08` | `40c0dca` | 4.4b Salary structure: payslip-style breakdown with income tax estimate and net payable, Add new / Bulk add for new hires, templates (Employees count, Apply to employees, preview, delete), Print salary revision wording and part rules; employee form without the re-enter account field | none | No new env, packages unchanged. `40c0dca` is GitHub's PR #1 merge commit; its files equal `cafa6c9`. **Result: live.** `sync-schema` ✅ for every company, build OK, app online, screens checked by the user. Version label still v0.2.0 (not bumped this time; bump in the next release). |
 | 2026-10-07 | `deploy-2026-10-07` | `56314a9` | First redesign release (v0.2.0): security phase 0, design system, app frame, kit, Home, Employees (incl. documents and photo), Organization, Salary structure, Attendance (shifts, web clock-in), Leaves (ledger, entitlements, policies, exceptions, company types) | 0035–0046, plus platform `company_leave_exceptions` and `company_change_requests.kind` | New required env: `PLATFORM_SESSION_SECRET`. `npm ci` needed. Backup required (0038, 0039, 0042, 0044, 0046 change data). Rollback tag `pre-redesign` = `7f20aaf`. **Result: live.** Backups taken; secrets checked (all different); `sync-schema` ✅ for all 4 companies; build OK; app online (v0.2.0), `/login` 200 with the security headers. The logs show "column already exists" NOTICEs (harmless) and bots probing server actions ("Server Reference ID … Received \"x\"", rejected). The `[security] WARNING` about `FORCE_SSL` remains: set `FORCE_SSL=true` once HTTPS is confirmed everywhere. **Follow-up:** the database password was shown in a screenshot during this deploy, so change it (`webadmin` on the PostgreSQL node, and `DATABASE_URL` / `PLATFORM_DATABASE_URL` together, plus any tenant credentials that use `webadmin`). |

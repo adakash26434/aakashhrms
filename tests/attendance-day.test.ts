@@ -48,11 +48,15 @@ describe('Day rules, in order', () => {
     assert.ok(r.flags.includes('override'));
     assert.equal(resolveDay(day({ override: { dayType: 'half_day', reason: 'x' } })).payable, 0.5);
   });
-  it('3. holiday: paid; hours worked are off-day overtime', () => {
+  it('3. holiday: paid; only hours beyond a full day are off-day overtime (4.7: the normal hours earn a substitute day)', () => {
     const r = resolveDay(day({ holiday: { name: 'Dashain' }, punches: worked(MON, '10:00', '14:00') }));
     assert.equal(r.dayType, 'holiday');
     assert.equal(r.payable, 1);
-    assert.equal(r.otOffDayMinutes, 240);
+    assert.equal(r.otOffDayMinutes, 0);
+    // 09:00–20:00 = 660 min − 30 break = 630; beyond the 420-minute full day: 210.
+    assert.equal(resolveDay(day({ holiday: { name: 'Dashain' }, punches: worked(MON, '09:00', '20:00') })).otOffDayMinutes, 210);
+    // 25 minutes beyond the full day is below the 30-minute overtime minimum.
+    assert.equal(resolveDay(day({ holiday: { name: 'Dashain' }, punches: worked(MON, '10:00', '17:55') })).otOffDayMinutes, 0);
   });
   it('4. weekly off: paid; no overtime for staff not eligible', () => {
     assert.equal(resolveDay(day({ date: SAT })).dayType, 'weekly_off');

@@ -160,16 +160,17 @@ export async function closeAttendanceMonthAction(input: unknown): Promise<Ok<{ b
 }
 
 /** Reopens a branch month (reason; refused once payroll for it is approved or locked). */
-export async function reopenAttendanceMonthAction(input: unknown): Promise<Ok | Fail> {
+export async function reopenAttendanceMonthAction(input: unknown): Promise<Ok<{ afterLock: boolean }> | Fail> {
   await ensureTenantContext();
   let scope: ScopeFilter | null = null;
   try {
     scope = await checkPermissionWithScope('LOCK', 'ATTENDANCE');
     const result = await service.reopenMonth(input, { scope, userId: scope.userId });
     const r = (input ?? {}) as { year?: unknown; month?: unknown };
-    await recordAuditLog({ userId: scope.userId, action: 'LOCK', module: 'ATTENDANCE', recordId: `month-${String(r.year)}-${String(r.month)}`, result: 'SUCCESS', newValues: { reopened: true, branch: result.branchId } });
+    // 4.8b: reopening a month whose payroll is locked is its own audit entry (the difference is paid as arrears).
+    await recordAuditLog({ userId: scope.userId, action: 'LOCK', module: 'ATTENDANCE', recordId: `month-${String(r.year)}-${String(r.month)}`, result: 'SUCCESS', newValues: { reopened: true, branch: result.branchId, afterLock: result.afterLock, event: result.afterLock ? 'REOPEN_AFTER_LOCK' : 'REOPEN' } });
     refresh();
-    return { success: true };
+    return { success: true, data: { afterLock: result.afterLock } };
   } catch (error: unknown) {
     await auditRefusal(error, scope, 'LOCK', 'month');
     return fail(error, 'attendance.reopen');

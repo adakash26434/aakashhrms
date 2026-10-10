@@ -7,5 +7,5 @@ export default async function OtRulesPage() {
   await ensureTenantContext();
   await checkPermission("VIEW", "OT_RULES");
 
-  redirect("/timeAndLeave/policies?tab=ot-rules");
+  redirect("/timeAndLeave/policies?tab=overtime");
 }

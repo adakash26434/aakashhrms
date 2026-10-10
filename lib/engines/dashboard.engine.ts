@@ -40,12 +40,16 @@ export function periodKey(year: number, month: number): number {
   return year * 100 + month;
 }
 
-export function periodLabel(year: number, month: number): string {
-  return `${BS_MONTHS_EN[month] ?? `Month ${month}`} ${year}`;
+const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "Aswin 2083" or, for a company paying in AD months (4.8b), "October 2026". */
+export function periodLabel(year: number, month: number, calendar: "BS" | "AD" = "BS"): string {
+  const names = calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN;
+  return `${names[month] ?? `Month ${month}`} ${year}`;
 }
 
-export function periodShortLabel(month: number): string {
-  return (BS_MONTHS_EN[month] ?? "").slice(0, 3);
+export function periodShortLabel(month: number, calendar: "BS" | "AD" = "BS"): string {
+  return ((calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN)[month] ?? "").slice(0, 3);
 }
 
 /** Moves a BS period by whole months (negative = earlier). */

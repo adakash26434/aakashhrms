@@ -6,7 +6,7 @@ import type { ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalTimelineEntry
 import type { PayHeadInput, TaxSlabInput } from "@/lib/engines/payroll.engine";
 import type { GradePolicySettings, InsuranceDiscountsSettings, StatutoryDeductionLimitsSettings } from "@/lib/types/system-control";
 
-export const STRUCTURE_TABS = ["structures", "bulk", "approvals", "templates"] as const;
+export const STRUCTURE_TABS = ["sheet", "approvals", "templates", "structures", "bulk"] as const;
 export type StructureTab = (typeof STRUCTURE_TABS)[number];
 
 /**
@@ -144,6 +144,7 @@ export interface StructureRow {
   employeeId: string;
   employeeCode: string;
   fullName: string;
+  bankAccountNumber?: string;
   branchId: string;
   branchName: string;
   departmentId: string;

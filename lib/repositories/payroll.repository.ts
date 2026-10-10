@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
-import { eq, and, inArray, sql, type SQL } from 'drizzle-orm';
+import { eq, and, inArray, ne, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
@@ -52,15 +52,20 @@ export async function findPayrollRunById(id: string): Promise<PayrollRun | undef
 }
 
 export async function findPayrollRunByPeriodAndBranch(args: {
+  calendar: string;
   payPeriodMonth: number;
   payPeriodYear: number;
   branchIds: string[];
+  /** 4.8b: runs of this kind only (a bonus run may sit beside the regular one). */
+  runType: string;
 }): Promise<PayrollRun[]> {
   // Query to find existing runs with overlapping branch sets and same month/year
   const allRuns = await (await getDb()).select().from(payrollRuns).where(
     and(
+      eq(payrollRuns.calendar, args.calendar),
       eq(payrollRuns.payPeriodMonth, args.payPeriodMonth),
-      eq(payrollRuns.payPeriodYear, args.payPeriodYear)
+      eq(payrollRuns.payPeriodYear, args.payPeriodYear),
+      eq(payrollRuns.runType, args.runType)
     )
   );
 
@@ -72,6 +77,8 @@ export async function findPayrollRunByPeriodAndBranch(args: {
 
 export async function createPayrollRun(data: {
   fiscalYearId: string;
+  calendar: string;
+  runType: string;
   payPeriodMonth: number;
   payPeriodYear: number;
   payPeriodStartDate: string;
@@ -93,10 +100,13 @@ export async function createPayrollRun(data: {
   totalSsf: string;
   employeeCount: number;
   generatedBy: string;
+  exitCaseId?: string | null;
 }, tx?: any): Promise<PayrollRun> {
   const client = tx || (await getDb());
   const rows = await client.insert(payrollRuns).values({
     fiscalYearId: data.fiscalYearId,
+    calendar: data.calendar,
+    runType: data.runType,
     payPeriodMonth: data.payPeriodMonth,
     payPeriodYear: data.payPeriodYear,
     payPeriodStartDate: data.payPeriodStartDate,
@@ -118,6 +128,7 @@ export async function createPayrollRun(data: {
     totalSsf: data.totalSsf,
     employeeCount: data.employeeCount,
     generatedBy: data.generatedBy,
+    exitCaseId: data.exitCaseId ?? null,
   }).returning();
   
   return mapPayrollRun(rows[0]);
@@ -261,6 +272,20 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
       await runInsert(tx);
     });
   }
+}
+
+/**
+ * LOCKED payslips of some employees in a fiscal year, every run type (4.8b: the
+ * year to date the tax projection starts from). Nothing unlocked ever counts.
+ */
+export async function findLockedSlipsForFiscalYear(employeeIds: string[], fiscalYearId: string, excludeRunId?: string): Promise<PayrollSlip[]> {
+  if (!employeeIds.length) return [];
+  const rows = await (await getDb())
+    .select({ slip: payrollSlips })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollSlips.employeeId, employeeIds), eq(payrollRuns.fiscalYearId, fiscalYearId), eq(payrollRuns.status, "LOCKED"), excludeRunId ? ne(payrollRuns.id, excludeRunId) : undefined));
+  return rows.map((r) => mapPayrollSlip(r.slip));
 }
 
 export async function findSlipsByRunId(runId: string): Promise<PayrollSlip[]> {
@@ -411,9 +436,9 @@ export async function addSlipHead(
 const periodKeySql = sql<number>`(${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth})`;
 const money = (column: AnyPgColumn) => sql<string>`coalesce(sum(${column}), 0)`;
 
-/** One row per BS pay month between the two period keys (yyyymm), inclusive. */
-export async function sumSlipsByPeriod(args: { fromKey: number; toKey: number; employeeCondition?: SQL }): Promise<PeriodCostRow[]> {
-  const where = and(sql`${periodKeySql} between ${args.fromKey} and ${args.toKey}`, args.employeeCondition);
+/** One row per pay month (company calendar) between the two period keys (yyyymm), inclusive; every run type added up. */
+export async function sumSlipsByPeriod(args: { calendar: string; fromKey: number; toKey: number; employeeCondition?: SQL }): Promise<PeriodCostRow[]> {
+  const where = and(eq(payrollRuns.calendar, args.calendar), sql`${periodKeySql} between ${args.fromKey} and ${args.toKey}`, args.employeeCondition);
   const rows = await (await getDb())
     .select({
       year: payrollRuns.payPeriodYear,
@@ -430,7 +455,7 @@ export async function sumSlipsByPeriod(args: { fromKey: number; toKey: number; e
       loan: money(payrollSlips.loanDeduction),
       ot: money(payrollSlips.otAmount),
       employees: sql<number>`count(distinct ${payrollSlips.employeeId})::int`,
-      unlockedRuns: sql<number>`count(distinct case when ${payrollRuns.status} <> 'LOCKED' then ${payrollRuns.id} end)::int`,
+      unlockedRuns: sql<number>`count(distinct case when ${payrollRuns.status} <> 'LOCKED' and ${payrollRuns.runType} = 'REGULAR' then ${payrollRuns.id} end)::int`,
     })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
@@ -457,8 +482,8 @@ export async function sumSlipsByPeriod(args: { fromKey: number; toKey: number; e
 }
 
 /** Employer cost (gross + employer PF) and paid employees per department over the period keys. */
-export async function sumSlipsByDepartment(args: { fromKey: number; toKey: number; employeeCondition?: SQL }): Promise<DepartmentCost[]> {
-  const where = and(sql`${periodKeySql} between ${args.fromKey} and ${args.toKey}`, args.employeeCondition);
+export async function sumSlipsByDepartment(args: { calendar: string; fromKey: number; toKey: number; employeeCondition?: SQL }): Promise<DepartmentCost[]> {
+  const where = and(eq(payrollRuns.calendar, args.calendar), sql`${periodKeySql} between ${args.fromKey} and ${args.toKey}`, args.employeeCondition);
   const rows = await (await getDb())
     .select({
       name: payrollSlips.departmentName,
@@ -516,6 +541,7 @@ export async function findEarlierTaxMonths(
   fiscalYearId: string,
   fiscalMonthIndex: number,
   excludeRunId?: string,
+  calendar: 'BS' | 'AD' = 'BS',
 ): Promise<Map<string, { taxableIncome: string; tds: string }[]>> {
   const out = new Map<string, { taxableIncome: string; tds: string }[]>();
   if (!employeeIds.length) return out;
@@ -528,7 +554,10 @@ export async function findEarlierTaxMonths(
         inArray(payrollSlips.employeeId, employeeIds),
         eq(payrollRuns.fiscalYearId, fiscalYearId),
         inArray(payrollRuns.status, ['APPROVED', 'LOCKED']),
-        sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END) < ${fiscalMonthIndex}`,
+        eq(payrollRuns.calendar, calendar),
+        calendar === 'AD'
+          ? sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 8 THEN ${payrollRuns.payPeriodMonth} - 7 ELSE ${payrollRuns.payPeriodMonth} + 5 END) < ${fiscalMonthIndex}`
+          : sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END) < ${fiscalMonthIndex}`,
         excludeRunId ? sql`${payrollRuns.id} <> ${excludeRunId}` : undefined,
       ),
     );

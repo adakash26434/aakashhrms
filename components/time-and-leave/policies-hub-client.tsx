@@ -8,12 +8,13 @@ import { Notice } from "@/components/kit/notice";
 import { Tabs, type TabItem } from "@/components/kit/tabs";
 import { LeavePolicy } from "@/components/leave-policy/leave-policy";
 import { CompanyLeaveTypes, type CompanyTypePermissions } from "@/components/leave-policy/company-leave-types";
+import { OvertimePolicyView } from "@/components/overtime/overtime-policy";
 import { OtRulesClient } from "@/components/ot-rules/ot-rules-client";
 import type { CompanyTypeChange, LeaveTypeRecord } from "@/lib/types/leave-type";
-import type { OtRule, OtRuleKPIs } from "@/lib/types/ot-rule";
+import type { OvertimePolicyData } from "@/lib/types/overtime";
 import type { LeavePolicyPageData } from "@/lib/types/leave-policy";
 
-export type PolicyTab = "types" | "ot-rules";
+export type PolicyTab = "types" | "overtime" | "ot-rules";
 
 interface PoliciesHubClientProps {
   allowedTabs: PolicyTab[];
@@ -28,12 +29,10 @@ interface PoliciesHubClientProps {
   policyData?: LeavePolicyPageData | null;
   /** What this user may do with the company's own leave types. */
   typePermissions?: CompanyTypePermissions;
-  otData?: {
-    rules: OtRule[];
-    kpis: OtRuleKPIs;
-    otMultiplierOfficeDay?: number;
-    otMultiplierOffDay?: number;
-  } | null;
+  /** The company's overtime policy (4.7): approval and rounding. */
+  otData?: OvertimePolicyData | null;
+  /** The team's OT rules: the rates payroll uses (never below the Labour Act's 1.5). */
+  otRulesData?: { rules: Parameters<typeof OtRulesClient>[0]["initialOtRules"]; kpis: Parameters<typeof OtRulesClient>[0]["initialOtKPIs"]; otMultiplierOfficeDay?: number; otMultiplierOffDay?: number } | null;
 }
 
 /**
@@ -41,9 +40,9 @@ interface PoliciesHubClientProps {
  * then folder tabs. Leave types: statutory leave (the Labour Act's minimum,
  * changes approved by a second person) and the company's own types (how
  * leave is given, counted and paid out is set on each type; the old Leave
- * rules tab is retired). Overtime rules keep their screen until 4.7.
+ * rules tab is retired). Overtime: the company's one overtime policy (4.7).
  */
-export function PoliciesHubClient({ allowedTabs, activeTab, typesData, policyData, typePermissions, otData }: PoliciesHubClientProps) {
+export function PoliciesHubClient({ allowedTabs, activeTab, typesData, policyData, typePermissions, otData, otRulesData }: PoliciesHubClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [refreshing, startRefresh] = useTransition();
@@ -52,7 +51,8 @@ export function PoliciesHubClient({ allowedTabs, activeTab, typesData, policyDat
 
   const all: (TabItem & { id: PolicyTab })[] = [
     { id: "types", label: "Leave types", icon: CalendarDays, badge: policyData?.waitingForMe || undefined },
-    { id: "ot-rules", label: "Overtime rules", icon: Timer },
+    { id: "overtime", label: "Overtime", icon: Timer },
+    { id: "ot-rules", label: "Overtime rates", icon: Timer },
   ];
   const tabs = all.filter((t) => allowedTabs.includes(t.id));
   const changeTab = (next: string) => {
@@ -69,7 +69,7 @@ export function PoliciesHubClient({ allowedTabs, activeTab, typesData, policyDat
     <div>
       <PageBar
         title="Policies"
-        description={policyData?.waitingForMe ? `${policyData.waitingForMe} leave policy change${policyData.waitingForMe === 1 ? "" : "s"} waiting for you` : "Leave types and overtime rules"}
+        description={policyData?.waitingForMe ? `${policyData.waitingForMe} leave policy change${policyData.waitingForMe === 1 ? "" : "s"} waiting for you` : "Leave types, the overtime policy and the overtime rates"}
         actions={[
           { id: "new-type", label: "New leave type", icon: Plus, group: "create", primary: true, hidden: activeTab !== "types" || !typePermissions?.add, onClick: () => setCreating(true) },
           { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
@@ -89,9 +89,10 @@ export function PoliciesHubClient({ allowedTabs, activeTab, typesData, policyDat
             )}
           </div>
         )}
-        {activeTab === "ot-rules" && otData && (
+        {activeTab === "overtime" && otData && <OvertimePolicyView key={JSON.stringify(otData.policy)} data={otData} onDone={done} />}
+        {activeTab === "ot-rules" && otRulesData && (
           <div className="p-3">
-            <OtRulesClient initialOtRules={otData.rules} initialOtKPIs={otData.kpis} otMultiplierOfficeDay={otData.otMultiplierOfficeDay} otMultiplierOffDay={otData.otMultiplierOffDay} embedded={true} />
+            <OtRulesClient initialOtRules={otRulesData.rules} initialOtKPIs={otRulesData.kpis} otMultiplierOfficeDay={otRulesData.otMultiplierOfficeDay} otMultiplierOffDay={otRulesData.otMultiplierOffDay} embedded={true} />
           </div>
         )}
       </Tabs>

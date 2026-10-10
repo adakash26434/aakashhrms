@@ -9,6 +9,7 @@ import type { WorkspaceContext } from "@/lib/services/workspace-context.service"
 import { useFrame } from "./frame-context";
 import { ClockButton } from "./clock-button";
 import { UserMenu } from "./user-menu";
+import { WorkingPeriodPill } from "./working-period-pill";
 
 /** Title bar (2.2): brand, command trigger, calendar, fiscal year, alerts, account. */
 export function TitleBar({ context }: { context?: WorkspaceContext }) {
@@ -81,6 +82,8 @@ export function TitleBar({ context }: { context?: WorkspaceContext }) {
           </button>
 
           <DateFormatMenu size="sm" />
+
+          {!context?.isImpersonating && <WorkingPeriodPill period={context?.workingPeriod ?? null} calendar={context?.payCalendar ?? "BS"} />}
 
           <Link
             href="/setup/company-setup?section=payroll_rules&tab=fiscal-year"

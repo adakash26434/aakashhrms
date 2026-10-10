@@ -4,7 +4,6 @@ import * as repo from "@/lib/repositories/attendance.repository";
 import * as branchRepository from "@/lib/repositories/branch.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as salaryMappingRepository from "@/lib/repositories/salary-mapping.repository";
-import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as shiftService from "@/lib/services/shift.service";
 import { approvedLeaveDays, monthCloseLines, monthReopenLines } from "@/lib/services/leave.service";
 import * as checkinRepo from "@/lib/repositories/checkin.repository";
@@ -16,8 +15,14 @@ import { AttendanceValidationError, OutOfScopeError, OwnAttendanceError } from "
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { applyDecision, availableActions, isCompanyAdministrator, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
 import { addDays, datesIn, periodContaining, periodFor, type PayPeriod } from "@/lib/engines/pay-period.engine";
+import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
 import { plannedWeekMinutes, shiftSummary, shiftWarnings } from "@/lib/engines/shift.engine";
 import { clockMinutes, instantAt, localClock, punchesForDay, resolveDay, summariseMonth, unpaidDeduction } from "@/lib/engines/attendance-day.engine";
+import { OT_MAX_ENTRY_MINUTES, decidable, monthOvertime } from "@/lib/engines/overtime.engine";
+import * as overtimeService from "@/lib/services/overtime.service";
+import * as systemControlRepository from "@/lib/repositories/system-control.repository";
+import * as overtimeRepo from "@/lib/repositories/overtime.repository";
+import type { OvertimeDayView, OvertimeDetail, OvertimeEntry, OvertimeLine, OvertimePolicy } from "@/lib/types/overtime";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import {
   ADJUSTMENT_KINDS,
@@ -50,6 +55,11 @@ const WORDING: ApprovalWording = {
   noPermission: "Only the employee's supervisor or someone with Attendance → Approve can approve this.",
 };
 const MAX_CELLS = 2000;
+const OT_WORDING: ApprovalWording = {
+  ownSubject: "This is your own overtime, so someone else has to decide it.",
+  noPermission: "Only the employee's supervisor or someone with Attendance → Approve can decide overtime.",
+  preparer: "You added this overtime, so someone else has to approve it.",
+};
 
 // ---------------------------------------------------------------------------
 // Rules (company work schedule + attendance-only settings)
@@ -67,8 +77,8 @@ export async function getRules(): Promise<AttendanceRules> {
   const stored = (storedRaw && typeof storedRaw === "object" ? storedRaw : {}) as StoredRules;
   const late = stored.lateRule ?? {};
   return {
-    // AD months come with payroll runs in AD months (4.8); until then attendance months are BS.
-    calendar: "BS",
+    // Attendance months follow the company's pay calendar (Payroll → Approval settings, 4.8b).
+    calendar: await getPayCalendar(),
     noRecord: stored.noRecord === "present" ? "present" : "absent",
     lateRule: { enabled: late.enabled === true, count: Math.max(1, Math.min(10, Number(late.count) || 3)) },
     // Off until HR sets web clock-in up (4.5c).
@@ -348,7 +358,15 @@ export async function getAttendancePage(params: {
   const punchRows = params.tab === "punches" ? await repo.findPunches(ids, instantAt(period.start, 0), instantAt(addDays(period.end, 1), 0), { includeVoided: true }) : [];
   const adjustmentRows = await repo.findAdjustments({ employeeIds: ids, from: addDays(period.start, -62), to: period.end });
   const timeline = await repo.findAdjustmentTimeline(adjustmentRows.map((a) => a.id));
-  const names = await findUserNames([...punchRows.map((p) => p.createdBy ?? ""), ...adjustmentRows.flatMap((a) => [a.preparedBy ?? "", a.decidedBy ?? ""]), ...timeline.flatMap((t) => [t.actorId ?? "", t.onBehalfOf ?? ""])]);
+  // Overtime (4.7b): every day with overtime this month, and the decisions taken.
+  const [otEntries, { policy: otPolicy }] = await Promise.all([overtimeRepo.findEntries({ employeeIds: ids, from: period.start, to: period.end }), overtimeService.getPayPolicy()]);
+  const otTimeline = await overtimeRepo.findTimeline(otEntries.map((x) => x.id));
+  const names = await findUserNames([
+    ...punchRows.map((p) => p.createdBy ?? ""),
+    ...adjustmentRows.flatMap((a) => [a.preparedBy ?? "", a.decidedBy ?? ""]),
+    ...[...timeline, ...otTimeline].flatMap((t) => [t.actorId ?? "", t.onBehalfOf ?? ""]),
+    ...otEntries.flatMap((x) => [x.preparedBy ?? "", x.decidedBy ?? ""]),
+  ]);
   const person = new Map(people.map((e) => [e.id, e]));
 
   const canApprove = params.permissions.approve;
@@ -402,6 +420,45 @@ export async function getAttendancePage(params: {
     };
   });
 
+  const timelineOf = (rows: typeof timeline, id: string): ApprovalTimelineEntry[] =>
+    rows
+      .filter((t) => t.requestId === id)
+      .map((t) => ({
+        id: t.id,
+        level: t.level,
+        action: t.action as ApprovalTimelineEntry["action"],
+        actorId: t.actorId,
+        actorName: t.actorId ? names.get(t.actorId) ?? "Unknown user" : "System",
+        onBehalfOfName: t.onBehalfOf ? names.get(t.onBehalfOf) ?? null : null,
+        note: t.note,
+        at: t.createdAt.toISOString(),
+      }));
+  const overtime: OvertimeDayView[] = register.flatMap((row) => {
+    const e = person.get(row.employee.id)!;
+    const supervisor = !!params.scope.employeeId && e.supervisorId === params.scope.employeeId;
+    return monthOvertime(e.id, row.days, otEntries, otPolicy).lines.map((l) => {
+      const day = row.days.find((d) => d.date === l.date);
+      const can = overtimeActions(l, { ...actor, canApprove: canApprove || supervisor }, row.locked, today);
+      return {
+        ...l,
+        key: `${l.employeeId}|${l.date}|${l.source}`,
+        employeeName: e.fullName,
+        employeeCode: e.employeeCode,
+        branchId: e.branchId,
+        firstIn: day?.firstIn ?? null,
+        lastOut: day?.lastOut ?? null,
+        workMinutes: day?.workMinutes ?? 0,
+        shiftText: day?.shift ? `${day.shift.code} ${day.shift.start}–${day.shift.end}` : null,
+        dayText: day?.rule ?? "",
+        locked: row.locked,
+        preparedByName: l.entry?.preparedBy ? names.get(l.entry.preparedBy) ?? "Unknown user" : null,
+        decidedByName: l.entry?.decidedBy ? names.get(l.entry.decidedBy) ?? "Unknown user" : null,
+        timeline: l.entry ? timelineOf(otTimeline, l.entry.id) : [],
+        can,
+      };
+    });
+  });
+
   const punches: PunchView[] = punchRows.map((p) => ({
     id: p.id,
     employeeId: p.employeeId,
@@ -420,7 +477,7 @@ export async function getAttendancePage(params: {
   }));
 
   // Month close: one row per branch in scope that has people this month.
-  const finalised = period.calendar === "BS" ? (await repo.countFinalisedPayrollRuns(period.year, period.month)) > 0 : false;
+  const finalised = (await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0;
   const branchIds = [...new Set(people.map((e) => e.branchId))];
   const months: BranchMonth[] = branchIds.map((b) => {
     const rows = register.filter((r) => r.employee.branchId === b);
@@ -434,6 +491,7 @@ export async function getAttendancePage(params: {
       otHours: round2(rows.reduce((n, r) => n + (r.summary.otWorkDayMinutes + r.summary.otOffDayMinutes) / 60, 0)),
       missingPunchDays: rows.reduce((n, r) => n + r.summary.missingPunchDays, 0),
       pendingAdjustments: adjustments.filter((a) => a.status === "pending" && a.date >= period.start && a.date <= period.end && person.get(a.employeeId)?.branchId === b).length,
+      waitingOvertime: overtime.filter((o) => o.branchId === b && (o.state === "waiting" || o.state === "changed")).length,
       closedBy: p?.closedBy ? names.get(p.closedBy) ?? null : null,
       closedAt: p?.closedAt ? p.closedAt.toISOString() : null,
       reopenReason: p?.reopenReason ?? null,
@@ -483,6 +541,8 @@ export async function getAttendancePage(params: {
     todayRows,
     punches,
     adjustments,
+    overtime,
+    overtimePolicy: { approval: otPolicy.approval, rounding: otPolicy.rounding, roundingMode: otPolicy.roundingMode, workRate: otPolicy.workRate, offRate: otPolicy.offRate },
     months: months.sort((a, b) => a.branchName.localeCompare(b.branchName)),
     shifts,
     defaultShiftId: defaultId,
@@ -518,6 +578,16 @@ export async function ownDays(employeeId: string, from: string, to: string): Pro
   if (!people.length) return null;
   const ctx = await loadContext(people, from, to);
   return { employee: people[0], days: datesBetween(from, to).map((d) => resolveFor(ctx, people[0], d)) };
+}
+
+/**
+ * One employee's overtime for some days (self-service My attendance, 4.7b):
+ * each day's overtime and where it stands, with the same rules as the
+ * Overtime tab. The caller has already resolved the employee from the session.
+ */
+export async function ownOvertime(employeeId: string, days: readonly DayResult[], from: string, to: string): Promise<{ lines: OvertimeLine[]; approval: OvertimePolicy["approval"] }> {
+  const [entries, { policy }] = await Promise.all([overtimeRepo.findEntries({ employeeIds: [employeeId], from, to }), overtimeService.getPayPolicy()]);
+  return { lines: monthOvertime(employeeId, days, entries, policy).lines, approval: policy.approval };
 }
 
 // ---------------------------------------------------------------------------
@@ -711,6 +781,153 @@ export async function decideAdjustment(id: string, decision: Decision, noteRaw: 
 }
 
 // ---------------------------------------------------------------------------
+// Overtime (4.7b): decisions and overtime added by hand
+// ---------------------------------------------------------------------------
+
+/** What this person may do with an overtime day (the Overtime tab's buttons; the server checks again). */
+function overtimeActions(
+  line: OvertimeLine,
+  actor: { userId: string; employeeId: string | null; canApprove: boolean; isAdministrator: boolean },
+  locked: boolean,
+  today: string
+): OvertimeDayView["can"] {
+  const none = { approve: false, finalApprove: false, reject: false, withdraw: false };
+  if (locked) return { ...none, reason: "The month is closed for this branch." };
+  const manual = line.source === "manual" && line.entry;
+  if (!decidable(line)) return { ...none, reason: null };
+  const can = availableActions(
+    { status: "pending", preparedById: manual ? line.entry!.preparedBy : null, subjectEmployeeIds: [line.employeeId], flow: { type: "simple", levels: [] }, currentLevel: 0 },
+    actor,
+    { approvers: [], today, wording: OT_WORDING }
+  );
+  return { approve: !!can.approve, finalApprove: can.finalApprove && !can.approve, reject: can.reject, withdraw: !!manual && can.withdraw, reason: can.reason };
+}
+
+/** One employee's overtime for the month containing a day (the same lines as the Overtime tab). */
+async function overtimeMonthOf(e: Employee, date: string) {
+  const rules = await getRules();
+  const period = periodContaining(rules.calendar, date);
+  const [c, entries, { policy }] = await Promise.all([
+    loadContext([e], period.start, period.end, rules),
+    overtimeRepo.findEntries({ employeeIds: [e.id], from: period.start, to: period.end }),
+    overtimeService.getPayPolicy(),
+  ]);
+  const days = datesIn(period).map((d) => resolveFor(c, e, d));
+  return { days, ot: monthOvertime(e.id, days, entries, policy), eligible: c.ot.get(e.category) ?? true };
+}
+
+/**
+ * Approve (all or part), Final approve, reject or withdraw one overtime day,
+ * sent as `employeeId|date|source`. Approvers: the employee's supervisor or
+ * someone with Attendance → Approve in scope; company administrators Final
+ * approve; never the employee themselves (S21) or the person who added it.
+ * Days over the legal limits need a reason to approve; closed months are refused.
+ */
+export async function decideOvertime(key: string, decision: Decision, raw: unknown, ctx: { scope: ScopeFilter; userId: string; canApprove: boolean }): Promise<{ employeeId: string; date: string; status: string; minutes: number }> {
+  const [employeeId = "", dateRaw = "", source = ""] = String(key).split("|");
+  const date = isoDate(dateRaw);
+  if (!employeeId || !date || (source !== "detected" && source !== "manual")) throw new UserFacingError("That overtime day is not valid. Refresh the page.");
+  const r = (raw && typeof raw === "object" ? raw : {}) as { minutes?: unknown; note?: unknown };
+  const [e] = await repo.findEmployeesByIds([employeeId]);
+  if (!e) throw new UserFacingError("That employee no longer exists.");
+  const { ot } = await overtimeMonthOf(e, date);
+  const line = ot.lines.find((l) => l.date === date && l.source === source);
+  if (!line) throw new UserFacingError("There is no overtime on that day any more. Refresh the page.");
+  const inScope = (await employeesFor(ctx.scope, date, date)).some((x) => x.id === e.id);
+  const supervisor = !!ctx.scope.employeeId && e.supervisorId === ctx.scope.employeeId;
+  const preparer = source === "manual" && line.entry?.preparedBy === ctx.userId;
+  if (!inScope && !supervisor && !preparer) throw new OutOfScopeError();
+  const closed = await repo.findClosedPeriodsOverlapping(date, date);
+  if (closed.some((p) => p.branchId === e.branchId)) throw new UserFacingError("That day is in a closed month. Reopen the month first.");
+  if (!decidable(line)) throw new UserFacingError(decision === "withdraw" ? "Only overtime that is still waiting can be withdrawn." : "This overtime was already decided.");
+  if (decision === "withdraw" && source !== "manual") throw new UserFacingError("Only overtime added by hand can be withdrawn.");
+
+  const request = { status: "pending" as const, preparedById: source === "manual" ? line.entry?.preparedBy ?? null : null, subjectEmployeeIds: [e.id], flow: { type: "simple" as const, levels: [] }, currentLevel: 0 };
+  const actor = { userId: ctx.userId, employeeId: ctx.scope.employeeId, canApprove: (ctx.canApprove && inScope) || supervisor, isAdministrator: isCompanyAdministrator(ctx.scope, ctx.canApprove) };
+  const can = availableActions(request, actor, { approvers: [], today: nepalDateIso(), wording: OT_WORDING });
+  const own = isOwnRecord(ctx.scope.employeeId, e.id);
+  const refuse = (msg: string | null, fallback: string) => {
+    if (own && decision !== "withdraw") throw new OwnAttendanceError(OT_WORDING.ownSubject);
+    throw new UserFacingError(msg ?? fallback);
+  };
+  if (decision === "approve" && !can.approve) refuse(can.reason, "You cannot approve this overtime.");
+  if (decision === "final_approve" && !can.finalApprove) refuse(can.reason, "Only a company administrator can Final approve.");
+  if (decision === "reject" && !can.reject) refuse(preparer ? "You added this overtime: withdraw it instead." : can.reason, "You cannot reject this overtime.");
+  if (decision === "withdraw" && !can.withdraw) throw new UserFacingError("Only the person who added it can withdraw it, while it waits.");
+
+  const note = typeof r.note === "string" ? r.note.trim().slice(0, 300) || null : null;
+  const approving = decision === "approve" || decision === "final_approve";
+  if (decision === "reject" && (!note || note.length < 3)) throw new AttendanceValidationError({ note: "Give a reason for rejecting" });
+  if (approving && line.overLimit && (!note || note.length < 3)) throw new AttendanceValidationError({ note: `${line.limitText ?? "Over the legal limit"}: say why it is approved` });
+  let minutes = line.minutes;
+  if (approving && r.minutes !== undefined && r.minutes !== null && r.minutes !== "") {
+    const m = Number(r.minutes);
+    if (!Number.isInteger(m) || m < 1 || m > line.minutes) throw new AttendanceValidationError({ minutes: `Between 1 and ${line.minutes} minutes` });
+    minutes = m;
+  }
+  const next = applyDecision(request, decision);
+  const status = next.status === "pending" ? "approved" : next.status;
+  const decided = {
+    status,
+    approvedMinutes: status === "approved" ? minutes : 0,
+    overLimit: line.overLimit,
+    route: next.route,
+    actorId: ctx.userId,
+    action: (decision === "approve" ? "approved" : decision === "final_approve" ? "final_approved" : decision === "reject" ? "rejected" : "withdrawn") as "approved" | "final_approved" | "rejected" | "withdrawn",
+    note,
+  };
+  const ok =
+    source === "manual"
+      ? await overtimeRepo.decideManual({ ...decided, id: line.entry!.id })
+      : await overtimeRepo.decideDetected({ ...decided, employeeId: e.id, date, dayKind: line.kind, detectedMinutes: line.minutes, previous: line.entry });
+  if (!ok) throw new UserFacingError("Someone else decided this overtime a moment ago. Refresh the page.");
+  return { employeeId: e.id, date, status, minutes: decided.approvedMinutes };
+}
+
+/**
+ * Overtime added by hand (worked without punches): the day, the minutes and
+ * why. It waits for the employee's supervisor or an attendance approver.
+ * Never for yourself (S21), out of scope, in a closed month or in the future.
+ */
+export async function addOvertime(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ id: string; employeeId: string; date: string; minutes: number }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+  const employeeId = typeof r.employeeId === "string" ? r.employeeId : "";
+  const date = isoDate(r.date);
+  const minutes = Number(r.minutes);
+  const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 500) : "";
+  if (!employeeId) errors.employeeId = "Choose the employee";
+  if (!date) errors.date = "Choose the day";
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > OT_MAX_ENTRY_MINUTES) errors.minutes = `Between 1 minute and ${OT_MAX_ENTRY_MINUTES / 60} hours`;
+  if (reason.length < 3) errors.reason = "Say what the overtime was for";
+  if (Object.keys(errors).length) throw new AttendanceValidationError(errors);
+  const people = await guardDays(ctx.scope, [{ employeeId, date: date! }]);
+  const e = people.get(employeeId)!;
+  const { days, eligible } = await overtimeMonthOf(e, date!);
+  if (!eligible) throw new UserFacingError(`${e.fullName}'s employment type does not get overtime (Organization → Employment types).`);
+  const day = days.find((d) => d.date === date);
+  if (!day || day.dayType === "not_employed") throw new UserFacingError(`${e.fullName} was not employed on that day.`);
+  const id = await overtimeRepo.createManual({ employeeId, date: date!, dayKind: day.dayType === "weekly_off" || day.dayType === "holiday" ? "off" : "work", minutes, reason, preparedBy: ctx.userId });
+  if (!id) throw new UserFacingError("Overtime added by hand for that day is already waiting or approved. Decide or withdraw it first.");
+  return { id, employeeId, date: date!, minutes };
+}
+
+/** Overtime days waiting for a decision in a month, per employee (payroll pre-flight, 4.8a). */
+export async function overtimeWaitingFor(employeeIds: string[], period: PayPeriod): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!employeeIds.length) return out;
+  const rules = await getRules();
+  const people = await repo.findEmployeesByIds(employeeIds);
+  const [c, entries, { policy }] = await Promise.all([loadContext(people, period.start, period.end, rules), overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }), overtimeService.getPayPolicy()]);
+  for (const e of people) {
+    const days = datesIn(period).map((d) => resolveFor(c, e, d));
+    const waiting = monthOvertime(e.id, days, entries, policy).waiting;
+    if (waiting) out.set(e.id, waiting);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Month close and reopen (per branch)
 // ---------------------------------------------------------------------------
 
@@ -736,16 +953,39 @@ export async function countAdjustmentsWaitingFor(scope: ScopeFilter, canApprove:
   ).length;
 }
 
-/** OT pay (one formula: `otPay`, 4.7) and unpaid-day deduction for a summary. */
-function amountsFor(summary: MonthSummary, salary: { basic: number; grade: number } | undefined, multipliers: OtMultipliers) {
-  if (!salary) return { otEarnedAmount: 0, leaveDeductionAmount: 0 };
-  const ot = otPay({ basic: salary.basic, workDayMinutes: summary.otWorkDayMinutes, offDayMinutes: summary.otOffDayMinutes, multipliers });
-  return { otEarnedAmount: ot, leaveDeductionAmount: unpaidDeduction(salary.basic + salary.grade, summary) };
+/**
+ * Overtime pay and the unpaid-day deduction for a month (4.7, merged with the
+ * team's formula): the minutes the overtime policy lets through (approved, or
+ * detected when approval is automatic; each day rounded) are paid with the
+ * one OT formula, `otPay` (basic ÷ 240 × the OT-rule multiplier, never below
+ * the Labour Act's 1.5).
+ */
+function amountsFor(employeeId: string, summary: MonthSummary, days: readonly DayResult[], entries: readonly OvertimeEntry[], salary: { basic: number; grade: number } | undefined, policy: OvertimePolicy, multipliers: OtMultipliers) {
+  const ot = monthOvertime(employeeId, days, entries, policy);
+  const amount = salary ? otPay({ basic: salary.basic, workDayMinutes: ot.paid.work, offDayMinutes: ot.paid.off, multipliers }) : 0;
+  const hours = (m: number) => Math.round(((m || 0) / 60) * 100) / 100;
+  const detail: OvertimeDetail = {
+    amount,
+    hourlyRate: salary ? Math.round((salary.basic / 240) * 100) / 100 : 0,
+    workHours: hours(ot.paid.work),
+    offHours: hours(ot.paid.off),
+    workRate: multipliers.work,
+    offRate: multipliers.off,
+  };
+  return {
+    otEarnedAmount: amount,
+    otDetail: detail,
+    otMinutes: ot.paid,
+    otWaiting: ot.waiting,
+    leaveDeductionAmount: salary ? unpaidDeduction(salary.basic + salary.grade, summary) : 0,
+  };
 }
 
-async function payInputs(employeeIds: string[], onDate: string) {
-  const [salaries, settings, rules] = await Promise.all([
-    salaryMappingRepository.findInForceByEmployeeIds(employeeIds, onDate),
+async function payInputs(employeeIds: string[], period: { start: string; end: string }) {
+  const [salaries, { policy }, entries, settings, rules] = await Promise.all([
+    salaryMappingRepository.findInForceByEmployeeIds(employeeIds, period.end),
+    overtimeService.getPayPolicy(),
+    overtimeRepo.findEntries({ employeeIds, from: period.start, to: period.end }),
     systemControlRepository.findSettings(),
     otRuleRepository.findActiveOtRules(),
   ]);
@@ -754,7 +994,7 @@ async function payInputs(employeeIds: string[], onDate: string) {
     rules.map((r) => ({ ruleType: r.ruleType, isActive: r.isActive, rateOfficeDay: Number(r.rateOfficeDay), rateOffDay: Number(r.rateOffDay) })),
     { work: settings.officeTime.otMultiplierOfficeDay, off: settings.officeTime.otMultiplierOffDay },
   );
-  return { salary, multipliers };
+  return { salary, policy, entries, multipliers };
 }
 
 /** BS month number of a period (summaries keep it for today's payroll reads). */
@@ -782,7 +1022,7 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
   if (ctx.scope.scopeType === "BRANCH" && branchIds.some((b) => !ctx.scope.branchIds.includes(b))) throw new OutOfScopeError();
   const existing = await repo.findPeriods(period.calendar, period.year, period.month);
   const allPeople = await employeesFor({ ...ctx.scope, scopeType: ctx.scope.scopeType === "BRANCH" ? "BRANCH" : "GLOBAL" }, period.start, period.end);
-  const pay = await payInputs(allPeople.map((e) => e.id), period.end);
+  const pay = await payInputs(allPeople.map((e) => e.id), period);
   let employeesClosed = 0;
   let homeLeaveDays = 0;
   const homeLeavePeople = new Set<string>();
@@ -796,12 +1036,17 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
     const fyEnd = await repo.fiscalYearFor(period.end);
     const days: { employeeId: string; fiscalYearId: string; result: DayResult }[] = [];
     const summaries: repo.SummaryWrite[] = [];
+    let otWaiting = 0;
     for (const e of people) {
       const results = datesIn(period).map((d) => resolveFor(c, e, d));
       for (const res of results) days.push({ employeeId: e.id, fiscalYearId: res.date < period.end && fyStart !== fyEnd ? await repo.fiscalYearFor(res.date) : fyEnd, result: res });
       const summary = summariseMonth(period, results, rules);
-      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, ...amountsFor(summary, pay.salary.get(e.id), pay.multipliers) });
+      const a = amountsFor(e.id, summary, results, pay.entries, pay.salary.get(e.id), pay.policy, pay.multipliers);
+      otWaiting += a.otWaiting;
+      summaries.push({ employeeId: e.id, fiscalYearId: fyEnd, bsMonth: bsMonthOf(period), summary, otEarnedAmount: a.otEarnedAmount, otDetail: a.otDetail, otMinutes: a.otMinutes, leaveDeductionAmount: a.leaveDeductionAmount });
     }
+    // 4.7b: overtime is paid as decided, so every overtime day waiting for a decision is decided first.
+    if (otWaiting) throw new UserFacingError(`${otWaiting} overtime day${otWaiting === 1 ? " is" : "s are"} still waiting for a decision this month. Decide ${otWaiting === 1 ? "it" : "them"} on the Overtime tab first.`);
     // Home leave earned (paid days ÷ 20) and expired substitute days go with the close, in the same transaction (4.6b).
     const ledger = await monthCloseLines({
       period: { calendar: period.calendar, year: period.year, month: period.month, label: period.label, end: period.end },
@@ -820,7 +1065,7 @@ export async function closeMonth(raw: unknown, ctx: { scope: ScopeFilter; userId
 }
 
 /** Reopens a branch month (reason required); refused once that month's payroll is approved or locked. */
-export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branchId: string }> {
+export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userId: string }): Promise<{ branchId: string; afterLock: boolean }> {
   const r = (raw && typeof raw === "object" ? raw : {}) as { year?: unknown; month?: unknown; branchId?: unknown; reason?: unknown };
   const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 300) : "";
   if (reason.length < 3) throw new AttendanceValidationError({ reason: "Give a reason for reopening" });
@@ -834,9 +1079,12 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const branchId = typeof r.branchId === "string" ? r.branchId : "";
   if (ctx.scope.scopeType === "DEPARTMENT" || ctx.scope.scopeType === "SELF") throw new UserFacingError("Reopening a month needs a company-wide or branch role.");
   if (ctx.scope.scopeType === "BRANCH" && !ctx.scope.branchIds.includes(branchId)) throw new OutOfScopeError();
-  if (period.calendar === "BS" && (await repo.countFinalisedPayrollRuns(period.year, period.month)) > 0) {
-    throw new UserFacingError("Payroll for this month is already approved or locked, so its attendance can't be reopened. Corrections will be paid as arrears once the payroll run supports them.");
+  // Payroll approved or locked for this month: its attendance stays closed. The team's arrears
+  // (F7) pay back-dated salary revisions only, so a day corrected now would never be paid.
+  if ((await repo.countFinalisedPayrollRuns(period.calendar, period.year, period.month)) > 0) {
+    throw new UserFacingError("Payroll for this month is already approved or locked, so its attendance can't be reopened.");
   }
+  const afterLock = false;
   const p = (await repo.findPeriods(period.calendar, period.year, period.month)).find((x) => x.branchId === branchId);
   if (!p || p.status !== "closed") throw new UserFacingError("That month is not closed for this branch.");
   const people = (await repo.findEmployees()).filter((e) => e.branchId === branchId);
@@ -844,7 +1092,7 @@ export async function reopenMonth(raw: unknown, ctx: { scope: ScopeFilter; userI
   const ledger = await monthReopenLines({ period: { calendar: period.calendar, year: period.year, month: period.month, label: period.label, end: period.end }, employeeIds: people.map((e) => e.id), reason, userId: ctx.userId });
   const ok = await repo.reopenPeriod({ periodId: p.id, employeeIds: people.map((e) => e.id), start: period.start, end: period.end, calendar: period.calendar, year: period.year, month: period.month, userId: ctx.userId, reason, ledger });
   if (!ok) throw new UserFacingError("Someone else reopened it a moment ago. Refresh the page.");
-  return { branchId };
+  return { branchId, afterLock };
 }
 
 // ---------------------------------------------------------------------------
@@ -863,15 +1111,15 @@ export interface ReportPerson {
   amounts: PayrollAttendance;
 }
 
-/** A BS month for the attendance report: every person in scope, their days, summary and pay effect. */
-export async function reportMonth(scope: ScopeFilter, bsYear: number, bsMonth: number, filter: { branchId?: string; departmentId?: string; designationId?: string; employeeId?: string }): Promise<{ period: PayPeriod; people: ReportPerson[] }> {
+/** A month (company calendar) for the attendance report: every person in scope, their days, summary and pay effect. */
+export async function reportMonth(scope: ScopeFilter, year: number, month: number, filter: { branchId?: string; departmentId?: string; designationId?: string; employeeId?: string }): Promise<{ period: PayPeriod; people: ReportPerson[] }> {
   const rules = await getRules();
-  const period = periodFor("BS", bsYear, bsMonth);
+  const period = periodFor(rules.calendar, year, month);
   const people = (await employeesFor(scope, period.start, period.end, { branchId: filter.branchId, departmentId: filter.departmentId })).filter(
     (e) => (!filter.designationId || e.designationId === filter.designationId) && (!filter.employeeId || e.id === filter.employeeId)
   );
   const ctx = await loadContext(people, period.start, period.end, rules);
-  const amounts = await attendanceForPayroll(people.map((e) => e.id), { bsYear, bsMonth, start: period.start, end: period.end });
+  const amounts = await attendanceForPayroll(people.map((e) => e.id), period);
   const today = nepalDateIso();
   return {
     period,
@@ -891,6 +1139,8 @@ export async function reportMonth(scope: ScopeFilter, bsYear: number, bsMonth: n
 export interface PayrollAttendance {
   leaveDeductionAmount: string;
   otEarnedAmount: string;
+  /** How the overtime amount was worked out (null: a month closed before 4.7b). */
+  otDetail: OvertimeDetail | null;
   unpaidDays: number;
   /** From a closed month (true) or worked out now without saving (false). */
   closed: boolean;
@@ -902,29 +1152,40 @@ export interface PayrollAttendance {
  * month is closed, otherwise worked out now from the same rules (nothing is
  * written, nothing is unlocked).
  */
-export async function attendanceForPayroll(employeeIds: string[], run: { bsYear: number; bsMonth: number; start: string; end: string }): Promise<Map<string, PayrollAttendance>> {
+export async function attendanceForPayroll(employeeIds: string[], period: PayPeriod): Promise<Map<string, PayrollAttendance>> {
   const out = new Map<string, PayrollAttendance>();
   if (!employeeIds.length) return out;
-  const closed = await repo.findClosedSummaries(employeeIds, "BS", run.bsYear, run.bsMonth);
+  const closed = await repo.findClosedSummaries(employeeIds, period.calendar, period.year, period.month);
   for (const s of closed) {
-    out.set(s.employeeId, { leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"), otEarnedAmount: String(s.otEarnedAmount ?? "0"), unpaidDays: (Number(s.unpaidDays) || 0) + (Number(s.notEmployedDays) || 0), closed: true, otWarnings: s.otWarnings });
+    out.set(s.employeeId, {
+      leaveDeductionAmount: String(s.leaveDeductionAmount ?? "0"),
+      otEarnedAmount: String(s.otEarnedAmount ?? "0"),
+      otDetail: s.otDetail ?? null,
+      unpaidDays: (Number(s.unpaidDays) || 0) + (Number(s.notEmployedDays) || 0),
+      closed: true,
+      otWarnings: s.otWarnings,
+    });
   }
   const open = employeeIds.filter((id) => !out.has(id));
   if (!open.length) return out;
   const rules = await getRules();
-  let period: PayPeriod;
-  try {
-    period = periodFor("BS", run.bsYear, run.bsMonth);
-  } catch {
-    period = { calendar: "BS", year: run.bsYear, month: run.bsMonth, start: run.start, end: run.end, days: datesBetween(run.start, run.end).length, label: "" };
-  }
   const people = (await repo.findEmployees()).filter((e) => open.includes(e.id));
   const c = await loadContext(people, period.start, period.end, rules);
-  const pay = await payInputs(people.map((e) => e.id), period.end);
+  const pay = await payInputs(people.map((e) => e.id), period);
   for (const e of people) {
-    const summary = summariseMonth(period, datesIn(period).map((d) => resolveFor(c, e, d)), rules);
-    const a = amountsFor(summary, pay.salary.get(e.id), pay.multipliers);
-    out.set(e.id, { leaveDeductionAmount: String(a.leaveDeductionAmount), otEarnedAmount: String(a.otEarnedAmount), unpaidDays: summary.unpaidDays + summary.notEmployedDays, closed: false, otWarnings: summary.otWarnings.join("\n") || null });
+    const days = datesIn(period).map((d) => resolveFor(c, e, d));
+    const summary = summariseMonth(period, days, rules);
+    const a = amountsFor(e.id, summary, days, pay.entries, pay.salary.get(e.id), pay.policy, pay.multipliers);
+    // Overtime waiting for a decision is not paid yet: say so on the payslip.
+    const waiting = a.otWaiting ? [`${a.otWaiting} overtime day${a.otWaiting === 1 ? "" : "s"} waiting for a decision (not paid yet)`] : [];
+    out.set(e.id, {
+      leaveDeductionAmount: String(a.leaveDeductionAmount),
+      otEarnedAmount: String(a.otEarnedAmount),
+      otDetail: a.otDetail,
+      unpaidDays: summary.unpaidDays + summary.notEmployedDays,
+      closed: false,
+      otWarnings: [...summary.otWarnings, ...waiting].join("\n") || null,
+    });
   }
   return out;
 }

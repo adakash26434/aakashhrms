@@ -1,7 +1,6 @@
 import { getDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { 
-  payrollRuns, 
   payrollSlips, 
   payrollSlipHeads, 
   leaveOtCalculations, 
@@ -16,12 +15,10 @@ import {
   departments,
   designations,
   payHeads,
-  fiscalYears,
-  userRoles,
-  roles,
   employeeSalaryMap,
   employeeSalaryHeads,
-  attendanceRecords
+  attendanceRecords,
+  payrollRuns
 } from "@/lib/db/schema";
 import { eq, and, inArray, sql, gte, lte, asc } from "drizzle-orm";
 import * as repository from "@/lib/repositories/payroll.repository";
@@ -38,10 +35,13 @@ import * as designationRepository from "@/lib/repositories/designation.repositor
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as roleRepository from "@/lib/repositories/role.repository";
 import { auth } from "@/lib/auth";
-import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
+import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead, type PayHeadInput } from "@/lib/engines/payroll.engine";
+import { fiscalMonthIndexFor } from "@/lib/engines/pay-calendar.engine";
+import { getPayCalendar } from "@/lib/repositories/pay-calendar.repository";
+import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
-import { getBSMonthRange } from "@/lib/utils/bs-calendar";
-import { isAshadh, getFiscalMonthIndex } from "@/lib/utils/fiscal-year.utils";
+import { periodFor, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
+import * as fundRepository from "@/lib/repositories/fund.repository";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
 import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
@@ -126,6 +126,36 @@ export class PayrollLockedError extends Error {
 }
 
 // -----------------------------------------------------------------------------
+// 4.8b: the pay month and the income tax projection inputs
+// -----------------------------------------------------------------------------
+
+/** The run's month in its calendar. */
+export function periodOfRun(run: Pick<PayrollRun, "calendar" | "payPeriodYear" | "payPeriodMonth">): PayPeriod {
+  return periodFor((run.calendar === "AD" ? "AD" : "BS") as PeriodCalendar, run.payPeriodYear, run.payPeriodMonth);
+}
+
+const fyDates = (fy: { startDateAD: Date; endDateAD: Date }) => ({ start: new Date(fy.startDateAD).toISOString().slice(0, 10), end: new Date(fy.endDateAD).toISOString().slice(0, 10) });
+
+/**
+ * The year's locked payslips per employee, for the team's year-end (last
+ * fiscal month) reconciliation in calculatePayslip.
+ */
+async function yearEndHistory(employeeIds: string[], fiscalYearId: string, excludeSlipId?: string): Promise<Map<string, { grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }[]>> {
+  const out = new Map<string, { grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }[]>();
+  if (!employeeIds.length) return out;
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, id: payrollSlips.id, grossEarnings: payrollSlips.grossEarnings, pfEmployee: payrollSlips.pfEmployee, citDeduction: payrollSlips.citDeduction, tdsThisMonth: payrollSlips.tdsThisMonth })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(and(inArray(payrollSlips.employeeId, employeeIds), eq(payrollRuns.fiscalYearId, fiscalYearId), eq(payrollRuns.status, 'LOCKED')));
+  for (const r of rows) {
+    if (r.id === excludeSlipId) continue;
+    out.set(r.employeeId, [...(out.get(r.employeeId) ?? []), { grossEarnings: r.grossEarnings, pfEmployee: r.pfEmployee, citDeduction: r.citDeduction, tdsThisMonth: r.tdsThisMonth }]);
+  }
+  return out;
+}
+
+// -----------------------------------------------------------------------------
 // Read Methods
 // -----------------------------------------------------------------------------
 
@@ -174,16 +204,19 @@ export async function generatePayrollRun(
     payslipDate
   } = payload;
 
-  // Resolve BS Month start/end dates in AD
-  const { start: startDateAD, end: endDateAD } = getBSMonthRange(payPeriodYear, payPeriodMonth);
-  const startStr = startDateAD.toISOString().split('T')[0];
-  const endStr = endDateAD.toISOString().split('T')[0];
+  // The month in the company's pay calendar (4.8b), with its AD dates.
+  const calendar = await getPayCalendar();
+  const runType = payload.runType ?? "REGULAR";
+  const period = periodFor(calendar, payPeriodYear, payPeriodMonth);
+  const { start: startStr, end: endStr } = period;
 
-  // 1. Verify duplicates
+  // 1. Verify duplicates (one regular run per month and branch; other kinds may sit beside it)
   const existingRuns = await repository.findPayrollRunByPeriodAndBranch({
+    calendar,
     payPeriodMonth,
     payPeriodYear,
-    branchIds
+    branchIds,
+    runType,
   });
   if (existingRuns.length > 0) {
     const hasLocked = existingRuns.some(r => r.status === 'LOCKED');
@@ -212,10 +245,10 @@ export async function generatePayrollRun(
   // 2. Load system configurations & active FY
   const systemControl = await systemControlRepository.findSettings();
   
-  // Find active fiscal year
-  const activeFys = await (await getDb()).select().from(fiscalYears).where(eq(fiscalYears.status, 'Active'));
-  if (!activeFys.length) throw new Error("No active fiscal year found in system");
-  const activeFy = activeFys[0] as { id: string; label: string };
+  // The fiscal year containing the month's last day (4.8b; it used to be "the first Active one").
+  const fyRow = await fiscalYearRepository.findFiscalYearForDate(endStr);
+  if (!fyRow) throw new Error(`No fiscal year covers ${period.label}. Add it in Company setup → Fiscal years.`);
+  const activeFy = { id: fyRow.id, label: fyRow.label };
 
   // 3. Load all active employees in scoped branches/departments
   const allEmployees = await employeeRepository.findAll({
@@ -262,7 +295,7 @@ export async function generatePayrollRun(
   // 5. Attendance for the month (4.5): the closed summary, or worked out now from the same
   // day rules without writing anything (the month stays as it is).
   const empIds = scopedEmployees.map(e => e.id);
-  const leaveOtByEmployeeId = await attendanceForPayroll(empIds, { bsYear: payPeriodYear, bsMonth: payPeriodMonth, start: startStr, end: endStr });
+  const leaveOtByEmployeeId = runType === "REGULAR" ? await attendanceForPayroll(empIds, period) : new Map<string, Awaited<ReturnType<typeof attendanceForPayroll>> extends Map<string, infer V> ? V : never>();
 
   // 5b. Feeds from other modules (4.8): approved TA-DA claims whose trip ended in or before the
   // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
@@ -286,7 +319,7 @@ export async function generatePayrollRun(
     )
   );
 
-  const pendingCount = Number(pendingLeaves[0]?.count || 0);
+  const pendingCount = runType === "REGULAR" ? Number(pendingLeaves[0]?.count || 0) : 0;
   if (pendingCount > 0) {
     throw new PendingLeaveApplicationsError(pendingCount);
   }
@@ -342,6 +375,8 @@ export async function generatePayrollRun(
     }
   }
 
+  // Welfare fund contributions posted for the month (4.8a): the employee share is deducted.
+
   // BATCH PREFETCH: Load all bank details for scoped employees
   const allBankDetails = await (await getDb()).select().from(employeeBank).where(
     and(
@@ -378,45 +413,12 @@ export async function generatePayrollRun(
   let totalPfSum = new Decimal(0);
   let totalSsfSum = new Decimal(0);
 
-  // Determine if year-end (Ashadh/Asar = month 3 in BS 1-indexed convention)
-  const isYearEndMonth = isAshadh(payPeriodMonth);
-
-  // BATCH PREFETCH: If year-end, load all historical slips for the FY at once
-  let historicalSlipsByEmployee = new Map<string, Array<{
-    grossEarnings: string;
-    pfEmployee: string;
-    citDeduction: string;
-    tdsThisMonth: string;
-  }>>();
-  if (isYearEndMonth) {
-    const allPastSlips = await (await getDb()).select()
-      .from(payrollSlips)
-      .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-      .where(
-        and(
-          inArray(payrollSlips.employeeId, empIds),
-          eq(payrollRuns.fiscalYearId, activeFy.id),
-          eq(payrollRuns.status, 'LOCKED')
-        )
-      );
-
-    for (const s of allPastSlips) {
-      const empId = s.payroll_slips.employeeId;
-      if (!historicalSlipsByEmployee.has(empId)) {
-        historicalSlipsByEmployee.set(empId, []);
-      }
-      historicalSlipsByEmployee.get(empId)!.push({
-        grossEarnings: s.payroll_slips.grossEarnings,
-        pfEmployee: s.payroll_slips.pfEmployee,
-        citDeduction: s.payroll_slips.citDeduction,
-        tdsThisMonth: s.payroll_slips.tdsThisMonth
-      });
-    }
-  }
-
-  // F5: the earlier months of the year for the tax projection (months 1–11; the year-end month reconciles).
-  const fiscalMonthIndex = getFiscalMonthIndex(payPeriodMonth);
-  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, activeFy.id, fiscalMonthIndex);
+  // F5 (team): the tax still due on the projected year, spread over the months left; the
+  // year-end month reconciles on the year's locked payslips. Months counted in the pay calendar.
+  const fiscalMonthIndex = fiscalMonthIndexFor(calendar, payPeriodMonth);
+  const isYearEndMonth = fiscalMonthIndex === 12;
+  const historicalSlipsByEmployee = isYearEndMonth ? await yearEndHistory(empIds, activeFy.id) : new Map<string, { grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }[]>();
+  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, activeFy.id, fiscalMonthIndex, undefined, calendar);
 
   // 7. Calculate payslips for each employee (all data pre-loaded — no per-employee queries)
   for (const emp of scopedEmployees) {
@@ -538,20 +540,17 @@ export async function generatePayrollRun(
       }
     }
 
-    // Use batch-loaded historical slips for year-end reconciliation
-    const historicalSlips = isYearEndMonth
-      ? (historicalSlipsByEmployee.get(emp.id) || [])
-      : [];
-
+    const historicalSlips = historicalSlipsByEmployee.get(emp.id) ?? [];
+    const employeeInput = {
+      id: emp.id,
+      category: emp.category,
+      gender: emp.gender,
+      isDisabled: emp.isDisabled,
+      taxStatus: emp.taxStatus,
+      joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
+    };
     const calcResult = calculatePayslip({
-      employee: {
-        id: emp.id,
-        category: emp.category,
-        gender: emp.gender,
-        isDisabled: emp.isDisabled,
-        taxStatus: emp.taxStatus,
-        joiningDate: typeof emp.joiningDate === 'string' ? emp.joiningDate : (emp.joiningDate as any).toISOString().split('T')[0]
-      },
+      employee: employeeInput,
       salaryMap: {
         basicSalary: salaryMap.basicSalary.toString(),
         gradePercent: salaryMap.gradePercent.toString(),
@@ -593,8 +592,9 @@ export async function generatePayrollRun(
         employeeName: emp.fullName,
         departmentName,
         designationName,
-        basicSalary: salaryMap.basicSalary.toString(),
-        gradeAmount: (salaryMap.gradeAmount || 0).toString(),
+        // What was worked out (a bonus run has no basic or grade on its slip).
+        basicSalary: calcResult.basicSalary,
+        gradeAmount: calcResult.gradeAmount,
         grossEarnings: calcResult.grossEarnings,
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
@@ -609,6 +609,7 @@ export async function generatePayrollRun(
         loanDeduction: calcResult.loanDeduction,
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
+        otDetail: leaveOtCalc?.otDetail ?? null,
         bankAccountNumber,
         bankName,
         payslipMonth,
@@ -637,6 +638,8 @@ export async function generatePayrollRun(
       employeeCategories: employeeCategories || [],
       employeeIds: employeeIds || [],
       occasionalAllowanceHeadIds: occasionalAllowanceHeadIds || [],
+      calendar,
+      runType,
       payslipMonth,
       payslipDate,
       status: 'DRAFT',
@@ -705,6 +708,7 @@ export async function overridePayslipAllowanceDeduction(
     basicSalary,
     gradeAmount,
     otAmount,
+    otDetail,
     absentDeduction,
     loanDeduction,
     bankName,
@@ -730,6 +734,7 @@ export async function overridePayslipAllowanceDeduction(
     if (basicSalary !== undefined) updatedSlipFields.basicSalary = basicSalary;
     if (gradeAmount !== undefined) updatedSlipFields.gradeAmount = gradeAmount;
     if (otAmount !== undefined) updatedSlipFields.otAmount = otAmount;
+    if (otDetail !== undefined) updatedSlipFields.otDetail = otDetail;
     if (absentDeduction !== undefined) updatedSlipFields.absentDeduction = absentDeduction;
     if (loanDeduction !== undefined) updatedSlipFields.loanDeduction = loanDeduction;
 
@@ -809,28 +814,10 @@ export async function overridePayslipAllowanceDeduction(
       };
     });
 
-    const isYearEnd = isAshadh(run.payPeriodMonth);
-    let historicalSlips: Array<{ grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }> = [];
-    if (isYearEnd) {
-      const pastSlips = await tx.select()
-        .from(payrollSlips)
-        .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-        .where(
-          and(
-            eq(payrollSlips.employeeId, emp.id),
-            eq(payrollRuns.fiscalYearId, run.fiscalYearId),
-            eq(payrollRuns.status, 'LOCKED'),
-            sql`payroll_slips.id != ${slipId}`
-          )
-        );
-
-      historicalSlips = pastSlips.map(s => ({
-        grossEarnings: s.payroll_slips.grossEarnings,
-        pfEmployee: s.payroll_slips.pfEmployee,
-        citDeduction: s.payroll_slips.citDeduction,
-        tdsThisMonth: s.payroll_slips.tdsThisMonth
-      }));
-    }
+    const runCalendar = run.calendar === "AD" ? "AD" : "BS";
+    const fiscalMonthIdx = fiscalMonthIndexFor(runCalendar, run.payPeriodMonth);
+    const isYearEnd = fiscalMonthIdx === 12;
+    const historicalSlips = isYearEnd ? (await yearEndHistory([emp.id], run.fiscalYearId, slipId)).get(emp.id) ?? [] : [];
 
     const isFestivalChecked = run.occasionalAllowanceHeadIds?.some(id => {
       const h = allPayHeads.find((dbH: typeof allPayHeads[number]) => dbH.id === id);
@@ -868,13 +855,14 @@ export async function overridePayslipAllowanceDeduction(
       isRemoteMonth: isRemoteChecked,
       isYearEnd,
       historicalPayslips: historicalSlips,
-      fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
-      projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
+      fiscalMonthIndex: fiscalMonthIdx,
+      projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, fiscalMonthIdx, run.id, runCalendar)).get(emp.id) ?? []),
     });
 
     // Save new values to the slip in the DB
     await tx.update(payrollSlips)
       .set({
+        isYearEndReconciliation: isYearEnd,
         grossEarnings: calcResult.grossEarnings,
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
@@ -945,18 +933,15 @@ export async function syncPayrollRunAttendance(
 
   const slips = await repository.findSlipsByRunId(runId);
   // Re-reads attendance for the month (closed summary, or worked out now); never unlocks anything (4.5).
-  const attendance = await attendanceForPayroll(slips.map((x) => x.employeeId), {
-    bsYear: run.payPeriodYear,
-    bsMonth: run.payPeriodMonth,
-    start: run.payPeriodStartDate,
-    end: run.payPeriodEndDate,
-  });
+  if (run.runType !== "REGULAR") throw new Error("Only a regular run reads attendance.");
+  const attendance = await attendanceForPayroll(slips.map((x) => x.employeeId), periodOfRun(run));
   for (const s of slips) {
     const calc = attendance.get(s.employeeId);
     await overridePayslipAllowanceDeduction({
       slipId: s.id,
       absentDeduction: calc?.leaveDeductionAmount ?? "0",
       otAmount: calc?.otEarnedAmount ?? "0",
+      otDetail: calc?.otDetail ?? null,
     }, userId);
   }
 
@@ -1001,6 +986,7 @@ export async function deleteEmployeePayslip(slipId: string, userId: string): Pro
 
   // Totals and employee count from the remaining payslips (4.8 fix).
   await repository.refreshRunTotals(run.id);
+
   const remainingSlips = await repository.findSlipsByRunId(run.id);
 
   await (await getDb()).insert(auditLogs).values({
@@ -1039,7 +1025,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
   }
 
   // Attendance for this month (4.5): closed summary, or worked out now without saving.
-  const leaveOtCalc = (await attendanceForPayroll([emp.id], { bsYear: run.payPeriodYear, bsMonth: run.payPeriodMonth, start: run.payPeriodStartDate, end: run.payPeriodEndDate })).get(emp.id);
+  if (run.runType !== "REGULAR") throw new Error("Only a regular run's payslip can be recalculated from master data.");
+  const leaveOtCalc = (await attendanceForPayroll([emp.id], periodOfRun(run))).get(emp.id);
   const attendCalc = {
     leaveDeductionAmount: leaveOtCalc?.leaveDeductionAmount || "0",
     otEarnedAmount: leaveOtCalc?.otEarnedAmount || "0"
@@ -1171,28 +1158,10 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     }
   }
 
-  const isYearEnd = isAshadh(run.payPeriodMonth);
-  let historicalSlips: Array<{ grossEarnings: string; pfEmployee: string; citDeduction: string; tdsThisMonth: string }> = [];
-  if (isYearEnd) {
-    const pastSlips = await (await getDb()).select()
-      .from(payrollSlips)
-      .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-      .where(
-        and(
-          eq(payrollSlips.employeeId, emp.id),
-          eq(payrollRuns.fiscalYearId, run.fiscalYearId),
-          eq(payrollRuns.status, 'LOCKED'),
-          sql`payroll_slips.id != ${slipId}`
-        )
-      );
-
-    historicalSlips = pastSlips.map(s => ({
-      grossEarnings: s.payroll_slips.grossEarnings,
-      pfEmployee: s.payroll_slips.pfEmployee,
-      citDeduction: s.payroll_slips.citDeduction,
-      tdsThisMonth: s.payroll_slips.tdsThisMonth
-    }));
-  }
+  const runCalendar = run.calendar === "AD" ? "AD" : "BS";
+  const fiscalMonthIdx = fiscalMonthIndexFor(runCalendar, run.payPeriodMonth);
+  const isYearEnd = fiscalMonthIdx === 12;
+  const historicalSlips = isYearEnd ? (await yearEndHistory([emp.id], run.fiscalYearId, slipId)).get(emp.id) ?? [] : [];
 
   const calcResult = calculatePayslip({
     employee: {
@@ -1217,8 +1186,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     isRemoteMonth: isRemoteChecked,
     isYearEnd,
     historicalPayslips: historicalSlips,
-    fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
-    projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
+    fiscalMonthIndex: fiscalMonthIdx,
+    projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, fiscalMonthIdx, run.id, runCalendar)).get(emp.id) ?? []),
   });
 
   // Transactionally update slip and replace heads
@@ -1241,6 +1210,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         loanDeduction: calcResult.loanDeduction,
         absentDeduction: calcResult.absentDeduction,
         otAmount: calcResult.otAmount,
+        otDetail: leaveOtCalc?.otDetail ?? null,
+        isYearEndReconciliation: isYearEnd,
         updatedAt: new Date()
       })
       .where(eq(payrollSlips.id, slipId));
@@ -1375,8 +1346,9 @@ export async function transitionPayrollRun(
       const slips = await repository.findSlipsByRunId(runId);
       const slipEmpIds = slips.map((s) => s.employeeId);
 
-      // Atomically seal attendance punches and leave/OT calculations for this pay period
-      if (slipEmpIds.length > 0 && run.payPeriodStartDate && run.payPeriodEndDate) {
+      // Atomically seal attendance punches and leave/OT calculations for this pay period (regular runs; 4.8b).
+      const regular = run.runType === "REGULAR";
+      if (regular && slipEmpIds.length > 0 && run.payPeriodStartDate && run.payPeriodEndDate) {
         await tx.update(attendanceRecords)
           .set({ isLocked: true, updatedAt: new Date() })
           .where(
@@ -1392,12 +1364,13 @@ export async function transitionPayrollRun(
           .where(
             and(
               inArray(leaveOtCalculations.employeeId, slipEmpIds),
-              eq(leaveOtCalculations.bsMonth, run.payPeriodMonth),
-              eq(leaveOtCalculations.fiscalYearId, run.fiscalYearId)
+              eq(leaveOtCalculations.calendar, run.calendar),
+              eq(leaveOtCalculations.periodYear, run.payPeriodYear),
+              eq(leaveOtCalculations.periodMonth, run.payPeriodMonth)
             )
           );
       }
-      for (const slip of slips) {
+      for (const slip of regular ? slips : []) {
         const loanAmt = new Decimal(slip.loanDeduction);
         if (loanAmt.gt(0)) {
           // Find all active loans for employee disbursed on or before period end
@@ -1455,11 +1428,13 @@ export async function transitionPayrollRun(
         }
       }
 
-      // 3. Synchronize newly added or overridden pay heads into master Salary Mapping
+
+      // 3. Synchronize newly added or overridden pay heads into master Salary Mapping (regular runs
+      // only: a bonus, arrears or settlement head is paid once and never belongs to the structure).
       const allDbPayHeads = await tx.select().from(payHeads);
       const payHeadById = new Map(allDbPayHeads.map(p => [p.id, p]));
 
-      for (const slip of slips) {
+      for (const slip of regular ? slips : []) {
         const slipHeads = await tx.select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slip.id));
 
         // Filter for syncable heads: exclude dynamic runtime attendance/statutory calculations

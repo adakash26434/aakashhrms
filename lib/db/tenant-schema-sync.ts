@@ -772,6 +772,89 @@ ON CONFLICT DO NOTHING`);
     console.error("[tenant-schema-sync] employee documents 0045:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
 
+  // Overtime approvals (4.7b, migration 0047): decided overtime days, and how each month's and
+  // payslip's overtime amount was worked out. Additive only.
+  for (const q of [
+    `CREATE TABLE IF NOT EXISTS "overtime_entries" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+  "work_date" date NOT NULL,
+  "source" varchar(10) NOT NULL,
+  "day_kind" varchar(5) NOT NULL,
+  "detected_minutes" integer DEFAULT 0 NOT NULL,
+  "requested_minutes" integer DEFAULT 0 NOT NULL,
+  "approved_minutes" integer DEFAULT 0 NOT NULL,
+  "status" varchar(20) DEFAULT 'pending' NOT NULL,
+  "over_limit" boolean DEFAULT false NOT NULL,
+  "reason" text,
+  "prepared_by" uuid,
+  "decided_by" uuid,
+  "decided_at" timestamp,
+  "decision_note" text,
+  "approval_route" varchar(20),
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "overtime_entries_employee_date_source_key" UNIQUE ("employee_id", "work_date", "source")
+)`,
+    `CREATE INDEX IF NOT EXISTS "overtime_entries_date_idx" ON "overtime_entries" ("work_date")`,
+    `CREATE INDEX IF NOT EXISTS "overtime_entries_status_idx" ON "overtime_entries" ("status")`,
+    `ALTER TABLE "leave_ot_calculations" ADD COLUMN IF NOT EXISTS "ot_detail" jsonb`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "ot_detail" jsonb`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] overtime 0047:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
+  // Payroll run (4.8a, migration 0068): run type, the approval flow, who submitted, the variance
+  // review; fund contributions on payslips. Additive only.
+  for (const q of [
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "approval_type" varchar(20)`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "approval_levels" jsonb DEFAULT '[]'::jsonb NOT NULL`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "current_level" integer DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "approval_route" varchar(20)`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "variance" jsonb`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "submitted_by" uuid`,
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "submitted_at" timestamp`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "fund_deduction" numeric(15, 2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "fund_detail" jsonb`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] payroll run 0068:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
+  // Pay calendar and year-to-date tax (4.8b, migration 0069): runs carry their calendar, payslips
+  // keep the tax projection, and the month summaries are keyed by (employee, calendar, year,
+  // month). The old (employee, fiscal year, bs_month) constraint goes once the period index is in.
+  for (const q of [
+    `ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "calendar" varchar(2) DEFAULT 'BS' NOT NULL`,
+    `ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "tax_detail" jsonb`,
+    `CREATE INDEX IF NOT EXISTS "payroll_runs_period_idx" ON "payroll_runs" ("calendar", "pay_period_year", "pay_period_month", "run_type", "status")`,
+    `UPDATE "leave_ot_calculations" c SET "calendar" = 'BS', "period_month" = c."bs_month",
+  "period_year" = CASE WHEN c."bs_month" >= fy."from_month" THEN left(fy."start_date_bs", 4)::int ELSE left(fy."start_date_bs", 4)::int + 1 END
+FROM "fiscal_years" fy
+WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM "leave_ot_calculations" o
+    WHERE o."employee_id" = c."employee_id" AND o."calendar" = 'BS' AND o."period_month" = c."bs_month"
+      AND o."period_year" = CASE WHEN c."bs_month" >= fy."from_month" THEN left(fy."start_date_bs", 4)::int ELSE left(fy."start_date_bs", 4)::int + 1 END
+  )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "leave_ot_calculations_period_idx" ON "leave_ot_calculations" ("employee_id", "calendar", "period_year", "period_month") WHERE "period_year" IS NOT NULL`,
+    `ALTER TABLE "leave_ot_calculations" DROP CONSTRAINT IF EXISTS "leave_ot_calculations_employee_id_fiscal_year_id_bs_month_unique"`,
+  ]) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] pay calendar 0069:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
+
   // Organization (4.3, migration 0036): company-wide departments and a head picked from
   // employees. When head_employee_id is new, link typed head names that match one employee.
   try {

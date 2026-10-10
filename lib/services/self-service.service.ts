@@ -1,5 +1,6 @@
 // SECURITY: this is a plain server module, not a 'use server' file. Clients
 // reach it only through app/actions/self-service.actions.ts or server pages.
+import { runLabel } from '@/lib/engines/pay-calendar.engine';
 import { getDbAsync } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import {
@@ -174,31 +175,34 @@ export async function getMyPayslips(fiscalYearId?: string) {
       // From payroll run
       payPeriodMonth: payrollRuns.payPeriodMonth,
       payPeriodYear: payrollRuns.payPeriodYear,
+      calendar: payrollRuns.calendar,
+      runType: payrollRuns.runType,
     })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .where(and(...conditions))
-    .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth));
+    // Only paid months reach the employee (4.8b): a draft or a run under review is not a payslip yet.
+    .where(and(...conditions, eq(payrollRuns.status, 'LOCKED')))
+    .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth), desc(payrollRuns.lockedAt));
 
-  return slips;
+  return slips.map((s) => ({ ...s, label: runLabel(s) }));
 }
 
 export async function getMyPayslipDetail(payslipId: string) {
   const { employeeId } = await getSessionEmployeeId();
   const db = await getDbAsync();
 
-  // Verify the payslip belongs to this employee
+  // Verify the payslip belongs to this employee, and that the employee may see it (locked, published, not held: visibleToEmployee)
   const [row] = await db
-    .select({ slip: payrollSlips })
+    .select({ slip: payrollSlips, run: { calendar: payrollRuns.calendar, runType: payrollRuns.runType, payPeriodYear: payrollRuns.payPeriodYear, payPeriodMonth: payrollRuns.payPeriodMonth, status: payrollRuns.status } })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
     .where(and(eq(payrollSlips.id, payslipId), eq(payrollSlips.employeeId, employeeId), ...visibleToEmployee()))
     .limit(1);
-  const slip = row?.slip;
 
-  if (!slip) {
+  if (!row) {
     throw new Error('Payslip not found or you do not have access to view it.');
   }
+  const slip = { ...row.slip, payPeriodYear: row.run.payPeriodYear, payPeriodMonth: row.run.payPeriodMonth, label: runLabel(row.run), runType: row.run.runType };
 
   // Get payslip heads (allowances & deductions breakdown)
   const heads = await db

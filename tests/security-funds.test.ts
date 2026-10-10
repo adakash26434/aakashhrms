@@ -11,7 +11,7 @@ import { join } from 'node:path';
 // action.
 
 const root = join(__dirname, '..');
-const read = (p: string) => readFileSync(join(root, p), 'utf8');
+const read = (p: string) => readFileSync(join(root, p), 'utf8').replace(/\r\n/g, '\n');
 const actions = read('app/actions/fund.actions.ts');
 const service = read('lib/services/fund.service.ts');
 const repo = read('lib/repositories/fund.repository.ts');
