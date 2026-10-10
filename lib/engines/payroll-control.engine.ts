@@ -1,4 +1,6 @@
 import { maskAccountNumber } from '@/lib/utils/mask';
+import type { ScopeFilter } from '@/lib/auth/scope-filter';
+import type { RunStep } from '@/lib/types/notification';
 
 // Payroll controls (4.8 / F1–F3): pure rules for the variance review, the
 // maker-checker on run approval and locking, the pre-flight report and who
@@ -186,6 +188,72 @@ export function slipVisibleToEmployee(s: PublishState): boolean {
 /** A run can be published once it is locked and not already published. */
 export function canPublishRun(runStatus: string, publishedAt: Date | string | null): boolean {
   return runStatus === 'LOCKED' && !publishedAt;
+}
+
+// ---- F17: the step a run waits for (notification centre) ----------------------------
+
+export interface RunStepFacts {
+  status: string;
+  publishedAt: Date | string | null;
+  generatedBy: string;
+  /** Payslips held back from employees. */
+  heldCount: number;
+  /** The run pays the acting user's own employee record. */
+  includesActor: boolean;
+}
+
+export interface RunStepActor {
+  userId: string;
+  isAdmin: boolean;
+  mode: CheckerMode;
+  /** Payroll generate → Edit: sends a draft for review. */
+  canSend: boolean;
+  /** Payroll review → Approve. */
+  canApprove: boolean;
+  /** Payroll review → Lock: locks, publishes and releases held payslips. */
+  canLock: boolean;
+}
+
+/**
+ * The step on a run that waits for this person, or null. It follows the server's own checks
+ * (the action's permission, `checkerRefusal`, `canPublishRun`), so the bell never offers a step
+ * the server would refuse. Held payslips on a published run are a reminder (`release`).
+ */
+export function nextRunStep(run: RunStepFacts, actor: RunStepActor): RunStep | null {
+  const allowed = (step: 'approve' | 'lock') =>
+    checkerRefusal({ mode: actor.mode, step, generatedBy: run.generatedBy, actor: actor.userId, actorIsAdmin: actor.isAdmin, runIncludesActor: run.includesActor }) === null;
+  switch (run.status) {
+    case 'DRAFT':
+      return actor.canSend ? 'send' : null;
+    case 'UNDER_REVIEW':
+      return actor.canApprove && allowed('approve') ? 'approve' : null;
+    case 'APPROVED':
+      return actor.canLock && allowed('lock') ? 'lock' : null;
+    case 'LOCKED':
+      if (!actor.canLock) return null;
+      if (canPublishRun(run.status, run.publishedAt)) return 'publish';
+      return run.heldCount > 0 ? 'release' : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Whether a run concerns someone with this scope: company-wide people see every run; branch and
+ * department people see runs for all branches (departments) or for one of theirs.
+ */
+export function runConcerns(run: { branchIds: readonly string[]; departmentIds: readonly string[] | null }, scope: Pick<ScopeFilter, 'scopeType' | 'branchIds' | 'departmentIds'>): boolean {
+  const overlaps = (runIds: readonly string[] | null, mine: readonly string[]) => !runIds?.length || runIds.some((id) => mine.includes(id));
+  switch (scope.scopeType) {
+    case 'GLOBAL':
+      return true;
+    case 'BRANCH':
+      return overlaps(run.branchIds, scope.branchIds);
+    case 'DEPARTMENT':
+      return overlaps(run.departmentIds, scope.departmentIds);
+    default:
+      return false;
+  }
 }
 
 // ---- pre-flight --------------------------------------------------------------------

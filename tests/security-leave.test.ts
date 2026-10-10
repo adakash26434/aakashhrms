@@ -112,8 +112,9 @@ describe('S24 leave security', () => {
   });
 
   it('the bell counts only leave this user can decide', () => {
-    const ws = source('lib/services/workspace-context.service.ts');
-    assert.match(ws, /countLeaveWaitingFor\(scope, await hasPermission\('APPROVE', 'LEAVE_APPROVALS'\)\)/);
+    // F17: the notification centre counts it (the workspace context reads the centre).
+    const centre = source('lib/services/notification.service.ts');
+    assert.match(centre, /countLeaveWaitingFor\(scope, has\('APPROVE', 'LEAVE_APPROVALS'\)\)/);
     const count = fnBody(service, 'countWaitingFor');
     assert.match(count, /w\.employeeId !== scope\.employeeId && w\.preparedBy !== scope\.userId/);
   });

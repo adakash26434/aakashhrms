@@ -39,11 +39,11 @@ const statusChip = (status: ClaimRow["status"]) =>
 
 type Result<T> = { success: true; data: T } | { success: false; error: string; validationErrors?: Record<string, string> };
 
-export function TravelClient({ data }: { data: TravelPageData }) {
+export function TravelClient({ data, initialStatus }: { data: TravelPageData; initialStatus?: string }) {
   const router = useRouter();
   const [tab, setTab] = useState("claims");
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<FilterValues>({});
+  const [filters, setFilters] = useState<FilterValues>((): FilterValues => (initialStatus ? { status: initialStatus } : {}));
   const [editing, setEditing] = useState<ClaimRow | "new" | null>(null);
   const [rateEditing, setRateEditing] = useState<RateCardRow | "new" | null>(null);
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);

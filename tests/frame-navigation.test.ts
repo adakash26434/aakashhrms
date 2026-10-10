@@ -128,7 +128,7 @@ describe('Administrators see every module (F16 fix)', () => {
     const { readFileSync } = await import('node:fs');
     const { moduleEnum } = await import('../lib/db/schema');
     const source = readFileSync(join(root, 'lib/auth/get-user-permissions.ts'), 'utf8');
-    assert.match(source, /if \(isAdmin\) \{[\s\S]*?return new Set\(moduleEnum\.enumValues\);/);
+    assert.match(source, /if \(set\.isAdmin\) return new Set\(moduleEnum\.enumValues\);/);
     // Every module a navigation section requires is a real module, so an administrator sees it.
     const all = new Set<string>(moduleEnum.enumValues);
     for (const m of NAV_MODULES) for (const s of m.sections) for (const r of s.requires ?? []) assert.ok(all.has(r), `${s.id} requires ${r}`);

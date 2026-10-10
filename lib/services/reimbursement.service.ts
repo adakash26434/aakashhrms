@@ -87,6 +87,11 @@ export async function reimbursementPage(ctx: ReimbursementCtx, permissions: Reim
   };
 }
 
+/** Submitted claims this person can decide (the bell): within their scope, never their own (S21). Call it for Approve only. */
+export async function countWaitingFor(scope: ScopeFilter): Promise<number> {
+  return repo.countInStatus("submitted", buildEmployeeScopeCondition(scope), scope.employeeId);
+}
+
 /** The signed-in employee's own claims and the types they can claim (self-service). */
 export async function ownClaims(ctx: ReimbursementCtx): Promise<{ claims: ReimbursementClaimRow[]; types: ReimbursementTypeRow[] }> {
   if (!ctx.actorEmployeeId) return { claims: [], types: [] };

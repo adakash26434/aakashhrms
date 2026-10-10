@@ -166,8 +166,9 @@ describe('Return path validation (open redirect)', () => {
 
 describe('Frame data exposure (S15, palette)', () => {
   it('counts pending approvals only for approvers, within their scope', () => {
-    const svc = source('lib/services/workspace-context.service.ts');
-    assert.match(svc, /allowedModules\.includes\('LEAVE_APPROVALS'\)/);
+    // F17: the notification centre counts leave only for people who see leave, within their scope.
+    const svc = source('lib/services/notification.service.ts');
+    assert.match(svc, /leave: views\('LEAVE_APPROVALS'\) \|\| views\('LEAVE_APPLICATIONS'\),/);
     // 4.6: the leave service counts what this user can decide, within their scope.
     assert.match(svc, /countLeaveWaitingFor\(scope, /);
   });

@@ -87,6 +87,16 @@ export async function findClaim(id: string, scopeCondition?: SQL<unknown>): Prom
   return rows[0] ?? null;
 }
 
+/** Claims in one status within the scope, leaving out one employee's own (the bell: nobody decides their own, S21). */
+export async function countInStatus(status: string, scopeCondition: SQL<unknown> | undefined, excludeEmployeeId: string | null): Promise<number> {
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(reimbursementClaims)
+    .innerJoin(employees, eq(reimbursementClaims.employeeId, employees.id))
+    .where(and(eq(reimbursementClaims.status, status), scopeCondition, excludeEmployeeId ? ne(reimbursementClaims.employeeId, excludeEmployeeId) : undefined));
+  return row?.n ?? 0;
+}
+
 /** An active employee within the scope condition (who a claim may be recorded for). */
 export async function activeEmployeeInScope(employeeId: string, scopeCondition?: SQL<unknown>): Promise<boolean> {
   const [row] = await (await getDb())

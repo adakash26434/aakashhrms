@@ -21,6 +21,7 @@ export type {
   RepaymentValidationErrors,
   PaymentMethod as LoanPaymentMethod,
 } from "./loan";
+export type * from "./notification";
 export type * from "./opening-balance";
 export type * from "./ot-rule";
 export type {

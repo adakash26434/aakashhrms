@@ -985,6 +985,8 @@ The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail
 
 Pages render inside a white workspace with 24px padding (16px below 1024px). The working-period selector (E1) arrives with its first consumer in 4.8.
 
+**Notification centre (F17)** (`components/frame/notification-bell.tsx`): the title-bar bell opens a panel (384px, anchored to the bell; full width minus 8px on phones) with three groups — **Waiting for you** (one row per kind of request this person decides, with its count: leave, attendance adjustments, salary changes, bank / PAN / tax changes, reimbursement and travel claims, leave policies, evaluations to mark, achievements to close, the team's achievements to verify), **Pay runs** (one row per run waiting for this person's step, with the step as a tag: Approve, Lock, Publish, Send, On hold) and **Deposits due** (TDS / SSF within a week or just passed, the tag toned by how close: "Tomorrow", "5 days", "2 days ago"). Each row opens the list filtered to what waits (`?status=` on travel, targets and evaluation). The number on the bell is requests plus run steps; held payslips and deposits are listed, not counted; a deposit due within three days puts a dot on the bell when nothing is counted. The panel reads the list again whenever it opens (refresh button in its header); "Nothing needs you right now" when empty. People who can receive nothing don't see the bell.
+
 ## 6. Keyboard map (initial)
 
 **Rail (4.3 review).** A rail icon no longer jumps to the module's first page:

@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { branches, employeeTargets, employees, targetAttachments } from '@/lib/db/schema';
-import { and, asc, desc, eq, inArray, isNull, lt, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, ne, sql, type SQL } from 'drizzle-orm';
 
 // Targets & achievements (G15): Drizzle queries only. Rules live in
 // lib/engines/target.engine.ts; orchestration in lib/services/target.service.ts.
@@ -52,6 +52,30 @@ export async function listTargets(filter: TargetFilter): Promise<TargetWithPerso
     .orderBy(asc(employees.fullName), asc(employeeTargets.fy), asc(employeeTargets.periodKind), asc(employeeTargets.monthNo), asc(employeeTargets.title))
     .limit(3000);
   return withPerson(rows);
+}
+
+/**
+ * Targets in one status for the bell: within an employee scope, or of one supervisor's reports,
+ * leaving out one employee's own (S42: nobody reviews or closes their own).
+ */
+export async function countInStatus(
+  status: string,
+  filter: { scopeCondition?: SQL<unknown>; supervisorId?: string; excludeEmployeeId: string | null },
+): Promise<number> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(employeeTargets)
+    .innerJoin(employees, eq(employeeTargets.employeeId, employees.id))
+    .where(
+      and(
+        eq(employeeTargets.status, status),
+        filter.scopeCondition,
+        filter.supervisorId ? eq(employees.supervisorId, filter.supervisorId) : undefined,
+        filter.excludeEmployeeId ? ne(employeeTargets.employeeId, filter.excludeEmployeeId) : undefined,
+      ),
+    );
+  return row?.n ?? 0;
 }
 
 export async function findTarget(id: string, scopeCondition?: SQL<unknown>): Promise<TargetWithPerson | null> {

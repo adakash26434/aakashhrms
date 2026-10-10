@@ -320,6 +320,16 @@ export async function hasTeam(me: PortalCtx): Promise<boolean> {
   return repo.hasReports(me.employeeId);
 }
 
+/** The bell: reports this supervisor still has to verify (never their own). */
+export async function countTeamWaiting(supervisorEmployeeId: string): Promise<number> {
+  return repo.countInStatus('submitted', { supervisorId: supervisorEmployeeId, excludeEmployeeId: supervisorEmployeeId });
+}
+
+/** The bell: forwarded achievements this person can close or return (Targets → Approve), in scope, never their own (S42). */
+export async function countWaitingFor(scope: ScopeFilter): Promise<number> {
+  return repo.countInStatus('forwarded', { scopeCondition: buildEmployeeScopeCondition(scope), excludeEmployeeId: scope.employeeId });
+}
+
 /** The targets of the people who report to the signed-in supervisor (never their own). */
 export async function teamTargets(me: PortalCtx): Promise<MyTargetsData> {
   const [records, existing] = await Promise.all([repo.listTargets({ supervisorId: me.employeeId }), repo.distinctFiscalYears()]);

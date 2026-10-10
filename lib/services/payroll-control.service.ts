@@ -17,7 +17,9 @@ import {
   asCheckerMode,
   canPublishRun,
   checkerRefusal,
+  nextRunStep,
   preflightFindings,
+  runConcerns,
   unresolvedFlags,
   varianceFlags,
   type CheckerMode,
@@ -33,6 +35,8 @@ import { recordAuditLog } from '@/lib/services/audit.service';
 import { UserFacingError } from '@/lib/errors/action-error';
 import { getBSMonthRange } from '@/lib/utils/bs-calendar';
 import type { PayrollRun, PayrollRunSetupPayload, PayrollSlip } from '@/lib/types/payroll';
+import type { RunWaiting } from '@/lib/types/notification';
+import type { ScopeFilter } from '@/lib/auth/scope-filter';
 
 // Payroll controls (4.8 / F1–F3): orchestration. The variance review compares a
 // run with the previous month for the same branches and blocks approval until
@@ -64,6 +68,36 @@ export async function readSettings(): Promise<PayrollControlSettings> {
     requireClosedAttendance: closed === 'on',
     employeeDetailApproval: asDetailApproval(details),
   };
+}
+
+/** The maker-checker setting alone (the notification centre reads it on every page). */
+export async function checkerMode(): Promise<CheckerMode> {
+  return asCheckerMode(await repo.readConfig(CONFIG.checker));
+}
+
+export interface RunActor {
+  userId: string;
+  scope: ScopeFilter;
+  isAdmin: boolean;
+  canSend: boolean;
+  canApprove: boolean;
+  canLock: boolean;
+}
+
+/**
+ * F17: pay runs waiting for this person's step (the bell), within their branches or
+ * departments. The step follows the same rules as the move itself (`nextRunStep`).
+ */
+export async function runsWaitingFor(actor: RunActor): Promise<RunWaiting[]> {
+  if (!actor.canSend && !actor.canApprove && !actor.canLock) return [];
+  const [mode, runs] = await Promise.all([checkerMode(), repo.runsNeedingAction(actor.scope.employeeId)]);
+  const stepActor = { userId: actor.userId, isAdmin: actor.isAdmin, mode, canSend: actor.canSend, canApprove: actor.canApprove, canLock: actor.canLock };
+  return runs
+    .filter((run) => runConcerns(run, actor.scope))
+    .flatMap((run) => {
+      const step = nextRunStep(run, stepActor);
+      return step ? [{ id: run.id, year: run.year, month: run.month, runType: run.runType, step, heldCount: run.heldCount, generatedByName: run.generatedByName }] : [];
+    });
 }
 
 export async function saveSettings(raw: unknown): Promise<PayrollControlSettings> {

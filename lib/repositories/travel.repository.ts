@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { designations, employees, travelClaims, travelRates, users } from '@/lib/db/schema';
-import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, sql, type SQL } from 'drizzle-orm';
 
 // TA-DA (G11): Drizzle queries only. Rules in lib/engines/travel.engine.ts;
 // orchestration in lib/services/travel.service.ts. Claims are always read
@@ -84,6 +84,16 @@ export const listClaims = (scopeCondition?: SQL<unknown>) => selectClaims(scopeC
 export async function findClaim(id: string, scopeCondition?: SQL<unknown>): Promise<ClaimJoined | null> {
   const rows = await selectClaims(scopeCondition ? and(eq(travelClaims.id, id), scopeCondition) : eq(travelClaims.id, id), 1);
   return rows[0] ?? null;
+}
+
+/** Claims in one status within the scope, leaving out one employee's own (the bell: nobody decides their own, S38). */
+export async function countInStatus(status: string, scopeCondition: SQL<unknown> | undefined, excludeEmployeeId: string | null): Promise<number> {
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(travelClaims)
+    .innerJoin(employees, eq(travelClaims.employeeId, employees.id))
+    .where(and(eq(travelClaims.status, status), scopeCondition, excludeEmployeeId ? ne(travelClaims.employeeId, excludeEmployeeId) : undefined));
+  return row?.n ?? 0;
 }
 
 export async function employeeDesignation(employeeId: string, scopeCondition?: SQL<unknown>): Promise<string | null> {
