@@ -1360,6 +1360,13 @@ ON CONFLICT DO NOTHING`);
     }
   }
 
+  // Tax projection (4.8 / F5, migration 0065): the computation sheet kept on each slip.
+  try {
+    await sql.unsafe(`ALTER TABLE "payroll_slips" ADD COLUMN IF NOT EXISTS "tax_sheet" jsonb`);
+  } catch {
+    // Ignored until payroll_slips exists; the next sync pass completes it.
+  }
+
   // Targets & achievements (G15, migration 0062): employee targets with the
   // reported / verified achievement, attachments, and the TARGETS permission
   // module (the 0047 pattern).

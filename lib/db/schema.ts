@@ -1333,6 +1333,8 @@ export const payrollSlips = pgTable('payroll_slips', {
   status: varchar('status', { length: 20 }).default('DRAFT').notNull(), // "DRAFT" | "LOCKED"
   isYearEndReconciliation: boolean('is_year_end_reconciliation').default(false).notNull(),
   warnings: text('warnings'),
+  /** F5: the tax computation sheet behind this slip's TDS (months 1–11). */
+  taxSheet: jsonb('tax_sheet'),
   // F3: a held payslip stays hidden from the employee even after its run is published.
   heldAt: timestamp('held_at'),
   heldBy: uuid('held_by'),

@@ -41,7 +41,7 @@ import { auth } from "@/lib/auth";
 import { calculatePayslip, NegativeNetPayableError, MissingStatutoryHeadError, isSsfEmployerHead, isSsfDeductionHead } from "@/lib/engines/payroll.engine";
 import { calculateNetSalary } from "@/lib/engines/salary-mapping.engine";
 import { getBSMonthRange } from "@/lib/utils/bs-calendar";
-import { isAshadh } from "@/lib/utils/fiscal-year.utils";
+import { isAshadh, getFiscalMonthIndex } from "@/lib/utils/fiscal-year.utils";
 import Decimal from "decimal.js";
 import { attendanceForPayroll } from "@/lib/services/attendance.service";
 import { assertCanMove, assertNotOwnSlip } from "@/lib/services/payroll-control.service";
@@ -414,6 +414,10 @@ export async function generatePayrollRun(
     }
   }
 
+  // F5: the earlier months of the year for the tax projection (months 1–11; the year-end month reconciles).
+  const fiscalMonthIndex = getFiscalMonthIndex(payPeriodMonth);
+  const earlierTaxMonths = isYearEndMonth ? new Map<string, { taxableIncome: string; tds: string }[]>() : await repository.findEarlierTaxMonths(empIds, activeFy.id, fiscalMonthIndex);
+
   // 7. Calculate payslips for each employee (all data pre-loaded — no per-employee queries)
   for (const emp of scopedEmployees) {
     const salaryMap = salaryMapByEmployeeId.get(emp.id);
@@ -561,7 +565,9 @@ export async function generatePayrollRun(
       isFestivalMonth: isFestivalChecked,
       isRemoteMonth: isRemoteChecked,
       isYearEnd: isYearEndMonth,
-      historicalPayslips: historicalSlips
+      historicalPayslips: historicalSlips,
+      fiscalMonthIndex,
+      projectionHistory: earlierTaxMonths.get(emp.id) ?? [],
     });
 
     // Accumulate batch run totals
@@ -593,6 +599,7 @@ export async function generatePayrollRun(
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -860,7 +867,9 @@ export async function overridePayslipAllowanceDeduction(
       isFestivalMonth: isFestivalChecked,
       isRemoteMonth: isRemoteChecked,
       isYearEnd,
-      historicalPayslips: historicalSlips
+      historicalPayslips: historicalSlips,
+      fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
+      projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
     });
 
     // Save new values to the slip in the DB
@@ -870,6 +879,7 @@ export async function overridePayslipAllowanceDeduction(
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,
@@ -1206,7 +1216,9 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     isFestivalMonth: isFestivalChecked,
     isRemoteMonth: isRemoteChecked,
     isYearEnd,
-    historicalPayslips: historicalSlips
+    historicalPayslips: historicalSlips,
+    fiscalMonthIndex: getFiscalMonthIndex(run.payPeriodMonth),
+    projectionHistory: isYearEnd ? [] : ((await repository.findEarlierTaxMonths([emp.id], run.fiscalYearId, getFiscalMonthIndex(run.payPeriodMonth), run.id)).get(emp.id) ?? []),
   });
 
   // Transactionally update slip and replace heads
@@ -1219,6 +1231,7 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
         totalDeductions: calcResult.totalDeductions,
         netPayable: calcResult.netPayable,
         taxableIncome: calcResult.taxableIncome,
+        taxSheet: calcResult.taxSheet ?? null,
         tdsThisMonth: calcResult.tdsThisMonth,
         pfEmployee: calcResult.pfEmployee,
         pfEmployer: calcResult.pfEmployer,

@@ -66,6 +66,8 @@ export interface PayrollSlip {
   otAmount: string;
   bankAccountNumber: string;
   bankName: string;
+  /** F5: the tax computation behind the TDS (months 1–11); validated with `isTaxSheet` before use. */
+  taxSheet?: unknown;
   payslipMonth: number | null;
   payslipDate: string | null;
   status: 'DRAFT' | 'LOCKED';
@@ -233,4 +235,6 @@ export interface PayrollCalculationResult {
     amount: string;
     calculatedAmount: string;
   }>;
+  /** F5: the tax computation behind this month's TDS (months 1–11, when history was supplied). */
+  taxSheet?: import('@/lib/engines/tax-projection.engine').TaxSheet;
 }
