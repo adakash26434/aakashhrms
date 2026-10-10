@@ -83,7 +83,8 @@ describe('F17 notification centre', () => {
 
   it('the permission set follows verifyPermission: the same administrator roles, nothing for an inactive user', () => {
     const perms = read('lib/auth/get-user-permissions.ts');
-    assert.match(perms, /export const ADMIN_ROLE_SLUGS: readonly string\[\] = \['system_admin', 'office_admin'\];/);
+    assert.match(perms, /import \{ ADMIN_ROLE_SLUGS \} from '@\/lib\/engines\/role\.engine';/);
+    assert.match(read('lib/engines/role.engine.ts'), /export const ADMIN_ROLE_SLUGS: readonly string\[\] = \["system_admin", "office_admin"\];/);
     assert.match(read('lib/auth/check-permission.ts'), /r\.slug === 'system_admin' \|\| r\.slug === 'office_admin'/);
     assert.match(fn(perms, 'permissionSetFor'), /\.where\(and\(eq\(users\.id, userId\), eq\(users\.isActive, true\)\)\);/);
   });

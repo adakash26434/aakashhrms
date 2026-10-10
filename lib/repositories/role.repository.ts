@@ -1,313 +1,175 @@
 import { getDb } from '@/lib/db';
-import { roles, permissions, rolePermissions, rolePermissionChangeLog, auditLogs, userRoles, users, employees } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
-import type { ScopeType } from '@/lib/types/role';
+import { roles, permissions, rolePermissions, rolePermissionChangeLog, userRoles, users, employees } from '@/lib/db/schema';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import type { ActionType, ModuleType, ScopeType } from '@/lib/types/role';
+import { grantKey, splitGrant } from '@/lib/engines/role.engine';
+import type { Tx } from './user.repository';
+
+// Roles and their permissions (4.13). Changes run inside the service's `administrationTx` (one
+// company-wide lock); every grant and revoke also lands in role_permission_change_log.
 
 export type RoleRow = typeof roles.$inferSelect;
-export type RolePermissionRow = typeof rolePermissions.$inferSelect;
 export type PermissionRow = typeof permissions.$inferSelect;
+type Q = Awaited<ReturnType<typeof getDb>> | Tx;
 
-export interface RoleWithStats extends RoleRow {
-  userCount: number;
-  permissionCount: number;
+export interface RoleRecord extends RoleRow {
+  /** "ACTION:MODULE" keys stored for the role. */
+  grants: string[];
+  logins: number;
+  activeLogins: number;
 }
+
+/** Every role with its stored permissions and how many logins hold it. */
+export async function findRoleRecords(q?: Q): Promise<RoleRecord[]> {
+  const db = q ?? (await getDb());
+  const [roleRows, grantRows, loginRows] = await Promise.all([
+    db.select().from(roles).orderBy(asc(roles.createdAt), asc(roles.name)),
+    db
+      .select({ roleId: rolePermissions.roleId, action: permissions.action, module: permissions.module })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId)),
+    db
+      .select({ roleId: userRoles.roleId, logins: sql<number>`count(*)::int`, active: sql<number>`count(*) filter (where ${users.isActive})::int` })
+      .from(userRoles)
+      .innerJoin(users, eq(users.id, userRoles.userId))
+      .groupBy(userRoles.roleId),
+  ]);
+  const grants = new Map<string, string[]>();
+  for (const g of grantRows) grants.set(g.roleId, [...(grants.get(g.roleId) ?? []), grantKey(g.action, g.module)]);
+  const counts = new Map(loginRows.map((r) => [r.roleId, r]));
+  return roleRows.map((r) => ({ ...r, grants: grants.get(r.id) ?? [], logins: counts.get(r.id)?.logins ?? 0, activeLogins: counts.get(r.id)?.active ?? 0 }));
+}
+
+/** One role with its permissions and holders (null when it doesn't exist). */
+export async function findRoleRecord(id: string, q?: Q): Promise<RoleRecord | null> {
+  const all = await findRoleRecords(q);
+  return all.find((r) => r.id === id) ?? null;
+}
+
+/** Permission rows for these keys, created when a company's matrix lacks one (ids by key). */
+async function permissionIds(tx: Tx, keys: readonly string[]): Promise<Map<string, string>> {
+  if (!keys.length) return new Map();
+  const pairs = keys.map(splitGrant);
+  await tx
+    .insert(permissions)
+    .values(pairs.map((p) => ({ action: p.action as ActionType, module: p.module as ModuleType })))
+    .onConflictDoNothing();
+  const rows = await tx
+    .select({ id: permissions.id, action: permissions.action, module: permissions.module })
+    .from(permissions)
+    .where(inArray(sql`${permissions.action}::text || ':' || ${permissions.module}::text`, [...keys]));
+  return new Map(rows.map((r) => [grantKey(r.action, r.module), r.id]));
+}
+
+export async function createRoleTx(tx: Tx, values: { name: string; slug: string; scopeType: ScopeType; description: string | null }): Promise<RoleRow> {
+  const [row] = await tx.insert(roles).values({ ...values, isSystemRole: false, isProtected: false }).returning();
+  return row;
+}
+
+export async function updateRoleTx(tx: Tx, id: string, values: { name: string; scopeType: ScopeType; description: string | null }): Promise<void> {
+  await tx.update(roles).set({ ...values, updatedAt: new Date() }).where(eq(roles.id, id));
+}
+
+/**
+ * Replaces a role's permissions with `next` and logs each grant and revoke (who, when, the role's
+ * name at the time). Returns what changed.
+ */
+export async function setRoleGrantsTx(tx: Tx, role: { id: string; name: string }, before: readonly string[], next: readonly string[], actorId: string): Promise<{ added: string[]; removed: string[] }> {
+  const was = new Set(before);
+  const now = new Set(next);
+  const added = next.filter((k) => !was.has(k));
+  const removed = before.filter((k) => !now.has(k));
+  if (!added.length && !removed.length) return { added, removed };
+  const ids = await permissionIds(tx, [...added, ...removed]);
+  const removedIds = removed.map((k) => ids.get(k)).filter((x): x is string => !!x);
+  if (removedIds.length) await tx.delete(rolePermissions).where(and(eq(rolePermissions.roleId, role.id), inArray(rolePermissions.permissionId, removedIds)));
+  const addedIds = added.map((k) => ids.get(k)).filter((x): x is string => !!x);
+  if (addedIds.length) await tx.insert(rolePermissions).values(addedIds.map((permissionId) => ({ roleId: role.id, permissionId }))).onConflictDoNothing();
+  const log = [
+    ...added.map((k) => ({ key: k, changeType: 'GRANTED' as const })),
+    ...removed.map((k) => ({ key: k, changeType: 'REVOKED' as const })),
+  ].filter((e) => ids.has(e.key));
+  if (log.length) {
+    await tx.insert(rolePermissionChangeLog).values(
+      log.map((e) => ({ changedByUserId: actorId, roleId: role.id, permissionId: ids.get(e.key)!, changeType: e.changeType, affectedRoleName: role.name }))
+    );
+  }
+  await tx.update(roles).set({ updatedAt: new Date() }).where(eq(roles.id, role.id));
+  return { added, removed };
+}
+
+export async function deleteRoleTx(tx: Tx, id: string): Promise<boolean> {
+  const rows = await tx.delete(roles).where(eq(roles.id, id)).returning({ id: roles.id });
+  return rows.length > 0;
+}
+
+export interface PermissionChangeRecord {
+  id: string;
+  at: Date;
+  roleId: string | null;
+  roleName: string;
+  byUserId: string;
+  byName: string | null;
+  byEmail: string | null;
+  grant: string | null;
+  change: 'GRANTED' | 'REVOKED';
+}
+
+/** Grants and revokes, newest first: one role's, or every role's. */
+export async function findPermissionChanges(opts: { roleId?: string; since?: Date | null; limit?: number } = {}): Promise<PermissionChangeRecord[]> {
+  const rows = await (await getDb())
+    .select({
+      id: rolePermissionChangeLog.id,
+      at: rolePermissionChangeLog.createdAt,
+      roleId: rolePermissionChangeLog.roleId,
+      roleName: rolePermissionChangeLog.affectedRoleName,
+      byUserId: rolePermissionChangeLog.changedByUserId,
+      byName: users.name,
+      byEmail: users.email,
+      action: permissions.action,
+      module: permissions.module,
+      change: rolePermissionChangeLog.changeType,
+    })
+    .from(rolePermissionChangeLog)
+    .leftJoin(users, eq(users.id, rolePermissionChangeLog.changedByUserId))
+    .leftJoin(permissions, eq(permissions.id, rolePermissionChangeLog.permissionId))
+    .where(
+      and(
+        opts.roleId ? eq(rolePermissionChangeLog.roleId, opts.roleId) : undefined,
+        opts.since ? gte(rolePermissionChangeLog.createdAt, opts.since) : undefined
+      )
+    )
+    .orderBy(desc(rolePermissionChangeLog.createdAt), asc(rolePermissionChangeLog.id))
+    .limit(Math.min(opts.limit ?? 300, 1000));
+  return rows.map((r) => ({
+    id: r.id,
+    at: r.at,
+    roleId: r.roleId,
+    roleName: r.roleName,
+    byUserId: r.byUserId,
+    byName: r.byName,
+    byEmail: r.byEmail,
+    grant: r.action && r.module ? grantKey(r.action, r.module) : null,
+    change: r.change === 'REVOKED' ? 'REVOKED' : 'GRANTED',
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Used by the employee record (S44), payroll and scripts
+// ---------------------------------------------------------------------------
 
 export async function findAllRoles(): Promise<RoleRow[]> {
-  try {
-    return await (await getDb()).select().from(roles).orderBy(roles.createdAt);
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to fetch roles:', error);
-    return [];
-  }
-}
-
-export async function findAllRolesWithStats(): Promise<RoleWithStats[]> {
-  try {
-    const allRoles = await (await getDb()).select().from(roles).orderBy(roles.createdAt);
-    
-    // Aggregate user counts
-    const userCountRows = await (await getDb())
-      .select({
-        roleId: userRoles.roleId,
-        count: sql<number>`count(*)`,
-      })
-      .from(userRoles)
-      .groupBy(userRoles.roleId);
-    
-    const userCountMap = new Map(userCountRows.map((r) => [r.roleId, Number(r.count || 0)]));
-
-    // Aggregate permission counts
-    const permCountRows = await (await getDb())
-      .select({
-        roleId: rolePermissions.roleId,
-        count: sql<number>`count(*)`,
-      })
-      .from(rolePermissions)
-      .groupBy(rolePermissions.roleId);
-    
-    const permCountMap = new Map(permCountRows.map((r) => [r.roleId, Number(r.count || 0)]));
-
-    return allRoles.map((role) => ({
-      ...role,
-      userCount: userCountMap.get(role.id) || 0,
-      permissionCount: permCountMap.get(role.id) || 0,
-    }));
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to fetch roles with stats:', error);
-    return [];
-  }
-}
-
-export async function findAllPermissions(): Promise<PermissionRow[]> {
-  try {
-    return await (await getDb()).select().from(permissions);
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to fetch permissions:', error);
-    return [];
-  }
+  return (await getDb()).select().from(roles).orderBy(asc(roles.createdAt));
 }
 
 export async function findRoleById(id: string): Promise<RoleRow | null> {
-  try {
-    const result = await (await getDb()).select().from(roles).where(eq(roles.id, id));
-    return result.length > 0 ? result[0] : null;
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to find role by id:', error);
-    return null;
-  }
+  const result = await (await getDb()).select().from(roles).where(eq(roles.id, id));
+  return result[0] ?? null;
 }
 
 export async function findRoleBySlug(slug: string): Promise<RoleRow | null> {
-  try {
-    const result = await (await getDb()).select().from(roles).where(eq(roles.slug, slug));
-    return result.length > 0 ? result[0] : null;
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to find role by slug:', error);
-    return null;
-  }
-}
-
-export async function findRoleByName(name: string): Promise<RoleRow | null> {
-  try {
-    const result = await (await getDb()).select().from(roles).where(eq(roles.name, name));
-    return result.length > 0 ? result[0] : null;
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to find role by name:', error);
-    return null;
-  }
-}
-
-export async function createRole(data: {
-  name: string;
-  slug: string;
-  scopeType: ScopeType;
-  description?: string | null;
-  isSystemRole?: boolean;
-  isProtected?: boolean;
-}): Promise<RoleRow> {
-  const [newRole] = await (await getDb())
-    .insert(roles)
-    .values({
-      name: data.name,
-      slug: data.slug,
-      scopeType: data.scopeType,
-      description: data.description || null,
-      isSystemRole: data.isSystemRole ?? false,
-      isProtected: data.isProtected ?? false,
-    })
-    .returning();
-
-  return newRole;
-}
-
-export async function updateRole(
-  id: string,
-  data: {
-    name?: string;
-    scopeType?: ScopeType;
-    description?: string | null;
-  }
-): Promise<RoleRow | null> {
-  const updatePayload: Partial<typeof roles.$inferInsert> = {
-    updatedAt: new Date(),
-  };
-
-  if (data.name !== undefined) updatePayload.name = data.name;
-  if (data.scopeType !== undefined) updatePayload.scopeType = data.scopeType;
-  if (data.description !== undefined) updatePayload.description = data.description;
-
-  const [updated] = await (await getDb())
-    .update(roles)
-    .set(updatePayload)
-    .where(eq(roles.id, id))
-    .returning();
-
-  return updated || null;
-}
-
-export async function countUsersAssignedToRole(roleId: string): Promise<number> {
-  try {
-    const res = await (await getDb())
-      .select({ count: sql<number>`count(*)` })
-      .from(userRoles)
-      .where(eq(userRoles.roleId, roleId));
-    return Number(res[0]?.count || 0);
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to count users for role:', error);
-    return 0;
-  }
-}
-
-export async function getRolePermissions(roleId: string) {
-  try {
-    return await (await getDb())
-      .select({
-        id: permissions.id,
-        action: permissions.action,
-        module: permissions.module,
-      })
-      .from(rolePermissions)
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .where(eq(rolePermissions.roleId, roleId));
-  } catch (error) {
-    console.error('[ROLE_REPOSITORY] Failed to get role permissions:', error);
-    return [];
-  }
-}
-
-export async function assignPermissionsToRole(
-  roleId: string,
-  permissionIds: string[],
-  changedByUserId: string
-) {
-  return await (await getDb()).transaction(async (tx) => {
-    // Get existing permissions for diffing
-    const oldPermissions = await tx
-      .select({ permissionId: rolePermissions.permissionId })
-      .from(rolePermissions)
-      .where(eq(rolePermissions.roleId, roleId));
-    const oldIds = oldPermissions.map((p) => p.permissionId);
-
-    // Get role name for snapshot
-    const roleRows = await tx.select({ name: roles.name }).from(roles).where(eq(roles.id, roleId));
-    const roleName = roleRows[0]?.name || 'Unknown Role';
-
-    const grantedIds = permissionIds.filter((id) => !oldIds.includes(id));
-    const revokedIds = oldIds.filter((id) => !permissionIds.includes(id));
-
-    // Clear existing
-    await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
-
-    // Insert new
-    if (permissionIds.length > 0) {
-      const values = permissionIds.map((pId) => ({
-        roleId,
-        permissionId: pId,
-      }));
-      await tx.insert(rolePermissions).values(values);
-    }
-
-    // Insert change log entries into rolePermissionChangeLog
-    const logEntries = [
-      ...grantedIds.map((pId) => ({
-        changedByUserId,
-        roleId,
-        permissionId: pId,
-        changeType: 'GRANTED' as const,
-        affectedRoleName: roleName,
-      })),
-      ...revokedIds.map((pId) => ({
-        changedByUserId,
-        roleId,
-        permissionId: pId,
-        changeType: 'REVOKED' as const,
-        affectedRoleName: roleName,
-      })),
-    ];
-
-    if (logEntries.length > 0) {
-      await tx.insert(rolePermissionChangeLog).values(logEntries);
-
-      // Also record system audit log entry
-      await tx.insert(auditLogs).values({
-        userId: changedByUserId,
-        action: 'EDIT',
-        module: 'USERS_ROLES',
-        recordId: `${roleName} Permissions`,
-        result: 'SUCCESS',
-        newValues: {
-          roleName,
-          grantedPermissionsCount: grantedIds.length,
-          revokedPermissionsCount: revokedIds.length,
-        },
-        ipAddress: '127.0.0.1',
-      });
-    }
-  });
-}
-
-export async function cloneRole(
-  sourceRoleId: string,
-  newRoleData: {
-    name: string;
-    slug: string;
-    scopeType: ScopeType;
-    description?: string | null;
-  },
-  changedByUserId: string
-): Promise<RoleRow> {
-  return await (await getDb()).transaction(async (tx) => {
-    // 1. Fetch source role permissions
-    const sourcePerms = await tx
-      .select({ permissionId: rolePermissions.permissionId })
-      .from(rolePermissions)
-      .where(eq(rolePermissions.roleId, sourceRoleId));
-
-    // 2. Create new role
-    const [newRole] = await tx
-      .insert(roles)
-      .values({
-        name: newRoleData.name,
-        slug: newRoleData.slug,
-        scopeType: newRoleData.scopeType,
-        description: newRoleData.description || null,
-        isSystemRole: false,
-        isProtected: false,
-      })
-      .returning();
-
-    // 3. Copy permissions
-    if (sourcePerms.length > 0) {
-      const permsToInsert = sourcePerms.map((p) => ({
-        roleId: newRole.id,
-        permissionId: p.permissionId,
-      }));
-      await tx.insert(rolePermissions).values(permsToInsert);
-    }
-
-    // 4. Audit Log
-    await tx.insert(auditLogs).values({
-      userId: changedByUserId,
-      action: 'ADD',
-      module: 'USERS_ROLES',
-      recordId: newRole.id,
-      result: 'SUCCESS',
-      newValues: {
-        clonedFromRoleId: sourceRoleId,
-        newRoleName: newRole.name,
-        newRoleSlug: newRole.slug,
-        copiedPermissionsCount: sourcePerms.length,
-      },
-      ipAddress: '127.0.0.1',
-    });
-
-    return newRole;
-  });
-}
-
-export async function deleteRole(id: string): Promise<boolean> {
-  const res = await (await getDb()).delete(roles).where(eq(roles.id, id)).returning({ id: roles.id });
-  return res.length > 0;
+  const result = await (await getDb()).select().from(roles).where(eq(roles.slug, slug));
+  return result[0] ?? null;
 }
 
 export async function findUsersByRoleId(roleId: string) {
@@ -326,58 +188,3 @@ export async function findUsersByRoleId(roleId: string) {
     .leftJoin(employees, eq(users.employeeId, employees.id))
     .where(eq(userRoles.roleId, roleId));
 }
-
-export async function assignUsersToRole(
-  roleId: string,
-  userIdsToAdd: string[],
-  userIdsToRemove: string[],
-  changedByUserId: string
-) {
-  return await (await getDb()).transaction(async (tx) => {
-    // 1. Resolve fallback employee role for users being removed from this role
-    let fallbackRoleId: string | null = null;
-    if (userIdsToRemove.length > 0) {
-      const [empRole] = await tx
-        .select({ id: roles.id })
-        .from(roles)
-        .where(eq(roles.slug, 'employee'))
-        .limit(1);
-      fallbackRoleId = empRole?.id || null;
-    }
-
-    // 2. Add users to this role (replaces user_roles row)
-    for (const userId of userIdsToAdd) {
-      await tx.delete(userRoles).where(eq(userRoles.userId, userId));
-      await tx.insert(userRoles).values({
-        userId,
-        roleId,
-      });
-    }
-
-    // 3. Remove users from this role (reassigns to fallback employee role if available)
-    for (const userId of userIdsToRemove) {
-      await tx.delete(userRoles).where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
-      if (fallbackRoleId && fallbackRoleId !== roleId) {
-        await tx.insert(userRoles).values({
-          userId,
-          roleId: fallbackRoleId,
-        });
-      }
-    }
-
-    // 4. Record audit log
-    await tx.insert(auditLogs).values({
-      userId: changedByUserId,
-      action: 'EDIT',
-      module: 'USERS_ROLES',
-      recordId: roleId,
-      result: 'SUCCESS',
-      newValues: {
-        assignedUserIds: userIdsToAdd,
-        removedUserIds: userIdsToRemove,
-      },
-      ipAddress: '127.0.0.1',
-    });
-  });
-}
-

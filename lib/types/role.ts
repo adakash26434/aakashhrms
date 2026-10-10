@@ -375,3 +375,67 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
     ],
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Admin → Roles (4.13)
+// ---------------------------------------------------------------------------
+
+export type RoleKind = 'administrator' | 'built-in' | 'custom';
+
+/** One role as the Roles screen shows it. */
+export interface RoleView {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  scopeType: ScopeType;
+  kind: RoleKind;
+  /** "ACTION:MODULE" keys the matrix shows ticked (an administrator role: all of them). */
+  grants: string[];
+  logins: number;
+  activeLogins: number;
+  /** Why the viewer can't change its permissions, name or scope (null: they can). */
+  cannotChange: string | null;
+  /** Why the viewer can't delete it (null: they can). */
+  cannotDelete: string | null;
+  /** Why the viewer can't give it to a login (null: they can). */
+  cannotGive: string | null;
+}
+
+/** A login as the Roles screen lists it under People. */
+export interface RoleMember {
+  id: string;
+  label: string;
+  email: string;
+  isActive: boolean;
+  roleId: string | null;
+  employee: { code: string; name: string } | null;
+  /** Why the viewer can't move this login to another role (null: they can). */
+  cannotMove: string | null;
+}
+
+export interface RolesPage {
+  roles: RoleView[];
+  logins: RoleMember[];
+  /** What the viewer holds: "all" for an administrator (cells beyond it are greyed). */
+  viewerGrants: string[] | 'all';
+  viewerRoleId: string | null;
+  can: { add: boolean; edit: boolean; delete: boolean; audit: boolean };
+}
+
+/** One grant or revoke from the permission change log. */
+export interface PermissionChange {
+  id: string;
+  at: string;
+  roleId: string | null;
+  roleName: string;
+  by: string;
+  permission: string;
+  change: 'GRANTED' | 'REVOKED';
+}
+
+/** How a new role starts: empty, from a preset, or as a copy of another role. */
+export interface RoleStart {
+  kind: 'empty' | 'preset' | 'copy';
+  id?: string;
+}

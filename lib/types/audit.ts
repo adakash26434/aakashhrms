@@ -1,51 +1,47 @@
-export type AuditResult = "SUCCESS" | "DENIED_PERMISSION" | "DENIED_SCOPE";
+import type { AuditDiffRow, AuditFilter } from "@/lib/engines/audit.engine";
+
+// Admin → Audit log (4.13): who did what, as which role, when and from where.
+
+export type AuditResult = "SUCCESS" | "DENIED_PERMISSION" | "DENIED_SCOPE" | "DENIED_SELF";
 export type ActionType = "VIEW" | "ADD" | "EDIT" | "DELETE" | "APPROVE" | "EXPORT" | "LOCK";
 
-export interface AuditLogEntry {
+/** One entry as the list shows it. */
+export interface AuditRow {
   id: string;
+  /** ISO time. */
+  at: string;
   userId: string | null;
-  userName: string | null;
-  userEmail: string | null;
-  roleIdAtTime: string | null;
-  roleNameAtTime: string | null;
-  action: ActionType;
+  /** The person's name or email; "System" for entries with no user (scheduled jobs). */
+  who: string;
+  email: string | null;
+  /** The role they held when they acted (null: not recorded). */
+  role: string | null;
+  action: string;
+  actionLabel: string;
   module: string;
+  moduleLabel: string;
+  record: string;
+  result: string;
+  resultLabel: string;
+  refused: boolean;
+  /** The client address, or null: "Not recorded" (never made up, S59). */
+  address: string | null;
+}
+
+/** One entry with what changed (the detail pane). */
+export interface AuditEntryDetail extends AuditRow {
   recordId: string | null;
-  recordTitle?: string | null;
-  result: AuditResult | string;
-  oldValues: Record<string, unknown> | null;
-  newValues: Record<string, unknown> | null;
-  ipAddress: string | null;
-  createdAt: Date;
+  changes: AuditDiffRow[];
 }
 
-export interface PermissionChangeLogEntry {
-  id: string;
-  changedByUserId: string;
-  changedByUserName: string | null;
-  changedByUserEmail: string | null;
-  roleId: string;
-  affectedRoleName: string;
-  permissionId: string;
-  action: ActionType | null;
-  module: string | null;
-  changeType: "GRANTED" | "REVOKED";
-  createdAt: Date;
-}
-
-export interface AuditLogFilter {
-  search?: string;
-  module?: string | "all";
-  action?: ActionType | "all";
-  result?: string | "all";
-  userId?: string | "all";
-  page?: number;
-  limit?: number;
-}
-
-export interface AuditLogKPIs {
-  totalEvents: number;
-  todayEvents: number;
-  deniedEvents: number;
-  permissionChangesCount: number;
+export interface AuditPage {
+  filter: AuditFilter;
+  rows: AuditRow[];
+  /** How many entries match the filter in all (rows holds the newest of them). */
+  total: number;
+  refused: number;
+  periods: { value: string; label: string }[];
+  modules: { value: string; label: string }[];
+  users: { id: string; label: string }[];
+  can: { export: boolean };
 }

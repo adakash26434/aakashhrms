@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { KeyRound, Mail, Check, Copy, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
+import { KeyRound, Mail, Check, Copy, RefreshCw, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -20,11 +20,15 @@ export function AdminPasswordResetCard({ companyId, companyName, currentEmail }:
   const [lastResetInfo, setLastResetInfo] = useState<{ email: string; password: string } | null>(null);
   const toast = useToast();
 
+  // S59: the browser's cryptographic generator, never Math.random() (predictable from its outputs).
   const handleGeneratePassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+    const limit = 256 - (256 % chars.length);
     let gen = "";
-    for (let i = 0; i < 12; i++) {
-      gen += chars.charAt(Math.floor(Math.random() * chars.length));
+    while (gen.length < 12) {
+      for (const byte of crypto.getRandomValues(new Uint8Array(24))) {
+        if (byte < limit && gen.length < 12) gen += chars.charAt(byte % chars.length);
+      }
     }
     setPassword(gen + "1A!");
   };
@@ -55,8 +59,8 @@ export function AdminPasswordResetCard({ companyId, companyName, currentEmail }:
       });
       setPassword("");
       toast.success("Office Admin credentials updated successfully!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update admin credentials.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error && err.message ? err.message : "Failed to update admin credentials.");
     } finally {
       setLoading(false);
     }

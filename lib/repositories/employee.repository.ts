@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/db';
 import { 
   employees, employeePersonal, employeeFamily, employeeBank, employeeTermination, departments, designations,
-  users, employeeDocuments
+  users, userRoles, roles, employeeDocuments
 } from '@/lib/db/schema';
 import { eq, and, ilike, inArray, or, SQL, sql } from 'drizzle-orm';
 import type { Employee, EmployeeFilter, EmployeeStatus } from '@/lib/types/employee';
@@ -642,7 +642,16 @@ export async function setStatus(
       // Rejoining: the old separation no longer applies (the audit log keeps the dates).
       await tx.delete(employeeTermination).where(eq(employeeTermination.employeeId, id));
     }
-    await tx.update(users).set({ isActive: status === 'Active', updatedAt: new Date() }).where(eq(users.employeeId, id));
+    if (status === 'Inactive') {
+      await tx.update(users).set({ isActive: false, updatedAt: new Date() }).where(eq(users.employeeId, id));
+    } else {
+      // S59: rejoining turns a self-service login back on; an office login stays off until someone
+      // who may change it turns it on under Admin → Users.
+      await tx
+        .update(users)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(and(eq(users.employeeId, id), sql`exists (select 1 from ${userRoles} ur join ${roles} r on r.id = ur.role_id where ur.user_id = ${users.id} and r.slug in ('employee', 'standard_staff'))`));
+    }
   });
 }
 

@@ -235,7 +235,7 @@ export function EmployeeRecord({ record, joiningLetters }: { record: EmployeeRec
         ) : credentials ? (
           <div className="space-y-3 text-sm text-ink-muted">
             <p>
-              A new temporary password was {credentials.deliveredVia === "email" ? "emailed" : "issued"} to <span className="font-medium text-ink">{credentials.email}</span>. The
+              A new temporary password was {credentials.deliveredVia === "smtp" ? "emailed" : "issued"} to <span className="font-medium text-ink">{credentials.email}</span>. The
               previous one no longer works.
             </p>
             <p className="rounded-md border border-line bg-surface-sunken px-3 py-2">

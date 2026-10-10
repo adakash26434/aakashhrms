@@ -218,7 +218,9 @@ export async function sendEmployeeCredentialsEmail(
     }
   }
 
-  // 2. Development / Fallback mode: Print formatted preview box to terminal
+  // 2. Development / Fallback mode: Print formatted preview box to terminal. S59: never the
+  // password itself in production (server logs are kept and read by more people than HR).
+  const shownPassword = process.env.NODE_ENV === "production" ? "(not logged: shown once on screen)" : tempPassword;
   console.log(`
 ┌────────────────────────────────────────────────────────────────────────┐
 │ [AAKASH HRMS] EMPLOYEE CREDENTIALS EMAIL (DEV CONSOLE PREVIEW)         │
@@ -227,7 +229,7 @@ export async function sendEmployeeCredentialsEmail(
 │ Employee:     ${employeeName}
 │ Subject:      ${subject}
 │ Portal URL:   ${defaultLoginUrl}
-│ Temp Password: ${tempPassword}
+│ Temp Password: ${shownPassword}
 │ Notice:       Single-use temporary credential requiring password change
 └────────────────────────────────────────────────────────────────────────┘
   `);

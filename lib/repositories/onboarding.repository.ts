@@ -429,6 +429,7 @@ export async function completeOnboarding(changedByUserId: string): Promise<void>
       completedAt: now,
       completedBy: changedByUserId,
     },
-    ipAddress: '127.0.0.1',
+    // S59: no made-up address (the address is recorded by recordAuditLog from the request).
+    ipAddress: null,
   });
 }

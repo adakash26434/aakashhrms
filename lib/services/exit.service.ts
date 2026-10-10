@@ -18,6 +18,7 @@ import { buildEmployeeScopeCondition, type ScopeFilter } from '@/lib/auth/scope-
 import { DENIED_SELF, isOwnRecord } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { UserFacingError } from '@/lib/errors/action-error';
+import { leavingLoginProblem } from '@/lib/services/user.service';
 import { adToBSString } from '@/lib/utils/bs-calendar';
 import { nepalToday, toIsoDate } from '@/lib/utils/nepal-time';
 import type { ExitDetail, ExitListRow, ExitPageData } from '@/lib/types/exit';
@@ -188,6 +189,9 @@ export async function completeExitCase(id: string, options: CompleteOptions, ctx
   const { funds, assets, activeLoans, loanOutstanding } = await repo.exitFacts(existing.employeeId, existing.lastWorkingDayAd);
   const blockers = completionBlockers(clearances, existing.lastWorkingDayAd, today, funds.map((f) => f.fund), assets.map((a) => a.tag), activeLoans > 0 ? loanOutstanding : null);
   if (blockers.length) throw new UserFacingError(`Not yet: ${blockers[0]}`);
+  // S59: completing switches the login off; an administrator's only by another administrator, never the last.
+  const loginProblem = await leavingLoginProblem(ctx.userId, existing.employeeId);
+  if (loginProblem) throw new UserFacingError(loginProblem);
 
   // The experience letter needs the employee row, so it is rendered BEFORE
   // the employee goes Inactive (letters list active employees only).

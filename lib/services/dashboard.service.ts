@@ -118,7 +118,7 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     payroll,
     payrollGenerate,
     payrollReview,
-    audit,
+    audit: audit && scope.scopeType === "GLOBAL",
     supportView,
     scopeLabel,
   };
@@ -143,7 +143,8 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
     // Days by the attendance rules (4.5), within the user's scope.
     attendance ? section("attendance", failed, () => attendanceService.attendanceMarks(scope, monthStart, todayIso, branchId ?? undefined)) : null,
     leaveApprovals || attendance ? section("leave by type", failed, () => leaveRepository.sumApprovedLeaveDaysByType(byEmployeeId(leaveApplications.employeeId))) : null,
-    audit ? section("activity", failed, () => auditRepository.findAuditLogs({ limit: ACTIVITY_LIMIT })) : null,
+    // S59: the activity feed is the company's audit trail, so a company-wide role only.
+    audit && scope.scopeType === "GLOBAL" ? section("activity", failed, () => auditRepository.findAuditEntries({ limit: ACTIVITY_LIMIT })) : null,
     employees || attendance ? section("upcoming", failed, () => holidayRepository.findAllHolidays()) : null,
   ]);
 
@@ -268,13 +269,13 @@ export async function getDashboardSnapshot(params: DashboardParams = {}): Promis
       : null;
 
   const activity: DashboardActivity[] | null = activityLogs
-    ? activityLogs.logs.slice(0, ACTIVITY_LIMIT).map((log) => ({
+    ? activityLogs.slice(0, ACTIVITY_LIMIT).map((log) => ({
         id: log.id,
         actor: log.userName || log.userEmail || "System",
         action: String(log.action),
         module: moduleLabel(String(log.module)),
         result: String(log.result ?? "SUCCESS"),
-        at: new Date(log.createdAt).toISOString(),
+        at: log.createdAt.toISOString(),
       }))
     : null;
 

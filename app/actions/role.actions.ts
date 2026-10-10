@@ -1,205 +1,110 @@
 'use server';
 
-import { ensureTenantContext } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import * as roleService from '@/lib/services/role.service';
-import {
-  SystemRoleModificationError,
-  RoleNotFoundError,
-  RoleInUseError,
-  DuplicateRoleNameError,
-} from '@/lib/services/role.service';
-import type { CreateRoleInput, UpdateRoleInput, CloneRoleInput } from '@/lib/types/role';
-import { checkPermission } from '@/lib/auth/check-permission';
-import { auth } from '@/lib/auth';
+import { ensureTenantContext } from '@/lib/db';
+import { checkCompanyControl, checkCompanyView, hasPermission, type ScopeFilter } from '@/lib/auth/check-permission';
+import { UserFacingError, toActionError } from '@/lib/errors/action-error';
+import { isUuid } from '@/lib/utils/uuid';
+import * as service from '@/lib/services/role.service';
 
-export type ActionResponse<T = undefined> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-  validationErrors?: Record<string, string>;
+// Admin → Roles (4.13, S59). Roles are a company-wide control: View with a company-wide role to
+// see them (platform support may look); Users & roles → Add / Edit / Delete with a company-wide
+// role, never support view, to change them. The service applies the access rules: administrator
+// roles fixed, nothing given beyond your own permissions, never the role you hold.
+
+const NOT_FOUND = 'Not found: this role no longer exists.';
+
+const revalidate = () => {
+  revalidatePath('/admin/roles');
+  revalidatePath('/admin/users');
 };
 
-export async function createRoleAction(input: CreateRoleInput): Promise<ActionResponse<{ id: string }>> {
+async function abilities(scope: ScopeFilter) {
+  const office = scope.scopeType === 'GLOBAL' && !scope.isImpersonation;
+  const [add, edit, del, audit] = await Promise.all([
+    hasPermission('ADD', 'USERS_ROLES'),
+    hasPermission('EDIT', 'USERS_ROLES'),
+    hasPermission('DELETE', 'USERS_ROLES'),
+    hasPermission('VIEW', 'AUDIT_LOG'),
+  ]);
+  return { add: office && add, edit: office && edit, delete: office && del, audit: scope.scopeType === 'GLOBAL' && audit };
+}
+
+export async function rolesPageAction() {
   await ensureTenantContext();
   try {
-    await checkPermission('ADD', 'USERS_ROLES');
-
-    const session = await auth();
-    const changedByUserId = session?.user?.id;
-    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
-
-    const newRole = await roleService.createCustomRole(input, changedByUserId);
-    revalidatePath('/admin/roles');
-    return { success: true, data: { id: newRole.id } };
+    const scope = await checkCompanyView('USERS_ROLES');
+    return { success: true as const, data: await service.rolesPage(scope, await abilities(scope)) };
   } catch (error: unknown) {
-    console.error('[CREATE_ROLE_ACTION] Failed:', error);
-
-    if (error instanceof DuplicateRoleNameError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred while creating role.' };
+    return toActionError(error, 'roles.page');
   }
 }
 
-export async function updateRoleAction(
-  roleId: string,
-  input: UpdateRoleInput
-): Promise<ActionResponse> {
+/** Adds a role (id null: empty, from a preset or a copy) or saves its name, description and scope. */
+export async function saveRoleAction(id: string | null, input: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'USERS_ROLES');
-
-    const session = await auth();
-    const changedByUserId = session?.user?.id;
-    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
-
-    await roleService.updateCustomRole(roleId, input, changedByUserId);
-    revalidatePath('/admin/roles');
-    return { success: true };
+    if (id !== null && !isUuid(id)) throw new UserFacingError(NOT_FOUND);
+    const scope = await checkCompanyControl(id ? 'EDIT' : 'ADD', 'USERS_ROLES');
+    const role = await service.saveRole(id, input, { userId: scope.userId });
+    revalidate();
+    return { success: true as const, data: role };
   } catch (error: unknown) {
-    console.error('[UPDATE_ROLE_ACTION] Failed:', error);
-
-    if (error instanceof SystemRoleModificationError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof DuplicateRoleNameError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof RoleNotFoundError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred while updating role.' };
+    if (error instanceof service.RoleValidationError) return { success: false as const, error: error.message, validationErrors: error.errors };
+    return toActionError(error, 'roles.save');
   }
 }
 
-export async function cloneRoleAction(input: CloneRoleInput): Promise<ActionResponse<{ id: string }>> {
+/** Saves the matrix: `{ grants, baseline }` (baseline: what the screen started from). */
+export async function saveRolePermissionsAction(id: string, input: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('ADD', 'USERS_ROLES');
-
-    const session = await auth();
-    const changedByUserId = session?.user?.id;
-    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
-
-    const cloned = await roleService.cloneCustomRole(input, changedByUserId);
-    revalidatePath('/admin/roles');
-    return { success: true, data: { id: cloned.id } };
+    if (!isUuid(id)) throw new UserFacingError(NOT_FOUND);
+    const scope = await checkCompanyControl('EDIT', 'USERS_ROLES');
+    const result = await service.saveRolePermissions(id, input, { userId: scope.userId });
+    revalidate();
+    return { success: true as const, data: result };
   } catch (error: unknown) {
-    console.error('[CLONE_ROLE_ACTION] Failed:', error);
-
-    if (error instanceof DuplicateRoleNameError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof RoleNotFoundError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred while cloning role.' };
+    return toActionError(error, 'roles.permissions');
   }
 }
 
-export async function deleteRoleAction(roleId: string): Promise<ActionResponse> {
+export async function deleteRoleAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('DELETE', 'USERS_ROLES');
-
-    const session = await auth();
-    const changedByUserId = session?.user?.id;
-    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
-
-    await roleService.deleteCustomRole(roleId, changedByUserId);
-    revalidatePath('/admin/roles');
-    return { success: true };
+    if (!isUuid(id)) throw new UserFacingError(NOT_FOUND);
+    const scope = await checkCompanyControl('DELETE', 'USERS_ROLES');
+    await service.deleteRole(id, { userId: scope.userId });
+    revalidate();
+    return { success: true as const };
   } catch (error: unknown) {
-    console.error('[DELETE_ROLE_ACTION] Failed:', error);
-
-    if (error instanceof SystemRoleModificationError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof RoleInUseError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof RoleNotFoundError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred while deleting role.' };
+    return toActionError(error, 'roles.delete');
   }
 }
 
-export async function updateRolePermissionsAction(
-  roleId: string,
-  permissionIds: string[]
-): Promise<ActionResponse> {
+/** Gives logins this role (Roles → People → Add). */
+export async function addRoleMembersAction(id: string, loginIds: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'USERS_ROLES');
-
-    const session = await auth();
-    const changedByUserId = session?.user?.id;
-    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
-
-    await roleService.updateRolePermissions(roleId, permissionIds, changedByUserId);
-    revalidatePath('/admin/roles');
-    return { success: true };
+    if (!isUuid(id)) throw new UserFacingError(NOT_FOUND);
+    const ids = Array.isArray(loginIds) ? loginIds.filter(isUuid) : [];
+    const scope = await checkCompanyControl('EDIT', 'USERS_ROLES');
+    const moved = await service.addRoleMembers(id, ids, { userId: scope.userId });
+    revalidate();
+    return { success: true as const, data: { moved } };
   } catch (error: unknown) {
-    console.error('[UPDATE_ROLE_PERMISSIONS_ACTION] Failed:', error);
-
-    if (error instanceof SystemRoleModificationError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof RoleNotFoundError) {
-      return { success: false, error: error.message };
-    }
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred while saving permissions.' };
+    return toActionError(error, 'roles.members');
   }
 }
 
-export async function getUsersByRoleIdAction(roleId: string) {
+/** One role's grants and revokes, newest first. */
+export async function roleHistoryAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('VIEW', 'USERS_ROLES');
-    const users = await roleService.getUsersByRoleId(roleId);
-    return { success: true, data: users };
+    if (!isUuid(id)) throw new UserFacingError(NOT_FOUND);
+    await checkCompanyView('USERS_ROLES');
+    return { success: true as const, data: await service.permissionHistory({ roleId: id, limit: 300 }) };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to fetch users for role';
-    return { success: false, error: msg };
+    return toActionError(error, 'roles.history');
   }
 }
-
-export async function assignUsersToRoleAction(
-  roleId: string,
-  userIdsToAdd: string[],
-  userIdsToRemove: string[]
-) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('EDIT', 'USERS_ROLES');
-    const session = await auth();
-    const changedByUserId = session?.user?.id;
-    if (!changedByUserId) throw new Error('Unauthorized: Not authenticated');
-
-    await roleService.assignUsersToRole(roleId, userIdsToAdd, userIdsToRemove, changedByUserId);
-    revalidatePath('/admin/roles');
-    revalidatePath('/admin/users');
-    return { success: true };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to assign users to role';
-    return { success: false, error: msg };
-  }
-}
-

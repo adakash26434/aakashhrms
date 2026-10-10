@@ -4,9 +4,10 @@ import { getDbAsync } from '@/lib/db';
 import { userRoles, rolePermissions, permissions, roles, users, moduleEnum } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import type { ActionType, ModuleType } from '@/lib/types/role';
+import { ADMIN_ROLE_SLUGS } from '@/lib/engines/role.engine';
 
-/** Role slugs that hold every permission (the bypass in `verifyPermission`). */
-export const ADMIN_ROLE_SLUGS: readonly string[] = ['system_admin', 'office_admin'];
+/** Role slugs that hold every permission (the bypass in `verifyPermission`); defined with the roles (4.13). */
+export { ADMIN_ROLE_SLUGS };
 
 /**
  * Everything a user's roles grant, read in one query. It follows `verifyPermission`: company

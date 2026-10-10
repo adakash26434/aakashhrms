@@ -191,8 +191,10 @@ export interface EmployeeAccessOptions {
 
 /**
  * Who saves, for the self-service login (S44): giving a login any role but the Employee one, or
- * changing a linked login's role, needs Users & roles → Edit (as in Admin → Users), and never on
- * one's own login; the email of a login with an office role follows the record only with it too.
+ * changing a linked login's role, needs Users & roles → Edit with a company-wide role (as in
+ * Admin → Users), and never on one's own login; the email of a login with an office role follows
+ * the record only with it too. S59: the same access rules as Admin → Users apply on top — no role
+ * beyond the user's own permissions, administrators only by administrators.
  */
 export interface LoginAccessContext {
   canManageLogins: boolean;
@@ -249,7 +251,10 @@ async function syncEmployeeUserAccess(
       } else if (officeLogin && !guard.canManageLogins) {
         warnings.push("Login email not updated: this login has an office role, so its email is changed under Admin → Users.");
       } else {
-        await updateUserRepository(linkedUser.id, { email });
+        // S59: an office login's email changes only when the user may change that login.
+        const problem = officeLogin && guard.actorUserId ? await userService.loginChangeProblemFor(guard.actorUserId, linkedUser.id, "edit") : null;
+        if (problem) warnings.push(`Login email not updated: ${problem}`);
+        else await updateUserRepository(linkedUser.id, { email });
       }
     }
 
@@ -265,11 +270,13 @@ async function syncEmployeeUserAccess(
       if (own) {
         warnings.push("Role not changed: nobody changes the role of their own login.");
         await recordAuditLog({ userId: guard.actorUserId, action: "EDIT", module: "USERS_ROLES", recordId: linkedUser.id, result: DENIED_SELF, newValues: { roleChange: true } });
-      } else if (!guard.canManageLogins) {
+      } else if (!guard.canManageLogins || !guard.actorUserId) {
         warnings.push("Role not changed: giving a login another role needs Users & roles → Edit.");
         await recordAuditLog({ userId: guard.actorUserId, action: "EDIT", module: "USERS_ROLES", recordId: linkedUser.id, result: "DENIED_PERMISSION", newValues: { roleChange: true } });
       } else {
-        await updateUserRepository(linkedUser.id, {}, targetRoleId);
+        // S59: the Admin → Users rules, under the same lock, audited there (refusals too).
+        const problem = await userService.changeLinkedLoginRole(guard.actorUserId, linkedUser.id, targetRoleId);
+        if (problem) warnings.push(`Role not changed: ${problem}`);
       }
     }
 
@@ -297,6 +304,17 @@ async function syncEmployeeUserAccess(
     if (!isSelfServiceRole(resolvedSlug) && !guard.canManageLogins) {
       resolvedSlug = EMPLOYEE_ROLE_SLUG;
       warnings.push("The login was given the Employee role: another role needs Users & roles → Edit.");
+    }
+    // S59: and only a role within the user's own permissions (administrators by administrators).
+    if (!isSelfServiceRole(resolvedSlug) && guard.actorUserId) {
+      const { findRoleBySlug } = await import("@/lib/repositories/role.repository");
+      const chosen = await findRoleBySlug(resolvedSlug);
+      const problem = chosen ? await userService.roleGiveProblemFor(guard.actorUserId, chosen.id) : null;
+      if (problem) {
+        resolvedSlug = EMPLOYEE_ROLE_SLUG;
+        warnings.push(`The login was given the Employee role: ${problem}`);
+        await recordAuditLog({ userId: guard.actorUserId, action: "ADD", module: "USERS_ROLES", recordId: employee.id, result: "DENIED_PERMISSION", newValues: { role: chosen?.name ?? resolvedSlug } });
+      }
     }
 
     const { user, tempPassword } = await createSecureUserAccount(
@@ -738,7 +756,7 @@ export async function getEmployeeFormContext(
   canManageLogins = false
 ): Promise<EmployeeFormContext> {
   const noDetails: DetailFormInfo = { pending: null, onSave: "wait" };
-  const [lookups, codes, employmentTypes, roles, access, details] = await Promise.all([
+  const [lookups, codes, employmentTypes, allRoles, access, details] = await Promise.all([
     getEmployeeLookupData(scope),
     repository.findAllCodes(),
     findAllEmploymentTypes().catch(() => []),
@@ -746,6 +764,10 @@ export async function getEmployeeFormContext(
     employee ? userService.getEmployeeAccess(employee.id) : Promise.resolve(null),
     employee ? detailService.formInfo(employee.id, { scope, userId: scope.userId, canApprove: canApproveDetails, canEdit: true }) : Promise.resolve(noDetails),
   ]);
+  // S59: the roles offered are the ones the user may give (plus the login's current role).
+  const managing = canManageLogins && !scope.isImpersonation;
+  const roles = managing ? await userService.rolesWithinReach(scope.userId, access?.roleId) : allRoles;
+  const loginOutOfReach = managing && access && access.userId !== scope.userId ? await userService.loginChangeProblemFor(scope.userId, access.userId, "role") : null;
 
   // GLOBAL users see everything; BRANCH / DEPARTMENT users only what they can place into (plus the current value).
   // Inactive organization records are not offered for new choices (4.3), except the record's current value.
@@ -796,6 +818,7 @@ export async function getEmployeeFormContext(
       .map((e) => ({ id: e.id, name: e.name, employeeCode: e.employeeCode })),
     codes,
     roles: roles.map((r) => ({ id: r.id, name: r.name, slug: r.slug })),
+    roleChoiceReason: loginOutOfReach,
     access: access
       ? {
           email: access.email,
@@ -804,8 +827,9 @@ export async function getEmployeeFormContext(
           state: !access.isActive ? "disabled" : access.mustChangePassword ? "pending" : "active",
         }
       : null,
-    // S44: another role only with Users & roles → Edit, and never on one's own login.
-    roleChoice: !canManageLogins || scope.isImpersonation ? "employee_only" : access && access.userId === scope.userId ? "own_login" : "any",
+    // S44: another role only with Users & roles → Edit (company-wide), and never on one's own login;
+    // S59: nor on a login whose role is beyond the user's own permissions.
+    roleChoice: !canManageLogins || scope.isImpersonation ? "employee_only" : access && access.userId === scope.userId ? "own_login" : loginOutOfReach ? "out_of_reach" : "any",
     details,
   };
 }

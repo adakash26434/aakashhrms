@@ -335,7 +335,10 @@ export const users = pgTable('users', {
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
-});
+}, (t) => ({
+  // 4.13 (migration 0082): one login per employee.
+  oneLoginPerEmployee: uniqueIndex('users_employee_id_unique').on(t.employeeId).where(sql`employee_id is not null`),
+}));
 
 // -----------------------------------------------------------------------------
 // 6. USER ROLES (Many-to-Many linking Users to Roles)
@@ -362,17 +365,19 @@ export const auditLogs = pgTable('audit_logs', {
   result: varchar('result', { length: 50 }).notNull(), // 'SUCCESS', 'DENIED_PERMISSION', 'DENIED_SCOPE'
   oldValues: jsonb('old_values'),
   newValues: jsonb('new_values'),
-  ipAddress: varchar('ip_address', { length: 45 }),
+  ipAddress: varchar('ip_address', { length: 45 }), // The request's client address; NULL = not recorded (S59)
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index('audit_logs_user_id_idx').on(table.userId),
+  createdAtIdx: index('audit_logs_created_at_idx').on(table.createdAt),
 }));
 
 // B: The Permission Change Log (Tracking when Admins change security rules)
 export const rolePermissionChangeLog = pgTable('role_permission_change_log', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   changedByUserId: uuid('changed_by_user_id').references(() => users.id).notNull(),
-  roleId: uuid('role_id').references(() => roles.id).notNull(),
+  // 4.13 (migration 0082): a deleted role's history stays, by name (affected_role_name).
+  roleId: uuid('role_id').references(() => roles.id, { onDelete: 'set null' }),
   permissionId: uuid('permission_id').references(() => permissions.id).notNull(),
   changeType: varchar('change_type', { length: 20 }).notNull(), // 'GRANTED' or 'REVOKED'
   affectedRoleName: varchar('affected_role_name', { length: 255 }).notNull(), // Snapshot

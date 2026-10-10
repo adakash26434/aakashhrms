@@ -107,7 +107,9 @@ describe('S18 employee records', () => {
     assert.ok(!/deleteEmployee/.test(actions) && !/export async function deleteEmployee/.test(service), 'no delete action or service');
     assert.ok(!/tx\.delete\(employees\)/.test(repo), 'the repository never deletes employee rows');
     const setStatus = repo.slice(repo.indexOf('export async function setStatus('));
-    assert.match(setStatus, /tx\.update\(users\)\.set\(\{ isActive: status === 'Active'/);
+    // Leaving switches every linked login off; rejoining turns only a self-service login back on (S59).
+    assert.match(setStatus, /if \(status === 'Inactive'\) \{\s*await tx\.update\(users\)\.set\(\{ isActive: false/);
+    assert.match(setStatus, /r\.slug in \('employee', 'standard_staff'\)/);
     const status = actions.slice(actions.indexOf('export async function setEmployeeStatusAction('));
     assert.match(status, /checkPermissionWithScope\('EDIT', 'EMPLOYEES'\)/);
     assert.match(status, /getEmployeeInScope\(id, scope, 'EDIT'\)/);

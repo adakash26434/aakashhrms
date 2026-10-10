@@ -18,11 +18,11 @@ const sync = service.slice(service.indexOf('async function syncEmployeeUserAcces
 describe('S44 self-service access from the employee record', () => {
   it('a linked login changes role only with Users & roles → Edit, and never one\'s own', () => {
     const roleBlock = sync.slice(sync.indexOf('if (targetRoleId && targetRoleId !== access?.roleId)'), sync.indexOf('return warnings.length'));
-    assert.ok(roleBlock.indexOf('if (own)') < roleBlock.indexOf('updateUserRepository(linkedUser.id, {}, targetRoleId)'));
-    assert.match(roleBlock, /else if \(!guard\.canManageLogins\)/);
+    assert.ok(roleBlock.indexOf('if (own)') < roleBlock.indexOf('userService.changeLinkedLoginRole(guard.actorUserId, linkedUser.id, targetRoleId)'));
+    assert.match(roleBlock, /else if \(!guard\.canManageLogins \|\| !guard\.actorUserId\)/);
     assert.match(roleBlock, /DENIED_SELF/);
-    // The only role write is the guarded one.
-    assert.equal(sync.split('updateUserRepository(linkedUser.id, {}, targetRoleId)').length, 2);
+    // The only role write goes through Admin → Users' rules (S59); no direct write is left.
+    assert.doesNotMatch(sync, /updateUserRepository\([^)]*targetRoleId\)/);
   });
 
   it('a new login gets the Employee role unless the user may give roles', () => {
@@ -35,7 +35,7 @@ describe('S44 self-service access from the employee record', () => {
 
   it('the save passes who acts and Users & roles → Edit from the server', () => {
     assert.match(actions, /hasPermission\('EDIT', 'USERS_ROLES'\)/);
-    assert.match(actions, /userId: scope\.userId,[\s\S]*canManageLogins: canManageLogins && !scope\.isImpersonation,/);
+    assert.match(actions, /userId: scope\.userId,[\s\S]*canManageLogins: canManageLogins && scope\.scopeType === 'GLOBAL' && !scope\.isImpersonation,/);
     assert.match(service, /const loginAccess: LoginAccessContext = \{ canManageLogins: ctx\.canManageLogins, actorUserId: ctx\.userId \};/);
   });
 

@@ -14,6 +14,7 @@ export default async function NewEmployeePage() {
   await ensureTenantContext();
   const scope = await checkPermissionWithScope("ADD", "EMPLOYEES");
   const [canEditPay, canManageLogins] = await Promise.all([hasPermission("EDIT", "SALARY_MAPPING"), hasPermission("EDIT", "USERS_ROLES")]);
-  const ctx = await getEmployeeFormContext(scope, null, canEditPay, false, canManageLogins);
+  // S59: giving logins roles is company-wide (the save checks again).
+  const ctx = await getEmployeeFormContext(scope, null, canEditPay, false, canManageLogins && scope.scopeType === "GLOBAL");
   return <EmployeeForm ctx={ctx} />;
 }

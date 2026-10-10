@@ -1,42 +1,49 @@
 'use server';
 
 import { ensureTenantContext } from '@/lib/db';
-import * as auditService from '@/lib/services/audit.service';
-import { AuditLogFilter, AuditLogEntry, PermissionChangeLogEntry, AuditLogKPIs } from '@/lib/types/audit';
-import { checkPermission } from '@/lib/auth/check-permission';
+import { checkCompanyView, hasPermission } from '@/lib/auth/check-permission';
+import { UserFacingError, toActionError } from '@/lib/errors/action-error';
+import { isUuid } from '@/lib/utils/uuid';
+import { periodStart, normalizeAuditFilter } from '@/lib/engines/audit.engine';
+import * as service from '@/lib/services/audit.service';
+import { permissionHistory } from '@/lib/services/role.service';
 
-export type ActionResponse<T = undefined> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
+// Admin → Audit log (4.13, S59): the whole company's trail, so Audit log → View with a
+// company-wide role (platform support may look). Exports go through `authorizeExportAction`
+// (Audit log → Export, audited) from the rows on the screen.
 
-export async function getAuditLogsAction(filter?: AuditLogFilter): Promise<ActionResponse<{
-  logs: AuditLogEntry[];
-  totalCount: number;
-  kpis: AuditLogKPIs;
-}>> {
+export async function auditPageAction(filter: unknown) {
+  await ensureTenantContext();
   try {
-    await ensureTenantContext();
-    await checkPermission('VIEW', 'AUDIT_LOG');
-    const data = await auditService.getAuditLogData(filter);
-    return { success: true, data };
+    const scope = await checkCompanyView('AUDIT_LOG');
+    const canExport = !scope.isImpersonation && (await hasPermission('EXPORT', 'AUDIT_LOG'));
+    return { success: true as const, data: await service.auditPage(filter, { export: canExport }) };
   } catch (error: unknown) {
-    console.error('Failed to fetch audit logs:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to fetch audit logs';
-    return { success: false, error: msg };
+    return toActionError(error, 'audit.page');
   }
 }
 
-export async function getPermissionChangeLogsAction(filter?: AuditLogFilter): Promise<ActionResponse<PermissionChangeLogEntry[]>> {
+export async function auditEntryAction(id: string) {
+  await ensureTenantContext();
   try {
-    await ensureTenantContext();
-    await checkPermission('VIEW', 'AUDIT_LOG');
-    const data = await auditService.getPermissionChangeLogs(filter);
-    return { success: true, data };
+    if (!isUuid(id)) throw new UserFacingError('Not found: this entry does not exist.');
+    await checkCompanyView('AUDIT_LOG');
+    const entry = await service.auditEntry(id);
+    if (!entry) throw new UserFacingError('Not found: this entry does not exist.');
+    return { success: true as const, data: entry };
   } catch (error: unknown) {
-    console.error('Failed to fetch permission change logs:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to fetch permission change logs';
-    return { success: false, error: msg };
+    return toActionError(error, 'audit.entry');
+  }
+}
+
+/** Every role's grants and revokes in the filter's period, newest first. */
+export async function permissionChangesAction(filter: unknown) {
+  await ensureTenantContext();
+  try {
+    await checkCompanyView('AUDIT_LOG');
+    const { period } = normalizeAuditFilter(filter, { modules: [] });
+    return { success: true as const, data: await permissionHistory({ since: periodStart(period), limit: 1000 }) };
+  } catch (error: unknown) {
+    return toActionError(error, 'audit.permissions');
   }
 }

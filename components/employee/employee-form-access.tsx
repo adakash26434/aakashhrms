@@ -25,7 +25,9 @@ export function EmployeeFormAccess({
   const roleHelp =
     ctx.roleChoice === "own_login"
       ? "Your own login: someone else changes its role."
-      : ctx.roleChoice === "employee_only"
+      : ctx.roleChoice === "out_of_reach"
+        ? (ctx.roleChoiceReason ?? "This login's role is beyond your own permissions: someone who holds them changes it.")
+        : ctx.roleChoice === "employee_only"
         ? linked
           ? "Roles are changed under Admin → Users (Users & roles → Edit)."
           : "New logins get the Employee role; another role is given under Admin → Users."

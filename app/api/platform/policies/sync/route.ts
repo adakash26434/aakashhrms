@@ -8,6 +8,8 @@ import { eq, desc } from 'drizzle-orm';
 import { DEFAULT_NEPAL_POLICY_PACK_V1, StatutoryPolicyPackPayload } from '@/lib/platform/policy-pack-data';
 import { lawfulPreset } from '@/lib/engines/leave-policy.engine';
 import { pushToCompany } from '@/lib/platform/leave-exceptions';
+import { getClientIp } from '@/lib/auth/client-ip';
+import { addressText } from '@/lib/engines/audit.engine';
 
 export async function POST(request: Request) {
   const authResult = await requirePlatformAuth(request);
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
   try {
     await ensurePlatformTablesExist();
 
-    let body: any = {};
+    let body: { version?: unknown } = {};
     try {
       body = await request.json();
     } catch {
@@ -225,14 +227,15 @@ export async function POST(request: Request) {
               policyPackName: packPayload.name,
               syncedAt: new Date().toISOString(),
             },
-            ipAddress: '127.0.0.1',
+            // The super admin's address (S59: never a made-up one).
+            ipAddress: addressText(getClientIp(request.headers)),
           });
         } catch {
           // Non-blocking audit log
         }
 
         // D. Update company policy pack version & initialSetupPayload on control plane
-        const currentSetup = (company.initialSetupPayload as any) || {};
+        const currentSetup = (company.initialSetupPayload as Record<string, unknown> | null) || {};
         await platformDb
           .update(companies)
           .set({
@@ -250,9 +253,9 @@ export async function POST(request: Request) {
           name: company.displayName || company.legalName,
           slug: company.slug,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(`Error syncing policy pack to tenant ${company.slug}:`, err);
-        syncErrors.push({ slug: company.slug, error: err?.message || 'Sync failed.' });
+        syncErrors.push({ slug: company.slug, error: (err instanceof Error && err.message) || 'Sync failed.' });
       }
     }
 
@@ -276,10 +279,10 @@ export async function POST(request: Request) {
       syncedCompanies,
       errors: syncErrors,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error broadcasting statutory policy pack:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to broadcast policy pack to tenant databases.' },
+      { success: false, error: (error instanceof Error && error.message) || 'Failed to broadcast policy pack to tenant databases.' },
       { status: 500 }
     );
   }

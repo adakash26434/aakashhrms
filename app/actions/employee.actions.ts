@@ -61,7 +61,8 @@ export async function saveEmployeeAction(
       access: accessOptions,
       canEditPay,
       detail: { scope, canApprove: canApproveDetails, reason: detail?.reason },
-      canManageLogins: canManageLogins && !scope.isImpersonation,
+      // S59: giving logins roles is a company-wide control (as in Admin → Users).
+      canManageLogins: canManageLogins && scope.scopeType === 'GLOBAL' && !scope.isImpersonation,
     });
     const saved = result.employee;
     await recordAuditLog({
@@ -131,6 +132,14 @@ export async function setEmployeeStatusAction(
       throw new UserFacingError("You can't change your own employment status. Ask another administrator.");
     }
     if (employee.status === status) throw new UserFacingError(`This employee is already ${status.toLowerCase()}.`);
+    // S59: leaving switches the login off; an administrator's only by another administrator, never the last.
+    if (status === 'Inactive') {
+      const loginProblem = await userService.leavingLoginProblem(scope.userId, employee.id);
+      if (loginProblem) {
+        await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employee.id, result: 'DENIED_PERMISSION', newValues: { status } });
+        throw new UserFacingError(loginProblem);
+      }
+    }
 
     await empService.setEmployeeStatus(employee, status, separation ?? null);
     await recordAuditLog({
@@ -208,9 +217,17 @@ async function assertMayResetLogin(scope: ScopeFilter, access: { userId: string;
     await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employeeId, result: DENIED_SELF, newValues: { credentials: 'refused' } });
     throw new UserFacingError('This is your own login: use Change password instead.');
   }
-  if (!empService.isSelfServiceRole(access.roleSlug) && (scope.isImpersonation || !(await hasPermission('EDIT', 'USERS_ROLES')))) {
-    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employeeId, result: 'DENIED_PERMISSION', newValues: { credentials: 'refused' } });
-    throw new UserFacingError(`This login has an office role (${access.roleName ?? 'not the Employee role'}). Reset it under Admin → Users.`);
+  if (!empService.isSelfServiceRole(access.roleSlug)) {
+    if (scope.isImpersonation || scope.scopeType !== 'GLOBAL' || !(await hasPermission('EDIT', 'USERS_ROLES'))) {
+      await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employeeId, result: 'DENIED_PERMISSION', newValues: { credentials: 'refused' } });
+      throw new UserFacingError(`This login has an office role (${access.roleName ?? 'not the Employee role'}). Reset it under Admin → Users.`);
+    }
+    // S59: and only a login within the user's own permissions (administrators by administrators).
+    const problem = await userService.loginChangeProblemFor(scope.userId, access.userId, 'password');
+    if (problem) {
+      await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employeeId, result: 'DENIED_PERMISSION', newValues: { credentials: 'refused' } });
+      throw new UserFacingError(problem);
+    }
   }
 }
 

@@ -575,6 +575,13 @@
       "when": 1793932800000,
       "tag": "0081_shift_allowance",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794019200000,
+      "tag": "0082_administration",
+      "breakpoints": true
     }
   ]
 }

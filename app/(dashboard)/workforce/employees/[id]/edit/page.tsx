@@ -23,6 +23,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     hasPermission("APPROVE", "EMPLOYEES"),
     hasPermission("EDIT", "USERS_ROLES"),
   ]);
-  const ctx = await getEmployeeFormContext(scope, employee, canEditPay, canApproveDetails, canManageLogins);
+  // S59: giving logins roles is company-wide (the save checks again).
+  const ctx = await getEmployeeFormContext(scope, employee, canEditPay, canApproveDetails, canManageLogins && scope.scopeType === "GLOBAL");
   return <EmployeeForm ctx={ctx} />;
 }

@@ -21,7 +21,8 @@ describe('Dashboard access (S3)', () => {
     assert.match(service, /payroll \? section\("payroll"/);
     assert.match(service, /attendance \? section\("attendance"/);
     assert.match(service, /leaveApprovals \? section\("approvals"/);
-    assert.match(service, /audit \? section\("activity"/);
+    // S59: the activity feed is the company's audit trail: a company-wide role only.
+    assert.match(service, /audit && scope\.scopeType === "GLOBAL" \? section\("activity"/);
     assert.match(service, /readiness: employees && payroll && scopedEmployees/);
   });
 

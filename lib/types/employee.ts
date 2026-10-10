@@ -411,8 +411,13 @@ export interface EmployeeFormContext {
   codes: { id: string; employeeCode: string; attendanceCode: string }[];
   roles: { id: string; name: string; slug: string }[];
   access: { email: string; roleId: string | null; roleName: string | null; state: "active" | "pending" | "disabled" } | null;
-  /** S44: which roles this user may give the login here (Users & roles → Edit; never one's own login). */
-  roleChoice: "any" | "employee_only" | "own_login";
+  /**
+   * S44: which roles this user may give the login here (Users & roles → Edit, company-wide; never
+   * one's own login). S59: "out_of_reach" when the login's role is beyond the user's permissions.
+   */
+  roleChoice: "any" | "employee_only" | "own_login" | "out_of_reach";
+  /** Why the role can't be changed here ("out_of_reach"), in words. */
+  roleChoiceReason: string | null;
   /** F13: a change to bank, PAN or tax status already waiting, and what saving one does for this user. */
   details: DetailFormInfo;
 }

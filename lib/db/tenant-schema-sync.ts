@@ -2184,4 +2184,45 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
       console.error("[tenant-schema-sync] shift allowance 0081:", err instanceof Error ? err.message.slice(0, 200) : err);
     }
   }
+
+  // Administration (4.13, migration 0082, S59): the placeholder 127.0.0.1 in audit entries becomes
+  // "not recorded" once (the column comment marks it done); a role's change history no longer
+  // stops it being deleted (ON DELETE SET NULL, the log keeps the name); one login per employee;
+  // the Audit log reads a period at a time.
+  const administrationQueries = [
+    `DO $$
+      BEGIN
+        IF to_regclass('audit_logs') IS NOT NULL THEN
+          IF col_description(to_regclass('audit_logs'), (SELECT a.attnum FROM pg_attribute a WHERE a.attrelid = to_regclass('audit_logs') AND a.attname = 'ip_address')) IS NULL THEN
+            UPDATE "audit_logs" SET "ip_address" = NULL WHERE "ip_address" = '127.0.0.1';
+            COMMENT ON COLUMN "audit_logs"."ip_address" IS 'Client address of the request (getClientIp); NULL = not recorded (S59).';
+          END IF;
+        END IF;
+      END $$`,
+    `CREATE INDEX IF NOT EXISTS "audit_logs_created_at_idx" ON "audit_logs" ("created_at")`,
+    `DO $$
+      BEGIN
+        IF to_regclass('role_permission_change_log') IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'role_permission_change_log_role_id_roles_id_fk' AND confdeltype = 'n'
+        ) THEN
+          ALTER TABLE "role_permission_change_log" ALTER COLUMN "role_id" DROP NOT NULL;
+          ALTER TABLE "role_permission_change_log" DROP CONSTRAINT IF EXISTS "role_permission_change_log_role_id_roles_id_fk";
+          ALTER TABLE "role_permission_change_log" ADD CONSTRAINT "role_permission_change_log_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE SET NULL;
+        END IF;
+      END $$`,
+    `DO $$
+      BEGIN
+        IF to_regclass('users') IS NOT NULL AND to_regclass('users_employee_id_unique') IS NULL
+          AND NOT EXISTS (SELECT 1 FROM "users" WHERE "employee_id" IS NOT NULL GROUP BY "employee_id" HAVING count(*) > 1) THEN
+          CREATE UNIQUE INDEX "users_employee_id_unique" ON "users" ("employee_id") WHERE "employee_id" IS NOT NULL;
+        END IF;
+      END $$`,
+  ];
+  for (const q of administrationQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch (err) {
+      console.error("[tenant-schema-sync] administration 0082:", err instanceof Error ? err.message.slice(0, 200) : err);
+    }
+  }
 }

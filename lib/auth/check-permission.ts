@@ -221,6 +221,19 @@ export async function checkCompanyControl(action: PermissionAction, module: Perm
 }
 
 /**
+ * A company-wide screen (4.13: Users & roles, Audit log): the module's View with a company-wide
+ * role. A branch or department role would see every branch's logins or entries, so it can't open
+ * it; platform support may look (and changes nothing: `checkCompanyControl`).
+ */
+export async function checkCompanyView(module: PermissionModule): Promise<ScopeFilter> {
+  const scope = await checkPermissionWithScope('VIEW', module);
+  if (!scope.isImpersonation && scope.scopeType !== 'GLOBAL') {
+    throw new Error('Unauthorized: this screen covers the whole company, so only a company-wide role can open it.');
+  }
+  return scope;
+}
+
+/**
  * Checks if the currently authenticated user has permission to perform an action.
  * Returns true if allowed, false if not authenticated or unauthorized (does not throw).
  */
