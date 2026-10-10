@@ -12,9 +12,7 @@ import { WorkScheduleTab } from "./work-schedule-tab";
 import { CompanyProfileTab } from "./company-profile-tab";
 import { CompanySetupInnerNav, type CompanySetupSection } from "./company-setup-inner-nav";
 import { PayHeadClient } from "@/components/pay-head/pay-head-client";
-import { SystemControlClient } from "@/components/system-control/system-control-client";
 import type { PayHeadData } from "@/lib/types/pay-head";
-import type { SystemControlData } from "@/lib/types/system-control";
 
 export type MasterSetupTab = CompanySetupSection;
 
@@ -42,6 +40,7 @@ const MOVED: Record<string, string> = {
   employment_types: "/workforce/organization?tab=types",
   fiscal_year: "/setup/fiscal-year",
   tax_rates: "/setup/tax-rates",
+  system_control: "/setup/system-control",
 };
 
 const VALID_TABS: MasterSetupTab[] = [
@@ -61,8 +60,6 @@ interface CompanySetupClientProps {
   payrollRulesData?: {
     allowedTabs: PayrollRuleTab[];
     payHeadData?: PayHeadData | null;
-    systemControlData?: SystemControlData | null;
-    isSuperAdmin?: boolean;
   };
 }
 
@@ -220,21 +217,7 @@ export function CompanySetupClient({
               )
             )}
 
-            {/* Payroll Section 4: Statutory Rules & System Defaults */}
-            {(activeTab === "system_control" || (activeTab === "payroll_rules" && payrollSubTab === "rules-defaults")) && (
-              payrollRulesData?.systemControlData ? (
-                <SystemControlClient
-                  initialData={payrollRulesData.systemControlData}
-                  isSuperAdmin={payrollRulesData.isSuperAdmin}
-                  embedded={true}
-                />
-              ) : (
-                <div className="py-12 text-center text-xs text-slate-400">
-                  You do not have permission to view rules & controls.
-                </div>
-              )
-            )}
-
+            {/* Rules & controls has its own page under Setup (4.12b): see MOVED. */}
           </div>
         </div>
       </div>

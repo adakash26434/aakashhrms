@@ -1040,6 +1040,32 @@ and focus moves to the first; Save is disabled until something changes.
 Money inputs use `NumberField grouped` (lakh grouping while not typing,
 plain digits while typing).
 
+### Implemented settings: rules & controls (Phase 4.12b, template E)
+
+**Setup → Rules & controls** (`/setup/system-control`): PageBar with
+**Save** (Ctrl+S, disabled until something changes), **Apply grade
+policy…** and Refresh. The `SectionIndex` sits beside the form from 66rem
+of content width (a "Jump to section" select above it when narrower):
+Retirement contributions (PF share, CIT a year, all retirement
+contributions a year), Insurance premiums (life, health, house), Other tax
+relief (remote-area cap, women's rebate), Social security fund (in SSF —
+Yes / No —, worked out on), Overtime (the two multipliers; an info Notice
+with a link when an hourly OT rule is active, which payroll then uses) and
+Grade policy (how grades are worked out with each method's hint, its own
+figure, most grades counted, a worked example "30,000 ÷ 30 = 1,000 × 3 =
+3,000" and a line saying what saving a new policy does). Money fields are
+`NumberField grouped` with the NPR prefix; help text under each field
+says what payroll does with it.
+
+**Save…** checks the form (errors under the fields, focus on the first,
+the section marked in the index) and opens **Save these rules?**: each
+change "label — from → **to**" and, for a grade-policy change, a
+**Salaries** box worked out on the server first (employees whose grade
+changes, the change a month, whether it counts at once or who it waits
+for, "Your own salary is in it…", who is left out while a change of
+theirs waits). The success Notice repeats what happened to salaries.
+**Undo changes** puts the form back.
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

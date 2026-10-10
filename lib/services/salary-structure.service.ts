@@ -9,6 +9,7 @@ import * as systemControlRepository from "@/lib/repositories/system-control.repo
 import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
 import { findAllEmploymentTypes } from "@/lib/repositories/employment-type.repository";
+import { gradeMethodLabel } from "@/lib/engines/grade-policy.engine";
 import {
   EMPTY_LINES,
   batchSummary,
@@ -561,50 +562,99 @@ export async function createStartingStructure(params: {
   });
 }
 
-/**
- * The grade policy changed: one approved, system-prepared revision per
- * employee whose policy grade changes (grades typed by hand are left alone).
- */
-export async function applyPolicyGrades(policy: Parameters<typeof gradeAmountFor>[1], userId: string | null): Promise<number> {
-  const { heads, totalsSettings } = await loadContext();
-  const employees = (await employeeRepository.findAll(ALL)).filter((e) => e.status === "Active");
-  const { revisions, heads: stored } = await repository.findRevisions(employees.map((e) => e.id));
-  if (policy?.calculationMethod === "MANUAL_INPUT") return 0;
+// ---------------------------------------------------------------------------
+// Grade policy (4.12b, S50): a policy change is a salary change like any other
+// ---------------------------------------------------------------------------
+
+/** What a grade-policy change does: new grade amounts for active employees whose grade is worked out. */
+async function policyGradeChanges(policy: Parameters<typeof gradeAmountFor>[1], scope: ScopeFilter) {
+  const [{ heads, totalsSettings }, employees] = await Promise.all([loadContext(), employeesInScope(scope)]);
+  const ids = employees.map((e) => e.id);
+  const [{ revisions, heads: stored }, pending] = await Promise.all([repository.findRevisions(ids), repository.countPendingFor(ids)]);
   const changes: repository.NewRevision[] = [];
   let monthlyChange = 0;
-  for (const e of employees) {
-    const mine = revisions.filter((r) => r.employeeId === e.id);
-    const cur = latestApproved(mine.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
-    if (!cur || cur.gradeManual) continue;
-    const lines = linesFromHeads(
-      { basic: Number(cur.basicSalary) || 0, gradeCount: cur.gradeCount ?? 0, gradeAmount: Number(cur.gradeAmount) || 0, gradeManual: false },
-      stored.filter((s) => s.salaryMapId === cur.id),
-      heads
-    );
-    const grade = gradeAmountFor(lines, policy);
-    if (Math.abs(grade - lines.gradeAmount) < 0.005) continue;
-    const before = structureTotals(lines, heads, totalsSettings);
-    const next = { ...lines, gradeAmount: grade };
-    const after = structureTotals(next, heads, totalsSettings);
-    monthlyChange += after.totalSalary - before.totalSalary;
-    changes.push({ employeeId: e.id, basic: next.basic, gradeCount: next.gradeCount, gradeAmount: grade, gradeManual: false, netAmount: after.netBeforeTax, heads: headsFromLines(next, heads) });
+  if (policy?.calculationMethod !== "MANUAL_INPUT") {
+    for (const e of employees) {
+      if (pending.has(e.id)) continue;
+      const cur = latestApproved(revisions.filter((r) => r.employeeId === e.id).map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+      // Grades typed by hand stay as they are.
+      if (!cur || cur.gradeManual) continue;
+      const lines = linesFromHeads(
+        { basic: Number(cur.basicSalary) || 0, gradeCount: cur.gradeCount ?? 0, gradeAmount: Number(cur.gradeAmount) || 0, gradeManual: false },
+        stored.filter((h) => h.salaryMapId === cur.id),
+        heads
+      );
+      const grade = gradeAmountFor(lines, policy);
+      if (Math.abs(grade - lines.gradeAmount) < 0.005) continue;
+      const before = structureTotals(lines, heads, totalsSettings);
+      const next = { ...lines, gradeAmount: grade };
+      const after = structureTotals(next, heads, totalsSettings);
+      monthlyChange += after.totalSalary - before.totalSalary;
+      changes.push({ employeeId: e.id, basic: next.basic, gradeCount: next.gradeCount, gradeAmount: grade, gradeManual: false, netAmount: after.netBeforeTax, heads: headsFromLines(next, heads) });
+    }
   }
-  if (!changes.length) return 0;
-  await repository.createBatch({
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  return { changes, monthlyChange: Math.round(monthlyChange * 100) / 100, pending: [...pending.keys()].map((id) => byId.get(id)?.fullName ?? "Unknown").sort() };
+}
+
+export interface PolicyGradeOutcome {
+  employees: number;
+  monthlyChange: number;
+  /** Employees with a salary change already waiting: left out, by name. */
+  pending: string[];
+  ownSalary: boolean;
+  approvedAtOnce: boolean;
+  waitingFor: string | null;
+  batchId: string | null;
+}
+
+async function policyFlow(changedIds: string[], ctx: { userId: string; scope: ScopeFilter }) {
+  const [policy, approvers] = await Promise.all([repository.getApprovalPolicy(), repository.findApprovers()]);
+  const outcome = buildFlow(policy, { preparerId: ctx.userId, preparerEmployeeId: ctx.scope.employeeId, subjectEmployeeIds: changedIds, approvers });
+  const levelUser = outcome.flow.levels.find((l) => l.level === outcome.currentLevel)?.userId;
+  const waiting = outcome.approvedAtOnce ? null : outcome.flow.type === "multi_level" && levelUser ? `Level ${outcome.currentLevel}: ${approvers.find((x) => x.userId === levelUser)?.name ?? "approver"}` : "an approver";
+  return { outcome, waiting, ownSalary: !outcome.approvedAtOnce && !!outcome.ownSubject };
+}
+
+/** What changing to this grade policy would do (nothing is written). */
+export async function previewPolicyGrades(policy: Parameters<typeof gradeAmountFor>[1], ctx: { userId: string; scope: ScopeFilter }): Promise<Omit<PolicyGradeOutcome, "batchId">> {
+  const { changes, monthlyChange, pending } = await policyGradeChanges(policy, ctx.scope);
+  if (!changes.length) return { employees: 0, monthlyChange: 0, pending, ownSalary: false, approvedAtOnce: true, waitingFor: null };
+  const { outcome, waiting, ownSalary } = await policyFlow(changes.map((c) => c.employeeId), ctx);
+  return { employees: changes.length, monthlyChange, pending, ownSalary, approvedAtOnce: outcome.approvedAtOnce, waitingFor: waiting };
+}
+
+/**
+ * The grade policy changed: one "Grade policy" salary change for every active
+ * employee whose worked-out grade changes, prepared by the user and decided
+ * like any salary change — the company's approval settings, never by the
+ * person it pays (S21), nothing edited in place. Grades typed by hand, and
+ * employees with a change already waiting, are left out (the latter listed:
+ * apply the policy again once that change is decided).
+ */
+export async function applyPolicyGrades(policy: Parameters<typeof gradeAmountFor>[1], ctx: { userId: string; scope: ScopeFilter }): Promise<PolicyGradeOutcome> {
+  const { changes, monthlyChange, pending } = await policyGradeChanges(policy, ctx.scope);
+  if (!changes.length) return { employees: 0, monthlyChange: 0, pending, ownSalary: false, approvedAtOnce: true, waitingFor: null, batchId: null };
+  const { outcome, waiting, ownSalary } = await policyFlow(changes.map((c) => c.employeeId), ctx);
+  const steps: repository.NewApprovalAction[] = [{ level: 0, actorId: ctx.userId, action: "submitted", note: "Grade policy changed" }];
+  for (const l of outcome.flow.levels.filter((x) => x.skipped)) {
+    steps.push({ level: l.level, actorId: null, action: "skipped", note: l.skipped === "preparer" ? "Approver prepared this change" : "Approver's own salary is in this change" });
+  }
+  if (outcome.approvedAtOnce) steps.push({ level: 0, actorId: ctx.userId, action: "not_required" });
+  const batchId = await repository.createBatch({
     kind: "policy",
     effectiveFrom: nepalDateIso(),
-    reason: "Grade policy changed",
+    reason: `Grade policy: ${gradeMethodLabel(policy ?? undefined)}`,
     monthlyChange,
-    preparedBy: userId,
-    approvedRoute: "policy",
-    approvalType: "none",
-    actions: [
-      { level: 0, actorId: userId, action: "submitted" },
-      { level: 0, actorId: userId, action: "not_required", note: "Grade policy changed" },
-    ],
+    preparedBy: ctx.userId,
+    approvedRoute: outcome.approvedAtOnce ? outcome.route : null,
+    approvalType: outcome.approvedAtOnce ? "none" : outcome.flow.type,
+    flow: outcome.flow,
+    currentLevel: outcome.currentLevel,
+    actions: steps,
     revisions: changes,
   });
-  return changes.length;
+  return { employees: changes.length, monthlyChange, pending, ownSalary, approvedAtOnce: outcome.approvedAtOnce, waitingFor: waiting, batchId };
 }
 
 // ---------------------------------------------------------------------------

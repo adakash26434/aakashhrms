@@ -341,7 +341,7 @@ export function SetupOverviewClient({
               Maintain tax rules, payroll allowances, and calendar dates across the system.
             </span>
             <Link
-              href="/setup/payroll-rules?tab=rules-defaults"
+              href="/setup/system-control"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-payroll-primary hover:text-payroll-navy"
             >
               <Settings className="h-3.5 w-3.5" />

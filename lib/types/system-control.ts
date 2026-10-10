@@ -101,3 +101,81 @@ export interface SystemControlData {
   gradePolicy?: GradePolicySettings;
 }
 
+
+// ---------------------------------------------------------------------------
+// 4.12b: Setup → Rules & controls (the settings payroll still reads). Office
+// time, manual attendance and leave categories moved to shifts, attendance
+// rules and employment types; their old keys stay stored but unused.
+// ---------------------------------------------------------------------------
+
+export type SsfBase = "BasicSalary" | "BasicPlusGrade";
+
+/** The rules form, flat: what the company sets and payroll reads. */
+export interface RulesForm {
+  /** PF deducted is never more than this share of basic + grade. */
+  pfMaxPercent: number;
+  /** CIT counted against tax a year, at most. */
+  citLimit: number;
+  /** PF, SSF and CIT together counted against tax a year, at most (and never over a third of income). */
+  retirementLimit: number;
+  lifeInsuranceLimit: number;
+  healthInsuranceLimit: number;
+  houseInsuranceLimit: number;
+  /** A remote-area allowance payment is never more than this. */
+  remoteAreaLimit: number;
+  womenRebatePercent: number;
+  companyHasSsf: boolean;
+  ssfBase: SsfBase;
+  /** Overtime multipliers when no hourly overtime rule is active (never below 1.5). */
+  otWorkDay: number;
+  otOffDay: number;
+  gradeMethod: GradeCalculationMethod;
+  gradeDaysInMonth: number;
+  gradePercent: number;
+  gradeAmount: number;
+  /** Grades counted at most (0: no limit). */
+  gradeMax: number;
+}
+
+export type RulesErrors = Partial<Record<keyof RulesForm, string>>;
+
+export interface RulesChange {
+  key: keyof RulesForm;
+  label: string;
+  from: string;
+  to: string;
+}
+
+/** What a grade-policy change does to salaries (it goes through salary approval). */
+export interface GradePolicyImpact {
+  /** Employees whose grade amount changes. */
+  employees: number;
+  /** Total salary change a month (+ / −). */
+  monthlyChange: number;
+  /** Employees with a salary change already waiting, left out (by name). */
+  pending: string[];
+  /** It includes the user's own salary, so someone else approves it. */
+  ownSalary: boolean;
+  /** It counts at once (no approval needed). */
+  approvedAtOnce: boolean;
+  /** Who it waits for ("an approver", "Level 1: …"); null when it counts at once. */
+  waitingFor: string | null;
+}
+
+export interface RulesPage {
+  form: RulesForm;
+  canEdit: boolean;
+  /** Changing the grade policy changes salaries: it also needs Salary structure → Edit. */
+  canChangeGrades: boolean;
+  /** An active hourly overtime rule overrides the multipliers here. */
+  otRule: { work: number; off: number } | null;
+  /** How salary changes are approved (none / simple / multi-level). */
+  salaryApproval: "none" | "simple" | "multi_level";
+  activeEmployees: number;
+}
+
+export interface RulesSaveResult {
+  changed: RulesChange[];
+  /** The grade policy changed: what happened to salaries (null: it did not). */
+  grades: (GradePolicyImpact & { batchId: string | null }) | null;
+}

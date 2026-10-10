@@ -116,7 +116,7 @@ export function CompanySetupInnerNav({
         {
           id: "system_control",
           label: "Rules & controls",
-          sublabel: "Statutory thresholds & calculation engine",
+          sublabel: "Opens Setup → Rules & controls",
           icon: Sliders,
           badge: null,
         },

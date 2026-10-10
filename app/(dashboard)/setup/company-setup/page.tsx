@@ -6,9 +6,6 @@ import { getCompanyMasterSetupBundle } from "@/lib/repositories/company-setup.re
 import { ensureTenantContext } from "@/lib/db";
 import { checkPermission, hasPermission } from "@/lib/auth/check-permission";
 import { getPayHeadData } from "@/lib/services/pay-head.service";
-import { getSystemControlData } from "@/lib/services/system-control.service";
-import { getImpersonationSession } from "@/lib/platform/impersonation";
-import { verifyPlatformSession } from "@/lib/platform/auth";
 
 export const metadata: Metadata = {
   title: "Company Setup | AakashHRMS",
@@ -28,32 +25,17 @@ export default async function CompanySetupPage({ searchParams }: PageProps) {
   const initialSection = resolvedParams?.section;
   const initialTab = resolvedParams?.tab;
 
-  // Check permissions for payroll sub-modules in parallel (fiscal years and tax slabs have their own pages, 4.12)
-  const [canViewPayHead, canViewSystem] = await Promise.all([
-    hasPermission("VIEW", "PAY_HEADS"),
-    hasPermission("VIEW", "SYSTEM_CONTROL"),
-  ]);
+  // Fiscal years, tax slabs and rules & controls have their own pages under Setup (4.12).
+  const canViewPayHead = await hasPermission("VIEW", "PAY_HEADS");
 
   const allowedPayrollTabs: PayrollRuleTab[] = [];
   if (canViewPayHead) allowedPayrollTabs.push("pay-heads");
-  if (canViewSystem) allowedPayrollTabs.push("rules-defaults");
 
   // Fetch bundles concurrently
-  const [
-    bundle,
-    payHeadData,
-    systemControlData,
-    impersonation,
-    platformUser,
-  ] = await Promise.all([
+  const [bundle, payHeadData] = await Promise.all([
     getCompanyMasterSetupBundle(),
     canViewPayHead ? getPayHeadData().catch(() => null) : Promise.resolve(null),
-    canViewSystem ? getSystemControlData().catch(() => null) : Promise.resolve(null),
-    canViewSystem ? getImpersonationSession().catch(() => null) : Promise.resolve(null),
-    canViewSystem ? verifyPlatformSession().catch(() => null) : Promise.resolve(null),
   ]);
-
-  const isSuperAdmin = Boolean(impersonation || platformUser);
 
   return (
     <CompanySetupClient
@@ -63,8 +45,6 @@ export default async function CompanySetupPage({ searchParams }: PageProps) {
       payrollRulesData={{
         allowedTabs: allowedPayrollTabs,
         payHeadData,
-        systemControlData,
-        isSuperAdmin,
       }}
     />
   );

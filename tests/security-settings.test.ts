@@ -160,3 +160,53 @@ describe('S49 a pay run belongs to the year its month falls in', () => {
     assert.match(body, /repository\.hasIndividualLadder\(fiscalYear\.id\)/);
   });
 });
+
+// Rules & controls (4.12b, S50). Found while migrating: saving System control checked the
+// permission only (any branch role or platform support), returned raw errors and audited the
+// whole settings object without the user; every save — whatever changed — re-worked every active
+// employee's grade and wrote it as an approved salary change with no preparer and no approval,
+// the saver's own salary included, on top of changes still waiting for approval; and a separate
+// "sync grades" action did the same on demand.
+describe('S50 rules & controls: a company-wide role, and a grade policy goes through salary approval', () => {
+  const actions = read('app/actions/system-control.actions.ts');
+  const service = read('lib/services/system-control.service.ts');
+  const salary = read('lib/services/salary-structure.service.ts');
+
+  it('every change needs System control → Edit with a company-wide role; errors are safe', () => {
+    assert.match(actions, /^'use server';/);
+    assert.match(fn(actions, 'editor'), /const scope = await checkCompanyControl\('EDIT', 'SYSTEM_CONTROL'\);\s*return \{ userId: scope\.userId, scope, canChangeGrades: await hasPermission\('EDIT', 'SALARY_MAPPING'\) \};/);
+    for (const [action, call] of [
+      ['previewRulesAction', 'previewRules'],
+      ['saveRulesAction', 'saveRules'],
+      ['applyGradePolicyAction', 'applyGradePolicy'],
+    ]) {
+      const body = fn(actions, action);
+      assert.match(body, new RegExp(`service\\.${call}\\([^;]*await editor\\(\\)\\)`), action);
+      assert.match(body, /return toActionError\(error, 'rules\.[a-z]+'\);/, action);
+    }
+    assert.match(fn(actions, 'rulesPageAction'), /await checkPermission\('VIEW', 'SYSTEM_CONTROL'\);/);
+    assert.doesNotMatch(actions, /checkPermission\('EDIT'|syncAllEmployeeGradesAction|saveSystemControlAction/);
+  });
+
+  it('a save is checked, needs a change, and is audited field by field with the user', () => {
+    const save = fn(service, 'saveRules');
+    assert.match(fn(service, 'prepare'), /validateRulesForm\(form\);\s*if \(!rulesAreValid\(errors\)\) throw new RulesValidationError\(errors\);/);
+    assert.match(save, /if \(!changes\.length\) throw new UserFacingError\("Nothing changed\."\);/);
+    assert.match(save, /recordAuditLog\(\{\s*userId: ctx\.userId,\s*action: "EDIT",\s*module: "SYSTEM_CONTROL"/);
+    assert.ok(save.indexOf('if (gradesChange && !ctx.canChangeGrades) throw gradesRefused();') < save.indexOf('repository.updateSettings('), 'refused before anything is saved');
+    assert.match(save, /if \(!gradesChange\) return \{ changed: changes, grades: null \};\s*const grades = await applyPolicyGrades\(gradePolicyOf\(form, settings\.gradePolicy\), ctx\);/);
+  });
+
+  it('a grade-policy change is a salary change prepared by the user, decided through approval', () => {
+    const apply = fn(salary, 'applyPolicyGrades');
+    assert.match(fn(salary, 'policyFlow'), /buildFlow\(policy, \{ preparerId: ctx\.userId, preparerEmployeeId: ctx\.scope\.employeeId, subjectEmployeeIds: changedIds, approvers \}\)/);
+    assert.match(apply, /preparedBy: ctx\.userId,/);
+    assert.match(apply, /approvedRoute: outcome\.approvedAtOnce \? outcome\.route : null,/);
+    assert.match(apply, /approvalType: outcome\.approvedAtOnce \? "none" : outcome\.flow\.type,/);
+    assert.doesNotMatch(apply, /approvalType: "none",|preparedBy: null|approvedRoute: "policy"/);
+    const changes = fn(salary, 'policyGradeChanges');
+    assert.match(changes, /if \(pending\.has\(e\.id\)\) continue;/, 'never on top of a waiting change');
+    assert.match(changes, /if \(!cur \|\| cur\.gradeManual\) continue;/, 'grades typed by hand stay');
+    assert.match(changes, /employeesInScope\(scope\)/);
+  });
+});
