@@ -47,6 +47,7 @@ type PermissionModule =
   | 'NOTICE_BOARD'
   | 'TRAVEL'
   | 'TARGETS'
+  | 'REIMBURSEMENTS'
   | 'WELFARE_FUNDS';
 
 type PermissionAction = 'VIEW' | 'ADD' | 'EDIT' | 'DELETE' | 'APPROVE' | 'EXPORT' | 'LOCK';

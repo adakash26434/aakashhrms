@@ -246,7 +246,8 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL', 'TARGETS'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL', 'TARGETS',
+  'REIMBURSEMENTS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
@@ -1441,6 +1442,58 @@ export const payrollOpeningBalances = pgTable('payroll_opening_balances', {
 }, (table) => ({
   employeeYear: unique('payroll_opening_balances_employee_year_key').on(table.employeeId, table.fiscalYearId),
   yearIdx: index('payroll_opening_balances_year_idx').on(table.fiscalYearId),
+}));
+
+/**
+ * Reimbursements (4.8 / F16, migration 0072): what a claim of each type may be (taxable or not,
+ * caps per claim and per employee-year, whether a bill number is needed). Codes never change.
+ */
+export const reimbursementTypes = pgTable('reimbursement_types', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique('reimbursement_types_code_key'),
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }),
+  taxable: boolean('taxable').default(false).notNull(),
+  /** 0 = no cap. */
+  perClaimCap: numeric('per_claim_cap', { precision: 12, scale: 2 }).default('0').notNull(),
+  /** Per employee per fiscal year; 0 = no cap. */
+  yearlyCap: numeric('yearly_cap', { precision: 12, scale: 2 }).default('0').notNull(),
+  receiptRequired: boolean('receipt_required').default(true).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+/**
+ * One reimbursement claim (F16): draft → submitted → approved (or returned / rejected) → settled,
+ * paid through the run that settles it (payroll_run_id; null + settled = paid by hand). The type's
+ * taxability is frozen on the claim when it is saved.
+ */
+export const reimbursementClaims = pgTable('reimbursement_claims', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  typeId: uuid('type_id').references(() => reimbursementTypes.id, { onDelete: 'restrict' }).notNull(),
+  expenseDate: date('expense_date').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  receiptNo: varchar('receipt_no', { length: 60 }),
+  description: text('description').notNull(),
+  taxable: boolean('taxable').default(false).notNull(),
+  status: varchar('status', { length: 10 }).default('draft').notNull(),
+  decisionNote: text('decision_note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  settledAt: timestamp('settled_at'),
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  employeeIdx: index('reimbursement_claims_employee_idx').on(table.employeeId, table.expenseDate),
+  statusIdx: index('reimbursement_claims_status_idx').on(table.status),
+  runIdx: index('reimbursement_claims_run_idx').on(table.payrollRunId),
 }));
 
 export const payrollSlipHeads = pgTable('payroll_slip_heads', {

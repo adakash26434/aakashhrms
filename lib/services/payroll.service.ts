@@ -262,12 +262,13 @@ export async function generatePayrollRun(
   // period are paid through this run (one TADA allowance line, not taxable — a reimbursement),
   // and the month's welfare-fund employee contributions are deducted (WELFARE_FUND). Both ride
   // as fixed one-off heads; the engine's statutory maths is untouched.
-  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee] = await Promise.all([
+  const [feedHeadRows, claimsByEmployee, fundByEmployee, arrearsByEmployee, reimbursementsByEmployee] = await Promise.all([
     feedsRepository.feedHeads(),
     feedsRepository.approvedClaimsByEmployee(empIds, endStr),
     feedsRepository.fundContributionsByEmployee(empIds, payPeriodYear, payPeriodMonth),
     // F7: back pay for finalised months whose revision in force now pays more (ARREARS head, taxable).
     arrearsService.arrearsFor(empIds, startStr),
+    feedsRepository.approvedReimbursementsByEmployee(empIds, endStr),
   ]);
 
   // 6. Verify that there are no pending (unapproved) leave applications in the period
@@ -517,6 +518,14 @@ export async function generatePayrollRun(
     if (fundFeed && feedHeadRows.welfare) {
       assignedHeads.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundFeed, isManualOverride: true });
     }
+    // F16: approved reimbursements, on the head their type's taxability says.
+    const reimbursed = reimbursementsByEmployee.get(emp.id);
+    if (reimbursed && feedHeadRows.reimburse && Number(reimbursed.free) > 0) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.reimburse), amount: reimbursed.free, isManualOverride: true });
+    }
+    if (reimbursed && feedHeadRows.reimburseTaxable && Number(reimbursed.taxable) > 0) {
+      assignedHeads.push({ ...toPayHeadObj(feedHeadRows.reimburseTaxable), amount: reimbursed.taxable, isManualOverride: true });
+    }
 
     // 1. TDS is required for every employee
     if (!assignedHeads.some((h) => h.isTdsHead)) {
@@ -659,12 +668,15 @@ export async function generatePayrollRun(
 
     // What the payslips pay from other modules is settled with them (claim-first): a claim that
     // changed meanwhile stops the run instead of being paid without being settled (4.8 fix).
-    await payrollFeedService.settleRunFeedsTx(
-      tx,
-      run.id,
-      [...claimsByEmployee.values()].flatMap((c) => c.ids),
-      new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0))
-    );
+    await payrollFeedService.settleRunFeedsTx(tx, run.id, {
+      claimIds: [...claimsByEmployee.values()].flatMap((c) => c.ids),
+      // Only the reimbursements a payslip line pays (a missing system head pays none of them).
+      reimbursementIds: [...reimbursementsByEmployee.values()].flatMap((r) => [
+        ...(feedHeadRows.reimburse && Number(r.free) > 0 ? r.freeIds : []),
+        ...(feedHeadRows.reimburseTaxable && Number(r.taxable) > 0 ? r.taxableIds : []),
+      ]),
+      arrears: new Map([...arrearsByEmployee].filter(([, a]) => a.payable > 0)),
+    });
 
     // Log to audit trail in the transaction
     await tx.insert(auditLogs).values({
@@ -1191,6 +1203,8 @@ export async function recalculateEmployeePayslip(slipId: string, userId: string)
     feedsRepository.fundContributionsByEmployee([emp.id], run.payPeriodYear, run.payPeriodMonth),
   ]);
   if (feedHeadRows.tada && Number(paidHere.tada) !== 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.tada), amount: paidHere.tada, isManualOverride: true });
+  if (feedHeadRows.reimburse && Number(paidHere.reimburse) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.reimburse), amount: paidHere.reimburse, isManualOverride: true });
+  if (feedHeadRows.reimburseTaxable && Number(paidHere.reimburseTaxable) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.reimburseTaxable), amount: paidHere.reimburseTaxable, isManualOverride: true });
   if (feedHeadRows.arrears && Number(paidHere.arrears) > 0) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.arrears), amount: paidHere.arrears, isManualOverride: true });
   const fundHereAmount = fundHere.get(emp.id);
   if (feedHeadRows.welfare && fundHereAmount) calculatorHeadsInput.push({ ...toPayHeadObj(feedHeadRows.welfare), amount: fundHereAmount, isManualOverride: true });

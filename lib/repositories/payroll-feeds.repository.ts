@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db';
-import { fundLedger, fundTypes, payHeads, payrollArrears, payrollRuns, payrollSlips, travelClaims } from '@/lib/db/schema';
+import { fundLedger, fundTypes, payHeads, payrollArrears, payrollRuns, payrollSlips, reimbursementClaims, travelClaims } from '@/lib/db/schema';
 import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 // Payroll feeds (4.8): what other modules hand the pay run — approved TA-DA
@@ -7,7 +7,7 @@ import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 // employee contributions (deducted). Drizzle queries only; the engine still
 // does all the pay maths — these are one-off head amounts.
 
-import { ARREARS_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE } from '@/lib/constants/payroll-feeds';
+import { ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE } from '@/lib/constants/payroll-feeds';
 
 export { ARREARS_HEAD_CODE, TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE };
 
@@ -59,6 +59,45 @@ export async function releaseClaimsOfRun(runId: string, opts: { employeeId?: str
   return rows.length;
 }
 
+/** F16: approved, unpaid reimbursements whose bill is dated by the period end, per employee and taxability. */
+export async function approvedReimbursementsByEmployee(employeeIds: string[], periodEndAd: string): Promise<Map<string, { freeIds: string[]; taxableIds: string[]; free: string; taxable: string }>> {
+  const out = new Map<string, { freeIds: string[]; taxableIds: string[]; free: string; taxable: string }>();
+  if (!employeeIds.length) return out;
+  const rows = await (await getDb())
+    .select({ id: reimbursementClaims.id, employeeId: reimbursementClaims.employeeId, amount: reimbursementClaims.amount, taxable: reimbursementClaims.taxable })
+    .from(reimbursementClaims)
+    .where(and(eq(reimbursementClaims.status, 'approved'), isNull(reimbursementClaims.payrollRunId), lte(reimbursementClaims.expenseDate, periodEndAd), inArray(reimbursementClaims.employeeId, employeeIds)));
+  for (const r of rows) {
+    const cur = out.get(r.employeeId) ?? { freeIds: [], taxableIds: [], free: '0.00', taxable: '0.00' };
+    (r.taxable ? cur.taxableIds : cur.freeIds).push(r.id);
+    const key = r.taxable ? 'taxable' : 'free';
+    cur[key] = (Math.round(Number(cur[key]) * 100 + Number(r.amount) * 100) / 100).toFixed(2);
+    out.set(r.employeeId, cur);
+  }
+  return out;
+}
+
+/** Claim-first, inside the run's transaction (as for TA-DA claims): approved, unpaid reimbursements only. */
+export async function settleReimbursementsThroughRun(ids: string[], runId: string, tx?: Tx): Promise<number> {
+  if (!ids.length) return 0;
+  const rows = await (tx ?? (await getDb()))
+    .update(reimbursementClaims)
+    .set({ status: 'settled', settledAt: new Date(), payrollRunId: runId })
+    .where(and(inArray(reimbursementClaims.id, ids), eq(reimbursementClaims.status, 'approved'), isNull(reimbursementClaims.payrollRunId)))
+    .returning({ id: reimbursementClaims.id });
+  return rows.length;
+}
+
+/** A deleted draft run (or one employee's deleted payslip) gives its reimbursements back: approved, unpaid. */
+export async function releaseReimbursementsOfRun(runId: string, opts: { employeeId?: string; tx?: Tx } = {}): Promise<number> {
+  const rows = await (opts.tx ?? (await getDb()))
+    .update(reimbursementClaims)
+    .set({ status: 'approved', settledAt: null, payrollRunId: null })
+    .where(and(eq(reimbursementClaims.payrollRunId, runId), eq(reimbursementClaims.status, 'settled'), opts.employeeId ? eq(reimbursementClaims.employeeId, opts.employeeId) : undefined))
+    .returning({ id: reimbursementClaims.id });
+  return rows.length;
+}
+
 /** One employee's deleted payslip gives back the arrears it paid (the run's other payslips keep theirs). */
 export async function releaseArrearsOfRun(runId: string, employeeId: string, tx?: Tx): Promise<number> {
   const db = tx ?? (await getDb());
@@ -70,9 +109,9 @@ export async function releaseArrearsOfRun(runId: string, employeeId: string, tx?
 }
 
 /** What a run already pays an employee through its feeds (recalculating the payslip keeps these lines). */
-export async function paidThroughRun(runId: string, employeeId: string): Promise<{ tada: string; arrears: string }> {
+export async function paidThroughRun(runId: string, employeeId: string): Promise<{ tada: string; arrears: string; reimburse: string; reimburseTaxable: string }> {
   const db = await getDb();
-  const [[claims], [arrears]] = await Promise.all([
+  const [[claims], [arrears], [reimbursed]] = await Promise.all([
     db
       .select({ total: sql<string>`COALESCE(sum(${travelClaims.payable}), 0)::text`, n: sql<number>`count(*)::int` })
       .from(travelClaims)
@@ -81,8 +120,20 @@ export async function paidThroughRun(runId: string, employeeId: string): Promise
       .select({ total: sql<string>`COALESCE(sum(${payrollArrears.amount}), 0)::text` })
       .from(payrollArrears)
       .where(and(eq(payrollArrears.payrollRunId, runId), eq(payrollArrears.employeeId, employeeId))),
+    db
+      .select({
+        free: sql<string>`COALESCE(sum(${reimbursementClaims.amount}) FILTER (WHERE NOT ${reimbursementClaims.taxable}), 0)::text`,
+        taxable: sql<string>`COALESCE(sum(${reimbursementClaims.amount}) FILTER (WHERE ${reimbursementClaims.taxable}), 0)::text`,
+      })
+      .from(reimbursementClaims)
+      .where(and(eq(reimbursementClaims.payrollRunId, runId), eq(reimbursementClaims.employeeId, employeeId), eq(reimbursementClaims.status, 'settled'))),
   ]);
-  return { tada: claims.n ? Number(claims.total).toFixed(2) : '0.00', arrears: Number(arrears.total).toFixed(2) };
+  return {
+    tada: claims.n ? Number(claims.total).toFixed(2) : '0.00',
+    arrears: Number(arrears.total).toFixed(2),
+    reimburse: Number(reimbursed.free).toFixed(2),
+    reimburseTaxable: Number(reimbursed.taxable).toFixed(2),
+  };
 }
 
 /** The employee share of this BS month's fund contributions (ref contrib:<code>:<yyyy>-<mm>), per employee. */
@@ -101,10 +152,13 @@ export async function fundContributionsByEmployee(employeeIds: string[], bsYear:
   return out;
 }
 
-export async function feedHeads(): Promise<{ tada: typeof payHeads.$inferSelect | null; welfare: typeof payHeads.$inferSelect | null; arrears: typeof payHeads.$inferSelect | null }> {
+type PayHeadRow = typeof payHeads.$inferSelect;
+
+export async function feedHeads(): Promise<{ tada: PayHeadRow | null; welfare: PayHeadRow | null; arrears: PayHeadRow | null; reimburse: PayHeadRow | null; reimburseTaxable: PayHeadRow | null }> {
   const db = await getDb();
-  const rows = await db.select().from(payHeads).where(inArray(payHeads.code, [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE]));
-  return { tada: rows.find((r) => r.code === TADA_HEAD_CODE) ?? null, welfare: rows.find((r) => r.code === WELFARE_FUND_HEAD_CODE) ?? null, arrears: rows.find((r) => r.code === ARREARS_HEAD_CODE) ?? null };
+  const rows = await db.select().from(payHeads).where(inArray(payHeads.code, [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE]));
+  const head = (code: string) => rows.find((r) => r.code === code) ?? null;
+  return { tada: head(TADA_HEAD_CODE), welfare: head(WELFARE_FUND_HEAD_CODE), arrears: head(ARREARS_HEAD_CODE), reimburse: head(REIMBURSE_HEAD_CODE), reimburseTaxable: head(REIMBURSE_TAXABLE_HEAD_CODE) };
 }
 
 export interface PaidMonthFact {

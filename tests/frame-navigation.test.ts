@@ -122,3 +122,18 @@ describe('Command palette ranking (2.6)', () => {
     assert.equal(rankCandidates(items, 'zzzz').length, 0);
   });
 });
+
+describe('Administrators see every module (F16 fix)', () => {
+  it('their allowed modules are the schema enum, so every section requiring a module shows', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { moduleEnum } = await import('../lib/db/schema');
+    const source = readFileSync(join(root, 'lib/auth/get-user-permissions.ts'), 'utf8');
+    assert.match(source, /if \(isAdmin\) \{[\s\S]*?return new Set\(moduleEnum\.enumValues\);/);
+    // Every module a navigation section requires is a real module, so an administrator sees it.
+    const all = new Set<string>(moduleEnum.enumValues);
+    for (const m of NAV_MODULES) for (const s of m.sections) for (const r of s.requires ?? []) assert.ok(all.has(r), `${s.id} requires ${r}`);
+    const admin = { allowedModules: [...moduleEnum.enumValues], fullAccess: false };
+    const payroll = visibleModules(admin).find((m) => m.id === 'payroll');
+    for (const id of ['funds', 'travel', 'reimbursements', 'opening-balances']) assert.ok(payroll?.sections.some((s) => s.id === id), id);
+  });
+});

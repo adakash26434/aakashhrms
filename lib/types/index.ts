@@ -33,6 +33,7 @@ export type {
   PayHeadFormData,
 } from "./pay-head";
 export type * from "./payroll";
+export type * from "./reimbursement";
 export type * from "./salary-mapping";
 export type * from "./system-control";
 export type * from "./tax-rate";

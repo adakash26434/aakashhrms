@@ -39,6 +39,7 @@ export type ModuleType =
   | 'NOTICE_BOARD'
   | 'TRAVEL'
   | 'TARGETS'
+  | 'REIMBURSEMENTS'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -178,6 +179,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         key: 'TRAVEL',
         label: 'Travel & TA-DA',
         description: 'Travel / field-visit claims and the TA-DA rate card: Add records a claim, Edit changes drafts and the card, Approve decides, Lock marks it settled (paid)',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
+      },
+      {
+        key: 'REIMBURSEMENTS',
+        label: 'Reimbursements',
+        description: 'Medical, mobile, fuel and similar claims with a bill, and their types: Add records a claim, Edit changes drafts and the types, Approve decides, Lock marks a claim paid by hand (the pay run pays approved ones)',
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
       },
       {

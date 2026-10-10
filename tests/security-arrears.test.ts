@@ -45,7 +45,7 @@ describe('arrears guards', () => {
     const slipsSaved = payroll.indexOf('await repository.createPayrollSlips(slipsWithHeads, tx);');
     const settled = payroll.indexOf('await payrollFeedService.settleRunFeedsTx(');
     assert.ok(slipsSaved > 0 && settled > slipsSaved && settled < payroll.indexOf('    return run;\n  });'));
-    assert.match(read('lib/services/payroll-feed.service.ts'), /await arrearsService\.settle\(runId, arrears, tx\);/);
+    assert.match(read('lib/services/payroll-feed.service.ts'), /await arrearsService\.settle\(runId, feeds\.arrears, tx\);/);
     assert.match(read('lib/db/migrations/0064_payroll_arrears.sql'), /"payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"\("id"\) ON DELETE CASCADE/);
   });
 

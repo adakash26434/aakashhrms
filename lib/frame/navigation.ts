@@ -345,6 +345,15 @@ export const NAV_MODULES: readonly NavModule[] = [
         keywords: ["maker checker", "variance", "approval", "publish", "payslip release", "bank change approval"],
       },
       {
+        id: "reimbursements",
+        label: "Reimbursements",
+        href: "/payroll/reimbursements",
+        icon: Receipt,
+        description: "Medical, mobile, fuel and similar claims with a bill: approval and payment through the pay run",
+        requires: ["REIMBURSEMENTS"],
+        keywords: ["reimbursement", "medical", "mobile", "fuel", "bill", "claim", "shodhbharna", "शोधभर्ना", "expense"],
+      },
+      {
         id: "travel",
         label: "Travel / TA-DA",
         href: "/payroll/travel",

@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { getDbAsync } from '@/lib/db';
-import { userRoles, rolePermissions, permissions, roles } from '@/lib/db/schema';
+import { userRoles, rolePermissions, permissions, roles, moduleEnum } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 /**
@@ -29,36 +29,9 @@ export async function getUserAllowedModules(): Promise<Set<string>> {
     );
 
     if (isAdmin) {
-      // Return all known modules
-      return new Set([
-        'SYSTEM_CONTROL',
-        'FISCAL_YEAR',
-        'TAX_RATES',
-        'PAY_HEADS',
-        'HOLIDAYS',
-        'EMPLOYEES',
-        'SALARY_MAPPING',
-        'ATTENDANCE',
-        'LEAVE_APPLICATIONS',
-        'LEAVE_APPROVALS',
-        'OT_RULES',
-        'LEAVE_RULES',
-        'LEAVE_TYPES',
-        'PAYROLL_GENERATE',
-        'PAYROLL_REVIEW',
-        'LEAVE_SALARY',
-        'LOANS',
-        'REPORTS_SALARY_SHEET',
-        'REPORTS_PAYSLIP',
-        'REPORTS_ATTENDANCE',
-        'REPORTS_TAX_IRD',
-        'REPORTS_LEAVE',
-        'REPORTS_LOAN',
-        'USERS_ROLES',
-        'AUDIT_LOG',
-        'ORG_STRUCTURE',
-        'SELF_SERVICE',
-      ]);
+      // Every module there is: the schema's enum, never a hand-kept list (one went stale and hid
+      // the newer modules — welfare funds, travel, assets… — from administrators' navigation).
+      return new Set(moduleEnum.enumValues);
     }
 
     // 2. Query the user's specific VIEW permissions from role_permissions

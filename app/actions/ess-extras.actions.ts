@@ -6,6 +6,7 @@ import { ensureTenantContext } from '@/lib/db';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { toActionError } from '@/lib/errors/action-error';
 import { TravelValidationError } from '@/lib/services/travel.service';
+import { ReimbursementValidationError } from '@/lib/services/reimbursement.service';
 import * as ess from '@/lib/services/ess-extras.service';
 import { ESS_LANG_COOKIE, asEssLang } from '@/lib/i18n/ess';
 
@@ -32,5 +33,20 @@ export async function submitMyClaimAction(form: unknown) {
   } catch (error: unknown) {
     if (error instanceof TravelValidationError) return { success: false as const, error: 'Check the highlighted fields.', validationErrors: error.errors };
     return toActionError(error, 'ess.claim');
+  }
+}
+
+/** F16: the employee's own reimbursement claim, submitted at once (employee from the session). */
+export async function submitMyReimbursementAction(form: unknown) {
+  await ensureTenantContext();
+  try {
+    const row = await ess.submitMyReimbursement(form);
+    await recordAuditLog({ action: 'ADD', module: 'REIMBURSEMENTS', recordId: row.id, result: 'SUCCESS', newValues: { selfService: true, type: row.typeCode, amount: row.amount } });
+    revalidatePath('/self-service/my-reimbursements');
+    revalidatePath('/payroll/reimbursements');
+    return { success: true as const, data: row };
+  } catch (error: unknown) {
+    if (error instanceof ReimbursementValidationError) return { success: false as const, error: 'Check the highlighted fields.', validationErrors: error.errors };
+    return toActionError(error, 'ess.reimbursement');
   }
 }

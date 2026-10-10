@@ -5,14 +5,19 @@
 export const TADA_HEAD_CODE = "TADA";
 export const WELFARE_FUND_HEAD_CODE = "WELFARE_FUND";
 export const ARREARS_HEAD_CODE = "ARREARS";
+/** F16: approved reimbursements, on the head their type's taxability says. */
+export const REIMBURSE_HEAD_CODE = "REIMBURSE";
+export const REIMBURSE_TAXABLE_HEAD_CODE = "REIMBURSE_TAX";
 
-export const FEED_HEAD_CODES: readonly string[] = [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE];
+export const FEED_HEAD_CODES: readonly string[] = [TADA_HEAD_CODE, WELFARE_FUND_HEAD_CODE, ARREARS_HEAD_CODE, REIMBURSE_HEAD_CODE, REIMBURSE_TAXABLE_HEAD_CODE];
 
 /** Where each feed line's amount comes from: said when someone tries to type or add it. */
 export const FEED_SOURCE: Readonly<Record<string, string>> = {
   [TADA_HEAD_CODE]: "approved travel claims (Payroll → Travel / TA-DA)",
   [WELFARE_FUND_HEAD_CODE]: "the month's welfare-fund contributions (Payroll → Welfare funds)",
   [ARREARS_HEAD_CODE]: "back-dated salary revisions (Salary structure)",
+  [REIMBURSE_HEAD_CODE]: "approved reimbursement claims (Payroll → Reimbursements)",
+  [REIMBURSE_TAXABLE_HEAD_CODE]: "approved reimbursement claims (Payroll → Reimbursements)",
 };
 
 export const isFeedHeadCode = (code: string | null | undefined): boolean => !!code && FEED_HEAD_CODES.includes(code);

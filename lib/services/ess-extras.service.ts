@@ -13,6 +13,8 @@ import { desc, eq } from 'drizzle-orm';
 import type { ScopeFilter } from '@/lib/auth/scope-filter';
 import type { BoardNotice } from '@/lib/types/notice';
 import type { ClaimRow } from '@/lib/types/travel';
+import * as reimbursementService from '@/lib/services/reimbursement.service';
+import type { ReimbursementClaimRow, ReimbursementTypeRow } from '@/lib/types/reimbursement';
 
 // Self-service extras (G12): the signed-in employee's own notices, training
 // and travel claims. Every read is pinned to the session's employee (S8: the
@@ -102,4 +104,17 @@ export async function submitMyClaim(raw: unknown): Promise<ClaimRow> {
   const form = { ...(raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}), employeeId };
   const draft = await travelService.saveClaim(null, form, ctx);
   return travelService.moveClaim(draft.id, 'submitted', '', ctx);
+}
+
+/** F16: the signed-in employee's own reimbursement claims and the types they can claim. */
+export async function myReimbursements(): Promise<{ claims: ReimbursementClaimRow[]; types: ReimbursementTypeRow[] }> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return reimbursementService.ownClaims({ userId, actorEmployeeId: employeeId, scope: selfScope(employeeId, userId) });
+}
+
+/** F16: the signed-in employee's own claim, submitted in one write (the employee is never a parameter). */
+export async function submitMyReimbursement(raw: unknown): Promise<ReimbursementClaimRow> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  const form = { ...(raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}), employeeId };
+  return reimbursementService.saveClaim(null, form, { userId, actorEmployeeId: employeeId, scope: selfScope(employeeId, userId) }, { submit: true });
 }
