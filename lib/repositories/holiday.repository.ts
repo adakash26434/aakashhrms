@@ -1,8 +1,12 @@
 import { getDb } from '@/lib/db';
 import { holidays } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import type { Holiday, HolidayCategory } from '@/lib/types/holiday';
+import type { Holiday, HolidayAppliesTo, HolidayCategory } from '@/lib/types/holiday';
+import type { HolidayWrite } from '@/lib/engines/holiday.engine';
 import { bsStringToAD } from '@/lib/utils/bs-calendar';
+
+// Holidays (4.12c). The BS days are the record; the AD columns beside them are local-midnight
+// timestamps (attendance reads them back in Nepal time).
 
 type HolidayRow = typeof holidays.$inferSelect;
 
@@ -15,6 +19,7 @@ function mapRowToHoliday(row: HolidayRow): Holiday {
     endDate: row.endDate,
     startDateAD: row.startDateAD,
     endDateAD: row.endDateAD,
+    appliesTo: (row.appliesTo === 'women' ? 'women' : 'everyone') as HolidayAppliesTo,
     branchIds: Array.isArray(row.branchIds) ? row.branchIds : [],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -32,51 +37,26 @@ export async function findHolidayById(id: string): Promise<Holiday | undefined> 
   return mapRowToHoliday(rows[0]);
 }
 
-type CreatePayload = Omit<Holiday, "id" | "createdAt" | "updatedAt" | "startDateAD" | "endDateAD">;
-
-export async function createHoliday(data: CreatePayload): Promise<Holiday> {
-  const startDateAD = bsStringToAD(data.startDate);
-  const endDateAD = bsStringToAD(data.endDate);
-
-  if (!startDateAD || !endDateAD) {
-    throw new Error("Invalid BS dates provided to holiday repository.");
-  }
-
-  const rows = await (await getDb()).insert(holidays).values({
-    name: data.name,
-    category: data.category,
-    startDate: data.startDate,
-    endDate: data.endDate,
-    startDateAD: startDateAD,
-    endDateAD: endDateAD,
-    branchIds: data.branchIds || [],
-  }).returning();
-
-  return mapRowToHoliday(rows[0]);
+function columns(w: HolidayWrite) {
+  const startDateAD = bsStringToAD(w.startDate);
+  const endDateAD = bsStringToAD(w.endDate);
+  if (!startDateAD || !endDateAD) throw new Error('Holiday dates outside the BS calendar.');
+  return { name: w.name, category: w.category, startDate: w.startDate, endDate: w.endDate, startDateAD, endDateAD, appliesTo: w.appliesTo, branchIds: w.branchIds };
 }
 
-export async function updateHoliday(id: string, data: CreatePayload): Promise<Holiday> {
-  const startDateAD = bsStringToAD(data.startDate);
-  const endDateAD = bsStringToAD(data.endDate);
-
-  if (!startDateAD || !endDateAD) {
-    throw new Error("Invalid BS dates provided to holiday repository.");
-  }
-
-  const rows = await (await getDb()).update(holidays).set({
-    name: data.name,
-    category: data.category,
-    startDate: data.startDate,
-    endDate: data.endDate,
-    startDateAD: startDateAD,
-    endDateAD: endDateAD,
-    branchIds: data.branchIds || [],
-    updatedAt: new Date(),
-  }).where(eq(holidays.id, id)).returning();
-
-  return mapRowToHoliday(rows[0]);
+export async function insertHoliday(w: HolidayWrite): Promise<Holiday> {
+  const [row] = await (await getDb()).insert(holidays).values(columns(w)).returning();
+  return mapRowToHoliday(row);
 }
 
-export async function deleteHoliday(id: string): Promise<void> {
-  await (await getDb()).delete(holidays).where(eq(holidays.id, id));
+/** Saves a holiday (null: it was deleted meanwhile). */
+export async function updateHoliday(id: string, w: HolidayWrite): Promise<Holiday | null> {
+  const [row] = await (await getDb()).update(holidays).set({ ...columns(w), updatedAt: new Date() }).where(eq(holidays.id, id)).returning();
+  return row ? mapRowToHoliday(row) : null;
+}
+
+/** Deletes a holiday (false: it was deleted meanwhile). */
+export async function deleteHoliday(id: string): Promise<boolean> {
+  const rows = await (await getDb()).delete(holidays).where(eq(holidays.id, id)).returning({ id: holidays.id });
+  return rows.length > 0;
 }

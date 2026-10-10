@@ -1,72 +1,33 @@
 'use server';
 
-import { ensureTenantContext } from '@/lib/db';
-import * as service from '@/lib/services/tax-rate.service';
 import { revalidatePath } from 'next/cache';
-import type { TaxSlabFormData, TaxCategory } from '@/lib/types/tax-rate';
-import { checkPermission } from '@/lib/auth/check-permission';
+import { ensureTenantContext } from '@/lib/db';
+import { checkCompanyControl, checkPermission, hasPermission } from '@/lib/auth/check-permission';
+import { toActionError } from '@/lib/errors/action-error';
+import * as service from '@/lib/services/tax-rate.service';
 
-export async function getTaxRateDataAction() {
+// Tax slabs (4.12, S49): a company-wide setting — Tax rates → Edit with a company-wide role, never
+// platform support (checkCompanyControl). A ladder is saved whole and audited by the service.
+
+export async function taxSlabsPageAction(fiscalYearId: string) {
   await ensureTenantContext();
   try {
-    const data = await service.getTaxRateData();
-    return { success: true, data };
+    await checkPermission('VIEW', 'TAX_RATES');
+    return { success: true as const, data: await service.taxSlabsPage(String(fiscalYearId ?? ''), await hasPermission('EDIT', 'TAX_RATES')) };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "unknown error";
-    return { success: false, error: msg };
+    return toActionError(error, 'tax-rate.page');
   }
 }
 
-export async function createTaxSlabAction(payload: { fiscalYearId: string; category: TaxCategory; data: TaxSlabFormData }) {
+export async function saveTaxLadderAction(fiscalYearId: string, category: string, rows: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'TAX_RATES');
-    const result = await service.createSlab(payload);
+    const scope = await checkCompanyControl('EDIT', 'TAX_RATES');
+    await service.saveLadder(String(fiscalYearId ?? ''), String(category ?? ''), rows, { userId: scope.userId });
     revalidatePath('/setup/tax-rates');
-    revalidatePath('/setup/payroll-rules');
-    return { success: true, data: result };
+    return { success: true as const };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'SlabValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
-  }
-}
-
-export async function updateTaxSlabAction(id: string, payload: TaxSlabFormData) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('EDIT', 'TAX_RATES');
-    const result = await service.updateSlab(id, payload);
-    revalidatePath('/setup/tax-rates');
-    revalidatePath('/setup/payroll-rules');
-    return { success: true, data: result };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'SlabValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
-  }
-}
-
-export async function deleteTaxSlabAction(id: string) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('EDIT', 'TAX_RATES');
-    await service.deleteSlab(id);
-    revalidatePath('/setup/tax-rates');
-    revalidatePath('/setup/payroll-rules');
-    return { success: true };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
+    if (error instanceof service.TaxLadderValidationError) return { success: false as const, error: error.message, validationErrors: error.errors };
+    return toActionError(error, 'tax-rate.save');
   }
 }

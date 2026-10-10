@@ -2,7 +2,7 @@
 // (salary changes now; pay runs 4.8, loans 4.10 later), a flow copied onto
 // each request when it is submitted, and a timeline of every step.
 
-/** How requests of a module get approved (company setting). Custom rules come with 4.12. */
+/** How requests of a module get approved (company setting); salary changes add custom rules (4.12d). */
 export type ApprovalType = "none" | "simple" | "multi_level";
 
 export interface ApprovalPolicy {
@@ -70,4 +70,53 @@ export interface AvailableActions {
   reason: string | null;
   /** The request cannot move: its current approver can no longer approve. */
   stuck: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// 4.12d: custom approval rules for salary changes (lib/engines/approval-rules.engine.ts)
+// ---------------------------------------------------------------------------
+
+/** When a rule applies; empty (null / no ids) conditions are not checked. */
+export interface ApprovalRuleConditions {
+  /** Someone's total salary rises by more than this percentage. */
+  raisePercentOver: number | null;
+  /** The monthly salary bill changes by more than this (NPR, up or down). */
+  monthlyChangeOver: number | null;
+  /** Someone's new total salary is more than this (NPR a month). */
+  newTotalOver: number | null;
+  /** Someone works in one of these branches / departments. */
+  branchIds: string[];
+  departmentIds: string[];
+}
+
+export interface ApprovalRule {
+  id: string;
+  name: string;
+  when: ApprovalRuleConditions;
+  /** Simple or multi-level: a rule never removes approval. */
+  then: ApprovalPolicy;
+}
+
+export interface ApprovalModuleSettings {
+  policy: ApprovalPolicy;
+  approvers: ApproverInfo[];
+  /** Requests waiting now (they keep the approvers they were sent to). */
+  pending: number;
+  /** Approve on the module with a company-wide role (buttons only; the server checks again). */
+  canEdit: boolean;
+}
+
+export interface ApprovalRuleRow extends ApprovalRule {
+  /** The conditions and the approvers in words. */
+  conditions: string;
+  approval: string;
+}
+
+export interface ApprovalSettingsPage {
+  /** Salary changes (null: no Salary structure → View). */
+  salary: (ApprovalModuleSettings & { rules: ApprovalRuleRow[]; rulesVersion: string }) | null;
+  /** Loans and advances (null: no Loans → View). */
+  loans: ApprovalModuleSettings | null;
+  branches: { id: string; name: string }[];
+  departments: { id: string; name: string }[];
 }

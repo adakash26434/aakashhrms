@@ -1,17 +1,9 @@
 /**
- * Tax Rate Setup — domain types.
+ * Tax slabs — domain types.
  *
- * Each Nepali fiscal year has a full set of slab-based TDS rates for
- * four employee categories. Slabs drive:
- *   - Monthly TDS estimation (annualised gross -> apply_slab() -> /12)
- *   - Year-end reconciliation (last month of FY true-up)
- *
- * The `amountTo = null` case represents the open-ended final slab
- * displayed as "Above" in the UI.
- *
- * Architectural note: a category is considered "configured" for a
- * given fiscal year if it has at least one slab. This drives the
- * "Categories Configured" KPI.
+ * Each Nepali fiscal year has a ladder of income tax bands per category.
+ * Payroll's TDS reads them (projection over the months left, year-end
+ * reconciliation). The `amountTo = null` band is the open-ended last one.
  */
 
 export const TAX_CATEGORIES = [
@@ -47,42 +39,34 @@ export interface TaxSlab {
   fixedDeduction: number;
 }
 
-/**
- * Aggregate shape returned by the data layer. `fiscalYears` powers
- * the FY selector in the hero; `slabs` is the full set across all
- * categories and years.
- */
-export interface TaxRateData {
-  fiscalYears: { id: string; label: string; isLocked: boolean }[];
-  slabs: TaxSlab[];
-}
+// ---------------------------------------------------------------------------
+// 4.12: the Tax slabs screen — each category's ladder edited as a whole
+// ---------------------------------------------------------------------------
 
-/**
- * Subset of `TaxSlab` driven by the create/edit form. The
- * `amountTo = null` case means unlimited ("Above" / open-ended).
- */
-export interface TaxSlabFormData {
-  amountFrom: number;
-  amountTo: number | null;
+/** One band: where it ends (null: "and above") and its rate; it starts where the band before ends. */
+export interface TaxLadderRow {
+  upTo: number | null;
   ratePercent: number;
   fixedDeduction: number;
 }
 
-/**
- * Pretty-format a slab rate as a percent pill label.
- * Example: 10 -> "10%", 7.5 -> "7.5%".
- */
-export function formatRateLabel(rate: number): string {
-  // Drop trailing zeros for whole numbers (10 -> "10%"), but keep
-  // fractional values exact (7.5 -> "7.5%").
-  const isWhole = Number.isInteger(rate);
-  return `${isWhole ? rate.toString() : rate.toString()}%`;
-}
+export const TAX_CATEGORY_LABEL: Record<TaxCategory, { en: string; hint: string }> = {
+  "Normal Single": { en: "Individual", hint: "Single, widowed and anyone without a category of their own" },
+  Married: { en: "Couple", hint: "Married, assessed as a couple (Income Tax Act, Schedule 1)" },
+  Handicapped: { en: "Person with disability", hint: "Employees marked as having a disability" },
+};
 
-/**
- * Format an integer NPR amount with thousand separators.
- * Example: 500000 -> "500,000".
- */
-export function formatNPRAmount(value: number): string {
-  return value.toLocaleString("en-IN");
+export interface TaxSlabsPage {
+  years: { value: string; label: string; closed: boolean; current: boolean }[];
+  fiscalYearId: string;
+  fiscalYearLabel: string;
+  /** Each category's bands for the chosen year (empty: not set — payroll falls back to Individual). */
+  ladders: Record<TaxCategory, TaxLadderRow[]>;
+  /** The chosen year is closed: its slabs are kept as they were. */
+  closed: boolean;
+  /** The chosen year has pay runs: a change applies to the months still to be paid. */
+  hasRuns: boolean;
+  canEdit: boolean;
+  /** The women's rebate payroll takes off the tax (Rules & controls), for the calculator. */
+  womenRebatePercent: number;
 }

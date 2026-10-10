@@ -11,7 +11,7 @@ import {
   users,
   auditLogs,
 } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type {
   OnboardingStep2CompanyInput,
   OnboardingStep3OrgInput,
@@ -47,7 +47,7 @@ export async function getOnboardingStatus(
   let companyName = configMap.get('company_legal_name') || '';
   let contactEmail = configMap.get('company_email') || '';
   let contactPhone = configMap.get('company_phone') || '';
-  let registeredCity = configMap.get('company_city') || '';
+  const registeredCity = configMap.get('company_city') || '';
 
   if ((!companyName || !contactEmail) && tenantSlug) {
     try {
@@ -66,7 +66,7 @@ export async function getOnboardingStatus(
     }
   }
 
-  let industryType = configMap.get('company_industry_type') || 'General';
+  const industryType = configMap.get('company_industry_type') || 'General';
 
   return {
     isCompleted,
@@ -294,7 +294,7 @@ export async function bootstrapOrgStructure(data: OnboardingStep3OrgInput): Prom
     }
 
     // Synchronize designation counts for all departments
-    for (const [_, deptId] of deptMap.entries()) {
+    for (const deptId of deptMap.values()) {
       const desigList = await db
         .select({ id: designations.id })
         .from(designations)
@@ -352,12 +352,6 @@ export async function bootstrapStatutoryLeavesAndOT(
 
 export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Promise<void> {
   const db = (await getDb());
-  const [allDepts, allDesigs] = await Promise.all([
-    db.select({ id: departments.id }).from(departments),
-    db.select({ id: designations.id }).from(designations),
-  ]);
-  const deptIds = allDepts.map((d) => d.id);
-  const desigIds = allDesigs.map((d) => d.id);
 
   for (const ph of data.payHeads) {
     const existing = await db
@@ -381,8 +375,9 @@ export async function bootstrapPayHeads(data: OnboardingStep5PayHeadsInput): Pro
             : ph.code === 'EPF'
             ? '10'
             : '0',
-        applicableDepartmentIds: deptIds,
-        applicableDesignationIds: desigIds,
+        // Empty lists: every department and designation, including ones added later (S51).
+        applicableDepartmentIds: [],
+        applicableDesignationIds: [],
         isFestivalAllowance: ph.code === 'FESTIVAL',
         isSsfHead: Boolean(ph.isSsfHead),
         isSsfEmployerHead: Boolean(ph.isSsfEmployerHead),

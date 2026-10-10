@@ -62,17 +62,6 @@ export async function getMyPayslipsAction(fiscalYearId?: string): Promise<Action
   }
 }
 
-export async function getMyPayslipDetailAction(payslipId: string): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.getMyPayslipDetail>>>> {
-  try {
-    await ensureTenantContext();
-    const data = await selfService.getMyPayslipDetail(payslipId);
-    return { success: true, data };
-  } catch (error: unknown) {
-    console.error('[SELF_SERVICE_PAYSLIP_DETAIL] Failed:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to load payslip detail';
-    return { success: false, error: msg };
-  }
-}
 
 // ---------------------------------------------------------------------------
 // My Leave
@@ -159,30 +148,3 @@ export async function getMyAttendanceSummaryAction(fiscalYearId?: string): Promi
   }
 }
 
-// ---------------------------------------------------------------------------
-// My Loans
-// ---------------------------------------------------------------------------
-
-export async function getMyLoansAction(): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.getMyLoans>>>> {
-  try {
-    await ensureTenantContext();
-    const data = await selfService.getMyLoans();
-    return { success: true, data };
-  } catch (error: unknown) {
-    console.error('[SELF_SERVICE_LOANS] Failed:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to load loans';
-    return { success: false, error: msg };
-  }
-}
-
-export async function getMyLoanRepaymentsAction(loanId: string): Promise<ActionResponse<Awaited<ReturnType<typeof selfService.getMyLoanRepayments>>>> {
-  try {
-    await ensureTenantContext();
-    const data = await selfService.getMyLoanRepayments(loanId);
-    return { success: true, data };
-  } catch (error: unknown) {
-    console.error('[SELF_SERVICE_LOAN_REPAYMENTS] Failed:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to load loan repayments';
-    return { success: false, error: msg };
-  }
-}

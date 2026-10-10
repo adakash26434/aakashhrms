@@ -65,10 +65,10 @@ export function WorkingPeriodPill({ period, calendar }: { period: WorkingPeriod 
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Working period: Payroll, Attendance and Reports open on this month"
-        className={cn("flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-medium text-ink hover:bg-surface-sunken", period ? "border-brand/40 bg-brand-subtle" : "border-line")}
+        className={cn("flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-xs font-medium text-ink hover:bg-surface-sunken", period ? "border-brand/40 bg-brand-subtle" : "border-line")}
       >
         <CalendarRange className="h-3.5 w-3.5 text-brand" />
-        <span className="text-ink-muted">Period ·</span> {workingPeriodLabel(current)}
+        <span className="hidden text-ink-muted xl:inline">Period ·</span> {workingPeriodLabel(current)}
       </button>
       {open && (
         <div role="dialog" aria-label="Working period" className="absolute right-0 z-40 mt-1 w-64 rounded-md border border-line bg-surface p-2 shadow-lg">

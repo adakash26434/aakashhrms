@@ -38,7 +38,7 @@ export const EMPLOYEE_FORM_SECTIONS: EmployeeFormSection[] = [
     id: "documents",
     label: "Identity documents",
     // documents: the list (Citizenship or NID required); row errors are keyed documents.<row>.<field>.
-    fields: ["documents", "panNumber"],
+    fields: ["documents", "panNumber", "ssfNumber", "pfNumber", "citNumber"],
     required: ["documents"],
   },
   {
@@ -101,6 +101,9 @@ export const EMPLOYEE_FIELD_LABELS: Partial<Record<EmployeeField, string>> = {
   documents: "Identity documents",
   dossier: "Qualifications & history",
   panNumber: "PAN",
+  ssfNumber: "SSF ID (SSID)",
+  pfNumber: "Provident Fund number",
+  citNumber: "CIT number",
   companyEmail: "Company email",
   personalEmail: "Personal email",
   mobileNo: "Mobile",

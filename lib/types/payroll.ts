@@ -29,15 +29,14 @@ export interface FundLine {
   employeeAmount: string;
   employerAmount: string;
 }
-export type LeaveSalaryRunStatus = 'DRAFT' | 'PAID';
-export type EncashmentType = 'ANNUAL_EXCESS' | 'TERMINATION' | 'VOLUNTARY';
-export type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'CHEQUE';
 
 export interface PayrollRun {
   id: string;
   fiscalYearId: string;
   payPeriodMonth: number;
   payPeriodYear: number;
+  /** F6: REGULAR | FESTIVAL | ARREARS (lib/engines/off-cycle.engine.ts). */
+  runType: string;
   payPeriodStartDate: string; // YYYY-MM-DD
   payPeriodEndDate: string;   // YYYY-MM-DD
   branchIds: string[];
@@ -69,8 +68,7 @@ export interface PayrollRun {
   notes: string | null;
   /** 4.8b: the calendar of pay_period_year / pay_period_month ("BS" | "AD"). */
   calendar: string;
-  /** 4.8a */
-  runType: string;
+  /** 4.8a: the approval flow copied on at submission. */
   approvalType: string | null;
   approvalLevels: { level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[];
   currentLevel: number;
@@ -138,27 +136,6 @@ export interface PayrollSlipHead {
   overrideReason: string | null;
 }
 
-export interface LeaveSalaryRun {
-  id: string;
-  payrollRunId: string | null;
-  employeeId: string;
-  leaveTypeId: string;
-  leaveDays: string;
-  perDayRate: string;
-  totalAmount: string;
-  tdsAmount: string | null;
-  encashmentType: EncashmentType;
-  paymentPeriod: string; // "BS YYYY-MM"
-  paymentMethod: PaymentMethod;
-  status: LeaveSalaryRunStatus;
-  createdBy: string;
-  createdByName?: string | null;
-  approvedBy: string | null;
-  approvedByName?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // -----------------------------------------------------------------------------
 // Form Data & Payloads
 // -----------------------------------------------------------------------------
@@ -174,11 +151,13 @@ export interface PayrollRunSetupPayload {
   occasionalAllowanceHeadIds: string[] | null;
   payslipMonth: number | null;
   payslipDate: string | null;
-  /** 4.8b: the kind of run (REGULAR when absent). */
-  runType?: import('@/lib/types/payroll-run').RunType;
   includeFestivalAllowance?: boolean; // Keep for fallback compatibility
   includeRemoteAllowance?: boolean;   // Keep for fallback compatibility
   recreateIfExists?: boolean;         // Discard existing draft and regenerate if true
+  /** F6: REGULAR (default) | FESTIVAL | ARREARS (lib/constants/run-types.ts). */
+  runType?: import('@/lib/constants/run-types').RunType;
+  /** F6 festival runs: pay in proportion for service under a year (Labour Act §37); default true. */
+  prorateFestival?: boolean;
 }
 
 export interface AddSlipHeadPayload {
@@ -200,8 +179,6 @@ export interface PayrollSlipOverridePayload {
   otDetail?: import('@/lib/types/overtime').OvertimeDetail | null;
   absentDeduction?: string;
   loanDeduction?: string;
-  bankName?: string;
-  bankAccountNumber?: string;
 }
 
 export interface ManualSlipAdjustmentPayload {
@@ -222,15 +199,6 @@ export interface ManualSlipAdjustmentPayload {
   absentDeduction?: string;
   bankName?: string;
   bankAccountNumber?: string;
-}
-
-export interface LeaveSalarySetupPayload {
-  paymentPeriod: string; // YYYY-MM
-  employeeId: string;
-  leaveTypeId: string;
-  leaveDays: number;
-  encashmentType: EncashmentType;
-  paymentMethod?: PaymentMethod;
 }
 
 // -----------------------------------------------------------------------------

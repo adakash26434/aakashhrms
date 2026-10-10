@@ -6,10 +6,10 @@ import { auth } from '@/lib/auth';
 import {
   users,
   employees, employeePersonal, employeeFamily, employeeBank,
-  payrollSlips, payrollSlipHeads, payrollRuns,
+  payrollSlips, payrollRuns,
   leaveApplications, employeeLeaveBalances, leaveTypes,
   leaveOtCalculations,
-  loans, loanRepayments, loanTypes,
+  loans,
   fiscalYears, departments, designations, branches,
 } from '@/lib/db/schema';
 import { eq, and, desc, sql, isNull, isNotNull } from 'drizzle-orm';
@@ -17,6 +17,13 @@ import * as leaveService from '@/lib/services/leave.service';
 import * as homeLeaveService from '@/lib/services/home-leave.service';
 import { assertSessionUsable } from '@/lib/auth/session-updates';
 import { findPhotoIdFor } from "@/lib/repositories/employee-photo.repository";
+import { ownCertificate } from "@/lib/services/statutory.service";
+import { ownSheet } from "@/lib/services/payslip-sheet.service";
+import type { PayslipSheetData } from "@/lib/types/payslip-sheet";
+import { getCompanyProfileSetup } from "@/lib/repositories/company-setup.repository";
+import { addressLine } from "@/lib/constants/nepal-locations";
+import type { LetterheadBase } from "@/lib/types/letter";
+import type { TaxCertificateData } from "@/lib/types/statutory";
 
 // ---------------------------------------------------------------------------
 // Session-Based Employee ID Resolution
@@ -87,6 +94,9 @@ export async function getMyProfile() {
       // Personal
       citizenshipNo: employeePersonal.citizenshipNo,
       panNumber: employeePersonal.panNumber,
+      ssfNumber: employeePersonal.ssfNumber,
+      pfNumber: employeePersonal.pfNumber,
+      citNumber: employeePersonal.citNumber,
       mobileNo: employeePersonal.mobileNo,
       email: employeePersonal.email,
       companyEmail: employeePersonal.companyEmail,
@@ -133,6 +143,29 @@ function visibleToEmployee() {
   return [eq(payrollRuns.status, 'LOCKED'), isNotNull(payrollRuns.publishedAt), isNull(payrollSlips.heldAt)];
 }
 
+/**
+ * My tax certificate (F9): the signed-in employee's tax withheld in a fiscal year, from their
+ * released payslips only (the same visibility rule as the payslip list) and any paid final settlement.
+ */
+export async function getMyTaxCertificate(fiscalYearId?: string): Promise<{
+  fiscalYears: { id: string; label: string }[];
+  certificate: TaxCertificateData | null;
+  letterhead: LetterheadBase;
+}> {
+  const { employeeId } = await getSessionEmployeeId();
+  const [own, company] = await Promise.all([ownCertificate(employeeId, fiscalYearId, visibleToEmployee()), getCompanyProfileSetup().catch(() => null)]);
+  return {
+    ...own,
+    letterhead: {
+      name: company?.displayName || company?.legalName || '',
+      address: addressLine(company?.headOfficeAddress) ?? '',
+      pan: company?.panVatNumber ?? '',
+      signatoryName: company?.signatory1Name ?? '',
+      signatoryTitle: company?.signatory1Title ?? '',
+    },
+  };
+}
+
 export async function getMyPayslips(fiscalYearId?: string) {
   const { employeeId } = await getSessionEmployeeId();
   const db = await getDbAsync();
@@ -176,6 +209,7 @@ export async function getMyPayslips(fiscalYearId?: string) {
       payPeriodMonth: payrollRuns.payPeriodMonth,
       payPeriodYear: payrollRuns.payPeriodYear,
       calendar: payrollRuns.calendar,
+      // F6: regular salary, festival allowance or arrears.
       runType: payrollRuns.runType,
     })
     .from(payrollSlips)
@@ -184,33 +218,18 @@ export async function getMyPayslips(fiscalYearId?: string) {
     .where(and(...conditions, eq(payrollRuns.status, 'LOCKED')))
     .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth), desc(payrollRuns.lockedAt));
 
-  return slips.map((s) => ({ ...s, label: runLabel(s) }));
+  // "Aswin 2083 · Festival allowance" in full; the month alone for lists that show the kind of run on its own.
+  return slips.map((s) => ({ ...s, label: runLabel(s), monthLabel: runLabel({ calendar: s.calendar, payPeriodYear: s.payPeriodYear, payPeriodMonth: s.payPeriodMonth }) }));
 }
 
-export async function getMyPayslipDetail(payslipId: string) {
+/**
+ * One of the employee's own payslips as the bilingual sheet (F11): released payslips only (the
+ * same visibility rule as the list); someone else's, or one not released, reads as not found.
+ */
+export async function getMyPayslipSheet(payslipId: string): Promise<PayslipSheetData | null> {
   const { employeeId } = await getSessionEmployeeId();
-  const db = await getDbAsync();
-
-  // Verify the payslip belongs to this employee, and that the employee may see it (locked, published, not held: visibleToEmployee)
-  const [row] = await db
-    .select({ slip: payrollSlips, run: { calendar: payrollRuns.calendar, runType: payrollRuns.runType, payPeriodYear: payrollRuns.payPeriodYear, payPeriodMonth: payrollRuns.payPeriodMonth, status: payrollRuns.status } })
-    .from(payrollSlips)
-    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .where(and(eq(payrollSlips.id, payslipId), eq(payrollSlips.employeeId, employeeId), ...visibleToEmployee()))
-    .limit(1);
-
-  if (!row) {
-    throw new Error('Payslip not found or you do not have access to view it.');
-  }
-  const slip = { ...row.slip, payPeriodYear: row.run.payPeriodYear, payPeriodMonth: row.run.payPeriodMonth, label: runLabel(row.run), runType: row.run.runType };
-
-  // Get payslip heads (allowances & deductions breakdown)
-  const heads = await db
-    .select()
-    .from(payrollSlipHeads)
-    .where(eq(payrollSlipHeads.payrollSlipId, payslipId));
-
-  return { slip, heads };
+  if (typeof payslipId !== 'string' || !/^[0-9a-f-]{36}$/i.test(payslipId)) return null;
+  return ownSheet(employeeId, payslipId, visibleToEmployee());
 }
 
 // ---------------------------------------------------------------------------
@@ -316,59 +335,6 @@ export async function getMyAttendanceSummary(fiscalYearId?: string) {
     .orderBy(leaveOtCalculations.bsMonth);
 
   return summaries;
-}
-
-// ---------------------------------------------------------------------------
-// My Loans
-// ---------------------------------------------------------------------------
-
-export async function getMyLoans() {
-  const { employeeId } = await getSessionEmployeeId();
-  const db = await getDbAsync();
-
-  const myLoans = await db
-    .select({
-      id: loans.id,
-      loanTypeName: loanTypes.name,
-      givenDate: loans.givenDate,
-      loanAmount: loans.loanAmount,
-      installmentAmount: loans.installmentAmount,
-      noOfInstallments: loans.noOfInstallments,
-      totalReturned: loans.totalReturned,
-      remainingAmount: loans.remainingAmount,
-      status: loans.status,
-      createdAt: loans.createdAt,
-    })
-    .from(loans)
-    .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
-    .where(eq(loans.employeeId, employeeId))
-    .orderBy(desc(loans.createdAt));
-
-  return myLoans;
-}
-
-export async function getMyLoanRepayments(loanId: string) {
-  const { employeeId } = await getSessionEmployeeId();
-  const db = await getDbAsync();
-
-  // Verify the loan belongs to this employee
-  const [loan] = await db
-    .select({ id: loans.id })
-    .from(loans)
-    .where(and(eq(loans.id, loanId), eq(loans.employeeId, employeeId)))
-    .limit(1);
-
-  if (!loan) {
-    throw new Error('Loan not found or you do not have access to view it.');
-  }
-
-  const repayments = await db
-    .select()
-    .from(loanRepayments)
-    .where(eq(loanRepayments.loanId, loanId))
-    .orderBy(desc(loanRepayments.repaymentDate));
-
-  return repayments;
 }
 
 // ---------------------------------------------------------------------------

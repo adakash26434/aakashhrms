@@ -1,223 +1,89 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ReportFilterBar, type ReportFilterState } from "./report-filter-bar";
-import { PayslipPrintable } from "./payslip-printable";
-import { ReportActionToolbar } from "./report-action-toolbar";
-import { ReportDataTableShell } from "./report-data-table-shell";
-import { ReportPreviewModal } from "./report-preview-modal";
-import { PageFrame } from "@/components/layout/page-frame";
-import { PageHeader } from "@/components/ui/page-header";
-import type { ReportFilterLookupData, PayslipPrintData } from "@/lib/types/report";
-import { getPayslipReportAction } from "@/app/actions/report.actions";
-import { AlertCircle, Printer, ShieldCheck } from "lucide-react";
-import { useToast } from "@/components/ui/toast";
-import { authorizeExportAction } from "@/app/actions/export.actions";
-import { rowsToCsv } from "@/lib/export/csv";
-import { downloadTextFile } from "@/lib/export/download";
+import { useEffect, useState } from "react";
+import { Receipt } from "lucide-react";
+import { SelectField } from "@/components/kit/select-field";
+import { StatusChip } from "@/components/kit/status-chip";
+import { ReportEmptyPaper, ReportPaper, ReportParam, ReportViewer } from "@/components/kit/report-viewer";
+import { PayslipSheet } from "@/components/payroll/payslip-sheet";
+import { payslipReportAction } from "@/app/actions/report.actions";
+import { asPayslipLanguage, type PayslipLanguage } from "@/lib/constants/payslip-labels";
+import type { PayslipReportData } from "@/lib/types/report";
+import { PlaceParams, ReportNotices, useReport } from "./report-common";
 
-interface PayslipClientProps {
-  lookupData: ReportFilterLookupData;
-}
+// Payslips (4.11, template D; F11 sheets): the bilingual payslips of a locked run for the
+// viewer's employees, one per page, ready to print or save as PDF. The salary sheet is the
+// place for spreadsheets, so there is no Excel or CSV here.
 
-export function PayslipClient({ lookupData }: PayslipClientProps) {
-  const [filterState, setFilterState] = useState<ReportFilterState>({
-    payrollRunId: lookupData.lockedPayrollRuns[0]?.id || "",
-  });
-  const [payslips, setPayslips] = useState<PayslipPrintData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+const LANGUAGES = [
+  { value: "both", label: "English + नेपाली" },
+  { value: "en", label: "English" },
+  { value: "np", label: "नेपाली" },
+];
+const LANG_KEY = "aakash.payslip.lang";
 
-  const toast = useToast();
-
-  const fetchPayslips = async (filters: ReportFilterState) => {
-    if (!filters.payrollRunId) {
-      setError("Please select a locked payroll run.");
-      toast.error("Please select a locked payroll run.");
-      return;
-    }
-    setError(null);
-    setIsLoading(true);
-
+export function PayslipClient({ initial }: { initial: PayslipReportData }) {
+  const { data, params, set, run, pending, error, setError } = useReport(initial, payslipReportAction);
+  const { context, run: payRun, places, sheets } = data;
+  // The language is a per-viewer convenience remembered in this browser.
+  const [lang, setLangState] = useState<PayslipLanguage>("both");
+  useEffect(() => {
     try {
-      const res = await getPayslipReportAction({
-        payrollRunId: filters.payrollRunId,
-      });
-
-      if (!res.success || !res.data) {
-        const msg = res.error || "Failed to load payslips.";
-        setError(msg);
-        toast.error(msg);
-        setPayslips([]);
-      } else {
-        setPayslips(res.data);
-        toast.success(`Loaded ${res.data.length} payslips successfully.`);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error loading payslips.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
+      const saved = window.localStorage.getItem(LANG_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a remembered choice, read once after hydration
+      if (saved) setLangState(asPayslipLanguage(saved));
+    } catch {
+      // Storage may be blocked; English + Nepali stays.
+    }
+  }, []);
+  const setLang = (value: string) => {
+    const next = asPayslipLanguage(value);
+    setLangState(next);
+    try {
+      window.localStorage.setItem(LANG_KEY, next);
+    } catch {
+      // Storage may be blocked; the choice still applies on this page.
     }
   };
 
-  const handleFilterChange = (newFilters: ReportFilterState) => {
-    setFilterState(newFilters);
-    fetchPayslips(newFilters);
-  };
-
-  // Single employee filter applied to active payslips
-  const activePayslips = useMemo(() => {
-    if (!filterState.employeeId) return payslips;
-    const selectedEmp = lookupData.employees.find((e) => e.id === filterState.employeeId);
-    if (!selectedEmp) return payslips;
-
-    return payslips.filter(
-      (p) =>
-        p.slip.employeeCode === selectedEmp.employeeCode ||
-        p.slip.employeeName === selectedEmp.name
-    );
-  }, [payslips, filterState.employeeId, lookupData.employees]);
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleExportCsv = async () => {
-    if (activePayslips.length === 0) return;
-    const gate = await authorizeExportAction({ module: "REPORTS_PAYSLIP", label: "Payslips (CSV)", rowCount: activePayslips.length });
-    if (!gate.allowed) return;
-    const csv = rowsToCsv(
-      ["EmployeeCode", "EmployeeName", "Department", "BasicSalary", "GradeAmount", "GrossEarnings", "TotalDeductions", "NetPayable", "BankAccount"],
-      activePayslips.map(({ slip }) => [
-        slip.employeeCode, slip.employeeName, slip.departmentName, slip.basicSalary, slip.gradeAmount,
-        slip.grossEarnings, slip.totalDeductions, slip.netPayable, slip.bankAccountNumber,
-      ])
-    );
-    downloadTextFile(
-      activePayslips.length === 1
-        ? `payslip-${activePayslips[0].slip.employeeCode}.csv`
-        : `payslips-export-${filterState.payrollRunId}.csv`,
-      csv
-    );
-  };
-
-  const selectedRunLabel =
-    lookupData.lockedPayrollRuns.find((r) => r.id === filterState.payrollRunId)?.label ||
-    "Selected Run";
+  const subtitle = payRun ? [payRun.period, payRun.kind, payRun.branches].filter(Boolean).join(" · ") : "";
 
   return (
-    <PageFrame size="wide" spacing="default" className="print:space-y-0">
-      {/* Canonical Standard Page Header — hidden during print */}
-      <div className="print:hidden">
-        <PageHeader
-          title="Employee Payslips & Confidential Print"
-          description="Generate and print official confidential salary slips for employee distribution."
-        >
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-              <span>A4 confidential format</span>
-            </span>
-          </div>
-        </PageHeader>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="print:hidden">
-        <ReportFilterBar
-          lookupData={lookupData}
-          showRunSelector={true}
-          showBranchFilter={true}
-          showDepartmentFilter={true}
-          showDesignationFilter={true}
-          showEmployeeFilter={true}
-          showSearchFilter={true}
-          onFilterChange={handleFilterChange}
-          isLoading={isLoading}
+    <ReportViewer
+      title="Payslips"
+      description="Payslips of a locked pay run, one per page, in English, Nepali or both"
+      status={payRun ? <StatusChip status="LOCKED" /> : undefined}
+      orientation="portrait"
+      paramsSummary={payRun ? `${subtitle} · ${sheets.length} payslip${sheets.length === 1 ? "" : "s"}` : undefined}
+      params={
+        <>
+          <ReportParam label="Pay run" help={data.runs.length ? "Locked runs only: payslips are final when the run is locked." : "No locked run has payslips for the employees you cover."}>
+            <SelectField options={data.runs} value={params.runId} onChange={(v) => set({ runId: v })} aria-label="Pay run" placeholder="No locked run yet" />
+          </ReportParam>
+          <ReportParam label="Language">
+            <SelectField options={LANGUAGES} value={lang} onChange={setLang} aria-label="Language" />
+          </ReportParam>
+          <PlaceParams places={places} value={params} onChange={set} />
+        </>
+      }
+      onRun={() => run()}
+      running={pending}
+      ready={sheets.length > 0}
+      notice={<ReportNotices context={context} error={error} onDismiss={() => setError(null)} />}
+    >
+      {sheets.length === 0 ? (
+        <ReportEmptyPaper
+          icon={<Receipt className="h-5 w-5" />}
+          title={payRun ? "No payslips for these parameters" : "No locked pay run"}
+          description={payRun ? "Nobody you cover was paid in this run with this branch, department or employee." : "Payslips are printed from locked pay runs with payslips for the employees you cover."}
         />
-      </div>
-
-      {/* Error Banner */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-3.5 text-xs font-medium text-rose-700 border border-rose-200 print:hidden">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
+      ) : (
+        sheets.map((sheet) => (
+          <ReportPaper key={sheet.slipId}>
+            <PayslipSheet data={sheet} lang={lang} bare />
+          </ReportPaper>
+        ))
       )}
-
-      {/* Report Result Section */}
-      <div>
-        {/* Standard Action Toolbar — hidden during print */}
-        <ReportActionToolbar
-          onPrint={handlePrint}
-          onExport={handleExportCsv}
-          onPreview={() => setIsPreviewOpen(true)}
-          hasData={activePayslips.length > 0}
-          meta={
-            activePayslips.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                  Period: {selectedRunLabel}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                  Slips count: {activePayslips.length}
-                </span>
-              </div>
-            ) : undefined
-          }
-        >
-          <div className="flex items-center gap-2">
-            <div className="p-1 rounded-md bg-zinc-100 text-zinc-700">
-              <Printer className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-xs font-semibold text-zinc-900">
-              Printable salary slips
-            </span>
-          </div>
-        </ReportActionToolbar>
-
-        {/* Printable Payslips — occupies full print viewport from top */}
-        <div className={isPreviewOpen ? "print:hidden" : "mt-4 print:mt-0"}>
-          {activePayslips.length > 0 ? (
-            <PayslipPrintable data={activePayslips} company={lookupData.company} />
-          ) : (
-            <ReportDataTableShell
-              isEmpty={true}
-              emptyTitle="No Payslips Loaded"
-              emptyDescription="Select a locked payroll run and click &quot;Generate Report&quot; to view payslips."
-            >
-              <div />
-            </ReportDataTableShell>
-          )}
-        </div>
-      </div>
-
-      {/* Preview Modal */}
-      <ReportPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        title={
-          activePayslips.length === 1
-            ? `Confidential Payslip Preview — ${activePayslips[0].slip.employeeName}`
-            : "Confidential Payslips Batch Preview"
-        }
-        subtitle={`Period: ${selectedRunLabel}`}
-        onPrint={handlePrint}
-        onExport={handleExportCsv}
-        isSingleEmployee={activePayslips.length === 1}
-        onPrintSummary={handlePrint}
-        onPrintIndividualSlips={handlePrint}
-        company={lookupData.company}
-        metaDetails={[
-          { label: "Payroll Run", value: selectedRunLabel },
-          { label: "Total Slips", value: `${activePayslips.length} Employee(s)` },
-        ]}
-      >
-        <PayslipPrintable data={activePayslips} company={lookupData.company} />
-      </ReportPreviewModal>
-    </PageFrame>
+    </ReportViewer>
   );
 }

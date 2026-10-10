@@ -6,14 +6,8 @@
 // last day (July for a mid-July year end).
 
 import { periodContaining, periodFor, shiftPeriod, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
-import type { RunType } from "@/lib/types/payroll-run";
-
-export const RUN_TYPE_LABEL: Record<RunType, string> = {
-  REGULAR: "Regular",
-  FESTIVAL_BONUS: "Festival bonus",
-  ARREARS: "Arrears",
-  FINAL_SETTLEMENT: "Final settlement",
-};
+import { asRunType, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
+import { adToBS } from "@/lib/utils/bs-calendar";
 
 /** Sorts months within one calendar (year × 100 + month). */
 export function periodKey(p: { year: number; month: number }): number {
@@ -64,7 +58,7 @@ export function runLabel(run: { calendar: string; payPeriodYear: number; payPeri
   } catch {
     month = `${run.payPeriodYear}-${String(run.payPeriodMonth).padStart(2, "0")}`;
   }
-  const type = run.runType && run.runType !== "REGULAR" ? RUN_TYPE_LABEL[run.runType as RunType] ?? run.runType : "";
+  const type = run.runType && run.runType !== "REGULAR" ? RUN_TYPE_LABEL[asRunType(run.runType)].en : "";
   return type ? `${month} · ${type}` : month;
 }
 
@@ -86,4 +80,14 @@ export function canSwitchCalendar(state: { openPeriods: number; unlockedRuns: nu
 export function fiscalMonthIndexFor(calendar: PeriodCalendar, month: number): number {
   if (calendar === "AD") return month >= 8 ? month - 7 : month + 5;
   return month >= 4 ? month - 3 : month + 9;
+}
+
+/**
+ * The BS month a pay month's records kept by BS month are filed under (loan deduction months,
+ * welfare-fund postings, leave salary pay months): the month its last day falls in. A BS pay month
+ * is filed under itself.
+ */
+export function recordMonthOf(period: Pick<PayPeriod, "end">): { year: number; month: number; key: string } {
+  const bs = adToBS(new Date(`${period.end}T06:00:00.000Z`));
+  return { year: bs.year, month: bs.month, key: `${bs.year}-${String(bs.month).padStart(2, "0")}` };
 }

@@ -8,10 +8,11 @@ import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 export type JobStateRow = typeof scheduledJobs.$inferSelect;
 export type JobRunRow = typeof jobRuns.$inferSelect;
 
-export async function ensureJobRows(codes: string[]): Promise<void> {
+/** One row per job; a new row starts on or off as its definition says (existing rows keep their switch). */
+export async function ensureJobRows(jobs: readonly { code: string; enabled: boolean }[]): Promise<void> {
   const db = await getDb();
-  for (const code of codes) {
-    await db.insert(scheduledJobs).values({ code }).onConflictDoNothing({ target: scheduledJobs.code });
+  for (const job of jobs) {
+    await db.insert(scheduledJobs).values({ code: job.code, enabled: job.enabled }).onConflictDoNothing({ target: scheduledJobs.code });
   }
 }
 
@@ -75,6 +76,18 @@ export async function adminRecipients(): Promise<string[]> {
     .innerJoin(roles, eq(userRoles.roleId, roles.id))
     .where(and(eq(users.isActive, true), inArray(roles.slug, ['system_admin', 'office_admin', 'hr_manager', 'payroll_controller'])));
   return [...new Set(rows.map((r) => r.email).filter((e): e is string => !!e))];
+}
+
+/** F17 daily digest: active users with an email and an office role (self-service-only accounts never see the bell). */
+export async function digestRecipients(): Promise<{ userId: string; email: string }[]> {
+  const db = await getDb();
+  const rows = await db
+    .selectDistinct({ userId: users.id, email: users.email })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(and(eq(users.isActive, true), ne(roles.scopeType, 'SELF')));
+  return rows.filter((r): r is { userId: string; email: string } => !!r.email && r.email.includes('@'));
 }
 
 export async function probationEmployees() {

@@ -112,8 +112,9 @@ describe('S24 leave security', () => {
   });
 
   it('the bell counts only leave this user can decide', () => {
-    const ws = source('lib/services/workspace-context.service.ts');
-    assert.match(ws, /countLeaveWaitingFor\(scope, await hasPermission\('APPROVE', 'LEAVE_APPROVALS'\)\)/);
+    // F17: the notification centre counts it (the workspace context reads the centre).
+    const centre = source('lib/services/notification.service.ts');
+    assert.match(centre, /countLeaveWaitingFor\(scope, has\('APPROVE', 'LEAVE_APPROVALS'\)\)/);
     const count = fnBody(service, 'countWaitingFor');
     assert.match(count, /w\.employeeId !== scope\.employeeId && w\.preparedBy !== scope\.userId/);
   });
@@ -421,8 +422,12 @@ describe('S24 leave exceptions (4.6d)', () => {
   it('company-details requests and leave exceptions never mix', () => {
     assert.match(source('app/api/platform/change-requests/[id]/route.ts'), /if \(req\.kind !== 'company_details'\)/);
     assert.match(source('app/api/platform/change-requests/route.ts'), /eq\(companyChangeRequests\.kind, 'company_details'\)/);
-    const setup = source('app/actions/company-setup.actions.ts');
-    assert.equal((setup.match(/eq\(companyChangeRequests\.kind, 'company_details'\)/g) ?? []).length, 3);
+    // 4.12c: the company side lives in lib/platform/company-details.ts (S53).
+    const details = source('lib/platform/company-details.ts');
+    assert.match(details, /export const COMPANY_DETAILS = 'company_details';/);
+    assert.equal((details.match(/eq\(companyChangeRequests\.kind, COMPANY_DETAILS\)/g) ?? []).length, 3);
+    assert.match(details, /kind: COMPANY_DETAILS,/);
+    assert.doesNotMatch(source('app/actions/company-setup.actions.ts'), /companyChangeRequests/);
   });
 });
 
@@ -477,7 +482,9 @@ describe('S24 company leave types and Leave rules retired (4.6e)', () => {
   it('leave salary reads the leave type\'s payout rate; a fixed rate is never below basic', () => {
     const salary = source('lib/services/leave-salary.service.ts');
     assert.match(fnBody(salary, 'payoutOf'), /payoutRate\(leaveType,/);
-    assert.equal((salary.match(/await payoutOf\(leaveType\)/g) ?? []).length, 2);
+    // 4.9: every amount is worked out in one place, from the leave type's rate.
+    assert.match(salary, /async function amountsFor\(type: LeaveTypeRecord, basic: number, days: number\) \{\s*const pay = await payoutOf\(type\);/);
+    assert.equal((salary.match(/calculateLeaveSalary\(/g) ?? []).length, 1);
     assert.match(source('lib/engines/leave-salary.engine.ts'), /Decimal\.max\(new Decimal\(args\.fixedDailyAmount\), new Decimal\(args\.basicSalary\)\.dividedBy\(workDays\)\)/);
   });
 

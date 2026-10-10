@@ -10,7 +10,7 @@ import { useDateText } from "@/components/kit/date-cell";
 import { Notice } from "@/components/kit/notice";
 import { StatusChip } from "@/components/kit/status-chip";
 import { Tabs, type TabItem } from "@/components/kit/tabs";
-import { RUN_TYPE_LABEL } from "@/lib/engines/pay-calendar.engine";
+import { RUN_TYPE_LABEL } from "@/lib/constants/run-types";
 import type { PayrollRunView, PayrollRunsPageData } from "@/lib/types/payroll-run";
 import { cn } from "@/lib/utils";
 import { PayrollRunWorkspace } from "./payroll-run-workspace";
@@ -63,7 +63,7 @@ export function PayrollRunsClient({ data, initialTab }: { data: PayrollRunsPageD
   const columns = useMemo<GridColumn<PayrollRunView>[]>(
     () => [
       { id: "period", header: "Month", width: 150, value: (r) => r.payPeriodYear * 100 + r.payPeriodMonth, cell: (r) => <span className="font-medium text-ink">{r.label.split(" · ")[0]}</span> },
-      { id: "type", header: "Type", width: 130, value: (r) => RUN_TYPE_LABEL[r.runType], cell: (r) => <span className={r.runType === "REGULAR" ? "text-ink-muted" : "font-medium text-ink"}>{RUN_TYPE_LABEL[r.runType]}</span> },
+      { id: "type", header: "Type", width: 160, value: (r) => RUN_TYPE_LABEL[r.runType].en, cell: (r) => <span className={r.runType === "REGULAR" ? "text-ink-muted" : "font-medium text-ink"}>{RUN_TYPE_LABEL[r.runType].en}</span> },
       { id: "scope", header: "Scope", width: 220, value: (r) => r.scopeText },
       { id: "employees", header: "Employees", type: "number", width: 110, value: (r) => r.employeeCount },
       { id: "gross", header: "Gross", type: "amount", width: 140, value: (r) => Number(r.totalGross), total: "sum" },

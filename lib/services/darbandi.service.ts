@@ -39,3 +39,28 @@ export async function checkPlacement(p: Placement): Promise<string | null> {
   if (!decision.allowed) throw new UserFacingError(decision.message ?? 'Over darbandi.');
   return decision.message;
 }
+
+/**
+ * checkPlacement for many new hires at once (F15 import): the mode and each post are read once,
+ * and every hire the checker allowed counts as filled for the rows after it (none is saved yet).
+ */
+export async function placementChecker(): Promise<(designationId: string, branchId: string) => Promise<string | null>> {
+  const mode = await darbandiMode();
+  const posts = new Map<string, Promise<[Awaited<ReturnType<typeof repo.occupancyFor>>, string]>>();
+  const placed = new Map<string, number>();
+  return async (designationId, branchId) => {
+    if (mode === 'off') return null;
+    const key = `${designationId}|${branchId}`;
+    let post = posts.get(key);
+    if (!post) {
+      post = Promise.all([repo.occupancyFor(designationId, branchId), repo.positionLabel(designationId, branchId)]);
+      posts.set(key, post);
+    }
+    const [row, label] = await post;
+    const earlier = placed.get(key) ?? 0;
+    const decision = darbandiDecision(mode, label, row ? occupancy(row.positions, row.filled + earlier) : null);
+    if (!decision.allowed) throw new UserFacingError(decision.message ?? 'Over darbandi.');
+    placed.set(key, earlier + 1);
+    return decision.message;
+  };
+}

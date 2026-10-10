@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   TableProperties,
   Trash2,
+  TrendingUp,
   Wand2,
 } from "lucide-react";
 import { EditGrid, type EditGridColumn, type GridValueChange } from "@/components/kit/edit-grid";
@@ -41,6 +42,7 @@ import {
   templateFits,
   type ImportColumn,
 } from "@/lib/engines/salary-structure.engine";
+import { applyIncrement, describeRule, type IncrementContext } from "@/lib/engines/increment.engine";
 import { adToBS, bsToAD, BS_MONTHS_EN } from "@/lib/utils/bs-calendar";
 import { nepalToday, toIsoDate } from "@/lib/utils/nepal-time";
 import type {
@@ -52,6 +54,7 @@ import type {
 } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
 import { saveOutcome } from "./salary-structure-approval";
+import { SalaryIncrementWindow, type IncrementTarget } from "./salary-increment-window";
 
 interface SheetGridRow {
   row: StructureRow;
@@ -121,6 +124,10 @@ export function SalaryStructureSheet({
     (code: string) => data.levels.find((l) => l.code === code || l.name === code)?.minSalary ?? 0,
     [data.levels]
   );
+  const levelMax = useCallback(
+    (code: string) => data.levels.find((l) => l.code === code || l.name === code)?.maxSalary ?? 0,
+    [data.levels]
+  );
 
   // Default BS Year and BS Month based on Kathmandu today
   const todayBS = useMemo(() => adToBS(nepalToday()), []);
@@ -144,6 +151,11 @@ export function SalaryStructureSheet({
   const [submitting, setSubmitting] = useState<false | "submit" | "approve">(false);
   const [templateId, setTemplateId] = useState<string>(initialTemplateId ?? "");
   const fileRef = useRef<HTMLInputElement>(null);
+  // Mass increment (F14): the window, whether the edits came from one (the batch kind), and the
+  // sheet as it was before it was applied (Undo).
+  const [incrementOpen, setIncrementOpen] = useState(false);
+  const [incremented, setIncremented] = useState(false);
+  const [undo, setUndo] = useState<{ edited: Record<string, StructureLines>; label: string } | null>(null);
 
   // Derived effectiveFrom ISO string calculated from BS Year and BS Month (1st day of BS month)
   const effectiveFrom = useMemo(() => {
@@ -199,7 +211,7 @@ export function SalaryStructureSheet({
     return next;
   });
 
-  const [notice, setNotice] = useState<{ tone: "info" | "warning" | "danger"; text: string } | null>(() => {
+  const [notice, setNotice] = useState<{ tone: "info" | "warning" | "danger"; text: string; list?: string[] } | null>(() => {
     if (!initialTemplateId) return null;
     const t = data.templates.find((tpl) => tpl.id === initialTemplateId);
     if (!t) return null;
@@ -881,8 +893,11 @@ export function SalaryStructureSheet({
   }, [filteredRows]);
 
   const changedRows = allGridRows.filter((r) => r.changed);
-  const changedIds = changedRows.map((r) => r.row.employeeId);
-  const outcome = saveOutcome(data, changedIds);
+  // What saving will do (the same rule as the server, custom approval rules included, 4.12d).
+  const outcome = saveOutcome(
+    data,
+    changedRows.map((r) => ({ employeeId: r.row.employeeId, before: r.originalTotals?.totalSalary ?? null, after: r.totals.totalSalary, branchId: r.row.branchId, departmentId: r.row.departmentId }))
+  );
   // Back-dated changes are allowed (the team's F7 pays the difference as arrears in the next run).
   const payrollLocked: string | null = null;
 
@@ -903,7 +918,7 @@ export function SalaryStructureSheet({
 
     const result = await submitSalaryChangeAction(
       {
-        kind: "bulk",
+        kind: incremented ? "increment" : "bulk",
         effectiveFrom,
         reason: batchReason,
         rows: changedRows.map((r) => ({ employeeId: r.row.employeeId, lines: r.lines })),
@@ -919,13 +934,63 @@ export function SalaryStructureSheet({
 
     setEdited({});
     setReason("");
+    setIncremented(false);
+    setUndo(null);
     onSubmitted(result.data);
   };
 
   // Discard / Cancel edits
   const handleCancelEdits = () => {
     setEdited({});
+    setIncremented(false);
+    setUndo(null);
     setNotice({ tone: "info", text: "All unsaved changes in the sheet have been discarded." });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Mass increment (F14): one rule (basic by % or amount, or raised to the level's starting salary;
+  // grades added within the policy's cap) applied to the sheet, then saved as one "increment"
+  // batch through the salary approval flow (the server checks every row again).
+  // ---------------------------------------------------------------------------
+
+  const linesOf = useCallback((r: StructureRow) => edited[r.employeeId] ?? startLines(r), [edited, startLines]);
+  const contextOf = useCallback(
+    (r: StructureRow): IncrementContext => ({ levelStart: levelStart(r.levelCode), levelMax: levelMax(r.levelCode), maxGrades: policy?.maxGradesAllowedPerLevel ?? 0, gradesOff }),
+    [levelStart, levelMax, policy, gradesOff]
+  );
+
+  const runIncrement = ({ ids: targets, rule }: IncrementTarget) => {
+    const next = { ...edited };
+    const notes: string[] = [];
+    let changed = 0;
+    for (const id of targets) {
+      const r = byId.get(id);
+      if (!r) continue;
+      const result = applyIncrement(next[id] ?? startLines(r), rule, contextOf(r));
+      const l = result.lines;
+      if (result.changed) changed++;
+      if (rule.grades > 0 && l.gradeManual && !manualPolicy) notes.push(`${r.employeeCode} ${r.fullName}: grade amount is typed by hand — check it`);
+      for (const n of result.notes) notes.push(`${r.employeeCode} ${r.fullName}: ${n}`);
+      next[id] = { ...l, gradeAmount: l.gradeManual || manualPolicy ? l.gradeAmount : gradeAmountFor(l, policy) };
+    }
+    setUndo({ edited, label: "The mass increment" });
+    setEdited(next);
+    setIncremented(true);
+    setIncrementOpen(false);
+    if (!reason.trim()) setReason(`Increment: ${describeRule(rule)}`.slice(0, 200));
+    setNotice({
+      tone: notes.length ? "warning" : "info",
+      text: `Increment applied (${describeRule(rule)}): ${changed} of ${targets.length} salar${targets.length === 1 ? "y" : "ies"} change. Check the rows, then Save to send them for approval.`,
+      list: notes,
+    });
+  };
+
+  const undoLast = () => {
+    if (!undo) return;
+    setEdited(undo.edited);
+    setIncremented(false);
+    setNotice({ tone: "info", text: `${undo.label} undone: the rows are back as they were before it.` });
+    setUndo(null);
   };
 
   // Apply template to selected rows (or all rows)
@@ -1150,6 +1215,12 @@ export function SalaryStructureSheet({
             </WindowButton>
           )}
 
+          {data.permissions.edit && (
+            <WindowButton onClick={() => setIncrementOpen(true)} disabled={!data.rows.some((r) => r.current)} title="One rule for many salaries: basic by % or amount, grades added">
+              <TrendingUp className="h-3.5 w-3.5 text-brand" /> Mass increment
+            </WindowButton>
+          )}
+
           {onOpenApprovals && (
             <WindowButton variant="default" onClick={onOpenApprovals} title="View pending approval changes">
               <FileSpreadsheet className="h-3.5 w-3.5 text-info" /> Approvals
@@ -1212,7 +1283,22 @@ export function SalaryStructureSheet({
                 : "border-info/30 bg-info-subtle text-info"
           )}
         >
-          <span>{notice.text}</span>
+          <span>
+            {notice.text}
+            {undo && (
+              <button type="button" onClick={undoLast} className="ml-2 cursor-pointer font-medium text-brand-strong underline-offset-2 hover:underline">
+                Undo
+              </button>
+            )}
+            {notice.list && notice.list.length > 0 && (
+              <ul className="mt-1 list-disc pl-4">
+                {notice.list.slice(0, 8).map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+                {notice.list.length > 8 && <li>… and {notice.list.length - 8} more</li>}
+              </ul>
+            )}
+          </span>
           <button
             type="button"
             onClick={() => setNotice(null)}
@@ -1512,6 +1598,17 @@ export function SalaryStructureSheet({
           </span>
         </div>
       </div>
+
+      {incrementOpen && (
+        <SalaryIncrementWindow
+          data={data}
+          selectedIds={selectedIds}
+          linesOf={linesOf}
+          contextOf={contextOf}
+          onClose={() => setIncrementOpen(false)}
+          onApply={runIncrement}
+        />
+      )}
     </div>
   );
 }

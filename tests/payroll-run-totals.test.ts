@@ -43,7 +43,7 @@ describe('payroll run totals', () => {
 describe('payroll tax slabs', () => {
   it('are loaded for the run\'s fiscal year only', () => {
     assert.ok(!service.includes('findAllSlabs()'), 'no all-years slab load in payroll');
-    assert.match(service, /findSlabsByFiscalYear\(activeFy\.id\)/);
+    assert.match(service, /findSlabsByFiscalYear\(runYear\.id\)/);
     assert.match(service, /findSlabsByFiscalYear\(run\.fiscalYearId\)/);
     assert.match(body(read('lib/repositories/tax-rate.repository.ts'), 'export async function findSlabsByFiscalYear('), /eq\(taxRateSlabs\.fiscalYearId, fiscalYearId\)/);
   });

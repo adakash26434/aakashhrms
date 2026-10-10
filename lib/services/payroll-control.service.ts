@@ -1,31 +1,33 @@
 import { getDb } from '@/lib/db';
-import { branches, leaveApplications, roles, userRoles } from '@/lib/db/schema';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { isOffCycle } from '@/lib/engines/off-cycle.engine';
+import { roles, userRoles } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import * as repo from '@/lib/repositories/payroll-control.repository';
 import * as payrollRepo from '@/lib/repositories/payroll.repository';
-import * as employeeRepository from '@/lib/repositories/employee.repository';
-import * as salaryMappingRepository from '@/lib/repositories/salary-mapping.repository';
-import * as attendanceRepo from '@/lib/repositories/attendance.repository';
-import { employeesNeedingSetup } from '@/lib/repositories/salary-structure.repository';
 import {
   CHECKER_MESSAGE,
+  CONTROL_KEYS,
   DEFAULT_VARIANCE,
   asCheckerMode,
   canPublishRun,
   checkerRefusal,
-  preflightFindings,
+  nextRunStep,
+  runConcerns,
   unresolvedFlags,
   varianceFlags,
   type CheckerMode,
-  type PreflightFinding,
   type SlipFact,
   type VarianceFlag,
 } from '@/lib/engines/payroll-control.engine';
+import { asDetailApproval, type DetailApproval } from '@/lib/engines/employee-detail.engine';
+import { bankChangeNotes } from '@/lib/services/employee-detail.service';
+import { primaryAccounts } from '@/lib/repositories/employee-detail.repository';
 import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { UserFacingError } from '@/lib/errors/action-error';
-import { getBSMonthRange } from '@/lib/utils/bs-calendar';
-import type { PayrollRun, PayrollRunSetupPayload, PayrollSlip } from '@/lib/types/payroll';
+import type { PayrollRun, PayrollSlip } from '@/lib/types/payroll';
+import type { RunWaiting } from '@/lib/types/notification';
+import type { ScopeFilter } from '@/lib/auth/scope-filter';
 
 // Payroll controls (4.8 / F1–F3): orchestration. The variance review compares a
 // run with the previous month for the same branches and blocks approval until
@@ -33,26 +35,60 @@ import type { PayrollRun, PayrollRunSetupPayload, PayrollSlip } from '@/lib/type
 // (S21 for pay: nobody approves a run that pays them in strict mode, nobody
 // edits their own payslip); payslips reach employees only when published.
 
-export const CONFIG = {
-  checker: 'payroll.makerChecker', // admin_exempt (default) | strict
-  variancePct: 'payroll.variancePct', // net change in percent that needs a look (default 15)
-  requireClosed: 'payroll.requireClosedAttendance', // on | off (default off)
-} as const;
+export const CONFIG = CONTROL_KEYS;
 
 export interface PayrollControlSettings {
   makerChecker: CheckerMode;
   variancePct: number;
   requireClosedAttendance: boolean;
+  /** F13: changes to bank, PAN and tax status wait for a second person (required) or apply at once (off). */
+  employeeDetailApproval: DetailApproval;
 }
 
 export async function readSettings(): Promise<PayrollControlSettings> {
-  const [checker, pct, closed] = await Promise.all([repo.readConfig(CONFIG.checker), repo.readConfig(CONFIG.variancePct), repo.readConfig(CONFIG.requireClosed)]);
+  const [checker, pct, closed, details] = await Promise.all([
+    repo.readConfig(CONFIG.checker),
+    repo.readConfig(CONFIG.variancePct),
+    repo.readConfig(CONFIG.requireClosed),
+    repo.readConfig(CONFIG.detailApproval),
+  ]);
   const parsed = Number(pct);
   return {
     makerChecker: asCheckerMode(checker),
     variancePct: Number.isFinite(parsed) && parsed > 0 && parsed <= 100 ? parsed : DEFAULT_VARIANCE.thresholdPct,
     requireClosedAttendance: closed === 'on',
+    employeeDetailApproval: asDetailApproval(details),
   };
+}
+
+/** The maker-checker setting alone (the notification centre reads it on every page). */
+export async function checkerMode(): Promise<CheckerMode> {
+  return asCheckerMode(await repo.readConfig(CONFIG.checker));
+}
+
+export interface RunActor {
+  userId: string;
+  scope: ScopeFilter;
+  isAdmin: boolean;
+  canSend: boolean;
+  canApprove: boolean;
+  canLock: boolean;
+}
+
+/**
+ * F17: pay runs waiting for this person's step (the bell), within their branches or
+ * departments. The step follows the same rules as the move itself (`nextRunStep`).
+ */
+export async function runsWaitingFor(actor: RunActor): Promise<RunWaiting[]> {
+  if (!actor.canSend && !actor.canApprove && !actor.canLock) return [];
+  const [mode, runs] = await Promise.all([checkerMode(), repo.runsNeedingAction(actor.scope.employeeId)]);
+  const stepActor = { userId: actor.userId, isAdmin: actor.isAdmin, mode, canSend: actor.canSend, canApprove: actor.canApprove, canLock: actor.canLock };
+  return runs
+    .filter((run) => runConcerns(run, actor.scope))
+    .flatMap((run) => {
+      const step = nextRunStep(run, stepActor);
+      return step ? [{ id: run.id, year: run.year, month: run.month, runType: run.runType, step, heldCount: run.heldCount, generatedByName: run.generatedByName }] : [];
+    });
 }
 
 export async function saveSettings(raw: unknown): Promise<PayrollControlSettings> {
@@ -63,6 +99,7 @@ export async function saveSettings(raw: unknown): Promise<PayrollControlSettings
     repo.writeConfig(CONFIG.checker, asCheckerMode(r.makerChecker)),
     repo.writeConfig(CONFIG.variancePct, String(pct)),
     repo.writeConfig(CONFIG.requireClosed, r.requireClosedAttendance === true ? 'on' : 'off'),
+    repo.writeConfig(CONFIG.detailApproval, asDetailApproval(r.employeeDetailApproval)),
   ]);
   return readSettings();
 }
@@ -93,10 +130,20 @@ export interface VarianceReview {
 export async function varianceReview(runId: string): Promise<VarianceReview> {
   const run = await payrollRepo.findPayrollRunById(runId);
   if (!run) throw new UserFacingError('Not found: this payroll run no longer exists.');
+  // F6: an off-cycle run pays one thing on its own, so there is no month-on-month variance to review.
+  if (isOffCycle(run.runType)) {
+    const settings = await readSettings();
+    return { runId, flags: [], acknowledged: [], unresolved: [], comparedWith: null, thresholdPct: settings.variancePct };
+  }
   const [settings, slips, acks, earlier] = await Promise.all([readSettings(), payrollRepo.findSlipsByRunId(runId), repo.acksFor(runId), repo.earlierRuns(run)]);
   const previous = earlier.find((e) => sameBranches(e.branchIds, run.branchIds)) ?? null;
   const previousSlips = previous ? (await payrollRepo.findSlipsByRunId(previous.id)).map(factOf) : null;
-  const flags = varianceFlags(slips.map(factOf), previousSlips, { ...DEFAULT_VARIANCE, thresholdPct: settings.variancePct, sameScope: !!previous });
+  // F13: the bank account on each record now, and how it last changed (approved by whom, when).
+  // A locked run is history: later changes to a record say nothing about what it paid.
+  const ids = run.status === 'LOCKED' ? [] : slips.map((s) => s.employeeId);
+  const [accounts, notes] = await Promise.all([primaryAccounts(ids), bankChangeNotes(ids)]);
+  const current = slips.map((s) => ({ ...factOf(s), recordBankAccount: accounts.get(s.employeeId) ?? null, bankChangeNote: notes.get(s.employeeId) ?? null }));
+  const flags = varianceFlags(current, previousSlips, { ...DEFAULT_VARIANCE, thresholdPct: settings.variancePct, sameScope: !!previous });
   const acked = new Set(acks.map((a) => a.flagKey));
   return {
     runId,
@@ -217,62 +264,3 @@ export async function assertNotOwnSlip(slipId: string, userId: string, action: '
   }
 }
 
-// ---- pre-flight --------------------------------------------------------------------------
-
-export interface PreflightResult {
-  findings: PreflightFinding[];
-  employeeCount: number;
-  blocked: boolean;
-}
-
-export async function preflight(payload: PayrollRunSetupPayload): Promise<PreflightResult> {
-  const { start, end } = getBSMonthRange(payload.payPeriodYear, payload.payPeriodMonth);
-  const startStr = start.toISOString().split('T')[0];
-  const endStr = end.toISOString().split('T')[0];
-  const all = await employeeRepository.findAll({ search: '', branchId: payload.branchIds.length === 1 ? payload.branchIds[0] : 'all', departmentId: 'all', category: 'all', status: 'Active' });
-  const people = all.filter(
-    (e) =>
-      payload.branchIds.includes(e.branchId) &&
-      (!payload.departmentIds?.length || payload.departmentIds.includes(e.departmentId)) &&
-      (!payload.designationIds?.length || payload.designationIds.includes(e.designationId)) &&
-      (!payload.employeeCategories?.length || payload.employeeCategories.includes(e.category)) &&
-      (!payload.employeeIds?.length || payload.employeeIds.includes(e.id)),
-  );
-  const ids = people.map((e) => e.id);
-  const label = (e: { fullName: string; employeeCode: string }) => `${e.fullName} (${e.employeeCode})`;
-
-  const db = await getDb();
-  const [settings, salaries, needSetup, periods, existing, gaps, pending, branchRows, statutoryHeads] = await Promise.all([
-    readSettings(),
-    salaryMappingRepository.findInForceByEmployeeIds(ids, endStr),
-    employeesNeedingSetup(),
-    attendanceRepo.findPeriods('BS', payload.payPeriodYear, payload.payPeriodMonth),
-    payrollRepo.findPayrollRunByPeriodAndBranch({ calendar: 'BS', runType: 'REGULAR', payPeriodMonth: payload.payPeriodMonth, payPeriodYear: payload.payPeriodYear, branchIds: payload.branchIds }),
-    repo.bankAndPanGaps(ids),
-    ids.length
-      ? db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(leaveApplications)
-          .where(and(inArray(leaveApplications.employeeId, ids), eq(leaveApplications.status, 'Pending'), sql`leave_applications.effective_from <= ${endStr}::date`, sql`leave_applications.effective_to >= ${startStr}::date`))
-      : Promise.resolve([{ n: 0 }]),
-    payload.branchIds.length ? db.select({ id: branches.id, name: branches.name }).from(branches).where(inArray(branches.id, payload.branchIds)) : Promise.resolve([]),
-    repo.statutoryHeadsPresent(),
-  ]);
-
-  const closed = new Set(periods.filter((p) => p.status === 'closed').map((p) => p.branchId));
-  const branchesInUse = new Set(people.map((e) => e.branchId));
-  const openBranches = branchRows.filter((b) => branchesInUse.has(b.id) && !closed.has(b.id)).map((b) => b.name);
-  const statuses = existing.map((r) => r.status);
-  const findings = preflightFindings({
-    openAttendanceBranches: openBranches,
-    employeesWithoutSalary: people.filter((e) => !salaries.has(e.id)).map(label),
-    employeesNeedingSetup: people.filter((e) => needSetup.has(e.id)).map(label),
-    pendingLeaveCount: Number(pending[0]?.n ?? 0),
-    employeesWithoutBank: gaps.withoutBank,
-    employeesWithoutPan: gaps.withoutPan,
-    existingRunStatus: statuses.includes('LOCKED') ? 'LOCKED' : statuses[0] ?? null,
-    requireClosedAttendance: settings.requireClosedAttendance,
-    statutoryHeads,
-  });
-  return { findings, employeeCount: people.length, blocked: findings.some((f) => f.severity === 'blocker') };
-}

@@ -18,6 +18,11 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
   // Missing, malformed and out-of-scope ids all read as not found (S18).
   const employee = await getEmployeeInScope(id, scope, "EDIT");
   if (!employee) notFound();
-  const ctx = await getEmployeeFormContext(scope, employee, await hasPermission("EDIT", "SALARY_MAPPING"));
+  const [canEditPay, canApproveDetails, canManageLogins] = await Promise.all([
+    hasPermission("EDIT", "SALARY_MAPPING"),
+    hasPermission("APPROVE", "EMPLOYEES"),
+    hasPermission("EDIT", "USERS_ROLES"),
+  ]);
+  const ctx = await getEmployeeFormContext(scope, employee, canEditPay, canApproveDetails, canManageLogins);
   return <EmployeeForm ctx={ctx} />;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Settings2, ShieldCheck, Undo2, X } from "lucide-react";
 import { Amount } from "@/components/kit/amount";
@@ -19,7 +20,7 @@ import type { BatchRow, SalaryStructureData } from "@/lib/types/salary-structure
 import { cn } from "@/lib/utils";
 import { APPROVAL_ROUTE_LABEL, ApprovalTimeline, ApproverStanding, batchStatusText, describeChanges, money, salaryActor } from "./salary-structure-approval";
 
-const KIND: Record<BatchRow["kind"], string> = { single: "One employee", bulk: "Bulk edit", import: "CSV import", hire: "Starting salary", policy: "Grade policy", setup: "Salary structure set up" };
+const KIND: Record<BatchRow["kind"], string> = { single: "One employee", bulk: "Bulk edit", import: "CSV import", hire: "Starting salary", policy: "Grade policy", setup: "Salary structure set up", increment: "Mass increment" };
 const STATUS: Record<BatchRow["status"], string> = { pending: "pending", approved: "approved", rejected: "rejected", withdrawn: "cancelled" };
 
 type Decision = "approve" | "final_approve" | "reject" | "withdraw";
@@ -33,7 +34,7 @@ const requestOf = (b: BatchRow): ApprovalRequest => ({ status: b.status, prepare
  * reason, Withdraw your own; bulk approve / reject of selected rows. The
  * buttons come from the same approval engine the server applies.
  */
-export function SalaryStructureApprovals({ data, onSettings }: { data: SalaryStructureData; onSettings: () => void }) {
+export function SalaryStructureApprovals({ data }: { data: SalaryStructureData }) {
   const router = useRouter();
   const dateText = useDateText();
   const actor = salaryActor(data);
@@ -129,9 +130,9 @@ export function SalaryStructureApprovals({ data, onSettings }: { data: SalaryStr
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3 rounded-md border border-line bg-surface-panel px-3 py-2.5">
         <ApproverStanding data={data} />
         {data.me.isAdministrator && (
-          <WindowButton onClick={onSettings}>
+          <Link href="/setup/approvals" className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-input bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-sunken">
             <Settings2 className="h-3.5 w-3.5" /> Approval settings
-          </WindowButton>
+          </Link>
         )}
       </div>
 

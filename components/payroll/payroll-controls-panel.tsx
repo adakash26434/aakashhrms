@@ -28,6 +28,8 @@ const CODE_LABEL: Record<VarianceFlag["code"], string> = {
   missing_from_run: "Missing from this run",
   ot_high: "High overtime",
   no_bank_account: "No bank account",
+  bank_changed: "Bank account changed",
+  bank_outdated: "Bank account changed after this run was made",
 };
 
 export function PayrollControlsPanel({ run, slips, onChanged }: { run: PayrollRun; slips: PayrollSlip[]; onChanged?: () => void }) {

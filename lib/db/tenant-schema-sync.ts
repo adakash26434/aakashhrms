@@ -25,6 +25,7 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
     'NOTICE_BOARD',
     'TRAVEL',
     'TARGETS',
+    'REIMBURSEMENTS',
   ];
 
   for (const enumVal of moduleEnums) {
@@ -32,6 +33,15 @@ export async function ensureTenantSchema(sql: postgres.Sql): Promise<void> {
       await sql.unsafe(`ALTER TYPE "public"."module" ADD VALUE IF NOT EXISTS '${enumVal}'`);
     } catch {
       // Ignored if type public.module is not yet created or value is already present
+    }
+  }
+
+  // Leave salary statuses (4.9, migration 0076): DRAFT → APPROVED → PAID; APPROVED → CANCELLED.
+  for (const enumVal of ['APPROVED', 'CANCELLED']) {
+    try {
+      await sql.unsafe(`ALTER TYPE "public"."leave_salary_run_status" ADD VALUE IF NOT EXISTS '${enumVal}'`);
+    } catch {
+      // Ignored until the type exists
     }
   }
 
@@ -1450,6 +1460,151 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
     // Ignored until payroll_slips exists; the next sync pass completes it.
   }
 
+  // Sensitive employee details (4.8 / F13, migration 0073): changes to bank, PAN and tax status
+  // that wait for a second person; one waiting change per employee.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "employee_detail_changes" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "before" jsonb NOT NULL,
+      "after" jsonb NOT NULL,
+      "reason" text NOT NULL,
+      "status" varchar(20) DEFAULT 'pending' NOT NULL,
+      "prepared_by" uuid,
+      "prepared_at" timestamp DEFAULT now() NOT NULL,
+      "decided_by" uuid,
+      "decided_at" timestamp,
+      "decision_note" text,
+      "approval_route" varchar(20),
+      "applied_at" timestamp
+    )`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "employee_detail_changes_employee_idx" ON "employee_detail_changes" ("employee_id", "status")`);
+    await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "employee_detail_changes_one_pending" ON "employee_detail_changes" ("employee_id") WHERE "status" = 'pending'`);
+  } catch {
+    // Ignored until employees exists; the next sync pass completes it.
+  }
+
+  // Opening balances (4.8 / F15, migration 0074): what an old system paid before payroll started
+  // here mid-year, per employee and fiscal year.
+  try {
+    await sql.unsafe(`CREATE TABLE IF NOT EXISTS "payroll_opening_balances" (
+      "id" uuid PRIMARY KEY NOT NULL,
+      "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+      "fiscal_year_id" uuid NOT NULL REFERENCES "fiscal_years"("id") ON DELETE CASCADE,
+      "months" integer NOT NULL CHECK ("months" BETWEEN 1 AND 11),
+      "gross_earnings" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "retirement" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "cit" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "taxable_income" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "sst" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "income_tax" numeric(15, 2) DEFAULT 0 NOT NULL,
+      "note" text,
+      "created_by" uuid,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_by" uuid,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "payroll_opening_balances_employee_year_key" UNIQUE ("employee_id", "fiscal_year_id")
+    )`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "payroll_opening_balances_year_idx" ON "payroll_opening_balances" ("fiscal_year_id")`);
+  } catch {
+    // Ignored until employees and fiscal_years exist; the next sync pass completes it.
+  }
+
+  // Reimbursements (4.8 / F16, migration 0075): types, claims, the REIMBURSE / REIMBURSE_TAX
+  // system pay heads and the REIMBURSEMENTS permission module.
+  const reimbursementQueries = [
+    `CREATE TABLE IF NOT EXISTS "reimbursement_types" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "code" varchar(30) NOT NULL,
+        "name" varchar(100) NOT NULL,
+        "name_np" varchar(100),
+        "taxable" boolean DEFAULT false NOT NULL,
+        "per_claim_cap" numeric(12,2) DEFAULT 0 NOT NULL,
+        "yearly_cap" numeric(12,2) DEFAULT 0 NOT NULL,
+        "receipt_required" boolean DEFAULT true NOT NULL,
+        "is_active" boolean DEFAULT true NOT NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "reimbursement_types_code_key" UNIQUE ("code")
+      )`,
+    `CREATE TABLE IF NOT EXISTS "reimbursement_claims" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "type_id" uuid NOT NULL REFERENCES "reimbursement_types"("id") ON DELETE RESTRICT,
+        "expense_date" date NOT NULL,
+        "amount" numeric(12,2) NOT NULL,
+        "receipt_no" varchar(60),
+        "description" text NOT NULL,
+        "taxable" boolean DEFAULT false NOT NULL,
+        "status" varchar(10) DEFAULT 'draft' NOT NULL,
+        "decision_note" text,
+        "decided_by" uuid,
+        "decided_at" timestamp,
+        "settled_at" timestamp,
+        "payroll_run_id" uuid REFERENCES "payroll_runs"("id") ON DELETE SET NULL,
+        "created_by" uuid,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_by" uuid,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "reimbursement_claims_employee_idx" ON "reimbursement_claims" ("employee_id", "expense_date")`,
+    `CREATE INDEX IF NOT EXISTS "reimbursement_claims_status_idx" ON "reimbursement_claims" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "reimbursement_claims_run_idx" ON "reimbursement_claims" ("payroll_run_id")`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:REIMBURSE')::uuid, 'REIMBURSE', 'Reimbursement', 'allowance', false, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'REIMBURSE')`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:REIMBURSE_TAX')::uuid, 'REIMBURSE_TAX', 'Reimbursement (taxable)', 'allowance', true, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'REIMBURSE_TAX')`,
+    `INSERT INTO "permissions" ("id", "action", "module")
+      SELECT md5('perm:' || a || ':REIMBURSEMENTS')::uuid, a::action, 'REIMBURSEMENTS'::module
+      FROM unnest(ARRAY['VIEW','ADD','EDIT','DELETE','APPROVE','EXPORT','LOCK']) AS a
+      ON CONFLICT ("action", "module") DO NOTHING`,
+    `INSERT INTO "role_permissions" ("id", "role_id", "permission_id")
+      SELECT md5('rp:' || r."id"::text || ':' || p."id"::text)::uuid, r."id", p."id"
+      FROM "roles" r
+      JOIN "permissions" p ON p."module" = 'REIMBURSEMENTS'
+        AND (r."slug" = 'system_admin' OR (r."slug" = 'hr_manager' AND p."action" IN ('VIEW', 'ADD', 'EDIT', 'APPROVE')) OR (r."slug" = 'payroll_controller' AND p."action" IN ('VIEW', 'LOCK')))
+      WHERE r."slug" IN ('system_admin', 'hr_manager', 'payroll_controller')
+        AND NOT EXISTS (
+          SELECT 1 FROM "role_permissions" rp WHERE rp."role_id" = r."id" AND rp."permission_id" = p."id"
+        )`,
+  ];
+  for (const q of reimbursementQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables exist, or until the REIMBURSEMENTS enum value from
+      // step 1 is committed (the next sync pass completes it).
+    }
+  }
+
+  // Bilingual payslip (4.8 / F11, migration 0072): a pay head's Nepali name.
+  try {
+    await sql.unsafe(`ALTER TABLE "pay_heads" ADD COLUMN IF NOT EXISTS "name_np" varchar(255)`);
+  } catch {
+    // Ignored until pay_heads exists; the next sync pass completes it.
+  }
+
+  // Pay run types (4.8 / F6, migration 0071): REGULAR / FESTIVAL / ARREARS; existing runs are REGULAR.
+  try {
+    await sql.unsafe(`ALTER TABLE "payroll_runs" ADD COLUMN IF NOT EXISTS "run_type" varchar(20) DEFAULT 'REGULAR' NOT NULL`);
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS "payroll_runs_period_type_idx" ON "payroll_runs" ("pay_period_year", "pay_period_month", "run_type")`);
+  } catch {
+    // Ignored until payroll_runs exists; the next sync pass completes it.
+  }
+
+  // Statutory IDs (4.8 / F9, migration 0070): SSF ID, Provident Fund and CIT numbers.
+  for (const column of ['ssf_number', 'pf_number', 'cit_number']) {
+    try {
+      await sql.unsafe(`ALTER TABLE "employee_personal" ADD COLUMN IF NOT EXISTS "${column}" varchar(30)`);
+    } catch {
+      // Ignored until employee_personal exists; the next sync pass completes it.
+    }
+  }
+
   // Full & final settlement (4.8 / F8, migration 0066): one frozen statement per exit case.
   try {
     await sql.unsafe(`CREATE TABLE IF NOT EXISTS "exit_settlements" (
@@ -1847,5 +2002,165 @@ WHERE fy."id" = c."fiscal_year_id" AND c."period_year" IS NULL
       // Ignored until the referenced tables exist, or until the WELFARE_FUNDS enum
       // value from step 1 is committed (the next sync pass completes it).
     }
+  }
+
+  // Leave salary (4.9, migration 0076): year-end excess and balance encashments, paid through the
+  // pay run on the LEAVE_ENCASH system head (taxable); one record per opening line while not cancelled.
+  const leaveSalaryQueries = [
+    `ALTER TABLE "leave_salary_runs" DROP CONSTRAINT IF EXISTS "leave_salary_runs_employee_id_leave_type_id_payment_period_unique"`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "source" varchar(20) DEFAULT 'balance' NOT NULL`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "source_line_id" uuid`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "fiscal_year_id" uuid`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "basic_salary" numeric(15,2)`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "rate_basis" varchar(20)`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "note" text`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "approved_at" timestamp`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "cancel_reason" text`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "cancelled_by" uuid`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "cancelled_at" timestamp`,
+    `ALTER TABLE "leave_salary_runs" ADD COLUMN IF NOT EXISTS "settled_at" timestamp`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "leave_salary_runs_source_line_key" ON "leave_salary_runs" ("source_line_id") WHERE "source_line_id" IS NOT NULL AND "cancelled_at" IS NULL`,
+    `INSERT INTO "pay_heads" ("id", "code", "name", "name_np", "type", "effect_on_tax", "calc_basis", "calc_parameter", "calc_percent")
+      SELECT md5('payhead:LEAVE_ENCASH')::uuid, 'LEAVE_ENCASH', 'Leave encashment', 'बिदा साटो रकम', 'allowance', true, 'None', 'FixedAmount', 0
+      WHERE NOT EXISTS (SELECT 1 FROM "pay_heads" WHERE "code" = 'LEAVE_ENCASH')`,
+  ];
+  for (const q of leaveSalaryQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables and columns exist; the next sync pass completes it.
+    }
+  }
+
+  // Loans (4.10, migration 0077): loan types' kind and limits, requests decided through the
+  // approval engine, loans' frozen terms and closing, and what each payslip deducts per loan
+  // (posted when the run locks).
+  const loanQueries = [
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "kind" varchar(20) DEFAULT 'loan' NOT NULL`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "name_np" varchar(255)`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "max_salary_months" numeric(5,2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "eligible_after_months" integer DEFAULT 0 NOT NULL`,
+    `ALTER TABLE "loan_types" ADD COLUMN IF NOT EXISTS "self_service" boolean DEFAULT false NOT NULL`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "source" varchar(20) DEFAULT 'disbursed' NOT NULL`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "interest_rate" numeric(5,2) DEFAULT '0' NOT NULL`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "total_payable" numeric(15,2)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "first_deduction_month" varchar(7)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "paid_via" varchar(20)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "payment_ref" varchar(100)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "note" varchar(500)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "created_by" uuid`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "closed_at" timestamp`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "closed_how" varchar(20)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "closed_by" uuid`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "close_note" varchar(500)`,
+    `ALTER TABLE "loans" ADD COLUMN IF NOT EXISTS "written_off_amount" numeric(15,2) DEFAULT '0' NOT NULL`,
+    `UPDATE "loans" SET "total_payable" = "total_returned" + "remaining_amount" WHERE "total_payable" IS NULL`,
+    `ALTER TABLE "loans" ALTER COLUMN "total_payable" SET NOT NULL`,
+    `UPDATE "loans" SET "interest_rate" = LEAST(999.99, ROUND(("total_payable" / "loan_amount" - 1) * 100, 2)) WHERE "interest_rate" = 0 AND "loan_amount" > 0 AND "total_payable" > "loan_amount"`,
+    `UPDATE "loans" SET "closed_at" = "updated_at", "closed_how" = 'repaid' WHERE "status" = 'CLOSED' AND "closed_at" IS NULL`,
+    `CREATE INDEX IF NOT EXISTS "loans_status_idx" ON "loans" ("status")`,
+    `ALTER TABLE "loan_repayments" ADD COLUMN IF NOT EXISTS "note" varchar(500)`,
+    `DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM "loan_repayments" WHERE "payroll_slip_id" IS NOT NULL GROUP BY "payroll_slip_id", "loan_id" HAVING count(*) > 1) THEN
+          CREATE UNIQUE INDEX IF NOT EXISTS "loan_repayments_slip_loan_key" ON "loan_repayments" ("payroll_slip_id", "loan_id") WHERE "payroll_slip_id" IS NOT NULL;
+        END IF;
+      END $$`,
+    `CREATE TABLE IF NOT EXISTS "loan_requests" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "employee_id" uuid NOT NULL REFERENCES "employees"("id") ON DELETE CASCADE,
+        "loan_type_id" uuid NOT NULL REFERENCES "loan_types"("id") ON DELETE RESTRICT,
+        "amount" numeric(15,2) NOT NULL,
+        "installments" integer NOT NULL,
+        "interest_rate" numeric(5,2) DEFAULT '0' NOT NULL,
+        "reason" varchar(500) NOT NULL,
+        "source" varchar(20) DEFAULT 'office' NOT NULL,
+        "status" varchar(20) DEFAULT 'pending' NOT NULL,
+        "prepared_by" uuid,
+        "approval_type" varchar(20),
+        "approval_levels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+        "current_level" integer DEFAULT 0 NOT NULL,
+        "approval_route" varchar(20),
+        "decided_by" uuid,
+        "decided_at" timestamp,
+        "decision_note" varchar(500),
+        "loan_id" uuid REFERENCES "loans"("id") ON DELETE SET NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )`,
+    `CREATE INDEX IF NOT EXISTS "loan_requests_employee_idx" ON "loan_requests" ("employee_id")`,
+    `CREATE INDEX IF NOT EXISTS "loan_requests_status_idx" ON "loan_requests" ("status")`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "loan_requests_one_open_key" ON "loan_requests" ("employee_id", "loan_type_id") WHERE "status" IN ('pending', 'approved')`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "loan_requests_loan_key" ON "loan_requests" ("loan_id") WHERE "loan_id" IS NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS "payroll_slip_loans" (
+        "id" uuid PRIMARY KEY NOT NULL,
+        "payroll_slip_id" uuid NOT NULL REFERENCES "payroll_slips"("id") ON DELETE CASCADE,
+        "loan_id" uuid NOT NULL REFERENCES "loans"("id") ON DELETE RESTRICT,
+        "amount" numeric(15,2) NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "payroll_slip_loans_slip_loan_key" UNIQUE ("payroll_slip_id", "loan_id")
+      )`,
+    `CREATE INDEX IF NOT EXISTS "payroll_slip_loans_loan_idx" ON "payroll_slip_loans" ("loan_id")`,
+  ];
+  for (const q of loanQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the referenced tables and columns exist; the next sync pass completes it.
+    }
+  }
+
+  // Fiscal years (4.12, migration 0078, S49): labels by the BS years (the old screen used the AD
+  // years) and only Active / Inactive / Locked. Both idempotent.
+  const fiscalYearQueries = [
+    `UPDATE "fiscal_years"
+      SET "label" = 'FY ' || left("start_date_bs", 4) || '/' || right((left("start_date_bs", 4)::int + 1)::text, 2), "updated_at" = now()
+      WHERE "start_date_bs" ~ '^[0-9]{4}-'
+        AND "label" <> 'FY ' || left("start_date_bs", 4) || '/' || right((left("start_date_bs", 4)::int + 1)::text, 2)`,
+    `UPDATE "fiscal_years" SET "status" = 'Inactive', "updated_at" = now() WHERE "status" NOT IN ('Active', 'Inactive', 'Locked')`,
+  ];
+  for (const q of fiscalYearQueries) {
+    try {
+      await sql.unsafe(q);
+    } catch {
+      // Ignored until the table exists; the next sync pass completes it.
+    }
+  }
+
+  // Pay heads (4.12b, migration 0079, S51): an empty applicability list is everyone. Lists the old
+  // screen (or onboarding) filled with every department / designation of the time become empty
+  // again; chosen lists stay. Once: the column comments written in the same block mark it done.
+  try {
+    await sql.unsafe(`DO $$
+      BEGIN
+        IF to_regclass('pay_heads') IS NOT NULL AND to_regclass('departments') IS NOT NULL AND to_regclass('designations') IS NOT NULL THEN
+          IF col_description(to_regclass('pay_heads'), (SELECT a.attnum FROM pg_attribute a WHERE a.attrelid = to_regclass('pay_heads') AND a.attname = 'applicable_department_ids')) IS NULL THEN
+            UPDATE "pay_heads" p SET "applicable_department_ids" = ARRAY[]::text[]
+              WHERE cardinality(p."applicable_department_ids") > 0
+                AND NOT EXISTS (SELECT 1 FROM "departments" d WHERE d."created_at" <= p."updated_at" + interval '6 hours' AND NOT (d."id"::text = ANY (p."applicable_department_ids")));
+            UPDATE "pay_heads" p SET "applicable_designation_ids" = ARRAY[]::text[]
+              WHERE cardinality(p."applicable_designation_ids") > 0
+                AND NOT EXISTS (SELECT 1 FROM "designations" g WHERE g."created_at" <= p."updated_at" + interval '6 hours' AND NOT (g."id"::text = ANY (p."applicable_designation_ids")));
+            COMMENT ON COLUMN "pay_heads"."applicable_department_ids" IS 'Department ids the head is for; empty = every department (S51).';
+            COMMENT ON COLUMN "pay_heads"."applicable_designation_ids" IS 'Designation ids the head is for; empty = every designation (S51).';
+          END IF;
+        END IF;
+      END $$`);
+  } catch (err) {
+    console.error("[tenant-schema-sync] pay heads 0079:", err instanceof Error ? err.message.slice(0, 200) : err);
+  }
+
+  // Holidays (4.12c, migration 0080, S52): who gets the day off ("everyone" | "women"). Holidays
+  // named for women become women-only once, in the block that adds the column.
+  try {
+    await sql.unsafe(`DO $$
+      BEGIN
+        IF to_regclass('holidays') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'holidays' AND column_name = 'applies_to') THEN
+          ALTER TABLE "holidays" ADD COLUMN "applies_to" varchar(10) DEFAULT 'everyone' NOT NULL;
+          UPDATE "holidays" SET "applies_to" = 'women' WHERE "name" ~* 'women';
+        END IF;
+      END $$`);
+  } catch (err) {
+    console.error("[tenant-schema-sync] holidays 0080:", err instanceof Error ? err.message.slice(0, 200) : err);
   }
 }

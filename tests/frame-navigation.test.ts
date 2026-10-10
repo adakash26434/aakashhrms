@@ -34,8 +34,8 @@ describe('Navigation model (2.1)', () => {
   it('hides sections without permission and drops empty modules', () => {
     const modules = visibleModules({ allowedModules: ['EMPLOYEES', 'REPORTS_PAYSLIP'], fullAccess: false });
     assert.deepEqual(modules.map((m) => m.id), ['home', 'workforce', 'reports']);
-    // Lifecycle events (G2) and Exit (G5) also live under EMPLOYEES.
-    assert.deepEqual(modules.find((m) => m.id === 'workforce')!.sections.map((s) => s.id), ['employees', 'lifecycle', 'exit']);
+    // Detail changes (F13), Lifecycle events (G2) and Exit (G5) also live under EMPLOYEES.
+    assert.deepEqual(modules.find((m) => m.id === 'workforce')!.sections.map((s) => s.id), ['employees', 'detail-changes', 'lifecycle', 'exit']);
   });
 
   it('treats an empty permission list as no access (except the dashboard)', () => {
@@ -120,5 +120,20 @@ describe('Command palette ranking (2.6)', () => {
   it('allows skipped letters but not random input', () => {
     assert.ok(scoreCandidate(items[0], 'slsht') > 0);
     assert.equal(rankCandidates(items, 'zzzz').length, 0);
+  });
+});
+
+describe('Administrators see every module (F16 fix)', () => {
+  it('their allowed modules are the schema enum, so every section requiring a module shows', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { moduleEnum } = await import('../lib/db/schema');
+    const source = readFileSync(join(root, 'lib/auth/get-user-permissions.ts'), 'utf8');
+    assert.match(source, /if \(set\.isAdmin\) return new Set\(moduleEnum\.enumValues\);/);
+    // Every module a navigation section requires is a real module, so an administrator sees it.
+    const all = new Set<string>(moduleEnum.enumValues);
+    for (const m of NAV_MODULES) for (const s of m.sections) for (const r of s.requires ?? []) assert.ok(all.has(r), `${s.id} requires ${r}`);
+    const admin = { allowedModules: [...moduleEnum.enumValues], fullAccess: false };
+    const payroll = visibleModules(admin).find((m) => m.id === 'payroll');
+    for (const id of ['funds', 'travel', 'reimbursements', 'opening-balances']) assert.ok(payroll?.sections.some((s) => s.id === id), id);
   });
 });

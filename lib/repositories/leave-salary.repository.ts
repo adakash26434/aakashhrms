@@ -1,262 +1,224 @@
 import { getDb } from '@/lib/db';
-import { leaveSalaryRuns, users, employees } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { employees, fiscalYears, leaveLedger, leaveSalaryRuns, leaveTypes, payrollRuns, users } from '@/lib/db/schema';
+import { and, desc, eq, inArray, isNull, like, lt, ne, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { LeaveSalaryRun, LeaveSalaryRunStatus, EncashmentType, PaymentMethod } from '@/lib/types/payroll';
+import { postLedgerLines, type NewLedgerLine } from '@/lib/repositories/leave.repository';
 
-// ---------------------------------------------------------------------------
-// Mapper — replaces all `as unknown as` casts (ARCH-4 fix)
-// ---------------------------------------------------------------------------
-function mapLeaveSalaryRun(row: typeof leaveSalaryRuns.$inferSelect): LeaveSalaryRun {
-  return {
-    id: row.id,
-    payrollRunId: row.payrollRunId,
-    employeeId: row.employeeId,
-    leaveTypeId: row.leaveTypeId,
-    leaveDays: row.leaveDays,
-    perDayRate: row.perDayRate,
-    totalAmount: row.totalAmount,
-    tdsAmount: row.tdsAmount,
-    encashmentType: (row.encashmentType || 'VOLUNTARY') as EncashmentType,
-    paymentPeriod: row.paymentPeriod,
-    paymentMethod: (row.paymentMethod || 'BANK_TRANSFER') as PaymentMethod,
-    status: row.status as LeaveSalaryRunStatus,
-    createdBy: row.createdBy,
-    approvedBy: row.approvedBy,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
+// Leave salary (4.9): Drizzle queries only. Rules in lib/engines/leave-salary.engine.ts;
+// orchestration in lib/services/leave-salary.service.ts. Records are read within the caller's
+// employee scope; every status move is claim-first, and the ledger lines that go with it are
+// posted in the same transaction.
+
+export type RecordRow = typeof leaveSalaryRuns.$inferSelect;
+export type RecordWrite = Omit<typeof leaveSalaryRuns.$inferInsert, 'id' | 'createdAt' | 'updatedAt'>;
+
+export interface RecordJoined extends RecordRow {
+  employeeName: string;
+  employeeCode: string;
+  leaveTypeName: string;
+  leaveYear: string | null;
+  createdByName: string | null;
+  approvedByName: string | null;
+  runYear: number | null;
+  runMonth: number | null;
 }
 
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
+const creator = alias(users, 'creator');
+const approver = alias(users, 'approver');
 
-export async function findAllLeaveSalaryRuns(filter?: {
-  employeeId?: string;
-  status?: LeaveSalaryRunStatus;
-  period?: string;
-}): Promise<LeaveSalaryRun[]> {
-  const conditions = [];
-
-  if (filter?.employeeId) {
-    conditions.push(eq(leaveSalaryRuns.employeeId, filter.employeeId));
-  }
-  if (filter?.status) {
-    conditions.push(eq(leaveSalaryRuns.status, filter.status));
-  }
-  if (filter?.period) {
-    conditions.push(eq(leaveSalaryRuns.paymentPeriod, filter.period));
-  }
-
-  const approverUser = alias(users, 'approverUser');
-  const approverEmp = alias(employees, 'approverEmp');
-
-  const creatorUser = alias(users, 'creatorUser');
-  const creatorEmp = alias(employees, 'creatorEmp');
-
-  const rows = await (await getDb()).select({
-    run: leaveSalaryRuns,
-    approverEmail: approverUser.email,
-    approverFullName: approverEmp.fullName,
-    creatorEmail: creatorUser.email,
-    creatorFullName: creatorEmp.fullName,
-  })
-  .from(leaveSalaryRuns)
-  .leftJoin(approverUser, eq(leaveSalaryRuns.approvedBy, approverUser.id))
-  .leftJoin(approverEmp, eq(approverUser.employeeId, approverEmp.id))
-  .leftJoin(creatorUser, eq(leaveSalaryRuns.createdBy, creatorUser.id))
-  .leftJoin(creatorEmp, eq(creatorUser.employeeId, creatorEmp.id))
-  .where(conditions.length > 0 ? and(...conditions) : undefined)
-  .orderBy(desc(leaveSalaryRuns.createdAt));
-
-  return rows.map(({ run, approverEmail, approverFullName, creatorEmail, creatorFullName }) => {
-    let approvedByName: string | null = null;
-    if (approverFullName) {
-      approvedByName = approverFullName;
-    } else if (approverEmail) {
-      approvedByName = approverEmail.split('@')[0];
-    }
-
-    let createdByName: string | null = null;
-    if (creatorFullName) {
-      createdByName = creatorFullName;
-    } else if (creatorEmail) {
-      createdByName = creatorEmail.split('@')[0];
-    }
-
-    return {
-      ...mapLeaveSalaryRun(run),
-      approvedByName,
-      createdByName,
-    };
-  });
+async function selectRecords(where: SQL<unknown> | undefined, limit: number): Promise<RecordJoined[]> {
+  const rows = await (await getDb())
+    .select({
+      r: leaveSalaryRuns,
+      employeeName: employees.fullName,
+      employeeCode: employees.employeeCode,
+      leaveTypeName: leaveTypes.name,
+      leaveYear: fiscalYears.label,
+      createdByName: sql<string | null>`COALESCE(NULLIF(${creator.name}, ''), ${creator.email})`,
+      approvedByName: sql<string | null>`COALESCE(NULLIF(${approver.name}, ''), ${approver.email})`,
+      runYear: payrollRuns.payPeriodYear,
+      runMonth: payrollRuns.payPeriodMonth,
+    })
+    .from(leaveSalaryRuns)
+    .innerJoin(employees, eq(leaveSalaryRuns.employeeId, employees.id))
+    .innerJoin(leaveTypes, eq(leaveSalaryRuns.leaveTypeId, leaveTypes.id))
+    .leftJoin(fiscalYears, eq(leaveSalaryRuns.fiscalYearId, fiscalYears.id))
+    .leftJoin(creator, eq(leaveSalaryRuns.createdBy, creator.id))
+    .leftJoin(approver, eq(leaveSalaryRuns.approvedBy, approver.id))
+    .leftJoin(payrollRuns, eq(leaveSalaryRuns.payrollRunId, payrollRuns.id))
+    .where(where)
+    .orderBy(desc(leaveSalaryRuns.createdAt))
+    .limit(limit);
+  return rows.map((x) => ({ ...x.r, employeeName: x.employeeName, employeeCode: x.employeeCode, leaveTypeName: x.leaveTypeName, leaveYear: x.leaveYear, createdByName: x.createdByName, approvedByName: x.approvedByName, runYear: x.runYear, runMonth: x.runMonth }));
 }
 
-export async function findLeaveSalaryRunById(id: string): Promise<LeaveSalaryRun | undefined> {
-  const rows = await (await getDb()).select().from(leaveSalaryRuns).where(eq(leaveSalaryRuns.id, id));
-  if (!rows.length) return undefined;
-  return mapLeaveSalaryRun(rows[0]);
+export const listRecords = (scopeCondition?: SQL<unknown>) => selectRecords(scopeCondition, 2000);
+
+export async function findRecord(id: string, scopeCondition?: SQL<unknown>): Promise<RecordJoined | null> {
+  const rows = await selectRecords(and(eq(leaveSalaryRuns.id, id), scopeCondition), 1);
+  return rows[0] ?? null;
 }
 
-export async function findDraftRunForEmployeeAndPeriod(
-  employeeId: string,
-  leaveTypeId: string,
-  paymentPeriod: string
-): Promise<LeaveSalaryRun | undefined> {
-  const rows = await (await getDb()).select()
+/** An active employee within the scope condition (who leave salary is prepared for). */
+export async function activeEmployeeInScope(employeeId: string, scopeCondition?: SQL<unknown>): Promise<boolean> {
+  const [row] = await (await getDb())
+    .select({ id: employees.id })
+    .from(employees)
+    .where(and(eq(employees.id, employeeId), eq(employees.status, 'Active'), scopeCondition))
+    .limit(1);
+  return !!row;
+}
+
+/** A balance encashment of this leave for this person still being prepared (one at a time). */
+export async function draftExists(employeeId: string, leaveTypeId: string, excludeId?: string): Promise<boolean> {
+  const [row] = await (await getDb())
+    .select({ id: leaveSalaryRuns.id })
     .from(leaveSalaryRuns)
     .where(
       and(
         eq(leaveSalaryRuns.employeeId, employeeId),
         eq(leaveSalaryRuns.leaveTypeId, leaveTypeId),
-        eq(leaveSalaryRuns.paymentPeriod, paymentPeriod),
-        eq(leaveSalaryRuns.status, 'DRAFT')
+        eq(leaveSalaryRuns.source, 'balance'),
+        eq(leaveSalaryRuns.status, 'DRAFT'),
+        excludeId ? ne(leaveSalaryRuns.id, excludeId) : undefined
       )
-    );
-
-  if (!rows.length) return undefined;
-  return mapLeaveSalaryRun(rows[0]);
+    )
+    .limit(1);
+  return !!row;
 }
 
-export async function findRunsByStatus(status: LeaveSalaryRunStatus): Promise<LeaveSalaryRun[]> {
-  const rows = await (await getDb()).select()
-    .from(leaveSalaryRuns)
-    .where(eq(leaveSalaryRuns.status, status))
-    .orderBy(desc(leaveSalaryRuns.createdAt));
-
-  return rows.map(mapLeaveSalaryRun);
+/** All in one transaction (a year-end line already in a record stops the whole batch: the unique index). */
+export async function insertRecords(rows: RecordWrite[]): Promise<RecordRow[]> {
+  if (!rows.length) return [];
+  return (await getDb()).transaction((tx) => tx.insert(leaveSalaryRuns).values(rows).returning());
 }
 
-export async function findRunsByEmployeeId(employeeId: string): Promise<LeaveSalaryRun[]> {
-  const rows = await (await getDb()).select()
-    .from(leaveSalaryRuns)
-    .where(eq(leaveSalaryRuns.employeeId, employeeId))
-    .orderBy(desc(leaveSalaryRuns.createdAt));
-
-  return rows.map(mapLeaveSalaryRun);
+/** Claim-first: changes a record only while it is still a draft. */
+export async function updateDraft(id: string, set: Partial<RecordWrite>): Promise<RecordRow | null> {
+  const [row] = await (await getDb())
+    .update(leaveSalaryRuns)
+    .set({ ...set, updatedAt: new Date() })
+    .where(and(eq(leaveSalaryRuns.id, id), eq(leaveSalaryRuns.status, 'DRAFT')))
+    .returning();
+  return row ?? null;
 }
 
-export async function findLeaveSalaryRunsByPeriod(period: string): Promise<LeaveSalaryRun[]> {
-  const rows = await (await getDb()).select()
-    .from(leaveSalaryRuns)
-    .where(eq(leaveSalaryRuns.paymentPeriod, period));
-  return rows.map(mapLeaveSalaryRun);
+export async function deleteDraft(id: string): Promise<boolean> {
+  const rows = await (await getDb())
+    .delete(leaveSalaryRuns)
+    .where(and(eq(leaveSalaryRuns.id, id), eq(leaveSalaryRuns.status, 'DRAFT')))
+    .returning({ id: leaveSalaryRuns.id });
+  return rows.length > 0;
 }
 
-// Original 2-column check (kept for backward compatibility)
-export async function findLeaveSalaryRunByEmployeeAndPeriod(args: {
+/**
+ * Claim-first approval: DRAFT → APPROVED, with the pay month made a real one, and the ledger
+ * lines (a balance encashment's days leaving the balance) posted in the same transaction.
+ */
+export async function approve(id: string, userId: string, payMonth: string, ledger: NewLedgerLine[]): Promise<RecordRow | null> {
+  return (await getDb()).transaction(async (tx) => {
+    const [row] = await tx
+      .update(leaveSalaryRuns)
+      .set({ status: 'APPROVED', approvedBy: userId, approvedAt: new Date(), paymentPeriod: payMonth, updatedAt: new Date() })
+      .where(and(eq(leaveSalaryRuns.id, id), eq(leaveSalaryRuns.status, 'DRAFT')))
+      .returning();
+    if (!row) return null;
+    await postLedgerLines(ledger, tx);
+    return row;
+  });
+}
+
+/** Claim-first cancellation of an approved record no pay run has taken; the days come back in the same transaction. */
+export async function cancel(id: string, userId: string, reason: string, ledger: NewLedgerLine[]): Promise<RecordRow | null> {
+  return (await getDb()).transaction(async (tx) => {
+    const [row] = await tx
+      .update(leaveSalaryRuns)
+      .set({ status: 'CANCELLED', cancelReason: reason, cancelledBy: userId, cancelledAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(leaveSalaryRuns.id, id), eq(leaveSalaryRuns.status, 'APPROVED'), isNull(leaveSalaryRuns.payrollRunId)))
+      .returning();
+    if (!row) return null;
+    await postLedgerLines(ledger, tx);
+    return row;
+  });
+}
+
+/** Ledger lines already posted for these refs (a move never posts its line twice). */
+export async function postedRefs(employeeId: string, refs: string[]): Promise<Set<string>> {
+  if (!refs.length) return new Set();
+  const rows = await (await getDb())
+    .select({ ref: leaveLedger.ref })
+    .from(leaveLedger)
+    .where(and(eq(leaveLedger.employeeId, employeeId), inArray(leaveLedger.ref, refs)));
+  return new Set(rows.map((r) => r.ref).filter((r): r is string => !!r));
+}
+
+export interface DueLine {
+  id: string;
   employeeId: string;
-  paymentPeriod: string;
-}): Promise<LeaveSalaryRun | undefined> {
-  const rows = await (await getDb()).select()
-    .from(leaveSalaryRuns)
-    .where(
-      and(
-        eq(leaveSalaryRuns.employeeId, args.employeeId),
-        eq(leaveSalaryRuns.paymentPeriod, args.paymentPeriod)
-      )
-    );
-  if (!rows.length) return undefined;
-  return mapLeaveSalaryRun(rows[0]);
-}
-
-// 3-column check: employee + leaveType + period (BUG-5 fix)
-export async function findLeaveSalaryRunByEmployeeLeaveTypeAndPeriod(args: {
-  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  employeeStatus: string;
   leaveTypeId: string;
-  paymentPeriod: string;
-}): Promise<LeaveSalaryRun | undefined> {
-  const rows = await (await getDb()).select()
-    .from(leaveSalaryRuns)
+  leaveTypeName: string;
+  fiscalYearId: string;
+  leaveYear: string | null;
+  entryDate: string;
+  days: number;
+}
+
+/**
+ * The days over the limit that leave years' openings marked to be paid (`paid_out`, ref
+ * opening:<year>) and no record pays yet, within the scope (optionally only these lines).
+ */
+export async function dueLines(scopeCondition?: SQL<unknown>, lineIds?: string[]): Promise<DueLine[]> {
+  if (lineIds && !lineIds.length) return [];
+  const paid = sql`EXISTS (SELECT 1 FROM ${leaveSalaryRuns} WHERE ${leaveSalaryRuns.sourceLineId} = ${leaveLedger.id} AND ${leaveSalaryRuns.cancelledAt} IS NULL)`;
+  const rows = await (await getDb())
+    .select({
+      id: leaveLedger.id,
+      employeeId: leaveLedger.employeeId,
+      employeeName: employees.fullName,
+      employeeCode: employees.employeeCode,
+      employeeStatus: employees.status,
+      leaveTypeId: leaveLedger.leaveTypeId,
+      leaveTypeName: leaveTypes.name,
+      fiscalYearId: leaveLedger.fiscalYearId,
+      leaveYear: fiscalYears.label,
+      entryDate: leaveLedger.entryDate,
+      days: leaveLedger.days,
+    })
+    .from(leaveLedger)
+    .innerJoin(employees, eq(leaveLedger.employeeId, employees.id))
+    .innerJoin(leaveTypes, eq(leaveLedger.leaveTypeId, leaveTypes.id))
+    .leftJoin(fiscalYears, eq(leaveLedger.fiscalYearId, fiscalYears.id))
     .where(
       and(
-        eq(leaveSalaryRuns.employeeId, args.employeeId),
-        eq(leaveSalaryRuns.leaveTypeId, args.leaveTypeId),
-        eq(leaveSalaryRuns.paymentPeriod, args.paymentPeriod)
+        eq(leaveLedger.kind, 'paid_out'),
+        lt(leaveLedger.days, '0'),
+        like(leaveLedger.ref, 'opening:%'),
+        sql`NOT ${paid}`,
+        scopeCondition,
+        lineIds ? inArray(leaveLedger.id, lineIds) : undefined
+      )
+    )
+    .orderBy(desc(leaveLedger.entryDate), employees.fullName)
+    .limit(2000);
+  return rows.map((r) => ({ ...r, entryDate: String(r.entryDate).slice(0, 10), days: Number(r.days) }));
+}
+
+/** The bell: drafts in the scope someone else prepared, never about the counting person's own record. */
+export async function countDraftsFor(scopeCondition: SQL<unknown> | undefined, actor: { userId: string; employeeId: string | null }): Promise<number> {
+  const [row] = await (await getDb())
+    .select({ n: sql<number>`count(*)::int` })
+    .from(leaveSalaryRuns)
+    .innerJoin(employees, eq(leaveSalaryRuns.employeeId, employees.id))
+    .where(
+      and(
+        eq(leaveSalaryRuns.status, 'DRAFT'),
+        ne(leaveSalaryRuns.createdBy, actor.userId),
+        actor.employeeId ? ne(leaveSalaryRuns.employeeId, actor.employeeId) : undefined,
+        scopeCondition
       )
     );
-  if (!rows.length) return undefined;
-  return mapLeaveSalaryRun(rows[0]);
-}
-
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
-export async function createLeaveSalaryRun(
-  data: Omit<LeaveSalaryRun, 'id' | 'createdAt' | 'updatedAt' | 'approvedBy'> & { approvedBy?: string | null }
-): Promise<LeaveSalaryRun> {
-  const rows = await (await getDb()).insert(leaveSalaryRuns).values({
-    payrollRunId: data.payrollRunId ?? null,
-    employeeId: data.employeeId,
-    leaveTypeId: data.leaveTypeId,
-    leaveDays: data.leaveDays,
-    perDayRate: data.perDayRate,
-    totalAmount: data.totalAmount,
-    tdsAmount: data.tdsAmount,
-    encashmentType: data.encashmentType,
-    paymentPeriod: data.paymentPeriod,
-    paymentMethod: data.paymentMethod,
-    status: data.status,
-    createdBy: data.createdBy,
-    approvedBy: data.approvedBy ?? null,
-  }).returning();
-
-  return mapLeaveSalaryRun(rows[0]);
-}
-
-export async function updateLeaveSalaryRunStatus(
-  id: string,
-  status: LeaveSalaryRunStatus,
-  approvedByUserId?: string,
-  tx?: any
-): Promise<LeaveSalaryRun> {
-  const client = tx || (await getDb());
-  const updateData: Record<string, unknown> = {
-    status,
-    updatedAt: new Date(),
-  };
-
-  if (approvedByUserId) {
-    updateData.approvedBy = approvedByUserId;
-  }
-
-  const rows = await client.update(leaveSalaryRuns)
-    .set(updateData)
-    .where(eq(leaveSalaryRuns.id, id))
-    .returning();
-
-  return mapLeaveSalaryRun(rows[0]);
-}
-
-export async function updateLeaveSalaryRunDraft(
-  id: string,
-  data: {
-    leaveDays: string;
-    perDayRate: string;
-    totalAmount: string;
-    paymentPeriod: string;
-    paymentMethod: PaymentMethod;
-    encashmentType: EncashmentType;
-  }
-): Promise<LeaveSalaryRun> {
-  const rows = await (await getDb()).update(leaveSalaryRuns)
-    .set({
-      leaveDays: data.leaveDays,
-      perDayRate: data.perDayRate,
-      totalAmount: data.totalAmount,
-      paymentPeriod: data.paymentPeriod,
-      paymentMethod: data.paymentMethod,
-      encashmentType: data.encashmentType,
-      updatedAt: new Date()
-    })
-    .where(eq(leaveSalaryRuns.id, id))
-    .returning();
-
-  return mapLeaveSalaryRun(rows[0]);
-}
-
-export async function deleteLeaveSalaryRun(id: string): Promise<void> {
-  await (await getDb()).delete(leaveSalaryRuns).where(eq(leaveSalaryRuns.id, id));
+  return row?.n ?? 0;
 }

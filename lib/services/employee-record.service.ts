@@ -13,6 +13,7 @@ import * as userService from "@/lib/services/user.service";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import { gradeMethodLabel } from "@/lib/engines/grade-policy.engine";
 import { getEmployeeInScope } from "@/lib/services/employee.service";
+import { pendingFor } from "@/lib/services/employee-detail.service";
 import { attendanceMonth, historySummary, missingRecords, resolveRecordTab } from "@/lib/engines/employee.engine";
 import { bsMonthDaysToDate, periodLabel } from "@/lib/engines/dashboard.engine";
 import { maskAccountNumber } from "@/lib/utils/mask";
@@ -177,7 +178,9 @@ export async function getEmployeeRecord(
   requestedTab: unknown,
   scope: ScopeFilter,
   access: RecordTabAccess,
-  permissions: EmployeeRecordData["permissions"]
+  permissions: EmployeeRecordData["permissions"],
+  /** Employees → Approve (F13: the waiting change's actions and full values). */
+  canApproveDetails = false
 ): Promise<EmployeeRecordData | null> {
   const employee = await getEmployeeInScope(id, scope);
   if (!employee) return null;
@@ -190,12 +193,20 @@ export async function getEmployeeRecord(
   if (access.history) tabs.push("history");
   const tab = resolveRecordTab(requestedTab, tabs);
 
-  const [profile, facts, navigator] = await Promise.all([buildProfile(employee), loadFacts(employee.id, access), loadNavigator(employee.id, scope)]);
+  const [profile, facts, navigator, detailChange] = await Promise.all([
+    buildProfile(employee),
+    loadFacts(employee.id, access),
+    loadNavigator(employee.id, scope),
+    pendingFor(employee.id, { scope, userId: scope.userId, canApprove: canApproveDetails, canEdit: permissions.edit }).catch((error) => {
+      console.error("[employee-record] detail change unavailable", error instanceof Error ? error.message.slice(0, 120) : error);
+      return null;
+    }),
+  ]);
   try {
     const active = await loadTab(tab, employee.id);
-    return { profile, facts, navigator, tabs, active, failed: false, permissions };
+    return { profile, facts, navigator, tabs, active, failed: false, permissions, detailChange };
   } catch (error) {
     console.error(`[employee-record] tab "${tab}" failed`, error instanceof Error ? error.message : error);
-    return { profile, facts, navigator, tabs, active: { tab: "overview" }, failed: true, permissions };
+    return { profile, facts, navigator, tabs, active: { tab: "overview" }, failed: true, permissions, detailChange };
   }
 }

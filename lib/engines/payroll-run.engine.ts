@@ -55,13 +55,18 @@ export interface PreflightEmployee {
   hasPan: boolean;
   /** Overtime days still waiting for a decision this month. */
   overtimeWaiting: number;
+  /** F15: their opening balance already covers this month (the old system paid it). */
+  coveredByOpening?: boolean;
+  /** 4.10: a loan amount left on the salary structure with no loan recorded (payroll deducts recorded loans only). */
+  loanOnStructure?: boolean;
 }
 
 export interface PreflightInput {
+  /** F6: the monthly salary, or an off-cycle festival allowance / arrears run in the month. */
   runType: RunType;
   period: { year: number; month: number; label: string; start: string; end: string };
   today: string;
-  /** Festival heads chosen for a bonus run. */
+  /** Festival heads chosen for a festival allowance run. */
   festivalHeads: number;
   /** The team's Payroll controls (F3): an open attendance month blocks only when this is on. */
   requireClosedAttendance?: boolean;
@@ -73,9 +78,12 @@ export interface PreflightInput {
   pendingLeaves: number;
   /** Salary changes waiting for approval whose effective date touches the month. */
   pendingSalaryChanges: number;
+  /** The fiscal year the month belongs to (4.12a: not simply the current one). */
   activeFiscalYear: { id: string; label: string } | null;
-  /** Tax slabs of the active fiscal year. */
+  /** Tax slabs of that fiscal year. */
   slabCount: number;
+  /** 4.12a: why that year can't take the run (none covers the month, it is closed, or it has no Individual ladder). */
+  fiscalYearProblem?: string | null;
   /** Runs already made for this period and any of the branches. */
   existingRuns: { id: string; status: PayrollRunStatus }[];
   /** The previous month's run (null: none yet). */
@@ -87,26 +95,33 @@ export interface PreflightInput {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** Everything that must be right before a month is paid: blocking problems stop it, warnings are read first. */
+/**
+ * Everything that must be right before a month is paid: blocking problems stop it, warnings are
+ * read first. Off-cycle runs (F6: festival allowance, arrears) pay one thing on their own — no
+ * attendance, leave, overtime or PF / SSF / CIT — so only the checks that matter to them apply.
+ */
 export function preflight(input: PreflightInput): PreflightResult {
   const p: PreflightProblem[] = [];
   const add = (code: string, severity: PreflightProblem["severity"], text: string, extra: Partial<PreflightProblem> = {}) => p.push({ code, severity, text, ...extra });
   const regular = input.runType === "REGULAR";
-  const bonus = input.runType === "FESTIVAL_BONUS";
-  if (input.period.end >= input.today) add("month_not_ended", "blocking", `${input.period.label} has not ended yet: a month is paid after its last day.`);
+  const festival = input.runType === "FESTIVAL";
+  const kind = regular ? "run" : festival ? "festival allowance run" : "arrears run";
+  // A festival allowance is paid before the festival, so inside its month; the salary after the month.
+  if (regular && input.period.end >= input.today) add("month_not_ended", "blocking", `${input.period.label} has not ended yet: a month is paid after its last day.`);
   if (input.statutoryHeads && !input.statutoryHeads.tds) add("missing_tds_head", "blocking", "The TDS (income tax) pay head is missing from Setup → Pay heads; payroll cannot post tax without it.", { href: "/setup/pay-heads" });
-  if (input.statutoryHeads) {
+  if (input.statutoryHeads && regular) {
     const absent = (["pf", "ssf", "cit"] as const).filter((k) => !input.statutoryHeads![k]).map((k) => k.toUpperCase());
     if (absent.length) add("missing_statutory_head", "warning", `${absent.join(", ")} pay head${absent.length === 1 ? " is" : "s are"} not set up; a run that deducts under ${absent.length === 1 ? "it" : "them"} will fail.`, { href: "/setup/pay-heads" });
   }
-  if (!input.activeFiscalYear) add("no_fiscal_year", "blocking", "No active fiscal year. Set one in Company setup → Fiscal years.", { href: "/setup/fiscal-year" });
+  if (input.fiscalYearProblem) add("fiscal_year", "blocking", input.fiscalYearProblem, { href: "/setup/fiscal-year" });
+  else if (!input.activeFiscalYear) add("no_fiscal_year", "blocking", `No fiscal year covers ${input.period.label}. Add it under Setup → Fiscal years.`, { href: "/setup/fiscal-year" });
   else if (!input.slabCount) add("no_tax_slabs", "blocking", `No income tax slabs for ${input.activeFiscalYear.label}. Add them in Setup → Tax rates.`, { href: "/setup/tax-rates" });
 
+  // One run of each kind per month and branch.
   const locked = input.existingRuns.find((r) => r.status === "LOCKED");
-  if (regular && locked) add("run_locked", "blocking", `${input.period.label} is already paid (a locked run exists) for one of these branches.`);
-  else if (regular && input.existingRuns.length) add("run_exists", "blocking", `A run for ${input.period.label} already exists for these branches. Open it, or discard it and generate again.`);
-  else if (bonus && input.existingRuns.length) add("bonus_exists", "blocking", `A festival bonus run for ${input.period.label} already exists for these branches.`);
-  if (bonus && !input.festivalHeads) add("no_festival_head", "blocking", "Choose the festival allowance to pay (Setup → Pay heads marks it as a festival allowance).", { href: "/setup/pay-heads" });
+  if (locked) add("run_locked", "blocking", regular ? `${input.period.label} is already paid (a locked run exists) for one of these branches.` : `A locked ${kind} for ${input.period.label} already exists for one of these branches.`);
+  else if (input.existingRuns.length) add("run_exists", "blocking", `A ${kind} for ${input.period.label} already exists for these branches. Open it, or discard it and generate again.`);
+  if (festival && !input.festivalHeads) add("no_festival_head", "blocking", "Choose the festival allowance to pay (Setup → Pay heads marks it as a festival allowance).", { href: "/setup/pay-heads" });
 
   if (regular) {
     for (const b of input.branches) {
@@ -119,8 +134,11 @@ export function preflight(input: PreflightInput): PreflightResult {
   if (!input.employees.length) add("no_employees", "blocking", "Nobody in the chosen scope was employed this month.");
   for (const e of input.employees) {
     const about = { employeeId: e.id, employeeName: e.name };
-    if (e.salary === "none") add("no_salary", "blocking", `${e.name} (${e.code}) has no salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
+    // Arrears come from salary revisions already dated; nothing else needs a structure in force.
+    if (e.salary === "none" && input.runType !== "ARREARS") add("no_salary", "blocking", `${e.name} (${e.code}) has no salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
     else if (regular && e.salary === "setup") add("salary_setup", "blocking", `${e.name} (${e.code}) has only basic and grade: finish the salary structure.`, { ...about, href: `/workforce/salary-mapping?employee=${e.id}` });
+    if (e.coveredByOpening) add("covered_by_opening", "blocking", `${e.name} (${e.code}): the opening balance already covers ${input.period.label} (the old system paid it), so paying it here would count it twice.`, { ...about, href: "/payroll/opening" });
+    if (regular && e.loanOnStructure) add("loan_on_structure", "warning", `${e.name} (${e.code}): a loan amount is on the salary structure but no loan is recorded. Payroll deducts recorded loans only: enter it under Loans → Import opening balances.`, { ...about, href: "/loans" });
     if (regular && e.overtimeWaiting) add("overtime_waiting", "blocking", `${e.name}: ${plural(e.overtimeWaiting, "overtime day")} waiting for a decision.`, { ...about, href: "/timeAndLeave/attendance?tab=overtime" });
     if (!e.hasBank) add("no_bank", "warning", `${e.name} (${e.code}) has no bank account: the bank file will skip them.`, { ...about, href: `/workforce/employees/${e.id}` });
     if (!e.hasPan) add("no_pan", "warning", `${e.name} (${e.code}) has no PAN: income tax is deducted, the IRD file needs it.`, { ...about, href: `/workforce/employees/${e.id}` });

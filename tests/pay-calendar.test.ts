@@ -38,7 +38,7 @@ describe('Pay calendar (4.8b)', () => {
 
   it('run labels carry the month and the kind of run', () => {
     assert.equal(runLabel({ calendar: 'BS', payPeriodYear: 2083, payPeriodMonth: 6, runType: 'REGULAR' }), 'Aswin 2083');
-    assert.equal(runLabel({ calendar: 'AD', payPeriodYear: 2026, payPeriodMonth: 10, runType: 'FESTIVAL_BONUS' }), 'October 2026 · Festival bonus');
+    assert.equal(runLabel({ calendar: 'AD', payPeriodYear: 2026, payPeriodMonth: 10, runType: 'FESTIVAL' }), 'October 2026 · Festival allowance');
   });
 
   it('the calendar changes only between months', () => {

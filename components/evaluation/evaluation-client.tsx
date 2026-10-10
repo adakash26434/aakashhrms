@@ -26,11 +26,11 @@ import type { EvaluationListRow, EvaluationsPageData } from "@/lib/types/evaluat
 
 type EvalTab = "evaluations" | "cycles" | "form";
 
-export function EvaluationClient({ data, myUserId }: { data: EvaluationsPageData; myUserId: string }) {
+export function EvaluationClient({ data, myUserId, initialStatus }: { data: EvaluationsPageData; myUserId: string; initialStatus?: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<EvalTab>("evaluations");
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<FilterValues>({});
+  const [filters, setFilters] = useState<FilterValues>((): FilterValues => (initialStatus ? { status: initialStatus } : {}));
   const [openId, setOpenId] = useState<string | null>(null);
   const [openingCycle, setOpeningCycle] = useState(false);
   const [starting, setStarting] = useState(false);

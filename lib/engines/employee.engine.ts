@@ -16,9 +16,12 @@ import { validatePanNo } from "@/lib/utils/nepal-docs";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
 import { documentsChanged, isPrimaryDocument, validateDocuments } from "@/lib/engines/employee-document.engine";
 import { dossierChanged } from "@/lib/engines/employee-dossier.engine";
+import { detailSummary } from "@/lib/engines/employee-detail.engine";
 import { parseStructuredAddress } from "@/lib/constants/nepal-locations";
 
 const WARD_ERROR = "Ward number must be between 1 and 35";
+/** SSF ID, Provident Fund and CIT numbers (F9): kept as typed, so only a safe character set. */
+export const FUND_NUMBER = /^[0-9A-Za-z/-]{3,30}$/;
 
 /** Ward numbers run 1–35 (the largest municipalities have 33); empty is allowed. */
 export function isValidWard(ward: string | undefined | null): boolean {
@@ -58,7 +61,7 @@ export function calculateAgeInYears(birthDate: Date, referenceDate: Date = new D
  * Validates a single specific tab/section of the employee form.
  * Used when user clicks "Next" or navigates between sections.
  */
-export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, options: { today?: string } = {}): EmployeeValidationErrors {
+export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, options: { today?: string; scanRequired?: boolean } = {}): EmployeeValidationErrors {
   const errors: EmployeeValidationErrors = {};
 
   if (tabIndex === 0) {
@@ -148,13 +151,19 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, op
   } else if (tabIndex === 2) {
     // 2: Personal Information, Identity Documents, Contacts & Addresses
     // Documents (4.2b): Citizenship or NID required; numbers, districts, issued dates and scans.
-    Object.assign(errors, validateDocuments(data.documents ?? [], { dateOfBirth: data.dateOfBirth || "", today: options.today ?? nepalDateIso() }));
+    Object.assign(errors, validateDocuments(data.documents ?? [], { dateOfBirth: data.dateOfBirth || "", today: options.today ?? nepalDateIso(), scanRequired: options.scanRequired }));
 
     if (data.panNumber && data.panNumber.trim()) {
       const res = validatePanNo(data.panNumber);
       if (!res.isValid) {
         errors.panNumber = res.error || "Invalid PAN number";
       }
+    }
+
+    // F9: retirement-fund numbers are optional; when given they go into deposit files as typed.
+    for (const field of ["ssfNumber", "pfNumber", "citNumber"] as const) {
+      const value = data[field]?.trim();
+      if (value && !FUND_NUMBER.test(value)) errors[field] = "Use 3–30 letters, digits, '-' or '/'";
     }
 
     const targetCompanyEmail = data.companyEmail || data.email;
@@ -280,9 +289,10 @@ export function validateEmployeeTab(data: EmployeeFormData, tabIndex: number, op
 }
 
 /**
- * Validates the entire employee form across all 5 sections.
+ * Validates the entire employee form across all 5 sections. `scanRequired: false` (F15 import
+ * only) accepts a new identity document without its scan.
  */
-export function validateEmployee(data: EmployeeFormData, options: { today?: string } = {}): EmployeeValidationErrors {
+export function validateEmployee(data: EmployeeFormData, options: { today?: string; scanRequired?: boolean } = {}): EmployeeValidationErrors {
   return {
     ...validateEmployeeTab(data, 0),
     ...validateEmployeeTab(data, 1),
@@ -564,7 +574,7 @@ const AUDITED_FIELDS: readonly (keyof EmployeeFormData & keyof Employee)[] = [
   "employeeCode", "attendanceCode", "fullName", "gender", "dateOfBirth", "taxStatus", "isDisabled",
   "category", "shreni", "departmentId", "designationId", "branchId", "supervisorId", "isSupervisor",
   "joiningDate", "confirmationDate", "status", "basicSalary", "gradeCount", "gradeAmount", "gradeManual",
-  "panNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
+  "panNumber", "ssfNumber", "pfNumber", "citNumber", "phoneHome", "mobileNo", "companyEmail", "personalEmail",
   "permanentAddress", "temporaryAddress", "fatherName", "motherName", "spouseName", "grandfatherName",
   "bankName", "bankBranch", "bankAccountNumber", "informedDate", "terminationDate", "terminationType",
   "terminationReason", "terminationPlan", "terminationRemarks",
@@ -649,11 +659,19 @@ export function attendanceMonth(
 /** One line for an audit entry on the record's History tab (field names only, never values). */
 export function historySummary(entry: { action: string; result: string; newValues: unknown }): string {
   const values = (entry.newValues && typeof entry.newValues === "object" ? entry.newValues : {}) as Record<string, unknown>;
+  // F13: a change to bank, PAN or tax status (recorded with a save, or decided later).
+  const detail = values.detailChange && typeof values.detailChange === "object" ? (values.detailChange as { status?: unknown; route?: unknown; fields?: unknown }) : null;
+  const detailWhat = detail ? detailSummary(Array.isArray(detail.fields) ? detail.fields.filter((f): f is string => typeof f === "string") : []) : "";
   if (entry.result !== "SUCCESS") {
+    if (detail) return `Refused: ${detailWhat} change (${entry.result.toLowerCase().replace(/_/g, " ")})`;
     return entry.result === "DENIED_SCOPE" ? "Refused: outside the user's branch or department" : `Refused (${entry.result.toLowerCase().replace(/_/g, " ")})`;
   }
   if (values.credentials === "resent") return "Sign-in details sent again";
   if (values.credentials === "reset") return "Password reset and sent";
+  if (detail && (entry.action === "APPROVE" || detail.status === "withdrawn")) {
+    const verdict = detail.status === "approved" ? "approved" : detail.status === "rejected" ? "rejected" : "withdrawn";
+    return `${detailWhat} change ${verdict}`;
+  }
   switch (entry.action) {
     case "ADD":
       return values.loginCreated ? "Record created, with a self-service login" : "Record created";
@@ -661,9 +679,18 @@ export function historySummary(entry: { action: string; result: string; newValue
       return "Record deleted";
     case "EDIT": {
       const fields = Array.isArray(values.changedFields) ? (values.changedFields as string[]) : [];
-      if (fields.length === 0) return "Saved with no changes";
       const labels = fields.map(fieldLabel);
-      return labels.length > 4 ? `Changed ${labels.slice(0, 4).join(", ")} and ${labels.length - 4} more` : `Changed ${labels.join(", ")}`;
+      const changed = labels.length > 4 ? `Changed ${labels.slice(0, 4).join(", ")} and ${labels.length - 4} more` : labels.length ? `Changed ${labels.join(", ")}` : "";
+      const note =
+        detail?.status === "pending"
+          ? `${detailWhat} change sent for approval`
+          : detail?.route === "final_approve"
+            ? `${detailWhat} change saved by a company administrator`
+            : detail?.route === "not_required"
+              ? `${detailWhat} change applied (approvals off)`
+              : "";
+      if (!changed && !note) return "Saved with no changes";
+      return [changed, note].filter(Boolean).join(" · ");
     }
     default:
       return entry.action.charAt(0) + entry.action.slice(1).toLowerCase();
@@ -693,7 +720,7 @@ export function tenureLabel(joining: Date | string | null | undefined, today: Da
 const FIELD_RULE_GROUP: Partial<Record<EmployeeField, number>> = {
   employeeCode: 0, attendanceCode: 0, fullName: 0, dateOfBirth: 0,
   departmentId: 1, branchId: 1, designationId: 1, shreni: 1, gradeCount: 1, gradeAmount: 1, joiningDate: 1, confirmationDate: 1,
-  documents: 2, panNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
+  documents: 2, panNumber: 2, ssfNumber: 2, pfNumber: 2, citNumber: 2, companyEmail: 2, personalEmail: 2, mobileNo: 2, phoneHome: 2, permanentAddress: 2, temporaryAddress: 2,
   fatherName: 3, motherName: 3, grandfatherName: 3, spouseName: 3,
   bankName: 4, bankBranch: 4, bankAccountNumber: 4, informedDate: 4, terminationDate: 4, terminationType: 4, terminationReason: 4,
 };

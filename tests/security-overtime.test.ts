@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// S26 (4.7): the overtime policy and decisions.
+// S54 (4.7): the overtime policy and decisions.
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 
-describe('S26 overtime policy', () => {
+describe('S54 overtime policy', () => {
   const src = read('app/actions/overtime.actions.ts');
 
   it('saving the policy needs Overtime → Edit, company-wide, and not platform support', () => {
@@ -40,7 +40,7 @@ describe('S26 overtime policy', () => {
   });
 });
 
-describe('S26 overtime decisions (4.7b)', () => {
+describe('S54 overtime decisions (4.7b)', () => {
   const actions = read('app/actions/overtime.actions.ts');
   const service = read('lib/services/attendance.service.ts');
   const decide = service.match(/export async function decideOvertime[\s\S]*?\n}\n/)![0];

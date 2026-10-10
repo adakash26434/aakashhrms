@@ -64,6 +64,7 @@ export async function recordAuditLog(params: {
     | "NOTICE_BOARD"
     | "TRAVEL"
     | "TARGETS"
+    | "REIMBURSEMENTS"
     | "WELFARE_FUNDS";
   recordId?: string | null;
   result?: "SUCCESS" | "DENIED_PERMISSION" | "DENIED_SCOPE" | string;

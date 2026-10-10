@@ -121,7 +121,7 @@ function ReviseBody({ row, data, onClose, onSaved }: { row: StructureRow; data: 
     ...other.map((t) => ({ value: t.id, label: `${t.name} (${t.code}) · other level / designation` })),
   ];
   // Same rules as the server: what saving does.
-  const outcome = saveOutcome(data, [row.employeeId]);
+  const outcome = saveOutcome(data, [{ employeeId: row.employeeId, before: before?.totalSalary ?? null, after: totals.totalSalary, branchId: row.branchId, departmentId: row.departmentId }]);
 
   const save = async (approveNow = false) => {
     if (saving) return;

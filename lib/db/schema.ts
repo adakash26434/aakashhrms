@@ -166,6 +166,8 @@ export const payHeads = pgTable('pay_heads', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   code: varchar('code', { length: 50 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
+  /** F11: the Nepali name printed on the bilingual payslip (optional). */
+  nameNp: varchar('name_np', { length: 255 }),
   
   // "allowance" | "deduction"
   type: varchar('type', { length: 20 }).notNull(),
@@ -227,6 +229,8 @@ export const holidays = pgTable('holidays', {
   endDateAD: timestamp('end_date_ad').notNull(),
   
   branchIds: text('branch_ids').array().notNull().default(sql`ARRAY[]::text[]`),
+  /** 4.12c: "everyone" | "women" (International Women's Day). */
+  appliesTo: varchar('applies_to', { length: 10 }).default('everyone').notNull(),
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -244,12 +248,14 @@ export const moduleEnum = pgEnum('module', [
   'LEAVE_APPROVALS', 'OT_RULES', 'LEAVE_RULES', 'LEAVE_TYPES', 'PAYROLL_GENERATE', 'PAYROLL_REVIEW',
   'LEAVE_SALARY', 'LOANS', 'REPORTS_SALARY_SHEET', 'REPORTS_PAYSLIP',
   'REPORTS_ATTENDANCE', 'REPORTS_TAX_IRD', 'REPORTS_LEAVE', 'REPORTS_LOAN', 'USERS_ROLES', 'AUDIT_LOG',
-  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL', 'TARGETS'
+  'ORG_STRUCTURE', 'SELF_SERVICE', 'HR_LETTERS', 'PERFORMANCE', 'RECRUITMENT', 'WELFARE_FUNDS', 'DISCIPLINE', 'TRAINING', 'ASSETS', 'NOTICE_BOARD', 'TRAVEL', 'TARGETS',
+  'REIMBURSEMENTS'
 ]);
 
 export const scopeTypeEnum = pgEnum('scope_type', ['GLOBAL', 'BRANCH', 'DEPARTMENT', 'SELF']);
 export const payrollRunStatusEnum = pgEnum('payroll_run_status', ['DRAFT', 'UNDER_REVIEW', 'APPROVED', 'LOCKED']);
-export const leaveSalaryRunStatusEnum = pgEnum('leave_salary_run_status', ['DRAFT', 'PAID']);
+// 4.9: DRAFT → APPROVED → PAID (settled by a pay run); APPROVED → CANCELLED. Values in the order existing databases have them.
+export const leaveSalaryRunStatusEnum = pgEnum('leave_salary_run_status', ['DRAFT', 'PAID', 'APPROVED', 'CANCELLED']);
 
 // -----------------------------------------------------------------------------
 // 1. EMPLOYEE GROUPS (Organizational Grade - Not Permissions)
@@ -442,6 +448,10 @@ export const employeePersonal = pgTable('employee_personal', {
   votersId: varchar('voters_id', { length: 100 }),
   voterIdIssuingDistrict: varchar('voter_id_issuing_district', { length: 100 }),
   panNumber: varchar('pan_number', { length: 50 }),
+  // F9 (migration 0070): retirement-fund numbers for the SSF / PF / CIT deposit files.
+  ssfNumber: varchar('ssf_number', { length: 30 }),
+  pfNumber: varchar('pf_number', { length: 30 }),
+  citNumber: varchar('cit_number', { length: 30 }),
   phoneHome: varchar('phone_home', { length: 50 }),
   mobileNo: varchar('mobile_no', { length: 50 }).notNull(),
   email: varchar('email', { length: 255 }).notNull(),
@@ -475,6 +485,31 @@ export const employeeBank = pgTable('employee_bank', {
   isActive: boolean('is_active').default(true).notNull(),
 }, (table) => ({
   employeeIdIdx: index('employee_bank_employee_id_idx').on(table.employeeId),
+}));
+
+/**
+ * Sensitive employee details (4.8 / F13): a change to the bank account, PAN, tax status or
+ * disability relief of an existing employee, with the changed fields' values before and after.
+ * It waits for a second person unless approvals are off or a company administrator saved it
+ * (lib/engines/employee-detail.engine.ts); the timeline is in approval_actions (EMPLOYEE_DETAILS).
+ * One waiting change per employee (partial unique index `employee_detail_changes_one_pending`).
+ */
+export const employeeDetailChanges = pgTable('employee_detail_changes', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  before: jsonb('before').$type<Record<string, string | boolean>>().notNull(),
+  after: jsonb('after').$type<Record<string, string | boolean>>().notNull(),
+  reason: text('reason').notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn
+  preparedBy: uuid('prepared_by'),
+  preparedAt: timestamp('prepared_at').defaultNow().notNull(),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: text('decision_note'),
+  approvalRoute: varchar('approval_route', { length: 20 }), // simple | final_approve | not_required
+  appliedAt: timestamp('applied_at'),
+}, (table) => ({
+  employeeIdx: index('employee_detail_changes_employee_idx').on(table.employeeId, table.status),
 }));
 
 // -----------------------------------------------------------------------------
@@ -1234,9 +1269,18 @@ export const shiftRoster = pgTable('shift_roster', {
 export const loanTypes = pgTable('loan_types', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(), // e.g., "Personal Loan"
+  nameNp: varchar('name_np', { length: 255 }),
+  // 4.10: loan | advance (a salary advance: no interest, recovered within 12 months)
+  kind: varchar('kind', { length: 20 }).default('loan').notNull(),
   maxAmount: numeric('max_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  // Months of basic + grade a request may reach (0: no such limit)
+  maxSalaryMonths: numeric('max_salary_months', { precision: 5, scale: 2 }).default('0').notNull(),
   maxInstallments: integer('max_installments').default(0).notNull(),
+  // Flat, once on the amount (installment = (amount + amount × rate %) ÷ installments)
   interestRate: numeric('interest_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  eligibleAfterMonths: integer('eligible_after_months').default(0).notNull(),
+  // Employees request it themselves in self-service
+  selfService: boolean('self_service').default(false).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -1245,28 +1289,79 @@ export const loanTypes = pgTable('loan_types', {
 /**
  * 2. LOANS (Disbursements)
  * Tracks the loan amount given to an employee and fixed deduction parameters.
+ * 4.10: disbursed from an approved request (loan_requests.loan_id) or carried from the old
+ * system (source 'opening'); payroll recovers it through payroll_slip_loans posted at lock.
  */
 export const loans = pgTable('loans', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
   loanTypeId: uuid('loan_type_id').references(() => loanTypes.id, { onDelete: 'restrict' }).notNull(),
   givenDate: date('given_date').notNull(), // YYYY-MM-DD
-  
-  // Financials
+  source: varchar('source', { length: 20 }).default('disbursed').notNull(), // disbursed | opening
+
+  // Financials (frozen when disbursed)
   loanAmount: numeric('loan_amount', { precision: 15, scale: 2 }).notNull(),
+  interestRate: numeric('interest_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  totalPayable: numeric('total_payable', { precision: 15, scale: 2 }).notNull(),
   installmentAmount: numeric('installment_amount', { precision: 15, scale: 2 }).notNull(),
   noOfInstallments: integer('no_of_installments').notNull(),
-  
+  // BS month (YYYY-MM) payroll deducts from; null: from the month it was given
+  firstDeductionMonth: varchar('first_deduction_month', { length: 7 }),
+
   totalReturned: numeric('total_returned', { precision: 15, scale: 2 }).default('0').notNull(),
   remainingAmount: numeric('remaining_amount', { precision: 15, scale: 2 }).notNull(),
-  
+
   status: varchar('status', { length: 20 }).default('ACTIVE').notNull(), // "ACTIVE" | "CLOSED"
-  
+
+  paidVia: varchar('paid_via', { length: 20 }), // bank | cash | cheque
+  paymentRef: varchar('payment_ref', { length: 100 }),
+  note: varchar('note', { length: 500 }),
+  createdBy: uuid('created_by'),
+  closedAt: timestamp('closed_at'),
+  closedHow: varchar('closed_how', { length: 20 }), // repaid | settlement | written_off
+  closedBy: uuid('closed_by'),
+  closeNote: varchar('close_note', { length: 500 }),
+  writtenOffAmount: numeric('written_off_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   employeeIdIdx: index('loans_employee_id_idx').on(table.employeeId),
   loanTypeIdIdx: index('loans_loan_type_id_idx').on(table.loanTypeId),
+  statusIdx: index('loans_status_idx').on(table.status),
+}));
+
+/**
+ * Loan requests (4.10): asked by HR or by the employee (self-service), decided through the
+ * approval engine (timeline in approval_actions, module LOANS), disbursed into a loan.
+ * One open (pending / approved) request per employee and type.
+ */
+export const loanRequests = pgTable('loan_requests', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  loanTypeId: uuid('loan_type_id').references(() => loanTypes.id, { onDelete: 'restrict' }).notNull(),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  installments: integer('installments').notNull(),
+  interestRate: numeric('interest_rate', { precision: 5, scale: 2 }).default('0').notNull(),
+  reason: varchar('reason', { length: 500 }).notNull(),
+  source: varchar('source', { length: 20 }).default('office').notNull(), // office | self_service
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending | approved | rejected | withdrawn | disbursed
+  preparedBy: uuid('prepared_by'),
+  approvalType: varchar('approval_type', { length: 20 }),
+  approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
+  currentLevel: integer('current_level').default(0).notNull(),
+  approvalRoute: varchar('approval_route', { length: 20 }),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  decisionNote: varchar('decision_note', { length: 500 }),
+  loanId: uuid('loan_id').references(() => loans.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  employeeIdx: index('loan_requests_employee_idx').on(table.employeeId),
+  statusIdx: index('loan_requests_status_idx').on(table.status),
+  oneOpen: uniqueIndex('loan_requests_one_open_key').on(table.employeeId, table.loanTypeId).where(sql`${table.status} IN ('pending', 'approved')`),
+  loanKey: uniqueIndex('loan_requests_loan_key').on(table.loanId).where(sql`${table.loanId} IS NOT NULL`),
 }));
 
 /**
@@ -1279,12 +1374,13 @@ export const loanRepayments = pgTable('loan_repayments', {
   employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'restrict' }).notNull(),
   repaymentDate: date('repayment_date').notNull(), // YYYY-MM-DD
   amountPaid: numeric('amount_paid', { precision: 15, scale: 2 }).notNull(),
-  paymentMethod: varchar('payment_method', { length: 30 }).notNull(), // "CASH" | "SALARY_DEDUCTION"
-  
-  // Future-proof for Phase 6
+  paymentMethod: varchar('payment_method', { length: 30 }).notNull(), // "CASH" | "SALARY_DEDUCTION" | "SETTLEMENT"
+
+  // The payslip that deducted it (SALARY_DEDUCTION), posted once per loan when the run locks
   payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-  
+  note: varchar('note', { length: 500 }), // receipt number, "Final settlement", …
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
@@ -1292,6 +1388,22 @@ export const loanRepayments = pgTable('loan_repayments', {
   employeeIdIdx: index('loan_repayments_employee_id_idx').on(table.employeeId),
   payrollSlipIdIdx: index('loan_repayments_payroll_slip_id_idx').on(table.payrollSlipId),
   createdByIdx: index('loan_repayments_created_by_idx').on(table.createdBy),
+}));
+
+/**
+ * What a payslip deducts for each loan (4.10): written with the payslip (generation,
+ * recalculation, a reviewer's changed amount) and posted to the loan, claim-first, when the
+ * run is locked. Goes with the payslip when it is deleted.
+ */
+export const payrollSlipLoans = pgTable('payroll_slip_loans', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),
+  loanId: uuid('loan_id').references(() => loans.id, { onDelete: 'restrict' }).notNull(),
+  amount: numeric('amount', { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  slipLoanKey: unique('payroll_slip_loans_slip_loan_key').on(table.payrollSlipId, table.loanId),
+  loanIdx: index('payroll_slip_loans_loan_idx').on(table.loanId),
 }));
 
 // =============================================================================
@@ -1303,6 +1415,8 @@ export const payrollRuns = pgTable('payroll_runs', {
   fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'restrict' }).notNull(),
   payPeriodMonth: integer('pay_period_month').notNull(), // 1 to 12 (BS month number)
   payPeriodYear: integer('pay_period_year').notNull(),   // e.g. 2082 (BS year)
+  /** F6: REGULAR (monthly salary) | FESTIVAL | ARREARS (off-cycle, marginal tax); see off-cycle.engine. */
+  runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
   payPeriodStartDate: date('pay_period_start_date').notNull(), // AD date first day of month
   payPeriodEndDate: date('pay_period_end_date').notNull(),     // AD date last day of month
   branchIds: text('branch_ids').array().notNull().default(sql`ARRAY[]::text[]`),
@@ -1336,9 +1450,8 @@ export const payrollRuns = pgTable('payroll_runs', {
   notes: text('notes'),
   // 4.8b: the calendar of the pay month ("BS" | "AD"; the company pays in one calendar).
   calendar: varchar('calendar', { length: 2 }).default('BS').notNull(),
-  // 4.8a: the kind of run, the approval flow copied on at submission (approval.engine), who
-  // submitted it, and the variance review against the last locked run.
-  runType: varchar('run_type', { length: 20 }).default('REGULAR').notNull(),
+  // 4.8a: the approval flow copied on at submission (approval.engine), who submitted it, and the
+  // variance review against the last locked run (the kind of run is runType, above).
   approvalType: varchar('approval_type', { length: 20 }),
   approvalLevels: jsonb('approval_levels').$type<{ level: number; userId: string; skipped?: 'preparer' | 'own_salary' | null }[]>().default([]).notNull(),
   currentLevel: integer('current_level').default(0).notNull(),
@@ -1352,6 +1465,7 @@ export const payrollRuns = pgTable('payroll_runs', {
 }, (table) => ({
   fiscalYearIdIdx: index('payroll_runs_fiscal_year_id_idx').on(table.fiscalYearId),
   periodIdx: index('payroll_runs_period_idx').on(table.calendar, table.payPeriodYear, table.payPeriodMonth, table.runType, table.status),
+  periodTypeIdx: index('payroll_runs_period_type_idx').on(table.payPeriodYear, table.payPeriodMonth, table.runType),
   generatedByIdx: index('payroll_runs_generated_by_idx').on(table.generatedBy),
   reviewedByIdx: index('payroll_runs_reviewed_by_idx').on(table.reviewedBy),
   approvedByIdx: index('payroll_runs_approved_by_idx').on(table.approvedBy),
@@ -1443,6 +1557,86 @@ export const payrollArrears = pgTable('payroll_arrears', {
   sourceIdx: index('payroll_arrears_source_idx').on(table.sourceRunId, table.employeeId),
 }));
 
+/**
+ * Opening balances (4.8 / F15, migration 0074): what an old system paid an employee in the first
+ * `months` fiscal months of a year (Shrawan = 1), for a company that starts payroll here mid-year.
+ * Read by the tax projection, the Ashadh reconciliation and the annual tax certificate as those
+ * months (lib/engines/opening-balance.engine.ts); no run here may pay a month one covers.
+ */
+export const payrollOpeningBalances = pgTable('payroll_opening_balances', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  fiscalYearId: uuid('fiscal_year_id').references(() => fiscalYears.id, { onDelete: 'cascade' }).notNull(),
+  months: integer('months').notNull(),
+  grossEarnings: numeric('gross_earnings', { precision: 15, scale: 2 }).default('0').notNull(),
+  /** PF and SSF contributions deducted from the employee. */
+  retirement: numeric('retirement', { precision: 15, scale: 2 }).default('0').notNull(),
+  cit: numeric('cit', { precision: 15, scale: 2 }).default('0').notNull(),
+  taxableIncome: numeric('taxable_income', { precision: 15, scale: 2 }).default('0').notNull(),
+  sst: numeric('sst', { precision: 15, scale: 2 }).default('0').notNull(),
+  incomeTax: numeric('income_tax', { precision: 15, scale: 2 }).default('0').notNull(),
+  note: text('note'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  employeeYear: unique('payroll_opening_balances_employee_year_key').on(table.employeeId, table.fiscalYearId),
+  yearIdx: index('payroll_opening_balances_year_idx').on(table.fiscalYearId),
+}));
+
+/**
+ * Reimbursements (4.8 / F16, migration 0075): what a claim of each type may be (taxable or not,
+ * caps per claim and per employee-year, whether a bill number is needed). Codes never change.
+ */
+export const reimbursementTypes = pgTable('reimbursement_types', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  code: varchar('code', { length: 30 }).notNull().unique('reimbursement_types_code_key'),
+  name: varchar('name', { length: 100 }).notNull(),
+  nameNp: varchar('name_np', { length: 100 }),
+  taxable: boolean('taxable').default(false).notNull(),
+  /** 0 = no cap. */
+  perClaimCap: numeric('per_claim_cap', { precision: 12, scale: 2 }).default('0').notNull(),
+  /** Per employee per fiscal year; 0 = no cap. */
+  yearlyCap: numeric('yearly_cap', { precision: 12, scale: 2 }).default('0').notNull(),
+  receiptRequired: boolean('receipt_required').default(true).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+/**
+ * One reimbursement claim (F16): draft → submitted → approved (or returned / rejected) → settled,
+ * paid through the run that settles it (payroll_run_id; null + settled = paid by hand). The type's
+ * taxability is frozen on the claim when it is saved.
+ */
+export const reimbursementClaims = pgTable('reimbursement_claims', {
+  id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
+  employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }).notNull(),
+  typeId: uuid('type_id').references(() => reimbursementTypes.id, { onDelete: 'restrict' }).notNull(),
+  expenseDate: date('expense_date').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  receiptNo: varchar('receipt_no', { length: 60 }),
+  description: text('description').notNull(),
+  taxable: boolean('taxable').default(false).notNull(),
+  status: varchar('status', { length: 10 }).default('draft').notNull(),
+  decisionNote: text('decision_note'),
+  decidedBy: uuid('decided_by'),
+  decidedAt: timestamp('decided_at'),
+  settledAt: timestamp('settled_at'),
+  payrollRunId: uuid('payroll_run_id').references(() => payrollRuns.id, { onDelete: 'set null' }),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  employeeIdx: index('reimbursement_claims_employee_idx').on(table.employeeId, table.expenseDate),
+  statusIdx: index('reimbursement_claims_status_idx').on(table.status),
+  runIdx: index('reimbursement_claims_run_idx').on(table.payrollRunId),
+}));
+
 export const payrollSlipHeads = pgTable('payroll_slip_heads', {
   id: uuid('id').$defaultFn(() => randomUUID()).primaryKey(),
   payrollSlipId: uuid('payroll_slip_id').references(() => payrollSlips.id, { onDelete: 'cascade' }).notNull(),
@@ -1466,18 +1660,36 @@ export const leaveSalaryRuns = pgTable('leave_salary_runs', {
   leaveDays: numeric('leave_days', { precision: 5, scale: 2 }).notNull(),
   perDayRate: numeric('per_day_rate', { precision: 15, scale: 2 }).notNull(),
   totalAmount: numeric('total_amount', { precision: 15, scale: 2 }).notNull(),
+  /** Only on records paid by hand before 4.9; since then the payslip's tax projection withholds the TDS. */
   tdsAmount: numeric('tds_amount', { precision: 15, scale: 2 }).default('0'),
-  encashmentType: varchar('encashment_type', { length: 20 }).default('VOLUNTARY').notNull(), // "ANNUAL_EXCESS" | "TERMINATION" | "VOLUNTARY"
-  paymentPeriod: varchar('payment_period', { length: 20 }).notNull(), // e.g. "2082-01"
-  paymentMethod: varchar('payment_method', { length: 50 }).default('BANK_TRANSFER').notNull(), // "BANK_TRANSFER" | "CASH" | "CHEQUE"
-  status: leaveSalaryRunStatusEnum('status').default('DRAFT').notNull(), // "DRAFT" | "PAID"
+  encashmentType: varchar('encashment_type', { length: 20 }).default('VOLUNTARY').notNull(), // "ANNUAL_EXCESS" (year_end) | "VOLUNTARY" (balance); "TERMINATION" only before 4.9
+  /** 4.9: the BS pay month (YYYY-MM) whose regular pay run — or a later one — pays it; free text before 4.9. */
+  paymentPeriod: varchar('payment_period', { length: 20 }).notNull(),
+  paymentMethod: varchar('payment_method', { length: 50 }).default('BANK_TRANSFER').notNull(), // before 4.9 only; now always the pay run
+  status: leaveSalaryRunStatusEnum('status').default('DRAFT').notNull(),
+  /** 4.9: 'year_end' (the excess at a year's opening, already off the balance) | 'balance' (encashed from the balance in force). */
+  source: varchar('source', { length: 20 }).default('balance').notNull(),
+  /** 4.9: the opening's `paid_out` ledger line a year_end record pays (one record per line while not cancelled). */
+  sourceLineId: uuid('source_line_id'),
+  /** 4.9: the leave year the days come from. */
+  fiscalYearId: uuid('fiscal_year_id'),
+  /** 4.9: frozen when prepared — the basic in force and how the day's rate was worked out. */
+  basicSalary: numeric('basic_salary', { precision: 15, scale: 2 }),
+  rateBasis: varchar('rate_basis', { length: 20 }), // BASIC_DAILY | FIXED_AMOUNT
+  note: text('note'),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }).notNull(),
   approvedBy: uuid('approved_by').references(() => users.id, { onDelete: 'set null' }),
-  
+  approvedAt: timestamp('approved_at'),
+  cancelReason: text('cancel_reason'),
+  cancelledBy: uuid('cancelled_by'),
+  cancelledAt: timestamp('cancelled_at'),
+  /** When a pay run paid it (`payroll_run_id`); null on records paid by hand before 4.9. */
+  settledAt: timestamp('settled_at'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (t) => ({
-  unq: unique().on(t.employeeId, t.leaveTypeId, t.paymentPeriod),
+  sourceLineKey: uniqueIndex('leave_salary_runs_source_line_key').on(t.sourceLineId).where(sql`source_line_id IS NOT NULL AND cancelled_at IS NULL`),
   payrollRunIdIdx: index('leave_salary_runs_payroll_run_id_idx').on(t.payrollRunId),
   employeeIdIdx: index('leave_salary_runs_employee_id_idx').on(t.employeeId),
   leaveTypeIdIdx: index('leave_salary_runs_leave_type_id_idx').on(t.leaveTypeId),

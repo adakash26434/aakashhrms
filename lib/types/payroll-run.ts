@@ -17,9 +17,9 @@ export const RUN_STEP_LABEL: Record<RunStep, string> = {
   lock: "Lock",
 };
 
-/** Kinds of run (4.8b). */
-export const RUN_TYPES = ["REGULAR", "FESTIVAL_BONUS", "ARREARS", "FINAL_SETTLEMENT"] as const;
-export type RunType = (typeof RUN_TYPES)[number];
+/** Kinds of run: one list for the workspace and payroll (F6, lib/constants/run-types.ts). */
+export { RUN_TYPES, type RunType } from "@/lib/constants/run-types";
+import type { RunType } from "@/lib/constants/run-types";
 
 export type ProblemSeverity = "blocking" | "warning" | "info";
 
@@ -146,7 +146,8 @@ export interface PayrollRunsPageData {
   categories: string[];
   employees: { id: string; name: string; employeeCode: string; branchId: string; departmentId: string; designationId: string; category: string }[];
   occasionalAllowances: { id: string; name: string; isFestivalAllowance: boolean; isRemoteAllowance: boolean }[];
-  allPayHeads: { id: string; name: string; code: string; type: "allowance" | "deduction" }[];
+  /** isTds: the income tax head (the pane shows it as "Income tax"); addable: may be added to a payslip by hand (not statutory, not a feed). */
+  allPayHeads: { id: string; name: string; code: string; type: "allowance" | "deduction"; isTds: boolean; addable: boolean }[];
   /** The month a new run would be for: the working period, else the month after the last regular run, else the month before today's. */
   suggested: { year: number; month: number };
   today: string;
@@ -171,10 +172,13 @@ export interface NewRunInput {
   designationIds: string[];
   employeeCategories: string[];
   employeeIds: string[];
+  /** Regular runs: festival / remote-area heads paid this month too. Festival runs: the festival heads paid. */
   occasionalAllowanceHeadIds: string[];
   payslipDate: string | null;
   /** Replace an existing draft for the same period and branches. */
   recreateIfExists?: boolean;
+  /** F6 festival runs: pay in proportion for service under a year (Labour Act §37); default true. */
+  prorateFestival?: boolean;
 }
 
 // ---------------------------------------------------------------------------

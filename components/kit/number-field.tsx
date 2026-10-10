@@ -22,6 +22,8 @@ export interface NumberFieldProps {
   prefix?: string;
   /** Show 0 instead of an empty box (when 0 is a real answer, not "not set"). */
   showZero?: boolean;
+  /** Money: lakh grouping (5,00,000) while the field is not focused; plain digits while typing. */
+  grouped?: boolean;
   className?: string;
   "aria-label"?: string;
   "aria-describedby"?: string;
@@ -29,17 +31,25 @@ export interface NumberFieldProps {
   "aria-required"?: boolean;
 }
 
-function display(value: number, decimals: number, showZero?: boolean): string {
+const lakh = new Map<number, Intl.NumberFormat>();
+
+function display(value: number, decimals: number, showZero?: boolean, grouped?: boolean): string {
   if (!value) return showZero ? "0" : "";
+  if (grouped) {
+    let f = lakh.get(decimals);
+    if (!f) lakh.set(decimals, (f = new Intl.NumberFormat("en-IN", { maximumFractionDigits: decimals })));
+    return f.format(decimals > 0 ? value : Math.trunc(value));
+  }
   return decimals > 0 ? value.toFixed(decimals).replace(/\.?0+$/, "") : String(Math.trunc(value));
 }
 
 /**
  * Number entry for amounts and counts (4.2): right-aligned tabular figures,
  * digits and one decimal point only, and partial input ("30000.") kept while
- * typing. Empty means 0.
+ * typing. Empty means 0. Commas typed or pasted are ignored, so a `grouped`
+ * money field can be edited in place.
  */
-export function NumberField({ value, onChange, decimals = 2, min = 0, max, selectOnFocus, prefix, className, readOnly, showZero, ...rest }: NumberFieldProps) {
+export function NumberField({ value, onChange, decimals = 2, min = 0, max, selectOnFocus, prefix, className, readOnly, showZero, grouped, ...rest }: NumberFieldProps) {
   const [text, setText] = useState<string | null>(null); // null = show the stored value
   const pattern = decimals > 0 ? new RegExp(`^\\d*(\\.\\d{0,${decimals}})?$`) : /^\d*$/;
 
@@ -51,7 +61,7 @@ export function NumberField({ value, onChange, decimals = 2, min = 0, max, selec
         inputMode={decimals > 0 ? "decimal" : "numeric"}
         autoComplete="off"
         readOnly={readOnly}
-        value={text ?? display(value, decimals, readOnly || showZero)}
+        value={text ?? display(value, decimals, readOnly || showZero, grouped)}
         onChange={(e) => {
           const next = e.target.value.replace(/,/g, "");
           if (!pattern.test(next)) return;
@@ -60,15 +70,15 @@ export function NumberField({ value, onChange, decimals = 2, min = 0, max, selec
           setText(next);
           if (!Number.isNaN(n)) onChange(Math.max(min, n));
         }}
-        onFocus={
-          selectOnFocus
-            ? (e) => {
-                // After the click that focused it, so the mouse-up does not clear the selection.
-                const el = e.currentTarget;
-                requestAnimationFrame(() => el.select());
-              }
-            : undefined
-        }
+        onFocus={(e) => {
+          // A grouped field is typed in plain digits; the grouping comes back on blur.
+          if (grouped && !readOnly) setText(display(value, decimals, showZero));
+          if (selectOnFocus) {
+            // After the click that focused it, so the mouse-up does not clear the selection.
+            const el = e.currentTarget;
+            requestAnimationFrame(() => el.select());
+          }
+        }}
         onBlur={() => setText(null)}
         className={cn(inputClass, "max-w-none text-right tabular-nums", prefix && "pl-11")}
         {...rest}

@@ -36,11 +36,16 @@ describe('arrears guards', () => {
 
   it('the amount comes from the server calculation, never from the request payload', () => {
     assert.match(payroll, /arrearsService\.arrearsFor\(empIds, startStr\)/);
-    assert.ok(!/arrears/i.test(read('lib/types/payroll.ts').split('PayrollRunSetupPayload')[1] ?? ''), 'setup payload carries no arrears figure');
+    // No arrears amount field on the setup payload (F6's runType may name the ARREARS run type).
+    const payloadType = (read('lib/types/payroll.ts').split('export interface PayrollRunSetupPayload')[1] ?? '').split('\n}')[0];
+    assert.ok(!/^\s*\w*arrears\w*\??\s*:/im.test(payloadType), 'setup payload carries no arrears figure');
   });
 
-  it('recorded after the run commits and tied to the run (a deleted draft gives it back)', () => {
-    assert.ok(payroll.indexOf('const runRecord') < payroll.indexOf('arrearsService.settle('));
+  it('recorded with the payslips in the run\'s transaction and tied to the run (a deleted draft gives it back)', () => {
+    const slipsSaved = payroll.indexOf('await repository.createPayrollSlips(slipsWithHeads, tx);');
+    const settled = payroll.indexOf('await payrollFeedService.settleRunFeedsTx(');
+    assert.ok(slipsSaved > 0 && settled > slipsSaved && settled < payroll.indexOf('    return run;\n  });'));
+    assert.match(read('lib/services/payroll-feed.service.ts'), /await arrearsService\.settle\(runId, feeds\.arrears, tx\);/);
     assert.match(read('lib/db/migrations/0064_payroll_arrears.sql'), /"payroll_run_id" uuid NOT NULL REFERENCES "payroll_runs"\("id"\) ON DELETE CASCADE/);
   });
 

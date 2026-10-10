@@ -65,11 +65,15 @@ describe('S21 payroll controls', () => {
   it('the portal shows only locked, published, not-held payslips (list and single)', () => {
     const vis = body(portal, 'function visibleToEmployee()');
     for (const part of ["'LOCKED'", 'isNotNull(payrollRuns.publishedAt)', 'isNull(payrollSlips.heldAt)']) assert.ok(vis.includes(part), part);
-    assert.equal((portal.match(/\.\.\.visibleToEmployee\(\)/g) ?? []).length, 2);
+    // Every portal payslip read applies the rule: the list, the printable sheet (F11) and the tax certificate (F9).
+    assert.match(body(portal, 'export async function getMyPayslips'), /\.\.\.visibleToEmployee\(\)/);
+    assert.match(body(portal, 'export async function getMyPayslipSheet'), /ownSheet\(employeeId, payslipId, visibleToEmployee\(\)\)/);
+    assert.match(body(portal, 'export async function getMyTaxCertificate'), /ownCertificate\(employeeId, fiscalYearId, visibleToEmployee\(\)\)/);
+    assert.equal((portal.match(/visibleToEmployee\(\)/g) ?? []).length, 4, 'the definition and three reads — a new portal payslip read must use it too');
   });
 
   it('every action resolves the tenant and checks a permission', () => {
-    const names = ['getVarianceReviewAction', 'acknowledgeFlagsAction', 'publishRunAction', 'holdSlipAction', 'releaseSlipAction', 'preflightAction', 'getPayrollControlSettingsAction', 'savePayrollControlSettingsAction'];
+    const names = ['getVarianceReviewAction', 'acknowledgeFlagsAction', 'publishRunAction', 'holdSlipAction', 'releaseSlipAction', 'getPayrollControlSettingsAction', 'savePayrollControlSettingsAction'];
     for (const n of names) {
       const fn = body(actions, `export async function ${n}(`);
       assert.match(fn, /ensureTenantContext\(\)/, n);

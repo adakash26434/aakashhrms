@@ -5,8 +5,9 @@
 // - S21: nobody approves a request about themselves (their own salary), and a
 //   request's preparer is never its approver, except an administrator's Final
 //   Approve.
-// Pure: no database access. Salary changes use it now; pay runs (4.8) and
-// loans (4.10) reuse it.
+// Pure: no database access. Salary changes, leave and attendance requests,
+// leave policies, sensitive employee details (F13) and loan requests (4.10)
+// use it; pay runs reuse it later.
 
 import { includesOwnRecord } from "@/lib/auth/self-action";
 import type {
@@ -64,8 +65,8 @@ export function parsePolicy(stored: unknown, legacy?: string | null): ApprovalPo
   return { type: "simple", levels: [] };
 }
 
-/** Errors in a policy before saving (key "levels" or "level.N"). */
-export function validatePolicy(policy: ApprovalPolicy, approvers: readonly ApproverInfo[]): Record<string, string> {
+/** Errors in a policy before saving (key "levels" or "level.N"); `cannotApprove` names the module's Approve (salary by default). */
+export function validatePolicy(policy: ApprovalPolicy, approvers: readonly ApproverInfo[], cannotApprove = "This user cannot approve salary changes (give their role Approve)"): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!["none", "simple", "multi_level"].includes(policy.type)) errors.type = "Choose how changes are approved";
   if (policy.type !== "multi_level") return errors;
@@ -78,7 +79,7 @@ export function validatePolicy(policy: ApprovalPolicy, approvers: readonly Appro
     if (!id) errors[key] = "Choose an approver";
     else if (seen.has(id)) errors[key] = "This person is already a level";
     else if (!a || !a.active) errors[key] = "This user is not active";
-    else if (!a.canApprove) errors[key] = "This user cannot approve salary changes (give their role Approve)";
+    else if (!a.canApprove) errors[key] = cannotApprove;
     seen.add(id);
   });
   return errors;

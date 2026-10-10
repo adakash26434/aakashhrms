@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db';
 import { employeeBank, employeePersonal, employees, payrollRuns, payrollSlips, payHeads, payrollVarianceAcks, systemConfig, users } from '@/lib/db/schema';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 // Payroll controls (4.8 / F1–F3): Drizzle queries only. Rules live in
 // lib/engines/payroll-control.engine.ts; orchestration in
@@ -9,13 +9,14 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 export type RunRecord = typeof payrollRuns.$inferSelect;
 
 /** Runs before this one (by pay month), newest first. */
-export async function earlierRuns(run: Pick<RunRecord, 'payPeriodYear' | 'payPeriodMonth' | 'id'>, limit = 12): Promise<RunRecord[]> {
+export async function earlierRuns(run: Pick<RunRecord, 'payPeriodYear' | 'payPeriodMonth' | 'id'> & { runType?: string }, limit = 12): Promise<RunRecord[]> {
   const db = await getDb();
   const key = run.payPeriodYear * 100 + run.payPeriodMonth;
   return db
     .select()
     .from(payrollRuns)
-    .where(and(sql`(${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}) < ${key}`, inArray(payrollRuns.status, ['UNDER_REVIEW', 'APPROVED', 'LOCKED'])))
+    // F6: a run is compared with earlier runs of its own type only.
+    .where(and(sql`(${payrollRuns.payPeriodYear} * 100 + ${payrollRuns.payPeriodMonth}) < ${key}`, eq(payrollRuns.runType, run.runType ?? 'REGULAR'), inArray(payrollRuns.status, ['UNDER_REVIEW', 'APPROVED', 'LOCKED'])))
     .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth), desc(payrollRuns.generatedAt))
     .limit(limit);
 }
@@ -84,6 +85,54 @@ export async function findSlipRun(slipId: string): Promise<{ slipId: string; run
     .where(eq(payrollSlips.id, slipId))
     .limit(1);
   return row ?? null;
+}
+
+export interface RunNeedingAction {
+  id: string;
+  year: number;
+  month: number;
+  runType: string;
+  status: string;
+  publishedAt: Date | null;
+  generatedBy: string;
+  generatedByName: string | null;
+  branchIds: string[];
+  departmentIds: string[] | null;
+  heldCount: number;
+  includesActor: boolean;
+}
+
+/**
+ * F17: runs not finished yet — not locked, locked but not published, or published with payslips
+ * held back — newest pay month first. `includesActor` says whether a run pays this employee.
+ */
+export async function runsNeedingAction(actorEmployeeId: string | null, limit = 20): Promise<RunNeedingAction[]> {
+  const db = await getDb();
+  const held = sql<number>`(SELECT count(*)::int FROM ${payrollSlips} WHERE ${payrollSlips.payrollRunId} = ${payrollRuns.id} AND ${payrollSlips.heldAt} IS NOT NULL)`;
+  const includesActor = actorEmployeeId
+    ? sql<boolean>`EXISTS (SELECT 1 FROM ${payrollSlips} WHERE ${payrollSlips.payrollRunId} = ${payrollRuns.id} AND ${payrollSlips.employeeId} = ${actorEmployeeId})`
+    : sql<boolean>`false`;
+  const rows = await db
+    .select({
+      id: payrollRuns.id,
+      year: payrollRuns.payPeriodYear,
+      month: payrollRuns.payPeriodMonth,
+      runType: payrollRuns.runType,
+      status: payrollRuns.status,
+      publishedAt: payrollRuns.publishedAt,
+      generatedBy: payrollRuns.generatedBy,
+      generatedByName: sql<string | null>`COALESCE(NULLIF(${users.name}, ''), ${users.email})`,
+      branchIds: payrollRuns.branchIds,
+      departmentIds: payrollRuns.departmentIds,
+      heldCount: held,
+      includesActor,
+    })
+    .from(payrollRuns)
+    .leftJoin(users, eq(payrollRuns.generatedBy, users.id))
+    .where(or(ne(payrollRuns.status, 'LOCKED'), isNull(payrollRuns.publishedAt), sql`${held} > 0`))
+    .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth), desc(payrollRuns.generatedAt))
+    .limit(limit);
+  return rows.map((r) => ({ ...r, heldCount: Number(r.heldCount) || 0, includesActor: r.includesActor === true }));
 }
 
 export async function actorEmployeeId(userId: string): Promise<string | null> {

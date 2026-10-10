@@ -42,7 +42,7 @@ export interface OvertimePolicyData {
 /** How a month's (or a payslip's) overtime amount was worked out. */
 export interface OvertimeDetail {
   amount: number;
-  /** (basic + grade) ÷ 240. */
+  /** Basic ÷ 240 (the one OT formula, ot-pay.engine). */
   hourlyRate: number;
   workHours: number;
   offHours: number;

@@ -7,6 +7,7 @@ import type {
 } from "@/lib/types/payroll";
 import { isAshadh } from "@/lib/utils/fiscal-year.utils";
 import { buildTaxSheet, monthsRemainingFrom, type PastMonth, type TaxSheet } from "@/lib/engines/tax-projection.engine";
+import { ONE_OFF_TAXABLE_HEAD_CODES } from "@/lib/constants/payroll-feeds";
 
 // Standard Custom error
 export class NegativeNetPayableError extends Error {
@@ -68,6 +69,40 @@ export function ssfContribution(
   const employee = amount.times(0.11).toDecimalPlaces(2);
   const employer = amount.times(0.2).toDecimalPlaces(2);
   return { base: amount, employee, employer, total: employee.plus(employer) };
+}
+
+/**
+ * A festival or remote allowance for one month. A manual override is paid as typed. Otherwise a
+ * festival head pays basic, basic + grade or a % of basic + grade (basic when nothing is set) and a
+ * remote head pays its % of basic / basic + grade, capped at the remote allowance limit. Null when
+ * the head is not paid this month (the festival / remote month is not selected).
+ */
+export function occasionalHeadAmount(
+  head: Pick<PayHeadInput, "isFestivalAllowance" | "isRemoteAllowance" | "isManualOverride" | "calcBasis" | "calcPercent" | "amount">,
+  basic: Decimal,
+  basicPlusGrade: Decimal,
+  opts: { festivalMonth: boolean; remoteMonth: boolean; remoteLimit: Decimal.Value }
+): Decimal | null {
+  const typed = new Decimal(head.amount || 0);
+  // An explicit manual override or payslip attachment is always honoured.
+  if (head.isManualOverride) return typed;
+  const pct = new Decimal(head.calcPercent || 0);
+  if (head.isFestivalAllowance) {
+    if (!opts.festivalMonth) return null;
+    if (head.calcBasis === "BasicSalary") return basic;
+    if (head.calcBasis === "BasicPlusGrade") return basicPlusGrade;
+    if (pct.gt(0)) return basicPlusGrade.times(pct.dividedBy(100));
+    return typed.lte(0) ? basic : typed;
+  }
+  if (head.isRemoteAllowance) {
+    if (!opts.remoteMonth) return null;
+    let amount = typed;
+    if (head.calcBasis === "BasicSalary" && pct.gt(0)) amount = basic.times(pct.dividedBy(100));
+    else if (head.calcBasis === "BasicPlusGrade" && pct.gt(0)) amount = basicPlusGrade.times(pct.dividedBy(100));
+    const limit = new Decimal(opts.remoteLimit);
+    return amount.gt(limit) ? limit : amount;
+  }
+  return typed;
 }
 
 /**
@@ -210,6 +245,8 @@ export function calculatePayslip(args: {
   let totalAllowances = new Decimal(0);
   let totalDeductions = new Decimal(0);
   let taxableAllowancesSum = new Decimal(0);
+  // 4.9: taxable lines paid once this month (arrears, taxable reimbursements, leave salary).
+  let oneOffTaxableSum = new Decimal(0);
 
   // Separate OT and leave calculations as they are handled in attendanceCalc
   const otAmount = new Decimal(attendanceCalc.otEarnedAmount);
@@ -235,39 +272,15 @@ export function calculatePayslip(args: {
 
     let headAmount = new Decimal(head.amount || 0);
 
-    // Apply specific logic for Festival & Remote allowances based on parameters
-    if (head.isFestivalAllowance) {
-      if (head.isManualOverride) {
-        // Explicit manual override or payslip attachment must always be honored
-        headAmount = new Decimal(head.amount || 0);
-      } else {
-        if (!isFestivalMonth) continue; // Skip in non-festival months
-        if (head.calcBasis === "BasicSalary") {
-          headAmount = basic;
-        } else if (head.calcBasis === "BasicPlusGrade") {
-          headAmount = basicPlusGrade;
-        } else if (new Decimal(head.calcPercent || 0).gt(0)) {
-          headAmount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
-        } else if (headAmount.lte(0)) {
-          headAmount = basic;
-        }
-      }
-    } else if (head.isRemoteAllowance) {
-      if (head.isManualOverride) {
-        // Explicit manual override or payslip attachment must always be honored
-        headAmount = new Decimal(head.amount || 0);
-      } else {
-        if (!isRemoteMonth) continue; // Skip if not active for remote work
-        if (head.calcBasis === "BasicSalary" && new Decimal(head.calcPercent || 0).gt(0)) {
-          headAmount = basic.times(new Decimal(head.calcPercent).dividedBy(100));
-        } else if (head.calcBasis === "BasicPlusGrade" && new Decimal(head.calcPercent || 0).gt(0)) {
-          headAmount = basicPlusGrade.times(new Decimal(head.calcPercent).dividedBy(100));
-        }
-        const limit = new Decimal(systemControl.insuranceDiscounts.remoteAllowanceNpr);
-        if (headAmount.gt(limit)) {
-          headAmount = limit;
-        }
-      }
+    // Festival & remote allowances follow their own rule (see occasionalHeadAmount).
+    if (head.isFestivalAllowance || head.isRemoteAllowance) {
+      const occasional = occasionalHeadAmount(head, basic, basicPlusGrade, {
+        festivalMonth: isFestivalMonth,
+        remoteMonth: isRemoteMonth,
+        remoteLimit: systemControl.insuranceDiscounts.remoteAllowanceNpr,
+      });
+      if (occasional === null) continue; // not paid this month
+      headAmount = occasional;
     } else {
       // General allowances and non-statutory deductions
       const calcPct = new Decimal(head.calcPercent || 0);
@@ -289,6 +302,7 @@ export function calculatePayslip(args: {
       totalAllowances = totalAllowances.plus(headAmount);
       if (head.effectOnTax) {
         taxableAllowancesSum = taxableAllowancesSum.plus(headAmount);
+        if (ONE_OFF_TAXABLE_HEAD_CODES.includes(head.code)) oneOffTaxableSum = oneOffTaxableSum.plus(headAmount);
       }
     } else if (head.type === "deduction") {
       totalDeductions = totalDeductions.plus(headAmount);
@@ -528,8 +542,10 @@ export function calculatePayslip(args: {
       const finalTds = actualAnnualTax.minus(tdsAlreadyDeducted);
       tdsThisMonth = Decimal.max(0, finalTds).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
     } else {
-      // Months 1-11: Projected estimate based on taxable monthly gross
-      const projectedAnnualTaxableGross = taxableMonthlyGross.times(12);
+      // Months 1-11: Projected estimate based on taxable monthly gross. With the F5 projection a
+      // one-off line counts once (added to the projected year), never × the months that remain.
+      const oneOffTaxable = fiscalMonthIndex !== undefined ? Decimal.min(Decimal.max(0, oneOffTaxableSum), taxableMonthlyGross) : new Decimal(0);
+      const projectedAnnualTaxableGross = taxableMonthlyGross.minus(oneOffTaxable).times(12);
       const retirementAnnual = pfEmployee.plus(ssfTotal).times(12);
       const citAnnual = citDeduction.times(12);
       const citCapped = Decimal.min(citAnnual, new Decimal(systemControl.statutoryDeductionLimits.citLimitNpr));
@@ -547,6 +563,7 @@ export function calculatePayslip(args: {
         taxSheet = buildTaxSheet({
           past: projectionHistory,
           currentTaxable: projectedTaxable.dividedBy(12),
+          oneOffTaxable,
           monthsRemaining: monthsRemainingFrom(fiscalMonthIndex),
           taxOn,
         });
@@ -613,6 +630,26 @@ export function calculatePayslip(args: {
 }
 
 /**
+ * The slabs that tax this employee, ascending: "Handicapped" when disabled,
+ * "Normal Single" for a widow, otherwise the tax status; "Normal Single" when
+ * the company has no slabs for that category.
+ */
+export function slabsForEmployee(employee: Pick<EmployeeInput, "taxStatus" | "isDisabled">, taxSlabs: readonly TaxSlabInput[]): TaxSlabInput[] {
+  let targetCategory = employee.taxStatus;
+  if (employee.isDisabled) {
+    targetCategory = "Handicapped";
+  } else if (targetCategory === "Widow") {
+    targetCategory = "Normal Single";
+  }
+  const ascending = (category: string) =>
+    taxSlabs
+      .filter((slab) => slab.category === category)
+      .sort((a, b) => new Decimal(a.amountFrom).minus(new Decimal(b.amountFrom)).toNumber());
+  const slabs = ascending(targetCategory);
+  return slabs.length === 0 && targetCategory !== "Normal Single" ? ascending("Normal Single") : slabs;
+}
+
+/**
  * Calculates progressive annual tax liability using progressive tax slabs.
  */
 export function calculateAnnualTaxFromSlabs(
@@ -622,28 +659,7 @@ export function calculateAnnualTaxFromSlabs(
   systemControl: SystemControlData,
   isSsfEnrolled?: boolean
 ): Decimal {
-  // Determine target slab category:
-  // - If employee is disabled, use "Handicapped" slabs configured by company.
-  // - "Widow" status calculates from "Normal Single".
-  // - Otherwise use employee.taxStatus.
-  let targetCategory = employee.taxStatus;
-  if (employee.isDisabled) {
-    targetCategory = "Handicapped";
-  } else if (targetCategory === "Widow") {
-    targetCategory = "Normal Single";
-  }
-
-  // Sort slabs ascending by amountFrom
-  let activeSlabs = taxSlabs
-    .filter(slab => slab.category === targetCategory)
-    .sort((a, b) => new Decimal(a.amountFrom).minus(new Decimal(b.amountFrom)).toNumber());
-
-  // Default to single tax slabs if category matching is empty
-  if (activeSlabs.length === 0 && targetCategory !== "Normal Single") {
-    activeSlabs = taxSlabs
-      .filter(slab => slab.category === "Normal Single")
-      .sort((a, b) => new Decimal(a.amountFrom).minus(new Decimal(b.amountFrom)).toNumber());
-  }
+  const activeSlabs = slabsForEmployee(employee, taxSlabs);
 
   let annualTax = new Decimal(0);
   let remainingIncome = new Decimal(taxableIncome);

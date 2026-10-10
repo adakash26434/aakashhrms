@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import type { ModuleType } from "@/lib/types/role";
 import { getDb } from "@/lib/db";
 import {
   approvalActions,
@@ -19,7 +20,8 @@ import {
 } from "@/lib/db/schema";
 import { latestApproved } from "@/lib/engines/salary-structure.engine";
 import { parsePolicy } from "@/lib/engines/approval.engine";
-import type { ApprovalActionKind, ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApproverInfo } from "@/lib/types/approval";
+import { readRules } from "@/lib/engines/approval-rules.engine";
+import type { ApprovalActionKind, ApprovalFlow, ApprovalPolicy, ApprovalRoute, ApprovalRule, ApproverInfo } from "@/lib/types/approval";
 import type { BatchKind, BatchStatus, TemplateInput } from "@/lib/types/salary-structure";
 
 const MODULE = "SALARY_MAPPING";
@@ -336,6 +338,46 @@ export async function getApprovalPolicy(): Promise<ApprovalPolicy> {
   return parsePolicy(parsed, rows.find((r) => r.key === LEGACY_KEY)?.value ?? null);
 }
 
+// 4.12d: custom rules for salary changes, read in order (the first that applies decides).
+const RULES_KEY = "approvals.salaryRevision.rules";
+
+/** The custom rules and the version they were read at (the last save; "none" before any). */
+export async function getApprovalRules(): Promise<{ rules: ApprovalRule[]; version: string }> {
+  const [row] = await (await getDb()).select({ value: systemConfig.value, updatedAt: systemConfig.updatedAt }).from(systemConfig).where(eq(systemConfig.key, RULES_KEY)).limit(1);
+  if (!row) return { rules: [], version: "none" };
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(row.value);
+  } catch {
+    parsed = null;
+  }
+  return { rules: readRules(parsed), version: row.updatedAt.toISOString() };
+}
+
+const isUniqueViolation = (e: unknown) => !!e && typeof e === "object" && ((e as { code?: string }).code === "23505" || (e as { cause?: { code?: string } }).cause?.code === "23505");
+
+/** Replaces the rules when they are still at `version` (false: someone saved them meanwhile). */
+export async function replaceApprovalRules(rules: readonly ApprovalRule[], version: string): Promise<boolean> {
+  const value = JSON.stringify(rules);
+  try {
+    return await (await getDb()).transaction(async (tx) => {
+      const [row] = await tx.select({ updatedAt: systemConfig.updatedAt }).from(systemConfig).where(eq(systemConfig.key, RULES_KEY)).for("update");
+      if (!row) {
+        if (version !== "none") return false;
+        await tx.insert(systemConfig).values({ key: RULES_KEY, value, dataType: "json" });
+        return true;
+      }
+      if (row.updatedAt.toISOString() !== version) return false;
+      await tx.update(systemConfig).set({ value, dataType: "json", updatedAt: new Date() }).where(eq(systemConfig.key, RULES_KEY));
+      return true;
+    });
+  } catch (error) {
+    // Two first saves at the same moment: the second finds the row.
+    if (isUniqueViolation(error)) return false;
+    throw error;
+  }
+}
+
 export async function setApprovalPolicy(policy: ApprovalPolicy): Promise<void> {
   const value = JSON.stringify({ type: policy.type, levels: policy.levels });
   await (await getDb())
@@ -345,11 +387,12 @@ export async function setApprovalPolicy(policy: ApprovalPolicy): Promise<void> {
 }
 
 /**
- * Every user, with whether they can approve salary changes (office / system
- * administrators have full access; others need a role with Salary structure →
- * Approve), their linked employee and any delegation while away.
+ * Every user, with whether they can approve a module's requests (office / system
+ * administrators have full access; others need a role with the module's Approve —
+ * Salary structure unless another module is named, e.g. LOANS), their linked
+ * employee and any delegation while away.
  */
-export async function findApprovers(): Promise<ApproverInfo[]> {
+export async function findApprovers(module: ModuleType = MODULE): Promise<ApproverInfo[]> {
   const db = await getDb();
   const [people, grants] = await Promise.all([
     db
@@ -362,7 +405,7 @@ export async function findApprovers(): Promise<ApproverInfo[]> {
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
       .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .where(or(inArray(roles.slug, ["system_admin", "office_admin"]), and(eq(permissions.module, MODULE), eq(permissions.action, "APPROVE")))),
+      .where(or(inArray(roles.slug, ["system_admin", "office_admin"]), and(eq(permissions.module, module), eq(permissions.action, "APPROVE")))),
   ]);
   const can = new Set(grants.map((g) => g.userId));
   return people

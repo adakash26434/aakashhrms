@@ -1,7 +1,10 @@
 import { getDb } from '@/lib/db';
-import { payHeads, employeeSalaryHeads, employeeSalaryMap, employees, payrollSlipHeads } from '@/lib/db/schema';
+import { payHeads, employeeSalaryHeads, payrollSlipHeads, salaryTemplates } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import type { PayHead, PayHeadType, CalcBasis, CalcParameter } from '@/lib/types/pay-head';
+import type { PayHeadWrite } from '@/lib/engines/pay-head.engine';
+
+// Pay heads (4.12b). Reads never write; a head's code is given once and never changes.
 
 type PayHeadRow = typeof payHeads.$inferSelect;
 
@@ -10,6 +13,7 @@ function mapRowToPayHead(row: PayHeadRow): PayHead {
     id: row.id,
     code: row.code,
     name: row.name,
+    nameNp: row.nameNp ?? null,
     type: row.type as PayHeadType,
     effectOnTax: row.effectOnTax,
     calcBasis: row.calcBasis as CalcBasis,
@@ -45,109 +49,54 @@ export async function findPayHeadById(id: string): Promise<PayHead | undefined> 
   return mapRowToPayHead(rows[0]);
 }
 
-type CreatePayload = Omit<PayHead, "id" | "code" | "createdAt" | "updatedAt">;
+const columns = (w: PayHeadWrite) => ({
+  name: w.name,
+  nameNp: w.nameNp,
+  type: w.type,
+  effectOnTax: w.effectOnTax,
+  calcBasis: w.calcBasis,
+  calcParameter: w.calcParameter,
+  calcPercent: String(w.calcPercent),
+  applicableDepartmentIds: w.applicableDepartmentIds,
+  applicableDesignationIds: w.applicableDesignationIds,
+  ...w.flags,
+});
 
-export async function createPayHead(data: CreatePayload): Promise<PayHead> {
-  const code = `PH-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-
-  const rows = await (await getDb()).insert(payHeads).values({
-    code,
-    name: data.name,
-    type: data.type,
-    effectOnTax: data.effectOnTax,
-    calcBasis: data.calcBasis,
-    calcParameter: data.calcParameter,
-    calcPercent: data.calcPercent.toString(),
-    applicableDepartmentIds: data.applicableDepartmentIds || [],
-    applicableDesignationIds: data.applicableDesignationIds || [],
-    isFestivalAllowance: data.flags.isFestivalAllowance ?? false,
-    isAbsentDeduct: data.flags.isAbsentDeduct ?? false,
-    isOtHead: data.flags.isOtHead ?? false,
-    isLeaveHead: data.flags.isLeaveHead ?? false,
-    isTdsHead: data.flags.isTdsHead ?? false,
-    isPfHead: data.flags.isPfHead ?? false,
-    isSsfHead: data.flags.isSsfHead ?? false,
-    isSsfEmployerHead: data.flags.isSsfEmployerHead ?? false,
-    isRemoteAllowance: data.flags.isRemoteAllowance ?? false,
-    isCitHead: data.flags.isCitHead ?? false,
-  }).returning();
-
-  return mapRowToPayHead(rows[0]);
+export async function insertPayHead(code: string, write: PayHeadWrite): Promise<PayHead> {
+  const [row] = await (await getDb()).insert(payHeads).values({ code, ...columns(write) }).returning();
+  return mapRowToPayHead(row);
 }
 
-export async function updatePayHead(id: string, data: CreatePayload): Promise<PayHead> {
-  const rows = await (await getDb()).update(payHeads).set({
-    name: data.name,
-    type: data.type,
-    effectOnTax: data.effectOnTax,
-    calcBasis: data.calcBasis,
-    calcParameter: data.calcParameter,
-    calcPercent: data.calcPercent.toString(),
-    applicableDepartmentIds: data.applicableDepartmentIds || [],
-    applicableDesignationIds: data.applicableDesignationIds || [],
-    isFestivalAllowance: data.flags.isFestivalAllowance ?? false,
-    isAbsentDeduct: data.flags.isAbsentDeduct ?? false,
-    isOtHead: data.flags.isOtHead ?? false,
-    isLeaveHead: data.flags.isLeaveHead ?? false,
-    isTdsHead: data.flags.isTdsHead ?? false,
-    isPfHead: data.flags.isPfHead ?? false,
-    isSsfHead: data.flags.isSsfHead ?? false,
-    isSsfEmployerHead: data.flags.isSsfEmployerHead ?? false,
-    isRemoteAllowance: data.flags.isRemoteAllowance ?? false,
-    isCitHead: data.flags.isCitHead ?? false,
-    updatedAt: new Date(),
-  }).where(eq(payHeads.id, id)).returning();
-
-  return mapRowToPayHead(rows[0]);
+export async function updatePayHead(id: string, write: PayHeadWrite): Promise<PayHead | null> {
+  const [row] = await (await getDb()).update(payHeads).set({ ...columns(write), updatedAt: new Date() }).where(eq(payHeads.id, id)).returning();
+  return row ? mapRowToPayHead(row) : null;
 }
 
-export interface PayHeadSalaryMappingUsage {
-  count: number;
-  sampleEmployees: Array<{ fullName: string; employeeCode: string }>;
+export interface PayHeadUsage {
+  structures: number;
+  payslips: number;
+  templates: number;
 }
 
-export async function getPayHeadSalaryMappingUsage(payHeadId: string): Promise<PayHeadSalaryMappingUsage> {
-  const db = (await getDb());
-
-  const countRows = await db
-    .select({ total: sql<number>`count(distinct ${employeeSalaryMap.employeeId})::int` })
-    .from(employeeSalaryHeads)
-    .innerJoin(employeeSalaryMap, eq(employeeSalaryHeads.salaryMapId, employeeSalaryMap.id))
-    .where(eq(employeeSalaryHeads.payHeadId, payHeadId));
-
-  const total = countRows[0]?.total ?? 0;
-  if (total === 0) {
-    return { count: 0, sampleEmployees: [] };
-  }
-
-  const sampleRows = await db
-    .selectDistinct({
-      fullName: employees.fullName,
-      employeeCode: employees.employeeCode,
-    })
-    .from(employeeSalaryHeads)
-    .innerJoin(employeeSalaryMap, eq(employeeSalaryHeads.salaryMapId, employeeSalaryMap.id))
-    .innerJoin(employees, eq(employeeSalaryMap.employeeId, employees.id))
-    .where(eq(employeeSalaryHeads.payHeadId, payHeadId))
-    .limit(5);
-
-  return {
-    count: total,
-    sampleEmployees: sampleRows,
-  };
+/** Salary structures (any revision), payslip lines and salary templates that name each head. */
+export async function usageByHead(): Promise<Map<string, PayHeadUsage>> {
+  const db = await getDb();
+  const templateHead = sql<string>`jsonb_array_elements(${salaryTemplates.heads})->>'payHeadId'`;
+  const [structures, payslips, templates] = await Promise.all([
+    db.select({ id: employeeSalaryHeads.payHeadId, n: sql<number>`count(distinct ${employeeSalaryHeads.salaryMapId})` }).from(employeeSalaryHeads).groupBy(employeeSalaryHeads.payHeadId),
+    db.select({ id: payrollSlipHeads.payHeadId, n: sql<number>`count(*)` }).from(payrollSlipHeads).groupBy(payrollSlipHeads.payHeadId),
+    db.select({ id: templateHead }).from(salaryTemplates),
+  ]);
+  const out = new Map<string, PayHeadUsage>();
+  const at = (id: string) => out.get(id) ?? out.set(id, { structures: 0, payslips: 0, templates: 0 }).get(id)!;
+  for (const r of structures) if (r.id) at(r.id).structures = Number(r.n);
+  for (const r of payslips) if (r.id) at(r.id).payslips = Number(r.n);
+  for (const r of templates) if (r.id) at(r.id).templates += 1;
+  return out;
 }
 
-export async function getPayHeadPayslipUsage(payHeadId: string): Promise<{ count: number }> {
-  const countRows = await (await getDb())
-    .select({ total: sql<number>`count(*)::int` })
-    .from(payrollSlipHeads)
-    .where(eq(payrollSlipHeads.payHeadId, payHeadId));
-
-  return {
-    count: countRows[0]?.total ?? 0,
-  };
-}
-
-export async function deletePayHead(id: string): Promise<void> {
-  await (await getDb()).delete(payHeads).where(eq(payHeads.id, id));
+/** Deletes a head nothing names (false: gone already). The foreign keys refuse one in use. */
+export async function deletePayHead(id: string): Promise<boolean> {
+  const rows = await (await getDb()).delete(payHeads).where(eq(payHeads.id, id)).returning({ id: payHeads.id });
+  return rows.length > 0;
 }

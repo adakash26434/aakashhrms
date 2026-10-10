@@ -23,10 +23,11 @@ import type { PeriodScore, TargetRow, TargetsPageData } from "@/lib/types/target
 
 const MAX_PEOPLE = 200;
 
-export function TargetsClient({ data }: { data: TargetsPageData }) {
+export function TargetsClient({ data, initialStatus }: { data: TargetsPageData; initialStatus?: string }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<FilterValues>({ fy: data.currentFy });
+  // A status from the link (the bell) looks across every year; otherwise this year.
+  const [filters, setFilters] = useState<FilterValues>((): FilterValues => (initialStatus ? { status: initialStatus } : { fy: data.currentFy }));
   const [setting, setSetting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

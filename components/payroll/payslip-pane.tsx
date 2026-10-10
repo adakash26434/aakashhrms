@@ -11,7 +11,7 @@ import { SelectField } from "@/components/kit/select-field";
 import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
 import { addSlipHeadAction, overrideSlipAction, recalculateSlipAction, removeSlipAction, slipDetailAction } from "@/app/actions/payroll-run.actions";
 import { describeDetail } from "@/lib/engines/overtime.engine";
-import { TaxSheetCard, isTaxSheet } from "@/components/payroll/tax-sheet-card";
+import { MarginalTaxCard, TaxSheetCard, isMarginalTaxSheet, isTaxSheet } from "@/components/payroll/tax-sheet-card";
 import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 import type { PayrollRunView, PayrollRunsPageData } from "@/lib/types/payroll-run";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,8 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
   const [busy, setBusy] = useState<string | null>(null);
   const own = data.myEmployeeId === slip.employeeId;
   const canEdit = run.can.edit && !own;
+  // F6: an off-cycle payslip (festival allowance, arrears) pays only its own lines, taxed on its own.
+  const offCycle = run.runType !== "REGULAR";
 
   useEffect(() => {
     let live = true;
@@ -58,11 +60,14 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
   };
 
   const allowances = (heads ?? []).filter((h) => h.headType === "allowance");
-  const deductions = (heads ?? []).filter((h) => h.headType === "deduction");
-  const earnings: Line[] = [
+  // The income tax head's line is the slip's TDS, shown once as "Income tax" below.
+  const tdsHeadIds = new Set(data.allPayHeads.filter((h) => h.isTds).map((h) => h.id));
+  const deductions = (heads ?? []).filter((h) => h.headType === "deduction" && !tdsHeadIds.has(h.payHeadId));
+  const allowanceLines: Line[] = allowances.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null }));
+  const earnings: Line[] = offCycle ? allowanceLines : [
     { id: "basic-salary", label: "Basic salary", amount: slip.basicSalary, editable: true },
     ...(Number(slip.gradeAmount) ? [{ id: "grade-amount", label: "Grade", amount: slip.gradeAmount, editable: true }] : []),
-    ...allowances.map((h) => ({ id: h.payHeadId, label: h.payHeadName, amount: h.calculatedAmount ?? h.amount, editable: true, overridden: h.isManualOverride, note: h.isManualOverride ? h.overrideReason : null })),
+    ...allowanceLines,
     { id: "ot-amount", label: "Overtime", amount: slip.otAmount, editable: true, note: slip.otDetail && Math.abs(slip.otDetail.amount - Number(slip.otAmount)) < 0.005 ? describeDetail(slip.otDetail) : null },
     ...(Number(slip.absentDeduction) ? [{ id: "absent-deduction", label: "Unpaid days", amount: `-${slip.absentDeduction}`, editable: true }] : []),
   ].filter((l) => Number(l.amount) !== 0 || l.editable);
@@ -96,9 +101,11 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
         <PaneActions hint={own ? "This is your own payslip: someone else changes it (S21)." : !run.can.edit ? undefined : "Changes are kept with a reason and shown to the approver."}>
           {canEdit && (
             <>
-              <WindowButton onClick={() => setAdding(true)}>
-                <Plus className="h-3.5 w-3.5" /> Add head
-              </WindowButton>
+              {!offCycle && (
+                <WindowButton onClick={() => setAdding(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Add head
+                </WindowButton>
+              )}
               <WindowButton
                 onClick={async () => {
                   setBusy("recalc");
@@ -142,6 +149,11 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
           <TaxSheetCard sheet={slip.taxSheet} />
         </PaneSection>
       )}
+      {isMarginalTaxSheet(slip.taxSheet) && (
+        <PaneSection title="Income tax">
+          <MarginalTaxCard sheet={slip.taxSheet} />
+        </PaneSection>
+      )}
       <PaneSection>
         <div className="flex items-center justify-between text-sm font-semibold text-ink">
           <span>Net payable</span>
@@ -179,7 +191,7 @@ export function PayslipPane({ slip: initial, run, data, onChanged }: { slip: Pay
       {adding && (
         <AddHeadWindow
           slip={slip}
-          heads={data.allPayHeads.filter((h) => !(heads ?? []).some((x) => x.payHeadId === h.id))}
+          heads={data.allPayHeads.filter((h) => h.addable && !(heads ?? []).some((x) => x.payHeadId === h.id))}
           onClose={() => setAdding(false)}
           onSaved={async (payHeadId, amount, reason) => {
             const r = await addSlipHeadAction({ slipId: slip.id, payHeadId, amount, reason });

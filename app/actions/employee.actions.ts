@@ -6,7 +6,8 @@ import * as userService from '@/lib/services/user.service';
 import * as roleService from '@/lib/services/role.service';
 import { revalidatePath } from 'next/cache';
 import type { EmployeeFormData, EmployeeValidationErrors } from '@/lib/types/employee';
-import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
+import { checkPermissionWithScope, hasPermission, type ScopeFilter } from '@/lib/auth/check-permission';
+import { DENIED_SELF } from '@/lib/auth/self-action';
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { canPlaceInScope, changedEmployeeFields } from '@/lib/engines/employee.engine';
 import { UserFacingError, toActionError } from '@/lib/errors/action-error';
@@ -24,7 +25,9 @@ export type SaveEmployeeActionResult =
 export async function saveEmployeeAction(
   id: string | null,
   formData: EmployeeFormData,
-  accessOptions?: empService.EmployeeAccessOptions
+  accessOptions?: empService.EmployeeAccessOptions,
+  /** F13: why the bank, PAN or tax status changes (shown to the approver). */
+  detail?: { reason?: string }
 ): Promise<SaveEmployeeActionResult> {
   await ensureTenantContext();
   try {
@@ -46,24 +49,47 @@ export async function saveEmployeeAction(
     }
 
     // Pay fields need Salary mapping → Edit as well (S18); without it they are kept / defaulted.
-    const canEditPay = await hasPermission('EDIT', 'SALARY_MAPPING');
-    const result = await empService.saveEmployee(id, formData, accessOptions, { canEditPay, userId: scope.userId });
+    // Bank, PAN and tax status (F13): Employees → Approve decides whether a change applies now.
+    // Login roles (S44): Users & roles → Edit, never on one's own login.
+    const [canEditPay, canApproveDetails, canManageLogins] = await Promise.all([
+      hasPermission('EDIT', 'SALARY_MAPPING'),
+      hasPermission('APPROVE', 'EMPLOYEES'),
+      hasPermission('EDIT', 'USERS_ROLES'),
+    ]);
+    const result = await empService.saveEmployee(id, formData, {
+      userId: scope.userId,
+      access: accessOptions,
+      canEditPay,
+      detail: { scope, canApprove: canApproveDetails, reason: detail?.reason },
+      canManageLogins: canManageLogins && !scope.isImpersonation,
+    });
+    const saved = result.employee;
     await recordAuditLog({
       userId: scope.userId,
       action,
       module: 'EMPLOYEES',
-      recordId: result.employee.id,
+      recordId: saved.id,
       result: 'SUCCESS',
       newValues: before
         ? {
-            // Pay as saved (the server may have kept or recalculated it), not as sent.
+            // Pay and the sensitive details as saved (kept, recalculated or waiting), not as sent.
             changedFields: changedEmployeeFields(before, {
               ...formData,
-              basicSalary: result.employee.basicSalary,
-              gradeCount: result.employee.gradeCount,
-              gradeAmount: result.employee.gradeAmount,
-              gradeManual: result.employee.gradeManual,
+              basicSalary: saved.basicSalary,
+              gradeCount: saved.gradeCount,
+              gradeAmount: saved.gradeAmount,
+              gradeManual: saved.gradeManual,
+              bankName: saved.bankName,
+              bankBranch: saved.bankBranch,
+              bankAccountNumber: saved.bankAccountNumber,
+              panNumber: saved.panNumber ?? '',
+              taxStatus: saved.taxStatus,
+              isDisabled: saved.isDisabled,
             }),
+            // Field names only, never values (S18).
+            ...(result.detailChange
+              ? { detailChange: { id: result.detailChange.id, status: result.detailChange.status, route: result.detailChange.route, fields: result.detailChange.fields } }
+              : {}),
           }
         : {
             employeeCode: result.employee.employeeCode,
@@ -173,6 +199,22 @@ export async function getEmployeeAccessAction(employeeId: string | null) {
 }
 
 /**
+ * S44: from the employee record, sign-in details are issued only for self-service logins. A login
+ * with an office role is reset under Admin → Users (Users & roles → Edit), and nobody issues a
+ * temporary password for their own login (Change password is for that). Refusals are audited.
+ */
+async function assertMayResetLogin(scope: ScopeFilter, access: { userId: string; roleSlug: string | null; roleName: string | null }, employeeId: string): Promise<void> {
+  if (access.userId === scope.userId) {
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employeeId, result: DENIED_SELF, newValues: { credentials: 'refused' } });
+    throw new UserFacingError('This is your own login: use Change password instead.');
+  }
+  if (!empService.isSelfServiceRole(access.roleSlug) && (scope.isImpersonation || !(await hasPermission('EDIT', 'USERS_ROLES')))) {
+    await recordAuditLog({ userId: scope.userId, action: 'EDIT', module: 'EMPLOYEES', recordId: employeeId, result: 'DENIED_PERMISSION', newValues: { credentials: 'refused' } });
+    throw new UserFacingError(`This login has an office role (${access.roleName ?? 'not the Employee role'}). Reset it under Admin → Users.`);
+  }
+}
+
+/**
  * Re-sends onboarding credentials while the account is pending first login.
  * SECURITY (S2): temporary passwords are never stored, so a resend issues a
  * fresh temporary password (the previous one stops working), emails it, and
@@ -189,6 +231,7 @@ export async function resendEmployeeCredentialsAction(employeeId: string) {
     if (!access) {
       throw new UserFacingError('No self-service account is linked to this employee.');
     }
+    await assertMayResetLogin(scope, access, employee.id);
 
     if (!access.mustChangePassword) {
       throw new UserFacingError('The employee has already set a permanent password. Use "Reset Password" in Admin → Users to issue a new temporary credential.');
@@ -238,6 +281,7 @@ export async function resetEmployeePasswordAction(employeeId: string) {
     if (!access) {
       throw new UserFacingError('No self-service account is linked to this employee.');
     }
+    await assertMayResetLogin(scope, access, employee.id);
 
     // Reset password in user service
     const resetResult = await userService.resetUserPassword(access.userId);

@@ -13,6 +13,23 @@ export function nepalDateIso(now: Date = new Date()): string {
   return NEPAL_DATE.format(now);
 }
 
+const NEPAL_CLOCK = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Kathmandu",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** The Kathmandu wall-clock time as HH:MM (24-hour). */
+export function nepalClock(now: Date = new Date()): string {
+  return NEPAL_CLOCK.format(now);
+}
+
+/** The Kathmandu hour, 0–23 (scheduled jobs that wait for the morning). */
+export function nepalHour(now: Date = new Date()): number {
+  return Number(nepalClock(now).slice(0, 2));
+}
+
 /** Local-midnight Date for the Kathmandu calendar date (safe for adToBS / day maths). */
 export function nepalToday(now: Date = new Date()): Date {
   const [y, m, d] = nepalDateIso(now).split("-").map(Number);

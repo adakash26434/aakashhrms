@@ -1,1075 +1,475 @@
-import { getDb, getCurrentTenantSlug } from "@/lib/db";
-import {
-  payrollRuns,
-  payrollSlips,
-  payrollSlipHeads,
-  employees,
-  employeePersonal,
-  departments,
-  designations,
-  branches,
-  fiscalYears,
-  employeeLeaveBalances,
-  leaveApplications,
-  leaveTypes,
-  loans,
-  loanRepayments,
-  loanTypes,
-  users,
-  systemConfig,
-} from "@/lib/db/schema";
-import { platformDb, ensurePlatformTablesExist } from "@/lib/platform/db";
-import { companies } from "@/lib/platform/schema";
-import { getImpersonationSession } from "@/lib/platform/impersonation";
-import { auth } from "@/lib/auth";
-import { eq, inArray, desc, and } from "drizzle-orm";
+import { eq, type SQL } from "drizzle-orm";
+import { employees } from "@/lib/db/schema";
+import { buildEmployeeScopeCondition, type ScopeFilter } from "@/lib/auth/scope-filter";
+import { UserFacingError } from "@/lib/errors/action-error";
+import * as repo from "@/lib/repositories/report.repository";
+import { sheetHeads, type SheetHeadRow } from "@/lib/repositories/payslip-sheet.repository";
+import { findUserNames } from "@/lib/repositories/salary-structure.repository";
+import { findEmployees as findPeople } from "@/lib/repositories/attendance.repository";
+import { findLedger, findRequests } from "@/lib/repositories/leave.repository";
+import { headFigures, sheetsForRun } from "@/lib/services/payslip-sheet.service";
+import { companyLetterhead } from "@/lib/services/letter.service";
+import { reportMonth } from "@/lib/services/attendance.service";
+import { leaveYears } from "@/lib/services/leave.service";
+import { ruleTypes } from "@/lib/services/leave-rule-types.service";
 import * as engine from "@/lib/engines/report.engine";
-import * as attendanceService from "@/lib/services/attendance.service";
-import { localClock } from "@/lib/engines/attendance-day.engine";
-import { nepalDateIso } from "@/lib/utils/nepal-time";
-import type { ScopeFilter } from "@/lib/auth/scope-filter";
-import { BS_MONTHS_EN, bsToAD, getDaysInBSMonth } from "@/lib/utils/bs-calendar";
+import { periodFor } from "@/lib/engines/pay-period.engine";
+import { asRunType, RUN_TYPE_LABEL } from "@/lib/constants/run-types";
+import { adToBSString } from "@/lib/utils/bs-calendar";
+import { nepalClock, nepalDateIso } from "@/lib/utils/nepal-time";
 import type {
-  CompanyReportInfo,
-  ReportFilterLookupData,
-  ReportPayrollRunOption,
-  SalarySheetFilter,
-  SalarySheetReportData,
-  SalarySheetRow,
-  PayslipFilter,
-  PayslipPrintData,
-  PayslipHeadSummaryRow,
-  AttendanceReportFilter,
   AttendanceReportData,
-  AttendanceReportRow,
-  AttendanceDailyDetail,
-  TDSReportFilter,
-  TDSReportData,
-  TDSReportRow,
-  LeaveReportFilter,
-  LeaveReportData,
+  CompanySignatory,
   LeaveBalanceRow,
-  LeaveApplicationReportRow,
-  LoanReportFilter,
+  LeaveMovementRow,
+  LeaveReportData,
+  LeaveRequestReportRow,
   LoanReportData,
-  LoanSummaryRow,
-  LoanRepaymentLedgerRow,
+  PayslipReportData,
+  ReportCompany,
+  ReportContext,
+  ReportOption,
+  ReportPeriods,
+  ReportPlaces,
+  ReportRun,
+  ReportRunOption,
+  RunSignOff,
+  SalarySheetData,
 } from "@/lib/types/report";
-import type { PayrollSlip, PayrollSlipHead } from "@/lib/types/payroll";
 
-// ─── Filter Lookups ────────────────────────────────────────────────────────
+// Reports (4.11, template D; S48). Every report is built here from the same sources as its
+// module — payslip statements, the attendance day rules, the leave ledger, the loan register —
+// and only for employees the viewer covers. Reports are office screens: a SELF-scoped role is
+// refused (its own records are in self-service, where payslips follow publish / hold).
 
-export async function getCompanyReportInfo(): Promise<CompanyReportInfo> {
-  const slug = await getCurrentTenantSlug();
+export interface ReportCtx {
+  userId: string;
+  scope: ScopeFilter;
+  /** EXPORT on the report's module (Excel / CSV buttons). */
+  canExport: boolean;
+}
 
-  // 1. Resolve from platform companies table by slug
-  if (slug) {
-    try {
-      await ensurePlatformTablesExist();
-      const [comp] = await platformDb
-        .select()
-        .from(companies)
-        .where(eq(companies.slug, slug))
-        .limit(1);
-
-      if (comp) {
-        return {
-          legalName: comp.legalName || comp.displayName || "Company Workspace",
-          displayName: comp.displayName || comp.legalName || "Company Workspace",
-          code: comp.companyCode,
-          panVatNumber: comp.panVatNumber || undefined,
-          contactPhone: comp.contactPhone || undefined,
-          contactEmail: comp.contactEmail || undefined,
-          headOfficeAddress: comp.headOfficeAddress || undefined,
-        };
-      }
-    } catch (err) {
-      console.error("Error fetching company from platformDb in report.service:", err);
-    }
+/** Reports cover other people's records: never a SELF-scoped role (S48). */
+export function assertOfficeScope(scope: ScopeFilter): void {
+  if (scope.scopeType === "SELF") {
+    throw new UserFacingError("Reports are for office roles. Your own payslips, leave and loans are under Self-service.");
   }
+}
 
-  // 2. Fallback: check tenantDb systemConfig & branches
-  try {
-    const db = (await getDb());
-    const [configs, branchList] = await Promise.all([
-      db.select().from(systemConfig).catch(() => []),
-      db.select().from(branches).limit(1).catch(() => []),
-    ]);
+const scopeCondition = (scope: ScopeFilter): SQL | undefined => buildEmployeeScopeCondition(scope);
 
-    const configMap = new Map(configs.map((c) => [c.key, c.value]));
-    const legalName = configMap.get("company_legal_name");
-    const displayName = configMap.get("company_display_name");
-    const panVat = configMap.get("company_pan_vat");
-    const phone = configMap.get("company_phone") || branchList[0]?.phone;
-    const address = configMap.get("company_office_address") || branchList[0]?.location;
-    const email = configMap.get("company_contact_email") || branchList[0]?.email;
-    const code = configMap.get("company_code") || branchList[0]?.code;
+// ---------------------------------------------------------------------------
+// Shared: letterhead, context, places, dates
+// ---------------------------------------------------------------------------
 
-    if (legalName || displayName) {
-      return {
-        legalName: legalName || displayName || "Company Workspace",
-        displayName: displayName || legalName || "Company Workspace",
-        code: code || undefined,
-        panVatNumber: panVat || undefined,
-        contactPhone: phone || undefined,
-        contactEmail: email || undefined,
-        headOfficeAddress: address || undefined,
-      };
-    }
-  } catch {
-    // Ignore
-  }
-
-  // 3. Fallback: If platformDb has companies (e.g. single-tenant / local dev)
-  try {
-    await ensurePlatformTablesExist();
-    const [firstComp] = await platformDb.select().from(companies).limit(1);
-    if (firstComp) {
-      return {
-        legalName: firstComp.legalName || firstComp.displayName,
-        displayName: firstComp.displayName || firstComp.legalName,
-        code: firstComp.companyCode,
-        panVatNumber: firstComp.panVatNumber || undefined,
-        contactPhone: firstComp.contactPhone || undefined,
-        contactEmail: firstComp.contactEmail || undefined,
-        headOfficeAddress: firstComp.headOfficeAddress || undefined,
-      };
-    }
-  } catch {
-    // Ignore
-  }
-
+async function letterhead(): Promise<{ company: ReportCompany; signatories: CompanySignatory[] }> {
+  // The tenant's own company profile and letter design — never another company's (S48).
+  const head = await companyLetterhead().catch(() => null);
+  if (!head) return { company: { name: "", address: "", pan: "" }, signatories: [] };
   return {
-    legalName: "Company Workspace",
-    displayName: "Company Workspace",
+    company: {
+      name: head.name,
+      address: head.address,
+      pan: head.pan,
+      regNo: head.design.showRegNo ? head.regNo : "",
+      phone: head.phone,
+      email: head.email,
+      logoDataUrl: head.design.logoDataUrl,
+      headerAlign: head.design.headerAlign,
+      ruleStyle: head.design.ruleStyle,
+    },
+    signatories: [
+      { name: head.signatoryName, title: head.signatoryTitle },
+      { name: head.signatory2Name, title: head.signatory2Title },
+    ].filter((s) => s.name.trim()),
   };
 }
 
-export async function getReportFilterLookupData(): Promise<ReportFilterLookupData> {
-  const [fyList, branchList, deptList, desigList, lockedRuns, lTypes, lnTypes, empList, companyInfo] = await Promise.all([
-    (await getDb())
-      .select({
-        id: fiscalYears.id,
-        label: fiscalYears.label,
-        status: fiscalYears.status,
-      })
-      .from(fiscalYears)
-      .orderBy(desc(fiscalYears.label)),
+interface Names {
+  branches: repo.NamedRow[];
+  departments: repo.NamedRow[];
+  designations: repo.NamedRow[];
+  people: repo.ScopedEmployee[];
+  branchName: (id: string) => string | undefined;
+  departmentName: (id: string) => string | undefined;
+  designationName: (id: string) => string | undefined;
+  places: ReportPlaces;
+}
 
-    (await getDb())
-      .select({ id: branches.id, name: branches.name })
-      .from(branches)
-      .orderBy(branches.name),
-
-    (await getDb())
-      .select({ id: departments.id, name: departments.name })
-      .from(departments)
-      .orderBy(departments.name),
-
-    (await getDb())
-      .select({ id: designations.id, name: designations.name })
-      .from(designations)
-      .orderBy(designations.name),
-
-    (await getDb())
-      .select({
-        id: payrollRuns.id,
-        payPeriodMonth: payrollRuns.payPeriodMonth,
-        payPeriodYear: payrollRuns.payPeriodYear,
-        status: payrollRuns.status,
-        employeeCount: payrollRuns.employeeCount,
-        totalNetPayable: payrollRuns.totalNetPayable,
-      })
-      .from(payrollRuns)
-      .where(eq(payrollRuns.status, "LOCKED"))
-      .orderBy(desc(payrollRuns.payPeriodYear), desc(payrollRuns.payPeriodMonth)),
-
-    (await getDb())
-      .select({ id: leaveTypes.id, name: leaveTypes.name, code: leaveTypes.code })
-      .from(leaveTypes)
-      .orderBy(leaveTypes.name),
-
-    (await getDb())
-      .select({ id: loanTypes.id, name: loanTypes.name })
-      .from(loanTypes)
-      .orderBy(loanTypes.name),
-
-    (await getDb())
-      .select({
-        id: employees.id,
-        fullName: employees.fullName,
-        employeeCode: employees.employeeCode,
-      })
-      .from(employees)
-      .orderBy(employees.fullName),
-
-    getCompanyReportInfo(),
-  ]);
-
-  const lockedPayrollRuns: ReportPayrollRunOption[] = lockedRuns.map((r) => {
-    const monthName = BS_MONTHS_EN[r.payPeriodMonth] || `Month ${r.payPeriodMonth}`;
-    return {
-      id: r.id,
-      label: `${monthName} ${r.payPeriodYear} (LOCKED)`,
-      payPeriodMonth: r.payPeriodMonth,
-      payPeriodYear: r.payPeriodYear,
-      status: r.status,
-      employeeCount: r.employeeCount ?? 0,
-      totalNetPayable: r.totalNetPayable ?? "0.00",
-    };
-  });
-
-  const formattedEmployees = empList.map((e) => ({
-    id: e.id,
-    name: e.fullName,
-    employeeCode: e.employeeCode,
-  }));
-
+async function names(scope: ScopeFilter): Promise<Names> {
+  const [branches, departments, designations, people] = await Promise.all([repo.branchRows(), repo.departmentRows(), repo.designationRows(), repo.employeesInScope(scopeCondition(scope))]);
+  const b = new Map(branches.map((r) => [r.id, r.name]));
+  const d = new Map(departments.map((r) => [r.id, r.name]));
+  const g = new Map(designations.map((r) => [r.id, r.name]));
+  // Only branches and departments where the viewer covers someone, and only those people.
+  const inBranches = new Set(people.map((p) => p.branchId));
+  const inDepartments = new Set(people.map((p) => p.departmentId));
   return {
-    company: companyInfo,
-    fiscalYears: fyList,
-    branches: branchList,
-    departments: deptList,
-    designations: desigList,
-    lockedPayrollRuns,
-    leaveTypes: lTypes,
-    loanTypes: lnTypes,
-    employees: formattedEmployees,
+    branches,
+    departments,
+    designations,
+    people,
+    branchName: (id) => b.get(id),
+    departmentName: (id) => d.get(id),
+    designationName: (id) => g.get(id),
+    places: {
+      branches: branches.filter((r) => inBranches.has(r.id)).map((r) => ({ value: r.id, label: r.name })),
+      departments: departments.filter((r) => inDepartments.has(r.id)).map((r) => ({ value: r.id, label: r.name })),
+      employees: people.map((p) => ({ value: p.id, label: `${p.name} · ${p.code}${p.status === "Active" ? "" : " (left)"}` })),
+    },
   };
 }
 
-// ─── Salary Sheet ──────────────────────────────────────────────────────────
-
-export async function getSalarySheetData(
-  filter: SalarySheetFilter
-): Promise<SalarySheetReportData> {
-  if (!filter.payrollRunId) {
-    throw new Error("Payroll Run ID is required for Salary Sheet report.");
-  }
-
-  // 1. Load run details
-  const [runRecord] = await (await getDb())
-    .select()
-    .from(payrollRuns)
-    .where(eq(payrollRuns.id, filter.payrollRunId))
-    .limit(1);
-
-  if (!runRecord) {
-    throw new Error("Selected payroll run not found.");
-  }
-
-  const monthName =
-    BS_MONTHS_EN[runRecord.payPeriodMonth] || `Month ${runRecord.payPeriodMonth}`;
-  const runOption: ReportPayrollRunOption = {
-    id: runRecord.id,
-    label: `${monthName} ${runRecord.payPeriodYear} (${runRecord.status})`,
-    payPeriodMonth: runRecord.payPeriodMonth,
-    payPeriodYear: runRecord.payPeriodYear,
-    status: runRecord.status,
-    employeeCount: runRecord.employeeCount ?? 0,
-    totalNetPayable: runRecord.totalNetPayable ?? "0.00",
-  };
-
-  // 2. Load slips for this run with optional branch/department/employee search filtering
-  const slipRecords = await (await getDb())
-    .select({
-      slip: payrollSlips,
-      branchId: employees.branchId,
-      departmentId: employees.departmentId,
-    })
-    .from(payrollSlips)
-    .innerJoin(employees, eq(payrollSlips.employeeId, employees.id))
-    .where(eq(payrollSlips.payrollRunId, filter.payrollRunId));
-
-  // Filter in-memory for optional filter criteria
-  let filteredSlips = slipRecords;
-  if (filter.branchId) {
-    filteredSlips = filteredSlips.filter((s) => s.branchId === filter.branchId);
-  }
-  if (filter.departmentId) {
-    filteredSlips = filteredSlips.filter(
-      (s) => s.departmentId === filter.departmentId
-    );
-  }
-  if (filter.employeeSearch && filter.employeeSearch.trim()) {
-    const q = filter.employeeSearch.trim().toLowerCase();
-    filteredSlips = filteredSlips.filter(
-      (s) =>
-        s.slip.employeeName.toLowerCase().includes(q) ||
-        s.slip.employeeCode.toLowerCase().includes(q)
-    );
-  }
-
-  const targetSlips = filteredSlips.map((item) => item.slip);
-
-  if (targetSlips.length === 0) {
-    return {
-      run: runOption,
-      rows: [],
-      summary: engine.aggregateSalarySheetSummary([]),
-      allAllowanceHeadNames: [],
-      allDeductionHeadNames: [],
-    };
-  }
-
-  // 3. Batch query all slip heads to avoid N+1 queries
-  const slipIds = targetSlips.map((s) => s.id);
-  const allHeads = await (await getDb())
-    .select()
-    .from(payrollSlipHeads)
-    .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
-
-  // Map heads by payrollSlipId
-  const headsMap = new Map<string, typeof allHeads>();
-  allHeads.forEach((head) => {
-    const list = headsMap.get(head.payrollSlipId) || [];
-    list.push(head);
-    headsMap.set(head.payrollSlipId, list);
-  });
-
-  // Track unique dynamic allowance & deduction head names
-  const allowanceNamesSet = new Set<string>();
-  const deductionNamesSet = new Set<string>();
-
-  // 4. Construct SalarySheetRow for each slip
-  const rows: SalarySheetRow[] = targetSlips.map((slip) => {
-    const slipHeads = headsMap.get(slip.id) || [];
-
-    const allowances: { name: string; amount: string }[] = [];
-    const deductions: { name: string; amount: string }[] = [];
-
-    slipHeads.forEach((h) => {
-      const lower = (h.payHeadName || "").toLowerCase();
-      const isStatutoryDed =
-        lower.includes("provident fund") ||
-        lower.includes("epf") ||
-        lower.includes("ssf") ||
-        lower.includes("social security") ||
-        lower.includes("citizen investment") ||
-        lower.includes("cit");
-
-      const headAmount = h.calculatedAmount || h.amount;
-      if (h.headType === "allowance") {
-        allowanceNamesSet.add(h.payHeadName);
-        allowances.push({ name: h.payHeadName, amount: headAmount });
-      } else if (h.headType === "deduction" && !isStatutoryDed) {
-        deductionNamesSet.add(h.payHeadName);
-        deductions.push({ name: h.payHeadName, amount: headAmount });
-      }
-    });
-
-    return {
-      employeeCode: slip.employeeCode,
-      employeeName: slip.employeeName,
-      departmentName: slip.departmentName,
-      designationName: slip.designationName,
-      basicSalary: slip.basicSalary || "0.00",
-      gradeAmount: slip.gradeAmount || "0.00",
-      otAmount: slip.otAmount || "0.00",
-      allowanceHeads: allowances,
-      grossEarnings: slip.grossEarnings || "0.00",
-      absentDeduction: slip.absentDeduction || "0.00",
-      pfEmployee: slip.pfEmployee || "0.00",
-      tdsThisMonth: slip.tdsThisMonth || "0.00",
-      ssfEmployee: slip.ssfEmployee || "0.00",
-      citDeduction: slip.citDeduction || "0.00",
-      loanDeduction: slip.loanDeduction || "0.00",
-      deductionHeads: deductions,
-      totalDeductions: slip.totalDeductions || "0.00",
-      netPayable: slip.netPayable || "0.00",
-      bankName: slip.bankName || "N/A",
-      bankAccountNumberMasked: engine.maskAccountNumber(slip.bankAccountNumber),
-      bankAccountNumberFull: slip.bankAccountNumber || "N/A",
-    };
-  });
-
-  const allAllowanceHeadNames = Array.from(allowanceNamesSet).sort();
-  const allDeductionHeadNames = Array.from(deductionNamesSet).sort();
-
-  const summary = engine.aggregateSalarySheetSummary(rows);
-
+async function context(ctx: ReportCtx, n: Names): Promise<{ context: ReportContext; signatories: CompanySignatory[] }> {
+  const [head, users] = await Promise.all([letterhead(), ctx.scope.isImpersonation ? Promise.resolve(new Map<string, string>()) : findUserNames([ctx.userId])]);
   return {
-    run: runOption,
+    context: {
+      company: head.company,
+      generatedBy: ctx.scope.isImpersonation ? "Platform support" : (users.get(ctx.userId) ?? ""),
+      generatedOn: `${bsOf(nepalDateIso())} ${nepalClock()}`,
+      scopeLabel: engine.scopeLabel(ctx.scope, n.branchName, n.departmentName),
+      partialScope: ctx.scope.scopeType !== "GLOBAL",
+      canExport: ctx.canExport,
+    },
+    signatories: head.signatories,
+  };
+}
+
+/** An AD "YYYY-MM-DD" as a BS "YYYY-MM-DD" ("" when it isn't a date). */
+function bsOf(iso: string | null | undefined): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return "";
+  try {
+    return adToBSString(new Date(`${iso.slice(0, 10)}T00:00:00`));
+  } catch {
+    return "";
+  }
+}
+
+/** A moment as its Nepal calendar date in BS. */
+const bsOfInstant = (at: Date | null | undefined) => (at ? bsOf(nepalDateIso(new Date(at))) : "");
+
+/** Fiscal years (newest first) and the months of each, with the one holding today as the default. */
+async function periods(): Promise<{ years: repo.FiscalYearRow[]; options: ReportOption[]; monthsOf: (id: string) => ReportOption[]; current: string; currentMonth: string }> {
+  const years = await repo.fiscalYearRows();
+  const today = nepalDateIso();
+  const months = new Map(years.map((y) => [y.id, engine.fiscalMonths(y)]));
+  const todayBs = bsOf(today).slice(0, 7);
+  const current = years.find((y) => (months.get(y.id) ?? []).some((m) => m.value === todayBs)) ?? years.find((y) => y.status.toLowerCase() === "active") ?? years[0];
+  return {
+    years,
+    options: years.map((y) => ({ value: y.id, label: y.label })),
+    monthsOf: (id) => months.get(id) ?? [],
+    current: current?.id ?? "",
+    currentMonth: todayBs,
+  };
+}
+
+/** First and last AD dates of a BS "YYYY-MM", or null when it isn't a month the calendar knows. */
+function monthRange(value: string): { start: string; end: string } | null {
+  const [y, m] = value.split("-").map(Number);
+  try {
+    const p = periodFor("BS", y, m);
+    return { start: p.start, end: p.end };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Payroll runs
+// ---------------------------------------------------------------------------
+
+async function runChoices(statuses: ("APPROVED" | "LOCKED")[], scope: ScopeFilter, n: Names): Promise<{ rows: repo.ReportRunRow[]; options: ReportRunOption[] }> {
+  const rows = await repo.runsWithSlipsInScope(statuses, scopeCondition(scope));
+  const all = n.branches.map((b) => b.id);
+  return {
     rows,
-    summary,
-    allAllowanceHeadNames,
-    allDeductionHeadNames,
+    options: rows.map((r) => ({ value: r.id, label: engine.runOptionLabel(r, all, n.branchName), status: r.status === "LOCKED" ? "LOCKED" : "APPROVED" })),
   };
 }
 
-// ─── Payslip Print ─────────────────────────────────────────────────────────
-
-export async function getPayslipPrintData(
-  filter: PayslipFilter
-): Promise<PayslipPrintData[]> {
-  if (!filter.payrollRunId) {
-    throw new Error("Payroll Run ID is required for Payslip Print.");
-  }
-
-  // Load run
-  const [runRecord] = await (await getDb())
-    .select()
-    .from(payrollRuns)
-    .where(eq(payrollRuns.id, filter.payrollRunId))
-    .limit(1);
-
-  if (!runRecord) {
-    throw new Error("Payroll run not found.");
-  }
-
-  const monthName =
-    BS_MONTHS_EN[runRecord.payPeriodMonth] || `Month ${runRecord.payPeriodMonth}`;
-  const runOption: ReportPayrollRunOption = {
-    id: runRecord.id,
-    label: `${monthName} ${runRecord.payPeriodYear} (${runRecord.status})`,
-    payPeriodMonth: runRecord.payPeriodMonth,
-    payPeriodYear: runRecord.payPeriodYear,
-    status: runRecord.status,
-    employeeCount: runRecord.employeeCount ?? 0,
-    totalNetPayable: runRecord.totalNetPayable ?? "0.00",
+async function reportRun(run: repo.ReportRunRow, n: Names): Promise<ReportRun> {
+  const users = await findUserNames([run.generatedBy, run.reviewedBy ?? "", run.approvedBy ?? ""]);
+  const sign = (id: string | null, at: Date | null): RunSignOff | null => (id ? { name: users.get(id) ?? "", on: bsOfInstant(at) } : null);
+  return {
+    id: run.id,
+    period: engine.runMonth(run),
+    kind: RUN_TYPE_LABEL[asRunType(run.runType)].en,
+    branches: engine.runBranches(run, n.branches.map((b) => b.id), n.branchName),
+    status: run.status === "LOCKED" ? "LOCKED" : "APPROVED",
+    prepared: sign(run.generatedBy, run.generatedAt),
+    checked: sign(run.reviewedBy, run.reviewedAt),
+    approved: sign(run.approvedBy, run.approvedAt),
+    lockedOn: run.lockedAt ? bsOfInstant(run.lockedAt) : null,
   };
+}
 
-  // Load slips
-  const rawSlips = await (await getDb())
-    .select()
-    .from(payrollSlips)
-    .where(eq(payrollSlips.payrollRunId, filter.payrollRunId));
+// ---------------------------------------------------------------------------
+// Salary sheet
+// ---------------------------------------------------------------------------
 
-  let targetSlips = rawSlips;
+/**
+ * The salary sheet of an approved or locked run (never a draft: its figures still change),
+ * for the viewer's employees. Each row is the payslip's own statement, so the sheet and the
+ * payslips agree line by line. Only the chosen view is filled; account numbers leave the
+ * server only for the bank list.
+ */
+export async function salarySheet(ctx: ReportCtx, raw: unknown): Promise<SalarySheetData> {
+  assertOfficeScope(ctx.scope);
+  const n = await names(ctx.scope);
+  const [{ context: head, signatories }, runs] = await Promise.all([context(ctx, n), runChoices(["APPROVED", "LOCKED"], ctx.scope, n)]);
+  const params = engine.normalizeSalaryParams(raw, runs.options, n.places);
+  const empty: SalarySheetData = { context: head, params, runs: runs.options, places: n.places, run: null, employees: 0, columns: [], rows: [], lines: [], bank: [], signatories };
+  const runRow = runs.rows.find((r) => r.id === params.runId);
+  if (!runRow) return empty;
 
-  if (filter.employeeId) {
-    targetSlips = rawSlips.filter((s) => s.employeeId === filter.employeeId);
-  }
-
-  if (targetSlips.length === 0) return [];
-
-  // Batch query heads
-  const slipIds = targetSlips.map((s) => s.id);
-  const allHeads = await (await getDb())
-    .select()
-    .from(payrollSlipHeads)
-    .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
-
-  const headsMap = new Map<string, PayrollSlipHead[]>();
-  allHeads.forEach((h) => {
-    const list = headsMap.get(h.payrollSlipId) || [];
-    list.push(h as PayrollSlipHead);
-    headsMap.set(h.payrollSlipId, list);
-  });
-
-  return targetSlips.map((slip) => ({
-    run: runOption,
-    slip: slip as unknown as PayrollSlip,
-    heads: headsMap.get(slip.id) || [],
+  const slips = await repo.runSlips(runRow.id, scopeCondition(ctx.scope), params);
+  const heads = await sheetHeads(slips.map((s) => s.slip.id));
+  const bySlip = new Map<string, SheetHeadRow[]>();
+  for (const h of heads) bySlip.set(h.head.payrollSlipId, [...(bySlip.get(h.head.payrollSlipId) ?? []), h]);
+  const items: engine.SlipItem[] = slips.map(({ slip, branchName }) => ({
+    slipId: slip.id,
+    code: slip.employeeCode,
+    name: slip.employeeName,
+    designation: slip.designationName,
+    department: slip.departmentName,
+    branch: branchName ?? "",
+    bankName: slip.bankName,
+    bankAccount: slip.bankAccountNumber,
+    figures: slip,
+    heads: headFigures(bySlip.get(slip.id) ?? []),
   }));
-}
 
-// ─── Payslip Head Summary Report ──────────────────────────────────────────
-
-export async function getPayslipHeadSummaryData(
-  filter: SalarySheetFilter
-): Promise<{ rows: PayslipHeadSummaryRow[]; runLabel: string }> {
-  if (!filter.payrollRunId) {
-    throw new Error("Payroll Run ID is required.");
-  }
-
-  const [runRecord] = await (await getDb())
-    .select()
-    .from(payrollRuns)
-    .where(eq(payrollRuns.id, filter.payrollRunId))
-    .limit(1);
-
-  if (!runRecord) throw new Error("Payroll run not found.");
-
-  const monthName =
-    BS_MONTHS_EN[runRecord.payPeriodMonth] || `Month ${runRecord.payPeriodMonth}`;
-  const runLabel = `${monthName} ${runRecord.payPeriodYear}`;
-
-  // Get all slips for the run
-  const slips = await (await getDb())
-    .select({ id: payrollSlips.id })
-    .from(payrollSlips)
-    .where(eq(payrollSlips.payrollRunId, filter.payrollRunId));
-
-  if (slips.length === 0) return { rows: [], runLabel };
-
-  const slipIds = slips.map((s) => s.id);
-  const heads = await (await getDb())
-    .select()
-    .from(payrollSlipHeads)
-    .where(inArray(payrollSlipHeads.payrollSlipId, slipIds));
-
-  // Group by payHeadName + headType
-  const summaryMap = new Map<
-    string,
-    {
-      payHeadName: string;
-      headType: "allowance" | "deduction";
-      total: number;
-      employeeCount: number;
-      overrideCount: number;
-    }
-  >();
-
-  heads.forEach((h) => {
-    const key = `${h.headType}:${h.payHeadName}`;
-    const existing = summaryMap.get(key) || {
-      payHeadName: h.payHeadName,
-      headType: h.headType as "allowance" | "deduction",
-      total: 0,
-      employeeCount: 0,
-      overrideCount: 0,
-    };
-
-    existing.total += Number(h.calculatedAmount || h.amount) || 0;
-    existing.employeeCount += 1;
-    if (h.isManualOverride) existing.overrideCount += 1;
-
-    summaryMap.set(key, existing);
-  });
-
-  const rows: PayslipHeadSummaryRow[] = Array.from(summaryMap.values()).map(
-    (item) => ({
-      payHeadName: item.payHeadName,
-      headType: item.headType,
-      totalAmount: item.total.toFixed(2),
-      employeeCount: item.employeeCount,
-      averageAmount: (item.employeeCount > 0 ? item.total / item.employeeCount : 0).toFixed(2),
-      overrideCount: item.overrideCount,
-    })
-  );
-
-  // Sort allowances first then deductions, then alphabetical by payHeadName
-  rows.sort((a, b) => {
-    if (a.headType !== b.headType) {
-      return a.headType === "allowance" ? -1 : 1;
-    }
-    return a.payHeadName.localeCompare(b.payHeadName);
-  });
-
-  return { rows, runLabel };
-}
-
-// ─── Attendance Report ─────────────────────────────────────────────────────
-
-export async function getAttendanceReportData(
-  filter: AttendanceReportFilter,
-  scope: ScopeFilter
-): Promise<AttendanceReportData> {
-  if (!filter.fiscalYearId || !filter.bsMonth) {
-    throw new Error("Fiscal Year and BS Month are required for Attendance Report.");
-  }
-
-  const [fy] = await (await getDb())
-    .select()
-    .from(fiscalYears)
-    .where(eq(fiscalYears.id, filter.fiscalYearId))
-    .limit(1);
-
-  const startBsYear = fy?.startDateBS
-    ? parseInt(fy.startDateBS.split("-")[0], 10)
-    : (fy?.label ? parseInt(fy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
-  const bsYear = filter.bsMonth >= 4 ? startBsYear : startBsYear + 1;
-  const fiscalYearLabel = fy ? fy.label : "N/A";
-  const monthLabel = engine.formatBSMonthLabel(filter.bsMonth, bsYear);
-  const reportFormat = filter.reportFormat || "STATUTORY_SUMMARY";
-
-  const daysInMonth = getDaysInBSMonth(bsYear, filter.bsMonth) || 30;
-
-  // Build date headers for month with exact AD date mapping and day name resolution
-  const dateHeaders = Array.from({ length: daysInMonth }, (_, idx) => {
-    const dayNum = idx + 1;
-    const dateStr = `${bsYear}-${String(filter.bsMonth).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-    const adDate = bsToAD(bsYear, filter.bsMonth, dayNum);
-    const isValidAd = adDate && !isNaN(adDate.getTime());
-    const dayName = isValidAd
-      ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][adDate.getDay()]
-      : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][idx % 7];
-    const dateStrAD = isValidAd
-      ? `${adDate.toLocaleString("en-US", { month: "short" })} ${adDate.getDate()}`
-      : `Day ${dayNum}`;
-    const adDateStr = isValidAd
-      ? `${adDate.getFullYear()}-${String(adDate.getMonth() + 1).padStart(2, "0")}-${String(adDate.getDate()).padStart(2, "0")}`
-      : "";
-
-    return {
-      dateStr,
-      dateStrAD,
-      dayNum,
-      dayName,
-      adDateStr,
-    };
-  });
-
-  // 4.5: every day comes from the attendance rules (punches, approved leave, holidays,
-  // weekly off, HR overrides), only for employees in the user's scope; closed months
-  // use their stored pay figures. No times are made up for days without punches.
-  const { people } = await attendanceService.reportMonth(scope, bsYear, filter.bsMonth, {
-    branchId: filter.branchId || undefined,
-    departmentId: filter.departmentId || undefined,
-    designationId: filter.designationId || undefined,
-    employeeId: filter.employeeId || undefined,
-  });
-  const [deptRows, desigRows] = await Promise.all([
-    (await getDb()).select({ id: departments.id, name: departments.name }).from(departments),
-    (await getDb()).select({ id: designations.id, name: designations.name }).from(designations),
-  ]);
-  const deptName = new Map(deptRows.map((d) => [d.id, d.name]));
-  const desigName = new Map(desigRows.map((d) => [d.id, d.name]));
-  const todayIso = nepalDateIso();
-  const CODE: Record<string, string> = {
-    present: "P",
-    on_duty: "P",
-    half_day: "HD",
-    absent: "A",
-    missing_punch: "A",
-    paid_leave: "L",
-    unpaid_leave: "LWOP",
-    holiday: "HO",
-    weekly_off: "OFF",
-    not_employed: "-",
+  const view = params.view;
+  return {
+    ...empty,
+    run: await reportRun(runRow, n),
+    employees: items.length,
+    columns: view === "sheet" ? engine.salaryColumns(items) : [],
+    rows: view === "sheet" || view === "summary" ? engine.salaryRows(items) : [],
+    lines: view === "lines" ? engine.salaryLines(items) : [],
+    bank: view === "bank" ? engine.bankRows(items) : [],
   };
-  const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-  const fmt = (n: number) => String(Math.round(n * 100) / 100);
+}
 
-  const rows: AttendanceReportRow[] = people.map((p) => {
-    const m = p.summary;
-    const dailyDetails: AttendanceDailyDetail[] = p.days.map((d, i) => ({
-      dateStr: dateHeaders[i]?.dateStr ?? d.date,
-      dayNum: i + 1,
-      inTime: d.date > todayIso ? "-" : localClock(d.firstIn) || "-",
-      outTime: d.date > todayIso ? "-" : localClock(d.lastOut) || "-",
-      workHours: hhmm(d.workMinutes),
-      statusCode: d.date > todayIso ? "-" : CODE[d.dayType] ?? "-",
+// ---------------------------------------------------------------------------
+// Payslips
+// ---------------------------------------------------------------------------
+
+/** Printable payslips of a locked run for the viewer's employees (F11 sheets). */
+export async function payslipReport(ctx: ReportCtx, raw: unknown): Promise<PayslipReportData> {
+  assertOfficeScope(ctx.scope);
+  const n = await names(ctx.scope);
+  const [{ context: head }, runs] = await Promise.all([context(ctx, n), runChoices(["LOCKED"], ctx.scope, n)]);
+  const params = engine.normalizePayslipParams(raw, runs.options, n.places);
+  const runRow = runs.rows.find((r) => r.id === params.runId);
+  const base: PayslipReportData = { context: head, params, runs: runs.options, places: n.places, run: null, sheets: [] };
+  if (!runRow) return base;
+  const extra = [params.branchId ? eq(employees.branchId, params.branchId) : undefined, params.departmentId ? eq(employees.departmentId, params.departmentId) : undefined].filter((c): c is SQL => !!c);
+  const { items } = await sheetsForRun(runRow.id, { scope: scopeCondition(ctx.scope), employeeId: params.employeeId || undefined, extra });
+  return { ...base, run: await reportRun(runRow, n), sheets: items.map((i) => i.sheet) };
+}
+
+// ---------------------------------------------------------------------------
+// Attendance
+// ---------------------------------------------------------------------------
+
+/**
+ * A BS month from the attendance rules (punches, leave, holidays, shifts, HR overrides) for the
+ * viewer's employees. OT pay and the absence deduction are pay: shown only when the viewer can
+ * see the salary sheet (`showAmounts`).
+ */
+export async function attendanceReport(ctx: ReportCtx, raw: unknown, options: { showAmounts: boolean }): Promise<AttendanceReportData> {
+  assertOfficeScope(ctx.scope);
+  const n = await names(ctx.scope);
+  const [{ context: head }, p] = await Promise.all([context(ctx, n), periods()]);
+  const params = engine.normalizeAttendanceParams(raw, p.options, p.monthsOf, { fiscalYearId: p.current, month: p.currentMonth }, n.places);
+  const base: AttendanceReportData = {
+    context: head,
+    params,
+    periods: { fiscalYears: p.options, months: Object.fromEntries(p.years.map((y) => [y.id, p.monthsOf(y.id)])) },
+    places: n.places,
+    monthLabel: engine.monthLabel(params.month),
+    dayHeads: [],
+    rows: [],
+    closed: false,
+    showAmounts: options.showAmounts,
+  };
+  const [y, m] = params.month.split("-").map(Number);
+  if (!y || !m || !monthRange(params.month)) return base;
+
+  const { period, people } = await reportMonth(ctx.scope, y, m, { branchId: params.branchId || undefined, departmentId: params.departmentId || undefined, employeeId: params.employeeId || undefined });
+  const dayHeads = Array.from({ length: period.days }, (_, i) => {
+    const ad = new Date(`${period.start}T00:00:00`);
+    ad.setDate(ad.getDate() + i);
+    return { day: i + 1, weekday: ad.toLocaleDateString("en-US", { weekday: "short" }), ad: `${ad.getFullYear()}-${String(ad.getMonth() + 1).padStart(2, "0")}-${String(ad.getDate()).padStart(2, "0")}` };
+  });
+  const rows = people.map((person) =>
+    engine.attendanceRow(
+      {
+        id: person.id,
+        employeeCode: person.employeeCode,
+        fullName: person.fullName,
+        designation: n.designationName(person.designationId) ?? "",
+        department: n.departmentName(person.departmentId) ?? "",
+        branch: n.branchName(person.branchId) ?? "",
+        days: person.days,
+        summary: person.summary,
+        amounts: person.amounts,
+      },
+      options.showAmounts
+    )
+  );
+  return { ...base, dayHeads, rows, closed: people.length > 0 && people.every((x) => x.amounts.closed) };
+}
+
+// ---------------------------------------------------------------------------
+// Leave
+// ---------------------------------------------------------------------------
+
+/**
+ * A leave year from the ledger: balances (as the leave screens show them), each type's
+ * movement, leave taken and requests — for the viewer's employees. Reasons are personal and
+ * appear only when asked for.
+ */
+export async function leaveReport(ctx: ReportCtx, raw: unknown): Promise<LeaveReportData> {
+  assertOfficeScope(ctx.scope);
+  const n = await names(ctx.scope);
+  const [{ context: head }, years, types, people] = await Promise.all([context(ctx, n), leaveYears(), ruleTypes(), findPeople(scopeCondition(ctx.scope))]);
+  const today = nepalDateIso();
+  const yearOptions = [...years].reverse().map((y) => ({ value: y.id, label: y.label }));
+  const current = years.find((y) => today >= y.start && today <= y.end) ?? years.at(-1);
+  const typeOptions = types.filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name }));
+  const params = engine.normalizeLeaveParams(raw, yearOptions, typeOptions, current?.id ?? "", n.places);
+  const year = years.find((y) => y.id === params.fiscalYearId);
+  const base: LeaveReportData = { context: head, params, years: yearOptions, types: typeOptions, places: n.places, yearLabel: year?.label ?? "", asOf: "", balanceTypes: [], balances: [], movements: [], requests: [] };
+  if (!year) return base;
+
+  const asOf = today < year.start ? year.start : today > year.end ? year.end : today;
+  const chosen = people.filter((e) => (!params.branchId || e.branchId === params.branchId) && (!params.departmentId || e.departmentId === params.departmentId) && (!params.employeeId || e.id === params.employeeId));
+  const ids = chosen.map((e) => e.id);
+  const typeName = new Map(types.map((t) => [t.id, t.name]));
+  const balanceTypes = types.filter((t) => t.kind === "balance" && t.isActive && (!params.leaveTypeId || t.id === params.leaveTypeId));
+
+  if (params.view === "balances" || params.view === "movements") {
+    const ledger = await findLedger(ids, year.id);
+    const linesOf = new Map<string, typeof ledger>();
+    for (const l of ledger) {
+      const key = `${l.employeeId}:${l.leaveTypeId}`;
+      linesOf.set(key, [...(linesOf.get(key) ?? []), l]);
+    }
+    const applies = (t: (typeof types)[number], gender: string) => t.genderApplicable === "All" || t.genderApplicable === gender;
+    // People employed now, or with anything in the year's ledger (leavers of the year stay in).
+    const listed = chosen.filter((e) => e.status === "Active" || balanceTypes.some((t) => linesOf.has(`${e.id}:${t.id}`)));
+    const balances: LeaveBalanceRow[] = listed.map((e) => ({
+      employeeId: e.id,
+      code: e.employeeCode,
+      name: e.fullName,
+      department: n.departmentName(e.departmentId) ?? "",
+      branch: n.branchName(e.branchId) ?? "",
+      balances: Object.fromEntries(balanceTypes.filter((t) => applies(t, e.gender) || linesOf.has(`${e.id}:${t.id}`)).map((t) => [t.id, engine.leaveMovement(linesOf.get(`${e.id}:${t.id}`) ?? [], asOf).available])),
     }));
-    const workMinutes = p.days.reduce((n, d) => n + d.workMinutes, 0);
+    const movements: LeaveMovementRow[] = listed.flatMap((e) =>
+      balanceTypes
+        .filter((t) => linesOf.has(`${e.id}:${t.id}`))
+        .map((t) => ({ key: `${e.id}:${t.id}`, code: e.employeeCode, name: e.fullName, leaveType: t.name, ...engine.leaveMovement(linesOf.get(`${e.id}:${t.id}`) ?? [], asOf) }))
+    );
+    return { ...base, asOf: bsOf(asOf), balanceTypes: balanceTypes.map((t) => ({ id: t.id, name: t.name })), balances: params.view === "balances" ? balances : [], movements: params.view === "movements" ? movements : [] };
+  }
+
+  const statuses = params.view === "taken" ? (["Approved"] as const) : params.status === "all" ? undefined : ([params.status] as const);
+  const requests = (await findRequests({ employeeIds: ids, from: year.start, to: year.end, statuses: statuses ? [...statuses] : undefined })).filter((r) => !params.leaveTypeId || r.leaveTypeId === params.leaveTypeId);
+  const deciders = await findUserNames(requests.map((r) => r.reviewedById ?? ""));
+  const person = new Map(chosen.map((e) => [e.id, e]));
+  const rows: LeaveRequestReportRow[] = requests
+    .map((r) => {
+      const e = person.get(r.employeeId);
+      return {
+        id: r.id,
+        code: e?.employeeCode ?? "",
+        name: e?.fullName ?? "",
+        leaveType: typeName.get(r.leaveTypeId) ?? "Leave",
+        applied: bsOf(String(r.appliedDate)),
+        from: bsOf(String(r.effectiveFrom)),
+        to: bsOf(String(r.effectiveTo)),
+        days: Number(r.noOfDays) || 0,
+        paidDays: r.paidDays !== null ? Number(r.paidDays) : Number(r.noOfDays) || 0,
+        unpaidDays: r.unpaidDays !== null ? Number(r.unpaidDays) : 0,
+        status: r.status,
+        decidedBy: r.reviewedById ? (deciders.get(r.reviewedById) ?? "") : "",
+        reason: params.reasons ? r.reason : null,
+      };
+    })
+    .sort((a, b) => a.from.localeCompare(b.from) || a.code.localeCompare(b.code));
+  return { ...base, asOf: bsOf(asOf), requests: rows };
+}
+
+// ---------------------------------------------------------------------------
+// Loans
+// ---------------------------------------------------------------------------
+
+/** The loan register, repayments and loans given — for the viewer's employees (4.10 register). */
+export async function loanReport(ctx: ReportCtx, raw: unknown): Promise<LoanReportData> {
+  assertOfficeScope(ctx.scope);
+  const n = await names(ctx.scope);
+  const [{ context: head }, p, typeRows] = await Promise.all([context(ctx, n), periods(), repo.loanTypeRows()]);
+  const types = typeRows.map((t) => ({ value: t.id, label: t.name }));
+  const params = engine.normalizeLoanParams(raw, p.options, p.monthsOf, p.current, types, n.places);
+  const months = p.monthsOf(params.fiscalYearId);
+  const fy = p.years.find((y) => y.id === params.fiscalYearId);
+  const periodsOut: ReportPeriods = { fiscalYears: p.options, months: Object.fromEntries(p.years.map((y) => [y.id, p.monthsOf(y.id)])) };
+  const range = params.month ? monthRange(params.month) : months.length ? { start: monthRange(months[0].value)?.start ?? "", end: monthRange(months.at(-1)!.value)?.end ?? "" } : null;
+  const base: LoanReportData = { context: head, params, periods: periodsOut, types, places: n.places, periodLabel: params.month ? engine.monthLabel(params.month) : (fy?.label ?? ""), loans: [], repayments: [] };
+  const filter = { loanTypeId: params.loanTypeId || undefined, branchId: params.branchId || undefined, departmentId: params.departmentId || undefined, employeeId: params.employeeId || undefined };
+  const scope = scopeCondition(ctx.scope);
+
+  if (params.view === "repayments") {
+    if (!range?.start || !range.end) return base;
+    const rows = await repo.repaymentsInScope(scope, { ...filter, from: range.start, to: range.end });
     return {
-      employeeCode: p.employeeCode,
-      employeeName: p.fullName,
-      departmentName: deptName.get(p.departmentId) || "Unassigned",
-      designationName: desigName.get(p.designationId) || "Staff",
-      totalWorkingDays: fmt(m.calendarDays - m.notEmployedDays),
-      presentDays: fmt(m.presentDays + m.onDutyDays + m.halfDays * 0.5),
-      payLeaveDays: fmt(m.paidLeaveDays),
-      nonPayLeaveDays: fmt(m.unpaidLeaveDays),
-      absentDays: fmt(m.absentDays + m.missingPunchDays + m.halfDays * 0.5),
-      totalOtHoursOffice: fmt(m.otWorkDayMinutes / 60),
-      totalOtHoursOff: fmt(m.otOffDayMinutes / 60),
-      otEarnedAmount: p.amounts.otEarnedAmount,
-      leaveDeductionAmount: p.amounts.leaveDeductionAmount,
-      totalWorkHours: `${Math.floor(workMinutes / 60)}:${String(workMinutes % 60).padStart(2, "0")}`,
-      dailyDetails,
+      ...base,
+      repayments: rows.map((r) => ({
+        id: r.repayment.id,
+        date: bsOf(String(r.repayment.repaymentDate)),
+        code: r.code,
+        name: r.name,
+        loanType: r.loanType,
+        amount: String(r.repayment.amountPaid),
+        how: engine.repaymentHow(r.repayment.paymentMethod, r.runMonth && r.runYear ? { month: r.runMonth, year: r.runYear } : null),
+        note: r.repayment.note ?? "",
+      })),
     };
-  });
-  const isLocked = people.length > 0 && people.every((p) => p.amounts.closed);
+  }
 
+  const given = params.view === "given";
+  if (given && (!range?.start || !range.end)) return base;
+  const rows = await repo.loansInScope(scope, {
+    ...filter,
+    status: given || params.status === "all" ? undefined : params.status === "running" ? "ACTIVE" : "CLOSED",
+    givenFrom: given ? range!.start : undefined,
+    givenTo: given ? range!.end : undefined,
+  });
   return {
-    monthLabel,
-    fiscalYearLabel,
-    reportFormat,
-    dateHeaders,
-    rows,
-    totalEmployees: rows.length,
-    isLocked,
+    ...base,
+    periodLabel: given ? base.periodLabel : "",
+    loans: rows.map(({ loan, code, name, loanType }) => ({
+      loanId: loan.id,
+      code,
+      name,
+      loanType,
+      given: bsOf(String(loan.givenDate)),
+      amount: String(loan.loanAmount),
+      interest: engine.loanInterest(loan),
+      totalPayable: String(loan.totalPayable),
+      repaid: String(loan.totalReturned),
+      writtenOff: String(loan.writtenOffAmount),
+      balance: String(loan.remainingAmount),
+      installment: String(loan.installmentAmount),
+      installmentsLeft: engine.loanInstallmentsLeft(loan),
+      status: engine.loanStatusLabel(loan),
+      paidVia: loan.source === "opening" ? "Before this system" : engine.paidViaLabel(loan.paidVia),
+      reference: loan.paymentRef ?? "",
+      source: loan.source === "opening" ? "opening" : "disbursed",
+    })),
   };
 }
-
-// ─── TDS / IRD Report ──────────────────────────────────────────────────────
-
-export async function getTDSReportData(
-  filter: TDSReportFilter
-): Promise<TDSReportData> {
-  if (!filter.fiscalYearId) {
-    throw new Error("Fiscal Year is required for TDS/IRD Report.");
-  }
-
-  const [fy] = await (await getDb())
-    .select()
-    .from(fiscalYears)
-    .where(eq(fiscalYears.id, filter.fiscalYearId))
-    .limit(1);
-
-  const fiscalYearLabel = fy ? fy.label : "N/A";
-
-  // Join payrollSlips -> payrollRuns (for fiscalYearId & payPeriodMonth) -> employees -> employeePersonal
-  const rawResults = await (await getDb())
-    .select({
-      slip: payrollSlips,
-      run: payrollRuns,
-      taxStatus: employees.taxStatus,
-      panNumber: employeePersonal.panNumber,
-    })
-    .from(payrollSlips)
-    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .innerJoin(employees, eq(payrollSlips.employeeId, employees.id))
-    .leftJoin(employeePersonal, eq(employees.id, employeePersonal.employeeId))
-    // Locked runs only (4.8b): what was deducted, never a draft; every run type counts for the year.
-    .where(and(eq(payrollRuns.fiscalYearId, filter.fiscalYearId), eq(payrollRuns.status, "LOCKED")));
-
-  let filteredResults = rawResults;
-  if (filter.reportType === "MONTHLY" && filter.bsMonth) {
-    filteredResults = filteredResults.filter(
-      (r) => r.run.payPeriodMonth === filter.bsMonth
-    );
-  }
-
-  const startBsYear = fy?.startDateBS
-    ? parseInt(fy.startDateBS.split("-")[0], 10)
-    : (fy?.label ? parseInt(fy.label.match(/\d{4}/)?.[0] || "2081", 10) : 2081);
-  const bsYear = filter.bsMonth ? (filter.bsMonth >= 4 ? startBsYear : startBsYear + 1) : startBsYear;
-
-  const periodLabel =
-    filter.reportType === "MONTHLY" && filter.bsMonth
-      ? engine.formatBSMonthLabel(filter.bsMonth, bsYear)
-      : `FY ${fiscalYearLabel}`;
-
-  // Aggregate rows per employee
-  const employeeMap = new Map<
-    string,
-    {
-      employeeCode: string;
-      employeeName: string;
-      panNumber: string | null;
-      taxStatus: string;
-      grossIncome: number;
-      pfDeducted: number;
-      citDeducted: number;
-      tdsDeducted: number;
-    }
-  >();
-
-  filteredResults.forEach((r) => {
-    const key = r.slip.employeeId;
-    const existing = employeeMap.get(key) || {
-      employeeCode: r.slip.employeeCode,
-      employeeName: r.slip.employeeName,
-      panNumber: r.panNumber || null,
-      taxStatus: r.taxStatus,
-      grossIncome: 0,
-      pfDeducted: 0,
-      citDeducted: 0,
-      tdsDeducted: 0,
-    };
-
-    existing.grossIncome += Number(r.slip.grossEarnings) || 0;
-    existing.pfDeducted += Number(r.slip.pfEmployee) || 0;
-    existing.citDeducted += Number(r.slip.citDeduction) || 0;
-    existing.tdsDeducted += Number(r.slip.tdsThisMonth) || 0;
-
-    employeeMap.set(key, existing);
-  });
-
-  let employeesWithoutPAN = 0;
-
-  const rows: TDSReportRow[] = Array.from(employeeMap.values()).map((emp) => {
-    if (!emp.panNumber) employeesWithoutPAN++;
-
-    const taxable = Math.max(0, emp.grossIncome - emp.pfDeducted - emp.citDeducted);
-
-    return {
-      employeeCode: emp.employeeCode,
-      employeeName: emp.employeeName,
-      panNumber: emp.panNumber,
-      taxStatus: emp.taxStatus,
-      grossIncome: emp.grossIncome.toFixed(2),
-      pfDeducted: emp.pfDeducted.toFixed(2),
-      citDeducted: emp.citDeducted.toFixed(2),
-      taxableIncome: taxable.toFixed(2),
-      tdsDeducted: emp.tdsDeducted.toFixed(2),
-      period: periodLabel,
-    };
-  });
-
-  const totalGrossIncome = engine.sumDecimalStrings(rows.map((r) => r.grossIncome));
-  const totalTds = engine.sumDecimalStrings(rows.map((r) => r.tdsDeducted));
-
-  return {
-    rows,
-    period: periodLabel,
-    fiscalYearLabel,
-    totalTds,
-    totalGrossIncome,
-    employeesWithoutPAN,
-  };
-}
-
-// ─── Leave Report ─────────────────────────────────────────────────────────
-
-export async function getLeaveReportData(
-  filter: LeaveReportFilter
-): Promise<LeaveReportData> {
-  if (!filter.fiscalYearId) {
-    throw new Error("Fiscal Year is required for Leave Report.");
-  }
-
-  const [fy] = await (await getDb())
-    .select()
-    .from(fiscalYears)
-    .where(eq(fiscalYears.id, filter.fiscalYearId))
-    .limit(1);
-
-  const fiscalYearLabel = fy ? fy.label : "N/A";
-
-  // 1. Fetch Leave Balances
-  const balancesRaw = await (await getDb())
-    .select({
-      bal: employeeLeaveBalances,
-      empCode: employees.employeeCode,
-      empName: employees.fullName,
-      deptName: departments.name,
-      branchId: employees.branchId,
-      deptId: employees.departmentId,
-      leaveName: leaveTypes.name,
-      leaveCode: leaveTypes.code,
-      isStatutory: leaveTypes.isStatutory,
-      isEncashable: leaveTypes.isEncashable,
-    })
-    .from(employeeLeaveBalances)
-    .innerJoin(employees, eq(employeeLeaveBalances.employeeId, employees.id))
-    .innerJoin(leaveTypes, eq(employeeLeaveBalances.leaveTypeId, leaveTypes.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .where(eq(employeeLeaveBalances.fiscalYearId, filter.fiscalYearId));
-
-  let filteredBalances = balancesRaw;
-  if (filter.leaveTypeId) {
-    filteredBalances = filteredBalances.filter((b) => b.bal.leaveTypeId === filter.leaveTypeId);
-  }
-  if (filter.branchId) {
-    filteredBalances = filteredBalances.filter((b) => b.branchId === filter.branchId);
-  }
-  if (filter.departmentId) {
-    filteredBalances = filteredBalances.filter((b) => b.deptId === filter.departmentId);
-  }
-  if (filter.employeeSearch && filter.employeeSearch.trim()) {
-    const q = filter.employeeSearch.trim().toLowerCase();
-    filteredBalances = filteredBalances.filter(
-      (b) =>
-        b.empCode.toLowerCase().includes(q) ||
-        b.empName.toLowerCase().includes(q)
-    );
-  }
-
-  const balanceRows: LeaveBalanceRow[] = filteredBalances.map((b) => ({
-    employeeCode: b.empCode,
-    employeeName: b.empName,
-    departmentName: b.deptName || "Unassigned",
-    leaveTypeName: b.leaveName,
-    leaveTypeCode: b.leaveCode,
-    isStatutory: b.isStatutory,
-    allotted: String(b.bal.allotted ?? "0"),
-    taken: String(b.bal.taken ?? "0"),
-    carriedForward: String(b.bal.carriedForward ?? "0"),
-    balance: String(b.bal.balance ?? "0"),
-    isEncashable: b.isEncashable,
-  }));
-
-  // 2. Fetch Leave Applications Log
-  const appsRaw = await (await getDb())
-    .select({
-      app: leaveApplications,
-      empCode: employees.employeeCode,
-      empName: employees.fullName,
-      deptName: departments.name,
-      branchId: employees.branchId,
-      deptId: employees.departmentId,
-      leaveName: leaveTypes.name,
-      reviewerName: users.email,
-    })
-    .from(leaveApplications)
-    .innerJoin(employees, eq(leaveApplications.employeeId, employees.id))
-    .innerJoin(leaveTypes, eq(leaveApplications.leaveTypeId, leaveTypes.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .leftJoin(users, eq(leaveApplications.reviewedById, users.id))
-    .where(eq(leaveApplications.fiscalYearId, filter.fiscalYearId));
-
-  let filteredApps = appsRaw;
-  if (filter.leaveTypeId) {
-    filteredApps = filteredApps.filter((a) => a.app.leaveTypeId === filter.leaveTypeId);
-  }
-  if (filter.branchId) {
-    filteredApps = filteredApps.filter((a) => a.branchId === filter.branchId);
-  }
-  if (filter.departmentId) {
-    filteredApps = filteredApps.filter((a) => a.deptId === filter.departmentId);
-  }
-  if (filter.employeeSearch && filter.employeeSearch.trim()) {
-    const q = filter.employeeSearch.trim().toLowerCase();
-    filteredApps = filteredApps.filter(
-      (a) =>
-        a.empCode.toLowerCase().includes(q) ||
-        a.empName.toLowerCase().includes(q)
-    );
-  }
-
-  const applicationRows: LeaveApplicationReportRow[] = filteredApps.map((a) => ({
-    id: a.app.id,
-    employeeCode: a.empCode,
-    employeeName: a.empName,
-    departmentName: a.deptName || "Unassigned",
-    leaveTypeName: a.leaveName,
-    appliedDate: String(a.app.appliedDate),
-    effectiveFrom: String(a.app.effectiveFrom),
-    effectiveTo: String(a.app.effectiveTo),
-    duration: a.app.duration,
-    noOfDays: String(a.app.noOfDays),
-    reason: a.app.reason,
-    status: a.app.status,
-    reviewedBy: a.reviewerName || null,
-  }));
-
-  // Unique employee count in balances
-  const uniqueEmployees = new Set(balanceRows.map((b) => b.employeeCode)).size;
-
-  const totalDaysTaken = engine.sumDecimalStrings(balanceRows.map((b) => b.taken));
-  const totalDaysAllotted = engine.sumDecimalStrings(balanceRows.map((b) => b.allotted));
-  const totalEncashableBalance = engine.sumDecimalStrings(
-    balanceRows.filter((b) => b.isEncashable).map((b) => b.balance)
-  );
-
-  return {
-    fiscalYearLabel,
-    balanceRows,
-    applicationRows,
-    totalEmployees: uniqueEmployees,
-    totalDaysTaken,
-    totalDaysAllotted,
-    totalEncashableBalance,
-  };
-}
-
-// ─── Loan Report ──────────────────────────────────────────────────────────
-
-export async function getLoanReportData(
-  filter: LoanReportFilter
-): Promise<LoanReportData> {
-  // 1. Fetch Loan Disbursements / Summaries
-  const loansRaw = await (await getDb())
-    .select({
-      loan: loans,
-      empCode: employees.employeeCode,
-      empName: employees.fullName,
-      deptName: departments.name,
-      branchId: employees.branchId,
-      deptId: employees.departmentId,
-      loanName: loanTypes.name,
-    })
-    .from(loans)
-    .innerJoin(employees, eq(loans.employeeId, employees.id))
-    .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id));
-
-  let filteredLoans = loansRaw;
-  if (filter.status && filter.status !== "ALL") {
-    filteredLoans = filteredLoans.filter((l) => l.loan.status === filter.status);
-  }
-  if (filter.loanTypeId) {
-    filteredLoans = filteredLoans.filter((l) => l.loan.loanTypeId === filter.loanTypeId);
-  }
-  if (filter.branchId) {
-    filteredLoans = filteredLoans.filter((l) => l.branchId === filter.branchId);
-  }
-  if (filter.departmentId) {
-    filteredLoans = filteredLoans.filter((l) => l.deptId === filter.departmentId);
-  }
-  if (filter.employeeSearch && filter.employeeSearch.trim()) {
-    const q = filter.employeeSearch.trim().toLowerCase();
-    filteredLoans = filteredLoans.filter(
-      (l) =>
-        l.empCode.toLowerCase().includes(q) ||
-        l.empName.toLowerCase().includes(q)
-    );
-  }
-
-  const summaryRows: LoanSummaryRow[] = filteredLoans.map((l) => ({
-    loanId: l.loan.id,
-    employeeCode: l.empCode,
-    employeeName: l.empName,
-    departmentName: l.deptName || "Unassigned",
-    loanTypeName: l.loanName,
-    givenDate: String(l.loan.givenDate),
-    loanAmount: String(l.loan.loanAmount),
-    installmentAmount: String(l.loan.installmentAmount),
-    noOfInstallments: l.loan.noOfInstallments,
-    totalReturned: String(l.loan.totalReturned ?? "0.00"),
-    remainingAmount: String(l.loan.remainingAmount ?? "0.00"),
-    status: l.loan.status as "ACTIVE" | "CLOSED",
-  }));
-
-  // 2. Fetch Loan Repayments Ledger
-  const repaymentsRaw = await (await getDb())
-    .select({
-      rep: loanRepayments,
-      loanTypeId: loans.loanTypeId,
-      empCode: employees.employeeCode,
-      empName: employees.fullName,
-      deptName: departments.name,
-      branchId: employees.branchId,
-      deptId: employees.departmentId,
-      loanName: loanTypes.name,
-      runMonth: payrollRuns.payPeriodMonth,
-      runYear: payrollRuns.payPeriodYear,
-    })
-    .from(loanRepayments)
-    .innerJoin(loans, eq(loanRepayments.loanId, loans.id))
-    .innerJoin(employees, eq(loanRepayments.employeeId, employees.id))
-    .innerJoin(loanTypes, eq(loans.loanTypeId, loanTypes.id))
-    .leftJoin(departments, eq(employees.departmentId, departments.id))
-    .leftJoin(payrollSlips, eq(loanRepayments.payrollSlipId, payrollSlips.id))
-    .leftJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id));
-
-  let filteredRepayments = repaymentsRaw;
-  if (filter.loanTypeId) {
-    filteredRepayments = filteredRepayments.filter((r) => r.loanTypeId === filter.loanTypeId);
-  }
-  if (filter.branchId) {
-    filteredRepayments = filteredRepayments.filter((r) => r.branchId === filter.branchId);
-  }
-  if (filter.departmentId) {
-    filteredRepayments = filteredRepayments.filter((r) => r.deptId === filter.departmentId);
-  }
-  if (filter.employeeSearch && filter.employeeSearch.trim()) {
-    const q = filter.employeeSearch.trim().toLowerCase();
-    filteredRepayments = filteredRepayments.filter(
-      (r) =>
-        r.empCode.toLowerCase().includes(q) ||
-        r.empName.toLowerCase().includes(q)
-    );
-  }
-
-  const repaymentRows: LoanRepaymentLedgerRow[] = filteredRepayments.map((r) => {
-    let runLabel: string | undefined = undefined;
-    if (r.runMonth && r.runYear) {
-      const monthName = BS_MONTHS_EN[r.runMonth] || `Month ${r.runMonth}`;
-      runLabel = `${monthName} ${r.runYear}`;
-    }
-
-    return {
-      repaymentId: r.rep.id,
-      employeeCode: r.empCode,
-      employeeName: r.empName,
-      departmentName: r.deptName || "Unassigned",
-      loanTypeName: r.loanName,
-      repaymentDate: String(r.rep.repaymentDate),
-      amountPaid: String(r.rep.amountPaid),
-      paymentMethod: r.rep.paymentMethod as "CASH" | "SALARY_DEDUCTION",
-      payrollRunLabel: runLabel,
-    };
-  });
-
-  const totalLoansCount = summaryRows.length;
-  const activeLoansCount = summaryRows.filter((s) => s.status === "ACTIVE").length;
-  const totalDisbursedAmount = engine.sumDecimalStrings(summaryRows.map((s) => s.loanAmount));
-  const totalReturnedAmount = engine.sumDecimalStrings(summaryRows.map((s) => s.totalReturned));
-  const totalRemainingBalance = engine.sumDecimalStrings(summaryRows.map((s) => s.remainingAmount));
-
-  return {
-    summaryRows,
-    repaymentRows,
-    totalLoansCount,
-    activeLoansCount,
-    totalDisbursedAmount,
-    totalReturnedAmount,
-    totalRemainingBalance,
-  };
-}
-

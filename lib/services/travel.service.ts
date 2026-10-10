@@ -86,6 +86,11 @@ export async function travelPage(ctx: TravelCtx, permissions: TravelPageData['pe
   return { claims: claims.map(toClaim), rates: rates.map(toRate), designations, employees, permissions };
 }
 
+/** Submitted claims this person can decide (the bell): within their scope, never their own (S38). Call it for Approve only. */
+export async function countWaitingFor(scope: ScopeFilter): Promise<number> {
+  return repo.countInStatus('submitted', buildEmployeeScopeCondition(scope), scope.employeeId);
+}
+
 export async function saveRate(id: string | null, raw: unknown, ctx: TravelCtx): Promise<RateCardRow> {
   const form = normalizeRateForm(raw);
   const errors = validateRateForm(form);

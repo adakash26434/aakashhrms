@@ -16,6 +16,8 @@ import type { NewRunInput, PayrollRunsPageData, PreflightResult } from "@/lib/ty
 const AD_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 import { cn } from "@/lib/utils";
 import { ProblemList } from "./payroll-run-workspace";
+import { PayrollRunTypePicker } from "./payroll-run-type";
+import type { RunType } from "@/lib/constants/run-types";
 
 function Failure({ text }: { text: string | null }) {
   if (!text) return null;
@@ -67,6 +69,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     occasionalAllowanceHeadIds: [],
     payslipDate: null,
     recreateIfExists: false,
+    prorateFestival: true,
   }));
   const [form, setForm] = useState<NewRunInput>(start);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -84,6 +87,12 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
     return [y + 1, y, y - 1, y - 2].map((v) => ({ value: String(v), label: String(v) }));
   }, [data.suggested.year]);
   const months = (data.calendar === "AD" ? AD_MONTHS : BS_MONTHS_EN).slice(1).map((m, i) => ({ value: String(i + 1), label: m }));
+  // F6: a festival allowance run pays the festival heads chosen here; an arrears run pays the ARREARS feed.
+  const festivalHeads = useMemo(() => data.occasionalAllowances.filter((a) => a.isFestivalAllowance), [data.occasionalAllowances]);
+  const chooseType = (runType: RunType) => {
+    setForm((f) => ({ ...f, runType, occasionalAllowanceHeadIds: runType === "FESTIVAL" && festivalHeads.length === 1 ? [festivalHeads[0].id] : [], recreateIfExists: false }));
+    setResult(null);
+  };
   const employees = useMemo(
     () => data.employees.filter((e) => form.branchIds.includes(e.branchId) && (!form.departmentIds.length || form.departmentIds.includes(e.departmentId)) && (!form.designationIds.length || form.designationIds.includes(e.designationId)) && (!form.employeeCategories.length || form.employeeCategories.includes(e.category))),
     [data.employees, form.branchIds, form.departmentIds, form.designationIds, form.employeeCategories]
@@ -140,6 +149,16 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
       }
     >
       <PropertyForm onSubmit={check} enterNavigation={{ end: () => checkRef.current }} className="-mx-4 -my-4 space-y-0 bg-surface-panel">
+        <PayrollRunTypePicker
+          className="rounded-none border-0 border-b bg-transparent px-4 py-3"
+          value={form.runType}
+          onChange={chooseType}
+          festivalHeads={festivalHeads}
+          selectedFestivalHeads={form.occasionalAllowanceHeadIds}
+          onToggleFestivalHead={(id) => set("occasionalAllowanceHeadIds", form.occasionalAllowanceHeadIds.includes(id) ? form.occasionalAllowanceHeadIds.filter((x) => x !== id) : [...form.occasionalAllowanceHeadIds, id])}
+          prorate={form.prorateFestival !== false}
+          onProrate={(v) => set("prorateFestival", v)}
+        />
         <FormGrid columns={2}>
           <GridField label="Month" required error={errors.period} size="md">
             <div className="flex gap-2">
@@ -160,7 +179,7 @@ export function NewRunWindow({ data, onClose, onGenerated }: { data: PayrollRuns
               <PickList label="Employment types" items={data.categories.map((c) => ({ id: c, name: c }))} value={form.employeeCategories} onChange={(v) => set("employeeCategories", v)} allLabel="all" />
             </div>
           </GridField>
-          {data.occasionalAllowances.length > 0 ? (
+          {form.runType === "REGULAR" && data.occasionalAllowances.length > 0 ? (
             <GridField label="This month also pays" span={2} size="lg">
               <PickList label="" items={data.occasionalAllowances.map((a) => ({ id: a.id, name: `${a.name} (${a.isFestivalAllowance ? "festival" : "remote area"})` }))} value={form.occasionalAllowanceHeadIds} onChange={(v) => set("occasionalAllowanceHeadIds", v)} allLabel="none" />
             </GridField>

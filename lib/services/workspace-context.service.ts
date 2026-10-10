@@ -1,11 +1,9 @@
 import { cache } from 'react';
-import { countWaitingFor as countSalaryWaitingFor } from '@/lib/services/salary-structure.service';
-import { countAdjustmentsWaitingFor } from '@/lib/services/attendance.service';
-import { countWaitingFor as countLeaveWaitingFor } from '@/lib/services/leave.service';
-import { countPolicyWaitingFor } from '@/lib/services/leave-policy.service';
-import { hasPermission } from '@/lib/auth/check-permission';
+import { notificationCentre, supportCentre } from '@/lib/services/notification.service';
+import { EMPTY_CENTRE } from '@/lib/engines/notification.engine';
 import { auth } from '@/lib/auth';
-import { getUserAllowedModulesArray } from '@/lib/auth/get-user-permissions';
+import { getUserAllowedModulesArray, getUserPermissionSet } from '@/lib/auth/get-user-permissions';
+import type { NotificationCentre } from '@/lib/types/notification';
 import { getImpersonationSession } from '@/lib/platform/impersonation';
 import { getDbAsync } from '@/lib/db';
 import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
@@ -39,14 +37,13 @@ export interface WorkspaceContext {
     id: string | null;
     name: string;
   };
-  /** Leave requests waiting (approvers only, within their scope). */
+  /** Leave requests this user can decide, within their scope (the Leaves navigation badge). */
   pendingApprovalsCount: number;
-  /** Salary changes this user can act on now (approval engine, S21). */
-  pendingSalaryApprovalsCount: number;
-  /** Attendance adjustments and remote clock-ins this user can decide (supervisor, or Approve in scope; never their own). */
-  pendingAttendanceCount: number;
-  /** Leave policy changes this user can approve (a second person, never the proposer). */
-  pendingLeavePolicyCount: number;
+  /**
+   * F17: the notification centre (title-bar bell): requests waiting for this user, pay runs
+   * waiting for their step, statutory deposits due. Counted by each module's own rules.
+   */
+  notifications: NotificationCentre;
   /** The signed-in user's employee record (turns on the Clock button), if linked. */
   myEmployeeId: string | null;
   allowedModules: string[];
@@ -199,10 +196,8 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
         name: activeFyName,
       },
       pendingApprovalsCount: pendingCount,
-      // Platform support never approves company salary changes, decides attendance or clocks in.
-      pendingSalaryApprovalsCount: 0,
-      pendingAttendanceCount: 0,
-      pendingLeavePolicyCount: 0,
+      // Platform support never decides anything or clocks in: the bell only shows the company's waiting leave.
+      notifications: supportCentre(pendingCount),
       myEmployeeId: null,
       allowedModules: [], // Impersonation has full access, sidebar shows all
       isImpersonating: true,
@@ -230,7 +225,6 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
   let userRoleName = 'Office Administrator';
   let activeFyName = getDefaultFiscalYearName();
   let activeFyId: string | null = null;
-  let pendingCount = 0;
   let myEmployeeId: string | null = null;
 
   // A. Resolve Company info from Platform DB in parallel with Tenant DB
@@ -349,65 +343,27 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
     }
   })();
 
-  await Promise.all([companyPromise, tenantPromise]);
+  // C. Navigation and the notification centre (F17) read one permission set (one query, shared
+  // through the request cache), in parallel with A and B. Every count inside the centre runs only
+  // with the permission that decides it, within the user's scope, never on their own records
+  // (S15 / S24 for leave; each module's own-record rule for the rest).
+  let allowedModules: string[] = [];
+  let notifications: NotificationCentre = EMPTY_CENTRE;
+  const accessPromise = (async () => {
+    allowedModules = await getUserAllowedModulesArray();
+    if (!userId) return;
+    try {
+      const [permissions, scope] = await Promise.all([getUserPermissionSet(), resolveUserScope(userId, tenantSlug)]);
+      notifications = await notificationCentre({ userId, scope, permissions });
+    } catch (err) {
+      console.error('Error building the notification centre:', err);
+    }
+  })();
+
+  await Promise.all([companyPromise, tenantPromise, accessPromise]);
 
   if (!userName) {
     userName = 'Administrator';
-  }
-
-  // Resolve the user's allowed modules for sidebar filtering
-  let allowedModules: string[] = [];
-  try {
-    allowedModules = await getUserAllowedModulesArray();
-  } catch (err) {
-    console.error('Error resolving user allowed modules:', err);
-  }
-
-  // S15 / S24: leave requests this user can decide (their supervisees', or anyone's
-  // in scope with Leave approvals → Approve); never their own or ones they raised.
-  if (userId && (allowedModules.includes('LEAVE_APPROVALS') || allowedModules.includes('LEAVE_APPLICATIONS'))) {
-    try {
-      const scope = await resolveUserScope(userId, tenantSlug);
-      pendingCount = await countLeaveWaitingFor(scope, await hasPermission('APPROVE', 'LEAVE_APPROVALS'));
-    } catch (err) {
-      console.error('Error counting pending approvals:', err);
-    }
-  }
-
-  // Salary changes waiting for this user (their level, a delegation, a simple approval,
-  // or their own change to Final approve as an administrator), within their scope.
-  let salaryPending = 0;
-  if (userId && allowedModules.includes('SALARY_MAPPING')) {
-    try {
-      const scope = await resolveUserScope(userId, tenantSlug);
-      salaryPending = await countSalaryWaitingFor(scope, await hasPermission('APPROVE', 'SALARY_MAPPING'));
-    } catch (err) {
-      console.error('Error counting salary approvals:', err);
-    }
-  }
-
-  // Attendance adjustments and remote clock-ins waiting for this user.
-  let attendancePending = 0;
-  if (userId && allowedModules.includes('ATTENDANCE')) {
-    try {
-      const scope = await resolveUserScope(userId, tenantSlug);
-      attendancePending = await countAdjustmentsWaitingFor(scope, await hasPermission('APPROVE', 'ATTENDANCE'));
-    } catch (err) {
-      console.error('Error counting attendance approvals:', err);
-    }
-  }
-
-  // Leave policy changes waiting for a second person (company-wide Leave types → Approve),
-  // and exceptions ending within 30 days (company-wide Leave types → Edit).
-  let policyPending = 0;
-  if (userId && allowedModules.includes('LEAVE_TYPES')) {
-    try {
-      const scope = await resolveUserScope(userId, tenantSlug);
-      const [canApprove, canEdit] = await Promise.all([hasPermission('APPROVE', 'LEAVE_TYPES'), hasPermission('EDIT', 'LEAVE_TYPES')]);
-      if (canApprove || canEdit) policyPending = await countPolicyWaitingFor({ scope, userId, canApprove, canEdit, impersonation: false });
-    } catch (err) {
-      console.error('Error counting leave policy approvals:', err);
-    }
   }
 
   return {
@@ -434,10 +390,8 @@ async function loadWorkspaceContext(): Promise<WorkspaceContext> {
       id: activeFyId,
       name: activeFyName,
     },
-    pendingApprovalsCount: pendingCount,
-    pendingSalaryApprovalsCount: salaryPending,
-    pendingAttendanceCount: attendancePending,
-    pendingLeavePolicyCount: policyPending,
+    pendingApprovalsCount: notifications.items.find((i) => i.id === 'leave')?.count ?? 0,
+    notifications,
     myEmployeeId,
     allowedModules,
     isImpersonating: false,

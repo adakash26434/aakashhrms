@@ -87,6 +87,8 @@ export interface DocumentCheckContext {
   dateOfBirth: string;
   /** Today in Nepal, "YYYY-MM-DD". */
   today: string;
+  /** false: a new Citizenship / NID may come without its scan (F15 import; it is then a record to fix). */
+  scanRequired?: boolean;
 }
 
 /**
@@ -137,7 +139,7 @@ export function validateDocuments(rows: readonly EmployeeDocumentInput[], ctx: D
       errors[key("issuedDate")] = "The issued date can't be before the date of birth";
     }
 
-    if (isNew && isPrimaryDocument(r.type) && !r.file) {
+    if (isNew && isPrimaryDocument(r.type) && !r.file && ctx.scanRequired !== false) {
       errors[key("file")] = "Attach a scan of the document (front and back in one file)";
     }
   });

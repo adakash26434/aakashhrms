@@ -99,6 +99,9 @@ export function EmployeeRecordProfile({ profile: p, canEdit }: { profile: Employ
             ...(p.documents ?? []).map((d) => ({ label: DOCUMENT_TYPE_LABEL[d.type], value: <DocumentValue doc={d} onView={() => setViewing(d)} />, wide: true })),
             ...((p.documents ?? []).length === 0 ? [{ label: "Citizenship or National ID", value: "Not added", tone: "warning" as const, wide: true }] : []),
             { label: "PAN", value: p.panNumber, mono: true, tone: p.gaps.includes("pan") ? "warning" : undefined, copy: p.panNumber || undefined },
+            { label: "SSF ID", value: p.ssfNumber, mono: true, copy: p.ssfNumber || undefined },
+            { label: "PF number", value: p.pfNumber, mono: true, copy: p.pfNumber || undefined },
+            { label: "CIT number", value: p.citNumber, mono: true, copy: p.citNumber || undefined },
           ]}
         />
         {p.gaps.includes("documents") && <p className="mt-3 text-3xs text-warning">Add the issued date and a scan of the citizenship certificate or the National ID.</p>}

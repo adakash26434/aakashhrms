@@ -39,6 +39,7 @@ export type ModuleType =
   | 'NOTICE_BOARD'
   | 'TRAVEL'
   | 'TARGETS'
+  | 'REIMBURSEMENTS'
   | 'WELFARE_FUNDS';
 
 export interface Role {
@@ -181,6 +182,12 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
         allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
       },
       {
+        key: 'REIMBURSEMENTS',
+        label: 'Reimbursements',
+        description: 'Medical, mobile, fuel and similar claims with a bill, and their types: Add records a claim, Edit changes drafts and the types, Approve decides, Lock marks a claim paid by hand (the pay run pays approved ones)',
+        allowedActions: ['VIEW', 'ADD', 'EDIT', 'APPROVE', 'LOCK'],
+      },
+      {
         key: 'TARGETS',
         label: 'Targets & achievements',
         description: 'Monthly and yearly employee targets and the reported achievements: Add sets targets, Edit changes targets nobody has reported on, Approve closes or returns what supervisors forwarded',
@@ -317,8 +324,8 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
       },
       {
         key: 'REPORTS_TAX_IRD',
-        label: 'TDS & IRD Annex-10 Report',
-        description: 'Nepal Inland Revenue Department (IRD) annual and monthly tax statement',
+        label: 'Statutory returns (TDS, SSF, PF, CIT)',
+        description: 'eTDS, SSF, Provident Fund and CIT deposit files and annual tax certificates',
         allowedActions: ['VIEW', 'EXPORT'],
       },
       {

@@ -146,6 +146,11 @@ describe('Employee form (4.2)', () => {
     assert.equal(validateEmployeeField({ ...filled, fullName: ' ' }, 'fullName'), 'Full name is required');
     assert.match(validateEmployeeField({ ...filled, panNumber: '12345' }, 'panNumber') ?? '', /9 digits/);
     assert.equal(validateEmployeeField({ ...filled, panNumber: '' }, 'panNumber'), null);
+    // F9: fund numbers are optional, kept as typed, safe characters only.
+    assert.equal(validateEmployeeField({ ...filled, ssfNumber: '' }, 'ssfNumber'), null);
+    assert.equal(validateEmployeeField({ ...filled, ssfNumber: '2081-123/45' }, 'ssfNumber'), null);
+    assert.match(validateEmployeeField({ ...filled, pfNumber: '=SUM(A1)' }, 'pfNumber') ?? '', /letters, digits/);
+    assert.match(validateEmployeeField({ ...filled, citNumber: 'ab' }, 'citNumber') ?? '', /3–30/);
     assert.match(validateEmployeeField({ ...filled, dateOfBirth: '2015-01-01' }, 'dateOfBirth') ?? '', /18/);
     assert.equal(validateEmployeeField({ ...filled, spouseName: '' }, 'spouseName'), null);
     assert.match(validateEmployeeField({ ...filled, taxStatus: 'Married', spouseName: '' }, 'spouseName') ?? '', /Spouse/);
@@ -289,7 +294,7 @@ describe('Grade: policy, by hand and Salary mapping permission (4.2 follow-up)',
 
   it('the save works pay out on the server with the Salary mapping permission (S18)', () => {
     const actions = readFileSync(join(__dirname, '..', 'app/actions/employee.actions.ts'), 'utf8');
-    assert.match(actions, /hasPermission\('EDIT', 'SALARY_MAPPING'\)[\s\S]*saveEmployee\(id, formData, accessOptions, \{ canEditPay, userId: scope\.userId \}\)/);
+    assert.match(actions, /hasPermission\('EDIT', 'SALARY_MAPPING'\)[\s\S]*saveEmployee\(id, formData, \{\s*userId: scope\.userId,\s*access: accessOptions,\s*canEditPay,\s*detail: \{ scope, canApprove: canApproveDetails, reason: detail\?\.reason \}/);
     const service = readFileSync(join(__dirname, '..', 'lib/services/employee.service.ts'), 'utf8');
     assert.match(service, /const pay = resolvePay\(/);
   });

@@ -22,7 +22,8 @@ import {
   findUserByEmail,
   updateUser as updateUserRepository,
 } from "@/lib/repositories/user.repository";
-import { EMPLOYEE_ROLE_SLUG } from "@/lib/auth/employee-self-service-role";
+import { EMPLOYEE_ROLE_SLUG, EMPLOYEE_ROLE_SLUG_FALLBACK } from "@/lib/auth/employee-self-service-role";
+import { DENIED_SELF } from "@/lib/auth/self-action";
 import { employeeInScope } from "@/lib/engines/leave.engine";
 import { recordAuditLog } from "@/lib/services/audit.service";
 import { isUuid } from "@/lib/utils/uuid";
@@ -40,6 +41,10 @@ import { resolvePay } from "@/lib/engines/grade-policy.engine";
 import * as salaryStructureService from "@/lib/services/salary-structure.service";
 import { pickable, placementErrors } from "@/lib/engines/organization.engine";
 import { legacyDocumentColumns, normalizeDocuments } from "@/lib/engines/employee-document.engine";
+import { detailValues } from "@/lib/engines/employee-detail.engine";
+import * as detailService from "@/lib/services/employee-detail.service";
+import type { DetailPlan } from "@/lib/services/employee-detail.service";
+import type { DetailFormInfo, DetailSaveResult } from "@/lib/types/employee-detail";
 
 const ALL_EMPLOYEES = { search: "", departmentId: "all", branchId: "all", category: "all", status: "all" } as const;
 
@@ -89,13 +94,19 @@ export async function getEmployeeLookupData(scope?: ScopeFilter) {
  */
 export async function getEmployeeRegister(
   scope: ScopeFilter,
-  permissions: EmployeeRegisterData["permissions"]
+  permissions: EmployeeRegisterData["permissions"],
+  /** Employees → Approve (F13: which waiting detail changes are this user's to decide). */
+  canApproveDetails = false
 ): Promise<EmployeeRegisterData> {
-  const [employees, branches, departments, designations] = await Promise.all([
+  const [employees, branches, departments, designations, detailChanges] = await Promise.all([
     repository.findAll(ALL_EMPLOYEES, buildEmployeeScopeCondition(scope)),
     branchRepository.findAllBranches(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
+    detailService.pendingCounts(scope, canApproveDetails).catch((error) => {
+      console.error("[employees] detail changes unavailable", error instanceof Error ? error.message.slice(0, 120) : error);
+      return { pending: 0, waitingForMe: 0 };
+    }),
   ]);
   const names: engine.RegisterNames = {
     department: new Map(departments.map((d) => [d.id, d.name])),
@@ -112,6 +123,7 @@ export async function getEmployeeRegister(
     departments: used(new Set(rows.map((r) => r.departmentId)), departments),
     branches: used(new Set(rows.map((r) => r.branchId)), branches),
     permissions,
+    detailChanges,
   };
 }
 
@@ -160,6 +172,15 @@ export interface SaveEmployeeResult {
   accessWarning?: string;
   /** Hire or move recorded over the approved positions (warn mode). */
   darbandiWarning?: string | null;
+  /** F13: a change to bank, PAN or tax status this save recorded (waiting, or applied with it). */
+  detailChange?: DetailSaveResult | null;
+}
+
+/** Who saves, for the sensitive details (F13): their scope, Employees → Approve, and the reason given. */
+export interface DetailSaveContext {
+  scope: ScopeFilter;
+  canApprove: boolean;
+  reason?: unknown;
 }
 
 export interface EmployeeAccessOptions {
@@ -167,6 +188,19 @@ export interface EmployeeAccessOptions {
   roleSlug?: string;
   roleId?: string;
 }
+
+/**
+ * Who saves, for the self-service login (S44): giving a login any role but the Employee one, or
+ * changing a linked login's role, needs Users & roles → Edit (as in Admin → Users), and never on
+ * one's own login; the email of a login with an office role follows the record only with it too.
+ */
+export interface LoginAccessContext {
+  canManageLogins: boolean;
+  actorUserId: string | null;
+}
+
+/** The self-service roles (the canonical Employee role and its legacy slug). */
+export const isSelfServiceRole = (slug: string | null | undefined) => slug === EMPLOYEE_ROLE_SLUG || slug === EMPLOYEE_ROLE_SLUG_FALLBACK;
 
 /**
  * Keeps the employee's self-service login in sync with the employee record.
@@ -188,30 +222,38 @@ export interface EmployeeAccessOptions {
 async function syncEmployeeUserAccess(
   employee: Employee,
   loginEmail: string,
-  accessOptions?: EmployeeAccessOptions
+  accessOptions: EmployeeAccessOptions | undefined,
+  guard: LoginAccessContext
 ): Promise<{
   provisionedAccess?: EmployeeAccessProvisioning;
   accessWarning?: string;
 }> {
   const email = loginEmail.trim().toLowerCase();
-  const roleSlug = accessOptions?.roleSlug || EMPLOYEE_ROLE_SLUG;
+  let roleSlug = accessOptions?.roleSlug || EMPLOYEE_ROLE_SLUG;
   const roleId = accessOptions?.roleId;
+  const warnings: string[] = [];
 
   const linkedUser = await findUserByEmployeeId(employee.id);
 
   if (linkedUser) {
+    const access = await userService.getEmployeeAccess(employee.id);
+    const own = !!guard.actorUserId && linkedUser.id === guard.actorUserId;
+    // S44: a login with an office role (Branch HR, Payroll controller, …) is managed under Admin → Users.
+    const officeLogin = !isSelfServiceRole(access?.roleSlug);
+
     // Linked: keep the login email in sync with the employee record.
     if (email && linkedUser.email.trim().toLowerCase() !== email) {
       const conflict = await findUserByEmail(email);
       if (conflict && conflict.id !== linkedUser.id) {
-        return {
-          accessWarning: `Login email not updated: ${email} is already in use by another account.`,
-        };
+        warnings.push(`Login email not updated: ${email} is already in use by another account.`);
+      } else if (officeLogin && !guard.canManageLogins) {
+        warnings.push("Login email not updated: this login has an office role, so its email is changed under Admin → Users.");
+      } else {
+        await updateUserRepository(linkedUser.id, { email });
       }
-      await updateUserRepository(linkedUser.id, { email });
     }
 
-    // Role update support on existing linked user
+    // Role update support on existing linked user (S44: Users & roles → Edit, never one's own).
     let targetRoleId = roleId;
     if (!targetRoleId && accessOptions?.roleSlug) {
       const { findRoleBySlug } = await import("@/lib/repositories/role.repository");
@@ -219,11 +261,19 @@ async function syncEmployeeUserAccess(
       if (r) targetRoleId = r.id;
     }
 
-    if (targetRoleId) {
-      await updateUserRepository(linkedUser.id, {}, targetRoleId);
+    if (targetRoleId && targetRoleId !== access?.roleId) {
+      if (own) {
+        warnings.push("Role not changed: nobody changes the role of their own login.");
+        await recordAuditLog({ userId: guard.actorUserId, action: "EDIT", module: "USERS_ROLES", recordId: linkedUser.id, result: DENIED_SELF, newValues: { roleChange: true } });
+      } else if (!guard.canManageLogins) {
+        warnings.push("Role not changed: giving a login another role needs Users & roles → Edit.");
+        await recordAuditLog({ userId: guard.actorUserId, action: "EDIT", module: "USERS_ROLES", recordId: linkedUser.id, result: "DENIED_PERMISSION", newValues: { roleChange: true } });
+      } else {
+        await updateUserRepository(linkedUser.id, {}, targetRoleId);
+      }
     }
 
-    return {};
+    return warnings.length ? { accessWarning: warnings.join(" ") } : {};
   }
 
   // Unlinked: only provision when the toggle is on (or unspecified) and a real
@@ -237,11 +287,16 @@ async function syncEmployeeUserAccess(
 
   try {
     const { createSecureUserAccount } = await import("@/lib/services/user.service");
-    let resolvedSlug = roleSlug;
     if (roleId) {
       const { findRoleById } = await import("@/lib/repositories/role.repository");
       const r = await findRoleById(roleId);
-      if (r) resolvedSlug = r.slug;
+      if (r) roleSlug = r.slug;
+    }
+    // S44: a new login gets the Employee role unless the user may give roles (Users & roles → Edit).
+    let resolvedSlug = roleSlug;
+    if (!isSelfServiceRole(resolvedSlug) && !guard.canManageLogins) {
+      resolvedSlug = EMPLOYEE_ROLE_SLUG;
+      warnings.push("The login was given the Employee role: another role needs Users & roles → Edit.");
     }
 
     const { user, tempPassword } = await createSecureUserAccount(
@@ -270,6 +325,7 @@ async function syncEmployeeUserAccess(
         tempPassword,
         userName: user.name || employee.fullName,
       },
+      ...(warnings.length ? { accessWarning: warnings.join(" ") } : {}),
     };
   } catch (err) {
     if (err instanceof Error && err.name === "UserExistsError") {
@@ -284,13 +340,27 @@ async function syncEmployeeUserAccess(
   }
 }
 
-export async function saveEmployee(
-  id: string | null,
-  formData: EmployeeFormData,
-  accessOptions?: EmployeeAccessOptions,
-  /** Salary mapping → Edit, checked by the action: without it pay is never taken from the form. */
-  payAccess: { canEditPay: boolean; userId?: string | null } = { canEditPay: false }
-): Promise<SaveEmployeeResult> {
+/** Who saves an employee and what they may do (each checked by the caller from the server session). */
+export interface SaveEmployeeContext {
+  /** The acting user (documents, salary structure, audit). */
+  userId: string;
+  /** Self-service login: create one, and with which role (S44 decides what is allowed). */
+  access?: EmployeeAccessOptions;
+  /** Salary mapping → Edit: without it pay is never taken from the form. */
+  canEditPay: boolean;
+  /** F13: needed to change an existing employee's bank, PAN or tax status (else they are kept). */
+  detail?: DetailSaveContext | null;
+  /** S44: may give logins roles (Users & roles → Edit); never their own login's role. */
+  canManageLogins: boolean;
+  /** F15 import: a new employee's identity document may come without its scan (listed under records to fix). */
+  withoutScans?: boolean;
+}
+
+export async function saveEmployee(id: string | null, formData: EmployeeFormData, ctx: SaveEmployeeContext): Promise<SaveEmployeeResult> {
+  const accessOptions = ctx.access;
+  const payAccess = { canEditPay: ctx.canEditPay, userId: ctx.userId };
+  const detailAccess = ctx.detail ?? null;
+  const loginAccess: LoginAccessContext = { canManageLogins: ctx.canManageLogins, actorUserId: ctx.userId };
   // 1. Validate using engine
   const [allCodes, orgBranches, orgDepartments, orgDesignations, stored] = await Promise.all([
     repository.findAllCodes(),
@@ -308,7 +378,7 @@ export async function saveEmployee(
     dossier: normalizeDossier(formData.dossier),
   };
   const errors = {
-    ...engine.validateEmployee(formData),
+    ...engine.validateEmployee(formData, { scanRequired: !(ctx.withoutScans && !id) }),
     ...validateDossier(formData.dossier, { today: nepalDateIso(), joiningDate: formData.joiningDate }),
     // Codes are unique company-wide; say so on the field instead of failing on the constraint.
     ...engine.codeConflicts(allCodes, formData, id),
@@ -324,6 +394,32 @@ export async function saveEmployee(
   const current = stored ?? null;
   if (current) formData = { ...formData, status: current.status };
   else if (!id) formData = { ...formData, status: "Active" };
+
+  // Sensitive details (F13, S43): an existing employee's bank account, PAN and tax status change
+  // only as a recorded change — applied with this save, or kept as they are until a second person
+  // approves it. Without the context they are simply kept.
+  let detailPlan: DetailPlan | null = null;
+  if (current) {
+    if (detailAccess) {
+      const planned = await detailService.planSave(current.id, current, formData, detailAccess.reason, {
+        scope: detailAccess.scope,
+        userId: payAccess.userId ?? detailAccess.scope.userId,
+        canApprove: detailAccess.canApprove,
+      });
+      if (!planned.ok) throw new EmployeeValidationError(planned.errors);
+      detailPlan = planned.plan;
+    }
+    const keep = detailPlan?.values ?? detailValues(current);
+    formData = {
+      ...formData,
+      bankName: keep.bankName,
+      bankBranch: keep.bankBranch,
+      bankAccountNumber: keep.bankAccountNumber,
+      panNumber: keep.panNumber,
+      taxStatus: keep.taxStatus as EmployeeFormData["taxStatus"],
+      isDisabled: keep.isDisabled,
+    };
+  }
 
   // Pay (S18): worked out here from the grade policy and the user's Salary mapping
   // permission; the grade amount the browser sent is used only when typed by hand.
@@ -381,6 +477,9 @@ export async function saveEmployee(
     // The old columns mirror the documents list for older readers (until Phase 8).
     ...legacyDocumentColumns(formData.documents),
     panNumber: formData.panNumber || null,
+    ssfNumber: formData.ssfNumber?.trim() || null,
+    pfNumber: formData.pfNumber?.trim() || null,
+    citNumber: formData.citNumber?.trim() || null,
     phoneHome: toE164Phone(formData.phoneHome) || null,
     mobileNo: toE164Phone(formData.mobileNo),
     email: formData.companyEmail || formData.email,
@@ -417,7 +516,28 @@ export async function saveEmployee(
   if (!payAccess.userId) throw new Error("saveEmployee needs the acting user for the documents");
   const documents = { rows: formData.documents, dossier: formData.dossier, photoId: isUuid(formData.photoId) ? formData.photoId : "", userId: payAccess.userId };
   if (id) {
-    const updated = await repository.update(id, employeeData, documents);
+    let saved: Awaited<ReturnType<typeof repository.updateWithDetailChange>>;
+    try {
+      saved = await repository.updateWithDetailChange(id, employeeData, documents, detailPlan?.change ? { change: detailPlan.change, refreshBank: detailPlan.refreshBank } : null);
+    } catch (error) {
+      // Someone recorded a change for this employee a moment ago (one waiting change per employee).
+      if (detailService.isOnePendingViolation(error) && detailPlan?.change) {
+        throw new EmployeeValidationError(Object.fromEntries(Object.keys(detailPlan.change.after).map((f) => [f, detailService.WAITING_MESSAGE])));
+      }
+      throw error;
+    }
+    const updated = saved.employee;
+    const detailChange: DetailSaveResult | null =
+      detailPlan?.change && saved.detailChangeId
+        ? {
+            id: saved.detailChangeId,
+            fields: Object.keys(detailPlan.change.after),
+            summary: detailPlan.summary,
+            status: detailPlan.change.appliedRoute ? "approved" : "pending",
+            route: detailPlan.change.appliedRoute,
+            draftSlips: saved.draftSlips,
+          }
+        : null;
 
     // =======================================================================
     // EMPLOYEE-USER SYNC ON UPDATE
@@ -427,10 +547,11 @@ export async function saveEmployee(
     const syncResult = await syncEmployeeUserAccess(
       updated,
       formData.companyEmail || formData.email || "",
-      accessOptions
+      accessOptions,
+      loginAccess
     );
 
-    return { employee: updated, ...syncResult, darbandiWarning };
+    return { employee: updated, ...syncResult, darbandiWarning, detailChange };
   } else {
     const employee = await repository.create(employeeData, documents);
     
@@ -441,7 +562,8 @@ export async function saveEmployee(
     const syncResult = await syncEmployeeUserAccess(
       employee,
       formData.companyEmail || formData.email || "",
-      accessOptions
+      accessOptions,
+      loginAccess
     );
 
     // Leave on hire (4.6b): yearly credits (sick 12, company types), pro-rata from joining, in
@@ -538,7 +660,7 @@ export const EMPTY_EMPLOYEE_FORM: EmployeeFormData = {
   attendanceCode: "", employeeCode: "", fullName: "", gender: "Male", dateOfBirth: "", taxStatus: "Normal Single", isDisabled: false,
   category: "Permanent", shreni: "", departmentId: "", designationId: "", branchId: "", isSupervisor: false, supervisorId: "",
   joiningDate: "", confirmationDate: "", status: "Active", basicSalary: 0, gradePercent: 0, gradeCount: 0, gradeAmount: 0, gradeManual: false,
-  documents: [], dossier: { qualifications: [], workHistory: [], attachments: [] }, photoId: "", panNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
+  documents: [], dossier: { qualifications: [], workHistory: [], attachments: [] }, photoId: "", panNumber: "", ssfNumber: "", pfNumber: "", citNumber: "", phoneHome: "", mobileNo: "", email: "", companyEmail: "",
   personalEmail: "", permanentAddress: "", temporaryAddress: "", fatherName: "", motherName: "", spouseName: "",
   grandfatherName: "", bankName: "", bankBranch: "", bankAccountNumber: "", informedDate: "", terminationDate: "",
   terminationType: "", terminationReason: "", terminationPlan: "", terminationRemarks: "",
@@ -573,6 +695,9 @@ export function employeeToForm(emp: Employee): EmployeeFormData {
     dossier: emp.dossier ?? { qualifications: [], workHistory: [], attachments: [] },
     photoId: emp.photoId ?? "",
     panNumber: emp.panNumber || "",
+    ssfNumber: emp.ssfNumber || "",
+    pfNumber: emp.pfNumber || "",
+    citNumber: emp.citNumber || "",
     phoneHome: emp.phoneHome || "",
     mobileNo: emp.mobileNo,
     email: emp.companyEmail || emp.email || "",
@@ -606,14 +731,20 @@ export async function getEmployeeFormContext(
   scope: ScopeFilter,
   employee: Employee | null,
   /** Salary mapping → Edit (the save checks it again). */
-  canEditPay = false
+  canEditPay = false,
+  /** Employees → Approve: decides what saving a change to bank, PAN or tax status does (F13). */
+  canApproveDetails = false,
+  /** Users & roles → Edit: may give a login another role (S44). */
+  canManageLogins = false
 ): Promise<EmployeeFormContext> {
-  const [lookups, codes, employmentTypes, roles, access] = await Promise.all([
+  const noDetails: DetailFormInfo = { pending: null, onSave: "wait" };
+  const [lookups, codes, employmentTypes, roles, access, details] = await Promise.all([
     getEmployeeLookupData(scope),
     repository.findAllCodes(),
     findAllEmploymentTypes().catch(() => []),
     roleService.getAllRoles(),
     employee ? userService.getEmployeeAccess(employee.id) : Promise.resolve(null),
+    employee ? detailService.formInfo(employee.id, { scope, userId: scope.userId, canApprove: canApproveDetails, canEdit: true }) : Promise.resolve(noDetails),
   ]);
 
   // GLOBAL users see everything; BRANCH / DEPARTMENT users only what they can place into (plus the current value).
@@ -673,6 +804,9 @@ export async function getEmployeeFormContext(
           state: !access.isActive ? "disabled" : access.mustChangePassword ? "pending" : "active",
         }
       : null,
+    // S44: another role only with Users & roles → Edit, and never on one's own login.
+    roleChoice: !canManageLogins || scope.isImpersonation ? "employee_only" : access && access.userId === scope.userId ? "own_login" : "any",
+    details,
   };
 }
 

@@ -10,8 +10,10 @@ import * as designationRepository from "@/lib/repositories/designation.repositor
 import * as employeeRepository from "@/lib/repositories/employee.repository";
 import * as payHeadRepository from "@/lib/repositories/pay-head.repository";
 import * as taxRateRepository from "@/lib/repositories/tax-rate.repository";
-import * as fiscalYearRepository from "@/lib/repositories/fiscal-year.repository";
 import * as payrollService from "@/lib/services/payroll.service";
+import * as fiscalYearService from "@/lib/services/fiscal-year.service";
+import * as openingRepository from "@/lib/repositories/opening-balance.repository";
+import * as loanRepository from "@/lib/repositories/loan.repository";
 import * as controlService from "@/lib/services/payroll-control.service";
 import * as controlRepo from "@/lib/repositories/payroll-control.repository";
 import type { WorkingPeriod } from "@/lib/types/payroll-run";
@@ -21,9 +23,10 @@ import { leaveApplications } from "@/lib/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { applyDecision, availableActions, buildFlow, isCompanyAdministrator, parsePolicy, statusText, validatePolicy, type ApprovalActor, type ApprovalRequest, type ApprovalWording, type Decision } from "@/lib/engines/approval.engine";
 import { canTransition, preflight, scopeText, type PreflightEmployee } from "@/lib/engines/payroll-run.engine";
-import { canSwitchCalendar, parseCalendar, runLabel } from "@/lib/engines/pay-calendar.engine";
+import { canSwitchCalendar, fiscalMonthIndexFor, parseCalendar, recordMonthOf, runLabel } from "@/lib/engines/pay-calendar.engine";
 import { periodFor, periodContaining, shiftPeriod, type PayPeriod, type PeriodCalendar } from "@/lib/engines/pay-period.engine";
 import { isOwnRecord } from "@/lib/auth/self-action";
+import { isFeedHeadCode } from "@/lib/constants/payroll-feeds";
 import type { ScopeFilter } from "@/lib/auth/scope-filter";
 import { UserFacingError } from "@/lib/errors/action-error";
 import { nepalDateIso } from "@/lib/utils/nepal-time";
@@ -78,7 +81,7 @@ function flowOf(run: PayrollRun): ApprovalFlow {
   return run.approvalType === "multi_level" ? { type: "multi_level", levels: run.approvalLevels ?? [] } : { type: "simple", levels: run.approvalLevels ?? [] };
 }
 
-/** The run as an approval request. Subject employees are left out on purpose: see S40 in 03. */
+/** The run as an approval request. Subject employees are left out on purpose: see S55 in 03. */
 function requestOf(run: PayrollRun): ApprovalRequest {
   return {
     status: run.status === "UNDER_REVIEW" ? "pending" : run.status === "DRAFT" ? "withdrawn" : "approved",
@@ -207,7 +210,15 @@ export async function pageData(ctx: RunCtx, selectedRunId: string | null, workin
     categories: [...new Set(employees.map((e) => e.category))].sort(),
     employees: employees.map((e) => ({ id: e.id, name: e.fullName, employeeCode: e.employeeCode, branchId: e.branchId, departmentId: e.departmentId, designationId: e.designationId, category: e.category })),
     occasionalAllowances: payHeads.filter((h) => h.flags.isFestivalAllowance || h.flags.isRemoteAllowance).map((h) => ({ id: h.id, name: h.name, isFestivalAllowance: !!h.flags.isFestivalAllowance, isRemoteAllowance: !!h.flags.isRemoteAllowance })),
-    allPayHeads: payHeads.map((h) => ({ id: h.id, name: h.name, code: h.code, type: h.type as "allowance" | "deduction" })),
+    allPayHeads: payHeads.map((h) => ({
+      id: h.id,
+      name: h.name,
+      code: h.code,
+      type: h.type as "allowance" | "deduction",
+      isTds: !!h.flags.isTdsHead,
+      // Statutory heads are worked out by payroll and feed heads come from their records (the server refuses both).
+      addable: !isFeedHeadCode(h.code) && !h.flags.isTdsHead && !h.flags.isPfHead && !h.flags.isSsfHead && !h.flags.isSsfEmployerHead && !h.flags.isCitHead,
+    })),
     suggested: { year: suggested.year, month: suggested.month },
     today,
     currentUserId: ctx.userId,
@@ -232,8 +243,10 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
   const errors: Record<string, string> = {};
   const year = Number(r.payPeriodYear);
   const month = Number(r.payPeriodMonth);
-  // Regular runs only (merge with the team's F7 arrears and F8 settlement, 2026-10-10).
-  const runType: RunType = "REGULAR";
+  // F6: the monthly salary, or a festival allowance / arrears run beside it (final settlements are
+  // paid from the exit case, F8).
+  const runType: RunType = r.runType === undefined || r.runType === null || r.runType === "" ? "REGULAR" : (RUN_TYPES as readonly unknown[]).includes(r.runType) ? (r.runType as RunType) : "REGULAR";
+  if (r.runType !== undefined && r.runType !== null && r.runType !== "" && !(RUN_TYPES as readonly unknown[]).includes(r.runType)) errors.runType = "Choose the kind of run";
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) errors.period = "Choose the month";
   else {
     try {
@@ -255,9 +268,11 @@ function cleanInput(raw: unknown, calendar: PeriodCalendar): NewRunInput {
     designationIds: ids(r.designationIds),
     employeeCategories: ids(r.employeeCategories),
     employeeIds: ids(r.employeeIds),
-    occasionalAllowanceHeadIds: ids(r.occasionalAllowanceHeadIds),
+    // An arrears run pays only the ARREARS feed; a festival run only the festival heads chosen.
+    occasionalAllowanceHeadIds: runType === "ARREARS" ? [] : ids(r.occasionalAllowanceHeadIds),
     payslipDate,
     recreateIfExists: r.recreateIfExists === true,
+    prorateFestival: runType === "FESTIVAL" ? r.prorateFestival !== false : undefined,
   };
 }
 
@@ -291,27 +306,35 @@ async function festivalHeadCount(ids: string[]): Promise<number> {
 }
 
 async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType" | "branchIds" | "departmentIds" | "designationIds" | "employeeCategories" | "employeeIds">, opts: { existing: PayrollRun[]; ignoreRunId?: string; festivalHeads: number }): Promise<PreflightResult> {
-  const [controls, statutoryHeads] = await Promise.all([controlService.readSettings(), controlRepo.statutoryHeadsPresent()]);
+  // The year the month belongs to (4.12a), as the run itself will use: not simply the current one.
+  const [controls, statutoryHeads, year] = await Promise.all([controlService.readSettings(), controlRepo.statutoryHeadsPresent(), fiscalYearService.periodFiscalYear(period)]);
+  const runYear = year.fiscalYear;
   const today = nepalDateIso();
   const full: NewRunInput = { ...input, payPeriodYear: period.year, payPeriodMonth: period.month, occasionalAllowanceHeadIds: [], payslipDate: null };
   const people = await scopedEmployees(full);
   const ids = people.map((e) => e.id);
   const regular = input.runType === "REGULAR";
-  const [branches, periods, salaries, batches, activeFy, slabs, overtime, funds, hasFunds, previousRun] = await Promise.all([
+  const [branches, periods, salaries, batches, slabs, overtime, funds, hasFunds, previousRun, covered] = await Promise.all([
     branchRepository.findAllBranches(),
     attendanceRepo.findPeriods(period.calendar, period.year, period.month),
     salaryMappingRepository.findInForceByEmployeeIds(ids, period.end),
     salaryStructureRepository.findBatches(),
-    fiscalYearRepository.findFiscalYearForDate(period.end),
-    taxRateRepository.findAllSlabs(),
+    runYear ? taxRateRepository.findSlabsByFiscalYear(runYear.id) : Promise.resolve([]),
     regular ? overtimeWaitingFor(ids, period) : Promise.resolve(new Map<string, number>()),
-    regular && ids.length ? fundRepository.contributionsForMonth(ids, period.year, period.month) : Promise.resolve(new Map()),
+    // Fund contributions are posted by BS month (the one the pay month's last day falls in).
+    regular && ids.length ? fundRepository.contributionsForMonth(ids, recordMonthOf(period).year, recordMonthOf(period).month) : Promise.resolve(new Map()),
     fundRepository.hasActiveFunds(),
     (() => {
       const prev = shiftPeriod(period, -1);
       return runRepo.findRunForPeriod(period.calendar, prev.year, prev.month);
     })(),
+    // F15: a month an opening balance covers was paid by the old system.
+    runYear ? openingRepository.openingsCovering(ids, runYear.id, fiscalMonthIndexFor(period.calendar, period.month)) : Promise.resolve([]),
   ]);
+  const coveredCodes = new Set(covered.map((c) => c.employeeCode));
+  // 4.10: payroll deducts recorded loans only; an amount left on a salary structure is not deducted.
+  const withLoanAmount = regular ? people.filter((e) => { const m = salaries.get(e.id); return !!m && Number(m.loan1Deduction || 0) + Number(m.loan2Deduction || 0) > 0; }).map((e) => e.id) : [];
+  const recordedLoans = new Set((await loanRepository.runningLoansFor(withLoanAmount)).map((l) => l.employeeId));
   const closed = new Set(periods.filter((p) => p.status === "closed").map((p) => p.branchId));
   const pendingLeaves = ids.length
     ? Number(
@@ -337,6 +360,8 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
       hasBank: !!(e.bankAccountNumber && e.bankAccountNumber.trim()),
       hasPan: !!(e.panNumber && String(e.panNumber).trim()),
       overtimeWaiting: overtime.get(e.id) ?? 0,
+      coveredByOpening: coveredCodes.has(e.employeeCode),
+      loanOnStructure: withLoanAmount.includes(e.id) && !recordedLoans.has(e.id),
     };
   });
   const prevPeriod = shiftPeriod(period, -1);
@@ -351,8 +376,9 @@ async function preflightFor(period: PayPeriod, input: Pick<NewRunInput, "runType
     employees,
     pendingLeaves,
     pendingSalaryChanges: batches.filter((b) => b.status === "pending" && String(b.effectiveFrom).slice(0, 10) <= period.end).length,
-    activeFiscalYear: activeFy ? { id: activeFy.id, label: activeFy.label } : null,
-    slabCount: activeFy ? slabs.filter((s) => s.fiscalYearId === activeFy.id).length : 0,
+    activeFiscalYear: runYear ? { id: runYear.id, label: runYear.label } : null,
+    slabCount: slabs.length,
+    fiscalYearProblem: year.problem,
     existingRuns: opts.existing.filter((r) => r.id !== opts.ignoreRunId).map((r) => ({ id: r.id, status: r.status })),
     previousRun: previousRun ? { status: previousRun.status, label: prevPeriod.label } : null,
     fundsPosted: regular && hasFunds ? (ids.length ? ids.some((id) => (funds.get(id) ?? []).length > 0) : null) : null,
@@ -392,6 +418,7 @@ export async function generate(raw: unknown, ctx: RunCtx): Promise<{ run: Payrol
       payslipMonth: input.payPeriodMonth,
       payslipDate: input.payslipDate,
       runType: input.runType,
+      prorateFestival: input.prorateFestival,
       recreateIfExists: input.recreateIfExists,
     },
     ctx.userId

@@ -13,8 +13,10 @@ import {
   resetRateLimit,
   ipRateLimiter,
   computeAccountLockoutMs,
+  ACCOUNT_LOCKOUT_CONFIG,
 } from './rate-limiter';
 import { getClientIp } from './client-ip';
+import { sendLockoutNotice } from '../services/email.service';
 
 // Used to equalise response time when the email does not exist, so login
 // timing does not reveal which accounts are registered (S5). A real cost-12
@@ -146,6 +148,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
               lockMinutes: Math.round(lockMs / 60000),
               ip,
             });
+            // S5 / F17: the owner hears once per run of failures (only a successful sign-in resets it).
+            if (newFailedAttempts === ACCOUNT_LOCKOUT_CONFIG.THRESHOLD && user.email) {
+              sendLockoutNotice({ to: user.email, failedAttempts: newFailedAttempts, lockMs, ip });
+            }
           }
 
           await db.update(users)

@@ -49,6 +49,22 @@ describe('scheduler due rules', () => {
     assert.ok(jobDefinition('compliance-reminders'));
     assert.equal(jobDefinition('nope'), null);
   });
+
+  it('a morning job waits for its hour (Nepal time), then runs once that day', () => {
+    assert.equal(isDue({ kind: 'daily' }, ctx({ hour: 7 }), 8), false);
+    assert.equal(isDue({ kind: 'daily' }, ctx({ hour: 8 }), 8), true);
+    assert.equal(isDue({ kind: 'daily' }, ctx({ hour: 23, lastRunDay: '2026-10-09' }), 8), false);
+    assert.equal(isDue({ kind: 'daily' }, ctx({ hour: 0 })), true);
+  });
+
+  it('F17: the daily "waiting for you" email starts switched off and waits for 8:00', () => {
+    const digest = jobDefinition('approval-digest');
+    assert.equal(digest?.defaultEnabled, false);
+    assert.equal(digest?.notBeforeHour, 8);
+    assert.deepEqual(digest?.cadence, { kind: 'daily' });
+    // Every other job keeps its old default (on).
+    assert.ok(JOB_DEFINITIONS.filter((j) => j.code !== 'approval-digest').every((j) => j.defaultEnabled === undefined));
+  });
 });
 
 describe('scheduler reminders', () => {

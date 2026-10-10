@@ -1,58 +1,48 @@
 'use server';
 
-import { ensureTenantContext } from '@/lib/db';
-import * as holidayService from '@/lib/services/holiday.service';
 import { revalidatePath } from 'next/cache';
-import type { HolidayFormData } from '@/lib/types/holiday';
-import { checkPermission } from '@/lib/auth/check-permission';
+import { ensureTenantContext } from '@/lib/db';
+import { checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
+import { toActionError } from '@/lib/errors/action-error';
+import * as service from '@/lib/services/holiday.service';
 
-export async function createHolidayAction(data: HolidayFormData) {
+// Holiday calendar (4.12c, S52): Holidays → Add / Edit / Delete with the user's scope — a
+// company-wide role for every branch, a branch role for its own branches, never platform support.
+// The service checks the scope, closed attendance months and the form, and audits every change.
+
+export async function holidaysPageAction() {
   await ensureTenantContext();
   try {
-    await checkPermission('ADD', 'HOLIDAYS');
-    const result = await holidayService.createHoliday(data);
-    revalidatePath('/setup/holidays');
-    return { success: true, data: result };
+    const scope = await checkPermissionWithScope('VIEW', 'HOLIDAYS');
+    const [add, edit, del] = await Promise.all([hasPermission('ADD', 'HOLIDAYS'), hasPermission('EDIT', 'HOLIDAYS'), hasPermission('DELETE', 'HOLIDAYS')]);
+    return { success: true as const, data: await service.holidaysPage(scope, { add, edit, delete: del }) };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'HolidayValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
+    return toActionError(error, 'holiday.page');
   }
 }
 
-export async function updateHolidayAction(id: string, data: HolidayFormData) {
+/** Adds a holiday (id null) or saves one. */
+export async function saveHolidayAction(id: string | null, input: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'HOLIDAYS');
-    const result = await holidayService.updateHoliday(id, data);
+    const scope = await checkPermissionWithScope(id ? 'EDIT' : 'ADD', 'HOLIDAYS');
+    const result = await service.saveHoliday(id ? String(id) : null, input, { scope, userId: scope.userId });
     revalidatePath('/setup/holidays');
-    return { success: true, data: result };
+    return { success: true as const, data: result };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'HolidayValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
+    if (error instanceof service.HolidayValidationError) return { success: false as const, error: error.message, validationErrors: error.errors };
+    return toActionError(error, 'holiday.save');
   }
 }
 
 export async function deleteHolidayAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('DELETE', 'HOLIDAYS');
-    await holidayService.deleteHoliday(id);
+    const scope = await checkPermissionWithScope('DELETE', 'HOLIDAYS');
+    const result = await service.deleteHoliday(String(id), { scope, userId: scope.userId });
     revalidatePath('/setup/holidays');
-    return { success: true };
+    return { success: true as const, data: result };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
+    return toActionError(error, 'holiday.delete');
   }
 }

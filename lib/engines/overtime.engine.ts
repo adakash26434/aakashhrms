@@ -154,6 +154,14 @@ export function describeDetail(d: OvertimeDetail): string {
   return parts.join(" + ");
 }
 
+/** describeDetail in Nepali, for the bilingual payslip (F11); the figures stay as printed. */
+export function describeDetailNp(d: OvertimeDetail): string {
+  const money = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const part = (hours: number, rate: number) => `${Number(hours.toFixed(2))} घण्टा × रु ${money(d.hourlyRate)} × ${Number(rate.toFixed(2))}`;
+  const parts = [d.workHours > 0 ? part(d.workHours, d.workRate) : "", d.offHours > 0 ? `${part(d.offHours, d.offRate)} (साप्ताहिक बिदा / बिदा)` : ""].filter(Boolean);
+  return parts.join(" + ");
+}
+
 // ---------------------------------------------------------------------------
 // 4.7b Approvals: what each overtime day pays, and what waits for a decision
 // ---------------------------------------------------------------------------

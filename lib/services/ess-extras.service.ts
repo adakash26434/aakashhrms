@@ -13,6 +13,10 @@ import { desc, eq } from 'drizzle-orm';
 import type { ScopeFilter } from '@/lib/auth/scope-filter';
 import type { BoardNotice } from '@/lib/types/notice';
 import type { ClaimRow } from '@/lib/types/travel';
+import * as reimbursementService from '@/lib/services/reimbursement.service';
+import type { ReimbursementClaimRow, ReimbursementTypeRow } from '@/lib/types/reimbursement';
+import * as loanService from '@/lib/services/loan.service';
+import type { LoanDetail, LoanRequestRow, MyLoansData } from '@/lib/types/loan';
 
 // Self-service extras (G12): the signed-in employee's own notices, training
 // and travel claims. Every read is pinned to the session's employee (S8: the
@@ -102,4 +106,46 @@ export async function submitMyClaim(raw: unknown): Promise<ClaimRow> {
   const form = { ...(raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}), employeeId };
   const draft = await travelService.saveClaim(null, form, ctx);
   return travelService.moveClaim(draft.id, 'submitted', '', ctx);
+}
+
+/** F16: the signed-in employee's own reimbursement claims and the types they can claim. */
+export async function myReimbursements(): Promise<{ claims: ReimbursementClaimRow[]; types: ReimbursementTypeRow[] }> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return reimbursementService.ownClaims({ userId, actorEmployeeId: employeeId, scope: selfScope(employeeId, userId) });
+}
+
+/** F16: the signed-in employee's own claim, submitted in one write (the employee is never a parameter). */
+export async function submitMyReimbursement(raw: unknown): Promise<ReimbursementClaimRow> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  const form = { ...(raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}), employeeId };
+  return reimbursementService.saveClaim(null, form, { userId, actorEmployeeId: employeeId, scope: selfScope(employeeId, userId) }, { submit: true });
+}
+
+// ---- loans and salary advances (4.10) ----------------------------------------------------------
+
+const selfLoanCtx = (employeeId: string, userId: string): loanService.LoanCtx => ({ userId, scope: selfScope(employeeId, userId), canApprove: false });
+
+/** The signed-in employee's own loans, requests and the types they may ask for. */
+export async function myLoans(): Promise<MyLoansData> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return loanService.ownLoans(selfLoanCtx(employeeId, userId));
+}
+
+/** One of the employee's own loans with its repayments (anything else reads as not found). */
+export async function myLoanDetail(id: unknown): Promise<LoanDetail> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return loanService.loanDetail(id, selfLoanCtx(employeeId, userId));
+}
+
+/** The employee's own request, for a type employees ask for themselves (the employee is never a parameter). */
+export async function requestMyLoan(raw: unknown): Promise<LoanRequestRow> {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  const form = { ...(raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}), employeeId };
+  return loanService.prepareRequest(form, selfLoanCtx(employeeId, userId), { selfService: true });
+}
+
+/** Withdraws one of the employee's own requests while it waits. */
+export async function withdrawMyLoanRequest(id: unknown) {
+  const { employeeId, userId } = await getSessionEmployeeId();
+  return loanService.decideRequest(id, 'withdraw', '', selfLoanCtx(employeeId, userId));
 }

@@ -203,8 +203,9 @@ are designed so it only needs new values.
 | `FactBox`, `Worklist` | Context panels (E2); approval queues (E3) |
 | `GridSkeleton`, `FormSkeleton`, `EmptyState`, `ErrorState` | Loading, empty and error states |
 | `EditGrid` (4.4) | Spreadsheet-style bulk entry: many rows × many amount columns edited in place with Excel keys, paste from Excel, fill down and undo. Not for registers (use `DataGrid`). See "Implemented salary structure". |
+| `ReportViewer` + `ReportParam` / `ReportPaper` / `ReportLetterhead` / `ReportTable` / `ReportSignatures` / `ReportNote` / `useReportExport` (4.11) | Every printable report (template D): parameters, A4 paper, Print / PDF, Excel and CSV from the same columns. See "Implemented reports". |
 
-The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts`, `density.ts`, `popup.ts` and `edit-grid.ts`. Exports use `lib/export/csv.ts` and `authorizeExportAction`.
+The pure logic lives in `lib/kit/`: `grid.ts`, `amount.ts`, `status.ts`, `focus.ts`, `density.ts`, `popup.ts`, `edit-grid.ts` and `report.ts` (report columns, totals, groups, CSV and Excel sheets). Exports use `lib/export/csv.ts` (and `lib/export/xlsx.ts` for Excel) and `authorizeExportAction`.
 
 ## 5. Screen templates
 
@@ -537,6 +538,18 @@ date and a reason, and payroll uses the revision in force for the month.
 Folder tabs in the URL (`?tab=`; `?employee=<id>` opens with that person
 selected): **Structures · Bulk edit · Changes · Templates**.
 
+> **Since the merge into `main` (2026-10-10):** the tabs are **Salary sheet ·
+> Approvals · Templates**. The **Salary sheet** (`salary-structure-sheet.tsx`)
+> replaces Structures and Bulk edit: one EditGrid of every employee with the
+> breakdown columns below, the effective month (BS year + month), search,
+> branch / department filters, Apply template, CSV import / export, Copy rows,
+> **Mass increment** (F14: the rule window, the result in the sheet, **Undo**
+> in the notice) and **Save** / **Save As Final** (company administrators) as
+> one batch through approval. Row actions open the Revise window and the
+> printable revision. The approval settings live in **Setup → Approvals**
+> (4.12d). The Structures / Bulk edit notes below describe the 4.4 screens and
+> still hold for the Revise / Add windows, templates and approvals.
+
 | Tab | Layout and rules |
 |---|---|
 | Structures | PageBar (4.4b: Add new, Bulk add, Revise salary F2, Bulk edit, Print salary revision, Refresh; counts and waiting changes in the description) · FilterStrip · DataGrid (code and name pinned; level, basic, grade, allowances, deductions, gross, net, effective from, status: Current / Takes effect later / Change waiting / No structure) · SplitView detail: FactBox breakdown per pay head and a **History** list (effective from, gross with % change, reason, Print link). Enter / double-click opens the Revise window. |
@@ -573,10 +586,11 @@ message (e.g. "Copied 3 × 2 cells") and a key reminder.
   "Revise in Salary structure".
 - **Approvals (Zoho Payroll style, S21).** The tab is **Approvals**
   (`?tab=approvals`; `changes` still opens it). *Approval settings* (company
-  administrators): **No approval**, **Simple** (anyone with Approve, never
-  the preparer) or **Multi-level** (named approvers in order, Level 2 after
-  Level 1; up to 5; move up / down). The flow is copied onto each change when
-  it is saved. **Final approve**: company administrators can approve at any
+  administrators; since 4.12d on **Setup → Approvals**, linked from the tab):
+  **No approval**, **Simple** (anyone with Approve, never the preparer) or
+  **Multi-level** (named approvers in order, Level 2 after Level 1; up to 5;
+  move up / down), plus custom rules read in order. The flow is copied onto
+  each change when it is saved. **Final approve**: company administrators can approve at any
   stage, including their own change (recorded); the Revise and Review windows
   offer them **Save and approve**. **Nobody approves a change to their own
   salary**: Bulk edit marks your row "(you)"; levels whose approver prepared
@@ -906,6 +920,7 @@ One page, `/payroll`, two folder tabs:
   - *Lock:* Lock run (type LOCK), Bank transfer file.
 - **Windows:** New pay run (month + year, payslip date, branches as tick chips, narrow to departments / designations / employment types, occasional allowances, "only these people"; **Check** shows the problem list inside the window; **Generate** enabled only without blocking problems; "discard the existing draft" when one exists). Approval settings (Simple / Multi-level with ordered approvers; the variance threshold).
 - **Wording kept short:** one line of guidance per step; no guide cards. Problems carry their fix.
+- **Since the merge into `main` (2026-10-10):** the New pay run window starts with the **kind of run** as radio cards — **Regular salary · Festival allowance · Arrears** (F6, `payroll-run-type.tsx`): a festival allowance run asks for its festival heads and "pay in proportion for service under a year" (§37), may be made inside its month, and pays only those lines with their own (marginal) tax; an arrears run pays what back-dated revisions owe into finalised months. Both skip attendance, leave, overtime and PF / SSF / CIT checks. The payslip pane shows only an off-cycle payslip's own lines (no Add head) and its marginal tax block. The 4.8b-1 Festival bonus, 4.8b-2 Arrears run and 4.8b-3 Final settlement run below were retired in the first merge (F7 arrears ride in the regular run; F8 settlement is on the exit case).
 - **4.8b-1:** New run starts with the kind of run (Regular / Festival bonus) as radio cards; month names follow the company's pay calendar (Bikram Sambat or Gregorian); a bonus run asks only for the festival allowance. The Runs grid has a Type column; the step rail shows Variance for regular runs only. The payslip pane gets an **Income tax** block: paid so far this year, this month (one-off part named), the projected year less retirement and insurance, the annual tax and what was deducted, and "spread over N months" or "year-end month: the rest". Settings window: approval type, variance threshold and the **Pay calendar** (BS / AD radio cards with the switch rule in one line). Attendance rules show the calendar read-only. Self-service cards use the run label ("Aswin 2083", "October 2026 · Festival bonus").
 - **4.8b-2 Arrears:** the New run window's third kind. After Check, a plain table of employee-months with a difference (month, why, paid, due, difference; ticked by default; a row held in another arrears run is greyed with the reason); Generate pays the ticked ones. The payslip pane gets **Arrears: the months** (per month: paid, due, difference) above the Income tax block. The Month close tab's Reopen stays available after payroll is locked, with its window saying the payslips do not change and the difference is paid as arrears; the salary revision window's lock text now names runs being prepared, not locked months.
 - **4.8b-3 Final settlement:** the New run window's fourth kind. Instead of a month and a scope: an **Exit case** combobox (closed cases without a run, with the last working day as the hint) and a **Notice period recovery** amount; Check shows the settlement as a plain two-column list (earnings, then deductions in muted ink, income tax, net payable in bold; a note when there is no gratuity or the last month was already paid); Generate opens the run. The payslip pane gets a **Settlement** block (last working day, months served, the lines). The Payroll settings window gets a **Final settlement** fieldset (gratuity % per month served, months before gratuity, tax withheld %, SSF members too). The exit case's detail shows "Final settlement: open the payroll run (status)" or where to prepare it.
@@ -1000,6 +1015,204 @@ limit. Errors show after Save is pressed and clear as each field is put
 right. A used type can't be deleted or change its kind (switch it off and
 add a new one).
 
+### Implemented reports (Phase 4.11, template D)
+
+Every report under `/reports/*` uses the **report viewer**
+(`components/kit/report-viewer.tsx`; column model in `lib/kit/report.ts`):
+
+| Part | Rule |
+|---|---|
+| Page bar | Title, status chip (Locked / Approved, Month open / closed), **Print / PDF** (Ctrl+P; PDF is "Save as PDF" in the print dialog), **Excel** (Ctrl+Shift+E), **CSV**, **Refresh**. Excel / CSV are shown disabled with the reason when the role has no Export permission. |
+| Parameters | A 17rem panel on the left (folded on phones, where the report comes first): fields stacked label-above-control (`ReportParam`), the report's own choices first (run / month / year, report view, grouping), then `PlaceParams` (Branch, Department, Employee — only places the viewer covers; a single branch hides the field). **Show report** runs it; the line above the paper says what is shown. |
+| Preview | A4 paper (`ReportPaper`, portrait 210 mm or landscape 297 mm) on the canvas, **Fit width** (default, shows the %) or **100%** (scrolls inside the preview, never the page). Several papers (payslips, attendance cards) print one per page. |
+| Letterhead | `ReportLetterhead`: the company's name, address, PAN and logo drawn like its letters (the letter design's logo, alignment and rule), the report's English and Nepali title, the period, a parameter line ("Covers: Lekhnath Branch · Employees: 5"), a status stamp, "Printed … by …". A `<div>`, never `<header>` (print hides headers). |
+| Table | `ReportTable`: header repeated on every printed page, S.N. column, optional groups with subtotals and a total as the last row (not `tfoot`, which would repeat the total on every page); amounts right-aligned, lakh grouping, zero shown as "–"; a table wider than the paper is drawn smaller until it fits (screen and print). |
+| Under the table | `ReportNote` for what the figures include; `ReportSignatures` (salary sheet: Prepared / Checked / Approved by with the run's names and dates; bank list: the company's signatories). |
+| Files | Built in the browser from the same columns as the paper after `authorizeExportAction` (Export + audit): **Excel** (`lib/export/xlsx.ts`: typed numbers with "#,##0.00", title lines, frozen header row repeated on printed pages, groups with subtotals, totals, landscape / fit to width), **CSV** (`reportCsv`: data rows only, formula-safe). |
+| Print | The panel, page bar and app frame are hidden; the paper takes the whole page; landscape reports switch the named `@page` while mounted. |
+
+Reports: **Salary sheet** (every pay line from the payslip statement, a
+summary, pay-line totals reconciling to gross / deductions / net, bank
+transfer list by bank), **Payslips** (F11 sheets of a locked run, English /
+Nepali / both), **Attendance report** (monthly summary, day register with
+the attendance codes, one attendance card per employee), **Leave report**
+(balances as the leave screens show them, movement by type from the ledger,
+leave taken, requests — reasons only when asked for), **Loan report** (loan
+register, repayments and loans given in a fiscal year or month). `/reports`
+lists what the role can open, Statutory returns and HR analytics included.
+
+### Implemented settings: fiscal years and tax slabs (Phase 4.12a, templates A + E)
+
+**Setup → Fiscal years** (`/setup/fiscal-year`, register): PageBar with
+**New fiscal year** (Ctrl+N), **Make current**, **Close year**, **Reopen**,
+**Delete** (each disabled with the server's reason as its tooltip),
+**Tax slabs** (opens the selected year's slabs) and Refresh; a success
+Notice; the Guide "How fiscal years work"; a DataGrid — fiscal year,
+starts / ends (DateCell, BS first), status chip (Current · Upcoming · Past ·
+Closed), tax slabs per category ("Individual 6 · Person with disability 5",
+"Not set" in amber), what uses the year ("3 pay runs · 8 salary
+structures"), pay runs not locked (hidden column). **New fiscal year**
+window: the BS year it opens in (the next one offered) with the dates it
+makes ("FY 2084/85: Shrawan 1, 2084 to Asar 31, 2085 BS (2027-07-17 to
+2028-07-14)") and **Copy from** another year's slabs. **Reopen** window: a
+required reason (kept in the audit log). Confirms for Make current, Close
+and Delete say what follows.
+
+**Setup → Tax slabs** (`/setup/tax-rates`, settings): the fiscal year
+select (Current / Closed chips; `?year=` kept in the address), a warning
+Notice for a closed year (no Edit buttons) and an info Notice when the year
+has pay runs; the Guide; the three ladders side by side (one column on
+phones) as Panels — Individual, Couple, Person with disability, each with
+its hint, the bands ("Up to 5,00,000 · 1% · 5,000", "Above 50,00,000 ·
+39% · –") and the **tax at the top** of each band, **Edit** / **Set slabs**
+in the title bar; a "Not set" line says what payroll does instead. Below,
+**Tax on a yearly income**: category, income (NPR, lakh grouping), *SSF
+contributor* and *Woman (10% rebate)*, then each band's income, rate and
+tax, the year's total, a month and the effective rate — worked out exactly
+as payroll does.
+
+The **ladder window** edits the whole ladder: # · From (follows the band
+before; folded on phones) · Up to (the last band "and above") · Rate % ·
+Less (fixed; folded on phones unless used) · remove; **Add band**, **Start
+from another year…**, **Remove ladder** (Couple / disability: Individual
+applies), then **Changes** in words ("Band 4: 10,00,000 – 20,00,000 at 30%
+→ … at 32%", "Band 7 added: …") and the **effect** on a yearly income (tax
+now → after saving). Errors appear under the band after Save is pressed
+and focus moves to the first; Save is disabled until something changes.
+Money inputs use `NumberField grouped` (lakh grouping while not typing,
+plain digits while typing).
+
+### Implemented settings: rules & controls (Phase 4.12b, template E)
+
+**Setup → Rules & controls** (`/setup/system-control`): PageBar with
+**Save** (Ctrl+S, disabled until something changes), **Apply grade
+policy…** and Refresh. The `SectionIndex` sits beside the form from 66rem
+of content width (a "Jump to section" select above it when narrower):
+Retirement contributions (PF share, CIT a year, all retirement
+contributions a year), Insurance premiums (life, health, house), Other tax
+relief (remote-area cap, women's rebate), Social security fund (in SSF —
+Yes / No —, worked out on), Overtime (the two multipliers; an info Notice
+with a link when an hourly OT rule is active, which payroll then uses) and
+Grade policy (how grades are worked out with each method's hint, its own
+figure, most grades counted, a worked example "30,000 ÷ 30 = 1,000 × 3 =
+3,000" and a line saying what saving a new policy does). Money fields are
+`NumberField grouped` with the NPR prefix; help text under each field
+says what payroll does with it.
+
+**Save…** checks the form (errors under the fields, focus on the first,
+the section marked in the index) and opens **Save these rules?**: each
+change "label — from → **to**" and, for a grade-policy change, a
+**Salaries** box worked out on the server first (employees whose grade
+changes, the change a month, whether it counts at once or who it waits
+for, "Your own salary is in it…", who is left out while a change of
+theirs waits). The success Notice repeats what happened to salaries.
+**Undo changes** puts the form back.
+
+### Implemented settings: pay heads (Phase 4.12b, template A + Window)
+
+**Setup → Pay heads** (`/setup/pay-heads`, register): PageBar with **New
+pay head** (Ctrl+N), **Edit** (F2, or double-click a row), **Delete**
+(disabled with the reason as its tooltip: a system head, or what still uses
+it) and Refresh; a success Notice; the Guide "How pay heads work"; a
+FilterStrip (type, kind, search); a DataGrid sized to fit beside the
+navigator at 1440 px — code, pay head (Nepali name below), **what it is**
+with the type as a sign (green **+** adds to pay, red **−** takes from pay;
+screen readers hear "Adds to pay:") and a lock for system heads, amount in
+words ("2.5% of basic + grade", "One month's basic", "From other records"),
+taxable (allowances), **for** ("Everyone", "1 department · 1 designation",
+amber "No one: its designations were deleted") and in use ("5 payslip
+lines").
+
+The **pay head window** (`PropertyForm` in a `Window`): The pay head (name,
+Nepali name, what it is — a select whose options say "adds to pay" /
+"takes from pay", with the role's hint under it), Amount (worked out as —
+the choices the role allows — and a percentage with "Each month: 2.5% of
+basic + grade." under it; taxable as Yes / No for allowances) and Who it
+is for (Everyone, or chosen departments and designations as two tick lists
+— none ticked in a list means all of it; a deleted one still on the head is
+listed in italics so it can be unticked). A system head shows what it is,
+its amount and who it is for as read-only text, with the reason in the
+window's description; only its names can change.
+
+### Implemented settings: holiday calendar (Phase 4.12c, template A + Window)
+
+**Setup → Holiday calendar** (`/setup/holidays`, register): PageBar with
+**New holiday** (Ctrl+N; hidden for a branch role without branches),
+**Edit** (F2, double-click), **Delete** (both disabled with the reason —
+another branch's or every branch's holiday for a branch role, or a closed
+attendance month) and Refresh; the Guide; a FilterStrip — fiscal year
+(the current one chosen, marked "(current)"), category, search; a DataGrid
+— holiday (a lock with the reason when it can't change), dates BS first
+("Kartik 2, 2083 – Kartik 7, 2083", AD in the tooltip), days (with a
+total), category, for (Everyone / Women only) and branches ("All
+branches" or names).
+
+The **holiday window**: The holiday (name, category with its hint), Days
+(first and last day as `DateField`s — the last follows the first until set
+on its own — with "6 days off." under it) and Who gets it (Everyone /
+Women only; All branches / Chosen branches as a tick list — a branch role
+gets only its own branches, ticked when there is one). After saving, a
+warning Notice counts approved leave inside the days.
+
+### Implemented settings: company setup and the Setup overview (Phase 4.12c, template E)
+
+**Setup → Company setup** (`/setup/company-setup`): PageBar with **Save**
+(Ctrl+S, disabled until something changes), **Request a legal change…**
+(disabled with the reason while a request waits or the platform can't be
+reached) and Refresh; Notices for a waiting request (what it changes, who
+asked, when, and **Withdraw the request**), a request the platform did not
+approve (with its reason) and a read-only role. A `SectionIndex` beside the
+form: Legal registration (read-only facts, "Not set" in faint text),
+Contact (display name, email, phone), Signatories (prepared / verified by,
+authorised / approved by, each with a title) and Work schedule (the default
+shift's hours, weekly off, break, grace and half day, with "Edit in
+Attendance → Shifts"); "N changes not saved" with Undo changes and Save
+under the form. The **legal change window**: the details as they should
+be (legal name, PAN as 9 digits, registration number, industry with its
+Nepali name, registered office) and why (reason, document reference).
+Old `?section=` / `?tab=` links open the page each section moved to
+(`lib/frame/legacy-routes.ts`).
+
+**Setup** (`/setup`, the module's landing page, like Reports): Panels
+Company, Payroll and Time and leave listing the settings the user can open,
+each with one line of state — "Demo Sahakari · PAN not set", "1 company pay
+head · 9 system heads", "Current: FY 2083/84", "FY 2083/84: slabs set",
+"FY 2083/84: 4 holidays, 11 days" — amber with a warning icon when payroll
+needs something (no PAN, no current year, no slabs, no holidays yet).
+
+### Implemented settings: approvals (Phase 4.12d, template E + Window)
+
+**Setup → Approvals** (`/setup/approvals`): PageBar with Refresh; the
+Guide (a policy per module, custom rules, never your own, waiting
+requests); Panels by what the user can view:
+
+- **Salary changes** — *Company policy* in words ("Any approver",
+  "Level 1: Gita → Level 2: Hari", "No approval") with **Change…** (the
+  kit's `ApprovalPolicyWindow`), and **Custom rules**, read in order: each
+  rule a numbered row with its name, "When:" its conditions in words
+  ("Raise over 10% · Branches: Lekhnath Branch") and "Approved by:" its
+  approvers, with Move up / Move down / Edit / Delete (a `Confirm` that
+  says changes waiting keep their approvers); **Add rule** (at most 10);
+  "No custom rules: every salary change follows the company policy." when
+  there are none; the Panel's meta counts the rules.
+- **Loans and advances** — the company policy with **Change…**.
+- **Set elsewhere** — links for pay runs and status changes (Payroll
+  controls), leave requests and attendance adjustments, with who approves
+  them.
+
+A read-only role sees the same Panels without buttons and a line naming
+the permission needed ("… → Approve with a company-wide role").
+
+The **rule window**: The rule (name), When (tick each condition: someone's
+raise is more than N %, someone's new total salary is more than NPR N,
+someone is in these branches / departments — tick lists —, the monthly
+salary bill changes by more than NPR N; "Every condition ticked must hold;
+the conditions about a person must hold for the same person in the
+change"), Approved by (Any approver or named levels — the kit's
+`ApprovalLevels`; never "No approval"). The Revise window, Bulk edit and
+set-up footers name the rule that will apply ("Approval rule “Large
+raises”: goes to Level 1: …"), and the change's timeline records it.
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:
@@ -1012,6 +1225,8 @@ The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail
 | Status bar | 26px |
 
 Pages render inside a white workspace with 24px padding (16px below 1024px). The working-period selector (E1) arrives with its first consumer in 4.8.
+
+**Notification centre (F17)** (`components/frame/notification-bell.tsx`): the title-bar bell opens a panel (384px, anchored to the bell; full width minus 8px on phones) with three groups — **Waiting for you** (one row per kind of request this person decides, with its count: leave, attendance adjustments, salary changes, bank / PAN / tax changes, reimbursement and travel claims, leave policies, evaluations to mark, achievements to close, the team's achievements to verify), **Pay runs** (one row per run waiting for this person's step, with the step as a tag: Approve, Lock, Publish, Send, On hold) and **Deposits due** (TDS / SSF within a week or just passed, the tag toned by how close: "Tomorrow", "5 days", "2 days ago"). Each row opens the list filtered to what waits (`?status=` on travel, targets and evaluation). The number on the bell is requests plus run steps; held payslips and deposits are listed, not counted; a deposit due within three days puts a dot on the bell when nothing is counted. The panel reads the list again whenever it opens (refresh button in its header); "Nothing needs you right now" when empty. People who can receive nothing don't see the bell.
 
 ## 6. Keyboard map (initial)
 

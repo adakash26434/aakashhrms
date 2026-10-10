@@ -176,29 +176,3 @@ export async function deleteSalaryTemplateAction(id: string): Promise<{ success:
   }
 }
 
-/** Approval settings for salary changes (none / simple / multi-level): a company administrator's control. */
-export async function saveSalaryApprovalSettingsAction(input: unknown): Promise<{ success: true; data: { pendingKept: number } } | Fail> {
-  await ensureTenantContext();
-  try {
-    const scope = await checkPermissionWithScope('APPROVE', 'SALARY_MAPPING');
-    if (scope.scopeType !== 'GLOBAL') throw new UserFacingError('Only a company-wide administrator can change approval settings.');
-    // A company control: platform support viewing the company does not change it.
-    if (scope.isImpersonation) throw new UserFacingError('Platform support cannot change this company control.');
-    const { policy, pendingKept } = await structureService.saveApprovalPolicy(input);
-    await recordAuditLog({
-      userId: scope.userId,
-      action: 'EDIT',
-      module: 'SALARY_MAPPING',
-      recordId: 'salary-approval-settings',
-      result: 'SUCCESS',
-      newValues: { approvalType: policy.type, levels: policy.levels.length },
-    });
-    refresh();
-    return { success: true, data: { pendingKept } };
-  } catch (error: unknown) {
-    if (error instanceof structureService.StructureValidationError) {
-      return { success: false, error: 'Check the approval settings.', validationErrors: error.errors };
-    }
-    return toActionError(error, 'salary-structure.approval-settings');
-  }
-}

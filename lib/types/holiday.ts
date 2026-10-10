@@ -1,196 +1,90 @@
-
-
-import type { LucideIcon } from "lucide-react";
-import {
-  Sparkles,
-  PartyPopper,
-  MapPin,
-  Flag,
-  Globe,
-  CalendarDays,
-} from "lucide-react";
-
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
-
 /**
- * The five categories observed in Nepal payroll:
- *   - major-festival       : large multi-day festivals (Dashain, Tihar)
- *   - cultural-festival    : cultural / religious (Maghe Sankranti, Shree Panchami)
- *   - regional-festival    : locally-observed festivals (Chhath, Holi, Ghode Jatra, Indra Jatra)
- *   - national-holiday     : gazetted public holidays (Republic Day, Constitution Day, New Year)
- *   - international-holiday: internationally observed (Labour Day)
+ * Holidays — domain and screen types.
+ *
+ * A holiday runs from one day to another (stored in BS, with the AD days
+ * beside them), for every branch or chosen branches, and for everyone or
+ * women only (International Women's Day). Attendance and leave read it
+ * through `holidayApplies` (lib/engines/holiday.engine.ts).
  */
-export const HOLIDAY_CATEGORIES = [
-  "major-festival",
-  "cultural-festival",
-  "regional-festival",
-  "national-holiday",
-  "international-holiday",
-] as const;
+
+/** The categories observed in Nepal payroll. */
+export const HOLIDAY_CATEGORIES = ["major-festival", "cultural-festival", "regional-festival", "national-holiday", "international-holiday"] as const;
 
 export type HolidayCategory = (typeof HOLIDAY_CATEGORIES)[number];
 
-// ---------------------------------------------------------------------------
-// Display metadata
-// ---------------------------------------------------------------------------
-
-export interface HolidayCategoryMeta {
-  /** Human label, e.g. "Major Festival". */
-  label: string;
-  /** Short label for compact contexts (chips, tooltips). */
-  short: string;
-  /** Description used in the form's helper text. */
-  description: string;
-  icon: LucideIcon;
-  /** Tonal accent for badges / category pill. */
-  tone: "amber" | "rose" | "violet" | "blue" | "emerald";
-}
-
-export const HOLIDAY_CATEGORY_META: Record<
-  HolidayCategory,
-  HolidayCategoryMeta
-> = {
-  "major-festival": {
-    label: "Major Festival",
-    short: "Major",
-    description: "Large multi-day national festivals",
-    icon: Sparkles,
-    tone: "amber",
-  },
-  "cultural-festival": {
-    label: "Cultural Festival",
-    short: "Cultural",
-    description: "Cultural / religious observances",
-    icon: PartyPopper,
-    tone: "rose",
-  },
-  "regional-festival": {
-    label: "Regional Festival",
-    short: "Regional",
-    description: "Locally-observed regional festivals",
-    icon: MapPin,
-    tone: "violet",
-  },
-  "national-holiday": {
-    label: "National Holiday",
-    short: "National",
-    description: "Gazetted public holidays",
-    icon: Flag,
-    tone: "blue",
-  },
-  "international-holiday": {
-    label: "International Holiday",
-    short: "Intl.",
-    description: "Internationally observed holidays",
-    icon: Globe,
-    tone: "emerald",
-  },
-};
-
-// ---------------------------------------------------------------------------
-// Main entity
-// ---------------------------------------------------------------------------
+/** Who gets the day off. */
+export type HolidayAppliesTo = "everyone" | "women";
 
 export interface Holiday {
   id: string;
   name: string;
   category: HolidayCategory;
-  /** Inclusive start of the holiday, BS ISO "YYYY-MM-DD". */
+  /** Inclusive start, BS "YYYY-MM-DD". */
   startDate: string;
-  /** Inclusive end of the holiday, BS ISO "YYYY-MM-DD". */
+  /** Inclusive end, BS "YYYY-MM-DD". */
   endDate: string;
-  
-  // NEW: Store the AD dates as actual Date objects
+  /** The same days in AD (local-midnight timestamps). */
   startDateAD: Date;
   endDateAD: Date;
-
+  appliesTo: HolidayAppliesTo;
+  /** Empty: every branch. */
   branchIds: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Form data (subset edited by the modal)
-// ---------------------------------------------------------------------------
-
-export interface HolidayFormData {
+/** The holiday window: AD dates (the date fields store AD and show BS first). */
+export interface HolidayForm {
   name: string;
   category: HolidayCategory;
-  startDate: string;
-  endDate: string;
-  startDateAD: Date;
-  endDateAD: Date;
+  from: string;
+  to: string;
+  appliesTo: HolidayAppliesTo;
+  /** Empty: every branch. */
   branchIds: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Aggregate shape returned by the data layer
-// ---------------------------------------------------------------------------
+export type HolidayFormErrors = Partial<Record<keyof HolidayForm, string>>;
 
-export interface HolidayData {
-  fiscalYears: { id: string; label: string; isLocked: boolean }[];
-  holidays: Holiday[];
+export interface HolidayRow {
+  id: string;
+  name: string;
+  category: HolidayCategory;
+  categoryLabel: string;
+  /** BS "YYYY-MM-DD". */
+  fromBs: string;
+  toBs: string;
+  /** AD "YYYY-MM-DD". */
+  fromAd: string;
+  toAd: string;
+  days: number;
+  /** Opening BS year of its fiscal year (Shrawan–Asar). */
+  fiscalYear: number;
+  appliesTo: HolidayAppliesTo;
+  /** "All branches" or the branches' names. */
+  branches: string;
+  /** Why the user can't change or delete it (null: they can). */
+  locked: string | null;
+  form: HolidayForm;
+}
+
+export interface HolidaysPage {
+  holidays: HolidayRow[];
+  /** The branches the user may give a holiday to (all of them for a company-wide role). */
   branches: { id: string; name: string }[];
+  /** Fiscal years to filter by, newest first, with the current one. */
+  fiscalYears: { year: number; label: string }[];
+  currentFiscalYear: number;
+  /** A company-wide role: may give a holiday to every branch. */
+  companyWide: boolean;
+  /** Holidays → Add / Edit / Delete (buttons only; the server checks scope and closed months). */
+  can: { add: boolean; edit: boolean; delete: boolean };
 }
 
-// ---------------------------------------------------------------------------
-// Display formatters
-// ---------------------------------------------------------------------------
-
-export function formatCategory(c: HolidayCategory): string {
-  return HOLIDAY_CATEGORY_META[c].label;
+/** What a save says besides "saved". */
+export interface HolidaySaveResult {
+  id: string;
+  name: string;
+  /** Approved leave inside the dates: its days were counted before this holiday. */
+  leaveInside: number;
 }
-
-/**
- * Pretty-print the day count. We follow the design's wording:
- * "1 days", "2 days", "8 days" (always plural, even for one).
- */
-export function formatDays(days: number): string {
-  if (!Number.isFinite(days) || days < 0) return "—";
-  return `${days} day${days === 1 ? "" : "s"}`;
-}
-
-/**
- * Format a BS ISO date string for compact display. Falls back to the
- * raw string if the input is malformed.
- */
-export function formatBSDisplayDate(bsString: string): string {
-  return bsString || "—";
-}
-
-/**
- * Format the "Date Range" label value. Single-day holidays show
- * just the start date; multi-day shows `start – end` (en-dash).
- */
-export function formatDateRange(startDate: string, endDate: string): string {
-  if (!startDate && !endDate) return "—";
-  if (startDate === endDate) return startDate;
-  return `${startDate} – ${endDate}`;
-}
-
-// ---------------------------------------------------------------------------
-// Type filter (placeholder for symmetry with pay-head — currently
-// unused by the page but kept for future category filtering)
-// ---------------------------------------------------------------------------
-
-export type CategoryFilter = "all" | HolidayCategory;
-
-export const CATEGORY_FILTERS: CategoryFilter[] = [
-  "all",
-  "major-festival",
-  "cultural-festival",
-  "regional-festival",
-  "national-holiday",
-  "international-holiday",
-];
-
-export function formatCategoryFilter(f: CategoryFilter): string {
-  if (f === "all") return "All";
-  return formatCategory(f);
-}
-
-// Re-export the lucide icon import for consumers that want to render
-// the category icons alongside other markers.
-export { CalendarDays };

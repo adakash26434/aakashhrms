@@ -21,12 +21,22 @@ export function EmployeeFormAccess({
 }) {
   const { ctx, form } = api;
   const linked = ctx.access;
+  // S44: another role needs Users & roles → Edit, and nobody changes the role of their own login.
+  const roleHelp =
+    ctx.roleChoice === "own_login"
+      ? "Your own login: someone else changes its role."
+      : ctx.roleChoice === "employee_only"
+        ? linked
+          ? "Roles are changed under Admin → Users (Users & roles → Edit)."
+          : "New logins get the Employee role; another role is given under Admin → Users."
+        : "What this person can do after signing in. Most employees get the standard Employee role.";
   const roleField = (
-    <GridField label="Role" help="What this person can do after signing in. Most employees get the standard Employee role." size="md">
+    <GridField label="Role" help={roleHelp} size="md">
       <SelectField
         name="accessRole"
         options={ctx.roles.map((r) => ({ value: r.id, label: r.name }))}
         value={options.roleId ?? ""}
+        disabled={ctx.roleChoice !== "any"}
         onChange={(id) => {
           const role = ctx.roles.find((r) => r.id === id);
           onOptions({ ...options, roleId: role?.id, roleSlug: role?.slug });

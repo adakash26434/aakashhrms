@@ -23,7 +23,7 @@ export default async function EmployeeRecordPage({
   const [{ id }, { tab, joining }] = await Promise.all([params, searchParams]);
 
   // Each related tab needs its own module permission; the record itself is scoped (S18).
-  const [leave, attendance, payslips, payslipReport, loans, history, edit, issueLetters] = await Promise.all([
+  const [leave, attendance, payslips, payslipReport, loans, history, edit, issueLetters, approveDetails] = await Promise.all([
     hasPermission("VIEW", "LEAVE_APPLICATIONS"),
     hasPermission("VIEW", "ATTENDANCE"),
     hasPermission("VIEW", "PAYROLL_REVIEW"),
@@ -32,6 +32,7 @@ export default async function EmployeeRecordPage({
     hasPermission("VIEW", "AUDIT_LOG"),
     hasPermission("EDIT", "EMPLOYEES"),
     hasPermission("ADD", "HR_LETTERS"),
+    hasPermission("APPROVE", "EMPLOYEES"),
   ]);
 
   const record = await getEmployeeRecord(
@@ -39,7 +40,8 @@ export default async function EmployeeRecordPage({
     tab,
     scope,
     { leave, attendance, payslips: payslips || payslipReport, loans, history },
-    { edit }
+    { edit },
+    approveDetails
   );
   if (!record) notFound();
 

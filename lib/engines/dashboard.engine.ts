@@ -259,7 +259,7 @@ export function buildKpis({ rows, period, activeHeadcount, joiners, leavers, nex
   return [
     make("cost", "Payroll cost", cur?.employerCost ?? null, prev?.employerCost ?? null, "Gross + employer PF", "/reports/salary-sheet", spark((t) => t.employerCost)),
     make("net", "Net pay", cur?.net ?? null, prev?.net ?? null, "Paid to employees' accounts", "/reports/salary-sheet", spark((t) => t.net)),
-    make("statutory", "Statutory", cur?.statutory ?? null, prev?.statutory ?? null, deadlineHint, "/reports/tax-ird", spark((t) => t.statutory)),
+    make("statutory", "Statutory", cur?.statutory ?? null, prev?.statutory ?? null, deadlineHint, "/payroll/statutory", spark((t) => t.statutory)),
     {
       ...make(
         "headcount",

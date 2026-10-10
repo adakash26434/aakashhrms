@@ -105,9 +105,12 @@ describe('S22: payroll and the report', () => {
   });
   it('the attendance report is scoped and its export audited', () => {
     const report = read('app/actions/report.actions.ts');
-    assert.match(report, /checkPermissionWithScope\("VIEW", "REPORTS_ATTENDANCE"\)/);
-    assert.match(report, /checkPermissionWithScope\("EXPORT", "REPORTS_ATTENDANCE"\)[\s\S]*recordAuditLog/);
-    assert.match(read('lib/services/report.service.ts'), /attendanceService\.reportMonth\(scope, /);
+    assert.match(report, /const ctx = await viewer\('REPORTS_ATTENDANCE'\);/);
+    assert.match(report, /const scope = await checkPermissionWithScope\('VIEW', module\);/);
+    assert.match(read('lib/services/report.service.ts'), /await reportMonth\(ctx\.scope, /);
+    // Exports: Export permission + audit on the server before the browser builds the file.
+    assert.match(read('components/reports/attendance-report-client.tsx'), /useReportExport\("REPORTS_ATTENDANCE"/);
+    assert.match(read('components/kit/report-viewer.tsx'), /await authorizeExportAction\(\{ module, label, rowCount \}\)/);
   });
 });
 

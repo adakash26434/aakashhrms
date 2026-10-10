@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { availableActions } from '../lib/engines/approval.engine';
 
-// S40 (4.8a): payroll runs — maker-checker, never your own payslip, scoped permissions, audit.
+// S55 (4.8a): payroll runs — maker-checker, never your own payslip, scoped permissions, audit.
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 
-describe('S40 payroll run approval', () => {
+describe('S55 payroll run approval', () => {
   const service = read('lib/services/payroll-run.service.ts');
   const actions = read('app/actions/payroll-run.actions.ts');
 
@@ -89,19 +89,19 @@ describe('S21 on payslips (4.8a): never your own', () => {
   });
 });
 
-describe('S41 pay calendar and year-to-date tax (4.8b)', () => {
+describe('S56 pay calendar and year-to-date tax (4.8b)', () => {
   const service = read('lib/services/payroll.service.ts');
   const runService = read('lib/services/payroll-run.service.ts');
   const repo = read('lib/repositories/payroll.repository.ts');
 
   it('income tax follows the team\'s projection (F5): earlier months counted in the run\'s calendar, the year-end on LOCKED payslips', () => {
-    assert.match(service, /async function yearEndHistory[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
+    assert.match(service, /if \(isYearEndMonth\) \{\s*const allPastSlips[\s\S]*?eq\(payrollRuns\.status, 'LOCKED'\)/);
     assert.match(repo, /export async function findEarlierTaxMonths[\s\S]*?eq\(payrollRuns\.calendar, calendar\)/);
     assert.doesNotMatch(service, /taxInputsFor|ytdFromSlips/);
   });
 
   it('the fiscal year of a run is the one containing the month, never "the first active one"', () => {
-    assert.match(service, /export async function generatePayrollRun[\s\S]*?findFiscalYearForDate\(endStr\)/);
+    assert.match(service, /export async function generatePayrollRun[\s\S]*?fiscalYearService\.fiscalYearForPeriod\(period\)/);
     assert.doesNotMatch(service, /eq\(fiscalYears\.status, 'Active'\)/);
   });
 
@@ -111,17 +111,21 @@ describe('S41 pay calendar and year-to-date tax (4.8b)', () => {
     assert.match(actions, /export async function savePayrollRunSettingsAction[\s\S]*?scope\.scopeType !== 'GLOBAL'[\s\S]*?scope\.isImpersonation/);
   });
 
-  it('only a regular run reads attendance, posts loans or writes back to the salary map; the workspace makes regular runs only', () => {
-    assert.match(service, /runType === "REGULAR" \? await attendanceForPayroll\(empIds, period\)/);
-    assert.match(service, /for \(const slip of regular \? slips : \[\]\) \{\s*const slipHeads = await tx\.select\(\)\.from\(payrollSlipHeads\)/);
-    assert.match(runService, /function cleanInput[\s\S]*?const runType: RunType = "REGULAR";/);
+  it('only a regular run reads attendance or posts loans; nothing writes payslip heads into a salary structure (S45)', () => {
+    // F6: festival allowance and arrears runs are built on their own (off-cycle.service).
+    assert.match(service, /export async function generatePayrollRun[\s\S]*?if \(isOffCycle\(payload\.runType\)\) return offCycleService\.generateOffCycleRun\(payload, userId\);/);
+    assert.match(service, /if \(isOffCycle\(run\.runType\)\) return locked;/);
+    assert.doesNotMatch(service, /const slipHeads = await tx\.select\(\)\.from\(payrollSlipHeads\)/);
+    // The New pay run window offers the kinds of run; anything else is refused.
+    assert.match(runService, /function cleanInput[\s\S]*?\(RUN_TYPES as readonly unknown\[\]\)\.includes\(r\.runType\)[\s\S]*?errors\.runType = "Choose the kind of run"/);
   });
 
   it('employees see only payslips of locked, published runs that are not held (the team\'s F3)', () => {
     const self = read('lib/services/self-service.service.ts');
     assert.match(self, /function visibleToEmployee\(\) \{\s*return \[eq\(payrollRuns\.status, 'LOCKED'\), isNotNull\(payrollRuns\.publishedAt\), isNull\(payrollSlips\.heldAt\)\];/);
     assert.match(self, /export async function getMyPayslips[\s\S]*?\.\.\.visibleToEmployee\(\)/);
-    assert.match(self, /export async function getMyPayslipDetail[\s\S]*?\.\.\.visibleToEmployee\(\)/);
+    // The printable payslip (F11) reads through the same rule.
+    assert.match(self, /export async function getMyPayslipSheet[\s\S]*?visibleToEmployee\(\)/);
   });
 });
 

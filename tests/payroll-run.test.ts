@@ -228,8 +228,8 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
     assert.equal((service.match(/await repository\.refreshRunTotals\(run\.id\)/g) ?? []).length, 3);
   });
 
-  it('income tax slabs come from the active fiscal year only, and the month dates from the BS month itself', () => {
-    assert.match(service, /findSlabsByFiscalYear\(activeFy\.id\)/);
+  it('income tax slabs come from the run\'s own fiscal year, and the month dates from the pay calendar', () => {
+    assert.match(service, /findSlabsByFiscalYear\(runYear\.id\)/);
     assert.equal((service.match(/findSlabsByFiscalYear\(run\.fiscalYearId\)/g) ?? []).length, 2);
     assert.doesNotMatch(service, /findAllSlabs\(\)/);
     assert.match(service, /export async function generatePayrollRun[\s\S]*?periodFor\(calendar, payPeriodYear, payPeriodMonth\)/);
@@ -237,7 +237,8 @@ describe('Payroll run: the service reads what the engine decides (4.8a)', () => 
   });
 
   it('welfare fund contributions reach the payslip through the team\'s WELFARE_FUND head', () => {
-    assert.match(service, /feedsRepository\.fundContributionsByEmployee\(empIds, payPeriodYear, payPeriodMonth\)/);
+    // Fund postings are kept by BS month: the one the pay month's last day falls in (recordMonthOf).
+    assert.match(service, /feedsRepository\.fundContributionsByEmployee\(empIds, bsMonth\.year, bsMonth\.month\)/);
     assert.match(service, /assignedHeads\.push\(\{ \.\.\.toPayHeadObj\(feedHeadRows\.welfare\), amount: fundFeed, isManualOverride: true \}\)/);
   });
 
@@ -260,3 +261,49 @@ describe('Payroll run: the team pre-flight rules (merge 2026-10-10)', () => {
     assert.equal(preflight({ ...open, requireClosedAttendance: false }).problems.find((p) => p.code === 'month_open')?.severity, 'warning');
   });
 });
+
+describe('Payroll run: pre-flight for off-cycle runs, openings, loans and the month\'s year (merge 2026-10-10)', () => {
+  const messy = ready({
+    branches: [{ id: 'B1', name: 'Head Office', closed: false }],
+    pendingLeaves: 2,
+    employees: [person({ salary: 'setup', overtimeWaiting: 1 }), person({ id: 'E2', code: 'EMP-004', salary: 'none' })],
+    statutoryHeads: { tds: true, pf: false, ssf: true, cit: true },
+  });
+
+  it('F6: off-cycle runs skip attendance, leave, overtime, set-up and PF / SSF / CIT checks', () => {
+    const regular = codes(preflight(messy));
+    for (const c of ['month_open', 'pending_leaves', 'salary_setup', 'overtime_waiting', 'missing_statutory_head', 'no_salary']) assert.ok(regular.includes(c), c);
+    assert.deepEqual(codes(preflight({ ...messy, runType: 'FESTIVAL', festivalHeads: 1 })), ['no_salary']);
+    assert.deepEqual(codes(preflight({ ...messy, runType: 'ARREARS' })), []);
+    // A festival allowance is paid inside its month (before the festival); the salary only after it.
+    assert.ok(codes(preflight(ready({ today: '2026-10-01' }))).includes('month_not_ended'));
+    assert.ok(!codes(preflight(ready({ today: '2026-10-01', runType: 'FESTIVAL', festivalHeads: 1 }))).includes('month_not_ended'));
+  });
+
+  it('F6: one run of each kind a month; a festival run needs its heads; TDS is needed by every run', () => {
+    assert.match(preflight(ready({ runType: 'FESTIVAL', festivalHeads: 1, existingRuns: [{ id: 'R', status: 'DRAFT' }] })).problems[0].text, /festival allowance run/);
+    assert.equal(preflight(ready({ runType: 'ARREARS', existingRuns: [{ id: 'R', status: 'LOCKED' }] })).problems[0].code, 'run_locked');
+    assert.ok(codes(preflight(ready({ runType: 'FESTIVAL', festivalHeads: 0 }))).includes('no_festival_head'));
+    assert.equal(preflight(ready({ runType: 'ARREARS', statutoryHeads: { tds: false, pf: true, ssf: true, cit: true } })).problems[0].code, 'missing_tds_head');
+  });
+
+  it('F15: a month an opening balance covers is blocked for that person, in every kind of run', () => {
+    for (const runType of ['REGULAR', 'FESTIVAL', 'ARREARS'] as const) {
+      const r = preflight(ready({ runType, festivalHeads: 1, employees: [person({ coveredByOpening: true })] }));
+      const found = r.problems.find((p) => p.code === 'covered_by_opening');
+      assert.equal(found?.severity, 'blocking', runType);
+      assert.equal(found?.employeeId, 'E1');
+    }
+  });
+
+  it('4.10: a loan amount left on a salary structure only warns, in regular runs', () => {
+    assert.equal(preflight(ready({ employees: [person({ loanOnStructure: true })] })).problems.find((p) => p.code === 'loan_on_structure')?.severity, 'warning');
+    assert.ok(!codes(preflight(ready({ runType: 'FESTIVAL', festivalHeads: 1, employees: [person({ loanOnStructure: true })] }))).includes('loan_on_structure'));
+  });
+
+  it('4.12a: the month\'s own year must exist, be open and have its ladder; the reason is said once', () => {
+    const r = preflight(ready({ fiscalYearProblem: 'FY 2084/85 has no tax slabs yet.', activeFiscalYear: { id: 'FY', label: 'FY 2084/85' }, slabCount: 0 }));
+    assert.deepEqual(r.problems.map((p) => [p.code, p.severity, p.text]), [['fiscal_year', 'blocking', 'FY 2084/85 has no tax slabs yet.']]);
+  });
+});
+

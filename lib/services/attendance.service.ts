@@ -23,6 +23,7 @@ import * as overtimeService from "@/lib/services/overtime.service";
 import * as systemControlRepository from "@/lib/repositories/system-control.repository";
 import * as overtimeRepo from "@/lib/repositories/overtime.repository";
 import type { OvertimeDayView, OvertimeDetail, OvertimeEntry, OvertimeLine, OvertimePolicy } from "@/lib/types/overtime";
+import { holidayApplies } from "@/lib/engines/holiday.engine";
 import type { ApprovalTimelineEntry } from "@/lib/types/approval";
 import {
   ADJUSTMENT_KINDS,
@@ -150,14 +151,7 @@ function resolveFor(ctx: Context, e: Employee, date: string): DayResult {
   const shift = shiftService.shiftOn(ctx.shifts, e, date).plan;
   const prev = shiftService.shiftOn(ctx.shifts, e, addDays(date, -1)).plan;
   const next = shiftService.shiftOn(ctx.shifts, e, addDays(date, 1)).plan;
-  const holiday = ctx.holidays.find(
-    (h) =>
-      date >= h.start &&
-      date <= h.end &&
-      (!h.branchIds.length || h.branchIds.includes(e.branchId)) &&
-      // International Women's Day is a holiday for women only (Labour Act: 14 public holidays for women).
-      (!/women/i.test(h.name) || e.gender === "Female")
-  );
+  const holiday = ctx.holidays.find((h) => holidayApplies(h, e, date));
   const l = ctx.leaves.get(`${e.id}|${date}`);
   const override = ctx.overrides.get(`${e.id}|${date}`);
   return resolveDay({

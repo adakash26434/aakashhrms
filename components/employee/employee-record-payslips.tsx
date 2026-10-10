@@ -14,10 +14,10 @@ const COLUMNS: GridColumn<EmployeePayslipRow>[] = [
   { id: "status", header: "Run status", type: "status", value: (r) => r.status },
 ];
 
-/** Payslips tab: the last 12 pay months, with totals. */
-export function EmployeeRecordPayslips({ rows }: { rows: EmployeePayslipRow[] }) {
+/** Payslips tab: the last 12 pay months, with totals; "Print payslips" opens this person's in Reports. */
+export function EmployeeRecordPayslips({ rows, employeeId }: { rows: EmployeePayslipRow[]; employeeId: string }) {
   return (
-    <Panel level={3} title="Payslips" meta="Last 12 months" href="/reports/payslip" hrefLabel="Print payslips" padded={false}>
+    <Panel level={3} title="Payslips" meta="Last 12 months" href={`/reports/payslip?employee=${encodeURIComponent(employeeId)}`} hrefLabel="Print payslips" padded={false}>
       <DataGrid
         id="employee-payslips"
         label="Payslips"

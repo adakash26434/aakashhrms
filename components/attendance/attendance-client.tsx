@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, MapPin, ChevronRight, ClipboardCheck, Fingerprint, Hourglass, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
+import { CalendarCheck2, CalendarRange, Clock3, ChevronLeft, MapPin, ChevronRight, ClipboardCheck, FileUp, Fingerprint, Hourglass, LockKeyhole, Plus, RefreshCw, Settings2, Table2, TimerReset } from "lucide-react";
 import { PageBar } from "@/components/frame/page-bar";
 import { useDateText } from "@/components/kit/date-cell";
 import { SelectField } from "@/components/kit/select-field";
@@ -13,6 +13,7 @@ import type { AttendancePageData, AttendanceTab } from "@/lib/types/attendance";
 import { AttendanceAdjustments } from "./attendance-adjustments";
 import { AttendanceCheckin } from "./attendance-checkin";
 import { AttendanceClose } from "./attendance-close";
+import { PunchImportWindow } from "./attendance-import";
 import { AttendanceOvertime, OvertimeWindow } from "./attendance-overtime";
 import { AttendancePunches } from "./attendance-punches";
 import { AttendanceRegister } from "./attendance-register";
@@ -33,7 +34,7 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
   const dateText = useDateText();
   const [refreshing, startRefresh] = useTransition();
   const [tab, setTab] = useState<AttendanceTab>(data.tab);
-  const [windowOpen, setWindowOpen] = useState<null | "punch" | "adjustment" | "rules" | "overtime">(null);
+  const [windowOpen, setWindowOpen] = useState<null | "punch" | "import" | "adjustment" | "rules" | "overtime">(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { permissions: can, period } = data;
 
@@ -88,6 +89,8 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
           { id: "punch", label: "Add punch", icon: Plus, group: "create", primary: tab === "today" || tab === "register", hidden: !can.add, onClick: () => setWindowOpen("punch") },
           { id: "adjustment", label: "New adjustment", icon: TimerReset, group: "create", hidden: !can.add, onClick: () => setWindowOpen("adjustment") },
           { id: "overtime", label: "Add overtime", icon: Hourglass, group: "create", primary: tab === "overtime", hidden: !can.add, onClick: () => setWindowOpen("overtime") },
+          // F15: punches from an old system's or a device's file, checked row by row first.
+          { id: "import", label: "Import punches", icon: FileUp, group: "create", hidden: !can.add, onClick: () => setWindowOpen("import") },
           { id: "rules", label: "Attendance rules", icon: Settings2, group: "output", hidden: !can.settings, onClick: () => setWindowOpen("rules") },
           { id: "refresh", label: refreshing ? "Refreshing…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: refreshing, onClick: () => startRefresh(() => router.refresh()) },
         ]}
@@ -140,6 +143,15 @@ export function AttendanceClient({ data }: { data: AttendancePageData }) {
       </Tabs>
 
       {windowOpen === "punch" && <PunchWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
+      {windowOpen === "import" && (
+        <PunchImportWindow
+          onClose={() => setWindowOpen(null)}
+          onImported={(text) => {
+            setNotice(text);
+            router.refresh();
+          }}
+        />
+      )}
       {windowOpen === "adjustment" && <AdjustmentWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
       {windowOpen === "rules" && <RulesWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}
       {windowOpen === "overtime" && <OvertimeWindow data={data} onClose={() => setWindowOpen(null)} onSaved={done} />}

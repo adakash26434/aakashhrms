@@ -5,16 +5,14 @@ import {
   canApproveRun,
   canPublishRun,
   checkerRefusal,
-  hasBlocker,
-  preflightFindings,
   slipVisibleToEmployee,
   unresolvedFlags,
   varianceFlags,
-  type PreflightFacts,
   type SlipFact,
 } from '../lib/engines/payroll-control.engine';
 
-// 4.8 / F1–F3: variance review, maker-checker, pre-flight, who sees a payslip.
+// 4.8 / F1–F3: variance review, maker-checker, who sees a payslip. Pre-flight is the pay run
+// workspace's (tests/payroll-run.test.ts).
 
 const slip = (id: string, net: number, over: Partial<SlipFact> = {}): SlipFact => ({ employeeId: id, code: id.toUpperCase(), name: `Person ${id}`, basic: 30000, gross: net + 3000, net, ot: 0, bankAccount: '0011', ...over });
 
@@ -54,6 +52,32 @@ describe('variance flags', () => {
   it('info flags never block', () => {
     assert.ok(canApproveRun(varianceFlags([slip('n', 20000)], []), new Set()));
   });
+
+  it('F13: pay going to a different account from last month needs a look (masked, with how it changed)', () => {
+    const flags = varianceFlags([slip('a', 30000, { bankAccount: '0987654321001111', bankChangeNote: 'approved by Hari on 2026-10-10' })], [slip('a', 30000, { bankAccount: '0123456789014821' })]);
+    assert.deepEqual(flags.map((f) => f.code), ['bank_changed']);
+    assert.equal(flags[0].severity, 'review');
+    assert.match(flags[0].detail, /••••4821 last month; this run pays ••••1111 \(approved by Hari on 2026-10-10\)/);
+    assert.doesNotMatch(flags[0].detail, /0123456789/);
+    // Same account with stray spaces, or last month's slip had none: nothing to compare.
+    assert.equal(varianceFlags([slip('a', 30000, { bankAccount: '0011 ' })], [slip('a', 30000)]).length, 0);
+    assert.deepEqual(varianceFlags([slip('a', 30000)], [slip('a', 30000, { bankAccount: 'N/A' })]).map((f) => f.code), []);
+  });
+
+  it('F13: a record that changed after the run was made is flagged until the run picks it up', () => {
+    const stale = varianceFlags([slip('a', 30000, { bankAccount: '0123456789014821', recordBankAccount: '0987654321001111' })], null);
+    assert.deepEqual(stale.map((f) => [f.code, f.severity]), [['bank_outdated', 'review']]);
+    assert.match(stale[0].detail, /record now has account ••••1111; this run still pays ••••4821/);
+    assert.equal(varianceFlags([slip('a', 30000, { recordBankAccount: '0011' })], null).length, 0);
+    assert.equal(varianceFlags([slip('a', 30000, { recordBankAccount: null })], null).length, 0);
+    // Different accounts with the same last four digits are not shown as "••••0001 → ••••0001".
+    const sameEnd = varianceFlags([slip('a', 30000, { bankAccount: '01701100777700001' })], [slip('a', 30000, { bankAccount: '0170110000000001' })]);
+    assert.match(sameEnd[0].detail, /different account from last month \(both end ••••0001\)/);
+    const sameEndRecord = varianceFlags([slip('a', 30000, { bankAccount: '0170110000000001', recordBankAccount: '01701100777700001' })], null);
+    assert.match(sameEndRecord[0].detail, /now has a new account; this run still pays the old one \(both end ••••0001\)/);
+    // "N/A" on the slip is no account at all (flagged as such, not as outdated).
+    assert.deepEqual(varianceFlags([slip('a', 30000, { bankAccount: 'N/A', recordBankAccount: '0011' })], null).map((f) => f.code), ['no_bank_account']);
+  });
 });
 
 describe('maker-checker', () => {
@@ -88,35 +112,5 @@ describe('payslip visibility', () => {
     assert.ok(canPublishRun('LOCKED', null));
     assert.ok(!canPublishRun('LOCKED', day));
     assert.ok(!canPublishRun('DRAFT', null));
-  });
-});
-
-describe('pre-flight', () => {
-  const clean: PreflightFacts = { openAttendanceBranches: [], employeesWithoutSalary: [], employeesNeedingSetup: [], pendingLeaveCount: 0, employeesWithoutBank: [], employeesWithoutPan: [], existingRunStatus: null, requireClosedAttendance: true };
-  it('a clean month has no findings', () => assert.deepEqual(preflightFindings(clean), []));
-  it('blockers stop the run, warnings do not', () => {
-    const f = preflightFindings({ ...clean, employeesWithoutSalary: ['A (E1)'], employeesWithoutBank: ['B (E2)'] });
-    assert.deepEqual(f.map((x) => `${x.code}:${x.severity}`), ['no_salary:blocker', 'no_bank_account:warning']);
-    assert.ok(hasBlocker(f));
-    assert.ok(!hasBlocker(f.filter((x) => x.severity === 'warning')));
-  });
-  it('open attendance is a blocker only when the company requires closed months', () => {
-    assert.equal(preflightFindings({ ...clean, openAttendanceBranches: ['Lekhnath'] })[0].severity, 'blocker');
-    assert.equal(preflightFindings({ ...clean, openAttendanceBranches: ['Lekhnath'], requireClosedAttendance: false })[0].severity, 'warning');
-  });
-  it('an existing locked run blocks; an unlocked one only warns', () => {
-    assert.equal(preflightFindings({ ...clean, existingRunStatus: 'LOCKED' })[0].severity, 'blocker');
-    assert.equal(preflightFindings({ ...clean, existingRunStatus: 'DRAFT' })[0].severity, 'warning');
-  });
-  it('a missing TDS head blocks; missing PF / SSF / CIT only warn', () => {
-    const all = { tds: true, pf: true, ssf: true, cit: true };
-    assert.deepEqual(preflightFindings({ ...clean, statutoryHeads: all }), []);
-    const f = preflightFindings({ ...clean, statutoryHeads: { ...all, tds: false, cit: false } });
-    assert.deepEqual(f.map((x) => `${x.code}:${x.severity}`), ['missing_tds_head:blocker', 'missing_statutory_head:warning']);
-    assert.deepEqual(f[1].people, ['CIT']);
-  });
-  it('pending leave blocks with the count', () => {
-    const f = preflightFindings({ ...clean, pendingLeaveCount: 3 });
-    assert.ok(/3 leave application/.test(f[0].title));
   });
 });

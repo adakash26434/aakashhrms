@@ -53,7 +53,7 @@ export function ClockButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Clock in or out"
-        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line px-2 text-xs font-medium text-ink hover:bg-surface-sunken"
+        className="flex h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2 text-xs font-medium text-ink hover:bg-surface-sunken"
       >
         <span className={cn("h-1.5 w-1.5 rounded-full", isIn ? "bg-success" : "bg-ink-faint")} aria-hidden />
         <Clock3 className="h-3.5 w-3.5 text-brand" />

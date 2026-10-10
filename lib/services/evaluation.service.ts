@@ -67,6 +67,11 @@ const toListRow = (r: repo.EvaluationJoinedRow, userId: string): EvaluationListR
   };
 };
 
+/** The bell: evaluations whose current stage waits for this person's marks, within their scope. */
+export async function countWaitingFor(userId: string, scope: ScopeFilter): Promise<number> {
+  return repo.countWaitingFor(userId, buildEmployeeScopeCondition(scope));
+}
+
 export async function evaluationsPage(
   ctx: EvaluationCtx,
   permissions: EvaluationsPageData['permissions'],

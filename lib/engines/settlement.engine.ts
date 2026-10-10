@@ -186,7 +186,7 @@ export function buildSettlement(i: SettlementInput): Settlement {
     }
   }
 
-  // 5. Loans still running are recovered from what is owed.
+  // 5. Loans still running are recovered from what is owed (paying the settlement closes them, 4.10).
   const loan = money(i.loanOutstanding);
   if (loan.gt(0)) {
     lines.push({
@@ -194,7 +194,7 @@ export function buildSettlement(i: SettlementInput): Settlement {
       side: "deduction",
       label: "Loan outstanding",
       labelNp: "बाँकी ऋण",
-      basis: "Remaining principal of active loans",
+      basis: "What the running loans still owe; paying the settlement closes them",
       amount: loan.toFixed(2),
     });
   }

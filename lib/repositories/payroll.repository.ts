@@ -1,7 +1,10 @@
 import { getDb } from '@/lib/db';
-import { payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
-import { eq, and, inArray, ne, sql, type SQL } from 'drizzle-orm';
+import { departments, designations, employeeBank, payrollOpeningBalances, payrollRuns, payrollSlips, payrollSlipHeads } from '@/lib/db/schema';
+import { eq, and, desc, inArray, lt, ne, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+
+/** A transaction on the company database. */
+type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>['transaction']>[0]>[0];
 import type { DepartmentCost, PeriodCostRow } from '@/lib/types/dashboard';
 import type { 
   PayrollRun, 
@@ -52,20 +55,21 @@ export async function findPayrollRunById(id: string): Promise<PayrollRun | undef
 }
 
 export async function findPayrollRunByPeriodAndBranch(args: {
-  calendar: string;
+  /** 4.8b: the pay calendar ("BS" | "AD"); every calendar when absent. */
+  calendar?: string;
   payPeriodMonth: number;
   payPeriodYear: number;
   branchIds: string[];
-  /** 4.8b: runs of this kind only (a bonus run may sit beside the regular one). */
-  runType: string;
+  /** F6: only runs of this type (one of each type per month and branch). */
+  runType?: string;
 }): Promise<PayrollRun[]> {
   // Query to find existing runs with overlapping branch sets and same month/year
   const allRuns = await (await getDb()).select().from(payrollRuns).where(
     and(
-      eq(payrollRuns.calendar, args.calendar),
+      args.calendar ? eq(payrollRuns.calendar, args.calendar) : undefined,
       eq(payrollRuns.payPeriodMonth, args.payPeriodMonth),
       eq(payrollRuns.payPeriodYear, args.payPeriodYear),
-      eq(payrollRuns.runType, args.runType)
+      args.runType ? eq(payrollRuns.runType, args.runType) : undefined
     )
   );
 
@@ -77,10 +81,12 @@ export async function findPayrollRunByPeriodAndBranch(args: {
 
 export async function createPayrollRun(data: {
   fiscalYearId: string;
-  calendar: string;
-  runType: string;
+  /** 4.8b: the pay calendar ("BS" when absent). */
+  calendar?: string;
   payPeriodMonth: number;
   payPeriodYear: number;
+  /** F6: REGULAR (when absent) | FESTIVAL | ARREARS. */
+  runType?: string;
   payPeriodStartDate: string;
   payPeriodEndDate: string;
   branchIds: string[];
@@ -100,15 +106,14 @@ export async function createPayrollRun(data: {
   totalSsf: string;
   employeeCount: number;
   generatedBy: string;
-  exitCaseId?: string | null;
 }, tx?: any): Promise<PayrollRun> {
   const client = tx || (await getDb());
   const rows = await client.insert(payrollRuns).values({
     fiscalYearId: data.fiscalYearId,
-    calendar: data.calendar,
-    runType: data.runType,
+    calendar: data.calendar ?? 'BS',
     payPeriodMonth: data.payPeriodMonth,
     payPeriodYear: data.payPeriodYear,
+    runType: data.runType ?? 'REGULAR',
     payPeriodStartDate: data.payPeriodStartDate,
     payPeriodEndDate: data.payPeriodEndDate,
     branchIds: data.branchIds,
@@ -128,7 +133,6 @@ export async function createPayrollRun(data: {
     totalSsf: data.totalSsf,
     employeeCount: data.employeeCount,
     generatedBy: data.generatedBy,
-    exitCaseId: data.exitCaseId ?? null,
   }).returning();
   
   return mapPayrollRun(rows[0]);
@@ -139,7 +143,8 @@ export async function updatePayrollRunStatus(
   status: PayrollRunStatus,
   actionByUserId: string,
   notes?: string,
-  fromStatus?: PayrollRunStatus
+  fromStatus?: PayrollRunStatus,
+  tx?: Tx
 ): Promise<PayrollRun> {
   const updateData: Record<string, any> = {
     status,
@@ -161,7 +166,7 @@ export async function updatePayrollRunStatus(
     updateData.notes = notes;
   }
 
-  const rows = await (await getDb()).update(payrollRuns)
+  const rows = await (tx ?? (await getDb())).update(payrollRuns)
     .set(updateData)
     .where(fromStatus ? and(eq(payrollRuns.id, id), eq(payrollRuns.status, fromStatus)) : eq(payrollRuns.id, id))
     .returning();
@@ -238,11 +243,14 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
     amount: string;
     calculatedAmount: string;
   }>;
-}>, tx?: any): Promise<void> {
+}>, tx?: any): Promise<Map<string, string>> {
+  // The new payslip of each employee (loan lines and other per-payslip rows are written after it).
+  const slipIdByEmployee = new Map<string, string>();
   const runInsert = async (client: any) => {
     for (const item of slipsWithHeads) {
       const insertedSlip = await client.insert(payrollSlips).values(item.slip).returning();
       const slipId = insertedSlip[0].id;
+      slipIdByEmployee.set(item.slip.employeeId, slipId);
 
       if (item.heads.length > 0) {
         const headValues = item.heads
@@ -272,6 +280,7 @@ export async function createPayrollSlips(slipsWithHeads: Array<{
       await runInsert(tx);
     });
   }
+  return slipIdByEmployee;
 }
 
 /**
@@ -293,14 +302,15 @@ export async function findSlipsByRunId(runId: string): Promise<PayrollSlip[]> {
   return rows.map(mapPayrollSlip);
 }
 
-export async function findSlipById(id: string): Promise<PayrollSlip | undefined> {
-  const rows = await (await getDb()).select().from(payrollSlips).where(eq(payrollSlips.id, id));
+/** One payslip; pass the transaction that changed it to read its own changes. */
+export async function findSlipById(id: string, tx?: Tx): Promise<PayrollSlip | undefined> {
+  const rows = await (tx ?? (await getDb())).select().from(payrollSlips).where(eq(payrollSlips.id, id));
   if (!rows.length) return undefined;
   return mapPayrollSlip(rows[0]);
 }
 
-export async function findSlipHeadsBySlipId(slipId: string): Promise<PayrollSlipHead[]> {
-  const rows = await (await getDb()).select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
+export async function findSlipHeadsBySlipId(slipId: string, tx?: Tx): Promise<PayrollSlipHead[]> {
+  const rows = await (tx ?? (await getDb())).select().from(payrollSlipHeads).where(eq(payrollSlipHeads.payrollSlipId, slipId));
   return rows.map(mapPayrollSlipHead);
 }
 
@@ -349,8 +359,8 @@ export async function updateSlipOverrideAndRecalculate(
   });
 }
 
-export async function lockAllSlipsForRun(runId: string): Promise<void> {
-  await (await getDb()).update(payrollSlips)
+export async function lockAllSlipsForRun(runId: string, tx?: Tx): Promise<void> {
+  await (tx ?? (await getDb())).update(payrollSlips)
     .set({
       status: 'LOCKED',
       updatedAt: new Date(),
@@ -358,14 +368,14 @@ export async function lockAllSlipsForRun(runId: string): Promise<void> {
     .where(eq(payrollSlips.payrollRunId, runId));
 }
 
-export async function deletePayrollRun(id: string): Promise<void> {
-  // Cascades to slips and slip heads automatically via DB foreign key onDelete: cascade
-  await (await getDb()).delete(payrollRuns).where(eq(payrollRuns.id, id));
+export async function deletePayrollRun(id: string, tx?: Tx): Promise<void> {
+  // Cascades to slips, slip heads and the arrears the run paid (foreign keys onDelete: cascade)
+  await (tx ?? (await getDb())).delete(payrollRuns).where(eq(payrollRuns.id, id));
 }
 
-export async function deletePayrollSlip(slipId: string): Promise<void> {
+export async function deletePayrollSlip(slipId: string, tx?: Tx): Promise<void> {
   // Cascades to slip heads automatically via DB foreign key onDelete: cascade
-  await (await getDb()).delete(payrollSlips).where(eq(payrollSlips.id, slipId));
+  await (tx ?? (await getDb())).delete(payrollSlips).where(eq(payrollSlips.id, slipId));
 }
 
 export async function replaceSlipHeads(
@@ -532,19 +542,46 @@ export async function findSlipsByEmployee(employeeId: string, limit = 12) {
 
 
 /**
- * F5: the earlier months of a fiscal year for the tax projection — taxable income and TDS of the
- * approved / locked payslips whose fiscal month comes before `fiscalMonthIndex` (Shrawan = 1).
- * `excludeRunId` keeps the run being recalculated out of its own history.
+ * F5: the earlier months of a fiscal year for the tax projection — taxable income and TDS of each
+ * payslip in an approved / locked run before this fiscal month. F6: a regular run also counts the
+ * off-cycle slips (festival, arrears) already paid in its own month (`sameMonth: 'offCycle'`, the
+ * default); an off-cycle run counts every other slip of its month (`'all'`). `excludeRunId` keeps
+ * the run being recalculated out of its own history. F15: an opening balance of months before
+ * this one comes first, as one entry standing for the months it covers.
  */
 export async function findEarlierTaxMonths(
   employeeIds: string[],
   fiscalYearId: string,
   fiscalMonthIndex: number,
-  excludeRunId?: string,
-  calendar: 'BS' | 'AD' = 'BS',
-): Promise<Map<string, { taxableIncome: string; tds: string }[]>> {
-  const out = new Map<string, { taxableIncome: string; tds: string }[]>();
+  opts: {
+    excludeRunId?: string;
+    /** Same-month slips counted: 'offCycle' (a regular run's default), 'all' (an off-cycle run) or 'none'. */
+    sameMonth?: 'none' | 'offCycle' | 'all';
+    /** 4.8b: the pay calendar of the runs counted (fiscal months counted in it); BS when absent. */
+    calendar?: 'BS' | 'AD';
+  } = {},
+): Promise<Map<string, { taxableIncome: string; tds: string; months?: number }[]>> {
+  const { excludeRunId, sameMonth = 'offCycle', calendar = 'BS' } = opts;
+  const out = new Map<string, { taxableIncome: string; tds: string; months?: number }[]>();
   if (!employeeIds.length) return out;
+  // F15: what an old system paid before payroll started here counts as the months it covers.
+  const openings = await (await getDb())
+    .select({
+      employeeId: payrollOpeningBalances.employeeId,
+      taxableIncome: payrollOpeningBalances.taxableIncome,
+      tds: sql<string>`(${payrollOpeningBalances.sst} + ${payrollOpeningBalances.incomeTax})::text`,
+      months: payrollOpeningBalances.months,
+    })
+    .from(payrollOpeningBalances)
+    .where(and(inArray(payrollOpeningBalances.employeeId, employeeIds), eq(payrollOpeningBalances.fiscalYearId, fiscalYearId), lt(payrollOpeningBalances.months, fiscalMonthIndex)));
+  for (const o of openings) out.set(o.employeeId, [{ taxableIncome: o.taxableIncome, tds: o.tds, months: o.months }]);
+  // The run month's place in the fiscal year (Shrawan = 1; with AD months, August = 1: 4.8b).
+  const idx =
+    calendar === 'AD'
+      ? sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 8 THEN ${payrollRuns.payPeriodMonth} - 7 ELSE ${payrollRuns.payPeriodMonth} + 5 END)`
+      : sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END)`;
+  const sameMonthRule =
+    sameMonth === 'all' ? sql`${idx} = ${fiscalMonthIndex}` : sameMonth === 'offCycle' ? sql`(${idx} = ${fiscalMonthIndex} AND ${payrollRuns.runType} <> 'REGULAR')` : sql`false`;
   const rows = await (await getDb())
     .select({ employeeId: payrollSlips.employeeId, taxableIncome: payrollSlips.taxableIncome, tds: payrollSlips.tdsThisMonth })
     .from(payrollSlips)
@@ -555,12 +592,80 @@ export async function findEarlierTaxMonths(
         eq(payrollRuns.fiscalYearId, fiscalYearId),
         inArray(payrollRuns.status, ['APPROVED', 'LOCKED']),
         eq(payrollRuns.calendar, calendar),
-        calendar === 'AD'
-          ? sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 8 THEN ${payrollRuns.payPeriodMonth} - 7 ELSE ${payrollRuns.payPeriodMonth} + 5 END) < ${fiscalMonthIndex}`
-          : sql`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END) < ${fiscalMonthIndex}`,
+        sql`(${idx} < ${fiscalMonthIndex} OR ${sameMonthRule})`,
         excludeRunId ? sql`${payrollRuns.id} <> ${excludeRunId}` : undefined,
       ),
     );
   for (const r of rows) out.set(r.employeeId, [...(out.get(r.employeeId) ?? []), { taxableIncome: r.taxableIncome, tds: r.tds }]);
+  return out;
+}
+
+/**
+ * F6: what an off-cycle payslip's marginal tax starts from, per employee: whether this month's
+ * regular salary is already final (then it is in the history), and the monthly taxable income of
+ * the latest regular payslip of the year up to this month in any state (the best estimate of the
+ * months still to come).
+ */
+export async function offCycleProjectionFacts(
+  employeeIds: string[],
+  fiscalYearId: string,
+  fiscalMonthIndex: number,
+  /** 4.8b: the pay calendar of the runs counted (fiscal months counted in it). */
+  calendar: 'BS' | 'AD' = 'BS',
+): Promise<Map<string, { regularFinalThisMonth: boolean; latestRegularTaxable: string | null }>> {
+  const out = new Map<string, { regularFinalThisMonth: boolean; latestRegularTaxable: string | null }>();
+  if (!employeeIds.length) return out;
+  const idx =
+    calendar === 'AD'
+      ? sql<number>`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 8 THEN ${payrollRuns.payPeriodMonth} - 7 ELSE ${payrollRuns.payPeriodMonth} + 5 END)`
+      : sql<number>`(CASE WHEN ${payrollRuns.payPeriodMonth} >= 4 THEN ${payrollRuns.payPeriodMonth} - 3 ELSE ${payrollRuns.payPeriodMonth} + 9 END)`;
+  const rows = await (await getDb())
+    .select({ employeeId: payrollSlips.employeeId, taxableIncome: payrollSlips.taxableIncome, status: payrollRuns.status, fiscalIdx: idx })
+    .from(payrollSlips)
+    .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
+    .where(
+      and(
+        inArray(payrollSlips.employeeId, employeeIds),
+        eq(payrollRuns.fiscalYearId, fiscalYearId),
+        eq(payrollRuns.runType, 'REGULAR'),
+        eq(payrollRuns.calendar, calendar),
+        sql`${idx} <= ${fiscalMonthIndex}`,
+      ),
+    )
+    .orderBy(desc(idx));
+  for (const r of rows) {
+    const current = out.get(r.employeeId) ?? { regularFinalThisMonth: false, latestRegularTaxable: null };
+    if (current.latestRegularTaxable === null) current.latestRegularTaxable = r.taxableIncome;
+    if (Number(r.fiscalIdx) === fiscalMonthIndex && (r.status === 'APPROVED' || r.status === 'LOCKED')) current.regularFinalThisMonth = true;
+    out.set(r.employeeId, current);
+  }
+  return out;
+}
+
+/** F6: what a new payslip records about each payee — primary bank account, department and designation names. */
+export async function slipPayeeFacts(
+  people: readonly { id: string; departmentId: string; designationId: string }[],
+): Promise<Map<string, { bankAccountNumber: string; bankName: string; departmentName: string; designationName: string }>> {
+  const out = new Map<string, { bankAccountNumber: string; bankName: string; departmentName: string; designationName: string }>();
+  if (!people.length) return out;
+  const db = await getDb();
+  const ids = people.map((p) => p.id);
+  const [banks, depts, desigs] = await Promise.all([
+    db.select({ employeeId: employeeBank.employeeId, accountNumber: employeeBank.accountNumber, bankName: employeeBank.bankName }).from(employeeBank).where(and(inArray(employeeBank.employeeId, ids), eq(employeeBank.isPrimary, true))),
+    db.select({ id: departments.id, name: departments.name }).from(departments),
+    db.select({ id: designations.id, name: designations.name }).from(designations),
+  ]);
+  const bank = new Map(banks.map((b) => [b.employeeId, b]));
+  const dept = new Map(depts.map((d) => [d.id, d.name]));
+  const desig = new Map(desigs.map((d) => [d.id, d.name]));
+  for (const p of people) {
+    const b = bank.get(p.id);
+    out.set(p.id, {
+      bankAccountNumber: b?.accountNumber ?? 'N/A',
+      bankName: b?.bankName ?? 'N/A',
+      departmentName: dept.get(p.departmentId) ?? 'Unknown Department',
+      designationName: desig.get(p.designationId) ?? 'Unknown Designation',
+    });
+  }
   return out;
 }

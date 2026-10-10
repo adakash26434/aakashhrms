@@ -1,4 +1,7 @@
 import nodemailer from "nodemailer";
+import { lockoutNotice } from "@/lib/engines/notification.engine";
+import { formatBSDate } from "@/lib/utils/bs-calendar";
+import { nepalClock, nepalToday } from "@/lib/utils/nepal-time";
 
 export interface SendEmployeeCredentialsParams {
   to: string;
@@ -279,4 +282,28 @@ export async function sendNoticeEmail({ to, subject, lines, companyName = "Aakas
 
   console.log(`[EMAIL_SERVICE] (dev preview) Notice "${subject}" to ${recipients.join(", ")}:\n  ${lines.join("\n  ")}`);
   return { success: true, deliveredVia: "console_mock" };
+}
+
+// ---------------------------------------------------------------------------
+// S5 / F17: the account owner hears when repeated wrong passwords pause sign-in
+// ---------------------------------------------------------------------------
+
+/**
+ * Emails the owner once, when the failures first reach the lock (the count only resets on a
+ * successful sign-in, so a long attack sends one email, not one per attempt). Fire and forget:
+ * the sign-in never waits for it, so its timing says nothing about the account.
+ */
+export function sendLockoutNotice(p: { to: string; failedAttempts: number; lockMs: number; ip: string | null; now?: Date }): void {
+  const now = p.now ?? new Date();
+  const notice = lockoutNotice({
+    failedAttempts: p.failedAttempts,
+    lockMinutes: Math.max(1, Math.round(p.lockMs / 60000)),
+    when: `${formatBSDate(nepalToday(now))} at ${nepalClock(now)}`,
+    ip: p.ip && p.ip !== "unknown" ? p.ip : null,
+  });
+  void sendNoticeEmail({ to: [p.to], subject: notice.subject, lines: notice.lines })
+    .then((r) => {
+      if (!r.success) console.warn("[EMAIL_SERVICE] Lockout notice not sent:", r.error);
+    })
+    .catch(() => console.warn("[EMAIL_SERVICE] Lockout notice not sent"));
 }

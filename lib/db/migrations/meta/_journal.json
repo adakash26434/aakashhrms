@@ -491,6 +491,83 @@
       "when": 1792896000000,
       "tag": "0069_pay_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1792982400000,
+      "tag": "0070_statutory_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1793068800000,
+      "tag": "0071_run_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1793155200000,
+      "tag": "0072_pay_head_name_np",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793241600000,
+      "tag": "0073_employee_detail_changes",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1793328000000,
+      "tag": "0074_payroll_opening_balances",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793414400000,
+      "tag": "0075_reimbursements",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1793500800000,
+      "tag": "0076_leave_salary",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793587200000,
+      "tag": "0077_loans",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1793673600000,
+      "tag": "0078_fiscal_years",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793760000000,
+      "tag": "0079_pay_head_applicability",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793846400000,
+      "tag": "0080_holiday_applies_to",
+      "breakpoints": true
     }
   ]
 }

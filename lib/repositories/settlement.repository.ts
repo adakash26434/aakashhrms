@@ -6,6 +6,7 @@ import { and, eq, lte, gte, sql } from 'drizzle-orm';
 // lib/engines/settlement.engine.ts; orchestration in lib/services/settlement.service.ts.
 
 export type SettlementRow = typeof exitSettlements.$inferSelect;
+type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>['transaction']>[0]>[0];
 export const POLICY_KEY = 'settlement.policy';
 
 export async function findByCase(exitCaseId: string): Promise<SettlementRow | null> {
@@ -37,13 +38,14 @@ export async function claim(
   to: 'approved' | 'paid',
   userId: string,
   paymentRef: string | null,
+  tx?: Tx,
 ): Promise<SettlementRow | null> {
   const now = new Date();
   const set =
     to === 'approved'
       ? { status: to, approvedBy: userId, approvedAt: now }
       : { status: to, paidBy: userId, paidAt: now, paymentRef };
-  const [row] = await (await getDb())
+  const [row] = await (tx ?? (await getDb()))
     .update(exitSettlements)
     .set(set)
     .where(and(eq(exitSettlements.id, id), eq(exitSettlements.status, from)))
@@ -51,13 +53,13 @@ export async function claim(
   return row ?? null;
 }
 
-/** Pay months (BS) the employee already has a payslip for, in any run state. */
+/** Pay months (BS) the employee already has a regular payslip for, in any run state (an off-cycle run, F6, pays no salary). */
 export async function slipMonths(employeeId: string): Promise<{ year: number; month: number }[]> {
   const rows = await (await getDb())
     .select({ year: payrollRuns.payPeriodYear, month: payrollRuns.payPeriodMonth })
     .from(payrollSlips)
     .innerJoin(payrollRuns, eq(payrollSlips.payrollRunId, payrollRuns.id))
-    .where(eq(payrollSlips.employeeId, employeeId))
+    .where(and(eq(payrollSlips.employeeId, employeeId), eq(payrollRuns.runType, 'REGULAR')))
     .groupBy(payrollRuns.payPeriodYear, payrollRuns.payPeriodMonth);
   return rows;
 }

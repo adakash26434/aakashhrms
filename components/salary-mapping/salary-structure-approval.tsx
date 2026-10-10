@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, Loader2, Plus, Save, ShieldCheck, Trash2, UserCheck } from "lucide-react";
-import { Combobox } from "@/components/kit/combobox";
+import { AlertTriangle, Loader2, Save, ShieldCheck, UserCheck } from "lucide-react";
+import { APPROVAL_TYPE_LABEL } from "@/components/kit/approval-policy-window";
 import { useDateText } from "@/components/kit/date-cell";
 import { PaneTimeline, approvalSteps, type TimelineStep } from "@/components/kit/pane";
-import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
-import { saveSalaryApprovalSettingsAction } from "@/app/actions/salary-structure.actions";
+import { WindowButton } from "@/components/kit/window";
 import { buildFlow, statusText, type ApprovalActor, type SubmitOutcome } from "@/lib/engines/approval.engine";
+import { policyForChange, type ChangeFact } from "@/lib/engines/approval-rules.engine";
 import { changedLines } from "@/lib/engines/salary-structure.engine";
-import type { ApprovalActionKind, ApprovalPolicy, ApprovalRoute, ApprovalType } from "@/lib/types/approval";
+import type { ApprovalActionKind, ApprovalRoute, ApprovalRule } from "@/lib/types/approval";
 import type { BatchRow, RetirementScheme, SalaryStructureData, StructureLines } from "@/lib/types/salary-structure";
 import { cn } from "@/lib/utils";
 
@@ -20,11 +19,7 @@ import { cn } from "@/lib/utils";
 
 export const money = (v: unknown) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export const APPROVAL_TYPE_LABEL: Record<ApprovalType, string> = {
-  none: "No approval",
-  simple: "Simple approval",
-  multi_level: "Multi-level approval",
-};
+export { APPROVAL_TYPE_LABEL };
 
 export const APPROVAL_ROUTE_LABEL: Record<ApprovalRoute, string> = {
   simple: "Approved by an approver",
@@ -52,11 +47,16 @@ export function salaryActor(data: SalaryStructureData): ApprovalActor {
 
 const nameOf = (data: SalaryStructureData) => (id: string) => data.approvers.find((a) => a.userId === id)?.name ?? "Unknown user";
 
-/** What saving changes for these employees will do (same engine as the server). */
-export function saveOutcome(data: SalaryStructureData, employeeIds: readonly string[]): SubmitOutcome & { canSaveAndApprove: boolean } {
-  const outcome = buildFlow(data.approvalPolicy, { preparerId: data.currentUserId, preparerEmployeeId: data.me.employeeId, subjectEmployeeIds: employeeIds, approvers: data.approvers });
+/** One person in a change for the preview: their totals before and after, and where they work. */
+export type ChangePerson = ChangeFact & { employeeId: string };
+
+/** What saving this change will do: the custom rule that applies, else the company policy (same engines as the server). */
+export function saveOutcome(data: SalaryStructureData, people: readonly ChangePerson[]): SubmitOutcome & { canSaveAndApprove: boolean; rule: ApprovalRule | null } {
+  const monthlyChange = people.reduce((n, p) => n + p.after - (p.before ?? 0), 0);
+  const routed = policyForChange({ policy: data.approvalPolicy, rules: data.approvalRules }, { monthlyChange, people });
+  const outcome = buildFlow(routed.policy, { preparerId: data.currentUserId, preparerEmployeeId: data.me.employeeId, subjectEmployeeIds: people.map((p) => p.employeeId), approvers: data.approvers });
   const own = !outcome.approvedAtOnce && outcome.ownSubject;
-  return { ...outcome, canSaveAndApprove: !outcome.approvedAtOnce && data.me.isAdministrator && !own };
+  return { ...outcome, canSaveAndApprove: !outcome.approvedAtOnce && data.me.isAdministrator && !own, rule: routed.rule };
 }
 
 /** One line saying what saving will do, and a warning when nobody else can approve. */
@@ -70,6 +70,7 @@ export function SaveOutcome({ data, outcome, className }: { data: SalaryStructur
     text = `Goes to ${active.map((l, i) => `Level ${i + 1}: ${name(l.userId)}`).join(", then ")}.`;
     if (outcome.flow.levels.some((l) => l.skipped)) text += " Levels you prepared or that concern the approver's own salary are skipped.";
   } else text = outcome.flow.fellBack ? "Every level was skipped, so any approver other than you can approve it." : "Waits for anyone who can approve salary changes (not you).";
+  if (outcome.rule) text = `Approval rule “${outcome.rule.name}”: ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
   if (outcome.canSaveAndApprove) text += " As a company administrator you can also save and approve it now.";
   const stuck = !outcome.approvedAtOnce && !outcome.canSaveAndApprove && data.me.otherApprovers === 0;
   return (
@@ -162,129 +163,6 @@ export function ApproverStanding({ data }: { data: SalaryStructureData }) {
         </li>
       )}
     </ul>
-  );
-}
-
-/** Approval settings (company administrators): none / simple / multi-level with ordered approvers. */
-export function ApprovalSettingsWindow({ data, onClose, onSaved }: { data: SalaryStructureData; onClose: () => void; onSaved: (pendingKept: number) => void }) {
-  const initial: ApprovalPolicy = data.approvalPolicy;
-  const [policy, setPolicy] = useState<ApprovalPolicy>(initial);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [failure, setFailure] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const eligible = data.approvers.filter((a) => a.active && a.canApprove);
-  const pending = data.batches.filter((b) => b.status === "pending").length;
-  const setLevels = (levels: string[]) => setPolicy((p) => ({ ...p, levels }));
-  const move = (i: number, d: -1 | 1) => {
-    const next = [...policy.levels];
-    [next[i], next[i + d]] = [next[i + d], next[i]];
-    setLevels(next);
-  };
-
-  const save = async () => {
-    setSaving(true);
-    const result = await saveSalaryApprovalSettingsAction({ type: policy.type, levels: policy.type === "multi_level" ? policy.levels.filter(Boolean) : [] });
-    setSaving(false);
-    if (!result.success) {
-      setErrors(result.validationErrors?.settings ?? {});
-      setFailure(result.error);
-      return;
-    }
-    onSaved(result.data.pendingKept);
-  };
-
-  const TYPES: { value: ApprovalType; help: string }[] = [
-    { value: "simple", help: "Any user who can approve salary changes approves it, never the person who prepared it." },
-    { value: "multi_level", help: "Named approvers in order: Level 2 acts only after Level 1. Approved when the last level approves." },
-    { value: "none", help: "Changes count once saved. A change to someone's own salary still needs another approver." },
-  ];
-
-  return (
-    <Window
-      open
-      onClose={saving ? () => {} : onClose}
-      dirty={JSON.stringify(policy) !== JSON.stringify(initial)}
-      size="lg"
-      title="Approval settings · Salary changes"
-      description="Who approves salary revisions before they count. Company administrators can always Final approve; nobody approves their own salary."
-      footer={
-        <>
-          {failure ? (
-            <p role="alert" className="mr-auto rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1 text-xs text-danger">
-              {failure}
-            </p>
-          ) : (
-            <span className="mr-auto text-2xs text-ink-muted">{pending ? `${pending} change${pending === 1 ? "" : "s"} waiting keep the approvers they were sent to.` : "Applies to changes saved from now on."}</span>
-          )}
-          <WindowCancel disabled={saving} />
-          <WindowButton variant="primary" onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save settings
-          </WindowButton>
-        </>
-      }
-    >
-      <fieldset className="space-y-2">
-        <legend className="mb-1 text-xs font-semibold text-ink">Approval type</legend>
-        {TYPES.map((t) => (
-          <label key={t.value} className={cn("flex cursor-pointer gap-2.5 rounded-md border px-3 py-2", policy.type === t.value ? "border-brand bg-brand-subtle" : "border-line hover:bg-surface-sunken")}>
-            <input type="radio" name="approval-type" className="mt-0.5 h-4 w-4 accent-brand" checked={policy.type === t.value} onChange={() => setPolicy({ type: t.value, levels: t.value === "multi_level" ? (policy.levels.length ? policy.levels : [""]) : policy.levels })} />
-            <span>
-              <span className="block text-sm font-medium text-ink">{APPROVAL_TYPE_LABEL[t.value]}</span>
-              <span className="block text-2xs text-ink-muted">{t.help}</span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-
-      {policy.type === "multi_level" && (
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold text-ink">
-            Approvers in order {errors.levels && <span className="font-normal text-danger">· {errors.levels}</span>}
-          </p>
-          <ol className="space-y-2">
-            {policy.levels.map((id, i) => {
-              const who = data.approvers.find((a) => a.userId === id);
-              const error = errors[`level.${i + 1}`];
-              return (
-                <li key={i} className="flex flex-wrap items-start gap-2">
-                  <span className="mt-1.5 w-16 shrink-0 text-xs font-medium text-ink-label">Level {i + 1}</span>
-                  <div className="min-w-56 flex-1">
-                    <Combobox
-                      name={`level.${i + 1}`}
-                      aria-label={`Level ${i + 1} approver`}
-                      options={eligible.map((a) => ({ value: a.userId, label: a.name, hint: a.employeeId ? undefined : "not linked to an employee" }))}
-                      value={id}
-                      onChange={(v) => setLevels(policy.levels.map((x, j) => (j === i ? v : x)))}
-                      placeholder="Choose an approver"
-                    />
-                    {error && <p className="mt-0.5 text-2xs text-danger">{error}</p>}
-                    {!error && who && !who.employeeId && <p className="mt-0.5 text-2xs text-warning">Not linked to an employee record: their own salary cannot be recognised.</p>}
-                  </div>
-                  <span className="flex gap-1">
-                    <WindowButton aria-label="Move up" title="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </WindowButton>
-                    <WindowButton aria-label="Move down" title="Move down" disabled={i === policy.levels.length - 1} onClick={() => move(i, 1)}>
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </WindowButton>
-                    <WindowButton aria-label="Remove level" title="Remove level" disabled={policy.levels.length === 1} onClick={() => setLevels(policy.levels.filter((_, j) => j !== i))}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </WindowButton>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          {policy.levels.length < 5 && (
-            <WindowButton className="mt-2" onClick={() => setLevels([...policy.levels, ""])}>
-              <Plus className="h-3.5 w-3.5" /> Add level
-            </WindowButton>
-          )}
-          <p className="mt-2 text-2xs text-ink-muted">A level is skipped when its approver prepared the change or their own salary is in it. Approvers away can delegate in Users.</p>
-        </div>
-      )}
-      {eligible.length === 0 && <p className="mt-3 text-2xs text-warning">No active user can approve salary changes yet. Give a role Salary structure → Approve in Roles.</p>}
-    </Window>
   );
 }
 

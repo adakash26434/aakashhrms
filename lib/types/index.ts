@@ -9,29 +9,27 @@ export type * from "./holiday";
 export type * from "./leave-rule";
 export type * from "./leave-type";
 export type * from "./leave";
-export type {
-  LoanType,
-  LoanTypeFormData,
-  Loan,
-  DisburseLoanFormData,
-  LoanRepayment,
-  RepaymentFormData,
-  LoanTypeValidationErrors,
-  DisbursementValidationErrors,
-  RepaymentValidationErrors,
-  PaymentMethod as LoanPaymentMethod,
-} from "./loan";
+export type * from "./leave-salary";
+export type * from "./loan";
+export type * from "./notification";
+export type * from "./opening-balance";
+export type * from "./ot-rule";
 export type * from "./overtime";
 export type {
   PayHeadType,
   CalcBasis,
   CalcParameter,
   StatutoryFlag,
-  StatutoryFlagMeta,
   PayHead,
-  PayHeadFormData,
+  PayHeadRole,
+  PayHeadCalc,
+  PayHeadForm,
+  PayHeadFormErrors,
+  PayHeadRow,
+  PayHeadsPage,
 } from "./pay-head";
 export type * from "./payroll";
+export type * from "./reimbursement";
 export type * from "./salary-mapping";
 export type * from "./system-control";
 export type * from "./tax-rate";

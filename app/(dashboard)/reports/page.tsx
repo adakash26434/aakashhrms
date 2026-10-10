@@ -1,190 +1,91 @@
-import Link from "next/link";
-import {
-  FileSpreadsheet,
-  Printer,
-  CalendarCheck,
-  Receipt,
-  CreditCard,
-  CalendarDays,
-  ArrowRight,
-  ShieldCheck,
-  Coins,
-  Clock,
-  FileCheck,
-} from "lucide-react";
-import { PageFrame } from "@/components/layout/page-frame";
-import { PageHeader } from "@/components/ui/page-header";
+export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Reports & Analytics | AakashHRMS",
-  description:
-    "Enterprise Payroll Reports, Payslips, Attendance, IRD Tax, Leave, and Loan Statements.",
+import Link from "next/link";
+import type { Metadata } from "next";
+import { BarChart3, CalendarCheck, CalendarDays, ChevronRight, FileCheck2, HandCoins, Receipt, Table, type LucideIcon } from "lucide-react";
+import { ensureTenantContext } from "@/lib/db";
+import { hasPermission, requireAuthenticatedUser } from "@/lib/auth/check-permission";
+import { PageBar } from "@/components/frame/page-bar";
+import { Panel } from "@/components/kit/panel";
+import { EmptyState } from "@/components/kit/empty-state";
+
+export const metadata: Metadata = {
+  title: "Reports | AakashHRMS",
+  description: "Salary sheet, payslips, statutory returns, attendance, leave, loans and HR analytics.",
 };
 
-interface ReportCardItem {
+type ReportModule = Parameters<typeof hasPermission>[1];
+
+interface Entry {
   title: string;
+  description: string;
   href: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge: string;
+  icon: LucideIcon;
+  module: ReportModule;
 }
 
-interface ReportGroup {
-  name: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  reports: ReportCardItem[];
-}
-
-const reportGroups: ReportGroup[] = [
+// The reports this person can open (View on each report's own module); the screens check again.
+const GROUPS: { title: string; entries: Entry[] }[] = [
   {
-    name: "Payroll Outputs",
-    description: "Monthly master register and confidential payslip outputs",
-    icon: Coins,
-    reports: [
-      {
-        title: "Salary Sheet Report",
-        href: "/reports/salary-sheet",
-        description:
-          "Comprehensive monthly salary sheet showing employee basic salary, designation, dynamic allowances, tax, PF, SSF, CIT, loan deductions, and net payable.",
-        icon: FileSpreadsheet,
-        badge: "Monthly Master",
-      },
-      {
-        title: "Payslips & Head Summary",
-        href: "/reports/payslip",
-        description:
-          "Generate A4-optimized confidential payslips for individual or batch printing. Includes Pay Head Summary breakdown tab with allowance/deduction filtering.",
-        icon: Printer,
-        badge: "Print & PDF",
-      },
+    title: "Payroll",
+    entries: [
+      { title: "Salary sheet", description: "Approved and locked pay runs for signature: every pay line, a summary, pay-line totals and the bank transfer list.", href: "/reports/salary-sheet", icon: Table, module: "REPORTS_SALARY_SHEET" },
+      { title: "Payslips", description: "Payslips of a locked pay run, one per page, in English, Nepali or both.", href: "/reports/payslip", icon: Receipt, module: "REPORTS_PAYSLIP" },
+      { title: "Statutory returns", description: "eTDS, SSF, Provident Fund and CIT schedules with their upload files, and annual tax certificates.", href: "/payroll/statutory", icon: FileCheck2, module: "REPORTS_TAX_IRD" },
     ],
   },
   {
-    name: "Time & Workforce Ledgers",
-    description: "Statutory attendance tracking and annual leave balance records",
-    icon: Clock,
-    reports: [
-      {
-        title: "Attendance & OT Report",
-        href: "/reports/attendance",
-        description:
-          "Device punch details, manual status matrix (P/A/L/HD), statutory monthly working days, absent deductions, and overtime summary.",
-        icon: CalendarCheck,
-        badge: "Nepal Labour Act",
-      },
-      {
-        title: "Leave Ledger & Balances",
-        href: "/reports/leave",
-        description:
-          "Annual leave balances ledger, taken days, carried forward, encashable counts, and 5-mode application views (Taken, Approved, Rejected).",
-        icon: CalendarDays,
-        badge: "Leave Ledger",
-      },
+    title: "Time and leave",
+    entries: [
+      { title: "Attendance report", description: "A month from the attendance rules: the summary, the day register or attendance cards.", href: "/reports/attendance", icon: CalendarDays, module: "REPORTS_ATTENDANCE" },
+      { title: "Leave report", description: "A leave year from the leave ledger: balances, movement by type, leave taken and requests.", href: "/reports/leave", icon: CalendarCheck, module: "REPORTS_LEAVE" },
     ],
   },
   {
-    name: "Statutory Compliance & Loans",
-    description: "Inland Revenue Department tax filing and staff credit recovery",
-    icon: FileCheck,
-    reports: [
-      {
-        title: "TDS / IRD Tax Report",
-        href: "/reports/tax-ird",
-        description:
-          "Nepal Inland Revenue Department (IRD) tax deduction statement (ETDS format) with official document headers and PAN verification.",
-        icon: Receipt,
-        badge: "IRD Compliance",
-      },
-      {
-        title: "Loan & Repayment Statements",
-        href: "/reports/loan",
-        description:
-          "Disbursement payment statements, active/closed loan statuses, monthly installment schedules, and salary recovery ledgers.",
-        icon: CreditCard,
-        badge: "Loan Ledger",
-      },
+    title: "Loans and people",
+    entries: [
+      { title: "Loan report", description: "The loan register, repayments in a period and loans given in a period.", href: "/reports/loan", icon: HandCoins, module: "REPORTS_LOAN" },
+      { title: "HR analytics", description: "Headcount, movement, tenure, training and the DoC / COPOMIS staff return.", href: "/reports/hr-analytics", icon: BarChart3, module: "EMPLOYEES" },
     ],
   },
 ];
 
-export default function ReportsHubPage() {
+export default async function ReportsPage() {
+  await ensureTenantContext();
+  await requireAuthenticatedUser();
+  const allowed = await Promise.all(GROUPS.flatMap((g) => g.entries).map((e) => hasPermission("VIEW", e.module)));
+  let i = 0;
+  const groups = GROUPS.map((g) => ({ ...g, entries: g.entries.filter(() => allowed[i++]) })).filter((g) => g.entries.length > 0);
+
   return (
-    <PageFrame size="wide" spacing="relaxed">
-      {/* Unified Canonical Page Header */}
-      <PageHeader
-        title="Reports & Statements"
-        description="Select an official report category to view detailed statements, filter by organizational parameters, and export official CSV files."
-      >
-        <div className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 border border-zinc-200">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-          <span>Locked run data enforced</span>
-        </div>
-      </PageHeader>
-
-      {/* Categorized Report Sections */}
-      <div className="space-y-8">
-        {reportGroups.map((group) => {
-          const GroupIcon = group.icon;
-          return (
-            <div key={group.name} className="space-y-3">
-              {/* Group Header */}
-              <div className="flex items-center gap-2.5 border-b border-zinc-200/80 pb-2">
-                <div className="p-1 rounded-md bg-zinc-100 text-zinc-700">
-                  <GroupIcon className="h-3.5 w-3.5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-semibold text-zinc-900 tracking-tight">
-                    {group.name}
-                  </h3>
-                  <p className="text-2xs text-zinc-500">
-                    {group.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {group.reports.map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <Link
-                      key={card.href}
-                      href={card.href}
-                      className="group relative flex flex-col justify-between rounded-lg border border-zinc-200 bg-white p-5 shadow-2xs transition-colors hover:border-zinc-300 hover:bg-zinc-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="inline-flex items-center justify-center rounded-md bg-zinc-100 p-2 text-zinc-700 transition-colors group-hover:bg-zinc-950 group-hover:text-white">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-2xs font-medium text-zinc-600 border border-zinc-200">
-                            {card.badge}
-                          </span>
-                        </div>
-
-                        <div>
-                          <h4 className="text-sm font-semibold text-zinc-900 group-hover:text-emerald-950 transition-colors">
-                            {card.title}
-                          </h4>
-                          <p className="text-xs text-zinc-500 mt-1 leading-relaxed line-clamp-2">
-                            {card.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 flex items-center gap-1.5 text-xs font-medium text-emerald-800 group-hover:text-zinc-900 transition-colors pt-2.5 border-t border-zinc-100">
-                        <span>Open statement</span>
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </div>
+    <div>
+      <PageBar title="Reports" description="Every report prints on A4 under the company letterhead and covers only the employees your role covers" />
+      {groups.length === 0 ? (
+        <EmptyState title="No reports for your role" description="Ask an administrator for the report permissions you need." />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {groups.map((g) => (
+            <Panel key={g.title} title={g.title} count={g.entries.length}>
+              <ul className="divide-y divide-line">
+                {g.entries.map((e) => (
+                  <li key={e.href}>
+                    <Link href={e.href} className="group flex items-start gap-3 px-4 py-3 hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand-strong">
+                        <e.icon className="h-4 w-4" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-ink group-hover:underline">{e.title}</span>
+                        <span className="block text-xs text-ink-muted">{e.description}</span>
+                      </span>
+                      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
                     </Link>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </PageFrame>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

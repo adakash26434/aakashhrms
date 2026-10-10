@@ -12,7 +12,7 @@ import type { ScopeFilter } from '@/lib/auth/scope-filter';
 import type { AddSlipHeadPayload, PayrollSlipOverridePayload } from '@/lib/types/payroll';
 import type { PreflightResult, SlipDetail } from '@/lib/types/payroll-run';
 
-// Security plan S40 (4.8a): every payroll run action checks the payroll
+// Security plan S55 (4.8a): every payroll run action checks the payroll
 // permissions on the server; the preparer never approves a run
 // (maker-checker, administrators included); nobody edits, recalculates,
 // deletes or acknowledges their own payslip (S21, audited DENIED_SELF);

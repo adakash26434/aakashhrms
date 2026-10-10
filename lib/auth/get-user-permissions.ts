@@ -1,7 +1,63 @@
+import { cache } from 'react';
 import { auth } from '@/lib/auth';
 import { getDbAsync } from '@/lib/db';
-import { userRoles, rolePermissions, permissions, roles } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { userRoles, rolePermissions, permissions, roles, users, moduleEnum } from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
+import type { ActionType, ModuleType } from '@/lib/types/role';
+
+/** Role slugs that hold every permission (the bypass in `verifyPermission`). */
+export const ADMIN_ROLE_SLUGS: readonly string[] = ['system_admin', 'office_admin'];
+
+/**
+ * Everything a user's roles grant, read in one query. It follows `verifyPermission`: company
+ * administrators hold every permission and a SELF-scoped role adds self-service view / add / edit;
+ * an inactive user holds nothing. It answers "what could this person see or act on" for the
+ * navigation and the notification centre (F17). It is never access control on its own: pages and
+ * actions keep checking with `checkPermission` / `hasPermission`.
+ */
+export interface PermissionSet {
+  isAdmin: boolean;
+  /** `ACTION:MODULE` pairs the user's roles grant. */
+  grants: ReadonlySet<string>;
+}
+
+export const NO_PERMISSIONS: PermissionSet = { isAdmin: false, grants: new Set() };
+
+const grantKey = (action: string, module: string) => `${action}:${module}`;
+
+export function can(set: PermissionSet, action: ActionType, module: ModuleType): boolean {
+  return set.isAdmin || set.grants.has(grantKey(action, module));
+}
+
+/**
+ * The permission set of one user, without a session (the request's own user, or a user a
+ * scheduled job writes to). Pass the tenant slug when the request has none of its own.
+ */
+export async function permissionSetFor(userId: string, tenantSlug?: string | null): Promise<PermissionSet> {
+  const db = await getDbAsync(tenantSlug);
+  const rows = await db
+    .select({ slug: roles.slug, scopeType: roles.scopeType, action: permissions.action, module: permissions.module })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+    .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .where(and(eq(users.id, userId), eq(users.isActive, true)));
+
+  const grants = new Set<string>();
+  for (const r of rows) if (r.action && r.module) grants.add(grantKey(r.action, r.module));
+  if (rows.some((r) => r.scopeType === 'SELF')) {
+    for (const action of ['VIEW', 'ADD', 'EDIT'] as const) grants.add(grantKey(action, 'SELF_SERVICE'));
+  }
+  return { isAdmin: rows.some((r) => ADMIN_ROLE_SLUGS.includes(r.slug)), grants };
+}
+
+/** The signed-in user's permission set, read once per request (layout, frame and pages share it). */
+export const getUserPermissionSet = cache(async (): Promise<PermissionSet> => {
+  const session = await auth();
+  if (!session?.user?.id) return NO_PERMISSIONS;
+  return permissionSetFor(session.user.id, session.user.tenantSlug);
+});
 
 /**
  * Returns the set of permission module names the current user has VIEW access to.
@@ -10,71 +66,11 @@ import { eq, and } from 'drizzle-orm';
  */
 export async function getUserAllowedModules(): Promise<Set<string>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new Set();
-    }
-
-    const db = await getDbAsync(session.user.tenantSlug);
-
-    // 1. Check if user has admin role (full access bypass)
-    const userRolesResult = await db
-      .select({ slug: roles.slug })
-      .from(userRoles)
-      .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .where(eq(userRoles.userId, session.user.id));
-
-    const isAdmin = userRolesResult.some(
-      (r) => r.slug === 'system_admin' || r.slug === 'office_admin'
-    );
-
-    if (isAdmin) {
-      // Return all known modules
-      return new Set([
-        'SYSTEM_CONTROL',
-        'FISCAL_YEAR',
-        'TAX_RATES',
-        'PAY_HEADS',
-        'HOLIDAYS',
-        'EMPLOYEES',
-        'SALARY_MAPPING',
-        'ATTENDANCE',
-        'LEAVE_APPLICATIONS',
-        'LEAVE_APPROVALS',
-        'OT_RULES',
-        'LEAVE_RULES',
-        'LEAVE_TYPES',
-        'PAYROLL_GENERATE',
-        'PAYROLL_REVIEW',
-        'LEAVE_SALARY',
-        'LOANS',
-        'REPORTS_SALARY_SHEET',
-        'REPORTS_PAYSLIP',
-        'REPORTS_ATTENDANCE',
-        'REPORTS_TAX_IRD',
-        'REPORTS_LEAVE',
-        'REPORTS_LOAN',
-        'USERS_ROLES',
-        'AUDIT_LOG',
-        'ORG_STRUCTURE',
-        'SELF_SERVICE',
-      ]);
-    }
-
-    // 2. Query the user's specific VIEW permissions from role_permissions
-    const viewPermissions = await db
-      .select({ module: permissions.module })
-      .from(userRoles)
-      .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .where(
-        and(
-          eq(userRoles.userId, session.user.id),
-          eq(permissions.action, 'VIEW')
-        )
-      );
-
-    return new Set(viewPermissions.map((p) => p.module));
+    const set = await getUserPermissionSet();
+    // Every module there is: the schema's enum, never a hand-kept list (one went stale and hid
+    // the newer modules — welfare funds, travel, assets… — from administrators' navigation).
+    if (set.isAdmin) return new Set(moduleEnum.enumValues);
+    return new Set(moduleEnum.enumValues.filter((module) => set.grants.has(grantKey('VIEW', module))));
   } catch (error) {
     console.error('[GET_USER_ALLOWED_MODULES] Error:', error);
     return new Set();

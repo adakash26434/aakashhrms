@@ -6,12 +6,11 @@ import { checkPermissionWithScope, checkPermission } from '@/lib/auth/check-perm
 import { recordAuditLog } from '@/lib/services/audit.service';
 import { toActionError } from '@/lib/errors/action-error';
 import * as controls from '@/lib/services/payroll-control.service';
-import type { PayrollRunSetupPayload } from '@/lib/types/payroll';
 
 // Payroll controls (4.8 / F1–F3): every action resolves the tenant and checks
 // the module permission first. Variance review reads need PAYROLL_REVIEW view;
-// acknowledging needs Approve; publish / hold / release need Lock; pre-flight
-// needs Add on PAYROLL_GENERATE; the three settings sit under SYSTEM_CONTROL.
+// acknowledging needs Approve; publish / hold / release need Lock; the settings
+// sit under SYSTEM_CONTROL. Pre-flight is the pay run workspace's (payroll-run.actions).
 
 async function ctxFor(action: 'VIEW' | 'APPROVE' | 'LOCK') {
   const scope = await checkPermissionWithScope(action, 'PAYROLL_REVIEW');
@@ -19,8 +18,7 @@ async function ctxFor(action: 'VIEW' | 'APPROVE' | 'LOCK') {
 }
 
 const refresh = () => {
-  revalidatePath('/payroll/review');
-  revalidatePath('/payroll/generate');
+  revalidatePath('/payroll');
   revalidatePath('/self-service/my-payslips');
 };
 
@@ -84,19 +82,6 @@ export async function releaseSlipAction(slipId: string) {
     return { success: true as const };
   } catch (error: unknown) {
     return toActionError(error, 'payroll.release');
-  }
-}
-
-export async function preflightAction(payload: PayrollRunSetupPayload) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('ADD', 'PAYROLL_GENERATE');
-    if (!payload || !Array.isArray(payload.branchIds) || !Number.isInteger(payload.payPeriodMonth) || !Number.isInteger(payload.payPeriodYear)) {
-      return { success: false as const, error: 'Choose the month and at least one branch.' };
-    }
-    return { success: true as const, data: await controls.preflight(payload) };
-  } catch (error: unknown) {
-    return toActionError(error, 'payroll.preflight');
   }
 }
 

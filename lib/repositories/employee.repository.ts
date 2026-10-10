@@ -1,15 +1,16 @@
 import { getDb } from '@/lib/db';
 import { 
   employees, employeePersonal, employeeFamily, employeeBank, employeeTermination, departments, designations,
-  users
+  users, employeeDocuments
 } from '@/lib/db/schema';
-import { eq, and, ilike, or, SQL, sql } from 'drizzle-orm';
+import { eq, and, ilike, inArray, or, SQL, sql } from 'drizzle-orm';
 import type { Employee, EmployeeFilter, EmployeeStatus } from '@/lib/types/employee';
 import type { EmployeeDocumentInput } from '@/lib/types/employee-document';
 import { employeesNeedingSetup } from './salary-structure.repository';
 import { employeesWithIdentityScan, findDocuments, saveDocumentsTx } from './employee-document.repository';
 import { findPhotoIdFor, photoIdsByEmployee, savePhotoTx } from './employee-photo.repository';
 import { findDossier, saveDossierTx } from './employee-dossier.repository';
+import { insertChangeTx, refreshDraftSlipsTx, type NewChange } from './employee-detail.repository';
 import type { EmployeeDossierInput } from '@/lib/types/employee-dossier';
 
 /** The documents list and photo to save with the employee (4.2b), and who saves them. */
@@ -112,6 +113,9 @@ function mapRowToEmployee(row: EmployeeJoinedRow): Employee {
     votersId: row.employee_personal?.votersId || null,
     voterIdIssuingDistrict: row.employee_personal?.voterIdIssuingDistrict || null,
     panNumber: row.employee_personal?.panNumber || null,
+    ssfNumber: row.employee_personal?.ssfNumber || null,
+    pfNumber: row.employee_personal?.pfNumber || null,
+    citNumber: row.employee_personal?.citNumber || null,
     phoneHome: row.employee_personal?.phoneHome || null,
     mobileNo: row.employee_personal?.mobileNo || '',
     email: row.employee_personal?.companyEmail || row.employee_personal?.email || '',
@@ -254,6 +258,30 @@ export async function findAllCodes(): Promise<{ id: string; employeeCode: string
     .from(employees);
 }
 
+/** Citizenship / NID numbers and primary bank accounts on record, by employee code (the F15 import's duplicate check). */
+export async function findIdentityNumbers(): Promise<{ employeeCode: string; active: boolean; kind: 'identity' | 'account'; number: string }[]> {
+  const db = await getDb();
+  const [documents, accounts] = await Promise.all([
+    db
+      .select({ employeeCode: employees.employeeCode, status: employees.status, number: employeeDocuments.docNumber })
+      .from(employeeDocuments)
+      .innerJoin(employees, eq(employees.id, employeeDocuments.employeeId))
+      .where(inArray(employeeDocuments.docType, ['citizenship', 'nid'])),
+    db
+      .select({ employeeCode: employees.employeeCode, status: employees.status, number: employeeBank.accountNumber })
+      .from(employeeBank)
+      .innerJoin(employees, eq(employees.id, employeeBank.employeeId))
+      .where(eq(employeeBank.isPrimary, true)),
+  ]);
+  const row = (kind: 'identity' | 'account') => (r: { employeeCode: string; status: string | null; number: string | null }) => ({
+    employeeCode: r.employeeCode,
+    active: r.status === 'Active',
+    kind,
+    number: r.number ?? '',
+  });
+  return [...documents.map(row('identity')), ...accounts.map(row('account'))];
+}
+
 /** Ids in register order (by name, then code) within a scope: the record navigator's sequence. */
 export async function findOrderedIdsInScope(scopeCondition?: SQL<unknown>): Promise<string[]> {
   const rows = await (await getDb())
@@ -262,6 +290,35 @@ export async function findOrderedIdsInScope(scopeCondition?: SQL<unknown>): Prom
     .where(scopeCondition)
     .orderBy(employees.fullName, employees.employeeCode);
   return rows.map((r) => r.id);
+}
+
+/**
+ * Active employees a pay run covers: its branches, and its departments / designations / categories /
+ * named employees when any are given (an empty or null list means all).
+ */
+export async function findForPayrollScope(scope: {
+  branchIds: string[];
+  departmentIds?: string[] | null;
+  designationIds?: string[] | null;
+  employeeCategories?: string[] | null;
+  employeeIds?: string[] | null;
+}): Promise<Employee[]> {
+  const all = await findAll({
+    search: '',
+    branchId: scope.branchIds.length === 1 ? scope.branchIds[0] : 'all',
+    departmentId: scope.departmentIds && scope.departmentIds.length === 1 ? scope.departmentIds[0] : 'all',
+    category: 'all',
+    status: 'Active',
+  });
+  const within = (list: string[] | null | undefined, value: string) => !list || list.length === 0 || list.includes(value);
+  return all.filter(
+    (e) =>
+      scope.branchIds.includes(e.branchId) &&
+      within(scope.departmentIds, e.departmentId) &&
+      within(scope.designationIds, e.designationId) &&
+      within(scope.employeeCategories, e.category) &&
+      within(scope.employeeIds, e.id),
+  );
 }
 
 export async function findById(id: string): Promise<Employee | undefined> {
@@ -330,6 +387,9 @@ export async function create(data: Partial<Employee>, documents?: DocumentsSave)
       votersId: data.votersId || null,
       voterIdIssuingDistrict: data.voterIdIssuingDistrict || null,
       panNumber: data.panNumber || null,
+      ssfNumber: data.ssfNumber || null,
+      pfNumber: data.pfNumber || null,
+      citNumber: data.citNumber || null,
       phoneHome: data.phoneHome || null,
       mobileNo: data.mobileNo ?? '',
       email: data.companyEmail || data.email || `${newEmpId}@placeholder.com`,
@@ -397,7 +457,23 @@ export async function create(data: Partial<Employee>, documents?: DocumentsSave)
 }
 
 export async function update(id: string, data: Partial<Employee>, documents?: DocumentsSave): Promise<Employee> {
+  return (await updateWithDetailChange(id, data, documents, null)).employee;
+}
+
+/**
+ * The employee save (4.8 / F13): the record, and a change to its sensitive details recorded in
+ * the same transaction (a second waiting change for the employee fails the whole save on the
+ * one-pending index). When the change applies with the save, the new bank details go onto the
+ * employee's draft payslips too.
+ */
+export async function updateWithDetailChange(
+  id: string,
+  data: Partial<Employee>,
+  documents: DocumentsSave | undefined,
+  detail: { change: NewChange; refreshBank: { bankName: string; bankAccountNumber: string } | null } | null,
+): Promise<{ employee: Employee; detailChangeId: string | null; draftSlips: number }> {
   return await (await getDb()).transaction(async (tx) => {
+    const detailChangeId = detail ? await insertChangeTx(tx, detail.change) : null;
     const oldEmp = await tx.select({ deptId: employees.departmentId, desigId: employees.designationId }).from(employees).where(eq(employees.id, id));
     
     await tx.update(employees).set({
@@ -447,6 +523,9 @@ export async function update(id: string, data: Partial<Employee>, documents?: Do
       votersId: data.votersId || null,
       voterIdIssuingDistrict: data.voterIdIssuingDistrict || null,
       panNumber: data.panNumber || null,
+      ssfNumber: data.ssfNumber || null,
+      pfNumber: data.pfNumber || null,
+      citNumber: data.citNumber || null,
       phoneHome: data.phoneHome || null,
       mobileNo: data.mobileNo,
       email: data.companyEmail || data.email,
@@ -511,17 +590,19 @@ export async function update(id: string, data: Partial<Employee>, documents?: Do
        }
     }
 
+    const draftSlips = detail?.refreshBank ? await refreshDraftSlipsTx(tx, id, detail.refreshBank) : 0;
+
     const rows = await tx
       .select()
       .from(employees)
       .leftJoin(employeePersonal, eq(employeePersonal.employeeId, employees.id))
       .leftJoin(employeeFamily, eq(employeeFamily.employeeId, employees.id))
-      .leftJoin(employeeBank, eq(employeeBank.employeeId, employees.id))
+      .leftJoin(employeeBank, and(eq(employeeBank.employeeId, employees.id), eq(employeeBank.isPrimary, true)))
       .leftJoin(employeeTermination, eq(employeeTermination.employeeId, employees.id))
       .where(eq(employees.id, id));
-      
+
     if (!rows.length) throw new Error("Failed to retrieve updated employee");
-    return mapRowToEmployee(rows[0] as EmployeeJoinedRow);
+    return { employee: mapRowToEmployee(rows[0] as EmployeeJoinedRow), detailChangeId, draftSlips };
   });
 }
 

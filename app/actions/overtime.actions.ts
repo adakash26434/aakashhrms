@@ -11,7 +11,7 @@ import { POLICY_KEY } from '@/lib/repositories/overtime.repository';
 import { UserFacingError, toActionError, type ActionFailure } from '@/lib/errors/action-error';
 import type { ScopeFilter } from '@/lib/auth/scope-filter';
 
-// Security plan S26 (4.7): the overtime policy is a company administrator's
+// Security plan S54 (4.7): the overtime policy is a company administrator's
 // control; overtime decisions check Attendance permissions with the user's
 // scope, never let anyone decide their own overtime (S21, audited
 // DENIED_SELF), audit every change (minutes and ids, not salaries) and

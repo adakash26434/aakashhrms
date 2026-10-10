@@ -1,36 +1,21 @@
-import { checkPermission } from "@/lib/auth/check-permission";
-import * as reportService from "@/lib/services/report.service";
-import { LoanReportClient } from "@/components/reports/loan-report-client";
-import { ensureTenantContext } from "@/lib/db";
+export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Loan Report | AakashHRMS",
-  description: "Enterprise Loan Outstanding Summary & Repayment Ledger Report.",
+import type { Metadata } from "next";
+import { ensureTenantContext } from "@/lib/db";
+import { checkPermissionWithScope, hasPermission } from "@/lib/auth/check-permission";
+import { loanReport } from "@/lib/services/report.service";
+import { LoanReportClient } from "@/components/reports/loan-report-client";
+
+export const metadata: Metadata = {
+  title: "Loan report | AakashHRMS",
+  description: "The loan register, repayments in a period and loans given in a period.",
 };
 
-export default async function LoanReportPage() {
+export default async function LoanReportPage({ searchParams }: { searchParams: Promise<{ view?: string; status?: string }> }) {
   await ensureTenantContext();
-
-  await checkPermission("VIEW", "REPORTS_LOAN");
-
-  const lookups = await reportService.getReportFilterLookupData();
-
-  let initialReportData = null;
-  let initialError: string | null = null;
-
-  try {
-    initialReportData = await reportService.getLoanReportData({
-      status: "ALL",
-    });
-  } catch (err: unknown) {
-    initialError = err instanceof Error ? err.message : "Failed to load initial loan report.";
-  }
-
-  return (
-    <LoanReportClient
-      initialLookups={lookups}
-      initialReportData={initialReportData}
-      initialError={initialError}
-    />
-  );
+  // S47 / S48: the viewer's employees only, never a SELF role.
+  const scope = await checkPermissionWithScope("VIEW", "REPORTS_LOAN");
+  const [query, canExport] = await Promise.all([searchParams, hasPermission("EXPORT", "REPORTS_LOAN")]);
+  const data = await loanReport({ userId: scope.userId, scope, canExport }, { view: query.view, status: query.status });
+  return <LoanReportClient initial={data} />;
 }
