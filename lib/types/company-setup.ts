@@ -1,8 +1,3 @@
-import type { Branch } from './branch';
-import type { Department } from './department';
-import type { Designation } from './designation';
-import type { ShreniLevelItem } from './shreni';
-
 export interface EmploymentType {
   id: string;
   code: string;
@@ -58,19 +53,68 @@ export interface CompanyProfileSetupData {
   contactPhone: string;
   headOfficeAddress: string;
   headOfficeBranchCode: string;
-  logoUrl?: string;
   signatory1Name?: string;
   signatory1Title?: string;
   signatory2Name?: string;
   signatory2Title?: string;
 }
 
-export interface CompanyMasterSetupData {
-  shreniLevels: ShreniLevelItem[];
-  branches: Branch[];
-  departments: Department[];
-  designations: Designation[];
-  employmentTypes: EmploymentType[];
-  workSchedule: CompanyWorkSchedule;
-  companyProfile: CompanyProfileSetupData;
+
+// ---------------------------------------------------------------------------
+// 4.12c: Setup → Company setup (lib/engines/company-profile.engine.ts)
+// ---------------------------------------------------------------------------
+
+/** What the company edits itself: the name it trades under, contacts and the signatories on printouts. */
+export interface CompanyProfileForm {
+  displayName: string;
+  contactEmail: string;
+  contactPhone: string;
+  signatory1Name: string;
+  signatory1Title: string;
+  signatory2Name: string;
+  signatory2Title: string;
+}
+
+export type CompanyProfileErrors = Partial<Record<keyof CompanyProfileForm, string>>;
+
+/** The legal registration the platform keeps (changed only through a request it approves). */
+export interface LegalDetails {
+  legalName: string;
+  panVatNumber: string;
+  registrationNumber: string;
+  industryType: string;
+  headOfficeAddress: string;
+}
+
+export interface LegalChangeForm extends LegalDetails {
+  reason: string;
+  /** The registrar's or IRD's document number, if any. */
+  reference: string;
+}
+
+export type LegalChangeErrors = Partial<Record<keyof LegalChangeForm, string>>;
+
+export type LegalChangeStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+
+/** The company's latest request to change its legal details. */
+export interface LegalChangeRequestView {
+  id: string;
+  status: LegalChangeStatus;
+  proposed: LegalDetails;
+  reason: string;
+  requestedBy: string;
+  requestedAt: string;
+  rejectionReason: string | null;
+}
+
+export interface CompanySetupPage {
+  legal: LegalDetails;
+  form: CompanyProfileForm;
+  /** The company default shift (read-only here: Attendance → Shifts owns it). */
+  schedule: CompanyWorkSchedule;
+  request: LegalChangeRequestView | null;
+  /** False when the platform could not be reached (requests can't be made now). */
+  platform: boolean;
+  /** Organization → Edit with a company-wide role (buttons only; the server checks again). */
+  canEdit: boolean;
 }

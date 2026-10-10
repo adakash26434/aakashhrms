@@ -1,16 +1,10 @@
-import { getDb } from '@/lib/db';
+import { getDb, type TenantDb } from '@/lib/db';
 import { systemConfig, branches } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 import type {
   CompanyWorkSchedule,
+  CompanyProfileForm,
   CompanyProfileSetupData,
-  CompanyMasterSetupData,
 } from '@/lib/types/company-setup';
-import { findAllShreniLevels } from './shreni.repository';
-import { findAllBranches } from './branch.repository';
-import { findAllDepartments } from './department.repository';
-import { findAllDesignations } from './designation.repository';
-import { findAllEmploymentTypes } from './employment-type.repository';
 
 export async function getCompanyWorkSchedule(): Promise<CompanyWorkSchedule> {
   const db = (await getDb());
@@ -90,7 +84,6 @@ export async function getCompanyProfileSetup(): Promise<CompanyProfileSetupData>
     contactPhone: configMap.get('company_phone') || primaryBranch?.phone || '',
     headOfficeAddress: configMap.get('company_office_address') || primaryBranch?.location || '',
     headOfficeBranchCode: primaryBranch?.code || 'HO-01',
-    logoUrl: configMap.get('company_logo_url') || '',
     signatory1Name: configMap.get('company_signatory1_name') || '',
     signatory1Title: configMap.get('company_signatory1_title') || '',
     signatory2Name: configMap.get('company_signatory2_name') || '',
@@ -98,40 +91,33 @@ export async function getCompanyProfileSetup(): Promise<CompanyProfileSetupData>
   };
 }
 
-export async function saveCompanyProfileSetup(data: CompanyProfileSetupData): Promise<void> {
-  const db = (await getDb());
-  // Only Tier 2 fields are self-service editable by tenant
+/** Saves what the company edits itself (the legal details come from the platform). */
+export async function saveProfileFields(f: CompanyProfileForm): Promise<void> {
   const entries: Array<{ key: string; value: string }> = [
-    { key: 'company_display_name', value: (data.displayName || data.legalName).trim() },
-    { key: 'company_email', value: data.contactEmail.trim() },
-    { key: 'company_phone', value: data.contactPhone.trim() },
-    { key: 'company_logo_url', value: data.logoUrl?.trim() || '' },
-    { key: 'company_signatory1_name', value: data.signatory1Name?.trim() || '' },
-    { key: 'company_signatory1_title', value: data.signatory1Title?.trim() || '' },
-    { key: 'company_signatory2_name', value: data.signatory2Name?.trim() || '' },
-    { key: 'company_signatory2_title', value: data.signatory2Title?.trim() || '' },
+    { key: 'company_display_name', value: f.displayName },
+    { key: 'company_email', value: f.contactEmail },
+    { key: 'company_phone', value: f.contactPhone },
+    { key: 'company_signatory1_name', value: f.signatory1Name },
+    { key: 'company_signatory1_title', value: f.signatory1Title },
+    { key: 'company_signatory2_name', value: f.signatory2Name },
+    { key: 'company_signatory2_title', value: f.signatory2Title },
   ];
-
-  for (const item of entries) {
-    await db
-      .insert(systemConfig)
-      .values({
-        key: item.key,
-        value: item.value,
-        dataType: 'string',
-      })
-      .onConflictDoUpdate({
-        target: systemConfig.key,
-        set: { value: item.value, updatedAt: new Date() },
-      });
-  }
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    for (const item of entries) {
+      await tx
+        .insert(systemConfig)
+        .values({ key: item.key, value: item.value, dataType: 'string' })
+        .onConflictDoUpdate({ target: systemConfig.key, set: { value: item.value, updatedAt: new Date() } });
+    }
+  });
 }
 
 /**
  * Synchronizes Tier 1 legal fields directly to tenant systemConfig upon Super Admin verification/approval
  */
 export async function syncCompanyTier1Fields(
-  tenantDb: any,
+  tenantDb: TenantDb,
   tier1: {
     legalName: string;
     panVatNumber?: string | null;
@@ -162,38 +148,4 @@ export async function syncCompanyTier1Fields(
         set: { value: item.value, updatedAt: new Date() },
       });
   }
-}
-
-
-/**
- * Loads complete organizational master setup bundle in parallel
- */
-export async function getCompanyMasterSetupBundle(): Promise<CompanyMasterSetupData> {
-  const [
-    shreniLevels,
-    branches,
-    departments,
-    designations,
-    employmentTypes,
-    workSchedule,
-    companyProfile,
-  ] = await Promise.all([
-    findAllShreniLevels(),
-    findAllBranches(),
-    findAllDepartments(),
-    findAllDesignations(),
-    findAllEmploymentTypes(),
-    getCompanyWorkSchedule(),
-    getCompanyProfileSetup(),
-  ]);
-
-  return {
-    shreniLevels,
-    branches,
-    departments,
-    designations,
-    employmentTypes,
-    workSchedule,
-    companyProfile,
-  };
 }

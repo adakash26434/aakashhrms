@@ -356,3 +356,51 @@ describe('S52 holidays: scope, closed months and an audit line for every change'
     }
   });
 });
+
+// Company setup (4.12c, S53). Found while migrating: saving the company profile and asking the
+// platform to change the legal details checked Organization → Edit without scope (a branch or
+// department role, or platform support, changed the signatories every letter and salary sheet
+// prints, and filed requests in the company's name); withdrawing a request looked it up by id
+// only — any company's waiting request could be withdrawn by its id; nothing was audited; raw
+// errors were returned; two unused actions stayed public endpoints (reading the whole setup bundle,
+// writing the work schedule keys the default shift owns); a free "logo URL" was stored unchecked.
+describe('S53 company setup: a company-wide role, the own company only, every change audited', () => {
+  const actions = read('app/actions/company-setup.actions.ts');
+  const service = read('lib/services/company-setup.service.ts');
+  const platform = read('lib/platform/company-details.ts');
+  const repo = read('lib/repositories/company-setup.repository.ts');
+  const page = read('app/(dashboard)/setup/company-setup/page.tsx');
+
+  it('changes need Organization → Edit with a company-wide role; reading needs View; errors are safe', () => {
+    assert.match(actions, /^'use server';/);
+    assert.match(fn(actions, 'saveCompanyProfileAction'), /const scope = await checkCompanyControl\('EDIT', 'ORG_STRUCTURE'\);\s*const result = await service\.saveCompanyProfile\(input, \{ userId: scope\.userId \}\);/);
+    for (const [action, call] of [['requestLegalChangeAction', 'requestLegalChange'], ['cancelLegalChangeAction', 'cancelLegalChange']]) {
+      assert.match(fn(actions, action), new RegExp(`const scope = await checkCompanyControl\\('EDIT', 'ORG_STRUCTURE'\\);\\s*(const result = )?await service\\.${call}\\(`), action);
+    }
+    assert.match(fn(actions, 'companySetupPageAction'), /checkPermissionWithScope\('VIEW', 'ORG_STRUCTURE'\)/);
+    assert.match(page, /checkPermissionWithScope\("VIEW", "ORG_STRUCTURE"\)/);
+    for (const [action, context] of [['saveCompanyProfileAction', 'save'], ['requestLegalChangeAction', 'request'], ['cancelLegalChangeAction', 'cancel'], ['companySetupPageAction', 'page']]) {
+      assert.match(fn(actions, action), new RegExp(`return toActionError\\(error, 'company-setup\\.${context}'\\);`), action);
+    }
+    assert.equal(actions.match(/error\.message/g)?.length, 2, 'only the checked forms\' messages');
+    assert.doesNotMatch(actions, /getCompanyMasterSetupAction|saveCompanyWorkScheduleAction|submitCompanyChangeRequestAction|getCompanyChangeRequestStatusAction|checkPermission\('EDIT'/);
+  });
+
+  it('requests are for the signed-in user\'s own company, withdrawn only by it', () => {
+    assert.match(fn(service, 'contextFor'), /const session = await auth\(\);[\s\S]*resolvePlatformCompanyForTenant\(session\?\.user\?\.tenantSlug \|\| undefined\)/);
+    assert.doesNotMatch(actions, /companyId/, 'never from the browser');
+    const cancel = fn(platform, 'cancelDetailsRequest');
+    assert.match(cancel, /eq\(companyChangeRequests\.id, p\.requestId\),\s*eq\(companyChangeRequests\.companyId, p\.companyId\),\s*eq\(companyChangeRequests\.kind, COMPANY_DETAILS\),\s*eq\(companyChangeRequests\.status, 'PENDING'\)/);
+    const create = fn(platform, 'createDetailsRequest');
+    assert.ok(create.indexOf(".for('update')") < create.indexOf('.insert(companyChangeRequests)'), 'one waiting request, checked under the company row lock');
+  });
+
+  it('every change is audited with the user; only the company\'s own keys are written', () => {
+    assert.match(fn(service, 'saveCompanyProfile'), /recordAuditLog\(\{\s*userId: ctx\.userId,\s*action: "EDIT",\s*module: "ORG_STRUCTURE",\s*recordId: "Company profile"/);
+    assert.match(fn(service, 'requestLegalChange'), /recordAuditLog\(\{\s*userId: ctx\.userId,\s*action: "ADD",\s*module: "ORG_STRUCTURE"/);
+    assert.match(fn(service, 'cancelLegalChange'), /recordAuditLog\(\{ userId: ctx\.userId, action: "EDIT", module: "ORG_STRUCTURE"/);
+    const save = fn(repo, 'saveProfileFields');
+    assert.doesNotMatch(save, /company_legal_name|company_pan_vat|company_registration_no|company_office_address|company_logo_url/);
+    assert.doesNotMatch(repo, /company_logo_url/);
+  });
+});

@@ -1,207 +1,68 @@
 'use server';
 
-import { ensureTenantContext } from '@/lib/db';
-import { checkPermission } from '@/lib/auth/check-permission';
-import { auth } from '@/lib/auth';
-import { platformDb, ensurePlatformTablesExist } from '@/lib/platform/db';
-import { companyChangeRequests, type CompanyChangeRequest } from '@/lib/platform/schema';
-import { resolvePlatformCompanyForTenant, type Tier1CompanyValues } from '@/lib/platform/company-resolver';
-import { eq, and, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { ensureTenantContext } from '@/lib/db';
+import { checkCompanyControl, checkPermissionWithScope, hasPermission } from '@/lib/auth/check-permission';
+import { toActionError } from '@/lib/errors/action-error';
+import * as service from '@/lib/services/company-setup.service';
 
-import {
-  getCompanyMasterSetupBundle,
-  saveCompanyWorkSchedule,
-  saveCompanyProfileSetup,
-} from '@/lib/repositories/company-setup.repository';
-import type {
-  CompanyWorkSchedule,
-  CompanyProfileSetupData,
-} from '@/lib/types/company-setup';
+// Company setup (4.12c, S53): reading needs Organization → View; saving the company's details and
+// asking the platform to change the legal ones need Organization → Edit with a company-wide role,
+// never platform support (checkCompanyControl). The company is always the signed-in user's own,
+// resolved from the session — never from the browser.
 
-export async function getCompanyMasterSetupAction() {
+const revalidate = () => {
+  revalidatePath('/setup/company-setup');
+  revalidatePath('/setup');
+};
+
+export async function companySetupPageAction() {
   await ensureTenantContext();
   try {
-    await checkPermission('VIEW', 'ORG_STRUCTURE');
-    const data = await getCompanyMasterSetupBundle();
-    return { success: true, data };
+    const scope = await checkPermissionWithScope('VIEW', 'ORG_STRUCTURE');
+    const canEdit = scope.scopeType === 'GLOBAL' && !scope.isImpersonation && (await hasPermission('EDIT', 'ORG_STRUCTURE'));
+    return { success: true as const, data: await service.companySetupPage(await service.contextFor(scope.userId, canEdit)) };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to load company master setup';
-    return { success: false, error: msg };
+    return toActionError(error, 'company-setup.page');
   }
 }
 
-export async function saveCompanyWorkScheduleAction(data: CompanyWorkSchedule) {
+export async function saveCompanyProfileAction(input: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'ORG_STRUCTURE');
-    await saveCompanyWorkSchedule(data);
-    revalidatePath('/setup/company-setup');
-    revalidatePath('/setup/system-control');
-    return { success: true };
+    const scope = await checkCompanyControl('EDIT', 'ORG_STRUCTURE');
+    const result = await service.saveCompanyProfile(input, { userId: scope.userId });
+    revalidate();
+    return { success: true as const, data: result };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to save work schedule';
-    return { success: false, error: msg };
+    if (error instanceof service.CompanyProfileValidationError) return { success: false as const, error: error.message, validationErrors: error.errors };
+    return toActionError(error, 'company-setup.save');
   }
 }
 
-export async function saveCompanyProfileAction(data: CompanyProfileSetupData) {
+/** Asks the platform to change the company's legal details. */
+export async function requestLegalChangeAction(input: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'ORG_STRUCTURE');
-    if (!data.legalName?.trim()) {
-      return { success: false, error: 'Company legal name is required' };
-    }
-    await saveCompanyProfileSetup(data);
-    revalidatePath('/setup/company-setup');
-    return { success: true };
+    const scope = await checkCompanyControl('EDIT', 'ORG_STRUCTURE');
+    const result = await service.requestLegalChange(input, await service.contextFor(scope.userId, true));
+    revalidate();
+    return { success: true as const, data: result };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to update company profile';
-    return { success: false, error: msg };
+    if (error instanceof service.LegalChangeValidationError) return { success: false as const, error: error.message, validationErrors: error.errors };
+    return toActionError(error, 'company-setup.request');
   }
 }
 
-// -----------------------------------------------------------------------------
-// CHANGE REQUEST & VERIFICATION WORKFLOW ACTIONS
-// -----------------------------------------------------------------------------
-
-export async function submitCompanyChangeRequestAction(payload: {
-  proposedValues: Tier1CompanyValues;
-  reason: string;
-  documentReference?: string;
-}) {
+/** Withdraws the company's own waiting request. */
+export async function cancelLegalChangeAction(requestId: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('EDIT', 'ORG_STRUCTURE');
-    await ensurePlatformTablesExist();
-
-    const session = await auth();
-    const company = await resolvePlatformCompanyForTenant(session?.user?.tenantSlug || undefined);
-
-    // Validate non-empty inputs
-    if (!payload.proposedValues?.legalName?.trim()) {
-      return { success: false, error: 'Legal company name is required.' };
-    }
-    if (!payload.reason || payload.reason.trim().length < 8) {
-      return {
-        success: false,
-        error: 'Please provide a clear justification for this change request (at least 8 characters).',
-      };
-    }
-
-    // Check if an existing PENDING request exists
-    const [existingPending] = await platformDb
-      .select({ id: companyChangeRequests.id })
-      .from(companyChangeRequests)
-      .where(
-        and(
-          eq(companyChangeRequests.companyId, company.id),
-          eq(companyChangeRequests.kind, 'company_details'),
-          eq(companyChangeRequests.status, 'PENDING')
-        )
-      )
-      .limit(1);
-
-    if (existingPending) {
-      return {
-        success: false,
-        error:
-          'A pending change request is already awaiting Super Admin review. Please wait for verification or cancel the current request before submitting a new one.',
-      };
-    }
-
-    const currentValues: Tier1CompanyValues = {
-      legalName: company.legalName,
-      panVatNumber: company.panVatNumber || '',
-      registrationNumber: company.registrationNumber || '',
-      industryType: company.industryType || 'General',
-      headOfficeAddress: company.headOfficeAddress || '',
-    };
-
-    const [newRequest] = await platformDb
-      .insert(companyChangeRequests)
-      .values({
-        companyId: company.id,
-        requestedByUserId: session?.user?.id || null,
-        requestedByUserEmail: session?.user?.email || 'admin@tenant.local',
-        status: 'PENDING',
-        currentValues,
-        proposedValues: {
-          legalName: payload.proposedValues.legalName.trim(),
-          panVatNumber: (payload.proposedValues.panVatNumber || '').trim(),
-          registrationNumber: (payload.proposedValues.registrationNumber || '').trim(),
-          industryType: (payload.proposedValues.industryType || 'General').trim(),
-          headOfficeAddress: (payload.proposedValues.headOfficeAddress || '').trim(),
-        },
-        reason: payload.reason.trim(),
-        documentReference: payload.documentReference?.trim() || null,
-      })
-      .returning();
-
-    revalidatePath('/setup/company-setup');
-    return { success: true, data: newRequest };
+    const scope = await checkCompanyControl('EDIT', 'ORG_STRUCTURE');
+    await service.cancelLegalChange(String(requestId), await service.contextFor(scope.userId, true));
+    revalidate();
+    return { success: true as const };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to submit change request';
-    return { success: false, error: msg };
+    return toActionError(error, 'company-setup.cancel');
   }
 }
-
-export async function cancelCompanyChangeRequestAction(requestId: string) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('EDIT', 'ORG_STRUCTURE');
-    await ensurePlatformTablesExist();
-
-    const [request] = await platformDb
-      .select()
-      .from(companyChangeRequests)
-      .where(and(eq(companyChangeRequests.id, requestId), eq(companyChangeRequests.kind, 'company_details')))
-      .limit(1);
-
-    if (!request) {
-      return { success: false, error: 'Change request not found.' };
-    }
-
-    if (request.status !== 'PENDING') {
-      return { success: false, error: 'Only pending requests can be cancelled.' };
-    }
-
-    await platformDb
-      .update(companyChangeRequests)
-      .set({
-        status: 'CANCELLED',
-        updatedAt: new Date(),
-      })
-      .where(eq(companyChangeRequests.id, requestId));
-
-    revalidatePath('/setup/company-setup');
-    return { success: true };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to cancel change request';
-    return { success: false, error: msg };
-  }
-}
-
-export async function getCompanyChangeRequestStatusAction() {
-  await ensureTenantContext();
-  try {
-    await checkPermission('VIEW', 'ORG_STRUCTURE');
-    await ensurePlatformTablesExist();
-
-    const session = await auth();
-    const company = await resolvePlatformCompanyForTenant(session?.user?.tenantSlug || undefined);
-
-    const [latest] = await platformDb
-      .select()
-      .from(companyChangeRequests)
-      .where(and(eq(companyChangeRequests.companyId, company.id), eq(companyChangeRequests.kind, 'company_details')))
-      .orderBy(desc(companyChangeRequests.createdAt))
-      .limit(1);
-
-    return { success: true, data: latest || null };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to load change request status';
-    return { success: false, error: msg };
-  }
-}
-

@@ -1,205 +1,339 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import type { CompanyMasterSetupData } from "@/lib/types/company-setup";
+import { useRef, useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
+import { Clock3, FileSignature, Loader2, RefreshCw, Save, Send } from "lucide-react";
+import { PageBar } from "@/components/frame/page-bar";
+import { Confirm } from "@/components/kit/confirm";
+import { DateCell } from "@/components/kit/date-cell";
+import { Notice, type NoticeTone } from "@/components/kit/notice";
+import { FieldGroup, FieldRow, PropertyForm, inputClass } from "@/components/kit/property-form";
+import { SectionIndex } from "@/components/kit/section-index";
+import { SelectField } from "@/components/kit/select-field";
+import { Window, WindowButton, WindowCancel } from "@/components/kit/window";
+import { cancelLegalChangeAction, companySetupPageAction, requestLegalChangeAction, saveCompanyProfileAction } from "@/app/actions/company-setup.actions";
+import {
+  LEGAL_LABEL,
+  PROFILE_KEYS,
+  industryLabel,
+  legalChangeIsValid,
+  legalChanges,
+  normalizeLegalChange,
+  normalizeProfileForm,
+  profileChanges,
+  profileIsValid,
+  validateLegalChange,
+  validateProfileForm,
+} from "@/lib/engines/company-profile.engine";
+import { INDUSTRY_SECTORS, type IndustrySectorKey } from "@/lib/constants/industry-types";
+import type { CompanyProfileErrors, CompanyProfileForm, CompanySetupPage, LegalChangeErrors, LegalChangeForm, LegalDetails } from "@/lib/types/company-setup";
+import { cn } from "@/lib/utils";
 
-// Shared Layout Primitives
-import { PageFrame } from "@/components/layout/page-frame";
+// Company setup (4.12c, template E): the legal registration the platform keeps (changed through
+// a request it approves), the company's own contacts and the signatories printed on letters and
+// reports, and the work schedule (the default shift, edited under Attendance → Shifts).
 
-// Sub-components
-import { WorkScheduleTab } from "./work-schedule-tab";
-import { CompanyProfileTab } from "./company-profile-tab";
-import { CompanySetupInnerNav, type CompanySetupSection } from "./company-setup-inner-nav";
-
-export type MasterSetupTab = CompanySetupSection;
-
-/** The payroll sub-tabs older links name (?section=payroll_rules&tab=…); each has its own page now. */
-type PayrollRuleTab = "fiscal-year" | "tax-rates" | "pay-heads" | "rules-defaults";
-
-function normalizePayrollRuleTab(rawTab?: string | null): PayrollRuleTab {
-  const t = (rawTab ?? "").toLowerCase().replace(/_/g, "-");
-  if (["tax-rates", "taxrates", "tax"].includes(t)) return "tax-rates";
-  if (["pay-heads", "payheads"].includes(t)) return "pay-heads";
-  if (["rules-defaults", "rules", "system-control", "systemcontrol", "defaults"].includes(t)) return "rules-defaults";
-  return "fiscal-year";
-}
-
-/**
- * Sections that moved to their own pages: organization units to Workforce →
- * Organization (4.3); fiscal years, tax slabs, rules & controls and pay heads
- * to Setup (4.12).
- */
-const MOVED: Record<string, string> = {
-  organization: "/workforce/organization?tab=structure",
-  branches: "/workforce/organization?tab=branches",
-  departments: "/workforce/organization?tab=departments",
-  designations: "/workforce/organization?tab=designations",
-  shreni: "/workforce/organization?tab=levels",
-  employment_types: "/workforce/organization?tab=types",
-  fiscal_year: "/setup/fiscal-year",
-  tax_rates: "/setup/tax-rates",
-  system_control: "/setup/system-control",
-  pay_heads: "/setup/pay-heads",
-};
-
-const VALID_TABS: MasterSetupTab[] = [
-  "company_profile",
-  "work_schedule",
-  "fiscal_year",
-  "tax_rates",
-  "pay_heads",
-  "system_control",
-  "payroll_rules",
+const SECTIONS = [
+  { id: "company-legal", label: "Legal registration", fields: [] as (keyof CompanyProfileForm)[] },
+  { id: "company-contact", label: "Contact", fields: ["displayName", "contactEmail", "contactPhone"] as (keyof CompanyProfileForm)[] },
+  { id: "company-signatories", label: "Signatories", fields: ["signatory1Name", "signatory1Title", "signatory2Name", "signatory2Title"] as (keyof CompanyProfileForm)[] },
+  { id: "company-schedule", label: "Work schedule", fields: [] as (keyof CompanyProfileForm)[] },
 ];
 
-interface CompanySetupClientProps {
-  initialData: CompanyMasterSetupData;
-  initialSection?: string;
-  initialTab?: string;
-}
+const shownLegal = (k: keyof LegalDetails, v: string) => (k === "industryType" ? industryLabel(v) : v || "Not set");
 
-export function CompanySetupClient({ initialData, initialSection, initialTab }: CompanySetupClientProps) {
-  const router = useRouter();
+export function CompanySetupClient({ initial }: { initial: CompanySetupPage }) {
+  const [page, setPage] = useState(initial);
+  const [form, setForm] = useState(initial.form);
+  const [tried, setTried] = useState(false);
+  const [serverErrors, setServerErrors] = useState<CompanyProfileErrors | null>(null);
+  const [notice, setNotice] = useState<{ tone: NoticeTone; text: string } | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [loading, start] = useTransition();
+  const formRef = useRef<HTMLDivElement>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
+  const edit = page.canEdit;
+  // Checked and compared as the server will store it (trimmed, the email in lower case).
+  const clean = normalizeProfileForm(form);
+  const errors: CompanyProfileErrors = serverErrors ?? (tried ? validateProfileForm(clean) : {});
+  const changes = profileChanges(page.form, clean);
+  const waiting = page.request?.status === "PENDING" ? page.request : null;
+  const rejected = page.request?.status === "REJECTED" ? page.request : null;
 
-  const resolveInitialState = (): { section: MasterSetupTab } => {
-    const s = (initialSection || "").toLowerCase().replace(/[- ]/g, "_");
-    const t = (initialTab || "").toLowerCase().replace(/[- ]/g, "_");
-
-    if (s === "fiscal_year" || s === "fy") return { section: "fiscal_year" };
-    if (s === "tax_rates" || s === "tax") return { section: "tax_rates" };
-    if (s === "pay_heads" || s === "payheads") return { section: "pay_heads" };
-    if (s === "system_control" || s === "rules_defaults" || s === "rules") return { section: "system_control" };
-
-    if (t === "fiscal_year" || t === "fiscalyear" || t === "fy") return { section: "fiscal_year" };
-    if (t === "tax_rates" || t === "taxrates" || t === "tax") return { section: "tax_rates" };
-    if (t === "pay_heads" || t === "payheads") return { section: "pay_heads" };
-    if (t === "rules_defaults" || t === "system_control" || t === "systemcontrol" || t === "rules" || t === "defaults") {
-      return { section: "system_control" };
-    }
-
-    if (s === "payroll_rules" || s === "payroll") {
-      const sub = normalizePayrollRuleTab(initialTab);
-      if (sub === "tax-rates") return { section: "tax_rates" };
-      if (sub === "pay-heads") return { section: "pay_heads" };
-      if (sub === "rules-defaults") return { section: "system_control" };
-      return { section: "fiscal_year" };
-    }
-
-    if (s && VALID_TABS.includes(s as MasterSetupTab)) {
-      return { section: s as MasterSetupTab };
-    }
-    if (t && VALID_TABS.includes(t as MasterSetupTab)) {
-      return { section: t as MasterSetupTab };
-    }
-    return { section: "company_profile" };
+  const set = (key: keyof CompanyProfileForm, value: string) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setServerErrors(null);
   };
 
-  const initialResolved = resolveInitialState();
-  const movedTo =
-    MOVED[initialResolved.section] ??
-    [initialSection, initialTab].map((v) => MOVED[(v || "").toLowerCase().replace(/[- ]/g, "_")]).find(Boolean);
-  React.useEffect(() => {
-    if (movedTo) router.replace(movedTo);
-  }, [movedTo, router]);
-  const [activeTab, setActiveTab] = useState<MasterSetupTab>(initialResolved.section);
+  const reload = (message?: { tone: NoticeTone; text: string }) =>
+    start(async () => {
+      const result = await companySetupPageAction();
+      if (!result.success) return setNotice({ tone: "danger", text: result.error });
+      setPage(result.data);
+      setForm(result.data.form);
+      setTried(false);
+      setServerErrors(null);
+      setNotice(message ?? null);
+    });
 
-  const handleSectionClick = (tabId: MasterSetupTab) => {
-    if (MOVED[tabId]) {
-      router.push(MOVED[tabId]);
+  const save = () => {
+    setTried(true);
+    const problems = validateProfileForm(clean);
+    if (!profileIsValid(problems)) {
+      setNotice({ tone: "danger", text: "Check the highlighted fields." });
+      const first = PROFILE_KEYS.find((k) => problems[k]);
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus());
       return;
     }
-    setActiveTab(tabId);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("section", tabId);
-      url.searchParams.delete("tab");
-      window.history.replaceState({}, "", url.toString());
-    }
+    if (!changes.length) return;
+    start(async () => {
+      const result = await saveCompanyProfileAction(form);
+      if (!result.success) {
+        if ("validationErrors" in result && result.validationErrors) setServerErrors(result.validationErrors);
+        return setNotice({ tone: "danger", text: result.error });
+      }
+      reload({ tone: "success", text: `Saved: ${result.data.changed.join(", ")}.` });
+    });
   };
 
-  // State
-  const [workSchedule, setWorkSchedule] = useState(initialData.workSchedule);
-  const [companyProfile, setCompanyProfile] = useState(initialData.companyProfile);
+  const sectionItems = SECTIONS.map((s) => {
+    const n = s.fields.filter((f) => errors[f]).length;
+    return { id: s.id, label: s.label, state: n ? ("error" as const) : ("optional" as const), errors: n };
+  });
 
+  const input = (key: keyof CompanyProfileForm, label: string, help?: string, extra?: { type?: string; placeholder?: string; required?: boolean }) => (
+    <FieldRow label={label} required={extra?.required} help={help} error={errors[key] ?? null}>
+      <input
+        name={key}
+        type={extra?.type ?? "text"}
+        className={inputClass}
+        value={form[key]}
+        placeholder={extra?.placeholder}
+        readOnly={!edit}
+        onChange={(e) => set(key, e.target.value)}
+        aria-invalid={!!errors[key] || undefined}
+      />
+    </FieldRow>
+  );
+  const fact = (label: string, value: ReactNode) => (
+    <FieldRow label={label}>
+      <p className="pt-1.5 text-sm text-ink">{value}</p>
+    </FieldRow>
+  );
+
+  const askReason = waiting ? "A request already waits for the platform" : !page.platform ? "The platform can't be reached right now" : undefined;
   return (
-    <PageFrame size="wide" spacing="default">
-      {/* Institutional Page Masthead */}
-      <header className="pb-6 border-b border-slate-200/80">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Company setup
-              </h1>
-              <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 border border-emerald-200/60">
-                Active organization
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-slate-500 max-w-2xl leading-relaxed">
-              Legal identity credentials, operating schedules, employment classifications, Shreni career progression, and statutory payroll configuration.
-            </p>
-          </div>
+    <div>
+      <PageBar
+        title="Company setup"
+        description="The legal registration, contacts, the signatories on letters and reports, and the work schedule"
+        actions={[
+          { id: "save", label: "Save", icon: Save, group: "create", primary: true, shortcut: "Ctrl+S", hidden: !edit, disabled: loading || !changes.length, disabledReason: changes.length ? undefined : "Nothing changed yet", onClick: save },
+          { id: "ask", label: "Request a legal change…", icon: Send, group: "output", hidden: !edit, disabled: loading || !!askReason, disabledReason: askReason, onClick: () => setAsking(true) },
+          { id: "refresh", label: loading ? "Loading…" : "Refresh", icon: RefreshCw, group: "refresh", disabled: loading, onClick: () => reload() },
+        ]}
+      />
+      {notice && (
+        <Notice tone={notice.tone} className="mb-3" onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Notice>
+      )}
+      {waiting && (
+        <Notice tone="warning" className="mb-3">
+          A change of the legal details waits for the platform — asked by {waiting.requestedBy} on <DateCell value={waiting.requestedAt.slice(0, 10)} variant="long" />:{" "}
+          {legalChanges(page.legal, waiting.proposed)
+            .map((k) => `${LEGAL_LABEL[k]} → ${shownLegal(k, waiting.proposed[k])}`)
+            .join("; ") || "no change"}
+          .{" "}
+          {edit && (
+            <button type="button" className="font-medium underline underline-offset-2" onClick={() => setWithdrawing(true)}>
+              Withdraw the request
+            </button>
+          )}
+        </Notice>
+      )}
+      {rejected && (
+        <Notice tone="danger" className="mb-3">
+          The platform did not approve the last change of the legal details{rejected.rejectionReason ? `: ${rejected.rejectionReason}` : "."}
+        </Notice>
+      )}
+      {!page.platform && <Notice tone="info" className="mb-3">The platform can&apos;t be reached right now: the legal details shown are the company&apos;s copy, and change requests wait until it is back.</Notice>}
+      {!edit && <Notice tone="info" className="mb-3">Changing these needs Organization → Edit with a company-wide role.</Notice>}
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200/80 rounded-lg px-3.5 py-2">
-            <div>
-              <span className="text-slate-400 mr-1.5">Entity:</span>
-              <span className="font-semibold text-slate-900">
-                {companyProfile.displayName || companyProfile.legalName}
-              </span>
-            </div>
-            {companyProfile.panVatNumber && (
-              <div>
-                <span className="text-slate-400 mr-1.5">PAN / VAT:</span>
-                <span className="font-mono font-medium text-slate-800">
-                  {companyProfile.panVatNumber}
-                </span>
+      <div className="@container">
+        <div className="grid gap-4 @min-[66rem]:grid-cols-[12rem_minmax(0,1fr)]">
+          <SectionIndex className="sticky top-4 self-start" label="Company" items={sectionItems} />
+          <div ref={formRef} className="min-w-0">
+            <PropertyForm enterNavigation={edit ? { end: () => saveRef.current } : undefined} onSubmit={edit ? save : undefined}>
+              <section id="company-legal">
+                <FieldGroup title="Legal registration" description="Kept by the platform from the company's registration. Ask for a change with the documents: it applies when the platform approves it.">
+                  {(Object.keys(LEGAL_LABEL) as (keyof LegalDetails)[]).map((k) => (
+                    <div key={k}>{fact(LEGAL_LABEL[k], <span className={cn(page.legal[k] && (k === "panVatNumber" || k === "registrationNumber") && "font-code tabular-nums", !page.legal[k] && "text-ink-faint")}>{shownLegal(k, page.legal[k])}</span>)}</div>
+                  ))}
+                </FieldGroup>
+              </section>
+              <section id="company-contact">
+                <FieldGroup title="Contact" description="The name the company works under and how to reach its office.">
+                  {input("displayName", "Display name", "Shown beside the legal name, e.g. on the self-service portal.", { required: true })}
+                  {input("contactEmail", "Email", undefined, { type: "email", placeholder: "info@company.com" })}
+                  {input("contactPhone", "Phone", undefined, { type: "tel", placeholder: "061-123456" })}
+                </FieldGroup>
+              </section>
+              <section id="company-signatories">
+                <FieldGroup title="Signatories" description="Printed under letters, salary sheets, tax certificates and settlement statements.">
+                  {input("signatory1Name", "Prepared / verified by", undefined, { placeholder: "e.g. Ramesh Shrestha" })}
+                  {input("signatory1Title", "Title", undefined, { placeholder: "e.g. Accounts Officer" })}
+                  {input("signatory2Name", "Authorised / approved by", undefined, { placeholder: "e.g. Sita Sharma" })}
+                  {input("signatory2Title", "Title", undefined, { placeholder: "e.g. Chief Executive Officer" })}
+                </FieldGroup>
+              </section>
+              <section id="company-schedule">
+                <FieldGroup title="Work schedule" description="The company's default shift. Working hours are set per shift, so branches and teams can work different hours.">
+                  {fact("Office hours", `${page.schedule.coreStartTime} – ${page.schedule.coreEndTime}`)}
+                  {fact("Weekly off", page.schedule.weeklyOffDays.length ? page.schedule.weeklyOffDays.join(", ") : "None")}
+                  {fact("Working days a week", String(page.schedule.workingDaysPerWeek))}
+                  {fact("Break", `${page.schedule.lunchBreakMinutes} minutes`)}
+                  {fact("Grace", `${page.schedule.gracePeriodMinutes} minutes`)}
+                  {fact("Half day from", `${page.schedule.halfDayThresholdHours} hours`)}
+                  <div className="px-4 py-3">
+                    <Link href="/timeAndLeave/attendance?tab=shifts" className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-strong hover:underline">
+                      <Clock3 className="h-3.5 w-3.5" aria-hidden /> Edit in Attendance → Shifts
+                    </Link>
+                  </div>
+                </FieldGroup>
+              </section>
+            </PropertyForm>
+            {edit && (
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <span className="mr-auto text-2xs text-ink-muted">{changes.length ? `${changes.length} change${changes.length === 1 ? "" : "s"} not saved` : "No changes"}</span>
+                <WindowButton onClick={() => (setForm(page.form), setTried(false), setServerErrors(null))} disabled={!changes.length || loading}>
+                  Undo changes
+                </WindowButton>
+                <WindowButton ref={saveRef} variant="primary" onClick={save} disabled={!changes.length || loading}>
+                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
+                </WindowButton>
               </div>
             )}
           </div>
         </div>
-      </header>
-
-      {/* Settings Workspace Grid: Left Navigation Rail + Right Active Canvas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-6">
-        {/* Left Settings Rail (3 cols on lg+) */}
-        <div className="lg:col-span-4 xl:col-span-3">
-          <CompanySetupInnerNav
-            activeSection={activeTab}
-            onSelectSection={(sec) => handleSectionClick(sec)}
-            sectionCounts={{
-              workDays: workSchedule.workingDaysPerWeek,
-            }}
-          />
-        </div>
-
-        {/* Right Active Settings Canvas (8-9 cols on lg+) */}
-        <div className="lg:col-span-8 xl:col-span-9 min-w-0">
-          <div className="rounded-xl border border-slate-200/90 bg-white p-6 sm:p-8 lg:p-10 shadow-xs min-h-160">
-            {/* General Section 1: Company Profile */}
-            {activeTab === "company_profile" && (
-              <CompanyProfileTab
-                profile={companyProfile}
-                onProfileChange={(updated) => setCompanyProfile(updated)}
-              />
-            )}
-
-            {/* General Section 2: Work Schedule */}
-            {activeTab === "work_schedule" && (
-              <WorkScheduleTab
-                schedule={workSchedule}
-                onScheduleChange={(updated) => setWorkSchedule(updated)}
-              />
-            )}
-
-            {/* Fiscal years and tax slabs have their own pages under Setup (4.12): see MOVED. */}
-
-            {/* Pay heads have their own page under Setup (4.12b): see MOVED. */}
-            {/* Rules & controls has its own page under Setup (4.12b): see MOVED. */}
-          </div>
-        </div>
       </div>
 
-    </PageFrame>
+      {asking && (
+        <LegalChangeWindow
+          legal={page.legal}
+          onClose={() => setAsking(false)}
+          onSent={() => {
+            setAsking(false);
+            reload({ tone: "success", text: "Sent to the platform: the legal details change when it approves the request." });
+          }}
+        />
+      )}
+      <Confirm
+        open={withdrawing}
+        title="Withdraw the request?"
+        message="The platform stops reviewing it; the legal details stay as they are."
+        confirmLabel="Withdraw"
+        onConfirm={async () => {
+          if (!waiting) return;
+          const result = await cancelLegalChangeAction(waiting.id);
+          if (!result.success) throw new Error(result.error);
+          setWithdrawing(false);
+          reload({ tone: "success", text: "The request was withdrawn." });
+        }}
+        onCancel={() => setWithdrawing(false)}
+      />
+    </div>
+  );
+}
+
+function LegalChangeWindow({ legal, onClose, onSent }: { legal: LegalDetails; onClose: () => void; onSent: () => void }) {
+  const initial: LegalChangeForm = { ...legal, industryType: legal.industryType in INDUSTRY_SECTORS ? legal.industryType : "", reason: "", reference: "" };
+  const [form, setForm] = useState<LegalChangeForm>(initial);
+  const [tried, setTried] = useState(false);
+  const [serverErrors, setServerErrors] = useState<LegalChangeErrors | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [sending, start] = useTransition();
+  const sendRef = useRef<HTMLButtonElement>(null);
+  // Checked as the server will read it (trimmed, the PAN without spaces).
+  const clean = normalizeLegalChange(form);
+  const errors: LegalChangeErrors = serverErrors ?? (tried ? validateLegalChange(clean, legal) : {});
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+
+  const set = (key: keyof LegalChangeForm, value: string) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setServerErrors(null);
+    setFailure(null);
+  };
+  const send = () =>
+    start(async () => {
+      setTried(true);
+      if (!legalChangeIsValid(validateLegalChange(clean, legal))) return setFailure("Check the highlighted fields.");
+      const result = await requestLegalChangeAction(form);
+      if (result.success) return onSent();
+      setFailure(result.error);
+      if ("validationErrors" in result && result.validationErrors) setServerErrors(result.validationErrors);
+    });
+
+  const field = (key: keyof LegalChangeForm, label: string, control: ReactNode, opts?: { required?: boolean; help?: string }) => (
+    <FieldRow label={label} required={opts?.required} help={opts?.help} error={errors[key] ?? null}>
+      {control}
+    </FieldRow>
+  );
+  const text = (key: keyof LegalChangeForm, extra?: { mono?: boolean; placeholder?: string }) => (
+    <input name={key} className={cn(inputClass, extra?.mono && "font-code")} value={form[key]} placeholder={extra?.placeholder} onChange={(e) => set(key, e.target.value)} aria-invalid={!!errors[key] || undefined} />
+  );
+
+  return (
+    <Window
+      open
+      onClose={sending ? () => {} : onClose}
+      dirty={dirty}
+      size="md"
+      title="Request a legal change"
+      description="The platform checks it against the registrar's or IRD's documents; nothing changes until it approves."
+      footer={
+        <>
+          {failure && (
+            <p role="alert" className="mr-auto rounded-md border border-danger/30 bg-danger-subtle px-2.5 py-1 text-xs text-danger">
+              {failure}
+            </p>
+          )}
+          <WindowCancel disabled={sending} />
+          <WindowButton ref={sendRef} variant="primary" onClick={send} disabled={sending || !dirty}>
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSignature className="h-3.5 w-3.5" />} Send request
+          </WindowButton>
+        </>
+      }
+    >
+      <PropertyForm enterNavigation={{ end: () => sendRef.current }} onSubmit={send}>
+        <FieldGroup title="The details as they should be">
+          {field("legalName", LEGAL_LABEL.legalName, text("legalName"), { required: true })}
+          {field("panVatNumber", LEGAL_LABEL.panVatNumber, text("panVatNumber", { mono: true, placeholder: "9 digits" }))}
+          {field("registrationNumber", LEGAL_LABEL.registrationNumber, text("registrationNumber", { mono: true }))}
+          {field(
+            "industryType",
+            LEGAL_LABEL.industryType,
+            <SelectField
+              name="industryType"
+              options={(Object.keys(INDUSTRY_SECTORS) as IndustrySectorKey[]).map((k) => ({ value: k, label: INDUSTRY_SECTORS[k].label, hint: INDUSTRY_SECTORS[k].labelNepali }))}
+              value={form.industryType}
+              onChange={(v) => set("industryType", v)}
+            />,
+            { required: true }
+          )}
+          {field("headOfficeAddress", LEGAL_LABEL.headOfficeAddress, text("headOfficeAddress"))}
+        </FieldGroup>
+        <FieldGroup title="Why">
+          {field(
+            "reason",
+            "Reason",
+            <textarea name="reason" rows={3} className={cn(inputClass, "h-auto max-w-none py-1.5")} value={form.reason} placeholder="e.g. Renamed by the Office of the Company Registrar on 2083-05-12" onChange={(e) => set("reason", e.target.value)} aria-invalid={!!errors.reason || undefined} />,
+            { required: true }
+          )}
+          {field("reference", "Document reference", text("reference", { placeholder: "e.g. OCR letter 2083/84-014" }))}
+        </FieldGroup>
+      </PropertyForm>
+    </Window>
   );
 }

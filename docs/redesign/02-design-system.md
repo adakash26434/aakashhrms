@@ -1112,6 +1112,32 @@ Women only; All branches / Chosen branches as a tick list — a branch role
 gets only its own branches, ticked when there is one). After saving, a
 warning Notice counts approved leave inside the days.
 
+### Implemented settings: company setup and the Setup overview (Phase 4.12c, template E)
+
+**Setup → Company setup** (`/setup/company-setup`): PageBar with **Save**
+(Ctrl+S, disabled until something changes), **Request a legal change…**
+(disabled with the reason while a request waits or the platform can't be
+reached) and Refresh; Notices for a waiting request (what it changes, who
+asked, when, and **Withdraw the request**), a request the platform did not
+approve (with its reason) and a read-only role. A `SectionIndex` beside the
+form: Legal registration (read-only facts, "Not set" in faint text),
+Contact (display name, email, phone), Signatories (prepared / verified by,
+authorised / approved by, each with a title) and Work schedule (the default
+shift's hours, weekly off, break, grace and half day, with "Edit in
+Attendance → Shifts"); "N changes not saved" with Undo changes and Save
+under the form. The **legal change window**: the details as they should
+be (legal name, PAN as 9 digits, registration number, industry with its
+Nepali name, registered office) and why (reason, document reference).
+Old `?section=` / `?tab=` links open the page each section moved to
+(`lib/frame/legacy-routes.ts`).
+
+**Setup** (`/setup`, the module's landing page, like Reports): Panels
+Company, Payroll and Time and leave listing the settings the user can open,
+each with one line of state — "Demo Sahakari · PAN not set", "1 company pay
+head · 9 system heads", "Current: FY 2083/84", "FY 2083/84: slabs set",
+"FY 2083/84: 4 holidays, 11 days" — amber with a warning icon when payroll
+needs something (no PAN, no current year, no slabs, no holidays yet).
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

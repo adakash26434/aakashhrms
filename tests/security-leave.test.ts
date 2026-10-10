@@ -422,8 +422,12 @@ describe('S24 leave exceptions (4.6d)', () => {
   it('company-details requests and leave exceptions never mix', () => {
     assert.match(source('app/api/platform/change-requests/[id]/route.ts'), /if \(req\.kind !== 'company_details'\)/);
     assert.match(source('app/api/platform/change-requests/route.ts'), /eq\(companyChangeRequests\.kind, 'company_details'\)/);
-    const setup = source('app/actions/company-setup.actions.ts');
-    assert.equal((setup.match(/eq\(companyChangeRequests\.kind, 'company_details'\)/g) ?? []).length, 3);
+    // 4.12c: the company side lives in lib/platform/company-details.ts (S53).
+    const details = source('lib/platform/company-details.ts');
+    assert.match(details, /export const COMPANY_DETAILS = 'company_details';/);
+    assert.equal((details.match(/eq\(companyChangeRequests\.kind, COMPANY_DETAILS\)/g) ?? []).length, 3);
+    assert.match(details, /kind: COMPANY_DETAILS,/);
+    assert.doesNotMatch(source('app/actions/company-setup.actions.ts'), /companyChangeRequests/);
   });
 });
 
