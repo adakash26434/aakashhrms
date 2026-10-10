@@ -163,7 +163,7 @@ describe('S49 a pay run belongs to the year its month falls in', () => {
 
 // Rules & controls (4.12b, S50). Found while migrating: saving System control checked the
 // permission only (any branch role or platform support), returned raw errors and audited the
-// whole settings object without the user; every save — whatever changed — re-worked every active
+// whole settings object as one blob; every save — whatever changed — re-worked every active
 // employee's grade and wrote it as an approved salary change with no preparer and no approval,
 // the saver's own salary included, on top of changes still waiting for approval; and a separate
 // "sync grades" action did the same on demand.
@@ -208,5 +208,80 @@ describe('S50 rules & controls: a company-wide role, and a grade policy goes thr
     assert.match(changes, /if \(pending\.has\(e\.id\)\) continue;/, 'never on top of a waiting change');
     assert.match(changes, /if \(!cur \|\| cur\.gradeManual\) continue;/, 'grades typed by hand stay');
     assert.match(changes, /employeesInScope\(scope\)/);
+  });
+});
+
+// Pay heads (4.12b, S51). Found while migrating: the page's data action checked no permission at
+// all; adding, saving and deleting checked the permission only (any branch role or platform
+// support) and returned raw errors; opening the screen rewrote every "everyone" head as a list of
+// the departments and designations of the day (so later ones were left out of Salary structure),
+// as did the onboarding wizard; codes were random ("PH-4821", could repeat); statutory and feed
+// heads could be turned into anything; and a head used by a salary template could be deleted.
+describe('S51 pay heads: a company-wide role, system heads keep their role, reads never write', () => {
+  const actions = read('app/actions/pay-head.actions.ts');
+  const service = read('lib/services/pay-head.service.ts');
+  const repo = read('lib/repositories/pay-head.repository.ts');
+  const engine = read('lib/engines/pay-head.engine.ts');
+  const page = read('app/(dashboard)/setup/pay-heads/page.tsx');
+
+  it('every change needs Pay heads → Add / Edit / Delete with a company-wide role; errors are safe', () => {
+    assert.match(actions, /^'use server';/);
+    assert.match(fn(actions, 'savePayHeadAction'), /const scope = await checkCompanyControl\(id \? 'EDIT' : 'ADD', 'PAY_HEADS'\);\s*const head = await service\.savePayHead\(id \? String\(id\) : null, input, \{ userId: scope\.userId \}\);/);
+    assert.match(fn(actions, 'deletePayHeadAction'), /const scope = await checkCompanyControl\('DELETE', 'PAY_HEADS'\);\s*await service\.deletePayHead\(String\(id\), \{ userId: scope\.userId \}\);/);
+    for (const [action, context] of [['savePayHeadAction', 'save'], ['deletePayHeadAction', 'delete'], ['payHeadsPageAction', 'page']]) {
+      assert.match(fn(actions, action), new RegExp(`return toActionError\\(error, 'pay-head\\.${context}'\\);`), action);
+    }
+    // Only the checked form's message goes back as it is.
+    assert.equal(actions.match(/error\.message/g)?.length, 1);
+    assert.match(actions, /if \(error instanceof service\.PayHeadValidationError\) return \{ success: false as const, error: error\.message, validationErrors: error\.errors \};/);
+    assert.doesNotMatch(actions, /checkPermission\('(ADD|EDIT|DELETE)'|getPayHeadDataAction|createPayHeadAction|updatePayHeadAction/);
+  });
+
+  it('reading needs Pay heads → View, and never writes', () => {
+    assert.match(fn(actions, 'payHeadsPageAction'), /await checkPermission\('VIEW', 'PAY_HEADS'\);/);
+    assert.match(page, /await checkPermission\("VIEW", "PAY_HEADS"\);/);
+    assert.doesNotMatch(fn(service, 'payHeadsPage'), /insertPayHead|updatePayHead|deletePayHead|recordAuditLog/);
+    for (const name of ['findAllPayHeads', 'findPayHeadById', 'usageByHead']) assert.doesNotMatch(fn(repo, name), /\.(insert|update|delete)\(/, name);
+  });
+
+  it('a save is checked against the stored head; a system head keeps its role, sums and who it is for', () => {
+    const save = fn(service, 'savePayHead');
+    assert.match(save, /const errors = validatePayHeadForm\(form, \{\s*otherNames: heads\.filter\(\(h\) => h\.id !== id\)\.map\(\(h\) => h\.name\),\s*current,/);
+    assert.match(save, /if \(!payHeadFormIsValid\(errors\)\) throw new PayHeadValidationError\(errors\);\s*const write: PayHeadWrite = payHeadWrite\(form, current\);/);
+    assert.match(save, /if \(!changed\.length\) throw new UserFacingError\("Nothing changed\."\);/);
+    assert.match(save, /k === "appliesTo" \? !sameChoices\(current, write\)/, 'who it is for is compared by id');
+    assert.match(fn(engine, 'validatePayHeadForm'), /if \(system\) \{[\s\S]*if \(!same\) e\.role = `\$\{system\} Only its names can change\.`;/);
+    assert.match(fn(engine, 'validatePayHeadForm'), /if \(def && !def\.creatable && \(!ctx\.current \|\| roleOf\(ctx\.current\) !== f\.role\)\)/);
+    assert.match(fn(engine, 'payHeadWrite'), /if \(current && systemReason\(current\)\) \{\s*return \{\s*\.\.\.names,\s*type: current\.type,\s*effectOnTax: current\.effectOnTax,/);
+  });
+
+  it('every change is audited with the user; codes are given in order, never at random', () => {
+    const save = fn(service, 'savePayHead');
+    assert.match(save, /recordAuditLog\(\{ userId: ctx\.userId, action: "ADD", module: "PAY_HEADS"/);
+    assert.match(save, /recordAuditLog\(\{\s*userId: ctx\.userId,\s*action: "EDIT",\s*module: "PAY_HEADS"/);
+    assert.match(fn(service, 'deletePayHead'), /recordAuditLog\(\{ userId: ctx\.userId, action: "DELETE", module: "PAY_HEADS"/);
+    assert.match(save, /repository\.insertPayHead\(nextPayHeadCode\(codes\), write\)/);
+    assert.doesNotMatch(service + repo, /Math\.random/);
+  });
+
+  it('a head stays while a salary structure, payslip or salary template uses it', () => {
+    const del = fn(service, 'deletePayHead');
+    assert.ok(del.indexOf('cannotDeletePayHead(') < del.indexOf('repository.deletePayHead('), 'checked before deleting');
+    assert.match(fn(repo, 'usageByHead'), /from\(employeeSalaryHeads\)[\s\S]*from\(payrollSlipHeads\)[\s\S]*from\(salaryTemplates\)/);
+    assert.match(del, /if \(isViolation\(error, "23503"\)\) throw new UserFacingError/);
+  });
+
+  it('an empty list is everyone: onboarding stores it so, and 0076 repairs the rewritten lists once', () => {
+    const onboarding = fn(read('lib/repositories/onboarding.repository.ts'), 'bootstrapPayHeads');
+    assert.match(onboarding, /applicableDepartmentIds: \[\],\s*applicableDesignationIds: \[\],/);
+    assert.doesNotMatch(onboarding, /from\(departments\)|from\(designations\)/);
+    const migration = read('lib/db/migrations/0076_pay_head_applicability.sql');
+    const sync = read('lib/db/tenant-schema-sync.ts');
+    for (const [label, src] of [['migration', migration], ['tenant sync', sync]]) {
+      assert.match(src, /IF col_description\(to_regclass\('pay_heads'\), [^;]*\) IS NULL THEN/, label);
+      assert.match(src, /UPDATE "pay_heads" p SET "applicable_department_ids" = ARRAY\[\]::text\[\]/, label);
+      assert.match(src, /UPDATE "pay_heads" p SET "applicable_designation_ids" = ARRAY\[\]::text\[\]/, label);
+      assert.match(src, /COMMENT ON COLUMN "pay_heads"\."applicable_department_ids"/, label);
+    }
   });
 });

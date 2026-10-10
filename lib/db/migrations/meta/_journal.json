@@ -533,6 +533,13 @@
       "when": 1793414400000,
       "tag": "0075_fiscal_years",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1793500800000,
+      "tag": "0076_pay_head_applicability",
+      "breakpoints": true
     }
   ]
 }

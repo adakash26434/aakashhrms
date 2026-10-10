@@ -108,8 +108,8 @@ export function CompanySetupInnerNav({
         },
         {
           id: "pay_heads",
-          label: "Salary pay heads",
-          sublabel: "Allowances & deduction master",
+          label: "Pay heads",
+          sublabel: "Opens Setup → Pay heads",
           icon: FileText,
           badge: null,
         },

@@ -2043,4 +2043,27 @@ ON CONFLICT DO NOTHING`);
       // Ignored until the table exists; the next sync pass completes it.
     }
   }
+
+  // Pay heads (4.12b, migration 0076, S51): an empty applicability list is everyone. Lists the old
+  // screen (or onboarding) filled with every department / designation of the time become empty
+  // again; chosen lists stay. Once: the column comments written in the same block mark it done.
+  try {
+    await sql.unsafe(`DO $$
+      BEGIN
+        IF to_regclass('pay_heads') IS NOT NULL AND to_regclass('departments') IS NOT NULL AND to_regclass('designations') IS NOT NULL THEN
+          IF col_description(to_regclass('pay_heads'), (SELECT a.attnum FROM pg_attribute a WHERE a.attrelid = to_regclass('pay_heads') AND a.attname = 'applicable_department_ids')) IS NULL THEN
+            UPDATE "pay_heads" p SET "applicable_department_ids" = ARRAY[]::text[]
+              WHERE cardinality(p."applicable_department_ids") > 0
+                AND NOT EXISTS (SELECT 1 FROM "departments" d WHERE d."created_at" <= p."updated_at" + interval '6 hours' AND NOT (d."id"::text = ANY (p."applicable_department_ids")));
+            UPDATE "pay_heads" p SET "applicable_designation_ids" = ARRAY[]::text[]
+              WHERE cardinality(p."applicable_designation_ids") > 0
+                AND NOT EXISTS (SELECT 1 FROM "designations" g WHERE g."created_at" <= p."updated_at" + interval '6 hours' AND NOT (g."id"::text = ANY (p."applicable_designation_ids")));
+            COMMENT ON COLUMN "pay_heads"."applicable_department_ids" IS 'Department ids the head is for; empty = every department (S51).';
+            COMMENT ON COLUMN "pay_heads"."applicable_designation_ids" IS 'Designation ids the head is for; empty = every designation (S51).';
+          END IF;
+        END IF;
+      END $$`);
+  } catch (err) {
+    console.error("[tenant-schema-sync] pay heads 0076:", err instanceof Error ? err.message.slice(0, 200) : err);
+  }
 }

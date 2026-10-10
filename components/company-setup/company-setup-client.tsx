@@ -11,13 +11,11 @@ import { PageFrame } from "@/components/layout/page-frame";
 import { WorkScheduleTab } from "./work-schedule-tab";
 import { CompanyProfileTab } from "./company-profile-tab";
 import { CompanySetupInnerNav, type CompanySetupSection } from "./company-setup-inner-nav";
-import { PayHeadClient } from "@/components/pay-head/pay-head-client";
-import type { PayHeadData } from "@/lib/types/pay-head";
 
 export type MasterSetupTab = CompanySetupSection;
 
-/** The payroll sub-tabs older links name (?section=payroll_rules&tab=…). */
-export type PayrollRuleTab = "fiscal-year" | "tax-rates" | "pay-heads" | "rules-defaults";
+/** The payroll sub-tabs older links name (?section=payroll_rules&tab=…); each has its own page now. */
+type PayrollRuleTab = "fiscal-year" | "tax-rates" | "pay-heads" | "rules-defaults";
 
 function normalizePayrollRuleTab(rawTab?: string | null): PayrollRuleTab {
   const t = (rawTab ?? "").toLowerCase().replace(/_/g, "-");
@@ -29,7 +27,8 @@ function normalizePayrollRuleTab(rawTab?: string | null): PayrollRuleTab {
 
 /**
  * Sections that moved to their own pages: organization units to Workforce →
- * Organization (4.3), fiscal years and tax slabs to Setup (4.12).
+ * Organization (4.3); fiscal years, tax slabs, rules & controls and pay heads
+ * to Setup (4.12).
  */
 const MOVED: Record<string, string> = {
   organization: "/workforce/organization?tab=structure",
@@ -41,6 +40,7 @@ const MOVED: Record<string, string> = {
   fiscal_year: "/setup/fiscal-year",
   tax_rates: "/setup/tax-rates",
   system_control: "/setup/system-control",
+  pay_heads: "/setup/pay-heads",
 };
 
 const VALID_TABS: MasterSetupTab[] = [
@@ -57,21 +57,12 @@ interface CompanySetupClientProps {
   initialData: CompanyMasterSetupData;
   initialSection?: string;
   initialTab?: string;
-  payrollRulesData?: {
-    allowedTabs: PayrollRuleTab[];
-    payHeadData?: PayHeadData | null;
-  };
 }
 
-export function CompanySetupClient({
-  initialData,
-  initialSection,
-  initialTab,
-  payrollRulesData,
-}: CompanySetupClientProps) {
+export function CompanySetupClient({ initialData, initialSection, initialTab }: CompanySetupClientProps) {
   const router = useRouter();
 
-  const resolveInitialState = (): { section: MasterSetupTab; payrollSubTab?: PayrollRuleTab } => {
+  const resolveInitialState = (): { section: MasterSetupTab } => {
     const s = (initialSection || "").toLowerCase().replace(/[- ]/g, "_");
     const t = (initialTab || "").toLowerCase().replace(/[- ]/g, "_");
 
@@ -112,9 +103,6 @@ export function CompanySetupClient({
     if (movedTo) router.replace(movedTo);
   }, [movedTo, router]);
   const [activeTab, setActiveTab] = useState<MasterSetupTab>(initialResolved.section);
-  const [payrollSubTab] = useState<PayrollRuleTab | undefined>(
-    initialResolved.payrollSubTab
-  );
 
   const handleSectionClick = (tabId: MasterSetupTab) => {
     if (MOVED[tabId]) {
@@ -206,17 +194,7 @@ export function CompanySetupClient({
 
             {/* Fiscal years and tax slabs have their own pages under Setup (4.12): see MOVED. */}
 
-            {/* Payroll Section 3: Salary Pay Heads */}
-            {(activeTab === "pay_heads" || (activeTab === "payroll_rules" && payrollSubTab === "pay-heads")) && (
-              payrollRulesData?.payHeadData ? (
-                <PayHeadClient initialData={payrollRulesData.payHeadData} embedded={true} />
-              ) : (
-                <div className="py-12 text-center text-xs text-slate-400">
-                  You do not have permission to view salary pay heads.
-                </div>
-              )
-            )}
-
+            {/* Pay heads have their own page under Setup (4.12b): see MOVED. */}
             {/* Rules & controls has its own page under Setup (4.12b): see MOVED. */}
           </div>
         </div>

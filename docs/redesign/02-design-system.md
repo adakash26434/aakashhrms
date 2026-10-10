@@ -1066,6 +1066,32 @@ for, "Your own salary is in it…", who is left out while a change of
 theirs waits). The success Notice repeats what happened to salaries.
 **Undo changes** puts the form back.
 
+### Implemented settings: pay heads (Phase 4.12b, template A + Window)
+
+**Setup → Pay heads** (`/setup/pay-heads`, register): PageBar with **New
+pay head** (Ctrl+N), **Edit** (F2, or double-click a row), **Delete**
+(disabled with the reason as its tooltip: a system head, or what still uses
+it) and Refresh; a success Notice; the Guide "How pay heads work"; a
+FilterStrip (type, kind, search); a DataGrid sized to fit beside the
+navigator at 1440 px — code, pay head (Nepali name below), **what it is**
+with the type as a sign (green **+** adds to pay, red **−** takes from pay;
+screen readers hear "Adds to pay:") and a lock for system heads, amount in
+words ("2.5% of basic + grade", "One month's basic", "From other records"),
+taxable (allowances), **for** ("Everyone", "1 department · 1 designation",
+amber "No one: its designations were deleted") and in use ("5 payslip
+lines").
+
+The **pay head window** (`PropertyForm` in a `Window`): The pay head (name,
+Nepali name, what it is — a select whose options say "adds to pay" /
+"takes from pay", with the role's hint under it), Amount (worked out as —
+the choices the role allows — and a percentage with "Each month: 2.5% of
+basic + grade." under it; taxable as Yes / No for allowances) and Who it
+is for (Everyone, or chosen departments and designations as two tick lists
+— none ticked in a list means all of it; a deleted one still on the head is
+listed in italics so it can be unticked). A system head shows what it is,
+its amount and who it is for as read-only text, with the reason in the
+window's description; only its names can change.
+
 ### Implemented frame (Phase 2)
 
 The frame code lives in `components/frame/` (`AppFrame`, `TitleBar`, `ModuleRail`, `SectionNav`, `StatusBar`, `CommandPalette`, `ShortcutHelp`, `PageBar`, `CommandToolbar`). The navigation model is `lib/frame/navigation.ts`, and shortcuts are in `lib/frame/shortcuts.ts`. Sizes as built:

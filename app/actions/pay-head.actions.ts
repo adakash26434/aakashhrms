@@ -1,72 +1,53 @@
 'use server';
 
-import { ensureTenantContext } from '@/lib/db';
-import * as phService from '@/lib/services/pay-head.service';
 import { revalidatePath } from 'next/cache';
-import type { PayHeadFormData } from '@/lib/types/pay-head';
-import { checkPermission } from '@/lib/auth/check-permission';
+import { ensureTenantContext } from '@/lib/db';
+import { checkCompanyControl, checkPermission, hasPermission } from '@/lib/auth/check-permission';
+import { toActionError } from '@/lib/errors/action-error';
+import * as service from '@/lib/services/pay-head.service';
 
-export async function getPayHeadDataAction() {
+// Pay heads (4.12b, S51): a company-wide list — Pay heads → Add / Edit / Delete with a
+// company-wide role, never platform support (checkCompanyControl); View to read. The service
+// checks every head and audits every change.
+
+const revalidate = () => {
+  revalidatePath('/setup/pay-heads');
+  revalidatePath('/workforce/salary-mapping');
+};
+
+export async function payHeadsPageAction() {
   await ensureTenantContext();
   try {
-    const data = await phService.getPayHeadData();
-    return { success: true, data };
+    await checkPermission('VIEW', 'PAY_HEADS');
+    const [add, edit, del] = await Promise.all([hasPermission('ADD', 'PAY_HEADS'), hasPermission('EDIT', 'PAY_HEADS'), hasPermission('DELETE', 'PAY_HEADS')]);
+    return { success: true as const, data: await service.payHeadsPage({ add, edit, delete: del }) };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "unknown error";
-    return { success: false, error: msg };
+    return toActionError(error, 'pay-head.page');
   }
 }
 
-export async function createPayHeadAction(data: PayHeadFormData) {
+/** Adds a pay head (id null) or saves one. */
+export async function savePayHeadAction(id: string | null, input: unknown) {
   await ensureTenantContext();
   try {
-    await checkPermission('ADD', 'PAY_HEADS');
-    const result = await phService.createPayHead(data);
-    revalidatePath('/setup/pay-heads');
-    revalidatePath('/setup/payroll-rules');
-    return { success: true, data: result };
+    const scope = await checkCompanyControl(id ? 'EDIT' : 'ADD', 'PAY_HEADS');
+    const head = await service.savePayHead(id ? String(id) : null, input, { userId: scope.userId });
+    revalidate();
+    return { success: true as const, data: { id: head.id, name: head.name, code: head.code } };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'PayHeadValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
-  }
-}
-
-export async function updatePayHeadAction(id: string, data: PayHeadFormData) {
-  await ensureTenantContext();
-  try {
-    await checkPermission('EDIT', 'PAY_HEADS');
-    const result = await phService.updatePayHead(id, data);
-    revalidatePath('/setup/pay-heads');
-    revalidatePath('/setup/payroll-rules');
-    return { success: true, data: result };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error.name === 'PayHeadValidationError' && 'errors' in error) {
-        return { success: false, validationErrors: (error as { errors: Record<string, string> }).errors };
-      }
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
+    if (error instanceof service.PayHeadValidationError) return { success: false as const, error: error.message, validationErrors: error.errors };
+    return toActionError(error, 'pay-head.save');
   }
 }
 
 export async function deletePayHeadAction(id: string) {
   await ensureTenantContext();
   try {
-    await checkPermission('DELETE', 'PAY_HEADS');
-    await phService.deletePayHead(id);
-    revalidatePath('/setup/pay-heads');
-    revalidatePath('/setup/payroll-rules');
-    return { success: true };
+    const scope = await checkCompanyControl('DELETE', 'PAY_HEADS');
+    await service.deletePayHead(String(id), { userId: scope.userId });
+    revalidate();
+    return { success: true as const };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    }
-    return { success: false, error: 'An unexpected error occurred' };
+    return toActionError(error, 'pay-head.delete');
   }
 }

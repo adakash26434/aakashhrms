@@ -1,294 +1,176 @@
 import * as repository from "@/lib/repositories/pay-head.repository";
 import * as departmentRepository from "@/lib/repositories/department.repository";
 import * as designationRepository from "@/lib/repositories/designation.repository";
-import { validatePayHead, type PayHeadValidationErrors } from "@/lib/engines/pay-head.engine";
-import type { PayHead, PayHeadData, PayHeadFormData } from "@/lib/types/pay-head";
+import {
+  appliesToLabel,
+  appliesToNames,
+  cannotDeletePayHead,
+  describeCalc,
+  formOf,
+  nextPayHeadCode,
+  normalizePayHeadForm,
+  payHeadFormIsValid,
+  payHeadWrite,
+  roleDef,
+  roleOf,
+  sameChoices,
+  systemReason,
+  validatePayHeadForm,
+  type PayHeadWrite,
+} from "@/lib/engines/pay-head.engine";
+import { recordAuditLog } from "@/lib/services/audit.service";
+import { UserFacingError } from "@/lib/errors/action-error";
+import type { PayHead, PayHeadFormErrors, PayHeadsPage } from "@/lib/types/pay-head";
 
-// ---------------------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------------------
+// Pay heads (4.12b, S51): a company-wide list — Pay heads → Add / Edit / Delete with a
+// company-wide role (checkCompanyControl in the actions). What a head is sets its type and the
+// statutory flag payroll reads (lib/engines/pay-head.engine.ts); system heads keep their role and
+// sums. Reads never write. Codes are given once ("PH-001", next free). Every change is audited.
 
-export class PayHeadValidationError extends Error {
-  constructor(public errors: PayHeadValidationErrors) {
-    super("Pay head validation failed");
+export class PayHeadValidationError extends UserFacingError {
+  constructor(public errors: PayHeadFormErrors) {
+    super("Check the highlighted fields.");
     this.name = "PayHeadValidationError";
   }
 }
 
-export class PayHeadNotFoundError extends Error {
-  constructor(public id: string) {
-    super(`Pay head ${id} not found`);
-    this.name = "PayHeadNotFoundError";
-  }
+export interface PayHeadCtx {
+  userId: string;
 }
 
-export class StatutoryHeadDeletionError extends Error {
-  constructor(public payHeadName: string) {
-    super(`Cannot delete statutory system head "${payHeadName}". Statutory pay heads are required for tax, PF, SSF, and CIT calculations.`);
-    this.name = "StatutoryHeadDeletionError";
-  }
-}
-
-export class PayHeadInUseError extends Error {
-  constructor(public payHeadName: string, public employeeDetails: string = "") {
-    super(
-      `Cannot delete pay head "${payHeadName}" because it is currently assigned in employee salary mapping${employeeDetails}. Please remove this pay head from employee salary mappings before deleting.`
-    );
-    this.name = "PayHeadInUseError";
-  }
-}
-
-export class PayHeadLinkedToPayslipError extends Error {
-  constructor(public payHeadName: string, public count: number) {
-    super(
-      `Cannot delete pay head "${payHeadName}" because it is linked to generated employee payslips (${count} slip${count === 1 ? '' : 's'}). To maintain payroll audit history, pay heads referenced in payslips cannot be deleted.`
-    );
-    this.name = "PayHeadLinkedToPayslipError";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Reads
-// ---------------------------------------------------------------------------
-
-export async function getPayHeadData(): Promise<PayHeadData> {
-  const [payHeads, departments, designations] = await Promise.all([
+export async function payHeadsPage(can: PayHeadsPage["can"]): Promise<PayHeadsPage> {
+  const [heads, usage, departments, designations] = await Promise.all([
     repository.findAllPayHeads(),
+    repository.usageByHead(),
     departmentRepository.findAllDepartments(),
     designationRepository.findAllDesignations(),
   ]);
-
-  const allDeptIds = departments.map((d) => d.id);
-  const allDesigIds = designations.map((d) => d.id);
-
-  // Guarantee every payhead has explicit real department and designation IDs populated
-  const hydratedPayHeads = payHeads.map((h) => {
-    const hasDepts = Array.isArray(h.applicableDepartmentIds) && h.applicableDepartmentIds.length > 0;
-    const hasDesigs = Array.isArray(h.applicableDesignationIds) && h.applicableDesignationIds.length > 0;
-
-    const deptIds = hasDepts ? h.applicableDepartmentIds : allDeptIds;
-    const desigIds = hasDesigs ? h.applicableDesignationIds : allDesigIds;
-
-    // Asynchronously backfill persistent database row if it had legacy empty arrays
-    if ((!hasDepts && allDeptIds.length > 0) || (!hasDesigs && allDesigIds.length > 0)) {
-      repository
-        .updatePayHead(h.id, {
-          name: h.name,
-          type: h.type,
-          effectOnTax: h.effectOnTax,
-          calcBasis: h.calcBasis,
-          calcParameter: h.calcParameter,
-          calcPercent: h.calcPercent,
-          applicableDepartmentIds: deptIds,
-          applicableDesignationIds: desigIds,
-          flags: h.flags,
-        })
-        .catch((err) => {
-          console.warn(`[getPayHeadData] Auto-sync applicability backfill error for ${h.code}:`, err);
-        });
-    }
-
+  const none = { structures: 0, payslips: 0, templates: 0 };
+  const live = { departmentIds: new Set(departments.map((d) => d.id)), designationIds: new Set(designations.map((d) => d.id)) };
+  const rows = heads.map((h) => {
+    const use = usage.get(h.id) ?? none;
+    const role = roleOf(h);
     return {
-      ...h,
-      applicableDepartmentIds: deptIds,
-      applicableDesignationIds: desigIds,
+      id: h.id,
+      code: h.code,
+      name: h.name,
+      nameNp: h.nameNp ?? null,
+      type: h.type,
+      role,
+      roleLabel: roleDef(role).label,
+      calc: describeCalc(h),
+      taxable: h.effectOnTax,
+      appliesTo: appliesToLabel(h, live),
+      usage: use,
+      system: systemReason(h),
+      cannotDelete: cannotDeletePayHead(h, use),
+      form: formOf(h),
     };
   });
-
-  const sorted = [...hydratedPayHeads].sort((a, b) => a.code.localeCompare(b.code));
-  
+  // Allowances first, then deductions; system heads after the company's own; by name.
+  rows.sort((a, b) => (a.type !== b.type ? (a.type === "allowance" ? -1 : 1) : !!a.system !== !!b.system ? (a.system ? 1 : -1) : a.name.localeCompare(b.name)));
   return {
-    payHeads: sorted,
-    departments: departments.map((d) => ({ id: d.id, name: d.name })),
-    designations: designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId })),
+    heads: rows,
+    departments: departments.map((d) => ({ id: d.id, name: d.name })).sort((a, b) => a.name.localeCompare(b.name)),
+    designations: designations.map((d) => ({ id: d.id, name: d.name })).sort((a, b) => a.name.localeCompare(b.name)),
+    can,
   };
 }
 
-export async function getDepartments(): Promise<Array<{ id: string; name: string }>> {
-  const departments = await departmentRepository.findAllDepartments();
-  return departments.map((d) => ({ id: d.id, name: d.name }));
+const isViolation = (e: unknown, code: string) => !!e && typeof e === "object" && ((e as { code?: string }).code === code || (e as { cause?: { code?: string } }).cause?.code === code);
+
+type Names = Parameters<typeof appliesToNames>[1];
+
+type Named = { id: string; name: string }[];
+const namesOf = (departments: Named, designations: Named): Names => ({
+  departments: new Map(departments.map((d) => [d.id, d.name])),
+  designations: new Map(designations.map((d) => [d.id, d.name])),
+});
+
+/** The departments' and designations' names, for the audit line. */
+async function orgNames(): Promise<Names> {
+  const [departments, designations] = await Promise.all([departmentRepository.findAllDepartments(), designationRepository.findAllDesignations()]);
+  return namesOf(departments, designations);
 }
 
-export async function getDesignations(): Promise<Array<{ id: string; name: string; departmentId?: string }>> {
-  const designations = await designationRepository.findAllDesignations();
-  return designations.map((d) => ({ id: d.id, name: d.name, departmentId: d.departmentId }));
-}
+/** What the audit line keeps of a head: what it is, how much, taxable, and who it is for by name. */
+const audited = (
+  h: Pick<PayHead, "code" | "type" | "calcBasis" | "calcParameter" | "calcPercent" | "flags" | "applicableDepartmentIds" | "applicableDesignationIds"> & { name: string; nameNp?: string | null; effectOnTax: boolean },
+  names: Names
+) => ({
+  name: h.name,
+  nameNp: h.nameNp ?? null,
+  role: roleDef(roleOf(h)).label,
+  amount: describeCalc(h),
+  taxable: h.effectOnTax,
+  appliesTo: appliesToNames(h, names),
+});
 
-// ---------------------------------------------------------------------------
-// Input shaping
-// ---------------------------------------------------------------------------
-
-// Directly passes FormData down to the repository since the repository
-// now accepts Omit<PayHead, ...> which perfectly matches the required structure
-function toWriteInput(data: PayHeadFormData) {
-  return {
-    name: data.name,
-    nameNp: data.nameNp?.trim() || null,
-    type: data.type,
-    effectOnTax: data.effectOnTax,
-    calcBasis: data.calcBasis,
-    calcParameter: data.calcParameter,
-    calcPercent: data.calcPercent,
-    // Guarantee array safety
-    applicableDepartmentIds: Array.isArray(data.applicableDepartmentIds) ? data.applicableDepartmentIds : [],
-    applicableDesignationIds: Array.isArray(data.applicableDesignationIds) ? data.applicableDesignationIds : [],
-    flags: data.flags || {},
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Writes
-// ---------------------------------------------------------------------------
-
-import { recordAuditLog } from "@/lib/services/audit.service";
-
-export async function createPayHead(data: PayHeadFormData): Promise<PayHead> {
-  const existing = await repository.findAllPayHeads();
-  const [allDepartments, allDesignations] = await Promise.all([
-    departmentRepository.findAllDepartments(),
-    designationRepository.findAllDesignations(),
-  ]);
-  
-  const errors = validatePayHead({
-    data,
-    existing,
-    validDepartmentIds: allDepartments.map((d) => d.id),
-    validDesignationIds: allDesignations.map((d) => d.id),
+/** Adds a head (id null) or saves one; a system head only takes new names. */
+export async function savePayHead(id: string | null, raw: unknown, ctx: PayHeadCtx): Promise<PayHead> {
+  const [heads, departments, designations] = await Promise.all([repository.findAllPayHeads(), departmentRepository.findAllDepartments(), designationRepository.findAllDesignations()]);
+  const names = namesOf(departments, designations);
+  const current = id ? heads.find((h) => h.id === id) ?? null : null;
+  if (id && !current) throw new UserFacingError("That pay head no longer exists.");
+  const form = normalizePayHeadForm(raw);
+  const errors = validatePayHeadForm(form, {
+    otherNames: heads.filter((h) => h.id !== id).map((h) => h.name),
+    current,
+    departmentIds: departments.map((d) => d.id),
+    designationIds: designations.map((d) => d.id),
   });
-  
-  if (Object.keys(errors).length > 0) {
-    throw new PayHeadValidationError(errors);
-  }
-  
-  const created = await repository.createPayHead(toWriteInput(data));
+  if (!payHeadFormIsValid(errors)) throw new PayHeadValidationError(errors);
+  const write: PayHeadWrite = payHeadWrite(form, current);
 
+  if (!current) {
+    let codes = heads.map((h) => h.code);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const created = await repository.insertPayHead(nextPayHeadCode(codes), write);
+        await recordAuditLog({ userId: ctx.userId, action: "ADD", module: "PAY_HEADS", recordId: `${created.name} (${created.code})`, newValues: audited(created, names) });
+        return created;
+      } catch (error) {
+        // Someone took the code meanwhile: the next one.
+        if (attempt < 2 && isViolation(error, "23505")) {
+          codes = (await repository.findAllPayHeads()).map((h) => h.code);
+          continue;
+        }
+        if (isViolation(error, "23505")) throw new UserFacingError("Another pay head was added at the same moment. Try again.");
+        throw error;
+      }
+    }
+  }
+
+  const before = audited(current, names);
+  const after = audited({ ...current, ...write, flags: write.flags }, names);
+  // Who it is for is compared by id: two departments may share a name.
+  const changed = (Object.keys(after) as (keyof typeof after)[]).filter((k) => (k === "appliesTo" ? !sameChoices(current, write) : JSON.stringify(after[k]) !== JSON.stringify(before[k])));
+  if (!changed.length) throw new UserFacingError("Nothing changed.");
+  const saved = await repository.updatePayHead(current.id, write);
+  if (!saved) throw new UserFacingError("That pay head no longer exists.");
   await recordAuditLog({
-    action: "ADD",
-    module: "PAY_HEADS",
-    recordId: `${created.name} (${created.code})`,
-    newValues: {
-      name: created.name,
-      code: created.code,
-      type: created.type,
-      calcBasis: created.calcBasis,
-      calcPercent: created.calcPercent,
-    },
-  });
-
-  return created;
-}
-
-export async function updatePayHead(id: string, data: PayHeadFormData): Promise<PayHead> {
-  const existingAll = await repository.findAllPayHeads();
-  const existing = existingAll.find((h) => h.id === id);
-  if (!existing) {
-    throw new PayHeadNotFoundError(id);
-  }
-
-  const [allDepartments, allDesignations] = await Promise.all([
-    departmentRepository.findAllDepartments(),
-    designationRepository.findAllDesignations(),
-  ]);
-  
-  const errors = validatePayHead({
-    data,
-    existing: existingAll,
-    excludeId: id,
-    validDepartmentIds: allDepartments.map((d) => d.id),
-    validDesignationIds: allDesignations.map((d) => d.id),
-  });
-  
-  if (Object.keys(errors).length > 0) {
-    throw new PayHeadValidationError(errors);
-  }
-  
-  const updated = await repository.updatePayHead(id, toWriteInput(data));
-
-  await recordAuditLog({
+    userId: ctx.userId,
     action: "EDIT",
     module: "PAY_HEADS",
-    recordId: `${updated.name} (${updated.code})`,
-    oldValues: {
-      name: existing.name,
-      code: existing.code,
-      type: existing.type,
-      calcBasis: existing.calcBasis,
-      calcPercent: existing.calcPercent,
-    },
-    newValues: {
-      name: updated.name,
-      code: updated.code,
-      type: updated.type,
-      calcBasis: updated.calcBasis,
-      calcPercent: updated.calcPercent,
-    },
+    recordId: `${saved.name} (${saved.code})`,
+    oldValues: Object.fromEntries(changed.map((k) => [k, before[k]])),
+    newValues: Object.fromEntries(changed.map((k) => [k, after[k]])),
   });
-
-  return updated;
+  return saved;
 }
 
-export async function deletePayHead(id: string): Promise<void> {
-  const existing = await repository.findPayHeadById(id);
-  if (!existing) {
-    throw new PayHeadNotFoundError(id);
-  }
-
-  const isStatutory = !!(
-    existing.flags?.isPfHead ||
-    existing.flags?.isSsfHead ||
-    existing.flags?.isCitHead ||
-    existing.flags?.isTdsHead
-  );
-
-  if (isStatutory) {
-    throw new StatutoryHeadDeletionError(existing.name);
-  }
-
-  // 1. Guard against pay heads assigned in Employee Salary Mapping
-  const mappingUsage = await repository.getPayHeadSalaryMappingUsage(id);
-  if (mappingUsage.count > 0) {
-    const sampleList = mappingUsage.sampleEmployees
-      .map((e) => `${e.fullName} (${e.employeeCode})`)
-      .join(", ");
-    const remainder = mappingUsage.count - mappingUsage.sampleEmployees.length;
-    const employeeDetails = mappingUsage.sampleEmployees.length > 0
-      ? ` (assigned to ${mappingUsage.count} employee${mappingUsage.count === 1 ? '' : 's'}: ${sampleList}${remainder > 0 ? ` and ${remainder} more` : ''})`
-      : ` (assigned to ${mappingUsage.count} employee${mappingUsage.count === 1 ? '' : 's'})`;
-
-    throw new PayHeadInUseError(existing.name, employeeDetails);
-  }
-
-  // 2. Guard against pay heads linked to historical/generated Payslips
-  const payslipUsage = await repository.getPayHeadPayslipUsage(id);
-  if (payslipUsage.count > 0) {
-    throw new PayHeadLinkedToPayslipError(existing.name, payslipUsage.count);
-  }
-
-  // 3. Fallback catch for unexpected foreign key constraints
+/** Deletes a head nothing uses; system heads stay. */
+export async function deletePayHead(id: string, ctx: PayHeadCtx): Promise<void> {
+  const [head, usage, names] = await Promise.all([repository.findPayHeadById(id), repository.usageByHead(), orgNames()]);
+  if (!head) throw new UserFacingError("That pay head no longer exists.");
+  const blocked = cannotDeletePayHead(head, usage.get(id) ?? { structures: 0, payslips: 0, templates: 0 });
+  if (blocked) throw new UserFacingError(blocked);
   try {
-    await repository.deletePayHead(id);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (
-      msg.includes("foreign key") ||
-      msg.includes("23503") ||
-      msg.includes("violates foreign key constraint")
-    ) {
-      throw new Error(
-        `Cannot delete pay head "${existing.name}" because it is currently referenced by other payroll records. Please remove all references before deleting.`
-      );
-    }
-    throw err;
+    if (!(await repository.deletePayHead(id))) throw new UserFacingError("That pay head no longer exists.");
+  } catch (error) {
+    // Put on a salary structure or payslip since it was checked.
+    if (isViolation(error, "23503")) throw new UserFacingError(`${head.name} is in use now, so it stays.`);
+    throw error;
   }
-
-  await recordAuditLog({
-    action: "DELETE",
-    module: "PAY_HEADS",
-    recordId: `${existing.name} (${existing.code})`,
-    oldValues: {
-      name: existing.name,
-      code: existing.code,
-      type: existing.type,
-    },
-  });
+  await recordAuditLog({ userId: ctx.userId, action: "DELETE", module: "PAY_HEADS", recordId: `${head.name} (${head.code})`, oldValues: audited(head, names) });
 }

@@ -307,7 +307,7 @@ export function SetupOverviewClient({
               </Link>
 
               <Link
-                href="/setup/payroll-rules?tab=pay-heads"
+                href="/setup/pay-heads"
                 className="flex items-center justify-between rounded-lg border border-payroll-light bg-white p-2.5 transition-all hover:border-payroll-primary hover:bg-payroll-cream/40"
               >
                 <div className="flex items-center gap-2">

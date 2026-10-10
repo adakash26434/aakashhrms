@@ -19,9 +19,13 @@ export type {
   CalcBasis,
   CalcParameter,
   StatutoryFlag,
-  StatutoryFlagMeta,
   PayHead,
-  PayHeadFormData,
+  PayHeadRole,
+  PayHeadCalc,
+  PayHeadForm,
+  PayHeadFormErrors,
+  PayHeadRow,
+  PayHeadsPage,
 } from "./pay-head";
 export type * from "./payroll";
 export type * from "./reimbursement";
